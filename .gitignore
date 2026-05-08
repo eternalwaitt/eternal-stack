@@ -1,0 +1,18 @@
+.DS_Store
+*.tmp
+*.bak
+*.orig
+node_modules/
+coverage/
+
+# Never commit private Claude runtime data.
+settings.local.json
+.credentials.json
+projects/
+sessions/
+transcripts/
+history.jsonl
+backups/
+cache/
+telemetry/
+

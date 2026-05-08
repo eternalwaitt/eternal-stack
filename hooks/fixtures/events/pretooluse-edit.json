@@ -1,0 +1,12 @@
+{
+  "session_id": "fixture-session",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Edit",
+  "cwd": "/tmp/example",
+  "tool_input": {
+    "file_path": "/tmp/example/src/app.ts",
+    "old_string": "return value;",
+    "new_string": "try { return value; } catch { return null; }"
+  }
+}
+
