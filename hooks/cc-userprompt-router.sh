@@ -22,6 +22,7 @@ if [[ "$prompt" =~ (use|load|call)[[:space:]]+([A-Za-z0-9:_-]+)[[:space:]]+skill
 fi
 
 notes=()
+notes+=("Do not use reflexive agreement phrases like \"You're right\"; answer with evidence, action, or a concrete correction.")
 if [[ "$prompt" =~ (audit|review|plan) ]]; then
   notes+=("Use the relevant audit/review/plan workflow and finish with evidence against the original request.")
 fi
@@ -39,4 +40,3 @@ if (( ${#notes[@]} > 0 )); then
   msg="$(printf '%s\n' "${notes[@]}" | head -c 1200)"
   cc_json_emit_context "UserPromptSubmit" "$msg"
 fi
-

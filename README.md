@@ -21,7 +21,7 @@ cd claude-control-plane
 ./scripts/doctor.sh
 ```
 
-The installer backs up the existing `~/.claude`, copies hooks and skills, and registers only the safe observer layer by default.
+The installer backs up the existing `~/.claude`, copies hooks and skills, and merges only the safe observer layer by default.
 
 Hard blockers are shipped but not enabled automatically. Enable them after tests, doctor, rollback, and a fresh Claude smoke pass.
 
