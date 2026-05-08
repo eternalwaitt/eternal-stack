@@ -31,6 +31,8 @@ Hard blockers are shipped but not enabled automatically. Enable them after tests
 ./scripts/doctor.sh
 ./scripts/update.sh
 ./scripts/uninstall.sh
+./scripts/canary-websearch.sh
+./scripts/canary-hindsight.sh
 tests/test-hooks.sh
 ```
 
@@ -43,4 +45,3 @@ export CLAUDE_GUARD_DISABLED=1
 ```
 
 Private identity, accounts, credentials, transcripts, memories, and local permissions do not belong in this repo.
-
