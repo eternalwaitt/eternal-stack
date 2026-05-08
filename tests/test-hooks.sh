@@ -75,6 +75,12 @@ safe_bash="$(jq '.tool_input.command = "rg -n foo src/app.ts"' <<<"$bash_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$safe_bash")"
 assert_json_expr "rg allowed" "$out" '.continue == true'
 
+sycophancy_transcript="$TMPROOT/sycophancy.jsonl"
+printf '%s\n' '{"type":"assistant","message":{"content":[{"type":"text","text":"You'\''re right - let me search first."}]}}' >"$sycophancy_transcript"
+sycophancy_json="$(jq --arg path "$sycophancy_transcript" '.session_id = "fixture-sycophancy" | .transcript_path = $path | .tool_input.command = "rg -n foo src/app.ts"' <<<"$bash_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$sycophancy_json")"
+assert_json_expr "sycophancy phrase denied before tool" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+
 email_bash="$(jq '.tool_input.command = "gmail send --to a@example.com"' <<<"$bash_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$email_bash")"
 assert_json_expr "email send denied" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
@@ -120,6 +126,10 @@ assert_contains "repeated failure pivots" "$out" "repeated"
 stop_json="$(fixture stop.json)"
 out="$(run_hook cc-stop-verifier.sh "$stop_json")"
 assert_json_expr "stop verifier blocks unverified completion" "$out" '.decision == "block"'
+
+sycophancy_stop="$(jq -cn '{session_id:"fixture-session",last_assistant_message:"You are right - I will check.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$sycophancy_stop")"
+assert_contains "stop verifier blocks sycophancy" "$out" "Sycophantic"
 
 precompact_json="$(jq -cn '{session_id:"fixture-session",hook_event_name:"PreCompact"}')"
 out="$(run_hook cc-precompact-save.sh "$precompact_json")"

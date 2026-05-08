@@ -34,6 +34,19 @@ cc_policy_violation() {
   return 1
 }
 
+cc_sycophancy_violation() {
+  local text="$1"
+  local lower
+  lower="$(printf '%s' "$text" | tr '[:upper:]' '[:lower:]')"
+  case "$lower" in
+    *"you're right"*|*"you are right"*|*"youre right"*|*"you’re right"*)
+      printf 'Sycophantic agreement phrases are blocked. Skip validation theater and move directly to evidence-backed work.'
+      return 0
+      ;;
+  esac
+  return 1
+}
+
 cc_extract_edit_text() {
   jq -r '
     [

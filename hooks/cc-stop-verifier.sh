@@ -8,6 +8,7 @@ fi
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 source "$SCRIPT_DIR/lib/json.sh"
 source "$SCRIPT_DIR/lib/state.sh"
+source "$SCRIPT_DIR/lib/code-patterns.sh"
 
 cc_json_read_stdin
 cc_json_require_jq || exit 0
@@ -20,6 +21,11 @@ fi
 
 message="$(cc_json_get '.last_assistant_message // .message // .response')"
 state="$(cc_state_read)"
+if violation="$(cc_sycophancy_violation "$message")"; then
+  cc_json_block "$violation"
+  exit 0
+fi
+
 claims_done=false
 if [[ "$message" =~ (done|complete|completed|implemented|fixed|passes|shipped|deployed) ]]; then
   claims_done=true

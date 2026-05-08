@@ -31,6 +31,27 @@ deny() {
   exit 0
 }
 
+latest_assistant_text() {
+  local transcript
+  transcript="$(cc_json_get '.transcript_path')"
+  if [[ -n "$transcript" && -f "$transcript" ]]; then
+    jq -rs '
+      [.[] | select(.type == "assistant") | (.message.content // [])[]? | select(.type == "text") | .text]
+      | last // empty
+    ' "$transcript" 2>/dev/null || true
+    return 0
+  fi
+  cc_json_get '.last_assistant_message // .message // .response'
+}
+
+block_sycophancy_before_tool() {
+  local message violation
+  message="$(latest_assistant_text)"
+  if [[ -n "$message" ]] && violation="$(cc_sycophancy_violation "$message")"; then
+    deny "$violation"
+  fi
+}
+
 is_source_edit_tool() {
   case "$tool_name" in
     Edit|Write|MultiEdit) return 0 ;;
@@ -146,14 +167,23 @@ handle_agent() {
 }
 
 case "$tool_name" in
-  Bash) handle_bash "$(cc_json_get '.tool_input.command // .input.command // .command')" ;;
-  WebSearch) handle_websearch ;;
-  Agent|Task|TaskCreate) handle_agent ;;
+  Bash)
+    block_sycophancy_before_tool
+    handle_bash "$(cc_json_get '.tool_input.command // .input.command // .command')"
+    ;;
+  WebSearch)
+    block_sycophancy_before_tool
+    handle_websearch
+    ;;
+  Agent|Task|TaskCreate)
+    block_sycophancy_before_tool
+    handle_agent
+    ;;
   *)
+    block_sycophancy_before_tool
     if is_source_edit_tool; then
       handle_edit
     fi
     cc_json_allow
     ;;
 esac
-
