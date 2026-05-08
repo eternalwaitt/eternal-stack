@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.1.2
+
+- Block sycophantic agreement phrases before tool calls and at Stop.
+
 ## v0.1.1
 
 - Add WebSearch and Hindsight canary scripts for strict local rollouts.
