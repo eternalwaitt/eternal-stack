@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.1.3
+
+- Add a PostToolUse sycophancy blocker for persistent sessions where assistant text is only visible after the first tool call.
+
 ## v0.1.2
 
 - Block sycophantic agreement phrases before tool calls and at Stop.

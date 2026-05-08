@@ -131,6 +131,10 @@ sycophancy_stop="$(jq -cn '{session_id:"fixture-session",last_assistant_message:
 out="$(run_hook cc-stop-verifier.sh "$sycophancy_stop")"
 assert_contains "stop verifier blocks sycophancy" "$out" "Sycophantic"
 
+post_sycophancy_json="$(jq -cn --arg path "$sycophancy_transcript" '{session_id:"fixture-sycophancy-post",tool_name:"Bash",transcript_path:$path}')"
+out="$(run_hook cc-posttooluse-sycophancy.sh "$post_sycophancy_json")"
+assert_contains "posttooluse blocks sycophancy" "$out" "Sycophantic"
+
 precompact_json="$(jq -cn '{session_id:"fixture-session",hook_event_name:"PreCompact"}')"
 out="$(run_hook cc-precompact-save.sh "$precompact_json")"
 assert_json_expr "precompact allows after save" "$out" '.continue == true'
@@ -151,6 +155,7 @@ for script in \
   cc-pretooluse-guard.sh \
   cc-posttoolbatch-observer.sh \
   cc-posttoolusefailure-diagnose.sh \
+  cc-posttooluse-sycophancy.sh \
   cc-userprompt-router.sh \
   cc-userprompt-expansion.sh \
   cc-stop-verifier.sh \
