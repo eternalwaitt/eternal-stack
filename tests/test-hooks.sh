@@ -5,6 +5,7 @@ ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 TMPROOT="$(mktemp -d)"
 export TMPDIR="$TMPROOT"
 export CLAUDE_GUARD_STATE_DIR="$TMPROOT"
+export CLAUDE_GUARD_DISABLE_HINDSIGHT_LESSON=1
 PASS=0
 FAIL=0
 
@@ -80,6 +81,19 @@ printf '%s\n' '{"type":"assistant","message":{"content":[{"type":"text","text":"
 sycophancy_json="$(jq --arg path "$sycophancy_transcript" '.session_id = "fixture-sycophancy" | .transcript_path = $path | .tool_input.command = "rg -n foo src/app.ts"' <<<"$bash_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$sycophancy_json")"
 assert_json_expr "sycophancy phrase denied before tool" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+assert_contains "sycophancy reason is evidence-first" "$out" "Evidence-before-agreement"
+
+challenge_transcript="$TMPROOT/challenge.jsonl"
+printf '%s\n' '{"type":"assistant","message":{"content":[{"type":"text","text":"Good catch, let me inspect the repo first."}]}}' >"$challenge_transcript"
+challenge_json="$(jq --arg path "$challenge_transcript" '.session_id = "fixture-challenge" | .transcript_path = $path | .tool_input.command = "rg -n foo src/app.ts"' <<<"$bash_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$challenge_json")"
+assert_contains "agreement-before-evidence denied" "$out" "Evidence-before-agreement"
+
+evidence_first_transcript="$TMPROOT/evidence-first.jsonl"
+printf '%s\n' '{"type":"assistant","message":{"content":[{"type":"text","text":"I have not verified that yet. I will inspect the repo first."}]}}' >"$evidence_first_transcript"
+evidence_first_json="$(jq --arg path "$evidence_first_transcript" '.session_id = "fixture-evidence-first" | .transcript_path = $path | .tool_input.command = "rg -n foo src/app.ts"' <<<"$bash_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$evidence_first_json")"
+assert_json_expr "evidence-first check allowed" "$out" '.continue == true'
 
 email_bash="$(jq '.tool_input.command = "gmail send --to a@example.com"' <<<"$bash_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$email_bash")"
@@ -111,6 +125,11 @@ assert_json_expr "new source without search denied" "$out" '.hookSpecificOutput.
 prompt="$(fixture userpromptsubmit.json)"
 out="$(run_hook cc-userprompt-router.sh "$prompt")"
 assert_json_expr "prompt router emits context" "$out" '.hookSpecificOutput.additionalContext | length > 0'
+challenge_prompt="$(jq -cn '{session_id:"fixture-challenge-prompt",prompt:"why is Vega saying you are right? I thought we had a hook for this"}')"
+out="$(run_hook cc-userprompt-router.sh "$challenge_prompt")"
+assert_contains "challenge prompt gets evidence protocol" "$out" "Evidence-first correction protocol"
+challenge_state="$TMPROOT/claude-guard-fixture-challenge-prompt.json"
+assert_json_expr "challenge prompt recorded" "$(jq -c . "$challenge_state")" '(.evidenceChallenges | length) == 1'
 
 skill_json="$(jq -cn '{session_id:"fixture-session",hook_event_name:"UserPromptExpansion",command_name:"code-review"}')"
 run_hook cc-userprompt-expansion.sh "$skill_json" >/dev/null || true
@@ -129,11 +148,11 @@ assert_json_expr "stop verifier blocks unverified completion" "$out" '.decision 
 
 sycophancy_stop="$(jq -cn '{session_id:"fixture-session",last_assistant_message:"You are right - I will check.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$sycophancy_stop")"
-assert_contains "stop verifier blocks sycophancy" "$out" "Sycophantic"
+assert_contains "stop verifier blocks sycophancy" "$out" "Evidence-before-agreement"
 
 post_sycophancy_json="$(jq -cn --arg path "$sycophancy_transcript" '{session_id:"fixture-sycophancy-post",tool_name:"Bash",transcript_path:$path}')"
 out="$(run_hook cc-posttooluse-sycophancy.sh "$post_sycophancy_json")"
-assert_contains "posttooluse blocks sycophancy" "$out" "Sycophantic"
+assert_contains "posttooluse blocks sycophancy" "$out" "Evidence-before-agreement"
 
 precompact_json="$(jq -cn '{session_id:"fixture-session",hook_event_name:"PreCompact"}')"
 out="$(run_hook cc-precompact-save.sh "$precompact_json")"
@@ -168,6 +187,7 @@ do
 done
 
 node --check "$ROOT/hooks/lib/complexity-check.mjs" >/dev/null && ok "complexity syntax" || not_ok "complexity syntax"
+python3 -m py_compile "$ROOT/hooks/cc-hindsight-lesson.py" && ok "hindsight lesson syntax" || not_ok "hindsight lesson syntax"
 settings_file="$ROOT/settings.json"
 if [[ ! -f "$settings_file" && -f "$ROOT/templates/settings.json" ]]; then
   settings_file="$ROOT/templates/settings.json"

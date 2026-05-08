@@ -34,17 +34,34 @@ cc_policy_violation() {
   return 1
 }
 
-cc_sycophancy_violation() {
+cc_evidence_discipline_violation() {
   local text="$1"
-  local lower
+  local lower lead
   lower="$(printf '%s' "$text" | tr '[:upper:]' '[:lower:]')"
-  case "$lower" in
-    *"you're right"*|*"you are right"*|*"youre right"*|*"you’re right"*)
-      printf 'Sycophantic agreement phrases are blocked. Skip validation theater and move directly to evidence-backed work.'
+  lead="${lower:0:900}"
+
+  case "$lead" in
+    *"you're right"*|*"you are right"*|*"youre right"*|*"you’re right"*|*"you're correct"*|*"you are correct"*|*"good catch"*|*"i agree"*|*"fair point"*|*"absolutely"*|*"exactly"*)
+      printf 'Evidence-before-agreement violation. Rewrite without reflexive agreement. Start with what is verified or not yet verified, then name the evidence check or correction.'
       return 0
       ;;
   esac
+
+  if [[ "$lead" =~ (sorry|apolog) ]] && [[ "$lead" =~ (let[[:space:]]+me|i[[:space:]]+(will|can)[[:space:]]+(check|search|verify|look|inspect)) ]]; then
+    printf 'Apology-before-evidence violation. Do not apologize and promise to check; state the current evidence state and perform or name the concrete check.'
+    return 0
+  fi
+
+  if [[ "$lead" =~ (let[[:space:]]+me[[:space:]]+(check|search|verify|look|inspect)) ]] && [[ "$lead" =~ (right|correct|agree|catch|sorry) ]]; then
+    printf 'Validation-theater violation. Do not agree before checking; use the evidence-first correction protocol.'
+    return 0
+  fi
+
   return 1
+}
+
+cc_sycophancy_violation() {
+  cc_evidence_discipline_violation "$1"
 }
 
 cc_extract_edit_text() {

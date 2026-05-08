@@ -44,10 +44,17 @@ latest_assistant_text() {
   cc_json_get '.last_assistant_message // .message // .response'
 }
 
-block_sycophancy_before_tool() {
+record_evidence_discipline_violation() {
+  local violation="$1"
+  cc_state_append_value evidenceDisciplineViolations "$violation"
+  python3 "$SCRIPT_DIR/cc-hindsight-lesson.py" >/dev/null 2>&1 &
+}
+
+block_evidence_discipline_before_tool() {
   local message violation
   message="$(latest_assistant_text)"
-  if [[ -n "$message" ]] && violation="$(cc_sycophancy_violation "$message")"; then
+  if [[ -n "$message" ]] && violation="$(cc_evidence_discipline_violation "$message")"; then
+    record_evidence_discipline_violation "$violation"
     deny "$violation"
   fi
 }
@@ -168,19 +175,19 @@ handle_agent() {
 
 case "$tool_name" in
   Bash)
-    block_sycophancy_before_tool
+    block_evidence_discipline_before_tool
     handle_bash "$(cc_json_get '.tool_input.command // .input.command // .command')"
     ;;
   WebSearch)
-    block_sycophancy_before_tool
+    block_evidence_discipline_before_tool
     handle_websearch
     ;;
   Agent|Task|TaskCreate)
-    block_sycophancy_before_tool
+    block_evidence_discipline_before_tool
     handle_agent
     ;;
   *)
-    block_sycophancy_before_tool
+    block_evidence_discipline_before_tool
     if is_source_edit_tool; then
       handle_edit
     fi

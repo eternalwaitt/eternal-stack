@@ -9,6 +9,7 @@ It enforces the work habits that prose cannot reliably enforce:
 - verify before claiming done
 - avoid command loops
 - block silent fallbacks and suppressions
+- enforce evidence before agreement when the user challenges a claim
 - keep side-effect workflows user-invoked
 - preserve rollback and diagnostics before stricter rollout
 

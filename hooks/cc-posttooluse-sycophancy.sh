@@ -7,11 +7,13 @@ fi
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 source "$SCRIPT_DIR/lib/json.sh"
+source "$SCRIPT_DIR/lib/state.sh"
 source "$SCRIPT_DIR/lib/code-patterns.sh"
 
 cc_json_read_stdin
 cc_json_require_jq || exit 0
 cc_json_valid || exit 0
+cc_state_init
 
 transcript="$(cc_json_get '.transcript_path')"
 message=""
@@ -26,7 +28,9 @@ if [[ -z "$message" ]]; then
   message="$(cc_json_get '.last_assistant_message // .message // .response')"
 fi
 
-if [[ -n "$message" ]] && violation="$(cc_sycophancy_violation "$message")"; then
+if [[ -n "$message" ]] && violation="$(cc_evidence_discipline_violation "$message")"; then
+  cc_state_append_value evidenceDisciplineViolations "$violation"
+  python3 "$SCRIPT_DIR/cc-hindsight-lesson.py" >/dev/null 2>&1 &
   cc_json_block "$violation"
   exit 0
 fi

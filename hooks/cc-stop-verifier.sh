@@ -21,7 +21,9 @@ fi
 
 message="$(cc_json_get '.last_assistant_message // .message // .response')"
 state="$(cc_state_read)"
-if violation="$(cc_sycophancy_violation "$message")"; then
+if violation="$(cc_evidence_discipline_violation "$message")"; then
+  cc_state_append_value evidenceDisciplineViolations "$violation"
+  python3 "$SCRIPT_DIR/cc-hindsight-lesson.py" >/dev/null 2>&1 &
   cc_json_block "$violation"
   exit 0
 fi

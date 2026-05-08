@@ -31,6 +31,8 @@ cc_state_default() {
     failures: [],
     skillCalls: [],
     requestedSkills: [],
+    evidenceChallenges: [],
+    evidenceDisciplineViolations: [],
     verificationRuns: [],
     newFileSearches: [],
     lastPrompt: "",
