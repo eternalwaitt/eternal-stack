@@ -5,9 +5,11 @@ disable-model-invocation: true
 ---
 # Parallel Fan-Out
 
+Use this only as an explicit fanout helper. `/etrnl-execute` is the main orchestrator and owns plan execution, ledger updates, review, integration, and final verification.
+
 1. Split work by disjoint file ownership.
-2. Assign explicit model, cwd, scope, write boundaries, and expected output.
-3. Tell agents not to revert user changes.
+2. Assign the full ETRNL task packet: goal, context summary, exact scope, cwd/project context, read set, write scope or read-only, forbidden files, expected output, verification command, model tier, timeout, retry policy, no-revert instruction, and WebSearch guidance.
+3. Prefer `etrnl-executor`, `etrnl-spec-reviewer`, `etrnl-quality-reviewer`, and `etrnl-investigator` by role.
 4. Integrate changes sequentially; if conflicts appear:
    - do not revert user changes
    - assign one authoritative conflict owner per file

@@ -51,6 +51,10 @@ def norm:
     else . end;
 '
 if [[ "$claims_done" == "true" ]]; then
+  if ! ledger_status="$(node "$SCRIPT_DIR/../scripts/execution-ledger.mjs" check-stop --session "$(cc_session_id)" 2>&1)"; then
+    cc_json_block "$ledger_status"
+    exit 0
+  fi
   if jq -e '((.verificationRuns | length) == 0)' <<<"$state" >/dev/null; then
     cc_json_block "You are trying to claim completion without verification evidence. Re-read the request, map each requested outcome to changed files or command results, run project preflight, verify user-visible behavior, then answer with evidence."
     exit 0

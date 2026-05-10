@@ -7,18 +7,34 @@
 
 OWNED_SKILLS=(
   etrnl-agent-files
+  etrnl-autoplan
   etrnl-brainstorm
   etrnl-code-health
   etrnl-commit
+  etrnl-context-restore
+  etrnl-context-save
   etrnl-deps
   etrnl-execute
   etrnl-fix-issue
   etrnl-parallel
   etrnl-plan
   etrnl-pr
+  etrnl-qa-browser
   etrnl-review
   etrnl-stress-test
   etrnl-test
+)
+
+OWNED_AGENTS=(
+  etrnl-adversary
+  etrnl-browser-qa
+  etrnl-design-reviewer
+  etrnl-dx-reviewer
+  etrnl-executor
+  etrnl-investigator
+  etrnl-quality-reviewer
+  etrnl-scout
+  etrnl-spec-reviewer
 )
 
 LEGACY_SKILLS=(

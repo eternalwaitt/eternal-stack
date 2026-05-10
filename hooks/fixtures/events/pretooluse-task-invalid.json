@@ -1,0 +1,7 @@
+{
+  "session_id": "fixture-task-invalid",
+  "tool_name": "Task",
+  "tool_input": {
+    "prompt": "do stuff"
+  }
+}

@@ -176,18 +176,10 @@ handle_websearch() {
 }
 
 handle_agent() {
-  local payload
-  payload="$(jq -c '.tool_input // {}' <<<"$HOOK_INPUT")"
-  for required in model cwd scope; do
-    if ! jq -e --arg key "$required" 'tostring | test($key; "i")' <<<"$payload" >/dev/null; then
-      deny "Subagent calls must include explicit model, cwd/project context, bounded scope, write scope or read-only, WebSearch guidance, no-revert instruction, and expected output."
-    fi
-  done
-  for phrase in "write scope" "read-only" "WebSearch" "not to revert" "expected output"; do
-    if ! jq -e --arg phrase "$phrase" 'tostring | contains($phrase)' <<<"$payload" >/dev/null; then
-      deny "Subagent calls must include explicit model, cwd/project context, bounded scope, write scope or read-only, WebSearch guidance, no-revert instruction, and expected output."
-    fi
-  done
+  local output
+  if ! output="$(node "$SCRIPT_DIR/../scripts/agent-task-packet-check.mjs" <<<"$HOOK_INPUT" 2>&1)"; then
+    deny "$output"
+  fi
   cc_json_allow
 }
 

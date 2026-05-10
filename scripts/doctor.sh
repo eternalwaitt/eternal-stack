@@ -24,6 +24,11 @@ if [[ -n "$hook_test" ]]; then
 else
   ok "hook tests skipped outside source checkout"
 fi
+if [[ -x "$ROOT/tests/test-install.sh" ]]; then
+  "$ROOT/tests/test-install.sh" >/dev/null && ok "install/rollback tests pass" || fail "install/rollback tests fail"
+else
+  ok "install/rollback tests skipped outside source checkout"
+fi
 
 if [[ -f "$ROOT/scripts/merge-settings.mjs" ]]; then
   node --check "$ROOT/scripts/merge-settings.mjs" >/dev/null && ok "merge-settings syntax valid" || fail "merge-settings syntax invalid"
@@ -42,10 +47,20 @@ if [[ -f "$ROOT/scripts/plan-readiness-check.mjs" ]]; then
 else
   fail "plan readiness script missing"
 fi
+for script in agent-task-packet-check execution-ledger execution-wave-check review-log browser-qa-report context-state workflow-health prompt-budget-check; do
+  if [[ -f "$ROOT/scripts/$script.mjs" ]]; then
+    node --check "$ROOT/scripts/$script.mjs" >/dev/null && ok "$script syntax valid" || fail "$script syntax invalid"
+  else
+    fail "$script script missing"
+  fi
+done
+if [[ -f "$ROOT/scripts/prompt-budget-check.mjs" ]]; then
+  node "$ROOT/scripts/prompt-budget-check.mjs" "$ROOT" --owned-only >/dev/null && ok "repo-owned prompt budget check clean" || fail "repo-owned prompt budget check failed"
+fi
 
 if [[ -f "$ROOT/templates/settings.json" && -f "$ROOT/templates/settings.strict.json" ]]; then
   jq empty "$ROOT/templates/settings.json" "$ROOT/templates/settings.strict.json" >/dev/null && ok "settings templates valid" || fail "settings template invalid"
-  if jq -e '.hooks.PreToolUse and .hooks.PostToolUse and .hooks.PostToolUseFailure and .hooks.Stop and .hooks.PreCompact and .hooks.PostCompact' "$ROOT/templates/settings.strict.json" >/dev/null; then
+  if jq -e '.hooks.PreToolUse and .hooks.PostToolUse and .hooks.PostToolUseFailure and .hooks.Stop and .hooks.SubagentStop and .hooks.PreCompact and .hooks.PostCompact' "$ROOT/templates/settings.strict.json" >/dev/null; then
     ok "strict template registers blocker hooks"
   else
     fail "strict template missing blocker hooks"
@@ -99,6 +114,59 @@ if [[ -d "$ROOT/skills" && -f "$ROOT/docs/skills.md" ]]; then
   fi
 else
   fail "skills directory or docs/skills.md missing"
+fi
+
+if [[ -d "$ROOT/agents" ]]; then
+  agent_check_failed=0
+  for agent in "${OWNED_AGENTS[@]}"; do
+    agent_file="$ROOT/agents/$agent.md"
+    if [[ ! -f "$agent_file" ]]; then
+      fail "owned agent missing: $agent"
+      agent_check_failed=1
+    elif ! rg -F "name: $agent" "$agent_file" >/dev/null; then
+      fail "agent name mismatch in $agent_file"
+      agent_check_failed=1
+    elif ! rg -F "$agent" "$ROOT/docs/skills.md" >/dev/null; then
+      fail "docs/skills.md missing agent $agent"
+      agent_check_failed=1
+    fi
+  done
+  if [[ "$agent_check_failed" == "0" ]]; then
+    ok "etrnl agents installed and documented"
+  fi
+else
+  fail "agents directory missing"
+fi
+
+runs_dir="${CLAUDE_CONTROL_PLANE_RUNS_DIR:-${CLAUDE_HOME:-$HOME/.claude}/control-plane/runs}"
+artifact_dir="${CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR:-${CLAUDE_HOME:-$HOME/.claude}/control-plane/artifacts}"
+if [[ -d "$runs_dir" ]]; then
+  ok "workflow ledger directory present"
+else
+  ok "workflow ledger directory not created yet"
+fi
+if [[ -d "$artifact_dir" ]]; then
+  ok "workflow artifact directory present"
+else
+  ok "workflow artifact directory not created yet"
+fi
+if [[ -f "$ROOT/scripts/workflow-health.mjs" ]]; then
+  if workflow_health="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$runs_dir" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$artifact_dir" node "$ROOT/scripts/workflow-health.mjs" 2>&1)"; then
+    ok "workflow health summary available"
+    while IFS= read -r line; do
+      [[ -n "$line" ]] && ok "workflow health: $line"
+    done <<<"$workflow_health"
+  else
+    fail "workflow health summary failed: $workflow_health"
+  fi
+fi
+command -v codex >/dev/null 2>&1 && ok "optional Codex escalation available" || ok "optional Codex escalation not installed"
+command -v gemini >/dev/null 2>&1 && ok "optional Gemini escalation available" || ok "optional Gemini escalation not installed"
+command -v playwright-cli >/dev/null 2>&1 && ok "optional browser QA tool available" || ok "optional browser QA tool not installed"
+if [[ -x "$HOME/.claude/skills/gstack/bin/design" || -x "$HOME/.agents/skills/gstack/bin/design" || -x "$HOME/.gstack/repos/gstack/bin/design" ]]; then
+  ok "optional design/mock tool available"
+else
+  ok "optional design/mock tool not installed"
 fi
 
 if [[ -d "$ROOT/rules/etrnl" ]]; then

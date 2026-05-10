@@ -15,9 +15,9 @@ const exempt = /(^|\/)(dist|build|coverage|generated|__generated__|migrations)\/
   || /\.(test|spec)\.[cm]?[jt]sx?$/.test(path)
   || /\.md$/.test(path);
 
+const issues = [];
 if (!exempt && lines.length > 300) {
-  console.error(`source file exceeds 300 lines (${lines.length})`);
-  process.exit(1);
+  issues.push(`source file exceeds 300 lines (${lines.length})`);
 }
 
 if (exempt) {
@@ -29,6 +29,7 @@ let maxDepth = 0;
 let fnStart = null;
 let fnDepth = 0;
 let fnName = "";
+let nestingReported = false;
 
 const fnRegex = /\b(function\s+[\w$]+\s*\(([^)]*)\)|(?:const|let|var)\s+([\w$]+)\s*=\s*(?:async\s*)?\(([^)]*)\)\s*=>|(?:async\s+)?([\w$]+)\s*\(([^)]*)\)\s*\{)/;
 
@@ -40,8 +41,7 @@ for (let i = 0; i < lines.length; i += 1) {
     const count = params === "" ? 0 : params.split(",").filter(Boolean).length;
     fnName = match[3] ?? match[5] ?? "function";
     if (count > 4) {
-      console.error(`${fnName} has ${count} parameters`);
-      process.exit(1);
+      issues.push(`${fnName} has ${count} parameters`);
     }
     fnStart = i;
     fnDepth = depth;
@@ -51,9 +51,9 @@ for (let i = 0; i < lines.length; i += 1) {
     if (char === "{") {
       depth += 1;
       maxDepth = Math.max(maxDepth, depth);
-      if (maxDepth > 4) {
-        console.error(`nesting exceeds 3 levels near line ${i + 1}`);
-        process.exit(1);
+      if (maxDepth > 4 && !nestingReported) {
+        issues.push(`nesting exceeds 3 levels near line ${i + 1}`);
+        nestingReported = true;
       }
     } else if (char === "}") {
       depth = Math.max(0, depth - 1);
@@ -63,10 +63,14 @@ for (let i = 0; i < lines.length; i += 1) {
   if (fnStart !== null && depth <= fnDepth && i > fnStart) {
     const length = i - fnStart + 1;
     if (length > 50) {
-      console.error(`${fnName} exceeds 50 lines (${length})`);
-      process.exit(1);
+      issues.push(`${fnName} exceeds 50 lines (${length})`);
     }
     fnStart = null;
     fnName = "";
   }
+}
+
+if (issues.length > 0) {
+  console.error(issues.join("\n"));
+  process.exit(1);
 }

@@ -22,6 +22,6 @@ This is the portable, agent-neutral baseline for the control plane. Keep private
 
 - For unclear work, brainstorm into a saved design/spec before planning.
 - For implementation plans, save the plan to disk, review it, improve it, then mark it final.
-- For execution, preserve user changes, work task by task, and record verification evidence.
+- For execution, default non-trivial work to completeness 10/10, preserve user changes, keep a local run ledger and artifacts when available, use bounded subagents only with structured task packets, check file overlap before parallel work, and continue through mechanical phases without asking the user to continue.
 - For reviews, lead with findings and exact file or command evidence.
 - For whole-codebase health, inventory every tracked file, run the repo Health Stack, keep a findings ledger, and close every finding with evidence.

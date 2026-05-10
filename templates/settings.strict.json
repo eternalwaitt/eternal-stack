@@ -35,7 +35,7 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Bash|Edit|Write|MultiEdit|WebSearch|Task|Agent",
+        "matcher": "Bash|Edit|Write|MultiEdit|WebSearch|Task|TaskCreate|Agent",
         "hooks": [
           {
             "type": "command",
@@ -84,6 +84,17 @@
           {
             "type": "command",
             "command": "bash ~/.claude/hooks/cc-stop-verifier.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/cc-subagentstop-record.sh",
             "timeout": 10
           }
         ]

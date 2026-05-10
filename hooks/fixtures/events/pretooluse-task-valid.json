@@ -1,0 +1,8 @@
+{
+  "session_id": "fixture-task-valid",
+  "tool_name": "Task",
+  "tool_input": {
+    "model": "sonnet",
+    "prompt": "ETRNL task packet\nGoal: implement task T1.\nContext summary: approved plan exists.\nExact scope: scripts only.\nCwd/project context: /repo.\nRead set: scripts and tests.\nWrite scope: scripts/example.mjs.\nForbidden files: package manifests.\nExpected output: changed files and verification.\nVerification command: pnpm test.\nModel tier: sonnet.\nTimeout: 20 minutes.\nRetry policy: retry once after diagnosis.\nDo not revert user changes or others' work.\nWebSearch guidance: no WebSearch unless official docs are required."
+  }
+}

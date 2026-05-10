@@ -33,7 +33,8 @@ Lead with findings. Treat the original request, written plan, actual diff, insta
    - Parallelization: safe lanes, shared modules, dependencies, and conflict risks.
 6. Point to exact files, commands, or plan sections.
 7. Recommend or apply the smallest fix that closes the risk.
-8. Say clearly when no blocking findings remain, and name any live-gated follow-up.
+8. When findings are durable, record them with `node ~/.claude/scripts/review-log.mjs add --finding "<finding>" --severity <severity> --status open`.
+9. Say clearly when no blocking findings remain, and name any live-gated follow-up.
 
 ## Finding Format
 
@@ -46,3 +47,5 @@ Suppress low-confidence speculation unless the severity would be P0/P1. Outside-
 ## Output
 
 Put findings first, ordered by severity. Include "What already exists", "NOT in scope", failure modes, and test/parallelization gaps when reviewing a plan. Keep summaries short and secondary. Do not bury an unverified assumption in reassuring prose.
+
+If a review log entry is written, include the log path or fingerprint in the final evidence.

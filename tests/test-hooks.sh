@@ -5,6 +5,7 @@ ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 TMPROOT="$(mktemp -d)"
 export TMPDIR="$TMPROOT"
 export CLAUDE_GUARD_STATE_DIR="$TMPROOT"
+export CLAUDE_CONTROL_PLANE_RUNS_DIR="$TMPROOT/runs"
 export CLAUDE_GUARD_DISABLE_HINDSIGHT_LESSON=1
 PASS=0
 FAIL=0
@@ -106,6 +107,11 @@ assert_json_expr "websearch effort denied" "$out" '.hookSpecificOutput.permissio
 edit_json="$(fixture pretooluse-edit.json | jq --arg root "$TMPROOT/example" '.cwd=$root | .tool_input.file_path=($root + "/src/app.ts")')"
 out="$(run_hook cc-pretooluse-guard.sh "$edit_json")"
 assert_json_expr "silent catch denied" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+aggregate_policy="$(jq '.tool_input.new_string = "/* TODO: finish */\n// eslint-disable-next-line\ntry {} catch { return null; }"' <<<"$edit_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$aggregate_policy")"
+assert_contains "policy aggregation includes TODO" "$out" "TODO/FIXME"
+assert_contains "policy aggregation includes suppression" "$out" "suppression"
+assert_contains "policy aggregation includes null catch" "$out" "return null"
 
 clean_edit="$(jq '.tool_input.new_string = "export const value = 2;"' <<<"$edit_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$clean_edit")"
@@ -202,6 +208,53 @@ assert_contains "session start injects ETRNL skill hint" "$out" "ETRNL skills"
 agent_bad="$(jq -cn '{session_id:"fixture-session",tool_name:"Task",tool_input:{prompt:"do stuff"}}')"
 out="$(run_hook cc-pretooluse-guard.sh "$agent_bad")"
 assert_json_expr "underspecified task denied" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+assert_contains "underspecified task reports multiple missing fields" "$out" "context summary"
+agent_invalid="$(fixture pretooluse-task-invalid.json)"
+out="$(run_hook cc-pretooluse-guard.sh "$agent_invalid")"
+assert_contains "invalid task fixture reports retry policy" "$out" "retry policy"
+agent_valid="$(fixture pretooluse-task-valid.json)"
+out="$(run_hook cc-pretooluse-guard.sh "$agent_valid")"
+assert_json_expr "valid task packet allowed" "$out" '.continue == true'
+
+long_complexity="$TMPROOT/complex.ts"
+{
+  printf 'function tooMany(a,b,c,d,e) {\n'
+  printf 'if (a) { if (b) { if (c) { if (d) { if (e) { return true; } } } } }\n'
+  for _ in $(seq 1 55); do printf 'const x = 1;\n'; done
+  printf '}\n'
+} >"$long_complexity"
+if complexity_out="$(node "$ROOT/hooks/lib/complexity-check.mjs" "$long_complexity" 2>&1)"; then
+  not_ok "complexity aggregation rejects bad file"
+else
+  assert_contains "complexity aggregation includes params" "$complexity_out" "parameters"
+  assert_contains "complexity aggregation includes nesting" "$complexity_out" "nesting"
+  assert_contains "complexity aggregation includes function length" "$complexity_out" "exceeds 50"
+fi
+
+ledger_path="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-ledger --plan "$ROOT/hooks/fixtures/plans/good-plan.md")"
+node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-ledger --task T1 --title Task --status in_progress
+node "$ROOT/scripts/execution-ledger.mjs" require-artifact --session fixture-ledger --type review-log
+ledger_stop="$(jq -cn '{session_id:"fixture-ledger",last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$ledger_stop")"
+assert_contains "stop verifier blocks incomplete ledger" "$out" "unfinished tasks"
+subagent_bad="$(fixture subagentstop-malformed.json)"
+out="$(run_hook cc-subagentstop-record.sh "$subagent_bad")"
+assert_contains "subagent stop blocks missing task id" "$out" "ETRNL_TASK_ID"
+subagent_good="$(fixture subagentstop-valid.json)"
+if run_hook cc-subagentstop-record.sh "$subagent_good" >/dev/null; then
+  ok "subagent stop records valid output"
+else
+  not_ok "subagent stop records valid output"
+fi
+node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-ledger --task T1 --title Task --status verified
+node "$ROOT/scripts/execution-ledger.mjs" record-check --session fixture-ledger --name final --command "pnpm test" --status passed
+if node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-ledger >/dev/null 2>&1; then
+  not_ok "execution ledger blocks missing required artifact"
+else
+  ok "execution ledger blocks missing required artifact"
+fi
+node "$ROOT/scripts/execution-ledger.mjs" record-artifact --session fixture-ledger --type review-log --path "$TMPROOT/review-log.jsonl"
+node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-ledger >/dev/null && ok "execution ledger accepts complete run" || not_ok "execution ledger accepts complete run"
 
 for i in $(seq 1 49); do
   out="$(run_hook cc-pretooluse-guard.sh "$safe_bash")"
@@ -215,6 +268,7 @@ for script in \
   cc-posttooluse-sycophancy.sh \
   cc-userprompt-router.sh \
   cc-userprompt-expansion.sh \
+  cc-subagentstop-record.sh \
   cc-stop-verifier.sh \
   cc-precompact-save.sh \
   cc-postcompact-record.sh \
@@ -228,6 +282,56 @@ node --check "$ROOT/hooks/lib/complexity-check.mjs" >/dev/null && ok "complexity
 node --check "$ROOT/scripts/code-health-inventory.mjs" >/dev/null && ok "code-health inventory syntax" || not_ok "code-health inventory syntax"
 node "$ROOT/scripts/code-health-inventory.mjs" --json >/dev/null && ok "code-health inventory runs" || not_ok "code-health inventory runs"
 node --check "$ROOT/scripts/plan-readiness-check.mjs" >/dev/null && ok "plan readiness syntax" || not_ok "plan readiness syntax"
+for script in agent-task-packet-check execution-ledger execution-wave-check review-log browser-qa-report context-state workflow-health prompt-budget-check; do
+  node --check "$ROOT/scripts/$script.mjs" >/dev/null && ok "$script syntax" || not_ok "$script syntax"
+done
+budget_root="$TMPROOT/budget"
+mkdir -p "$budget_root/skills/gstack-huge" "$budget_root/skills/etrnl-small"
+printf '%20000s\n' "x" >"$budget_root/skills/gstack-huge/SKILL.md"
+printf '%s\n' "---" "name: etrnl-small" "---" >"$budget_root/skills/etrnl-small/SKILL.md"
+node "$ROOT/scripts/prompt-budget-check.mjs" "$budget_root" --owned-only >/dev/null && ok "prompt budget owned-only ignores external skills" || not_ok "prompt budget owned-only ignores external skills"
+review_fp="$(node "$ROOT/scripts/review-log.mjs" add --path "$TMPROOT/review-log.jsonl" --finding "sk_live_example_should_redact" --severity P1 --status open)"
+if [[ ${#review_fp} -ge 16 ]]; then
+  ok "review log fingerprint emitted"
+else
+  not_ok "review log fingerprint emitted"
+fi
+node "$ROOT/scripts/review-log.mjs" validate --path "$TMPROOT/review-log.jsonl" >/dev/null && ok "review log validates" || not_ok "review log validates"
+review_summary="$(node "$ROOT/scripts/review-log.mjs" summary --path "$TMPROOT/review-log.jsonl")"
+assert_contains "review log summary unresolved" "$review_summary" "unresolved=1"
+if rg -F "sk_live_example" "$TMPROOT/review-log.jsonl" >/dev/null; then
+  not_ok "review log redacts token-like values"
+else
+  ok "review log redacts token-like values"
+fi
+qa_report="$(printf '{"routes":["/"],"viewports":["desktop","mobile"],"findings":[]}' | node "$ROOT/scripts/browser-qa-report.mjs" create --path "$TMPROOT/browser-qa.json")"
+node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_report" >/dev/null && ok "browser QA report validates" || not_ok "browser QA report validates"
+context_file="$(node "$ROOT/scripts/context-state.mjs" save --id fixture-context --title "Fixture" --remaining "finish verification" --verification "tests pending")"
+node "$ROOT/scripts/context-state.mjs" validate "$context_file" >/dev/null && ok "context save validates" || not_ok "context save validates"
+stale_context="$(node "$ROOT/scripts/context-state.mjs" save --id fixture-stale-context --title "Stale" --saved-at "2000-01-01T00:00:00Z")"
+context_summary="$(node "$ROOT/scripts/context-state.mjs" show "$stale_context" --stale-hours 1)"
+assert_contains "context restore detects stale context" "$context_summary" "stale=true"
+wave_json="$(printf '{"useWorktrees":true,"submodules":["vendor/lib"],"plans":[{"id":"T1","wave":1,"files":["src/a.ts"]},{"id":"T2","wave":1,"files":["src/a.ts"]},{"id":"T3","wave":2,"files":["vendor/lib/x.ts"]}]}' | node "$ROOT/scripts/execution-wave-check.mjs")"
+assert_json_expr "wave overlap disables parallel" "$wave_json" '.waves[0].parallelSafe == false'
+assert_json_expr "submodule task not worktree eligible" "$wave_json" '.waves[1].plans[0].worktreeEligible == false'
+assert_contains "wave heartbeat emitted" "$wave_json" "[checkpoint]"
+health_root="$TMPROOT/health"
+mkdir -p "$health_root/runs"
+printf '%s\n' '{"schemaVersion":1,"runId":"stale-run","updatedAt":"2000-01-01T00:00:00Z","tasks":[{"id":"T1","status":"in_progress"}],"agents":[],"checks":[]}' >"$health_root/runs/stale-run.json"
+health_out="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs")"
+assert_contains "workflow health detects stale runs" "$health_out" "staleRuns=1"
+assert_contains "workflow health reports artifact freshness" "$health_out" "artifactFreshness latest=none"
+empty_health="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/missing-runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs")"
+assert_contains "workflow health reports artifacts without ledger dir" "$empty_health" "reviewLog entries=0"
+autoplan_text="$(tr '\n' ' ' < "$ROOT/skills/etrnl-autoplan/SKILL.md")"
+assert_contains "autoplan includes CEO review" "$autoplan_text" "CEO/founder review"
+assert_contains "autoplan includes DX review" "$autoplan_text" "DX review"
+assert_contains "autoplan includes adversarial review" "$autoplan_text" "Adversarial review"
+assert_contains "autoplan includes max completeness" "$autoplan_text" "completeness 10/10"
+execute_text="$(tr '\n' ' ' < "$ROOT/skills/etrnl-execute/SKILL.md")"
+assert_contains "execute includes wave execution" "$execute_text" "wave-based execution"
+assert_contains "execute includes subagent ownership rule" "$execute_text" "do not duplicate"
+assert_contains "execute includes spot-check fallback" "$execute_text" "spot-check"
 bad_plan="$TMPROOT/bad-plan.md"
 printf '%s\n' '# Bad Plan' '' 'Status: Final' '' 'Goal: Thin plan.' >"$bad_plan"
 if node "$ROOT/scripts/plan-readiness-check.mjs" "$bad_plan" >/dev/null 2>&1; then

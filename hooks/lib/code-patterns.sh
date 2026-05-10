@@ -1,34 +1,43 @@
 #!/usr/bin/env bash
 
-cc_policy_violation() {
+cc_policy_violations() {
   local text="$1"
   local suppress_re='eslint-disable|oxlint-disable|biome-disable|@ts-ignore'
   local empty_catch_re='catch[[:space:]]*\{[[:space:]]*\}'
   local null_catch_re='catch[[:space:]]*\{[[:space:]]*return[[:space:]]+null[[:space:]]*;?[[:space:]]*\}'
   local fallback_re='\|\|[[:space:]]*(""|\[\]|\{\})'
   local config_re='strict[[:space:]]*:[[:space:]]*false|skipLibCheck[[:space:]]*:[[:space:]]*true'
+  local violations=()
   if [[ "$text" =~ $suppress_re ]]; then
-    printf 'lint/type suppression is not allowed; fix the code instead'
-    return 0
+    violations+=("lint/type suppression is not allowed; fix the code instead")
   fi
   if [[ "$text" =~ TODO|FIXME ]]; then
-    printf 'TODO/FIXME comments are not allowed; finish the work or create an issue'
-    return 0
+    violations+=("TODO/FIXME comments are not allowed; finish the work or create an issue")
   fi
   if [[ "$text" =~ $empty_catch_re ]]; then
-    printf 'empty catch blocks hide real failures'
-    return 0
+    violations+=("empty catch blocks hide real failures")
   fi
   if [[ "$text" =~ $null_catch_re ]]; then
-    printf 'catch blocks must not return null silently'
-    return 0
+    violations+=("catch blocks must not return null silently")
   fi
   if [[ "$text" =~ $fallback_re ]]; then
-    printf 'silent default fallbacks are not allowed on typed code paths'
-    return 0
+    violations+=("silent default fallbacks are not allowed on typed code paths")
   fi
   if [[ "$text" =~ $config_re ]]; then
-    printf 'TypeScript/config weakening is not allowed'
+    violations+=("TypeScript/config weakening is not allowed")
+  fi
+  if (( ${#violations[@]} > 0 )); then
+    printf '%s\n' "${violations[@]}"
+    return 0
+  fi
+  return 1
+}
+
+cc_policy_violation() {
+  local text="$1"
+  local output
+  if output="$(cc_policy_violations "$text")"; then
+    printf '%s' "$output"
     return 0
   fi
   return 1

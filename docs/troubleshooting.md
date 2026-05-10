@@ -14,4 +14,17 @@ Common causes:
 - invalid JSON emitted by a hook
 - missing `jq`, `node`, `rg`, `fd`, or `sg`
 - stale state under `$TMPDIR/claude-guard-*.json`
+- incomplete run ledger under `~/.claude/control-plane/runs/`
+- missing required artifact under `~/.claude/control-plane/artifacts/`
+- subagent output missing `ETRNL_TASK_ID`
 - hook event payload changed after a Claude Code update
+
+To inspect recent workflow state:
+
+```bash
+~/.claude/scripts/workflow-health.mjs
+~/.claude/scripts/execution-ledger.mjs history
+~/.claude/scripts/review-log.mjs summary
+~/.claude/scripts/browser-qa-report.mjs summary
+~/.claude/scripts/context-state.mjs list
+```

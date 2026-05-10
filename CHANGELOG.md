@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Add Agent-OS execution support: local run ledger helpers, workflow health summaries, structured subagent task-packet validation, and `SubagentStop` recording.
+- Install repo-owned `etrnl-*` agents by default and include rollback/doctor coverage for them.
+- Add `/etrnl-autoplan` and upgrade `/etrnl-execute` with no-pause execution, task-packet fanout, reviewer roles, and ledger checks.
+- Aggregate policy and complexity hook failures so agents can fix all detected issues in one pass.
+- Add installer, ledger, task-packet, and aggregate-complexity test coverage.
+- Upgrade ETRNL to completeness 10/10 defaults with autoplan gauntlet-lite review, wave execution, overlap checks, durable review/browser/context artifacts, and workflow-health artifact summaries.
+- Add repo-owned scout, adversary, design, DX, and browser-QA agent templates plus `/etrnl-qa-browser`, `/etrnl-context-save`, and `/etrnl-context-restore`.
+
 ## v0.1.6 - 2026-05-10
 
 - Namespace repo-owned skills as `etrnl-*` and document the skill map.
