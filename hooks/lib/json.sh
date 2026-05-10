@@ -54,6 +54,19 @@ cc_json_allow() {
   jq -cn '{continue: true, suppressOutput: true}'
 }
 
+cc_json_allow_context() {
+  local event="$1"
+  local text="$2"
+  jq -cn --arg event "$event" --arg text "$text" '{
+    continue: true,
+    suppressOutput: false,
+    hookSpecificOutput: {
+      hookEventName: $event,
+      additionalContext: $text
+    }
+  }'
+}
+
 cc_json_deny_pretool() {
   local reason="$1"
   jq -cn --arg reason "$reason" '{

@@ -134,7 +134,12 @@ assert_contains "policy aggregation includes null catch" "$out" "return null"
 param_catch_policy="$(jq '.tool_input.new_string = "try { risky(); } catch (error) { return null; }"' <<<"$edit_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$param_catch_policy")"
 assert_contains "policy catches parameterized catch" "$out" "return null"
-
+test_skip_policy="$(jq '.tool_input.file_path = "src/app.test.ts" | .tool_input.old_string = "test(\"old\", () => { expect(value).toBe(1); });" | .tool_input.new_string = "test.skip(\"new\", () => { expect(value).toBe(1); });"' <<<"$edit_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$test_skip_policy")"
+assert_contains "test skip denied" "$out" "skipped tests"
+safety_removal="$(jq '.tool_input.old_string = "try { validate(input); } catch (error) { logger.error(error); throw error; }" | .tool_input.new_string = "validate(input);"' <<<"$edit_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$safety_removal")"
+assert_contains "safety removal denied" "$out" "Safety-removal"
 clean_edit="$(jq '.tool_input.new_string = "export const value = 2;"' <<<"$edit_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$clean_edit")"
 assert_json_expr "blind edit denied" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
@@ -145,10 +150,25 @@ search_event="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-sessi
 run_hook cc-posttoolbatch-observer.sh "$search_event" >/dev/null || true
 out="$(run_hook cc-pretooluse-guard.sh "$clean_edit")"
 assert_json_expr "read and search allow edit" "$out" '.continue == true'
+large_new_string="$(node -e 'for (let i = 0; i < 130; i += 1) console.log("export const value" + i + " = " + i + ";")')"
+large_edit="$(jq --arg text "$large_new_string" '.tool_input.old_string = "export const oldValue = 1;" | .tool_input.new_string = $text' <<<"$edit_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$large_edit")"
+assert_contains "large edit denied" "$out" "Large-change"
 
 write_json="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-session-2",tool_name:"Write",cwd:$root,tool_input:{file_path:($root + "/src/new.ts"),content:"export const created = true;"}}')"
 out="$(run_hook cc-pretooluse-guard.sh "$write_json")"
 assert_json_expr "new source without search denied" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+
+sprawl_search="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-sprawl",tool_name:"Bash",cwd:$root,tool_input:{command:"rg -n created src"}}')"
+run_hook cc-posttoolbatch-observer.sh "$sprawl_search" >/dev/null || true
+for created in one two three; do
+  sprawl_write="$(jq -cn --arg root "$TMPROOT/example" --arg created "$created" '{session_id:"fixture-sprawl",tool_name:"Write",cwd:$root,tool_input:{file_path:($root + "/src/" + $created + ".ts"),content:"export const created = true;"}}')"
+  out="$(run_hook cc-pretooluse-guard.sh "$sprawl_write")"
+  assert_json_expr "new source file $created allowed under sprawl limit" "$out" '.continue == true'
+done
+sprawl_fourth="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-sprawl",tool_name:"Write",cwd:$root,tool_input:{file_path:($root + "/src/four.ts"),content:"export const created = true;"}}')"
+out="$(run_hook cc-pretooluse-guard.sh "$sprawl_fourth")"
+assert_contains "file sprawl denied" "$out" "File-sprawl"
 
 prompt="$(fixture userpromptsubmit.json)"
 out="$(run_hook cc-userprompt-router.sh "$prompt")"
@@ -195,6 +215,27 @@ assert_json_expr "failure blocks with diagnosis" "$out" '.decision == "block"'
 out="$(run_hook cc-posttoolusefailure-diagnose.sh "$failure_json")"
 assert_contains "repeated failure pivots" "$out" "repeated"
 
+repeat_edit_event="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-repeat-edit",tool_name:"Edit",cwd:$root,tool_input:{file_path:($root + "/src/app.ts")}}')"
+for _ in 1 2 3; do
+  run_hook cc-posttoolbatch-observer.sh "$repeat_edit_event" >/dev/null || true
+done
+repeat_state="$TMPROOT/claude-guard-fixture-repeat-edit.json"
+assert_json_expr "repeated edit recorded" "$(jq -c . "$repeat_state")" '((.repeatedEditFiles // {}) | length) == 1'
+assert_file "project buglog recorded" "$TMPROOT/artifacts/project-buglog.jsonl"
+bug_read="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-bug-suggest",tool_name:"Read",cwd:$root,tool_input:{file_path:($root + "/src/app.ts")}}')"
+run_hook cc-posttoolbatch-observer.sh "$bug_read" >/dev/null || true
+bug_search="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-bug-suggest",tool_name:"Bash",cwd:$root,tool_input:{command:"rg -n value src/app.ts"}}')"
+run_hook cc-posttoolbatch-observer.sh "$bug_search" >/dev/null || true
+bug_edit="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-bug-suggest",tool_name:"Edit",cwd:$root,tool_input:{file_path:($root + "/src/app.ts"),old_string:"export const value = 1;",new_string:"export const value = 3;"}}')"
+out="$(run_hook cc-pretooluse-guard.sh "$bug_edit")"
+assert_contains "bug memory surfaced before edit" "$out" "Previous bug notes"
+
+too_big="$TMPROOT/example/src/too-big.ts"
+for i in {1..301}; do printf 'export const value%s = %s;\n' "$i" "$i"; done >"$too_big"
+post_quality="$(jq -cn --arg root "$TMPROOT/example" --arg file "$too_big" '{session_id:"fixture-post-quality",tool_name:"Edit",cwd:$root,tool_input:{file_path:$file}}')"
+out="$(run_hook cc-posttooluse-quality.sh "$post_quality")"
+assert_contains "posttool full-file complexity denied" "$out" "Full-file quality"
+
 stop_json="$(fixture stop.json)"
 out="$(run_hook cc-stop-verifier.sh "$stop_json")"
 assert_json_expr "stop verifier blocks unverified completion" "$out" '.decision == "block"'
@@ -209,6 +250,28 @@ stale_stop="$(jq -cn '{session_id:"fixture-stale",last_assistant_message:"Done, 
 out="$(run_hook cc-stop-verifier.sh "$stale_stop")"
 assert_contains "stop verifier blocks stale verification" "$out" "stale verification"
 
+mkdir -p "$TMPROOT/example/tests"
+curl_state="$TMPROOT/claude-guard-fixture-curl-only.json"
+jq -nc '{schemaVersion:1,reads:{},searches:{},edits:{"/tmp/example/src/app.ts":"2026-01-01T00:00:01Z"},commands:[],failures:[],skillCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],verificationRuns:[{value:"curl http://localhost:3000",at:"2026-01-01T00:00:02Z"}],qualityRuns:[],testRuns:[],browserRuns:[{value:"curl http://localhost:3000",at:"2026-01-01T00:00:02Z"}],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],lastPrompt:"",lastCompactSummary:"",cwd:"",settingsFingerprint:"",startedAt:""}' >"$curl_state"
+curl_stop="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-curl-only",cwd:$root,last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$curl_stop")"
+assert_contains "curl alone does not satisfy source quality" "$out" "without real quality"
+
+fresh_state="$TMPROOT/claude-guard-fixture-fresh-quality.json"
+jq -nc '{schemaVersion:1,reads:{},searches:{},edits:{"/tmp/example/src/app.ts":"2026-01-01T00:00:01Z"},commands:[],failures:[],skillCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],verificationRuns:[{value:"pnpm test",at:"2026-01-01T00:00:02Z"}],qualityRuns:[{value:"pnpm test",at:"2026-01-01T00:00:02Z"}],testRuns:[{value:"pnpm test",at:"2026-01-01T00:00:02Z"}],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],lastPrompt:"",lastCompactSummary:"",cwd:"",settingsFingerprint:"",startedAt:""}' >"$fresh_state"
+fresh_stop="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-fresh-quality",cwd:$root,last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$fresh_stop")"
+if [[ -z "$out" ]]; then ok "real test run satisfies source quality"; else not_ok "real test run should satisfy source quality: $out"; fi
+
+review_state="$TMPROOT/claude-guard-fixture-review-required.json"
+jq -nc '{schemaVersion:1,reads:{},searches:{},edits:{"/tmp/example/src/a.ts":"2026-01-01T00:00:01Z","/tmp/example/src/b.ts":"2026-01-01T00:00:01Z","/tmp/example/src/c.ts":"2026-01-01T00:00:01Z"},commands:[],failures:[],skillCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],verificationRuns:[{value:"pnpm test",at:"2026-01-01T00:00:02Z"}],qualityRuns:[{value:"pnpm test",at:"2026-01-01T00:00:02Z"}],testRuns:[{value:"pnpm test",at:"2026-01-01T00:00:02Z"}],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],lastPrompt:"",lastCompactSummary:"",cwd:"",settingsFingerprint:"",startedAt:""}' >"$review_state"
+review_stop="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-review-required",cwd:$root,last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$review_stop")"
+assert_contains "second-pass review required for broad source edits" "$out" "second-pass review"
+jq '.reviewRuns = [{value:"etrnl-review",at:"2026-01-01T00:00:03Z"}]' "$review_state" >"$review_state.tmp" && mv "$review_state.tmp" "$review_state"
+out="$(run_hook cc-stop-verifier.sh "$review_stop")"
+if [[ -z "$out" ]]; then ok "second-pass review evidence satisfies broad edits"; else not_ok "second-pass review evidence should satisfy broad edits: $out"; fi
+
 requested_state="$TMPROOT/claude-guard-fixture-requested.json"
 jq -nc '{schemaVersion:1,reads:{},searches:{},edits:{},commands:[],failures:[],skillCalls:[],requestedSkills:[{value:"etrnl-plan",at:"2026-01-01T00:00:00Z"}],evidenceChallenges:[],evidenceDisciplineViolations:[],verificationRuns:[{value:"pnpm test",at:"2026-01-01T00:00:01Z"}],newFileSearches:[],lastPrompt:"",lastCompactSummary:"",cwd:"",settingsFingerprint:"",startedAt:""}' >"$requested_state"
 requested_stop="$(jq -cn '{session_id:"fixture-requested",last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"
@@ -218,6 +281,16 @@ assert_contains "stop verifier blocks missing requested skill" "$out" "requested
 sycophancy_stop="$(jq -cn '{session_id:"fixture-session",last_assistant_message:"You are right - I will check.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$sycophancy_stop")"
 assert_contains "stop verifier blocks sycophancy" "$out" "Evidence-before-agreement"
+
+deflection_stop="$(jq -cn '{session_id:"fixture-deflection-stop",last_assistant_message:"Tests fail, but this is a pre-existing issue and out of scope for my changes.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$deflection_stop")"
+assert_contains "stop verifier blocks ownership deflection" "$out" "Ownership-deflection"
+
+deflection_transcript="$TMPROOT/deflection.jsonl"
+printf '%s\n' '{"type":"assistant","message":{"content":[{"type":"text","text":"The build failure was not caused by my changes, so I will leave it for later."}]}}' >"$deflection_transcript"
+deflection_json="$(jq --arg path "$deflection_transcript" '.session_id = "fixture-deflection-pretool" | .transcript_path = $path | .tool_input.command = "rg -n foo src/app.ts"' <<<"$bash_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$deflection_json")"
+assert_contains "pretooluse blocks ownership deflection" "$out" "Ownership-deflection"
 
 post_sycophancy_json="$(jq -cn --arg path "$sycophancy_transcript" '{session_id:"fixture-sycophancy-post",tool_name:"Bash",transcript_path:$path}')"
 out="$(run_hook cc-posttooluse-sycophancy.sh "$post_sycophancy_json")"

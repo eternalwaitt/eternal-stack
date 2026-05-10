@@ -12,6 +12,8 @@ source "$SCRIPT_DIR/lib/json.sh"
 source "$SCRIPT_DIR/lib/state.sh"
 # shellcheck source=hooks/lib/paths.sh
 source "$SCRIPT_DIR/lib/paths.sh"
+# shellcheck source=hooks/lib/verification.sh
+source "$SCRIPT_DIR/lib/verification.sh"
 
 cc_json_read_stdin
 cc_json_require_jq || exit 0
@@ -34,15 +36,40 @@ record_tool() {
       ;;
     Bash)
       cc_state_append_command "$command"
-      if [[ "$command" =~ (^|[[:space:]])(rg|fd|sg|git[[:space:]]+grep)([[:space:]]|$) ]]; then
+      if [[ "$command" =~ (^|[[:space:]])(rg|fd|sg|rtk[[:space:]]+grep|git[[:space:]]+grep)([[:space:]]|$) ]]; then
         cc_state_mark_path searches "$command"
       fi
-      if [[ "$command" =~ (typecheck|lint|test|build|pytest|ruff|mypy|cargo[[:space:]]+(test|clippy|build)|curl|playwright|browser) ]]; then
+      if cc_command_is_quality_verification "$command"; then
         cc_state_append_value verificationRuns "$command"
+        cc_state_append_value qualityRuns "$command"
+      fi
+      if cc_command_is_test_verification "$command"; then
+        cc_state_append_value testRuns "$command"
+      fi
+      if cc_command_is_browser_verification "$command"; then
+        cc_state_append_value browserRuns "$command"
+      fi
+      if cc_command_is_review_verification "$command"; then
+        cc_state_append_value reviewRuns "$command"
       fi
       ;;
     Edit|Write|MultiEdit)
-      cc_state_mark_path edits "$(cc_abs_path "$path" "$cwd")"
+      local local_abs count
+      local_abs="$(cc_abs_path "$path" "$cwd")"
+      cc_state_mark_path edits "$local_abs"
+      count="$(cc_state_increment_path editCounts "$local_abs")"
+      if (( count >= 3 )); then
+        cc_state_mark_path repeatedEditFiles "$local_abs"
+        cc_state_append_value reviewTriggers "repeated edits: $local_abs"
+        if command -v node >/dev/null 2>&1 && [[ -f "$SCRIPT_DIR/../scripts/project-buglog.mjs" ]]; then
+          node "$SCRIPT_DIR/../scripts/project-buglog.mjs" record \
+            --cwd "$cwd" \
+            --file "$local_abs" \
+            --category repeat-edit \
+            --summary "This file was edited repeatedly in one session; check the previous failed approach before patching again." \
+            --session "$(cc_session_id)" >/dev/null
+        fi
+      fi
       ;;
     Skill)
       cc_state_append_value skillCalls "$path"
@@ -74,11 +101,14 @@ fi
 
 state="$(cc_state_read)"
 warnings=()
-if jq -e '(.edits | length) > 0 and ((.verificationRuns | length) == 0)' <<<"$state" >/dev/null; then
-  warnings+=("Verification is stale or missing after edits.")
+if jq -e '(.edits | length) > 0 and ((.qualityRuns | length) == 0)' <<<"$state" >/dev/null; then
+  warnings+=("Quality verification is stale or missing after edits.")
 fi
 if jq -e '(.requestedSkills | length) > 0 and ((.skillCalls | length) == 0)' <<<"$state" >/dev/null; then
   warnings+=("A requested skill has not been recorded yet.")
+fi
+if jq -e '((.repeatedEditFiles // {}) | length) > 0' <<<"$state" >/dev/null; then
+  warnings+=("Repeated edits detected; bug memory has been updated and a second-pass review may be required.")
 fi
 
 if (( ${#warnings[@]} > 0 )); then

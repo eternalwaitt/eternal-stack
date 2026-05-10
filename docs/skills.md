@@ -7,7 +7,7 @@ Claude Code personal and project skills use hyphenated command names. If this co
 | Command | Invocation | Purpose |
 | --- | --- | --- |
 | `/etrnl-agent-files` | Model or user | Maintains AGENTS.md, CLAUDE.md, rules, and agent instruction files without bloat. |
-| `/etrnl-autoplan` | Model or user | Creates execution-ready plans with task groups, subagent candidates, verification gates, and question policy. |
+| `/etrnl-autoplan` | Model or user | Creates readiness-compatible execution plans with task groups, subagent candidates, verification gates, and question policy. |
 | `/etrnl-brainstorm` | Model or user | Turns ambiguous ideas into approved design/spec files before implementation planning. |
 | `/etrnl-code-health` | Model or user | Runs the canonical code-health router: inventory, Health Stack, deterministic gates, companion audits, ledger, and no-skips closure. |
 | `/etrnl-context-save` | User or model | Saves concise resumable workflow state without storing transcripts or credentials. |
@@ -16,7 +16,7 @@ Claude Code personal and project skills use hyphenated command names. If this co
 | `/etrnl-commit` | User only | Reviews, verifies, stages, and commits relevant work. |
 | `/etrnl-deps` | User only | Handles targeted dependency maintenance with migration checks. |
 | `/etrnl-stress-test` | Model or user | Stress-tests architecture, rollout, migration, automation, and safety assumptions. |
-| `/etrnl-execute` | User only | Executes an approved implementation plan end to end with run ledger, bounded subagents, reviews, and verification. |
+| `/etrnl-execute` | User only | Executes an approved readiness-checked implementation plan end to end with run ledger, bounded subagents, reviews, and verification. |
 | `/etrnl-fix-issue` | User only | Reproduces and fixes tracked issues with focused verification. |
 | `/etrnl-parallel` | User only | Thin explicit fanout helper; `/etrnl-execute` owns normal plan orchestration. |
 | `/etrnl-pr` | User only | Prepares or updates pull requests with verification evidence. |

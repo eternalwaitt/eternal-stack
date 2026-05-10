@@ -62,6 +62,8 @@ Run the review gauntlet before finalizing the plan:
    - `review-log.jsonl` when review findings are created
    - `browser-qa-report.json` when UI/browser behavior changes
    - context-save when work is long-running or likely to be resumed
+10. The final plan must pass `node ~/.claude/scripts/plan-readiness-check.mjs <plan-path>` before `/etrnl-execute` starts.
+    Use the exact readiness-compatible headings in the Output section. Do not leave `TODO`, `TBD`, "handle edge cases", "wire it up", or "similar to above" in the plan.
 
 ## Task Packet Drafting
 
@@ -84,15 +86,38 @@ For each subagent candidate, include:
 
 ## Output
 
-Return a single implementation plan with:
+Return or save a single implementation plan with this readiness-compatible shape:
 
-- Summary
-- Task groups
-- Subagent candidates
-- Verification gates
-- Failure modes and rollback
-- Autoplan decision log
-- Artifact requirements
-- Assumptions
+- `Status: Final`
+- `Goal:`
+- `Evidence:`
+- `Non-goals:`
+- `## What already exists`
+- `## NOT in scope`
+- `## File map`
+- `## Task groups`
+- `## Phases`
+- `## Skill/tool routing`
+- `## Test plan`
+- `## Failure modes`
+- `## Parallelization strategy`
+- `## Verification gates`
+- `## Rollback`
+- `## Execution handoff`
+- `## Autoplan decision log`
+- `## Artifact requirements`
+- `## Assumptions`
+- `## Plan Readiness Report`
+
+The Plan Readiness Report must explicitly cover:
+
+- Scope Challenge
+- Architecture Review
+- Code Quality Review
+- Test Review
+- Performance Review
+- Failure modes
+- Parallelization
+- Verdict
 
 Do not ask whether to execute. The user can invoke `/etrnl-execute` after approving the plan.

@@ -13,14 +13,17 @@ Execute an approved plan end to end. Create a local run ledger, fan out bounded 
 
 1. Read the full plan file.
 2. Inspect current git status and note unrelated local changes.
-3. Start a ledger when the helper is installed:
+3. Before any edit, run the readiness checker directly:
+   - `node ~/.claude/scripts/plan-readiness-check.mjs <plan-path>`
+   - Do not probe helper availability with `--help`, pipes, `head`, or other legacy shell commands.
+   - If the readiness check fails or a hook blocks the command, stop and report the blocker. Do not continue into implementation.
+4. Start a ledger when the helper is installed:
    - `node ~/.claude/scripts/execution-ledger.mjs init --plan <plan-path> --session "$CLAUDE_SESSION_ID"`
    - Record task progress with `node ~/.claude/scripts/execution-ledger.mjs set-task --task <id> --status <status> --session "$CLAUDE_SESSION_ID"`.
    - Require planned artifacts with `node ~/.claude/scripts/execution-ledger.mjs require-artifact --type <artifact-type> --session "$CLAUDE_SESSION_ID"`.
    - Keep the printed path in working notes and update it as tasks/checks complete when practical.
-4. Extract phases, task groups, verification gates, rollback steps, explicit stop conditions, dependencies, and write ownership.
-4. Critically review the plan before editing:
-   - Run `node ~/.claude/scripts/plan-readiness-check.mjs <plan-path>` when the checker is installed.
+5. Extract phases, task groups, verification gates, rollback steps, explicit stop conditions, dependencies, and write ownership.
+6. Critically review the plan before editing:
    - If it has missing files, vague steps, unsafe actions, or impossible verification, stop and report the blockers.
    - If non-trivial work lacks "What already exists", "NOT in scope", test coverage, failure modes, rollout/rollback, or parallelization/conflict notes, stop and patch the plan before editing code.
    - If it is executable, create a todo/checklist from the plan.

@@ -16,6 +16,7 @@ for agent in etrnl-adversary etrnl-browser-qa etrnl-design-reviewer etrnl-dx-rev
 done
 assert_executable "installed execution ledger helper" "$CLAUDE_HOME/scripts/execution-ledger.mjs"
 assert_executable "installed review log helper" "$CLAUDE_HOME/scripts/review-log.mjs"
+assert_executable "installed project buglog helper" "$CLAUDE_HOME/scripts/project-buglog.mjs"
 assert_executable "installed browser QA helper" "$CLAUDE_HOME/scripts/browser-qa-report.mjs"
 assert_executable "installed context helper" "$CLAUDE_HOME/scripts/context-state.mjs"
 assert_executable "installed wave helper" "$CLAUDE_HOME/scripts/execution-wave-check.mjs"

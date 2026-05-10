@@ -12,6 +12,8 @@ source "$SCRIPT_DIR/lib/json.sh"
 source "$SCRIPT_DIR/lib/state.sh"
 # shellcheck source=hooks/lib/code-patterns.sh
 source "$SCRIPT_DIR/lib/code-patterns.sh"
+# shellcheck source=hooks/lib/paths.sh
+source "$SCRIPT_DIR/lib/paths.sh"
 
 cc_json_read_stdin
 cc_json_require_jq || exit 0
@@ -25,6 +27,7 @@ fi
 message="$(cc_json_get '.last_assistant_message // .message // .response')"
 message_lower="$(printf '%s' "$message" | tr '[:upper:]' '[:lower:]')"
 state="$(cc_state_read)"
+cwd="$(cc_project_cwd)"
 if violation="$(cc_evidence_discipline_violation "$message")"; then
   cc_state_append_value evidenceDisciplineViolations "$violation"
   python3 "$SCRIPT_DIR/cc-hindsight-lesson.py" >/dev/null 2>&1 &
@@ -73,10 +76,18 @@ if [[ "$claims_done" == "true" ]]; then
     exit 0
   fi
   # Current state stores edits as path -> timestamp; older state may use {at}.
-  timestamp_status="$(printf '%s' "$state" | python3 -c '
+  timestamp_status="$(printf '%s' "$state" | CLAUDE_GUARD_CWD="$cwd" python3 -c '
 import json
+import os
+import re
 import sys
 from datetime import datetime, timezone
+
+quality_re = re.compile(r"(^|[\s;&|])(tsc|eslint|oxlint|biome|prettier|typecheck|lint|test|build|pytest|ruff|mypy|pyright|cargo\s+(test|clippy|build|check)|go\s+(test|vet)|composer\s+test)([\s;&|]|$)|(pnpm|npm|yarn|bun)\s+(run\s+)?(typecheck|lint|test|build|check)([\s;&|]|$)", re.I)
+test_re = re.compile(r"(^|[\s;&|])(test|pytest|vitest|jest|mocha|ava|tap|cargo\s+test|go\s+test|composer\s+test)([\s;&|]|$)|(pnpm|npm|yarn|bun)\s+(run\s+)?test([\s;&|]|$)", re.I)
+source_re = re.compile(r"\.(js|jsx|ts|tsx|mjs|cjs|py|rs|go|php|rb|java|kt|swift|sh|bash|zsh)$", re.I)
+test_path_re = re.compile(r"(\.test\.|\.spec\.|/tests?/|__tests__)", re.I)
+exempt_re = re.compile(r"(/(node_modules|dist|build|coverage|\.next|generated|__generated__|migrations)/|\.md$)", re.I)
 
 def parse_ts(value):
     if value in (None, ""):
@@ -89,25 +100,82 @@ def parse_ts(value):
         parsed = parsed.replace(tzinfo=timezone.utc)
     return parsed.timestamp()
 
+def latest_run(items):
+    values = []
+    for item in items:
+        epoch = parse_ts(item.get("at") if isinstance(item, dict) else None)
+        if epoch is not None:
+            values.append(epoch)
+    return max(values, default=0)
+
+def classified_runs(state, bucket, pattern):
+    runs = list(state.get(bucket) or [])
+    if runs:
+        return runs
+    return [item for item in state.get("verificationRuns") or [] if pattern.search(str(item.get("value") or ""))]
+
+def project_has_tests(cwd):
+    if not cwd or not os.path.isdir(cwd):
+        return False
+    if os.path.isdir(os.path.join(cwd, "tests")):
+        return True
+    seen = 0
+    for root, dirs, files in os.walk(cwd):
+        dirs[:] = [item for item in dirs if item not in {".git", "node_modules", "dist", "build", "coverage", ".next"}]
+        for name in files:
+            seen += 1
+            if test_path_re.search(f"{root}/{name}"):
+                return True
+            if seen > 2000:
+                return False
+    return False
+
 try:
     state = json.load(sys.stdin)
     edits = []
-    for value in (state.get("edits") or {}).values():
+    source_edits = []
+    non_test_source_edits = []
+    test_edits = []
+    for path, value in (state.get("edits") or {}).items():
         stamp = value.get("at") if isinstance(value, dict) else value
         epoch = parse_ts(stamp)
-        if epoch is not None:
-            edits.append(epoch)
+        if epoch is None:
+            continue
+        edits.append(epoch)
+        normalized = str(path).replace("\\", "/")
+        if source_re.search(normalized) and not exempt_re.search(normalized):
+            source_edits.append(epoch)
+            if test_path_re.search(normalized):
+                test_edits.append(epoch)
+            else:
+                non_test_source_edits.append(epoch)
     verifies = []
-    for item in state.get("verificationRuns") or []:
-        epoch = parse_ts(item.get("at") if isinstance(item, dict) else None)
-        if epoch is not None:
-            verifies.append(epoch)
+    for bucket in ("verificationRuns", "qualityRuns", "testRuns", "browserRuns"):
+        for item in state.get(bucket) or []:
+            epoch = parse_ts(item.get("at") if isinstance(item, dict) else None)
+            if epoch is not None:
+                verifies.append(epoch)
 except Exception as exc:
     print(f"malformed:{exc}")
 else:
     latest_edit = max(edits, default=0)
     latest_verify = max(verifies, default=0)
-    print("stale" if latest_edit and latest_verify and latest_edit > latest_verify else "fresh")
+    latest_source_edit = max(source_edits, default=0)
+    latest_non_test_source_edit = max(non_test_source_edits, default=0)
+    latest_test_edit = max(test_edits, default=0)
+    latest_quality = latest_run(classified_runs(state, "qualityRuns", quality_re))
+    latest_test = latest_run(classified_runs(state, "testRuns", test_re))
+    cwd = os.environ.get("CLAUDE_GUARD_CWD", "")
+    if latest_edit and (not latest_verify or latest_edit > latest_verify):
+        print("stale")
+    elif latest_source_edit and latest_quality <= latest_source_edit:
+        print("missing-quality")
+    elif latest_test_edit and latest_test <= latest_test_edit:
+        print("missing-tests")
+    elif latest_non_test_source_edit and project_has_tests(cwd) and latest_test <= latest_non_test_source_edit:
+        print("missing-tests")
+    else:
+        print("fresh")
 ')"
   if [[ "$timestamp_status" == malformed:* ]]; then
     cc_json_block "Guard state contains malformed verification timestamps. Re-run the project preflight so stale-verification checks can compare ISO timestamps safely."
@@ -117,11 +185,40 @@ else:
     cc_json_block "You are trying to claim completion with stale verification. Edits happened after the last recorded verification. Re-run the project preflight or the plan's final verification gate, then answer with evidence."
     exit 0
   fi
+  if [[ "$timestamp_status" == "missing-quality" ]]; then
+    cc_json_block "You are trying to claim completion without real quality verification after source edits. Run the relevant lint, typecheck, test, or build command; browser/curl checks alone do not prove code quality."
+    exit 0
+  fi
+  if [[ "$timestamp_status" == "missing-tests" ]]; then
+    cc_json_block "You are trying to claim completion without a real test run after source or test edits. Run the relevant test command, or state the exact technical blocker."
+    exit 0
+  fi
   if jq -e "$NORM_JQ"'
     ([.requestedSkills[]?.value // empty | norm] - [.skillCalls[]?.value // empty | norm]) | length > 0
   ' <<<"$state" >/dev/null; then
     cc_json_block "A requested skill was not recorded. Invoke it or explicitly state why it is unavailable before claiming completion."
     exit 0
+  fi
+  if jq -e '
+    def source_edit_count:
+      (.edits // {})
+      | to_entries
+      | map(select(.key | test("\\.(js|jsx|ts|tsx|mjs|cjs|py|rs|go|php|rb|java|kt|swift|sh|bash|zsh)$"; "i")))
+      | map(select(.key | test("(\\.test\\.|\\.spec\\.|/tests?/|__tests__|/node_modules/|/dist/|/build/|/coverage/|/generated/|/__generated__/|/migrations/)"; "i") | not))
+      | length;
+    (((.reviewTriggers // []) | length) > 0)
+      or (((.largeEdits // []) | length) > 0)
+      or (((.newSourceFiles // {}) | length) >= 2)
+      or (((.repeatedEditFiles // {}) | length) > 0)
+      or (source_edit_count >= 3)
+  ' <<<"$state" >/dev/null; then
+    if ! jq -e '
+      ([.reviewRuns[]?.value // empty, .verificationRuns[]?.value // empty, .skillCalls[]?.value // empty] | map(ascii_downcase))
+      | any(test("etrnl-review|code[ -]?review|review-log|coderabbit|adversarial|redline|second[ -]?pass|stress-test"))
+    ' <<<"$state" >/dev/null; then
+      cc_json_block "This change is large or risky enough to need a second-pass review before completion. Run etrnl-review, CodeRabbit, an adversarial/stress review, or record a review-log artifact."
+      exit 0
+    fi
   fi
 fi
 

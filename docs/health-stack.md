@@ -12,7 +12,7 @@ tests/test-install.sh
 scripts/doctor.sh
 fd -t f -e sh . hooks scripts tests -x bash -n
 fd -t f -e sh . hooks scripts tests -X shellcheck -x
-node --check scripts/merge-settings.mjs scripts/code-health-inventory.mjs scripts/plan-readiness-check.mjs scripts/agent-task-packet-check.mjs scripts/execution-ledger.mjs scripts/execution-wave-check.mjs scripts/review-log.mjs scripts/browser-qa-report.mjs scripts/context-state.mjs scripts/workflow-health.mjs scripts/prompt-budget-check.mjs scripts/changelog-release-check.mjs scripts/port-guard.mjs hooks/lib/complexity-check.mjs
+node --check scripts/merge-settings.mjs scripts/code-health-inventory.mjs scripts/plan-readiness-check.mjs scripts/agent-task-packet-check.mjs scripts/execution-ledger.mjs scripts/execution-wave-check.mjs scripts/review-log.mjs scripts/project-buglog.mjs scripts/browser-qa-report.mjs scripts/context-state.mjs scripts/workflow-health.mjs scripts/prompt-budget-check.mjs scripts/changelog-release-check.mjs scripts/port-guard.mjs hooks/lib/complexity-check.mjs
 jq empty templates/settings.json templates/settings.strict.json hooks/fixtures/events/*.json
 git diff --check  # use `rtk git diff --check` when local hooks require RTK
 ```
@@ -24,6 +24,7 @@ node scripts/workflow-health.mjs
 node scripts/prompt-budget-check.mjs .
 node scripts/prompt-budget-check.mjs ~/.claude --owned-only
 node scripts/review-log.mjs summary
+node scripts/project-buglog.mjs validate
 node scripts/browser-qa-report.mjs summary
 node scripts/context-state.mjs list
 ```

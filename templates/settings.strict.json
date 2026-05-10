@@ -52,6 +52,11 @@
             "type": "command",
             "command": "bash ~/.claude/hooks/cc-posttooluse-sycophancy.sh",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/cc-posttooluse-quality.sh",
+            "timeout": 10
           }
         ]
       }

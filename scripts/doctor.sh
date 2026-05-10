@@ -86,7 +86,7 @@ if [[ -f "$ROOT/scripts/plan-readiness-check.mjs" ]]; then
 else
   fail "plan readiness script missing"
 fi
-for script in agent-task-packet-check execution-ledger execution-wave-check review-log browser-qa-report context-state workflow-health prompt-budget-check changelog-release-check port-guard; do
+for script in agent-task-packet-check execution-ledger execution-wave-check review-log project-buglog browser-qa-report context-state workflow-health prompt-budget-check changelog-release-check port-guard; do
   if [[ -f "$ROOT/scripts/$script.mjs" ]]; then
     report_command "$script syntax valid" "$script syntax invalid" node --check "$ROOT/scripts/$script.mjs"
   else

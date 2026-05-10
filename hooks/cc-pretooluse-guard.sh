@@ -214,13 +214,25 @@ handle_bash() {
 }
 
 handle_edit() {
-  local file_path abs text violation tmp
+  local file_path abs text old_text violation tmp context is_new_source new_count bug_context
   file_path="$(cc_json_get '.tool_input.file_path')"
   abs="$(cc_abs_path "$file_path" "$cwd")"
   text="$(cc_extract_edit_text)"
+  old_text="$(cc_extract_old_edit_text)"
+  context=""
+  is_new_source=false
 
   if violation="$(cc_policy_violation "$text")"; then
     deny "$violation"
+  fi
+  if [[ -n "$abs" && "$tool_name" == "Write" && -f "$abs" ]]; then
+    old_text="$(<"$abs")"
+  fi
+  if violation="$(cc_safety_removal_violation "$old_text" "$text")"; then
+    deny "$violation"
+  fi
+  if violation="$(cc_test_quality_violation "$text" "$abs")"; then
+    deny "Test-quality violation. $violation"
   fi
 
   if [[ -n "$abs" ]] && cc_is_source_path "$abs" && ! cc_is_exempt_path "$abs"; then
@@ -233,8 +245,31 @@ handle_edit() {
     if [[ "$tool_name" == "Write" && ! -e "$abs" ]] && ! cc_state_has_search; then
       deny "Search for reusable components/helpers before creating a new source file."
     fi
+    if [[ "$tool_name" == "Write" && ! -e "$abs" ]]; then
+      new_count="$(jq '(.newSourceFiles // {}) | length' "$(cc_state_file)" 2>/dev/null || printf '0\n')"
+      if (( new_count >= 3 )); then
+        deny "File-sprawl violation. This session is creating too many new source files. Reuse existing files, split the plan, or run a second-pass review before continuing."
+      fi
+      is_new_source=true
+    fi
     if cc_domain_sensitive_path "$abs" && ! cc_domain_skill_seen; then
       deny "This path touches domain-sensitive code. Invoke eternal-best-practices or the relevant domain skill before editing auth, tenant, money, payment, i18n, Prisma, permissions, or soft-delete surfaces."
+    fi
+    if command -v node >/dev/null 2>&1 && [[ -f "$SCRIPT_DIR/../scripts/project-buglog.mjs" ]]; then
+      if ! bug_context="$(node "$SCRIPT_DIR/../scripts/project-buglog.mjs" suggest --cwd "$cwd" --file "$abs" 2>&1)"; then
+        deny "Project bug memory is malformed or unreadable: $bug_context"
+      fi
+      if [[ -n "$bug_context" ]]; then
+        context="$bug_context"
+      fi
+    fi
+  fi
+
+  if [[ -n "$text" && -n "$abs" ]] && cc_is_source_path "$abs" && ! cc_is_exempt_path "$abs"; then
+    if violation="$(cc_large_change_violation "$old_text" "$text" "$tool_name")"; then
+      cc_state_append_value largeEdits "$abs"
+      cc_state_append_value reviewTriggers "large edit: $abs"
+      deny "$violation"
     fi
   fi
 
@@ -246,7 +281,14 @@ handle_edit() {
     fi
   fi
 
-  cc_json_allow
+  if [[ "$is_new_source" == "true" ]]; then
+    cc_state_mark_path newSourceFiles "$abs"
+  fi
+  if [[ -n "$context" ]]; then
+    cc_json_allow_context "PreToolUse" "$context"
+  else
+    cc_json_allow
+  fi
 }
 
 handle_websearch() {

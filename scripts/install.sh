@@ -125,6 +125,7 @@ cp -- "$ROOT/scripts/agent-task-packet-check.mjs" "$TARGET/scripts/agent-task-pa
 cp -- "$ROOT/scripts/execution-ledger.mjs" "$TARGET/scripts/execution-ledger.mjs"
 cp -- "$ROOT/scripts/execution-wave-check.mjs" "$TARGET/scripts/execution-wave-check.mjs"
 cp -- "$ROOT/scripts/review-log.mjs" "$TARGET/scripts/review-log.mjs"
+cp -- "$ROOT/scripts/project-buglog.mjs" "$TARGET/scripts/project-buglog.mjs"
 cp -- "$ROOT/scripts/browser-qa-report.mjs" "$TARGET/scripts/browser-qa-report.mjs"
 cp -- "$ROOT/scripts/context-state.mjs" "$TARGET/scripts/context-state.mjs"
 cp -- "$ROOT/scripts/workflow-health.mjs" "$TARGET/scripts/workflow-health.mjs"

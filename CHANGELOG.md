@@ -4,6 +4,9 @@
 
 ## v0.1.7 - 2026-05-10
 
+- Add strict quality gates for real post-edit verification, test weakening, safety-removal edits, full-file complexity, file sprawl, repeated-edit bug memory, and second-pass review triggers.
+- Block ownership-deflection language such as "pre-existing issue", "not from my changes", and "out of scope" when agents should fix or precisely block issues found during the work.
+- Make `/etrnl-autoplan` emit plans that match `plan-readiness-check.mjs`, and make `/etrnl-execute` run that checker directly before edits.
 - Add Agent-OS execution support: local run ledger helpers, workflow health summaries, structured subagent task-packet validation, and `SubagentStop` recording.
 - Install repo-owned `etrnl-*` agents by default and include rollback/doctor coverage for them.
 - Add `/etrnl-autoplan` and upgrade `/etrnl-execute` with no-pause execution, task-packet fanout, reviewer roles, and ledger checks.

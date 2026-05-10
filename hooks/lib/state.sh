@@ -34,7 +34,16 @@ cc_state_default() {
     evidenceChallenges: [],
     evidenceDisciplineViolations: [],
     verificationRuns: [],
+    qualityRuns: [],
+    testRuns: [],
+    browserRuns: [],
+    reviewRuns: [],
     newFileSearches: [],
+    newSourceFiles: {},
+    editCounts: {},
+    largeEdits: [],
+    repeatedEditFiles: {},
+    reviewTriggers: [],
     lastPrompt: "",
     lastCompactSummary: "",
     cwd: "",
@@ -113,7 +122,15 @@ cc_state_mark_path() {
   local now
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   cc_state_update --arg bucket "$bucket" --arg path "$path" --arg now "$now" \
-    ".[\$bucket][\$path] = \$now | .[\$bucket] |= with_entries(select(.key != \"\"))"
+    ".[\$bucket] = (.[\$bucket] // {}) | .[\$bucket][\$path] = \$now | .[\$bucket] |= with_entries(select(.key != \"\"))"
+}
+
+cc_state_increment_path() {
+  local bucket="$1"
+  local path="$2"
+  cc_state_update --arg bucket "$bucket" --arg path "$path" \
+    ".[\$bucket] = (.[\$bucket] // {}) | .[\$bucket][\$path] = ((.[\$bucket][\$path] // 0) + 1)"
+  jq -r --arg bucket "$bucket" --arg path "$path" '.[$bucket][$path] // 0' "$(cc_state_file)" 2>/dev/null || printf '0\n'
 }
 
 cc_state_append_command() {
@@ -130,7 +147,7 @@ cc_state_append_value() {
   local now
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   cc_state_update --arg bucket "$bucket" --arg value "$value" --arg now "$now" \
-    ".[\$bucket] += [{value: \$value, at: \$now}] | .[\$bucket] = (.[\$bucket][-200:] // [])"
+    ".[\$bucket] = ((.[\$bucket] // []) + [{value: \$value, at: \$now}]) | .[\$bucket] = (.[\$bucket][-200:] // [])"
 }
 
 cc_state_count_command() {
