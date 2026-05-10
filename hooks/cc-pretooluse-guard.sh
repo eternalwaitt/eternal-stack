@@ -11,6 +11,7 @@ source "$SCRIPT_DIR/lib/json.sh"
 source "$SCRIPT_DIR/lib/state.sh"
 source "$SCRIPT_DIR/lib/paths.sh"
 source "$SCRIPT_DIR/lib/code-patterns.sh"
+source "$SCRIPT_DIR/../scripts/lib/skill-lists.sh"
 
 fail_open() {
   printf 'claude-guard warning: %s; allowing tool call\n' "$1" >&2
@@ -48,6 +49,20 @@ record_evidence_discipline_violation() {
   local violation="$1"
   cc_state_append_value evidenceDisciplineViolations "$violation"
   python3 "$SCRIPT_DIR/cc-hindsight-lesson.py" >/dev/null 2>&1 &
+}
+
+cc_domain_sensitive_path() {
+  local path="$1"
+  local lower
+  lower="$(printf '%s' "$path" | tr '[:upper:]' '[:lower:]')"
+  [[ "$lower" =~ (tenant|billing|payment|stripe|abacate|auth|permission|role|i18n|locale|prisma|schema\.prisma|middleware|money|finance|soft-delete|deleted-at) ]]
+}
+
+cc_domain_skill_seen() {
+  jq -e --arg pattern "$DOMAIN_COMPANION_SKILL_PATTERN" '
+    [.skillCalls[]?.value | ascii_downcase]
+    | any(test($pattern))
+  ' "$(cc_state_file)" >/dev/null 2>&1
 }
 
 block_evidence_discipline_before_tool() {
@@ -102,7 +117,7 @@ handle_bash() {
     deny "This exact command has already run twice in this session. Diagnose the failure or try a different approach before repeating it."
   fi
   if command_is_email_send "$cmd"; then
-    deny "Email sending is blocked until a draft has been shown to Victor and explicit approval is recorded."
+    deny "Email sending is blocked until a draft has been shown to the user and explicit approval is recorded."
   fi
   if command_is_gws_write "$cmd" && ! jq -e '.verificationRuns[]? | .value | test("gws.*(account|whoami|help)|gmail.*(account|whoami|help)|drive.*(account|whoami|help)")' "$(cc_state_file)" >/dev/null 2>&1; then
     deny "Google Workspace write actions require an account/help check first."
@@ -115,7 +130,7 @@ handle_bash() {
 
 handle_edit() {
   local file_path abs text violation tmp
-  file_path="$(cc_json_get '.tool_input.file_path // .tool_input.path')"
+  file_path="$(cc_json_get '.tool_input.file_path')"
   abs="$(cc_abs_path "$file_path" "$cwd")"
   text="$(cc_extract_edit_text)"
 
@@ -132,6 +147,9 @@ handle_edit() {
     fi
     if [[ "$tool_name" == "Write" && ! -e "$abs" ]] && ! cc_state_has_search; then
       deny "Search for reusable components/helpers before creating a new source file."
+    fi
+    if cc_domain_sensitive_path "$abs" && ! cc_domain_skill_seen; then
+      deny "This path touches domain-sensitive code. Invoke eternal-best-practices or the relevant domain skill before editing auth, tenant, money, payment, i18n, Prisma, permissions, or soft-delete surfaces."
     fi
   fi
 

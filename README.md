@@ -12,6 +12,9 @@ It enforces the work habits that prose cannot reliably enforce:
 - enforce evidence before agreement when the user challenges a claim
 - keep side-effect workflows user-invoked
 - preserve rollback and diagnostics before stricter rollout
+- namespace repo-owned skills as `etrnl-*`
+- keep companion review skills mapped without pretending this repo owns them
+- run whole-codebase health through a deterministic inventory and findings ledger
 
 ## Install
 
@@ -22,7 +25,8 @@ cd claude-control-plane
 ./scripts/doctor.sh
 ```
 
-The installer backs up the existing `~/.claude`, copies hooks and skills, and merges only the safe observer layer by default.
+The installer backs up `~/.claude`, copies control-plane assets, and merges the safe observer layer by default.
+See [docs/install.md](docs/install.md) for full install/update behavior, including `CLAUDE_CONTROL_PLANE_INSTALL_STARTUP`, `AGENTS.md`/`CLAUDE.md`, `docs/skills.md`, `etrnl-*` migration, and companion skill mapping.
 
 Hard blockers are shipped but not enabled automatically. Enable them after tests, doctor, rollback, and a fresh Claude smoke pass.
 
@@ -35,7 +39,10 @@ Hard blockers are shipped but not enabled automatically. Enable them after tests
 ./scripts/canary-websearch.sh
 ./scripts/canary-hindsight.sh
 tests/test-hooks.sh
+node scripts/code-health-inventory.mjs
 ```
+
+Use `docs/control-plane-coverage.md` to compare the repo against the original implementation plan and identify live-gated operations.
 
 ## Safety
 

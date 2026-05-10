@@ -18,7 +18,7 @@ BANK_ID = "claude-control-plane"
 
 LESSON = """Control-plane behavior lesson: evidence before agreement.
 
-When Victor challenges a claim, do not begin with agreement language like "You're right",
+When the user challenges a claim, do not begin with agreement language like "You're right",
 "good catch", "exactly", or an apology followed by "let me check".
 
 Required response shape:

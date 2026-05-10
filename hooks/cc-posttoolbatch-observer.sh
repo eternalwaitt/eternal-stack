@@ -18,7 +18,8 @@ cc_state_init
 cwd="$(cc_project_cwd)"
 tool_name="$(cc_json_get '.tool_name // .toolName // .tool')"
 cmd="$(cc_json_get '.tool_input.command // .input.command // .command')"
-file_path="$(cc_json_get '.tool_input.file_path // .tool_input.path')"
+file_path="$(cc_json_get '.tool_input.file_path')"
+skill_name="$(cc_json_get '.tool_input.name // .tool_input.skill // .command_name')"
 
 record_tool() {
   local name="$1"
@@ -52,12 +53,20 @@ record_tool() {
 if jq -e '.tool_calls or .toolCalls or .batch' <<<"$HOOK_INPUT" >/dev/null 2>&1; then
   jq -c '(.tool_calls // .toolCalls // .batch // [])[]' <<<"$HOOK_INPUT" | while IFS= read -r item; do
     name="$(jq -r '.tool_name // .toolName // .tool // empty' <<<"$item")"
-    path="$(jq -r '.tool_input.file_path // .tool_input.path // .tool_input.name // empty' <<<"$item")"
+    if [[ "$name" == "Skill" ]]; then
+      path="$(jq -r '.tool_input.name // .tool_input.skill // empty' <<<"$item")"
+    else
+      path="$(jq -r '.tool_input.file_path // empty' <<<"$item")"
+    fi
     command="$(jq -r '.tool_input.command // empty' <<<"$item")"
     record_tool "$name" "$path" "$command"
   done
 else
-  record_tool "$tool_name" "$file_path" "$cmd"
+  if [[ "$tool_name" == "Skill" ]]; then
+    record_tool "$tool_name" "$skill_name" "$cmd"
+  else
+    record_tool "$tool_name" "$file_path" "$cmd"
+  fi
 fi
 
 state="$(cc_state_read)"
@@ -73,4 +82,3 @@ if (( ${#warnings[@]} > 0 )); then
   msg="$(printf '%s\n' "${warnings[@]}" | head -c 1200)"
   cc_json_emit_context "PostToolBatch" "$msg"
 fi
-

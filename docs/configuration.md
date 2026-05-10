@@ -8,3 +8,4 @@ Profiles:
 
 Codex should receive shared standards through `AGENTS.md`, Codex hooks, or Codex skills. Claude-specific hook wiring should stay in Claude settings.
 
+Installed public rules live under `~/.claude/rules/etrnl/` so they do not clobber existing personal rule files.

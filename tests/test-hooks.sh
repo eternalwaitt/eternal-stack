@@ -125,16 +125,41 @@ assert_json_expr "new source without search denied" "$out" '.hookSpecificOutput.
 prompt="$(fixture userpromptsubmit.json)"
 out="$(run_hook cc-userprompt-router.sh "$prompt")"
 assert_json_expr "prompt router emits context" "$out" '.hookSpecificOutput.additionalContext | length > 0'
+assert_contains "prompt router names code review workflow" "$out" "etrnl-review"
 challenge_prompt="$(jq -cn '{session_id:"fixture-challenge-prompt",prompt:"why is Vega saying you are right? I thought we had a hook for this"}')"
 out="$(run_hook cc-userprompt-router.sh "$challenge_prompt")"
 assert_contains "challenge prompt gets evidence protocol" "$out" "Evidence-first correction protocol"
 challenge_state="$TMPROOT/claude-guard-fixture-challenge-prompt.json"
 assert_json_expr "challenge prompt recorded" "$(jq -c . "$challenge_state")" '(.evidenceChallenges | length) == 1'
+plan_prompt="$(jq -cn '{session_id:"fixture-plan-prompt",prompt:"write an implementation plan for this repo"}')"
+out="$(run_hook cc-userprompt-router.sh "$plan_prompt")"
+assert_contains "plan prompt routes writing plans" "$out" "etrnl-plan"
+plan_state="$TMPROOT/claude-guard-fixture-plan-prompt.json"
+assert_json_expr "plan skill recorded" "$(jq -c . "$plan_state")" 'any(.requestedSkills[]?.value; . == "etrnl-plan")'
+health_prompt="$(jq -cn '{session_id:"fixture-health-prompt",prompt:"audit the entire codebase with no skips or loose ends"}')"
+out="$(run_hook cc-userprompt-router.sh "$health_prompt")"
+assert_contains "health prompt routes code health" "$out" "etrnl-code-health"
+health_state="$TMPROOT/claude-guard-fixture-health-prompt.json"
+assert_json_expr "health skill recorded" "$(jq -c . "$health_state")" 'any(.requestedSkills[]?.value; . == "etrnl-code-health")'
 
-skill_json="$(jq -cn '{session_id:"fixture-session",hook_event_name:"UserPromptExpansion",command_name:"code-review"}')"
+skill_json="$(jq -cn '{session_id:"fixture-session",hook_event_name:"UserPromptExpansion",command_name:"etrnl-review"}')"
 run_hook cc-userprompt-expansion.sh "$skill_json" >/dev/null || true
 state_file="$TMPROOT/claude-guard-fixture-session.json"
 assert_json_expr "skill recorded" "$(jq -c . "$state_file")" '(.skillCalls | length) > 0'
+
+mkdir -p "$TMPROOT/example/src/auth"
+printf 'export const auth = true;\n' >"$TMPROOT/example/src/auth/session.ts"
+domain_read="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-domain",tool_name:"Read",cwd:$root,tool_input:{file_path:($root + "/src/auth/session.ts")}}')"
+run_hook cc-posttoolbatch-observer.sh "$domain_read" >/dev/null || true
+domain_search="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-domain",tool_name:"Bash",cwd:$root,tool_input:{command:"rg -n auth src/auth"}}')"
+run_hook cc-posttoolbatch-observer.sh "$domain_search" >/dev/null || true
+domain_edit="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-domain",tool_name:"Edit",cwd:$root,tool_input:{file_path:($root + "/src/auth/session.ts"),new_string:"export const auth = false;"}}')"
+out="$(run_hook cc-pretooluse-guard.sh "$domain_edit")"
+assert_json_expr "domain edit requires companion skill" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+domain_skill="$(jq -cn '{session_id:"fixture-domain",tool_name:"Skill",tool_input:{name:"eternal-best-practices"}}')"
+run_hook cc-posttoolbatch-observer.sh "$domain_skill" >/dev/null || true
+out="$(run_hook cc-pretooluse-guard.sh "$domain_edit")"
+assert_json_expr "domain edit allowed after companion skill" "$out" '.continue == true'
 
 failure_json="$(jq -cn '{session_id:"fixture-session",tool_name:"Bash",tool_input:{command:"bad --flag"},error:"unknown flag"}')"
 out="$(run_hook cc-posttoolusefailure-diagnose.sh "$failure_json")"
@@ -145,6 +170,18 @@ assert_contains "repeated failure pivots" "$out" "repeated"
 stop_json="$(fixture stop.json)"
 out="$(run_hook cc-stop-verifier.sh "$stop_json")"
 assert_json_expr "stop verifier blocks unverified completion" "$out" '.decision == "block"'
+
+stale_state="$TMPROOT/claude-guard-fixture-stale.json"
+jq -nc '{schemaVersion:1,reads:{},searches:{},edits:{"/tmp/a.ts":"2026-01-01T00:00:02Z"},commands:[],failures:[],skillCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],verificationRuns:[{value:"pnpm test",at:"2026-01-01T00:00:01Z"}],newFileSearches:[],lastPrompt:"",lastCompactSummary:"",cwd:"",settingsFingerprint:"",startedAt:""}' >"$stale_state"
+stale_stop="$(jq -cn '{session_id:"fixture-stale",last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$stale_stop")"
+assert_contains "stop verifier blocks stale verification" "$out" "stale verification"
+
+requested_state="$TMPROOT/claude-guard-fixture-requested.json"
+jq -nc '{schemaVersion:1,reads:{},searches:{},edits:{},commands:[],failures:[],skillCalls:[],requestedSkills:[{value:"etrnl-plan",at:"2026-01-01T00:00:00Z"}],evidenceChallenges:[],evidenceDisciplineViolations:[],verificationRuns:[{value:"pnpm test",at:"2026-01-01T00:00:01Z"}],newFileSearches:[],lastPrompt:"",lastCompactSummary:"",cwd:"",settingsFingerprint:"",startedAt:""}' >"$requested_state"
+requested_stop="$(jq -cn '{session_id:"fixture-requested",last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$requested_stop")"
+assert_contains "stop verifier blocks missing requested skill" "$out" "requested skill"
 
 sycophancy_stop="$(jq -cn '{session_id:"fixture-session",last_assistant_message:"You are right - I will check.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$sycophancy_stop")"
@@ -160,6 +197,7 @@ assert_json_expr "precompact allows after save" "$out" '.continue == true'
 session_json="$(jq -cn '{session_id:"fixture-session",hook_event_name:"SessionStart",source:"compact"}')"
 out="$(run_hook cc-sessionstart-restore.sh "$session_json")"
 assert_json_expr "session compact restores context" "$out" '.hookSpecificOutput.additionalContext | test("Compact recovery")'
+assert_contains "session start injects ETRNL skill hint" "$out" "ETRNL skills"
 
 agent_bad="$(jq -cn '{session_id:"fixture-session",tool_name:"Task",tool_input:{prompt:"do stuff"}}')"
 out="$(run_hook cc-pretooluse-guard.sh "$agent_bad")"
@@ -187,6 +225,19 @@ do
 done
 
 node --check "$ROOT/hooks/lib/complexity-check.mjs" >/dev/null && ok "complexity syntax" || not_ok "complexity syntax"
+node --check "$ROOT/scripts/code-health-inventory.mjs" >/dev/null && ok "code-health inventory syntax" || not_ok "code-health inventory syntax"
+node "$ROOT/scripts/code-health-inventory.mjs" --json >/dev/null && ok "code-health inventory runs" || not_ok "code-health inventory runs"
+node --check "$ROOT/scripts/plan-readiness-check.mjs" >/dev/null && ok "plan readiness syntax" || not_ok "plan readiness syntax"
+bad_plan="$TMPROOT/bad-plan.md"
+printf '%s\n' '# Bad Plan' '' 'Status: Final' '' 'Goal: Thin plan.' >"$bad_plan"
+if node "$ROOT/scripts/plan-readiness-check.mjs" "$bad_plan" >/dev/null 2>&1; then
+  not_ok "plan readiness rejects incomplete plan"
+else
+  ok "plan readiness rejects incomplete plan"
+fi
+good_plan="$TMPROOT/good-plan.md"
+cp "$ROOT/hooks/fixtures/plans/good-plan.md" "$good_plan"
+node "$ROOT/scripts/plan-readiness-check.mjs" "$good_plan" >/dev/null && ok "plan readiness accepts complete plan" || not_ok "plan readiness accepts complete plan"
 python3 -m py_compile "$ROOT/hooks/cc-hindsight-lesson.py" && ok "hindsight lesson syntax" || not_ok "hindsight lesson syntax"
 settings_file="$ROOT/settings.json"
 if [[ ! -f "$settings_file" && -f "$ROOT/templates/settings.json" ]]; then

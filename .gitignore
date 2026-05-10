@@ -6,6 +6,7 @@ __pycache__/
 *.orig
 node_modules/
 coverage/
+.serena/
 
 # Never commit private Claude runtime data.
 settings.local.json

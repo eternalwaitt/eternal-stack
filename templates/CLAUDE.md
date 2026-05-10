@@ -1,12 +1,16 @@
 # Claude Code
 
-Use hooks for enforcement, skills for repeatable workflows, and this file only for routing.
+@AGENTS.md
 
-Core rules:
+Use hooks for enforcement, skills for repeatable workflows, and this file only for Claude-specific routing.
 
-- Read before editing existing code.
-- Search before creating new code.
-- Verify before claiming done.
-- Do not hide failures with silent fallbacks.
-- Keep private identity and account details in a private overlay, not this repo.
+Load the namespaced rule files when relevant:
 
+- `@rules/etrnl/workflow.md`
+- `@rules/etrnl/quality.md`
+- `@rules/etrnl/tools.md`
+- `@rules/etrnl/safety.md`
+- `@rules/etrnl/identity.md`
+- `@rules/etrnl/domains.md`
+
+Keep private identity, account details, permissions, transcripts, and memories in a private overlay, such as an encrypted local directory, separate private repo, secrets manager, encrypted bucket, or private DB with access controls.

@@ -2,6 +2,5 @@
   "session_id": "fixture-session",
   "hook_event_name": "UserPromptSubmit",
   "cwd": "/tmp/example",
-  "prompt": "use code-review skill and review this plan"
+  "prompt": "please code review this plan"
 }
-
