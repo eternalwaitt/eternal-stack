@@ -6,7 +6,9 @@ if [[ "${CLAUDE_GUARD_DISABLED:-0}" == "1" ]]; then
 fi
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+# shellcheck source=hooks/lib/json.sh
 source "$SCRIPT_DIR/lib/json.sh"
+# shellcheck source=hooks/lib/state.sh
 source "$SCRIPT_DIR/lib/state.sh"
 
 cc_json_read_stdin
@@ -18,4 +20,3 @@ name="$(cc_json_get '.command_name // .commandName // .skill_name // .skillName 
 if [[ -n "$name" ]]; then
   cc_state_append_value skillCalls "$name"
 fi
-

@@ -79,4 +79,7 @@ LEGACY_SKILLS=(
 )
 
 # Companion/domain-sensitive skills that gate protected edits in hooks.
-DOMAIN_COMPANION_SKILL_PATTERN='eternal-best-practices|domain-|better-auth|tenant-isolation|money-vo-discipline|prisma-expert|i18n-localization|stripe-best-practices|abacatepay-integration'
+DOMAIN_COMPANION_SKILL_PATTERN='^(eternal-best-practices|domain-[a-z0-9_-]+|better-auth|tenant-isolation(-patterns)?|money-vo-discipline|prisma-expert|i18n-localization|stripe-best-practices|abacatepay-integration)$'
+
+# Keep shellcheck aware these sourced constants are intentionally read by callers.
+: "${OWNED_SKILLS[*]}" "${OWNED_AGENTS[*]}" "${LEGACY_SKILLS[*]}" "$DOMAIN_COMPANION_SKILL_PATTERN"

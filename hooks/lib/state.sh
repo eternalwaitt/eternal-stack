@@ -52,7 +52,7 @@ cc_state_init() {
   fi
 }
 
-cc_state_with_lock() {
+cc_state_acquire_lock() {
   local lock
   lock="$(cc_state_lock)"
   local i=0
@@ -64,18 +64,40 @@ cc_state_with_lock() {
     fi
     sleep 0.05
   done
-  trap 'rmdir "${lock:-}" 2>/dev/null || true' RETURN
+  printf '%s\n' "$lock"
+}
+
+cc_state_release_lock() {
+  local lock="$1"
+  if [[ -n "$lock" ]] && ! rmdir "$lock" 2>/dev/null; then
+    printf 'claude-guard warning: failed to release state lock: %s\n' "$lock" >&2
+  fi
 }
 
 cc_state_update() {
-  local file tmp
+  local file lock tmp
   file="$(cc_state_file)"
   cc_state_init
-  cc_state_with_lock || return 0
-  tmp="$(mktemp "${file}.XXXXXX")"
-  jq "$@" "$file" >"$tmp"
-  chmod 600 "$tmp"
-  mv "$tmp" "$file"
+  if ! lock="$(cc_state_acquire_lock)"; then
+    printf 'claude-guard warning: state update skipped due to lock timeout\n' >&2
+    return 1
+  fi
+  if ! tmp="$(mktemp "${file}.XXXXXX")"; then
+    cc_state_release_lock "$lock"
+    return 1
+  fi
+  if jq "$@" "$file" >"$tmp"; then
+    if ! chmod 600 "$tmp" || ! mv -- "$tmp" "$file"; then
+      rm -f -- "$tmp"
+      cc_state_release_lock "$lock"
+      return 1
+    fi
+  else
+    rm -f -- "$tmp"
+    cc_state_release_lock "$lock"
+    return 1
+  fi
+  cc_state_release_lock "$lock"
 }
 
 cc_state_read() {
@@ -91,7 +113,7 @@ cc_state_mark_path() {
   local now
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   cc_state_update --arg bucket "$bucket" --arg path "$path" --arg now "$now" \
-    '.[$bucket][$path] = $now | .[$bucket] |= with_entries(select(.key != ""))'
+    ".[\$bucket][\$path] = \$now | .[\$bucket] |= with_entries(select(.key != \"\"))"
 }
 
 cc_state_append_command() {
@@ -99,7 +121,7 @@ cc_state_append_command() {
   local now
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   cc_state_update --arg cmd "$cmd" --arg now "$now" \
-    '.commands += [{command: $cmd, at: $now}] | .commands = (.commands[-200:] // [])'
+    ".commands += [{command: \$cmd, at: \$now}] | .commands = (.commands[-200:] // [])"
 }
 
 cc_state_append_value() {
@@ -108,7 +130,7 @@ cc_state_append_value() {
   local now
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   cc_state_update --arg bucket "$bucket" --arg value "$value" --arg now "$now" \
-    '.[$bucket] += [{value: $value, at: $now}] | .[$bucket] = (.[$bucket][-200:] // [])'
+    ".[\$bucket] += [{value: \$value, at: \$now}] | .[\$bucket] = (.[\$bucket][-200:] // [])"
 }
 
 cc_state_count_command() {

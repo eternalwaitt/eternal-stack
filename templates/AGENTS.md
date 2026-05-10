@@ -20,8 +20,9 @@ This is the portable, agent-neutral baseline for the control plane. Keep private
 
 ## Workflow
 
-- For unclear work, brainstorm into a saved design/spec before planning.
-- For implementation plans, save the plan to disk, review it, improve it, then mark it final.
-- For execution, default non-trivial work to completeness 10/10, preserve user changes, keep a local run ledger and artifacts when available, use bounded subagents only with structured task packets, check file overlap before parallel work, and continue through mechanical phases without asking the user to continue.
+- When work is unclear, brainstorm into a saved design/spec before planning.
+- Save implementation plans to disk, review them, improve them, then mark them final.
+- During execution, default non-trivial work to completeness 10/10, preserve user changes, keep a local run ledger and artifacts when available, use bounded subagents only with structured task packets, check file overlap before parallel work, and continue through mechanical phases without asking the user to continue.
+- For local dev servers, choose an explicit free port before running the command; do not rely on default 3000/3001 ports.
 - For reviews, lead with findings and exact file or command evidence.
 - For whole-codebase health, inventory every tracked file, run the repo Health Stack, keep a findings ledger, and close every finding with evidence.

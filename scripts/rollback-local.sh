@@ -4,6 +4,7 @@ set -Eeuo pipefail
 ROOT="${CLAUDE_HOME:-$HOME/.claude}"
 BACKUP="${1:-}"
 if [[ -f "$ROOT/scripts/lib/skill-lists.sh" ]]; then
+  # shellcheck source=scripts/lib/skill-lists.sh
   source "$ROOT/scripts/lib/skill-lists.sh"
 else
   OWNED_AGENTS=(etrnl-adversary etrnl-browser-qa etrnl-design-reviewer etrnl-dx-reviewer etrnl-executor etrnl-investigator etrnl-quality-reviewer etrnl-scout etrnl-spec-reviewer)
@@ -38,7 +39,7 @@ fi
 cleanup_restore_temps() {
   local tmp
   for tmp in "${temp_files[@]:-}"; do
-    [[ -n "$tmp" ]] && rm -f "$tmp"
+    [[ -n "$tmp" ]] && rm -f -- "$tmp"
   done
 }
 
@@ -70,7 +71,7 @@ if (( restore_count > 0 )); then
       printf 'Failed to create temp file from template: %s\n' "$template" >&2
       exit 1
     fi
-    if ! cp "$BACKUP/$file" "$tmp"; then
+    if ! cp -- "$BACKUP/$file" "$tmp"; then
         printf 'Failed to restore %s from %s\n' "$file" "$BACKUP" >&2
         exit 1
     fi
@@ -84,11 +85,11 @@ if (( restore_count > 0 )); then
   for i in "${!restore_files[@]}"; do
     file="${restore_files[$i]}"
     tmp="${temp_files[$i]}"
-    if ! mv "$tmp" "$ROOT/$file"; then
+    if ! mv -- "$tmp" "$ROOT/$file"; then
       printf 'Failed to activate restored %s\n' "$file" >&2
       exit 1
     fi
-    temp_files[$i]=""
+    temp_files[i]=""
     restored+=("$file")
     restored_count=$((restored_count + 1))
   done
@@ -97,9 +98,9 @@ trap - EXIT
 
 mkdir -p "$ROOT/agents"
 for agent in "${OWNED_AGENTS[@]}"; do
-  rm -f "$ROOT/agents/$agent.md"
+  rm -f -- "$ROOT/agents/$agent.md"
   if [[ -f "$BACKUP/agents/$agent.md" ]]; then
-    cp "$BACKUP/agents/$agent.md" "$ROOT/agents/$agent.md"
+    cp -- "$BACKUP/agents/$agent.md" "$ROOT/agents/$agent.md"
     restored+=("agents/$agent.md")
     restored_count=$((restored_count + 1))
   fi

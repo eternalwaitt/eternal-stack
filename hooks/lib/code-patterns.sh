@@ -3,8 +3,8 @@
 cc_policy_violations() {
   local text="$1"
   local suppress_re='eslint-disable|oxlint-disable|biome-disable|@ts-ignore'
-  local empty_catch_re='catch[[:space:]]*\{[[:space:]]*\}'
-  local null_catch_re='catch[[:space:]]*\{[[:space:]]*return[[:space:]]+null[[:space:]]*;?[[:space:]]*\}'
+  local empty_catch_re='catch[[:space:]]*(\([[:space:]]*[^)]*[[:space:]]*\)[[:space:]]*)?\{[[:space:]]*\}'
+  local null_catch_re='catch[[:space:]]*(\([[:space:]]*[^)]*[[:space:]]*\)[[:space:]]*)?\{[[:space:]]*return[[:space:]]+null[[:space:]]*;?[[:space:]]*\}'
   local fallback_re='\|\|[[:space:]]*(""|\[\]|\{\})'
   local config_re='strict[[:space:]]*:[[:space:]]*false|skipLibCheck[[:space:]]*:[[:space:]]*true'
   local violations=()

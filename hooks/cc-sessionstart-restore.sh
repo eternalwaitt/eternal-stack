@@ -6,9 +6,13 @@ if [[ "${CLAUDE_GUARD_DISABLED:-0}" == "1" ]]; then
 fi
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+# shellcheck source=hooks/lib/json.sh
 source "$SCRIPT_DIR/lib/json.sh"
+# shellcheck source=hooks/lib/state.sh
 source "$SCRIPT_DIR/lib/state.sh"
+# shellcheck source=hooks/lib/paths.sh
 source "$SCRIPT_DIR/lib/paths.sh"
+# shellcheck source=hooks/lib/skill-hints.sh
 source "$SCRIPT_DIR/lib/skill-hints.sh"
 
 trim_chars() {
@@ -45,7 +49,7 @@ if command -v git >/dev/null 2>&1 && git -C "$cwd" rev-parse --is-inside-work-tr
   branch="$(git -C "$cwd" branch --show-current 2>/dev/null || true)"
   dirty="$(git -C "$cwd" status --porcelain 2>/dev/null | wc -l | xargs)"
 fi
-cc_state_update --arg cwd "$cwd" '.cwd = $cwd'
+cc_state_update --arg cwd "$cwd" ".cwd = \$cwd"
 
 skill_hint="$(get_etrnl_skill_hint)"
 state="$(cc_state_read)"

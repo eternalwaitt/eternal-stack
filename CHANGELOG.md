@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.1.7 - 2026-05-10
+
 - Add Agent-OS execution support: local run ledger helpers, workflow health summaries, structured subagent task-packet validation, and `SubagentStop` recording.
 - Install repo-owned `etrnl-*` agents by default and include rollback/doctor coverage for them.
 - Add `/etrnl-autoplan` and upgrade `/etrnl-execute` with no-pause execution, task-packet fanout, reviewer roles, and ledger checks.
@@ -9,6 +11,13 @@
 - Add installer, ledger, task-packet, and aggregate-complexity test coverage.
 - Upgrade ETRNL to completeness 10/10 defaults with autoplan gauntlet-lite review, wave execution, overlap checks, durable review/browser/context artifacts, and workflow-health artifact summaries.
 - Add repo-owned scout, adversary, design, DX, and browser-QA agent templates plus `/etrnl-qa-browser`, `/etrnl-context-save`, and `/etrnl-context-restore`.
+- Block completion claims when a planned browser/manual QA pass is still outstanding.
+- Add deterministic changelog release hygiene checks to prevent release-branch work from lingering under `Unreleased`.
+- Add port-guard: force local dev servers onto explicit checked ports so agents do not collide with occupied/default ports.
+- Harden script guards for large hook payloads, state-file locking, parameterized silent catches, and dangerous filesystem paths outside the current project or temp dirs.
+- Split workflow-tool coverage out of the hook harness, install source-style tests, exclude Python bytecode from installs, and add source-followed ShellCheck cleanup.
+- Address CodeRabbit follow-up by symlinking installed legacy test entrypoints, guarding harness path helpers, and making changelog validation fail clearly for missing files or malformed semver tags.
+- Finish CodeRabbit hardening for portable hook-input reads, `--json --quiet` inventory output, atomic rule installs, stable skill metadata assertions, and port-guard scan guidance.
 
 ## v0.1.6 - 2026-05-10
 

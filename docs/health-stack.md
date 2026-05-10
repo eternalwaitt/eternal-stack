@@ -5,12 +5,14 @@ Use this stack when running `etrnl-code-health` in this repo.
 ## Required Gates
 
 ```bash
-node scripts/code-health-inventory.mjs --json
+node scripts/code-health-inventory.mjs --json --include-untracked
 tests/test-hooks.sh
+tests/test-workflow-tools.sh
 tests/test-install.sh
 scripts/doctor.sh
-bash -n hooks/*.sh scripts/*.sh tests/*.sh
-node --check scripts/merge-settings.mjs scripts/code-health-inventory.mjs scripts/plan-readiness-check.mjs scripts/agent-task-packet-check.mjs scripts/execution-ledger.mjs scripts/execution-wave-check.mjs scripts/review-log.mjs scripts/browser-qa-report.mjs scripts/context-state.mjs scripts/workflow-health.mjs scripts/prompt-budget-check.mjs hooks/lib/complexity-check.mjs
+fd -t f -e sh . hooks scripts tests -x bash -n
+fd -t f -e sh . hooks scripts tests -X shellcheck -x
+node --check scripts/merge-settings.mjs scripts/code-health-inventory.mjs scripts/plan-readiness-check.mjs scripts/agent-task-packet-check.mjs scripts/execution-ledger.mjs scripts/execution-wave-check.mjs scripts/review-log.mjs scripts/browser-qa-report.mjs scripts/context-state.mjs scripts/workflow-health.mjs scripts/prompt-budget-check.mjs scripts/changelog-release-check.mjs scripts/port-guard.mjs hooks/lib/complexity-check.mjs
 jq empty templates/settings.json templates/settings.strict.json hooks/fixtures/events/*.json
 git diff --check  # use `rtk git diff --check` when local hooks require RTK
 ```
@@ -27,6 +29,7 @@ node scripts/context-state.mjs list
 ```
 
 Doctor reports installed hooks and agents, strict/observer mode, ledger and artifact directories, stale runs, unresolved review findings, browser/context artifact counts, prompt-budget drift, and optional Codex/Gemini/browser/design tool availability. Missing optional tools are reported as `not installed`; they are not hard failures unless a plan explicitly requires them.
+It also enforces changelog release hygiene: on `main`, `## Unreleased` must be empty, and post-tag commits require the first dated release section to advance beyond the latest git tag.
 
 ## Live Canaries
 

@@ -5,11 +5,13 @@ import path from "node:path";
 const args = process.argv.slice(2);
 let json = false;
 let includeUntracked = false;
+let quiet = false;
 let root = process.cwd();
 let rootProvided = false;
 
 for (const arg of args) {
   if (arg === "--json") json = true;
+  else if (arg === "--quiet") quiet = true;
   else if (arg === "--include-untracked") includeUntracked = true;
   else if (arg.startsWith("--root=")) {
     const value = arg.slice("--root=".length);
@@ -18,7 +20,7 @@ for (const arg of args) {
     rootProvided = true;
   }
   else if (arg === "--help") {
-    console.log("usage: code-health-inventory.mjs [--json] [--include-untracked] [--root=/path]");
+    console.log("usage: code-health-inventory.mjs [--json] [--quiet] [--include-untracked] [--root=/path]");
     process.exit(0);
   }
 }
@@ -163,7 +165,7 @@ const report = {
 
 if (json) {
   console.log(JSON.stringify(report, null, 2));
-} else {
+} else if (!quiet) {
   const totalLabel = includeUntracked ? "Total tracked and untracked files" : "Total tracked files";
   console.log(`# Code Health Inventory\n`);
   console.log(`Root: ${report.root}`);

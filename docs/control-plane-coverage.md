@@ -26,6 +26,14 @@ Status key: `done` means implemented in this repo; `live-gated` means intentiona
 The control plane owns only the `etrnl-*` skills in this repo. These companion skills are expected when installed and are mapped in `docs/skills.md`:
 
 - `eternal-best-practices`
+- `domain-*`
+- `better-auth`
+- `tenant-isolation-patterns`
+- `money-vo-discipline`
+- `prisma-expert`
+- `i18n-localization`
+- `stripe-best-practices`
+- `abacatepay-integration`
 - `code-simplifier`
 - `finding-duplicate-functions`
 - `brooks-audit`

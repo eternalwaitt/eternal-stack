@@ -6,6 +6,7 @@ if [[ "${CLAUDE_GUARD_DISABLED:-0}" == "1" ]]; then
 fi
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+# shellcheck source=hooks/lib/json.sh
 source "$SCRIPT_DIR/lib/json.sh"
 
 cc_json_read_stdin

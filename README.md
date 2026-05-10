@@ -15,6 +15,7 @@ It enforces the work habits that prose cannot reliably enforce:
 - track local run ledgers under `~/.claude/control-plane/runs/`
 - track durable review, browser QA, and context artifacts under `~/.claude/control-plane/artifacts/`
 - avoid command loops
+- force local dev servers onto explicit checked ports
 - block silent fallbacks and suppressions
 - enforce evidence before agreement when the user challenges a claim
 - keep side-effect workflows user-invoked
@@ -52,7 +53,10 @@ node scripts/workflow-health.mjs
 node scripts/review-log.mjs summary
 node scripts/browser-qa-report.mjs summary
 node scripts/context-state.mjs list
+node scripts/port-guard.mjs pick --start 3100
 ```
+
+`port-guard.mjs pick` scans the `--start` to `--end` range, defaulting from `CLAUDE_GUARD_PORT_START` and `CLAUDE_GUARD_PORT_END`. Keep ranges narrow because `pickPort` calls `portIsFree` for each candidate; if hundreds of ports are occupied, narrow the range before considering a shorter timeout or parallel probing.
 
 Use `docs/control-plane-coverage.md` to compare the repo against the original implementation plan and identify live-gated operations.
 

@@ -16,13 +16,13 @@ The installer:
   - rollback script
   - canaries
   - hook test harness
-  - execution ledger, task-packet, wave-check, review-log, browser-QA, context-state, workflow-health, and prompt-budget helpers
+  - execution ledger, task-packet, wave-check, review-log, browser-QA, context-state, workflow-health, prompt-budget, changelog release, and port guard helpers
 - stores startup templates under `~/.claude/docs/templates/`
 - only overwrites existing `AGENTS.md`/`CLAUDE.md` when `CLAUDE_CONTROL_PLANE_INSTALL_STARTUP=1`
 - moves legacy repo-owned skill folders into the install backup before copying `etrnl-*` skills
   - legacy examples: `writing-plans`, `execute-plan`, `etrnl-run-plan`, `eternal-control-writing-plans`, or `eternal-*` control-plane folders
 - installs repo-owned `etrnl-*` agents into `~/.claude/agents/` by default
-- runs the hook test harness
+- runs the hook and workflow-tool test harnesses
 - merges safe observer hooks into existing settings by default
 - merges strict blocker hooks, including `PreToolUse`, `Stop`, and `SubagentStop`, only when `CLAUDE_CONTROL_PLANE_ENABLE_STRICT=1`
 - records the evidence-before-agreement lesson to Hindsight only as a stable upsert when Hindsight is configured

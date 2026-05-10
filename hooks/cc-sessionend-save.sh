@@ -2,7 +2,9 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+# shellcheck source=hooks/lib/json.sh
 source "$SCRIPT_DIR/lib/json.sh"
+# shellcheck source=hooks/lib/state.sh
 source "$SCRIPT_DIR/lib/state.sh"
 
 cc_json_read_stdin
@@ -11,4 +13,3 @@ cc_json_valid || exit 0
 cc_state_init
 rm -f -- "$(cc_state_file)" 2>/dev/null || true
 rm -rf -- "$(cc_state_lock)" 2>/dev/null || true
-

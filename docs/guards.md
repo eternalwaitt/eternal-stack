@@ -4,7 +4,7 @@ The control plane keeps mechanical enforcement in hooks and keeps prose short.
 
 ## Guards
 
-- `cc-pretooluse-guard.sh`: blocks unsafe Bash, blind source edits, new source files without reuse search, repeated commands, risky email/GWS writes, stale WebSearch, policy/complexity violations, and underspecified subagents. Policy, complexity, and task-packet failures are aggregated so the agent fixes every detected issue in one pass.
+- `cc-pretooluse-guard.sh`: blocks unsafe Bash, blind source edits, new source files without reuse search, repeated commands, local dev servers without explicit checked ports, risky email/GWS writes, stale WebSearch, policy/complexity violations, and underspecified subagents. Policy, complexity, and task-packet failures are aggregated so the agent fixes every detected issue in one pass.
 - `cc-posttoolbatch-observer.sh`: records reads, searches, commands, skills, edits, and verification evidence.
 - `cc-posttoolusefailure-diagnose.sh`: records repeated failures and forces a diagnostic pivot.
 - `cc-userprompt-router.sh`: records requested skills and injects short routing reminders.
@@ -21,3 +21,12 @@ export CLAUDE_GUARD_DISABLED=1
 ```
 
 Use bypass only to repair broken hook configuration.
+
+For local dev servers, pick a free port before running the project command:
+
+```bash
+port=$(node ~/.claude/scripts/port-guard.mjs pick --start 3100)
+pnpm dev -- --port "$port"
+```
+
+Port checking is active when both `node` and `~/.claude/scripts/port-guard.mjs` are available. If either is missing, `command_passes_port_guard` fails open with a warning such as `claude-guard warning: port-guard helper is unavailable; skipping port availability check`. Install Node and rerun `scripts/install.sh` to restore strict checking.

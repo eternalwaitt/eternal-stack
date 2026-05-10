@@ -7,10 +7,15 @@ if [[ "${CLAUDE_GUARD_DISABLED:-0}" == "1" ]]; then
 fi
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+# shellcheck source=hooks/lib/json.sh
 source "$SCRIPT_DIR/lib/json.sh"
+# shellcheck source=hooks/lib/state.sh
 source "$SCRIPT_DIR/lib/state.sh"
+# shellcheck source=hooks/lib/paths.sh
 source "$SCRIPT_DIR/lib/paths.sh"
+# shellcheck source=hooks/lib/code-patterns.sh
 source "$SCRIPT_DIR/lib/code-patterns.sh"
+# shellcheck source=scripts/lib/skill-lists.sh
 source "$SCRIPT_DIR/../scripts/lib/skill-lists.sh"
 
 fail_open() {
@@ -102,6 +107,81 @@ command_is_dangerous_outside_cwd() {
   [[ "$cmd" =~ (trash|mv|cp|chmod|chown)[[:space:]].*/ ]] || [[ "$cmd" =~ rm[[:space:]]+-r ]]
 }
 
+path_is_allowed_for_dangerous_command() {
+  local path="$1"
+  case "$path" in
+    "$cwd"|"$cwd"/*|/tmp/*|/private/tmp/*|/var/folders/*|/private/var/folders/*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+dangerous_token_outside_path() {
+  local path="$1"
+  [[ "$path" == /* ]] || return 1
+  if ! path_is_allowed_for_dangerous_command "$path"; then
+    printf '%s\n' "$path"
+    return 0
+  fi
+  return 1
+}
+
+dangerous_command_outside_path() {
+  local cmd="$1"
+  local char quote token
+  local i len
+  quote=""
+  token=""
+  len="${#cmd}"
+  for (( i = 0; i < len; i += 1 )); do
+    char="${cmd:i:1}"
+    if [[ -n "$quote" ]]; then
+      if [[ "$quote" == '"' && "$char" == "\\" && $((i + 1)) -lt len ]]; then
+        i=$((i + 1))
+        token+="${cmd:i:1}"
+      elif [[ "$char" == "$quote" ]]; then
+        quote=""
+      else
+        token+="$char"
+      fi
+      continue
+    fi
+    if [[ "$char" == "'" || "$char" == '"' ]]; then
+      quote="$char"
+      continue
+    fi
+    if [[ "$char" == "\\" && $((i + 1)) -lt len ]]; then
+      i=$((i + 1))
+      token+="${cmd:i:1}"
+      continue
+    fi
+    case "$char" in
+      [[:space:]]|";"|"|"|"&"|"("|")"|"<"|">")
+        if [[ -n "$token" ]]; then
+          dangerous_token_outside_path "$token" && return 0
+          token=""
+        fi
+        ;;
+      *) token+="$char" ;;
+    esac
+  done
+  [[ -n "$token" ]] && dangerous_token_outside_path "$token" && return 0
+  return 1
+}
+
+command_passes_port_guard() {
+  local cmd="$1"
+  local helper="$SCRIPT_DIR/../scripts/port-guard.mjs"
+  if [[ ! -f "$helper" ]]; then
+    printf 'claude-guard warning: port guard skipped for command %q: missing %s\n' "$cmd" "$helper" >&2
+    return 0
+  fi
+  if ! command -v node >/dev/null 2>&1; then
+    printf 'claude-guard warning: port guard skipped for command %q: missing node\n' "$cmd" >&2
+    return 0
+  fi
+  node "$helper" check --command "$cmd"
+}
+
 handle_bash() {
   local cmd="$1"
   if [[ -z "$cmd" ]]; then
@@ -122,8 +202,13 @@ handle_bash() {
   if command_is_gws_write "$cmd" && ! jq -e '.verificationRuns[]? | .value | test("gws.*(account|whoami|help)|gmail.*(account|whoami|help)|drive.*(account|whoami|help)")' "$(cc_state_file)" >/dev/null 2>&1; then
     deny "Google Workspace write actions require an account/help check first."
   fi
-  if command_is_dangerous_outside_cwd "$cmd" && [[ ! "$cmd" =~ "$cwd" && ! "$cmd" =~ /tmp/ && ! "$cmd" =~ /var/folders/ ]]; then
-    deny "Dangerous filesystem commands must stay inside the current project or an explicit temporary directory."
+  local outside_path
+  if command_is_dangerous_outside_cwd "$cmd" && outside_path="$(dangerous_command_outside_path "$cmd")"; then
+    deny "Dangerous filesystem commands must stay inside the current project or an explicit temporary directory. Outside path: $outside_path"
+  fi
+  local port_guard_output
+  if ! port_guard_output="$(command_passes_port_guard "$cmd" 2>&1)"; then
+    deny "$port_guard_output"
   fi
   cc_json_allow
 }

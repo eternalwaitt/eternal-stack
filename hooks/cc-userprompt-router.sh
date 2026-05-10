@@ -6,7 +6,9 @@ if [[ "${CLAUDE_GUARD_DISABLED:-0}" == "1" ]]; then
 fi
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+# shellcheck source=hooks/lib/json.sh
 source "$SCRIPT_DIR/lib/json.sh"
+# shellcheck source=hooks/lib/state.sh
 source "$SCRIPT_DIR/lib/state.sh"
 
 cc_json_read_stdin
@@ -15,7 +17,7 @@ cc_json_valid || exit 0
 cc_state_init
 
 prompt="$(cc_json_get '.prompt // .user_prompt // .message')"
-cc_state_update --arg prompt "$prompt" '.lastPrompt = $prompt'
+cc_state_update --arg prompt "$prompt" ".lastPrompt = \$prompt"
 prompt_lower="$(printf '%s' "$prompt" | tr '[:upper:]' '[:lower:]')"
 
 record_skill() {

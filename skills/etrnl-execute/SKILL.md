@@ -78,6 +78,7 @@ After each phase:
 
 - Run the exact Verify block from the plan.
 - If the plan omits verification, derive the smallest project preflight that proves the changed behavior.
+- If the plan calls for browser/manual QA and browser tooling is available, run it before final completion; a pending browser pass is a blocker, not a residual risk.
 - Record command/live-check evidence before moving on with `node ~/.claude/scripts/execution-ledger.mjs record-check --name <phase> --command "<command>" --status passed --session "$CLAUDE_SESSION_ID"` when the helper is installed.
 - Record artifact evidence when created:
   - `node ~/.claude/scripts/execution-ledger.mjs record-artifact --type review-log --path <path> --session "$CLAUDE_SESSION_ID"`

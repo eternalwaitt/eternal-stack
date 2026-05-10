@@ -31,6 +31,14 @@ These skills are not owned by this repo, but the control plane knows about them 
 | Skill | Owner | Used For |
 | --- | --- | --- |
 | `eternal-best-practices` | External/personal eternal skill | Stack policy router for auth, tenant isolation, money, i18n, Prisma, soft deletes, and domain-sensitive work. |
+| `domain-*` | External domain skills | Domain-specific review gates for cloud, web, fintech, IoT, embedded, ML, and similar surfaces when installed. |
+| `better-auth` | External backend skill | Auth-specific implementation review when protected auth paths are edited. |
+| `tenant-isolation-patterns` | External backend skill | Tenant boundary review for multi-tenant data and permission paths. |
+| `money-vo-discipline` | External domain skill | Money/value-object discipline for financial and billing paths. |
+| `prisma-expert` | External data skill | Prisma schema, migration, and query review for database-sensitive work. |
+| `i18n-localization` | External domain skill | Locale and translation review for user-facing internationalized surfaces. |
+| `stripe-best-practices` | External payment skill | Stripe payment and billing review when installed. |
+| `abacatepay-integration` | External payment skill | AbacatePay payment integration review when installed. |
 | `code-simplifier` | External skill | Clarity and simplification pass before final scoring/completion. |
 | `finding-duplicate-functions` | External skill | Dedupe review for repeated logic and consolidation work. |
 | `brooks-audit` | External/local skill | Brooks review/audit/debt/test/health/sweep modes where installed. |

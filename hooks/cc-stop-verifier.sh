@@ -6,8 +6,11 @@ if [[ "${CLAUDE_GUARD_DISABLED:-0}" == "1" ]]; then
 fi
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+# shellcheck source=hooks/lib/json.sh
 source "$SCRIPT_DIR/lib/json.sh"
+# shellcheck source=hooks/lib/state.sh
 source "$SCRIPT_DIR/lib/state.sh"
+# shellcheck source=hooks/lib/code-patterns.sh
 source "$SCRIPT_DIR/lib/code-patterns.sh"
 
 cc_json_read_stdin
@@ -34,6 +37,12 @@ if [[ "$message_lower" =~ (done|complete|completed|implemented|fixed|passes|ship
   claims_done=true
 fi
 
+browser_qa_outstanding=false
+if [[ "$message_lower" =~ (outstanding|still[[:space:]]+pending|still[[:space:]]+outstanding|remaining|left) ]] \
+  && [[ "$message_lower" =~ (manual[[:space:]]+(browser[[:space:]]+)?(qa|pass)|browser[[:space:]]+(qa|pass)|real[[:space:]]+browser|pnpm[[:space:]]+dev) ]]; then
+  browser_qa_outstanding=true
+fi
+
 NORM_JQ='
 def norm:
   ascii_downcase
@@ -51,6 +60,10 @@ def norm:
     else . end;
 '
 if [[ "$claims_done" == "true" ]]; then
+  if [[ "$browser_qa_outstanding" == "true" ]]; then
+    cc_json_block "Outstanding browser QA is not a completion state. Run the planned dev server and browser workflow when available, record the browser QA artifact, or mark the task blocked with the exact missing tool/error."
+    exit 0
+  fi
   if ! ledger_status="$(node "$SCRIPT_DIR/../scripts/execution-ledger.mjs" check-stop --session "$(cc_session_id)" 2>&1)"; then
     cc_json_block "$ledger_status"
     exit 0

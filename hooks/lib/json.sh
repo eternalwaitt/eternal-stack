@@ -1,11 +1,26 @@
 #!/usr/bin/env bash
 
 cc_json_read_stdin() {
-  HOOK_INPUT="$(dd bs=1048576 count=1 2>/dev/null || true)"
+  local system
+  system="$(uname -s 2>/dev/null || printf 'unknown')"
+  if [[ "$system" == "Linux" ]]; then
+    if ! HOOK_INPUT="$(dd bs=1048576 count=4 iflag=fullblock 2>/dev/null)"; then
+      printf 'claude-guard error: failed to read hook input\n' >&2
+      return 1
+    fi
+  else
+    IFS= read -r -d '' HOOK_INPUT || true
+  fi
   if [[ -z "${HOOK_INPUT}" ]]; then
     HOOK_INPUT="{}"
   fi
-  export HOOK_INPUT
+  # Keep exported hook input below 128 KiB so child tools do not hit ARG_MAX.
+  if ((${#HOOK_INPUT} < 131072)); then
+    export HOOK_INPUT
+  elif ! export -n HOOK_INPUT 2>/dev/null; then
+    printf 'claude-guard error: failed to unexport oversized HOOK_INPUT\n' >&2
+    return 1
+  fi
 }
 
 cc_json_require_jq() {

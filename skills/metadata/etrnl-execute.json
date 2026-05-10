@@ -1,0 +1,6 @@
+{
+  "skill": "etrnl-execute",
+  "executionMode": "wave-based execution",
+  "ownershipRule": "do not duplicate",
+  "fallback": "spot-check"
+}

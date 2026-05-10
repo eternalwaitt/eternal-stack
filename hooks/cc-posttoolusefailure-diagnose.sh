@@ -6,7 +6,9 @@ if [[ "${CLAUDE_GUARD_DISABLED:-0}" == "1" ]]; then
 fi
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+# shellcheck source=hooks/lib/json.sh
 source "$SCRIPT_DIR/lib/json.sh"
+# shellcheck source=hooks/lib/state.sh
 source "$SCRIPT_DIR/lib/state.sh"
 
 cc_json_read_stdin
@@ -26,4 +28,3 @@ if (( count >= 2 )); then
 else
   cc_json_block "Tool failed. Before retrying, inspect the error text, verify the command/tool syntax, and choose the next diagnostic step."
 fi
-
