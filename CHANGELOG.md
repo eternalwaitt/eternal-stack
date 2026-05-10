@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.1.6 - 2026-05-10
+
 - Namespace repo-owned skills as `etrnl-*` and document the skill map.
 - Add `/etrnl-brainstorm` for design/spec work before implementation planning.
 - Make `/etrnl-plan` a file-backed draft-review-finalize workflow with a plan review rubric.
