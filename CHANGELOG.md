@@ -2,11 +2,22 @@
 
 ## Unreleased
 
+## v0.1.8 - 2026-05-11
+
+- Harden hook storm control-plane behavior with a shared command-classifier layer, state schema v2 auto-migration, command outcome tracking, and per-event batched state writes.
+- Add one-time signed override tokens for safety-critical prod schema and secret-disclosure commands, including replay/fingerprint/expiry abuse protections.
+- Switch subagent packet validation to structured JSON contracts with explicit `read-only` and `write` modes.
+- Scope port checks to dev-server commands only, require review evidence before risky completion commands, and require migration evidence for schema-related completion claims.
+- Add scrubbed replay fixtures plus `replay-hook-fixtures.mjs`, and expand hook tests with migration, override-token, degraded-mode, and structured-packet matrices.
+- Add a top-10 competitor code-intelligence pipeline with pinned manifests, non-README evidence contracts, and parity scorecard/backlog generation for all `etrnl-*` skills.
+
 ## v0.1.7 - 2026-05-10
 
 - Add strict quality gates for real post-edit verification, test weakening, safety-removal edits, full-file complexity, file sprawl, repeated-edit bug memory, and second-pass review triggers.
 - Block ownership-deflection language such as "pre-existing issue", "not from my changes", and "out of scope" when agents should fix or precisely block issues found during the work.
 - Make `/etrnl-autoplan` emit plans that match `plan-readiness-check.mjs`, and make `/etrnl-execute` run that checker directly before edits.
+- Add a skill-contract doctor gate and generated SessionStart skill hints so every repo-owned `/etrnl-*` skill stays documented, helper-backed, and installed consistently.
+- Add skill behavior smoke coverage for readiness, ledger, browser QA, review log, context save/restore, task packet, wave, code-health, and prompt-budget helpers.
 - Add Agent-OS execution support: local run ledger helpers, workflow health summaries, structured subagent task-packet validation, and `SubagentStop` recording.
 - Install repo-owned `etrnl-*` agents by default and include rollback/doctor coverage for them.
 - Add `/etrnl-autoplan` and upgrade `/etrnl-execute` with no-pause execution, task-packet fanout, reviewer roles, and ledger checks.

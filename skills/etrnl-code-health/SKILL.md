@@ -18,6 +18,17 @@ Run code health as a closed-loop audit, not as a vague lint pass. Route to deter
 - `fix`: apply fixes only after audit evidence exists or the user explicitly asks to fix all valid findings.
 - `no-skips`: every tracked file is inventoried and every finding is dispositioned.
 
+## TDD Enforcement (hook_enforced)
+
+When the audit triggers fixes, apply red-green-refactor discipline:
+
+1. For each finding that maps to a regression or missing test: identify the test file or command that would catch it.
+2. Confirm the test currently fails (red) before applying a fix. If no test exists, write the minimal test first.
+3. Apply the fix (green). Confirm the test passes.
+4. Rerun the full health gate — not just the changed paths — before marking the finding `fixed`.
+
+Do not mark a finding `fixed` based on inspection alone. Require a passing gate run as evidence.
+
 ## Required Flow
 
 1. Inventory the repo:

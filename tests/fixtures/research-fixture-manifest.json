@@ -1,0 +1,124 @@
+{
+  "generatedAt": "2026-05-12T01:14:54Z",
+  "selectionPolicy": {
+    "candidateUniverse": 10,
+    "deterministicFilters": [
+      "fixtures"
+    ],
+    "lockSize": 10
+  },
+  "competitors": [
+    {
+      "id": "fixture-framework",
+      "repoUrl": "https://github.com/example/fixture-framework",
+      "commitSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "license": "MIT",
+      "localPath": "fixture-framework",
+      "analyzedPaths": [
+        "skills/research/SKILL.md",
+        "hooks/pretool.sh"
+      ],
+      "collectedAt": "2026-05-11T00:00:00Z"
+    },
+    {
+      "id": "fixture-2",
+      "repoUrl": "https://github.com/example/fixture-2",
+      "commitSha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "license": "Apache-2.0",
+      "localPath": "./fixture-2",
+      "analyzedPaths": [
+        "skills/research/SKILL.md"
+      ],
+      "collectedAt": "2026-05-10T11:15:00Z"
+    },
+    {
+      "id": "fixture-3",
+      "repoUrl": "https://github.com/example/fixture-3",
+      "commitSha": "cccccccccccccccccccccccccccccccccccccccc",
+      "license": "GPL-3.0",
+      "localPath": "fixture-3",
+      "analyzedPaths": [
+        "skills/research/SKILL.md"
+      ],
+      "collectedAt": "2026-04-15T08:30:00Z"
+    },
+    {
+      "id": "fixture-4",
+      "repoUrl": "https://github.com/example/fixture-4",
+      "commitSha": "dddddddddddddddddddddddddddddddddddddddd",
+      "license": "MIT",
+      "localPath": "group-alpha/fixture-4",
+      "analyzedPaths": [
+        "skills/research/SKILL.md"
+      ],
+      "collectedAt": "2026-05-11T05:00:00Z"
+    },
+    {
+      "id": "fixture-5",
+      "repoUrl": "https://github.com/example/fixture-5",
+      "commitSha": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "license": "BSD-3-Clause",
+      "localPath": "fixture-5",
+      "analyzedPaths": [
+        "skills/research/SKILL.md"
+      ],
+      "collectedAt": "2026-05-01T23:59:59Z"
+    },
+    {
+      "id": "fixture-6",
+      "repoUrl": "https://github.com/example/fixture-6",
+      "commitSha": "ffffffffffffffffffffffffffffffffffffffff",
+      "license": "MIT",
+      "localPath": "fixture_6-v2",
+      "analyzedPaths": [
+        "skills/research/SKILL.md"
+      ],
+      "collectedAt": "2026-05-12T00:00:00Z"
+    },
+    {
+      "id": "fixture-7",
+      "repoUrl": "https://github.com/example/fixture-7",
+      "commitSha": "1111111111111111111111111111111111111111",
+      "license": "MPL-2.0",
+      "localPath": "fixtures/fixture-7",
+      "analyzedPaths": [
+        "skills/research/SKILL.md"
+      ],
+      "collectedAt": "2026-05-11T00:00:00Z"
+    },
+    {
+      "id": "fixture-8",
+      "repoUrl": "https://github.com/example/fixture-8",
+      "commitSha": "2222222222222222222222222222222222222222",
+      "license": "MIT",
+      "localPath": "fixture-8",
+      "analyzedPaths": [
+        "skills/research/SKILL.md",
+        "scripts/monitor.sh"
+      ],
+      "collectedAt": "2026-05-09T07:45:00Z"
+    },
+    {
+      "id": "fixture-9",
+      "repoUrl": "https://github.com/example/fixture-9",
+      "commitSha": "3333333333333333333333333333333333333333",
+      "license": "Apache-2.0 OR MIT",
+      "localPath": "fixture-9",
+      "analyzedPaths": [
+        "skills/research/SKILL.md"
+      ],
+      "collectedAt": "2026-05-08T12:00:00Z"
+    },
+    {
+      "id": "fixture-10",
+      "repoUrl": "https://github.com/example/fixture-10",
+      "commitSha": "4444444444444444444444444444444444444444",
+      "license": "UNLICENSED",
+      "localPath": "fixture-10",
+      "analyzedPaths": [
+        "skills/research/SKILL.md"
+      ],
+      "collectedAt": "2026-05-12T00:30:00Z"
+    }
+  ]
+}

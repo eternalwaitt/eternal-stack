@@ -3,11 +3,15 @@ set -Eeuo pipefail
 
 ROOT="${CLAUDE_HOME:-$HOME/.claude}"
 BACKUP="${1:-}"
-if [[ -f "$ROOT/scripts/lib/skill-lists.sh" ]]; then
-  # shellcheck source=scripts/lib/skill-lists.sh
-  source "$ROOT/scripts/lib/skill-lists.sh"
-else
-  OWNED_AGENTS=(etrnl-adversary etrnl-browser-qa etrnl-design-reviewer etrnl-dx-reviewer etrnl-executor etrnl-investigator etrnl-quality-reviewer etrnl-scout etrnl-spec-reviewer)
+if [[ ! -f "$ROOT/scripts/lib/skill-lists.sh" ]]; then
+  printf 'Required skill list is missing: %s/scripts/lib/skill-lists.sh\n' "$ROOT" >&2
+  exit 1
+fi
+# shellcheck source=scripts/lib/skill-lists.sh
+source "$ROOT/scripts/lib/skill-lists.sh"
+if [[ -z "${OWNED_AGENTS+x}" || "${#OWNED_AGENTS[@]}" -eq 0 ]]; then
+  printf 'OWNED_AGENTS is missing from %s/scripts/lib/skill-lists.sh\n' "$ROOT" >&2
+  exit 1
 fi
 
 latest_backup() {

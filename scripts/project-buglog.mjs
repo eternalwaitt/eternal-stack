@@ -3,14 +3,11 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
+import { argValue } from "./lib/cli-args.mjs";
 
 const args = process.argv.slice(2);
 const command = args[0] ?? "help";
-
-function argValue(flag, fallback = "") {
-  const index = args.indexOf(flag);
-  return index >= 0 ? args[index + 1] ?? fallback : fallback;
-}
+const BUGLOG_FINGERPRINT_VERSION = 2;
 
 function artifactDir() {
   return process.env.CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR
@@ -32,41 +29,52 @@ function normalizeFile(cwd, file) {
 }
 
 function fingerprint(record) {
+  const version = Number(record.fingerprintVersion ?? 1);
+  if (version === 1) {
+    return createHash("sha256")
+      .update([record.cwd, record.file, record.category, record.sessionId].join(":"))
+      .digest("hex")
+      .slice(0, 16);
+  }
   return createHash("sha256")
-    .update([record.cwd, record.file, record.category, record.sessionId].join(":"))
+    .update([version, record.cwd, record.file, record.category, record.sessionId, record.summary].join(":"))
     .digest("hex")
     .slice(0, 16);
 }
 
+function parseEntry(line, index, file) {
+  try {
+    return JSON.parse(line);
+  } catch (error) {
+    throw new Error(`${file}:${index + 1}: ${error.message}`);
+  }
+}
+
 function readEntries(file) {
   if (!existsSync(file)) return [];
-  return readFileSync(file, "utf8").split(/\n/).filter(Boolean).map((line, index) => {
-    try {
-      return JSON.parse(line);
-    } catch (error) {
-      throw new Error(`${file}:${index + 1}: ${error.message}`);
-    }
-  });
+  return readFileSync(file, "utf8").split(/\n/).filter(Boolean).map((line, index) => parseEntry(line, index, file));
 }
 
 function record() {
-  const cwd = path.resolve(argValue("--cwd", process.cwd()));
-  const file = normalizeFile(cwd, argValue("--file"));
-  const category = argValue("--category", "quality");
-  const summary = argValue("--summary");
-  if (!file || !summary) {
+  const cwd = path.resolve(argValue(args, "--cwd", process.cwd()));
+  const rawFile = argValue(args, "--file");
+  const category = argValue(args, "--category", "quality");
+  const summary = argValue(args, "--summary");
+  if (!rawFile || !summary) {
     console.error("project-buglog record requires --file and --summary.");
     process.exit(2);
   }
+  const file = normalizeFile(cwd, rawFile);
 
   const target = buglogPath();
   const entry = {
     schemaVersion: 1,
+    fingerprintVersion: BUGLOG_FINGERPRINT_VERSION,
     cwd,
     file,
     category,
     summary,
-    sessionId: argValue("--session", process.env.CLAUDE_SESSION_ID || "default"),
+    sessionId: argValue(args, "--session", process.env.CLAUDE_SESSION_ID || "default"),
     at: nowIso(),
   };
   entry.fingerprint = fingerprint(entry);
@@ -81,12 +89,13 @@ function record() {
 }
 
 function suggest() {
-  const cwd = path.resolve(argValue("--cwd", process.cwd()));
-  const file = normalizeFile(cwd, argValue("--file"));
-  if (!file) {
+  const cwd = path.resolve(argValue(args, "--cwd", process.cwd()));
+  const rawFile = argValue(args, "--file");
+  if (!rawFile) {
     console.error("project-buglog suggest requires --file.");
     process.exit(2);
   }
+  const file = normalizeFile(cwd, rawFile);
   const entries = readEntries(buglogPath())
     .filter((entry) => entry.cwd === cwd && entry.file === file)
     .slice(-3)
@@ -103,6 +112,12 @@ function validate() {
   const errors = [];
   for (const entry of entries) {
     if (entry.schemaVersion !== 1) errors.push("entry missing schemaVersion");
+    const fingerprintVersion = Number(entry.fingerprintVersion ?? 1);
+    if (![1, 2].includes(fingerprintVersion)) {
+      errors.push(
+        `${entry.file || "<unknown>"} invalid fingerprintVersion (supported fingerprintVersion values: 1, 2; got ${entry.fingerprintVersion})`,
+      );
+    }
     if (!entry.cwd || !entry.file) errors.push("entry missing cwd/file");
     if (!entry.category || !entry.summary) errors.push(`${entry.file || "<unknown>"} missing category/summary`);
     if (!entry.fingerprint) errors.push(`${entry.file || "<unknown>"} missing fingerprint`);

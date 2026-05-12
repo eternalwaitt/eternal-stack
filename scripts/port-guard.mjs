@@ -20,6 +20,14 @@ function fail(message) {
   process.exit(1);
 }
 
+function readMaxPortScan() {
+  const raw = process.env.CLAUDE_GUARD_MAX_PORT_SCAN || "500";
+  if (!/^[1-9]\d*$/.test(raw)) {
+    fail("CLAUDE_GUARD_MAX_PORT_SCAN must be a positive integer.");
+  }
+  return Number(raw);
+}
+
 function numericPort(value, label) {
   const port = Number(value);
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
@@ -115,6 +123,10 @@ function runSelfTest() {
     "turbo run dev",
     "echo ok; pnpm dev:web",
     "(npm run dev)",
+    "PORT=3100 npm run dev",
+    "APP_PORT='3101' pnpm dev",
+    "NEXT_PORT=\"3200\" next dev",
+    "cd app && PORT=3300 npm run dev:server",
   ];
   const negatives = [
     "node scripts/dev-tools.mjs",
@@ -125,6 +137,7 @@ function runSelfTest() {
     "npm run \"dev-script\"",
     "node -e \"console.log('dev')\"",
     "npm run build",
+    "npm run devops",
   ];
   for (const sample of positives) {
     if (!isLocalDevServerCommand(sample)) throw new Error(`self-test expected dev command: ${sample}`);
@@ -136,9 +149,18 @@ function runSelfTest() {
 }
 
 async function pickPort() {
+  const maxPortScan = readMaxPortScan();
   const start = numericPort(argValue("--start", process.env.CLAUDE_GUARD_PORT_START || "3100"), "--start");
   const end = numericPort(argValue("--end", process.env.CLAUDE_GUARD_PORT_END || "3999"), "--end");
+  const rangeLength = end - start + 1;
+  const forceLargeScan = args.includes("--force-large-scan") || process.env.CLAUDE_GUARD_FORCE_LARGE_SCAN === "1";
   if (end < start) throw new Error("--end must be greater than or equal to --start.");
+  if (rangeLength > maxPortScan && !forceLargeScan) {
+    throw new Error([
+      `Requested scan range ${start}-${end} (${rangeLength} ports) exceeds safety cap (${maxPortScan}).`,
+      "Narrow --start/--end or set CLAUDE_GUARD_FORCE_LARGE_SCAN=1 (or pass --force-large-scan) to opt in.",
+    ].join(" "));
+  }
   for (let port = start; port <= end; port += 1) {
     if (await portIsFree(port)) {
       console.log(port);
@@ -187,7 +209,7 @@ async function main() {
   console.error([
     "usage: port-guard.mjs pick [--start N --end N] | check --command <shell-command> | self-test",
     "pickPort scans --start..--end from CLAUDE_GUARD_PORT_START/CLAUDE_GUARD_PORT_END; keep ranges narrow because portIsFree probes each port with a timeout.",
-    "For large occupied ranges, narrow --start/--end first or tune portProbeTimeoutMs before adding parallel probing.",
+    "If a wide scan is intentional, opt in with CLAUDE_GUARD_FORCE_LARGE_SCAN=1 or --force-large-scan.",
   ].join("\n"));
   process.exit(2);
 }

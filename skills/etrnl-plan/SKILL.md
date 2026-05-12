@@ -50,22 +50,22 @@ Evidence: <files, commands, docs, runtime surfaces checked>
 Assumptions: <only if still unresolved>
 ```
 
-Then include:
+Include `Status`, `Goal`, `Non-goals`, and `Evidence` as plain top-level key/value lines under the title (not `##` headings). Then add the required `##` section headings below.
 
-- What already exists: existing code, scripts, flows, helpers, docs, or runtime surfaces that solve part of the problem.
-- NOT in scope: considered work that is explicitly deferred, with one-line rationale.
-- File map: exact files to create/modify/read, with each file's responsibility.
-- Task groups by subsystem: group related tasks so one worker can keep context; mark independent groups that could run in parallel.
-- Phases: setup, implementation, tests, docs, rollout, rollback, verification, completion criteria.
-- Bite-sized steps: each step should be concrete enough to execute without guessing.
-- Skill/tool routing: list required workflow skills and companion review passes.
-- Test plan: code paths, user flows, error states, regressions, E2E/eval needs, and exact test files/commands.
-- Failure modes: one realistic production failure per new codepath, with test/error-handling/user-message coverage.
-- Parallelization strategy: sequential lanes versus independent workstreams, module ownership, dependencies, and conflict risks.
-- Verification gates: exact commands or live checks, expected result, and stop condition.
-- Rollback: how to undo risky or irreversible changes.
-- Execution handoff: whether to use `etrnl-execute` inline or `etrnl-parallel` when the user explicitly asks for parallel agents.
-- Plan Readiness Report: scope challenge, architecture review, code quality review, test review, performance review, failure modes, parallelization, unresolved questions, and final verdict.
+- `## What already exists`: existing code, scripts, flows, helpers, docs, or runtime surfaces that solve part of the problem.
+- `## NOT in scope`: considered work that is explicitly deferred, with one-line rationale.
+- `## File map`: exact files to create/modify/read, with each file's responsibility.
+- `## Task groups`: group related tasks so one worker can keep context; mark independent groups that could run in parallel.
+- `## Phases`: setup, implementation, tests, docs, rollout, rollback, verification, completion criteria.
+- `## Skill/tool routing`: list required workflow skills and companion review passes.
+- `## Test plan`: code paths, user flows, error states, regressions, E2E/eval needs, and exact test files/commands.
+- `## Failure modes`: one realistic production failure per new codepath, with test/error-handling/user-message coverage.
+- `## Parallelization strategy`: sequential lanes versus independent workstreams, module ownership, dependencies, and conflict risks.
+- `## Verification gates`: exact commands or live checks, expected result, and stop condition.
+- `## Rollback`: how to undo risky or irreversible changes.
+- `## Execution handoff`: whether to use `etrnl-execute` inline or `etrnl-parallel` when the user explicitly asks for parallel agents.
+- `## Plan Readiness Report`: scope challenge, architecture review, code quality review, test review, performance review, failure modes, parallelization, unresolved questions, and final verdict.
+- `## Verdict`: explicit final go/no-go outcome (`Ready for execution` or `Blocked until ...`).
 
 ## Review Pass
 
@@ -81,6 +81,12 @@ Before finalizing, review the draft for:
 - Missing architecture, code quality, test, performance, failure-mode, or parallelization review.
 - Missing ASCII diagram for non-trivial data flow, state machine, processing pipeline, or test coverage map.
 - Missing repo/shareable/versioning boundaries when portability matters.
+- Missing research flow inputs when the plan introduces new ETRNL skill or hook capabilities:
+  - Confirm `docs/research/capability-evidence.json` or equivalent exists and is within its `nextScan` date.
+  - Each plan recommendation for a new capability must cite the parity gap or source row from the evidence file.
+  - Plans without research grounding for new capabilities must include `research_flow: blocked — no evidence file` in the Unresolved questions section and require user sign-off before `Status: Final`.
+- Missing competitor matrix inputs for plans that overlap with documented competitor capabilities:
+  - Reference `docs/research/top10-lock.json` if available, or name why no competitor analysis is needed.
 - Missing companion-skill passes from the original control-plane vision:
   - `eternal-best-practices` for tenant, money, auth, i18n, Prisma, soft-delete, and domain policy.
   - `code-simplifier` before final scoring or completion.
@@ -108,6 +114,10 @@ Every non-trivial plan must include this section before `Status: Final`:
 - Unresolved questions: <none or exact blockers>
 - Verdict: Ready for execution / Blocked until <specific issue>
 ```
+
+## Verdict
+
+Ready for execution / Blocked until <specific issue>
 
 If the readiness gate fails, patch the plan and rerun it. Do not hand off to `etrnl-execute` until the report exists, the gate passes, and the verdict is ready.
 

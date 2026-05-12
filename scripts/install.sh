@@ -122,6 +122,8 @@ ln -sf -- "doctor-control-plane.sh" "$TARGET/scripts/doctor.sh"
 cp -- "$ROOT/scripts/code-health-inventory.mjs" "$TARGET/scripts/code-health-inventory.mjs"
 cp -- "$ROOT/scripts/plan-readiness-check.mjs" "$TARGET/scripts/plan-readiness-check.mjs"
 cp -- "$ROOT/scripts/agent-task-packet-check.mjs" "$TARGET/scripts/agent-task-packet-check.mjs"
+cp -- "$ROOT/scripts/guard-override-token.mjs" "$TARGET/scripts/guard-override-token.mjs"
+cp -- "$ROOT/scripts/replay-hook-fixtures.mjs" "$TARGET/scripts/replay-hook-fixtures.mjs"
 cp -- "$ROOT/scripts/execution-ledger.mjs" "$TARGET/scripts/execution-ledger.mjs"
 cp -- "$ROOT/scripts/execution-wave-check.mjs" "$TARGET/scripts/execution-wave-check.mjs"
 cp -- "$ROOT/scripts/review-log.mjs" "$TARGET/scripts/review-log.mjs"
@@ -130,6 +132,8 @@ cp -- "$ROOT/scripts/browser-qa-report.mjs" "$TARGET/scripts/browser-qa-report.m
 cp -- "$ROOT/scripts/context-state.mjs" "$TARGET/scripts/context-state.mjs"
 cp -- "$ROOT/scripts/workflow-health.mjs" "$TARGET/scripts/workflow-health.mjs"
 cp -- "$ROOT/scripts/prompt-budget-check.mjs" "$TARGET/scripts/prompt-budget-check.mjs"
+cp -- "$ROOT/scripts/skill-contract-check.mjs" "$TARGET/scripts/skill-contract-check.mjs"
+cp -- "$ROOT/scripts/skill-behavior-smoke.mjs" "$TARGET/scripts/skill-behavior-smoke.mjs"
 cp -- "$ROOT/scripts/changelog-release-check.mjs" "$TARGET/scripts/changelog-release-check.mjs"
 cp -- "$ROOT/scripts/port-guard.mjs" "$TARGET/scripts/port-guard.mjs"
 cp -- "$ROOT/scripts/canary-websearch.sh" "$TARGET/scripts/canary-websearch.sh"
@@ -148,6 +152,23 @@ node "$ROOT/scripts/merge-settings.mjs" "$TARGET/settings.json" "$SETTINGS_TEMPL
 if [[ "$legacy_rules_present" == "1" ]]; then
   rm -rf -- "$TARGET/rules/eternal-control"
 fi
+
+verify_install_state() {
+  local missing=() file
+  for file in "${CRITICAL_HOOKS[@]}"; do
+    [[ -f "$TARGET/hooks/$file" ]] || missing+=("hooks/$file")
+  done
+  for file in "${CRITICAL_SCRIPTS[@]}"; do
+    [[ -f "$TARGET/scripts/$file" ]] || missing+=("scripts/$file")
+  done
+  [[ -f "$TARGET/settings.json" ]] || missing+=("settings.json")
+  if (( ${#missing[@]} > 0 )); then
+    printf 'install error: post-install verification failed — missing files:\n' >&2
+    printf '  %s\n' "${missing[@]}" >&2
+    return 1
+  fi
+}
+verify_install_state
 
 printf 'Installed Claude control plane files. Backup: %s\n' "$BACKUP"
 printf 'Installed ETRNL agents: %s\n' "${OWNED_AGENTS[*]}"

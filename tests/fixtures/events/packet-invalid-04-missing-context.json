@@ -1,0 +1,15 @@
+{
+  "session_id": "fixture-packet-invalid",
+  "tool_name": "Task",
+  "tool_input": {
+    "packet": {
+      "mode": "read-only",
+      "goal": "audit scripts",
+      "cwd": "/repo",
+      "scope": "scripts/",
+      "readSet": ["scripts"],
+      "expectedOutput": "audit findings",
+      "noRevert": true
+    }
+  }
+}

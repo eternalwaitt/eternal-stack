@@ -2,6 +2,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
+import { argValue as readArgValue } from "./lib/cli-args.mjs";
 
 const STATUSES = new Set(["pending", "in_progress", "reviewing", "changes_requested", "verified", "blocked", "skipped"]);
 const AGENT_DONE = new Set(["completed", "verified", "skipped"]);
@@ -9,10 +10,7 @@ const AGENT_DONE = new Set(["completed", "verified", "skipped"]);
 const args = process.argv.slice(2);
 const command = args[0] ?? "help";
 
-function argValue(flag, fallback = "") {
-  const index = args.indexOf(flag);
-  return index >= 0 ? args[index + 1] ?? fallback : fallback;
-}
+const argValue = (flag, fallback = "") => readArgValue(args, flag, fallback);
 
 function safeId(value) {
   return String(value || "default").replace(/[^A-Za-z0-9_.-]/g, "_");
@@ -221,8 +219,29 @@ function extractSubagentText(event) {
   ].filter(Boolean).join("\n");
 }
 
+function redactStdinPreview(raw) {
+  const redacted = raw.replace(
+    /((?:"|')?(api[_-]?key|access[_-]?key|private[_-]?key|client[_-]?secret|auth[_-]?token|refresh[_-]?token|token|secret|password|passwd|authorization|bearer|credential|jwt)(?:"|')?\s*[:=]\s*)(?:"[^"]*"|'[^']*'|[^\s"',}]+)/gi,
+    "$1[redacted]",
+  );
+  return redacted.length > 400 ? `${redacted.slice(0, 400)}... [truncated]` : redacted;
+}
+
 function recordSubagent() {
-  const event = JSON.parse(readFileSync(0, "utf8") || "{}");
+  const raw = readFileSync(0, "utf8").trim();
+  if (!raw) {
+    console.error("record-subagent requires JSON on stdin.");
+    process.exit(2);
+  }
+  let event;
+  try {
+    event = JSON.parse(raw);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    console.error(`record-subagent: invalid JSON on stdin: ${detail}`);
+    console.error(redactStdinPreview(raw));
+    process.exit(2);
+  }
   const sessionId = safeId(event.session_id || process.env.CLAUDE_SESSION_ID || "default");
   const file = currentLedgerPath(sessionId);
   if (!file) return;

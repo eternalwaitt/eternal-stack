@@ -1,0 +1,23 @@
+{
+  "session_id": "fixture-packet-valid",
+  "tool_name": "Task",
+  "tool_input": {
+    "packet": {
+      "mode": "write",
+      "goal": "add disjoint-ownership check to packet checker",
+      "contextSummary": "Track C task C1; write scope is agent-task-packet-check.mjs only",
+      "cwd": "/repo",
+      "scope": "scripts/agent-task-packet-check.mjs",
+      "readSet": ["scripts", "tests/fixtures/events"],
+      "writeScope": ["scripts/agent-task-packet-check.mjs"],
+      "forbiddenPaths": ["scripts/install.sh", "hooks/cc-pretooluse-guard.sh"],
+      "expectedOutput": "modified agent-task-packet-check.mjs with disjoint check and passing tests",
+      "verificationCommand": "node scripts/skill-behavior-smoke.mjs",
+      "modelTier": "sonnet",
+      "timeoutSec": 600,
+      "retryPolicy": {"maxRetries": 1, "backoff": "linear", "initialDelayMs": 1000},
+      "noRevert": true,
+      "webSearchGuidance": "no WebSearch needed; use existing codebase"
+    }
+  }
+}

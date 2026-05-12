@@ -1,0 +1,16 @@
+{
+  "session_id": "fixture-packet-valid",
+  "tool_name": "Task",
+  "tool_input": {
+    "packet": {
+      "mode": "read-only",
+      "goal": "verify all hook tests pass after Track A changes",
+      "contextSummary": "Phase gate check; read hook test output only",
+      "cwd": "/repo",
+      "scope": "tests/",
+      "readSet": ["tests", "hooks"],
+      "expectedOutput": "all checks PASSED confirmed",
+      "noRevert": true
+    }
+  }
+}

@@ -15,8 +15,27 @@ source "$SCRIPT_DIR/lib/state.sh"
 source "$SCRIPT_DIR/lib/paths.sh"
 # shellcheck source=hooks/lib/code-patterns.sh
 source "$SCRIPT_DIR/lib/code-patterns.sh"
+# shellcheck source=hooks/lib/command-classifiers.sh
+source "$SCRIPT_DIR/lib/command-classifiers.sh"
 # shellcheck source=scripts/lib/skill-lists.sh
 source "$SCRIPT_DIR/../scripts/lib/skill-lists.sh"
+
+# Hook decision pipeline:
+# 1) classify command/tool risk level
+# 2) enforce hard denies for safety-critical paths
+# 3) enforce repeat/evidence discipline
+# 4) allow with optional context warnings
+#
+# [input]
+#    |
+#    v
+# [classifiers] --> [critical?] --yes--> [deny or override verify]
+#    |                               no
+#    +-------------------------------> [repeat/evidence checks] --> [allow/deny]
+
+current_tool=""
+current_bash_command=""
+cwd=""
 
 fail_open() {
   printf 'claude-guard warning: %s; allowing tool call\n' "$1" >&2
@@ -24,36 +43,56 @@ fail_open() {
   exit 0
 }
 
-cc_json_read_stdin
-cc_json_require_jq || exit 0
-cc_json_valid || fail_open "invalid JSON input"
-cc_state_init
-
-tool_name="$(cc_json_get '.tool_name // .toolName // .tool')"
-cwd="$(cc_project_cwd)"
-
 deny() {
-  cc_json_deny_pretool "$1"
+  local reason="$1"
+  if [[ "$current_tool" == "Bash" && -n "$current_bash_command" ]]; then
+    cc_state_record_command_blocked "$current_bash_command" "$reason" || true
+  fi
+  cc_json_deny_pretool "$reason"
   exit 0
 }
 
-latest_assistant_text() {
-  local transcript
-  transcript="$(cc_json_get '.transcript_path')"
-  if [[ -n "$transcript" && -f "$transcript" ]]; then
-    jq -rs '
-      [.[] | select(.type == "assistant") | (.message.content // [])[]? | select(.type == "text") | .text]
-      | last // empty
-    ' "$transcript" 2>/dev/null || true
+cc_json_read_stdin
+if ! cc_json_require_jq; then
+  if [[ "${CC_ALLOW_NO_JQ:-0}" == "1" ]]; then
+    printf 'claude-guard warning: jq unavailable and CC_ALLOW_NO_JQ=1; allowing tool call without guard checks\n' >&2
+    cc_json_allow
+    exit 0
+  fi
+  printf 'claude-guard error: jq unavailable; blocking tool call to preserve safety-critical guard checks (set CC_ALLOW_NO_JQ=1 to bypass intentionally)\n' >&2
+  cc_json_deny_pretool "Safety-critical guard unavailable: jq missing. Install jq or set CC_ALLOW_NO_JQ=1 for an explicit temporary bypass."
+  exit 0
+fi
+cc_json_valid || fail_open "invalid JSON input"
+if ! cc_state_init; then
+  printf 'claude-guard warning: state init failed in pretooluse guard; continuing with degraded state tracking\n' >&2
+fi
+
+current_tool="$(cc_json_get '.tool_name // .toolName // .tool')"
+cwd="$(cc_project_cwd)"
+
+message_fingerprint() {
+  local text="$1"
+  local output
+  if output="$(cc_command_fingerprint "$text" 2>&1)"; then
+    printf '%s\n' "$output"
     return 0
   fi
-  cc_json_get '.last_assistant_message // .message // .response'
+  if [[ -n "$output" ]]; then
+    printf 'claude-guard warning: fingerprint error: %s\n' "$output" >&2
+  fi
+  printf 'missing-hash\n'
 }
 
 record_evidence_discipline_violation() {
   local violation="$1"
+  local fingerprint="$2"
   cc_state_append_value evidenceDisciplineViolations "$violation"
+  if [[ -n "$fingerprint" && "$fingerprint" != "missing-hash" ]]; then
+    cc_state_record_evidence_fingerprint "$fingerprint"
+  fi
   python3 "$SCRIPT_DIR/cc-hindsight-lesson.py" >/dev/null 2>&1 &
+  disown || true
 }
 
 cc_domain_sensitive_path() {
@@ -71,25 +110,30 @@ cc_domain_skill_seen() {
 }
 
 block_evidence_discipline_before_tool() {
-  local message violation
-  message="$(latest_assistant_text)"
-  if [[ -n "$message" ]] && violation="$(cc_evidence_discipline_violation "$message")"; then
-    record_evidence_discipline_violation "$violation"
-    deny "$violation"
+  local message violation fingerprint
+  message="$(cc_json_current_assistant_text || true)"
+  if [[ -z "$message" ]]; then
+    if [[ "${CLAUDE_GUARD_DEBUG:-0}" == "1" ]]; then
+      printf 'claude-guard debug: assistant text empty; skipping evidence discipline precheck\n' >&2
+    fi
+    return 0
   fi
+  if ! violation="$(cc_evidence_discipline_violation "$message" 2>/dev/null)"; then
+    return 0
+  fi
+  fingerprint="$(message_fingerprint "$message")"
+  if [[ -n "$fingerprint" && "$fingerprint" != "missing-hash" ]] && cc_state_has_evidence_fingerprint "$fingerprint"; then
+    return 0
+  fi
+  record_evidence_discipline_violation "$violation" "$fingerprint"
+  deny "$violation"
 }
 
 is_source_edit_tool() {
-  case "$tool_name" in
+  case "$current_tool" in
     Edit|Write|MultiEdit) return 0 ;;
     *) return 1 ;;
   esac
-}
-
-command_uses_banned_cli() {
-  local cmd="$1"
-  local banned='(^|[;&|({[:space:]])(grep|find|locate|ls|cat|head|tail|sed|awk|du)([[:space:];)&|]|$)'
-  [[ "$cmd" =~ $banned || "$cmd" =~ rm[[:space:]]+-rf ]]
 }
 
 command_is_email_send() {
@@ -171,41 +215,151 @@ dangerous_command_outside_path() {
 command_passes_port_guard() {
   local cmd="$1"
   local helper="$SCRIPT_DIR/../scripts/port-guard.mjs"
-  if [[ ! -f "$helper" ]]; then
-    printf 'claude-guard warning: port guard skipped for command %q: missing %s\n' "$cmd" "$helper" >&2
+  if ! cc_command_is_dev_server_start "$cmd"; then
     return 0
   fi
+  if [[ ! -f "$helper" ]]; then
+    printf 'Dev server command requires port-guard, but helper is missing: %s (command: %s)\n' "$helper" "$cmd" >&2
+    return 1
+  fi
   if ! command -v node >/dev/null 2>&1; then
-    printf 'claude-guard warning: port guard skipped for command %q: missing node\n' "$cmd" >&2
-    return 0
+    printf 'Dev server command requires Node.js runtime for port-guard checks (command: %s)\n' "$cmd" >&2
+    return 1
   fi
   node "$helper" check --command "$cmd"
 }
 
+review_required_for_risky_command() {
+  jq -e '
+    def source_edit_count:
+      (.edits // {})
+      | to_entries
+      | map(select(.key | test("\\.(js|jsx|ts|tsx|mjs|cjs|py|rs|go|php|rb|java|kt|swift|sh|bash|zsh)$"; "i")))
+      | map(select(.key | test("(\\.test\\.|\\.spec\\.|/tests?/|__tests__|/node_modules/|/dist/|/build/|/coverage/|/generated/|/__generated__/|/migrations/)"; "i") | not))
+      | length;
+    ((((.reviewTriggers // []) | length) > 0)
+      or (((.largeEdits // []) | length) > 0)
+      or (((.newSourceFiles // {}) | length) >= 2)
+      or (((.repeatedEditFiles // {}) | length) > 0)
+      or (source_edit_count >= 3))
+      and
+    (([.reviewRuns[]?.value // empty, .verificationRuns[]?.value // empty, .skillCalls[]?.value // empty]
+      | map(ascii_downcase)
+      | any(test("etrnl-review|code[ -]?review|review-log|coderabbit|adversarial|redline|second[ -]?pass|stress-test"))) | not)
+  ' "$(cc_state_file)" >/dev/null 2>&1
+}
+
+migration_evidence_missing() {
+  local migration_cmd_regex
+  migration_cmd_regex='((npx|bunx|yarn(\s+dlx)?|pnpm(\s+(dlx|exec))?|npm(\s+(run|exec))?)\s+([^;&|]+\s+)*?(--\s+)?)?\bprisma\b\s+\bmigrate\b\s+(status|deploy|resolve)\b'
+  jq -e --arg migration_cmd_regex "$migration_cmd_regex" '
+    def touched_schema:
+      (.edits // {})
+      | to_entries
+      | any(.key | test("(schema\\.prisma|prisma/migrations/|packages/db/prisma/)"; "i"));
+    touched_schema and ((.verificationRuns // []) | map(.value | ascii_downcase) | any(test($migration_cmd_regex)) | not)
+  ' "$(cc_state_file)" >/dev/null 2>&1
+}
+
+verify_override_token() {
+  local command="$1"
+  local action="$2"
+  local override_script token fingerprint output marker safe_reason session_id
+  override_script="$SCRIPT_DIR/../scripts/guard-override-token.mjs"
+  if [[ ! -f "$override_script" ]] || ! command -v node >/dev/null 2>&1; then
+    deny "Safety-critical command blocked: override verification is unavailable. Install the control-plane scripts and retry with a one-time approved override token."
+  fi
+  token="$(cc_json_get '.tool_input.guard_override_token // .guard_override_token')"
+  if [[ -z "$token" ]]; then
+    token="${CLAUDE_GUARD_OVERRIDE_TOKEN:-}"
+  fi
+  if [[ -z "$token" ]]; then
+    deny "$action blocked. Use reviewed migrations or approved redacted workflows. For break-glass operations, issue a one-time override token with: node scripts/guard-override-token.mjs issue --reason '<reason>' and pass it via CLAUDE_GUARD_OVERRIDE_TOKEN or the guard_override_token field."
+  fi
+  session_id="$(cc_session_id)"
+  if [[ -z "$session_id" || ! "$session_id" =~ ^[A-Za-z0-9._:-]+$ ]]; then
+    deny "Safety-critical command blocked: missing or invalid session id."
+  fi
+  fingerprint="$(cc_command_fingerprint "$command" || true)"
+  if [[ -z "$fingerprint" || "$fingerprint" == "missing-hash" ]]; then
+    deny "Safety-critical command blocked: unable to fingerprint command for override validation."
+  fi
+  if ! output="$(node "$override_script" verify --session "$session_id" --command-fingerprint "$fingerprint" --token "$token" 2>&1)"; then
+    safe_reason="$(printf '%s' "$output" | tr -d '\000-\011\013\014\016-\037\177' | tr -d '\033' | tr '\n' ' ' | sed -E 's/[[:space:]]+/ /g' | cut -c1-240)"
+    deny "Safety-critical command blocked: override token rejected: ${safe_reason:-unknown error}."
+  fi
+  marker="override:${fingerprint}:$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  cc_state_record_prod_approval_marker "$marker" || true
+}
+
+cc_check_repeat_edit_generation() {
+  local cmd="$1"
+  local edit_generation last_generation
+  edit_generation="$(cc_state_get_edit_generation)"
+  [[ "$edit_generation" =~ ^-?[0-9]+$ ]] || edit_generation="-1"
+  last_generation="$(jq -r --arg cmd "$cmd" '.commandLastEditGeneration[$cmd] // -1' "$(cc_state_file)" 2>/dev/null || printf -- '-1\n')"
+  [[ "$last_generation" =~ ^-?[0-9]+$ ]] || last_generation="-1"
+  (( last_generation >= edit_generation ))
+}
+
 handle_bash() {
   local cmd="$1"
+  current_bash_command="$cmd"
   if [[ -z "$cmd" ]]; then
     cc_json_allow
     exit 0
   fi
-  if command_uses_banned_cli "$cmd"; then
-    deny "Use the modern CLI toolkit instead of legacy shell commands. Prefer rg/fd/bat/eza/sd/dust/trash, or project scripts that wrap them intentionally."
+
+  if cc_command_is_primary_legacy_search "$cmd"; then
+    deny "Use the modern CLI toolkit instead of legacy shell commands. Prefer rg/fd/bat/eza/sd/dust/trash, or project scripts that wrap them intentionally. Also avoid piping to legacy tools (head, tail, grep, sed, awk, cat) — use rg for search, bat for display, eza for listing."
   fi
-  local count
-  count="$(cc_state_count_command "$cmd")"
-  if (( count >= 2 )) && [[ ! "$cmd" =~ (sleep|timeout|poll|watch) ]]; then
-    deny "This exact command has already run twice in this session. Diagnose the failure or try a different approach before repeating it."
+
+  local success_count
+  success_count="$(cc_state_count_successful_command "$cmd")"
+  if (( success_count >= 2 )) && [[ ! "$cmd" =~ (sleep|timeout|poll|watch) ]]; then
+    if cc_command_is_verification "$cmd"; then
+      if cc_check_repeat_edit_generation "$cmd"; then
+        cc_json_allow_context "PreToolUse" "Verification command is repeating with no state change. Continue only if you are collecting a second confirmation."
+        exit 0
+      fi
+    else
+      if cc_check_repeat_edit_generation "$cmd"; then
+        deny "This exact command has already run twice in this session without meaningful state change. Diagnose the failure or choose a different approach: edit a file to change state, use a different tool/flag, or run a related diagnostic first."
+      fi
+      cc_json_allow_context "PreToolUse" "Command is repeating but state changed after the last successful run. One retry is allowed."
+      exit 0
+    fi
   fi
+
   if command_is_email_send "$cmd"; then
     deny "Email sending is blocked until a draft has been shown to the user and explicit approval is recorded."
   fi
+
   if command_is_gws_write "$cmd" && ! jq -e '.verificationRuns[]? | .value | test("gws.*(account|whoami|help)|gmail.*(account|whoami|help)|drive.*(account|whoami|help)")' "$(cc_state_file)" >/dev/null 2>&1; then
     deny "Google Workspace write actions require an account/help check first."
   fi
+
   local outside_path
   if command_is_dangerous_outside_cwd "$cmd" && outside_path="$(dangerous_command_outside_path "$cmd")"; then
     deny "Dangerous filesystem commands must stay inside the current project or an explicit temporary directory. Outside path: $outside_path"
   fi
+
+  local env_hint
+  env_hint="$(cc_json_get '.tool_input.environment // .environment // .env // empty')"
+  if cc_command_is_risky_completion_operation "$cmd" && review_required_for_risky_command; then
+    deny "Risky completion command blocked until second-pass review evidence is present. Run etrnl-review (or equivalent review artifact) before commit/push/deploy operations."
+  fi
+  if cc_command_is_prod_schema_mutation "$cmd" "$env_hint"; then
+    if migration_evidence_missing; then
+      deny "Production schema mutation blocked. Add migration evidence first (for example: prisma migrate status/deploy), then provide a valid one-time override token for reviewed exceptions."
+    fi
+    verify_override_token "$cmd" "Production schema mutation command"
+  fi
+
+  if cc_command_may_disclose_secret "$cmd"; then
+    verify_override_token "$cmd" "Secret-disclosure command"
+  fi
+
   local port_guard_output
   if ! port_guard_output="$(command_passes_port_guard "$cmd" 2>&1)"; then
     deny "$port_guard_output"
@@ -225,27 +379,29 @@ handle_edit() {
   if violation="$(cc_policy_violation "$text")"; then
     deny "$violation"
   fi
-  if [[ -n "$abs" && "$tool_name" == "Write" && -f "$abs" ]]; then
-    old_text="$(<"$abs")"
+  if [[ -n "$abs" && "$current_tool" == "Write" && -f "$abs" ]]; then
+    if ! old_text="$(<"$abs" 2>/dev/null)"; then
+      printf 'claude-guard warning: could not read existing file for safety check: %s\n' "$abs" >&2
+      old_text=""
+    fi
   fi
-  if violation="$(cc_safety_removal_violation "$old_text" "$text")"; then
-    deny "$violation"
+  if [[ -n "$abs" ]] && (cc_is_source_path "$abs" || [[ "$abs" == *.json || "$abs" == *.yaml || "$abs" == *.yml || "$abs" == *.toml ]] ); then
+    if violation="$(cc_safety_removal_violation "$old_text" "$text")"; then
+      deny "$violation"
+    fi
   fi
   if violation="$(cc_test_quality_violation "$text" "$abs")"; then
     deny "Test-quality violation. $violation"
   fi
 
   if [[ -n "$abs" ]] && cc_is_source_path "$abs" && ! cc_is_exempt_path "$abs"; then
-    if [[ "$tool_name" != "Write" && -e "$abs" ]] && ! cc_state_has_read "$abs"; then
+    if [[ "$current_tool" != "Write" && -e "$abs" ]] && ! cc_state_has_read "$abs"; then
       deny "Read the existing source file before editing it: $abs"
     fi
     if ! cc_state_has_search; then
       deny "Search for existing references/helpers before editing or creating source code. Use rg, fd, sg, git grep, Serena, or context7 as appropriate."
     fi
-    if [[ "$tool_name" == "Write" && ! -e "$abs" ]] && ! cc_state_has_search; then
-      deny "Search for reusable components/helpers before creating a new source file."
-    fi
-    if [[ "$tool_name" == "Write" && ! -e "$abs" ]]; then
+    if [[ "$current_tool" == "Write" && ! -e "$abs" ]]; then
       new_count="$(jq '(.newSourceFiles // {}) | length' "$(cc_state_file)" 2>/dev/null || printf '0\n')"
       if (( new_count >= 3 )); then
         deny "File-sprawl violation. This session is creating too many new source files. Reuse existing files, split the plan, or run a second-pass review before continuing."
@@ -266,10 +422,12 @@ handle_edit() {
   fi
 
   if [[ -n "$text" && -n "$abs" ]] && cc_is_source_path "$abs" && ! cc_is_exempt_path "$abs"; then
-    if violation="$(cc_large_change_violation "$old_text" "$text" "$tool_name")"; then
+    if violation="$(cc_large_change_violation "$old_text" "$text" "$current_tool")"; then
       cc_state_append_value largeEdits "$abs"
       cc_state_append_value reviewTriggers "large edit: $abs"
-      deny "$violation"
+      if ! jq -e '((.reviewRuns // []) | length) > 0 or ((.skillCalls // []) | map(.value | ascii_downcase) | any(test("etrnl-plan|etrnl-review|plan|review")))' "$(cc_state_file)" >/dev/null 2>&1; then
+        deny "$violation"
+      fi
     fi
   fi
 
@@ -289,6 +447,7 @@ handle_edit() {
   else
     cc_json_allow
   fi
+  exit 0
 }
 
 handle_websearch() {
@@ -310,7 +469,7 @@ handle_agent() {
   cc_json_allow
 }
 
-case "$tool_name" in
+case "$current_tool" in
   Bash)
     block_evidence_discipline_before_tool
     handle_bash "$(cc_json_get '.tool_input.command // .input.command // .command')"

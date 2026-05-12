@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivaz.dev/claude-control-plane/research/parity-scorecard.schema.json",
+  "title": "ETRNL Parity Scorecard",
+  "type": "object",
+  "required": [
+    "generatedAt",
+    "scorecards"
+  ],
+  "properties": {
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "scorecards": {
+      "type": "array",
+      "description": "Coverage against repo-owned ETRNL skills is enforced by scripts/lib/research-intel-core.mjs validateScorecard().",
+      "$comment": "Do not hardcode OWNED_SKILLS length in schema; runtime validation enforces skill coverage.",
+      "items": {
+        "type": "object",
+        "required": [
+          "etrnlSkill",
+          "capabilityScores",
+          "gaps",
+          "priority",
+          "targetMilestone"
+        ],
+        "properties": {
+          "etrnlSkill": {
+            "type": "string",
+            "pattern": "^etrnl-"
+          },
+          "capabilityScores": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 3
+            }
+          },
+          "gaps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "capability",
+                "target",
+                "ownerSurface",
+                "sourceRows"
+              ],
+              "properties": {
+                "capability": {
+                  "type": "string"
+                },
+                "target": {
+                  "type": "string"
+                },
+                "ownerSurface": {
+                  "type": "string"
+                },
+                "sourceRows": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              },
+              "additionalProperties": true
+            }
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "P0",
+              "P1",
+              "P2",
+              "P3"
+            ]
+          },
+          "targetMilestone": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Capability Evidence Rows",
+  "type": "object",
+  "required": [
+    "generatedAt",
+    "stalenessPolicy",
+    "capabilities",
+    "rows"
+  ],
+  "properties": {
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "stalenessPolicy": {
+      "type": "object",
+      "required": [
+        "refreshCadenceDays",
+        "nextScan"
+      ],
+      "properties": {
+        "refreshCadenceDays": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "nextScan": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "rows": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "competitorId",
+          "capability",
+          "status",
+          "enforcementLevel",
+          "evidence"
+        ],
+        "properties": {
+          "competitorId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "capability": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "present",
+              "partial",
+              "absent"
+            ]
+          },
+          "enforcementLevel": {
+            "type": "string",
+            "enum": [
+              "none",
+              "prompt_only",
+              "agent_contract",
+              "script_enforced",
+              "hook_enforced",
+              "test_enforced"
+            ]
+          },
+          "evidence": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": [
+                "file",
+                "line",
+                "snippet",
+                "kind",
+                "lastValidated"
+              ],
+              "properties": {
+                "file": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "line": {
+                  "type": "integer",
+                  "description": "1-based source line for code_ref evidence; 0 is reserved for file-level negative_scan evidence.",
+                  "minimum": 0
+                },
+                "snippet": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "code_ref",
+                    "negative_scan"
+                  ]
+                },
+                "lastValidated": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "validationMethod": {
+                  "type": "string",
+                  "enum": [
+                    "manual",
+                    "auto-scan"
+                  ]
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "kind": {
+                        "const": "negative_scan"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ]
+                  },
+                  "then": {
+                    "required": [
+                      "reason"
+                    ],
+                    "properties": {
+                      "line": {
+                        "const": 0
+                      },
+                      "reason": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  },
+                  "else": {
+                    "not": {
+                      "required": [
+                        "reason"
+                      ]
+                    },
+                    "properties": {
+                      "line": {
+                        "minimum": 1
+                      }
+                    }
+                  }
+                }
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

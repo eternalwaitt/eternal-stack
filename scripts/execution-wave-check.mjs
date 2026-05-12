@@ -27,14 +27,17 @@ function submoduleHit(files, submodules) {
 }
 
 function analyzeWave(wave, plans, submodules, useWorktrees) {
-  const seen = new Map();
-  const overlaps = [];
+  const fileToPlanIds = new Map();
   for (const plan of plans) {
     for (const file of plan.files) {
-      if (seen.has(file)) overlaps.push({ file, plans: [seen.get(file), plan.id] });
-      else seen.set(file, plan.id);
+      const owners = fileToPlanIds.get(file) ?? new Set();
+      owners.add(plan.id);
+      fileToPlanIds.set(file, owners);
     }
   }
+  const overlaps = [...fileToPlanIds.entries()]
+    .filter(([, owners]) => owners.size > 1)
+    .map(([file, owners]) => ({ file, plans: [...owners].sort((left, right) => left.localeCompare(right)) }));
   return {
     wave,
     parallelSafe: overlaps.length === 0,

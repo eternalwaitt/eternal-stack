@@ -1,0 +1,23 @@
+{
+  "session_id": "fixture-packet-invalid",
+  "tool_name": "Task",
+  "tool_input": {
+    "packet": {
+      "mode": "write",
+      "goal": "patch a script",
+      "contextSummary": "fix with overlap in paths",
+      "cwd": "/repo",
+      "scope": "scripts/example.mjs",
+      "readSet": ["scripts"],
+      "writeScope": ["scripts/example.mjs", "scripts/shared.mjs"],
+      "forbiddenPaths": ["scripts/example.mjs", "hooks"],
+      "expectedOutput": "patched script",
+      "verificationCommand": "node scripts/example.mjs",
+      "modelTier": "haiku",
+      "timeoutSec": 60,
+      "retryPolicy": {"maxRetries": 0, "backoff": "none", "initialDelayMs": 0},
+      "noRevert": true,
+      "webSearchGuidance": "none"
+    }
+  }
+}

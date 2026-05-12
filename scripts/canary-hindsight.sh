@@ -4,6 +4,21 @@ set -Eeuo pipefail
 config="${HOME}/.hindsight/claude-code.json"
 settings="${HOME}/.claude/settings.json"
 
+if [[ ! -f "$settings" ]]; then
+  printf 'fail: settings file not found: %s\n' "$settings" >&2
+  exit 1
+fi
+
+if [[ ! -r "$settings" ]]; then
+  printf 'fail: settings file not readable: %s\n' "$settings" >&2
+  exit 1
+fi
+
+if ! jq empty "$settings" >/dev/null 2>&1; then
+  printf 'fail: settings file contains invalid JSON: %s\n' "$settings" >&2
+  exit 1
+fi
+
 if ! jq -e '.enabledPlugins["hindsight-memory@hindsight"] == true' "$settings" >/dev/null; then
   printf 'fail: hindsight-memory plugin is not enabled\n' >&2
   exit 1

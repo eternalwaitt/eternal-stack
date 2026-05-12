@@ -40,6 +40,15 @@ Run the review gauntlet before finalizing the plan:
 - User challenge: never auto-decide changes that contradict the user's explicit direction.
 - Human-gate only premises, subjective taste, destructive actions, missing credentials, scope outside blast radius, or repeated stalls.
 
+## Research Flow (hook_enforced)
+
+Before finalizing any plan for a capability or feature that competes with or parallels existing tools:
+
+1. Confirm whether a research artifact already exists (`docs/research/top10-lock.json`, `docs/research/capability-evidence.json`, or equivalent). If present and within the `nextScan` window, cite it as evidence.
+2. If no research artifact exists or it is expired, require generating fresh research artifacts via the repository research pipeline (for example, `node scripts/research-competitor-intel.mjs`) before finalizing the plan. Do not substitute web summaries for code-level evidence.
+3. For each plan recommendation that maps to a competitor capability, record the source row from the capability evidence file or name the explicit gap from the parity backlog.
+4. Plans that propose new ETRNL skill or hook behaviors must cite at least one non-README code-level source from the evidence file, or name a gap from `docs/research/etrnl-parity-backlog.md`.
+
 ## Plan Requirements
 
 1. Ground the plan in current repo evidence before proposing changes.
@@ -108,6 +117,7 @@ Return or save a single implementation plan with this readiness-compatible shape
 - `## Artifact requirements`
 - `## Assumptions`
 - `## Plan Readiness Report`
+- `## Verdict`
 
 The Plan Readiness Report must explicitly cover:
 
@@ -118,6 +128,10 @@ The Plan Readiness Report must explicitly cover:
 - Performance Review
 - Failure modes
 - Parallelization
-- Verdict
+- Final recommendation inputs that justify the verdict section
+
+The final plan must include a separate `## Verdict` section with one explicit outcome:
+- Ready for execution
+- Blocked until <specific blocker>
 
 Do not ask whether to execute. The user can invoke `/etrnl-execute` after approving the plan.
