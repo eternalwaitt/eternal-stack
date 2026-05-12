@@ -35,17 +35,13 @@ for (const [eventName, templateGroups] of Object.entries(template.hooks ?? {})) 
 
   for (const group of templateGroups) {
     const hooks = (group.hooks ?? []).filter((hook) => {
-      const command = String(hook.command ?? "");
-      const normalizedCommand = command.trim();
-      return normalizedCommand.length > 0 && !existingCommands.has(normalizedCommand);
+      const normalizedCommand = String(hook.command ?? "").trim();
+      if (normalizedCommand.length === 0 || existingCommands.has(normalizedCommand)) return false;
+      existingCommands.add(normalizedCommand);
+      return true;
     });
 
     if (hooks.length === 0) continue;
-
-    for (const hook of hooks) {
-      const normalizedCommand = String(hook.command ?? "").trim();
-      existingCommands.add(normalizedCommand);
-    }
 
     target.hooks[eventName].push({ ...group, hooks });
   }

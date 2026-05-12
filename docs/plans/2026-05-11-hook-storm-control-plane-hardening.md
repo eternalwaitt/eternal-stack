@@ -318,6 +318,7 @@ E2E/EVAL NEEDS
 - Parallelization: Three lanes are possible, but final integration is sequential because `tests/test-hooks.sh` and shared classifiers are conflict-prone.
 - Unresolved questions: Whether to patch RTK Rust rewrite rules or only route around bad rewrites locally depends on implementation evidence; start local and escalate only if local hook cannot prevent broken `rtk grep` invocations.
 - Verdict: Ready for execution.
+
 ## Verdict
 
 Ready for execution.

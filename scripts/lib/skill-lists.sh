@@ -3,7 +3,7 @@
 # Centralized skill identifiers for the ETRNL control plane.
 # Used by install, doctor, and domain-sensitive hook gates.
 # Add new repo-owned skills to OWNED_SKILLS by directory name only, then run doctor.
-# Keep docs/research/parity-scorecard.schema.json scorecards.minItems aligned with OWNED_SKILLS length.
+# The parity-scorecard schema does not hardcode OWNED_SKILLS count; rerun tests/test-workflow-tools.sh when skills change.
 # Keep hooks/lib/skill-hints.sh fallback `skills=(...)` synchronized with OWNED_SKILLS.
 # LEGACY_SKILLS names are moved into the install backup during migration.
 

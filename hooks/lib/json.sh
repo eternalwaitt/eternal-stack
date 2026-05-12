@@ -108,5 +108,7 @@ cc_json_current_assistant_text() {
       return 1
     fi
     printf '%s\n' "$transcript_text"
+    return 0
   fi
+  return 0
 }

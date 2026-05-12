@@ -8,6 +8,10 @@
     "competitors"
   ],
   "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
     "generatedAt": {
       "type": "string",
       "format": "date-time"

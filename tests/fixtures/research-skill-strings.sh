@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # Canonical detection strings for research fixture content.
 # Sourced by tests/test-workflow-tools.sh when writing fixture repos.
 # Strings must satisfy CAPABILITY_DEFS patterns in scripts/lib/research-intel-core.mjs.

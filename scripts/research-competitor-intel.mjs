@@ -15,6 +15,7 @@ import {
   writeText,
 } from "./lib/research-intel-core.mjs";
 import { argValue } from "./lib/cli-args.mjs";
+import { markerRows, renderDoesDoesnt, renderMatrix, renderParityBacklog } from "./lib/research-intel-render.mjs";
 
 const args = process.argv.slice(2);
 const command = args[0];
@@ -56,123 +57,7 @@ function reportErrors(errors) {
   process.exit(1);
 }
 
-function escapeTableCell(value) {
-  return String(value ?? "")
-    .replace(/\\/g, "\\\\")
-    .replace(/\|/g, "\\|")
-    .replace(/\r?\n/g, " ");
-}
 
-function renderMatrix(markers) {
-  const header = ["Competitor", ...CAPABILITY_DEFS.map((cap) => escapeTableCell(cap.id))];
-  const lines = [
-    "# Capability Matrix",
-    "",
-    "<!-- Generated file. Do not edit manually. -->",
-    "<!-- Regenerate: node scripts/research-competitor-intel.mjs generate --manifest docs/research/top10-lock.json --evidence docs/research/capability-evidence.json --scorecard docs/research/parity-scorecard.json --out-dir docs/research -->",
-    "",
-    "## Vocabulary",
-    "",
-    "- `does/prompt_only`: present via instructions/prompts only.",
-    "- `does/script_enforced`: present with script-level enforcement.",
-    "- `does/hook_enforced`: present with hook-level enforcement.",
-    "- `does/test_enforced`: present and validated by tests.",
-    "- `partial/*`: partially implemented at the listed enforcement level.",
-    "- `does-not/none`: capability not present in this competitor snapshot.",
-    "",
-    "Canonical location: this generated artifact is maintained at `docs/research/capability-matrix.md` and rebuilt via the command above.",
-    "",
-    "| " + header.join(" | ") + " |",
-    "| " + header.map(() => "---").join(" | ") + " |",
-  ];
-  for (const marker of markers) {
-    const row = [escapeTableCell(marker.id), ...CAPABILITY_DEFS.map((cap) => escapeTableCell(marker.cells[cap.id] || "does-not/none"))];
-    lines.push(`| ${row.join(" | ")} |`);
-  }
-  return `${lines.join("\n")}\n`;
-}
-
-function statusEmoji(status) {
-  if (status === "present") return "does";
-  if (status === "partial") return "partial";
-  return "does-not";
-}
-
-function renderDoesDoesnt(markers) {
-  const lines = [
-    "# Does / Doesn't by Competitor",
-    "",
-    "<!-- Generated file. Do not edit manually. -->",
-    "<!-- Regenerate: node scripts/research-competitor-intel.mjs generate --manifest docs/research/top10-lock.json --evidence docs/research/capability-evidence.json --scorecard docs/research/parity-scorecard.json --out-dir docs/research -->",
-    "",
-  ];
-  for (const marker of markers) {
-    lines.push(`## ${marker.id}`);
-    const does = [];
-    const partial = [];
-    const doesnt = [];
-    for (const capability of CAPABILITY_DEFS) {
-      const row = marker.rows[capability.id];
-      if (!row) continue;
-      const label = `${capability.id} (${row.enforcementLevel})`;
-      if (row.status === "present") does.push(label);
-      else if (row.status === "partial") partial.push(label);
-      else doesnt.push(label);
-    }
-    lines.push(`- does: ${does.join(", ") || "none"}`);
-    lines.push(`- partial: ${partial.join(", ") || "none"}`);
-    lines.push(`- does-not: ${doesnt.join(", ") || "none"}`);
-    lines.push("");
-  }
-  return `${lines.join("\n")}\n`;
-}
-
-function renderParityBacklog(scorecard) {
-  const lines = [
-    "# ETRNL Parity Backlog",
-    "",
-    "<!-- Generated file. Do not edit manually. -->",
-    "<!-- Regenerate: node scripts/research-competitor-intel.mjs generate --manifest docs/research/top10-lock.json --evidence docs/research/capability-evidence.json --scorecard docs/research/parity-scorecard.json --out-dir docs/research -->",
-    "",
-    "| Skill | Priority | Milestone | Gaps |",
-    "| --- | --- | --- | --- |",
-  ];
-  const sorted = [...scorecard.scorecards].sort((left, right) => String(left.priority ?? "").localeCompare(String(right.priority ?? "")));
-  for (const row of sorted) {
-    const gaps = row.gaps.map((gap) => `${gap.capability}:${gap.target}`).join("; ");
-    lines.push(`| ${row.etrnlSkill} | ${row.priority} | ${row.targetMilestone} | ${gaps || "none"} |`);
-  }
-  return `${lines.join("\n")}\n`;
-}
-
-function markerRows(manifest, evidenceDoc) {
-  const knownCompetitors = new Set(manifest.competitors.map((competitor) => competitor.id));
-  const rowsByCompetitor = new Map();
-  const orphanCompetitorIds = new Set();
-  for (const row of evidenceDoc.rows) {
-    if (!knownCompetitors.has(row.competitorId)) {
-      orphanCompetitorIds.add(row.competitorId);
-      continue;
-    }
-    if (!rowsByCompetitor.has(row.competitorId)) rowsByCompetitor.set(row.competitorId, []);
-    rowsByCompetitor.get(row.competitorId).push(row);
-  }
-  if (orphanCompetitorIds.size > 0) {
-    console.warn(
-      `research-competitor-intel warning: evidence rows reference unknown competitor ids: ${[
-        ...orphanCompetitorIds,
-      ].sort().join(", ")}`,
-    );
-  }
-  return manifest.competitors.map((competitor) => {
-    const rows = rowsByCompetitor.get(competitor.id) || [];
-    const byCapability = Object.fromEntries(rows.map((row) => [row.capability, row]));
-    const cells = Object.fromEntries(
-      Object.values(byCapability).map((row) => [row.capability, `${statusEmoji(row.status)}/${row.enforcementLevel}`]),
-    );
-    return { id: competitor.id, rows: byCapability, cells };
-  });
-}
 
 function runValidateManifest() {
   const manifestPath = requireArg("--manifest");
@@ -204,60 +89,58 @@ function runValidateScorecard() {
   console.log(`ok: scorecard valid (${scorecard.scorecards.length} entries, ${ownedSkills.length} owned skills)`);
 }
 
+function applyItemFreshness(item, capability, generatedAt) {
+  const extra = item.kind === "negative_scan" ? { reason: `No matching capability evidence found for ${capability}` } : {};
+  return { ...item, lastValidated: generatedAt, validationMethod: "auto-scan", ...extra };
+}
+
+function applyRowFreshness(row, generatedAt) {
+  return { ...row, evidence: row.evidence.map((item) => applyItemFreshness(item, row.capability, generatedAt)) };
+}
+
+function processCompetitorEntry(competitor, reposRoot, generatedAt) {
+  const repoDir = path.resolve(reposRoot, competitor.localPath || competitor.id);
+  const repoDirRelative = path.relative(reposRoot, repoDir);
+  if (repoDirRelative.startsWith("..") || path.isAbsolute(repoDirRelative)) {
+    fail(`competitor ${competitor.id} localPath escapes --repos-root: ${competitor.localPath || competitor.id}`);
+  }
+  if (!existsSync(repoDir)) fail(`competitor repo directory not found: ${repoDir}`);
+  const extracted = extractCompetitor(repoDir, competitor.id);
+  const copy = { ...competitor, analyzedPaths: extracted.analyzedPaths };
+  if (!copy.collectedAt) copy.collectedAt = generatedAt;
+  return { copy, rows: extracted.rows };
+}
+
 function runExtract() {
   const manifestPath = path.resolve(requireArg("--manifest"));
   const reposRoot = path.resolve(requireArg("--repos-root"));
   const outputPath = path.resolve(requireArg("--out"));
-  if (!existsSync(reposRoot)) {
-    fail(`repos-root directory not found: ${reposRoot}`);
-  }
+  if (!existsSync(reposRoot)) fail(`repos-root directory not found: ${reposRoot}`);
   const manifestOut = argValue(args, "--manifest-out");
   const writeManifest = args.includes("--write-manifest");
-  if (manifestOut && writeManifest) {
-    fail("--manifest-out and --write-manifest are mutually exclusive.");
-  }
+  if (manifestOut && writeManifest) fail("--manifest-out and --write-manifest are mutually exclusive.");
   const manifest = readJson(manifestPath);
-  const manifestErrors = validateManifest(manifest);
-  reportErrors(manifestErrors);
+  reportErrors(validateManifest(manifest));
   const generatedAt = nowIsoNoMillis();
   const refreshCadenceDays = 30;
   const rows = [];
-  const enriched = {
-    ...manifest,
-    competitors: [],
-  };
+  const enriched = { ...manifest, competitors: [] };
   for (const competitor of manifest.competitors) {
-    const competitorCopy = { ...competitor };
-    const repoDir = path.resolve(reposRoot, competitorCopy.localPath || competitorCopy.id);
-    const extracted = extractCompetitor(repoDir, competitorCopy.id);
-    competitorCopy.analyzedPaths = extracted.analyzedPaths;
-    if (!competitorCopy.collectedAt) competitorCopy.collectedAt = generatedAt;
-    enriched.competitors.push(competitorCopy);
-    rows.push(...extracted.rows);
+    const { copy, rows: compRows } = processCompetitorEntry(competitor, reposRoot, generatedAt);
+    enriched.competitors.push(copy);
+    rows.push(...compRows);
   }
-  const rowsWithFreshness = rows.map((row) => ({
-    ...row,
-    evidence: row.evidence.map((item) => ({
-      ...item,
-      lastValidated: generatedAt,
-      validationMethod: "auto-scan",
-      ...(item.kind === "negative_scan" ? { reason: `No matching capability evidence found for ${row.capability}` } : {}),
-    })),
-  }));
-  if (manifestOut) {
-    writeJson(path.resolve(manifestOut), enriched);
-  } else if (writeManifest) {
-    writeJson(manifestPath, enriched);
-  }
-  writeJson(outputPath, {
+  if (manifestOut) writeJson(path.resolve(manifestOut), enriched);
+  else if (writeManifest) writeJson(manifestPath, enriched);
+  const rowsWithFreshness = rows.map((row) => applyRowFreshness(row, generatedAt));
+  const extractedEvidence = {
     generatedAt,
-    stalenessPolicy: {
-      refreshCadenceDays,
-      nextScan: plusDaysIsoNoMillis(generatedAt, refreshCadenceDays),
-    },
+    stalenessPolicy: { refreshCadenceDays, nextScan: plusDaysIsoNoMillis(generatedAt, refreshCadenceDays) },
     capabilities: CAPABILITY_DEFS.map((cap) => cap.id),
     rows: rowsWithFreshness,
-  });
+  };
+  reportErrors(validateEvidence(extractedEvidence));
+  writeJson(outputPath, extractedEvidence);
   console.log(`ok: extracted ${rowsWithFreshness.length} capability rows`);
 }
 

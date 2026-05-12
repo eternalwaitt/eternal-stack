@@ -186,9 +186,9 @@ while IFS=$'\t' read -r fixture_id fixture_path; do
     exit 1
   fi
   if ! {
-    printf '%s\n' "# Skill ${fixture_id}" "${SKILL_LINE_TDD} for ${fixture_id}." "${SKILL_LINE_PLANNING} for ${fixture_id}." "${SKILL_LINE_RESEARCH} for ${fixture_id}." "$SKILL_LINE_SUBAGENT" "$SKILL_LINE_PARALLELISM" "$SKILL_LINE_GATE" 'Document rollback guardrails and backup restore flow.' "$SKILL_LINE_TELEMETRY" >"$fixture_dir/skills/research/SKILL.md"
-    printf '%s\n' '#!/usr/bin/env bash' "echo \"verification gate blocker fail-closed ${fixture_id}\"" >"$fixture_dir/hooks/pretool.sh"
-    printf '%s\n' '#!/usr/bin/env bash' "echo \"telemetry heartbeat monitor alert ${fixture_id}\"" >"$fixture_dir/scripts/monitor.sh"
+    printf '%s\n' "# Skill ${fixture_id}" "${SKILL_LINE_TDD} for ${fixture_id}." "${SKILL_LINE_PLANNING} for ${fixture_id}." "${SKILL_LINE_RESEARCH} for ${fixture_id}." "$SKILL_LINE_SUBAGENT" "$SKILL_LINE_PARALLELISM" "$SKILL_LINE_GATE" "$SKILL_LINE_ROLLBACK." "$SKILL_LINE_TELEMETRY" >"$fixture_dir/skills/research/SKILL.md"
+    printf '%s\n' '#!/usr/bin/env bash' "echo \"${HOOK_LINE_GATE} ${fixture_id}\"" >"$fixture_dir/hooks/pretool.sh"
+    printf '%s\n' '#!/usr/bin/env bash' "echo \"${SCRIPT_LINE_TELEMETRY} ${fixture_id}\"" >"$fixture_dir/scripts/monitor.sh"
     printf '%s\n' "describe(\"tdd-${fixture_id}\", () => {" "  test(\"${TEST_LINE_TDD}\", () => {});" '});' >"$fixture_dir/tests/tdd.test.ts"
   }; then
     not_ok "research fixture file creation failed for $fixture_id"

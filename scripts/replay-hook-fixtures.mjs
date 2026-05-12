@@ -133,7 +133,7 @@ try {
     if (!hook || !expected || !expected.kind) {
       throw new Error(`Fixture ${file} is missing hook or expected.kind`);
     }
-    const payload = fixture.payload ?? rest;
+    const payload = Object.prototype.hasOwnProperty.call(fixture, "payload") ? fixture.payload : rest;
     const output = runHook(hook, payload);
     assertExpectation(output, expected);
     console.log(`ok ${file}`);

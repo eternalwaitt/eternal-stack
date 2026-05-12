@@ -206,7 +206,10 @@ record_tool() {
   esac
 }
 
-cc_state_begin_batch
+if ! cc_state_begin_batch; then
+  printf 'claude-guard warning: failed to begin state batch; skipping observer tracking\n' >&2
+  exit 0
+fi
 if jq -e '.tool_calls or .toolCalls or .batch' <<<"$HOOK_INPUT" >/dev/null 2>&1; then
   while IFS= read -r item; do
     name="$(jq -r '.tool_name // .toolName // .tool // empty' <<<"$item")"
@@ -229,7 +232,9 @@ else
     record_tool "$tool_name" "$file_path" "$cmd" "$success"
   fi
 fi
-cc_state_commit_batch
+if ! cc_state_commit_batch; then
+  printf 'claude-guard warning: failed to commit state batch; continuing without persisted observer updates\n' >&2
+fi
 
 state="$(cc_state_read)"
 warnings=()

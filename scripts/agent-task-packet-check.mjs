@@ -119,15 +119,14 @@ if ("noRevert" in packet) {
 // C1: Disjoint-ownership check.
 // In write mode, writeScope paths and forbiddenPaths must be disjoint.
 // A path cannot be both claimed for writing and marked as forbidden.
+// Overlap detection uses exact string matching; callers must normalize paths before passing them.
 if (mode === "write" && "writeScope" in packet && "forbiddenPaths" in packet) {
   const writeScope = pathList(packet.writeScope, "writeScope");
   const forbiddenPaths = pathList(packet.forbiddenPaths, "forbiddenPaths");
-  if (writeScope.length > 0 && forbiddenPaths.length > 0) {
-    const writeScopeSet = new Set(writeScope);
-    const overlap = forbiddenPaths.filter((item) => writeScopeSet.has(item));
-    if (overlap.length > 0) {
-      violations.push(`writeScope and forbiddenPaths overlap (disjoint-ownership violation): ${overlap.join(", ")}`);
-    }
+  const writeScopeSet = new Set(writeScope);
+  const overlap = forbiddenPaths.filter((item) => writeScopeSet.has(item));
+  if (overlap.length > 0) {
+    violations.push(`writeScope and forbiddenPaths overlap (disjoint-ownership violation): ${overlap.join(", ")}`);
   }
 }
 

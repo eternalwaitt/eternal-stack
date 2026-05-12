@@ -55,7 +55,8 @@ export function readJson(filePath) {
     return JSON.parse(readFileSync(filePath, "utf8"));
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to parse JSON from ${filePath}: ${detail}`, error instanceof Error ? { cause: error } : undefined);
+    const cause = error instanceof Error ? error : undefined;
+    throw new Error(`Failed to parse JSON from ${filePath}: ${detail}`, { cause });
   }
 }
 
@@ -196,7 +197,7 @@ function dedupeEvidence(items) {
 }
 
 function buildAbsentEvidenceItem(capability, relFiles, extractedAt) {
-  const fallbackFile = relFiles.find((f) => f.toLowerCase().includes(capability.id.toLowerCase())) ?? "_negative_scan_placeholder";
+  const fallbackFile = relFiles.find((f) => f.toLowerCase().includes(capability.id.toLowerCase())) ?? "negative_scan";
   return {
     file: fallbackFile,
     line: 0,
@@ -222,7 +223,7 @@ export function extractCompetitor(repoRoot, competitorId) {
     throw new Error(`repo root missing for ${competitorId}: ${repoRoot}`);
   }
   const relFiles = listFilesRecursive(repoRoot).map(normalizePath).filter(isRelevantPath).sort((a, b) => a.localeCompare(b));
-  const extractedAt = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+  const extractedAt = new Date().toISOString();
   const rows = CAPABILITY_DEFS.map((capability) => {
     const rawEvidence = collectEvidenceForCapability(repoRoot, relFiles, capability);
     const evidence = dedupeEvidence(rawEvidence).slice(0, FINAL_EVIDENCE_LIMIT);
@@ -233,7 +234,7 @@ export function extractCompetitor(repoRoot, competitorId) {
       line: item.line,
       snippet: item.snippet,
       kind: "code_ref",
-      lastValidated: item.lastValidated || extractedAt,
+      lastValidated: extractedAt,
     }));
     return {
       competitorId,

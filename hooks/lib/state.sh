@@ -184,7 +184,11 @@ cc_state_init() {
     return 1
   fi
   if [[ ! -f "$file" ]]; then
-    cc_state_install_default_if_missing "$file"
+    if ! cc_state_install_default_if_missing "$file"; then
+      cc_state_release_lock "$lock"
+      printf 'claude-guard warning: failed to create default state file: %s\n' "$file" >&2
+      return 1
+    fi
     cc_state_release_lock "$lock"
     return 0
   fi

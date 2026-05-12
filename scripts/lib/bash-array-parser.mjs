@@ -36,6 +36,26 @@ export function stripBashComment(line) {
   return result;
 }
 
+const BASH_ESCAPE_MAP = { a: "\x07", b: "\b", e: "\x1B", f: "\f", r: "\r", t: "\t", v: "\v" };
+
+function applyBashEscapes(inner) {
+  return inner
+    .replace(/\\\n/g, "")
+    .replace(/\\\\/g, "\\")
+    .replace(/\\\$/g, "$")
+    .replace(/\\`/g, "`")
+    .replace(/\\"/g, '"')
+    .replace(/\\([abefrtv])/g, (_, c) => BASH_ESCAPE_MAP[c])
+    .replace(/\\x([0-9A-Fa-f]{2})/g, (_, hex) => String.fromCharCode(Number.parseInt(hex, 16)))
+    .replace(/\\(?:0([0-7]{1,3})|([0-7]{1,3}))/g, (_, z, p) => String.fromCharCode(Number.parseInt(z || p, 8)));
+}
+
+function unquoteToken(token) {
+  if (token.startsWith("'") && token.endsWith("'")) return token.slice(1, -1);
+  if (token.startsWith('"') && token.endsWith('"')) return applyBashEscapes(token.slice(1, -1));
+  return token.replace(/\\(.)/g, "$1");
+}
+
 export function parseBashArray(source, name, options = {}) {
   const onError = typeof options.onError === "function" ? options.onError : null;
   const assignment = new RegExp(`^\\s*${escapeRegexLiteral(name)}\\s*=\\s*\\(`, "m").exec(source);
@@ -49,7 +69,14 @@ export function parseBashArray(source, name, options = {}) {
   const bodyLines = [];
   let closed = false;
   for (const line of lines) {
+    const trimmed = line.trimEnd();
     if (/^\s*\)\s*$/.test(line)) {
+      closed = true;
+      break;
+    }
+    if (trimmed.endsWith(")")) {
+      const contentBeforeClose = trimmed.slice(0, -1).trim();
+      if (contentBeforeClose) bodyLines.push(contentBeforeClose);
       closed = true;
       break;
     }
@@ -59,42 +86,9 @@ export function parseBashArray(source, name, options = {}) {
     onError?.(`has unterminated ${name} array`);
     return [];
   }
-  const rawValues = bodyLines
-    .map((line) => stripBashComment(line).trim())
-    .filter(Boolean)
-    .join(" ");
+  const rawValues = bodyLines.map((line) => stripBashComment(line).trim()).filter(Boolean).join(" ");
   // Token branches: "double-quoted with escapes" | 'single-quoted literal' | unquoted tokens (with backslash escapes).
-  const tokens = rawValues.match(/"(?:\\.|[^"\\])*"|'[^']*'|(?:\\.|[^\s"'])+/g) || [];
-  return tokens.map((token) => {
-    if (token.startsWith("'") && token.endsWith("'")) {
-      return token.slice(1, -1);
-    }
-    if (token.startsWith('"') && token.endsWith('"')) {
-      // Order matters: strip line continuations before collapsing escaped backslashes.
-      return token
-        .slice(1, -1)
-        .replace(/\\\n/g, "")
-        .replace(/\\\\/g, "\\")
-        .replace(/\\\$/g, "$")
-        .replace(/\\`/g, "`")
-        .replace(/\\"/g, '"')
-        .replace(/\\([abefrtv])/g, (_, escapeCode) => {
-          const escapeMap = {
-            a: "\x07",
-            b: "\b",
-            e: "\x1B",
-            f: "\f",
-            r: "\r",
-            t: "\t",
-            v: "\v",
-          };
-          return escapeMap[escapeCode];
-        })
-        .replace(/\\x([0-9A-Fa-f]{2})/g, (_, hex) => String.fromCharCode(Number.parseInt(hex, 16)))
-        .replace(/\\(?:0([0-7]{1,3})|([0-7]{1,3}))/g, (_, withLeadingZero, plainOctal) =>
-          String.fromCharCode(Number.parseInt(withLeadingZero || plainOctal, 8)),
-        );
-    }
-    return token.replace(/\\(.)/g, "$1");
-  });
+  const matched = rawValues.match(/"(?:\\.|[^"\\])*"|'[^']*'|(?:\\.|[^\s"'])+/g);
+  const tokens = matched !== null ? matched : [];
+  return tokens.map(unquoteToken);
 }

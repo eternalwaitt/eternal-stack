@@ -22,14 +22,16 @@
 export function argValue(args, flag, fallback = "") {
   if (!Array.isArray(args) || typeof flag !== "string") return fallback;
   const safeArgs = args.filter((arg) => typeof arg === "string");
-  const equalsArg = safeArgs.find((arg) => arg.startsWith(`${flag}=`));
-  if (equalsArg) {
-    const value = equalsArg.slice(flag.length + 1);
-    return value === "" ? fallback : value;
+  for (let index = 0; index < safeArgs.length; index += 1) {
+    const token = safeArgs[index];
+    if (token === flag) {
+      const value = safeArgs[index + 1];
+      return !value || value.startsWith("-") ? fallback : value;
+    }
+    if (token.startsWith(`${flag}=`)) {
+      const value = token.slice(flag.length + 1);
+      return value === "" ? fallback : value;
+    }
   }
-  const index = safeArgs.indexOf(flag);
-  if (index < 0) return fallback;
-  const value = safeArgs[index + 1];
-  if (!value || value.startsWith("-")) return fallback;
-  return value;
+  return fallback;
 }

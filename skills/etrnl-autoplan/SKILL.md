@@ -45,7 +45,7 @@ Run the review gauntlet before finalizing the plan:
 Before finalizing any plan for a capability or feature that competes with or parallels existing tools:
 
 1. Confirm whether a research artifact already exists (`docs/research/top10-lock.json`, `docs/research/capability-evidence.json`, or equivalent). If present and within the `nextScan` window, cite it as evidence.
-2. If no research artifact exists or it is expired, require the user to run `etrnl-code-health` with research mode before finalizing the plan. Do not substitute web summaries for code-level evidence.
+2. If no research artifact exists or it is expired, require generating fresh research artifacts via the repository research pipeline (for example, `node scripts/research-competitor-intel.mjs`) before finalizing the plan. Do not substitute web summaries for code-level evidence.
 3. For each plan recommendation that maps to a competitor capability, record the source row from the capability evidence file or name the explicit gap from the parity backlog.
 4. Plans that propose new ETRNL skill or hook behaviors must cite at least one non-README code-level source from the evidence file, or name a gap from `docs/research/etrnl-parity-backlog.md`.
 

@@ -21,11 +21,11 @@ function fail(message) {
 }
 
 function readMaxPortScan() {
-  const value = Number.parseInt(process.env.CLAUDE_GUARD_MAX_PORT_SCAN || "500", 10);
-  if (!Number.isInteger(value) || value <= 0) {
+  const raw = process.env.CLAUDE_GUARD_MAX_PORT_SCAN || "500";
+  if (!/^[1-9]\d*$/.test(raw)) {
     fail("CLAUDE_GUARD_MAX_PORT_SCAN must be a positive integer.");
   }
-  return value;
+  return Number(raw);
 }
 
 function numericPort(value, label) {

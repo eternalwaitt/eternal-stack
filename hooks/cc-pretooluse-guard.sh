@@ -250,12 +250,14 @@ review_required_for_risky_command() {
 }
 
 migration_evidence_missing() {
-  jq -e '
+  local migration_cmd_regex
+  migration_cmd_regex='((npx|bunx|yarn(\s+dlx)?|pnpm(\s+(dlx|exec))?|npm(\s+(run|exec))?)\s+([^;&|]+\s+)*?(--\s+)?)?\bprisma\b\s+\bmigrate\b\s+(status|deploy|resolve)\b'
+  jq -e --arg migration_cmd_regex "$migration_cmd_regex" '
     def touched_schema:
       (.edits // {})
       | to_entries
       | any(.key | test("(schema\\.prisma|prisma/migrations/|packages/db/prisma/)"; "i"));
-    touched_schema and ((.verificationRuns // []) | map(.value | ascii_downcase) | any(test("((npx|bunx|yarn|pnpm(\\s+(dlx|exec))?|npm(\\s+run)?)\\s+)?prisma\\s+migrate\\s+(status|deploy|resolve)")) | not)
+    touched_schema and ((.verificationRuns // []) | map(.value | ascii_downcase) | any(test($migration_cmd_regex)) | not)
   ' "$(cc_state_file)" >/dev/null 2>&1
 }
 
@@ -379,6 +381,7 @@ handle_edit() {
   fi
   if [[ -n "$abs" && "$current_tool" == "Write" && -f "$abs" ]]; then
     if ! old_text="$(<"$abs" 2>/dev/null)"; then
+      printf 'claude-guard warning: could not read existing file for safety check: %s\n' "$abs" >&2
       old_text=""
     fi
   fi

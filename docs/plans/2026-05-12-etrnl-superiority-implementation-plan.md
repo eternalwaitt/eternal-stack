@@ -184,6 +184,7 @@ Use `etrnl-execute` inline (this session). Phases 1, 2, and 3 run in parallel ac
 - Parallelization: Three disjoint tracks. Only conflict: both A and C write to test-hooks.sh — serialize those sub-tasks or merge. All B tasks are fully parallel.
 - Unresolved questions: `code-simplifier` and `finding-duplicate-functions` not confirmed installed — if unavailable, skip and note in completion report.
 - Verdict: Ready for execution.
+
 ## Verdict
 
 Ready for execution
@@ -456,7 +457,7 @@ Target: ETRNL P0 skills (autoplan, code-health, execute, plan, review, test) are
 | Enforcement backbone | Solid, hook_enforced at key surfaces | — |
 | Test gap: skill smoke | 17 skills need smoke test runner | P0 |
 | Test gap: install verification | No ~/.claude state check | P1 |
-| Missing: dependency graph | Blockers parallel execution | P0 |
+| Missing: dependency graph | Blocks parallel execution | P0 |
 | Missing: superiority threshold | Blocks Wave 4 release gate | P1 |
 | Missing: failure budget | Enforcement erodes silently | P1 |
 | Pattern matching false positives | Erodes trust; needs fixture tests | P0 |
@@ -585,7 +586,7 @@ Verification: hook tests 076-079 pass
 
 ### Dependency Graph
 
-```
+```text
 A1 → A2 → A3    (enforcement backbone, no external deps)
 A4 → A5          (install verification, no external deps)
 B1..B6           (skill rewrites, parallel, each independent)

@@ -23,6 +23,8 @@ node --check \
   scripts/code-health-inventory.mjs \
   scripts/research-competitor-intel.mjs \
   scripts/lib/research-intel-core.mjs \
+  scripts/lib/research-intel-render.mjs \
+  scripts/lib/research-intel-validators.mjs \
   scripts/plan-readiness-check.mjs \
   scripts/agent-task-packet-check.mjs \
   scripts/guard-override-token.mjs \

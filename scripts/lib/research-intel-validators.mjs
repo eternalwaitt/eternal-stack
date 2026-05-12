@@ -4,8 +4,16 @@ function assert(condition, message, errors) {
   if (!condition) errors.push(message);
 }
 
+function isObject(value) {
+  return typeof value === "object" && value !== null;
+}
+
 function validateManifestRow(row, index, errors) {
   const prefix = `competitors[${index}]`;
+  if (!isObject(row)) {
+    errors.push(`${prefix} must be an object`);
+    return;
+  }
   assert(typeof row.id === "string" && row.id.length > 0, `${prefix}.id is required`, errors);
   assert(typeof row.repoUrl === "string" && /^https:\/\/github\.com\/[^/]+\/[^/]+\/?$/.test(row.repoUrl), `${prefix}.repoUrl must be GitHub URL`, errors);
   assert(typeof row.commitSha === "string" && /^[A-Fa-f0-9]{40}$/.test(row.commitSha), `${prefix}.commitSha must be full SHA`, errors);
@@ -37,6 +45,10 @@ function validateStalenessPolicy(policy, errors) {
 }
 
 function validateEvidenceItem(item, itemPrefix, errors) {
+  if (!isObject(item)) {
+    errors.push(`${itemPrefix} must be an object`);
+    return;
+  }
   assert(typeof item.file === "string" && item.file.length > 0, `${itemPrefix}.file required`, errors);
   assert(!README_RE.test(item.file), `${itemPrefix}.file must not be README`, errors);
   if (item.kind === "negative_scan") {
@@ -51,7 +63,18 @@ function validateEvidenceItem(item, itemPrefix, errors) {
 
 function validateEvidenceRow(row, rowIndex, errors) {
   const prefix = `rows[${rowIndex}]`;
+  if (!isObject(row)) {
+    errors.push(`${prefix} must be an object`);
+    return;
+  }
+  assert(typeof row.competitorId === "string" && row.competitorId.length > 0, `${prefix}.competitorId required`, errors);
+  assert(typeof row.capability === "string" && row.capability.length > 0, `${prefix}.capability required`, errors);
   assert(["present", "partial", "absent"].includes(row.status), `${prefix}.status must be present|partial|absent`, errors);
+  assert(
+    ["prompt_only", "script_enforced", "hook_enforced", "test_enforced", "none"].includes(row.enforcementLevel),
+    `${prefix}.enforcementLevel invalid`,
+    errors,
+  );
   assert(Array.isArray(row.evidence) && row.evidence.length > 0, `${prefix}.evidence must be non-empty`, errors);
   if (!Array.isArray(row.evidence)) return;
   row.evidence.forEach((item, evIndex) => validateEvidenceItem(item, `${prefix}.evidence[${evIndex}]`, errors));

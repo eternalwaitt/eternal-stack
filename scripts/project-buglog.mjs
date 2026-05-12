@@ -42,26 +42,29 @@ function fingerprint(record) {
     .slice(0, 16);
 }
 
+function parseEntry(line, index, file) {
+  try {
+    return JSON.parse(line);
+  } catch (error) {
+    throw new Error(`${file}:${index + 1}: ${error.message}`);
+  }
+}
+
 function readEntries(file) {
   if (!existsSync(file)) return [];
-  return readFileSync(file, "utf8").split(/\n/).filter(Boolean).map((line, index) => {
-    try {
-      return JSON.parse(line);
-    } catch (error) {
-      throw new Error(`${file}:${index + 1}: ${error.message}`);
-    }
-  });
+  return readFileSync(file, "utf8").split(/\n/).filter(Boolean).map((line, index) => parseEntry(line, index, file));
 }
 
 function record() {
   const cwd = path.resolve(argValue(args, "--cwd", process.cwd()));
-  const file = normalizeFile(cwd, argValue(args, "--file"));
+  const rawFile = argValue(args, "--file");
   const category = argValue(args, "--category", "quality");
   const summary = argValue(args, "--summary");
-  if (!file || !summary) {
+  if (!rawFile || !summary) {
     console.error("project-buglog record requires --file and --summary.");
     process.exit(2);
   }
+  const file = normalizeFile(cwd, rawFile);
 
   const target = buglogPath();
   const entry = {
@@ -87,11 +90,12 @@ function record() {
 
 function suggest() {
   const cwd = path.resolve(argValue(args, "--cwd", process.cwd()));
-  const file = normalizeFile(cwd, argValue(args, "--file"));
-  if (!file) {
+  const rawFile = argValue(args, "--file");
+  if (!rawFile) {
     console.error("project-buglog suggest requires --file.");
     process.exit(2);
   }
+  const file = normalizeFile(cwd, rawFile);
   const entries = readEntries(buglogPath())
     .filter((entry) => entry.cwd === cwd && entry.file === file)
     .slice(-3)

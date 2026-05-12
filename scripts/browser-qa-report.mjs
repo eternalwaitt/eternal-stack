@@ -2,12 +2,10 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
-import { argValue as readArgValue } from "./lib/cli-args.mjs";
+import { argValue } from "./lib/cli-args.mjs";
 
 const args = process.argv.slice(2);
 const command = args[0] ?? "help";
-
-const argValue = (flag, fallback = "") => readArgValue(args, flag, fallback);
 
 function artifactDir() {
   return process.env.CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR
@@ -51,7 +49,7 @@ function reportErrors(report) {
 }
 
 function writeReport(report) {
-  const file = argValue("--path") || path.join(reportsDir(), `${report.reportId}.json`);
+  const file = argValue(args, "--path") || path.join(reportsDir(), `${report.reportId}.json`);
   mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
   writeFileSync(file, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
   console.log(file);
@@ -61,18 +59,18 @@ function create() {
   const input = readStdinJson();
   const report = {
     schemaVersion: 1,
-    reportId: input.reportId || argValue("--id", `browser-qa-${Date.now()}`),
-    runId: input.runId || argValue("--run-id"),
+    reportId: input.reportId || argValue(args, "--id", `browser-qa-${Date.now()}`),
+    runId: input.runId || argValue(args, "--run-id"),
     createdAt: input.createdAt || nowIso(),
-    routes: input.routes || splitList(argValue("--routes", argValue("--route", "/"))),
-    viewports: input.viewports || splitList(argValue("--viewports", argValue("--viewport", "desktop"))),
-    screenshots: input.screenshots || splitList(argValue("--screenshots")),
+    routes: input.routes || splitList(argValue(args, "--routes", argValue(args, "--route", "/"))),
+    viewports: input.viewports || splitList(argValue(args, "--viewports", argValue(args, "--viewport", "desktop"))),
+    screenshots: input.screenshots || splitList(argValue(args, "--screenshots")),
     findings: input.findings || [],
-    consoleSummary: input.consoleSummary || argValue("--console", "not checked"),
-    networkSummary: input.networkSummary || argValue("--network", "not checked"),
-    accessibilitySummary: input.accessibilitySummary || argValue("--accessibility", "not checked"),
-    responsiveSummary: input.responsiveSummary || argValue("--responsive", "not checked"),
-    status: input.status || argValue("--status", "draft"),
+    consoleSummary: input.consoleSummary || argValue(args, "--console", "not checked"),
+    networkSummary: input.networkSummary || argValue(args, "--network", "not checked"),
+    accessibilitySummary: input.accessibilitySummary || argValue(args, "--accessibility", "not checked"),
+    responsiveSummary: input.responsiveSummary || argValue(args, "--responsive", "not checked"),
+    status: input.status || argValue(args, "--status", "draft"),
   };
   const errors = reportErrors(report);
   if (errors.length > 0) {
@@ -83,7 +81,7 @@ function create() {
 }
 
 function validate() {
-  const file = args[1] && !args[1].startsWith("-") ? args[1] : argValue("--path");
+  const file = args[1] && !args[1].startsWith("-") ? args[1] : argValue(args, "--path");
   if (!file) {
     console.error("browser-qa-report validate requires a file path.");
     process.exit(2);
@@ -115,7 +113,8 @@ function summary() {
       continue;
     }
     validReports += 1;
-    openFindings += (report.findings ?? []).filter((finding) => finding.status !== "fixed").length;
+    const findings = Array.isArray(report.findings) ? report.findings : [];
+    openFindings += findings.filter((finding) => finding.status !== "fixed").length;
   }
   console.log(`browserQa reports=${validReports} openFindings=${openFindings}`);
 }
