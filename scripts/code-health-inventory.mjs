@@ -89,6 +89,7 @@ const codeExts = new Set([
 ]);
 const docsExts = new Set([".md", ".mdx", ".rst", ".txt"]);
 const configExts = new Set([".json", ".jsonc", ".toml", ".yaml", ".yml", ".xml", ".ini"]);
+// These patterns run on lowercased file paths (see classify()).
 const lockfileAndBuildPatterns = [
   /(^|\/)package-lock\.json$/,
   /(^|\/)pnpm-lock\.(?:yaml|json)$/,

@@ -12,28 +12,35 @@ source "$SCRIPT_DIR/lib/json.sh"
 source "$SCRIPT_DIR/lib/state.sh"
 # shellcheck source=hooks/lib/code-patterns.sh
 source "$SCRIPT_DIR/lib/code-patterns.sh"
+# shellcheck source=hooks/lib/command-classifiers.sh
+source "$SCRIPT_DIR/lib/command-classifiers.sh"
 
 cc_json_read_stdin
 cc_json_require_jq || exit 0
 cc_json_valid || exit 0
-cc_state_init
-
-transcript="$(cc_json_get '.transcript_path')"
-message=""
-if [[ -n "$transcript" && -f "$transcript" ]]; then
-  message="$(jq -rs '
-    [.[] | select(.type == "assistant") | (.message.content // [])[]? | select(.type == "text") | .text]
-    | last // empty
-  ' "$transcript" 2>/dev/null || true)"
+if ! cc_state_init; then
+  printf 'claude-guard warning: failed to initialize state; skipping PostToolUse sycophancy check\n' >&2
+  exit 0
 fi
 
+message="$(cc_json_current_assistant_text || true)"
 if [[ -z "$message" ]]; then
-  message="$(cc_json_get '.last_assistant_message // .message // .response')"
+  exit 0
 fi
 
-if [[ -n "$message" ]] && violation="$(cc_evidence_discipline_violation "$message")"; then
+if violation="$(cc_evidence_discipline_violation "$message")"; then
+  fingerprint="$(cc_command_fingerprint "$message" 2>/dev/null || printf 'missing-hash')"
+  if [[ "$fingerprint" != "missing-hash" ]] && cc_state_has_evidence_fingerprint "$fingerprint"; then
+    exit 0
+  fi
   cc_state_append_value evidenceDisciplineViolations "$violation"
-  python3 "$SCRIPT_DIR/cc-hindsight-lesson.py" >/dev/null 2>&1 &
+  if [[ "$fingerprint" != "missing-hash" ]]; then
+    cc_state_record_evidence_fingerprint "$fingerprint"
+  fi
+  if [[ "${CLAUDE_GUARD_DISABLE_HINDSIGHT_LESSON:-0}" != "1" ]]; then
+    python3 "$SCRIPT_DIR/cc-hindsight-lesson.py" >/dev/null 2>&1 &
+    disown || true
+  fi
   cc_json_block "$violation"
   exit 0
 fi

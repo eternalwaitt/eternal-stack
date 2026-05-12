@@ -1,0 +1,15 @@
+{
+  "hook": "cc-pretooluse-guard.sh",
+  "expected": { "kind": "allow" },
+  "payload": {
+    "session_id": "replay-3",
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Edit",
+    "cwd": "/tmp/example",
+    "tool_input": {
+      "file_path": "/tmp/example/docs/plan.md",
+      "old_string": "We used try { step(); } catch (error) { logger.error(error); }",
+      "new_string": "We simplified this step in documentation prose only."
+    }
+  }
+}

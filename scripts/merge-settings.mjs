@@ -10,7 +10,13 @@ if (!targetPath || !templatePath) {
 
 const readJson = (path, fallback) => {
   if (!fs.existsSync(path)) return fallback;
-  return JSON.parse(fs.readFileSync(path, "utf8"));
+  try {
+    return JSON.parse(fs.readFileSync(path, "utf8"));
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    console.error(`Failed to parse JSON from ${path}: ${detail}`);
+    process.exit(1);
+  }
 };
 
 const target = readJson(targetPath, {});
@@ -20,26 +26,37 @@ target.hooks ??= {};
 
 for (const [eventName, templateGroups] of Object.entries(template.hooks ?? {})) {
   target.hooks[eventName] ??= [];
+  // Empty/null commands are invalid and intentionally excluded from dedupe tracking.
   const existingCommands = new Set(
-    target.hooks[eventName].flatMap((group) =>
-      (group.hooks ?? []).map((hook) => String(hook.command ?? "")),
-    ),
+    target.hooks[eventName]
+      .flatMap((group) => (group.hooks ?? []).map((hook) => String(hook.command ?? "").trim()))
+      .filter((command) => command.length > 0),
   );
 
   for (const group of templateGroups) {
     const hooks = (group.hooks ?? []).filter((hook) => {
       const command = String(hook.command ?? "");
-      return command && !existingCommands.has(command);
+      const normalizedCommand = command.trim();
+      return normalizedCommand.length > 0 && !existingCommands.has(normalizedCommand);
     });
 
     if (hooks.length === 0) continue;
 
     for (const hook of hooks) {
-      existingCommands.add(String(hook.command ?? ""));
+      const normalizedCommand = String(hook.command ?? "").trim();
+      existingCommands.add(normalizedCommand);
     }
 
     target.hooks[eventName].push({ ...group, hooks });
   }
 }
 
-fs.writeFileSync(targetPath, `${JSON.stringify(target, null, 2)}\n`);
+const tempPath = `${targetPath}.tmp-${process.pid}`;
+try {
+  fs.writeFileSync(tempPath, `${JSON.stringify(target, null, 2)}\n`, { mode: 0o600 });
+  fs.renameSync(tempPath, targetPath);
+} catch (error) {
+  if (fs.existsSync(tempPath)) fs.rmSync(tempPath, { force: true });
+  const detail = error instanceof Error ? error.message : String(error);
+  throw new Error(`Failed to write merged settings (target=${targetPath}, temp=${tempPath}): ${detail}`, { cause: error });
+}

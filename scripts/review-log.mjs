@@ -3,15 +3,13 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
+import { argValue as readArgValue } from "./lib/cli-args.mjs";
 
 const args = process.argv.slice(2);
 const command = args[0] ?? "help";
 const RESOLVED = new Set(["resolved", "fixed", "auto-fixed", "false-positive", "skipped"]);
 
-function argValue(flag, fallback = "") {
-  const index = args.indexOf(flag);
-  return index >= 0 ? args[index + 1] ?? fallback : fallback;
-}
+const argValue = (flag, fallback = "") => readArgValue(args, flag, fallback);
 
 function artifactDir() {
   return process.env.CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR
@@ -38,7 +36,8 @@ function redact(value) {
     .replace(/glpat-[A-Za-z0-9_-]{12,}/g, "[REDACTED_SECRET]")
     .replace(/npm_[A-Za-z0-9]{12,}/g, "[REDACTED_SECRET]")
     .replace(/xox[baprs]-[A-Za-z0-9-]{12,}/g, "[REDACTED_SECRET]")
-    .replace(/AKIA[A-Z0-9]{16}/g, "[REDACTED_SECRET]");
+    .replace(/AKIA[A-Z0-9]{16}/g, "[REDACTED_SECRET]")
+    .replace(/(aws_secret_access_key\s*[:=]\s*["']?)[A-Za-z0-9/+]{40}={0,2}(["']?)/gi, "$1[REDACTED_SECRET]$2");
 }
 
 function fingerprint(record) {

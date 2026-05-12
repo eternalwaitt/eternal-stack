@@ -1,0 +1,245 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-05-11T19:25:00Z",
+  "selectionPolicy": {
+    "candidateUniverse": 11,
+    "deterministicFilters": [
+      "public GitHub repo",
+      "non-archived and recently maintained",
+      "workflow depth: skills/hooks/commands/scripts",
+      "agent-orchestration surface present",
+      "test surface present or explicit guard workflows",
+      "adoption signal: stars and active updates"
+    ],
+    "lockSize": 10
+  },
+  "competitors": [
+    {
+      "id": "gstack",
+      "repoUrl": "https://github.com/garrytan/gstack",
+      "commitSha": "49cc4ff9c99e9b24f39aa7dcbfc456e840be29a8",
+      "license": "MIT",
+      "localPath": "gstack",
+      "analyzedPaths": [
+        "autoplan/SKILL.md",
+        "health/SKILL.md",
+        "land-and-deploy/SKILL.md"
+      ],
+      "collectedAt": "2026-05-11T19:25:00Z",
+      "stars": 93765,
+      "defaultBranch": "main",
+      "pushedAt": "2026-05-11T17:18:14Z"
+    },
+    {
+      "id": "superpowers",
+      "repoUrl": "https://github.com/obra/superpowers",
+      "commitSha": "f2cbfbefebbfef77321e4c9abc9e949826bea9d7",
+      "license": "MIT",
+      "localPath": "superpowers",
+      "analyzedPaths": [
+        "docs/plans/2025-11-28-skills-improvements-from-user-feedback.md",
+        "skills/brainstorming/SKILL.md",
+        "skills/brainstorming/spec-document-reviewer-prompt.md",
+        "skills/dispatching-parallel-agents/SKILL.md",
+        "skills/executing-plans/SKILL.md",
+        "skills/finishing-a-development-branch/SKILL.md",
+        "skills/subagent-driven-development/implementer-prompt.md",
+        "skills/subagent-driven-development/SKILL.md",
+        "skills/systematic-debugging/test-pressure-1.md",
+        "skills/verification-before-completion/SKILL.md",
+        "skills/writing-skills/anthropic-best-practices.md",
+        "skills/writing-skills/render-graphs.js"
+      ],
+      "collectedAt": "2026-05-11T19:25:00Z",
+      "stars": 186461,
+      "defaultBranch": "main",
+      "pushedAt": "2026-05-08T02:47:44Z"
+    },
+    {
+      "id": "get-shit-done",
+      "repoUrl": "https://github.com/gsd-build/get-shit-done",
+      "commitSha": "68cd2449f8a9047312eb1bac457adf6904f21b8d",
+      "license": "MIT",
+      "localPath": "get-shit-done-gsd-build",
+      "analyzedPaths": [
+        ".github/workflows/hotfix.yml",
+        ".github/workflows/release-sdk.yml",
+        "commands/gsd/add-tests.md",
+        "commands/gsd/autonomous.md",
+        "commands/gsd/execute-phase.md",
+        "commands/gsd/plan-phase.md",
+        "commands/gsd/profile-user.md",
+        "commands/gsd/quick.md",
+        "hooks/gsd-check-update-worker.js",
+        "hooks/gsd-context-monitor.js",
+        "hooks/gsd-phase-boundary.sh",
+        "hooks/gsd-prompt-guard.js",
+        "hooks/gsd-statusline.js",
+        "hooks/gsd-workflow-guard.js"
+      ],
+      "collectedAt": "2026-05-11T19:25:00Z",
+      "stars": 61534,
+      "defaultBranch": "main",
+      "pushedAt": "2026-05-11T19:08:18Z"
+    },
+    {
+      "id": "context-packet",
+      "repoUrl": "https://github.com/gsd-build/context-packet",
+      "commitSha": "bb383214d383e44347941aeb9bec2bc04d40040b",
+      "license": "MIT",
+      "localPath": "context-packet",
+      "analyzedPaths": [
+        ".claude/skills/context-packet/references/api-reference.md",
+        ".claude/skills/context-packet/references/cli-reference.md",
+        ".claude/skills/context-packet/references/graph-design.md",
+        ".claude/skills/context-packet/references/packet-design.md"
+      ],
+      "collectedAt": "2026-05-11T19:25:00Z",
+      "stars": 42,
+      "defaultBranch": "main",
+      "pushedAt": "2026-03-29T05:47:39Z"
+    },
+    {
+      "id": "compound-engineering-plugin",
+      "repoUrl": "https://github.com/EveryInc/compound-engineering-plugin",
+      "commitSha": "d090bde0ff1bbc33ec3c3b2049cb4687e9d76532",
+      "license": "MIT",
+      "localPath": "compound-engineering-plugin",
+      "analyzedPaths": [
+        "docs/skills/ce-brainstorm.md",
+        "docs/skills/ce-clean-gone-branches.md",
+        "docs/skills/ce-code-review.md",
+        "docs/skills/ce-compound-refresh.md",
+        "docs/skills/ce-debug.md",
+        "docs/skills/ce-optimize.md",
+        "docs/skills/ce-plan.md",
+        "docs/skills/ce-work.md",
+        "plugins/compound-engineering/skills/ce-agent-native-architecture/references/agent-execution-patterns.md"
+      ],
+      "collectedAt": "2026-05-11T19:25:00Z",
+      "stars": 16538,
+      "defaultBranch": "main",
+      "pushedAt": "2026-05-11T19:10:28Z"
+    },
+    {
+      "id": "oh-my-claudecode",
+      "repoUrl": "https://github.com/Yeachan-Heo/oh-my-claudecode",
+      "commitSha": "679b418f32409e6d0edecf5038fd2de460cfce04",
+      "license": "MIT",
+      "localPath": "oh-my-claudecode",
+      "analyzedPaths": [
+        "dist/skills/__tests__/mingw-escape.test.js",
+        "dist/skills/__tests__/omc-doctor-skill.test.d.ts",
+        "dist/skills/__tests__/omc-doctor-skill.test.js",
+        "skills/AGENTS.md",
+        "skills/autopilot/SKILL.md",
+        "skills/cancel/SKILL.md",
+        "skills/configure-notifications/SKILL.md",
+        "skills/debug/SKILL.md",
+        "skills/omc-doctor/SKILL.md",
+        "skills/omc-reference/SKILL.md",
+        "skills/omc-setup/phases/01-install-claude-md.md",
+        "skills/omc-setup/phases/04-welcome.md"
+      ],
+      "collectedAt": "2026-05-11T19:25:00Z",
+      "stars": 33415,
+      "defaultBranch": "main",
+      "pushedAt": "2026-05-11T10:40:32Z"
+    },
+    {
+      "id": "spec-kit",
+      "repoUrl": "https://github.com/github/spec-kit",
+      "commitSha": "81f772c60b100df9a255df39b601d7b096bf0fdc",
+      "license": "MIT",
+      "localPath": "spec-kit",
+      "analyzedPaths": [
+        ".github/workflows/codeql.yml",
+        "extensions/git/commands/speckit.git.commit.md",
+        "presets/lean/commands/speckit.implement.md",
+        "presets/lean/commands/speckit.plan.md",
+        "scripts/bash/common.sh",
+        "scripts/bash/setup-tasks.sh",
+        "src/specify_cli/workflows/engine.py",
+        "src/specify_cli/workflows/steps/fan_in/__init__.py",
+        "templates/commands/analyze.md",
+        "templates/commands/checklist.md",
+        "templates/commands/clarify.md",
+        "templates/commands/implement.md",
+        "templates/commands/specify.md",
+        "templates/commands/tasks.md",
+        "tests/test_extensions.py"
+      ],
+      "collectedAt": "2026-05-11T19:25:00Z",
+      "stars": 95742,
+      "defaultBranch": "main",
+      "pushedAt": "2026-05-11T17:10:40Z"
+    },
+    {
+      "id": "spec-kitty",
+      "repoUrl": "https://github.com/Priivacy-ai/spec-kitty",
+      "commitSha": "b92ef7e315b9c659b768ab60b52a98469a332767",
+      "license": "MIT",
+      "localPath": "spec-kitty",
+      "analyzedPaths": [
+        "kitty-specs/055-agent-skills-pack/tasks/WP08-setup-doctor-skill.md",
+        "kitty-specs/055-agent-skills-pack/tasks/WP11-runtime-next-skill.md",
+        "kitty-specs/spdd-reasons-doctrine-pack-01KQC4AX/tasks/WP03-spdd-reasons-skill.md",
+        "src/doctrine/skills/ad-hoc-profile-load/SKILL.md",
+        "src/doctrine/skills/spec-kitty-bulk-edit-classification/SKILL.md",
+        "src/doctrine/skills/spec-kitty-charter-doctrine/references/doctrine-artifact-structure.md",
+        "src/doctrine/skills/spec-kitty-charter-doctrine/SKILL.md",
+        "src/doctrine/skills/spec-kitty-implement-review/SKILL.md"
+      ],
+      "collectedAt": "2026-05-11T19:25:00Z",
+      "stars": 1208,
+      "defaultBranch": "main",
+      "pushedAt": "2026-05-11T19:03:14Z"
+    },
+    {
+      "id": "shipyard",
+      "repoUrl": "https://github.com/lgbarn/shipyard",
+      "commitSha": "c5390be9d7fe610ffd6da7442cbeb2152f8098b1",
+      "license": "MIT",
+      "localPath": "shipyard",
+      "analyzedPaths": [
+        "skills/code-simplification/SKILL.md",
+        "skills/git-workflow/SKILL.md",
+        "skills/infrastructure-validation/SKILL.md",
+        "skills/parallel-dispatch/SKILL.md",
+        "skills/shipyard-executing-plans/SKILL.md",
+        "skills/shipyard-handoff/SKILL.md",
+        "skills/shipyard-writing-plans/SKILL.md",
+        "skills/shipyard-writing-skills/EXAMPLES.md",
+        "skills/using-shipyard/SKILL.md"
+      ],
+      "collectedAt": "2026-05-11T19:25:00Z",
+      "stars": 57,
+      "defaultBranch": "main",
+      "pushedAt": "2026-04-15T16:56:07Z"
+    },
+    {
+      "id": "reap",
+      "repoUrl": "https://github.com/c-d-cc/reap",
+      "commitSha": "ad643cd7ef8a73c4e01be047cca7cd2a7d274562",
+      "license": "MIT",
+      "localPath": "reap",
+      "analyzedPaths": [
+        ".claude/commands/reapdev.alphaPublish.md",
+        "scripts/alpha-publish.sh",
+        "src/adapters/claude-code/skills/reap.config.md",
+        "src/adapters/claude-code/skills/reap.merge.md",
+        "src/adapters/claude-code/skills/reap.push.md",
+        "src/adapters/claude-code/skills/reap.run.md",
+        "src/cli/commands/fix.ts",
+        "src/cli/commands/help.ts",
+        "src/cli/commands/init/common.ts",
+        "src/cli/commands/migrate.ts",
+        "src/cli/commands/run/evolve.ts"
+      ],
+      "collectedAt": "2026-05-11T19:25:00Z",
+      "stars": 36,
+      "defaultBranch": "main",
+      "pushedAt": "2026-03-29T06:53:20Z"
+    }
+  ]
+}

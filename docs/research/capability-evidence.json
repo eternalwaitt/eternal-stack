@@ -1,0 +1,2396 @@
+{
+  "generatedAt": "2026-05-12T00:49:57Z",
+  "capabilities": [
+    "tdd_enforcement",
+    "planning_depth",
+    "research_flow",
+    "subagent_orchestration",
+    "parallelism_safety",
+    "verification_gates",
+    "rollback_guardrails",
+    "telemetry_proactive"
+  ],
+  "rows": [
+    {
+      "competitorId": "gstack",
+      "capability": "tdd_enforcement",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "health/SKILL.md",
+          "line": 1001,
+          "snippet": "1. [HIGH]  Fix 2 failing tests (Tests: 9/10, weight 30%)",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "land-and-deploy/SKILL.md",
+          "line": 1283,
+          "snippet": "If tests fail: **BLOCKER.** Cannot merge with failing tests.",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "land-and-deploy/SKILL.md",
+          "line": 1296,
+          "snippet": "- Names of any failing tests",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "gstack",
+      "capability": "planning_depth",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "autoplan/SKILL.md",
+          "line": 579,
+          "snippet": "- two-phase commit",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "autoplan/SKILL.md",
+          "line": 872,
+          "snippet": "- **CEO phase:** P1 (completeness) + P2 (boil lakes) dominate.",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "autoplan/SKILL.md",
+          "line": 873,
+          "snippet": "- **Eng phase:** P5 (explicit) + P3 (pragmatic) dominate.",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "gstack",
+      "capability": "research_flow",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "autoplan/SKILL.md",
+          "line": 193,
+          "snippet": "> Let gstack proactively suggest skills, like /qa for \"does this work?\" or /investigate for bugs?",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "autoplan/SKILL.md",
+          "line": 234,
+          "snippet": "- Bugs/errors → invoke /investigate",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "autoplan/SKILL.md",
+          "line": 682,
+          "snippet": "- **`solo`** — You own everything. Investigate and offer to fix proactively.",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "gstack",
+      "capability": "subagent_orchestration",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "autoplan/SKILL.md",
+          "line": 1058,
+          "snippet": "# with Claude subagent only (autoplan's existing degradation fallback).",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "autoplan/SKILL.md",
+          "line": 1061,
+          "snippet": "echo \"[codex-unavailable: binary not found] — proceeding with Claude subagent only\"",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "autoplan/SKILL.md",
+          "line": 1065,
+          "snippet": "echo \"[codex-unavailable: auth missing] — proceeding with Claude subagent only. Run \\`codex login\\` or set \\$CODEX_API_KEY to enable dual-voice review.\"",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "gstack",
+      "capability": "parallelism_safety",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "autoplan/SKILL.md",
+          "line": 356,
+          "snippet": "# Per-worktree pin: post-spike redesign uses kubectl-style `.gbrain-source` in the",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "autoplan/SKILL.md",
+          "line": 357,
+          "snippet": "# git toplevel to scope queries. Look for the pin in the worktree (not a global",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "autoplan/SKILL.md",
+          "line": 358,
+          "snippet": "# state file) so that opening worktree B without a pin doesn't claim \"indexed\"",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "gstack",
+      "capability": "verification_gates",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "autoplan/SKILL.md",
+          "line": 440,
+          "snippet": "Privacy stop-gate: if output shows `ARTIFACTS_SYNC: off`, `artifacts_sync_mode_prompted` is `false`, and gbrain is on PATH or `gbrain doctor --fast --json` works, ask once:",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "autoplan/SKILL.md",
+          "line": 702,
+          "snippet": "- **BLOCKED** — cannot proceed; state blocker and what was tried.",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "autoplan/SKILL.md",
+          "line": 908,
+          "snippet": "feasibility blocker (not a preference), the AskUserQuestion framing explicitly",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "gstack",
+      "capability": "rollback_guardrails",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "autoplan/SKILL.md",
+          "line": 137,
+          "snippet": "> v1 prompts are simpler: first-use jargon glosses, outcome-framed questions, shorter prose. Keep default or restore terse?",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "autoplan/SKILL.md",
+          "line": 141,
+          "snippet": "- B) Restore V0 prose — set `explain_level: terse`",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "autoplan/SKILL.md",
+          "line": 240,
+          "snippet": "- Resume context → invoke /context-restore",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "gstack",
+      "capability": "telemetry_proactive",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "autoplan/SKILL.md",
+          "line": 55,
+          "snippet": "_TEL=$(~/.claude/skills/gstack/bin/gstack-config get telemetry 2>/dev/null || true)",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "autoplan/SKILL.md",
+          "line": 56,
+          "snippet": "_TEL_PROMPTED=$([ -f ~/.gstack/.telemetry-prompted ] && echo \"yes\" || echo \"no\")",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "autoplan/SKILL.md",
+          "line": 59,
+          "snippet": "echo \"TELEMETRY: ${_TEL:-off}\"",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "superpowers",
+      "capability": "tdd_enforcement",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "skills/dispatching-parallel-agents/SKILL.md",
+          "line": 92,
+          "snippet": "Fix the 3 failing tests in src/agents/agent-tool-abort.test.ts:",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/finishing-a-development-branch/SKILL.md",
+          "line": 236,
+          "snippet": "- Proceed with failing tests",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/subagent-driven-development/implementer-prompt.md",
+          "line": 33,
+          "snippet": "2. Write tests (following TDD if task says to)",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "superpowers",
+      "capability": "planning_depth",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "skills/brainstorming/SKILL.md",
+          "line": 32,
+          "snippet": "9. **Transition to implementation** — invoke writing-plans skill to create implementation plan",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/brainstorming/SKILL.md",
+          "line": 121,
+          "snippet": "3. **Scope check:** Is this focused enough for a single implementation plan, or does it need decomposition?",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/brainstorming/SKILL.md",
+          "line": 129,
+          "snippet": "> \"Spec written and committed to `<path>`. Please review it and let me know if you want to make any changes before we start writing out the implementation plan.\"",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "superpowers",
+      "capability": "research_flow",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "skills/dispatching-parallel-agents/SKILL.md",
+          "line": 12,
+          "snippet": "When you have multiple unrelated failures (different test files, different subsystems, different bugs), investigating them sequentially wastes time. Each investigation is independe",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/dispatching-parallel-agents/SKILL.md",
+          "line": 22,
+          "snippet": "\"Single agent investigates all\" [shape=box];",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/dispatching-parallel-agents/SKILL.md",
+          "line": 29,
+          "snippet": "\"Are they independent?\" -> \"Single agent investigates all\" [label=\"no - related\"];",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "superpowers",
+      "capability": "subagent_orchestration",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "skills/brainstorming/spec-document-reviewer-prompt.md",
+          "line": 3,
+          "snippet": "Use this template when dispatching a spec document reviewer subagent.",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/dispatching-parallel-agents/SKILL.md",
+          "line": 10,
+          "snippet": "You delegate tasks to specialized agents with isolated context. By precisely crafting their instructions and context, you ensure they stay focused and succeed at their task. They s",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/executing-plans/SKILL.md",
+          "line": 14,
+          "snippet": "**Note:** Tell your human partner that Superpowers works much better with access to subagents. The quality of its work will be significantly higher if run on a platform with subage",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "superpowers",
+      "capability": "parallelism_safety",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "skills/dispatching-parallel-agents/SKILL.md",
+          "line": 2,
+          "snippet": "name: dispatching-parallel-agents",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/dispatching-parallel-agents/SKILL.md",
+          "line": 6,
+          "snippet": "# Dispatching Parallel Agents",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/dispatching-parallel-agents/SKILL.md",
+          "line": 12,
+          "snippet": "When you have multiple unrelated failures (different test files, different subsystems, different bugs), investigating them sequentially wastes time. Each investigation is independe",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "superpowers",
+      "capability": "verification_gates",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "skills/executing-plans/SKILL.md",
+          "line": 42,
+          "snippet": "- Hit a blocker (missing dependency, test fails, instruction unclear)",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/subagent-driven-development/SKILL.md",
+          "line": 114,
+          "snippet": "**BLOCKED:** The implementer cannot complete the task. Assess the blocker:",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/writing-skills/render-graphs.js",
+          "line": 98,
+          "snippet": "process.exit(1);",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "superpowers",
+      "capability": "rollback_guardrails",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "skills/systematic-debugging/test-pressure-1.md",
+          "line": 53,
+          "snippet": "- Investigate properly after restore",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/verification-before-completion/SKILL.md",
+          "line": 86,
+          "snippet": "✅ Write → Run (pass) → Revert fix → Run (MUST FAIL) → Restore → Run (pass)",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/writing-skills/anthropic-best-practices.md",
+          "line": 121,
+          "snippet": "python scripts/migrate.py --verify --backup",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "superpowers",
+      "capability": "telemetry_proactive",
+      "status": "partial",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "docs/plans/2025-11-28-skills-improvements-from-user-feedback.md",
+          "line": 677,
+          "snippet": "- Monitor task completion times",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "get-shit-done",
+      "capability": "tdd_enforcement",
+      "status": "present",
+      "enforcementLevel": "script_enforced",
+      "evidence": [
+        {
+          "file": "commands/gsd/add-tests.md",
+          "line": 22,
+          "snippet": "Analyzes implementation files, classifies them into TDD (unit), E2E (browser), or Skip categories, presents a test plan for user approval, then generates tests following RED-GREEN ",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "commands/gsd/execute-phase.md",
+          "line": 4,
+          "snippet": "argument-hint: \"<phase-number> [--wave N] [--gaps-only] [--interactive] [--tdd]\"",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "commands/gsd/plan-phase.md",
+          "line": 4,
+          "snippet": "argument-hint: \"[phase] [--auto] [--research] [--skip-research] [--research-phase <N>] [--view] [--gaps] [--skip-verify] [--prd <file>] [--reviews] [--text] [--tdd] [--mvp]\"",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "get-shit-done",
+      "capability": "planning_depth",
+      "status": "present",
+      "enforcementLevel": "hook_enforced",
+      "evidence": [
+        {
+          "file": "hooks/gsd-check-update-worker.js",
+          "line": 53,
+          "snippet": "'gsd-phase-boundary.sh',",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "hooks/gsd-phase-boundary.sh",
+          "line": 3,
+          "snippet": "# gsd-phase-boundary.sh — PostToolUse hook: detect .planning/ file writes",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "hooks/gsd-prompt-guard.js",
+          "line": 25,
+          "snippet": "/act\\s+as\\s+(?:a|an|the)\\s+(?!plan|phase|wave)/i,",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "get-shit-done",
+      "capability": "research_flow",
+      "status": "present",
+      "enforcementLevel": "hook_enforced",
+      "evidence": [
+        {
+          "file": "hooks/gsd-check-update-worker.js",
+          "line": 20,
+          "snippet": "// Compare semver: true if a > b (a is strictly newer than b)",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "hooks/gsd-check-update-worker.js",
+          "line": 45,
+          "snippet": "// Check for stale hooks — compare hook version headers against installed VERSION",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": ".github/workflows/hotfix.yml",
+          "line": 87,
+          "snippet": "# a plain `awk '$1 < target'` lexicographic compare would mis-order.",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "get-shit-done",
+      "capability": "subagent_orchestration",
+      "status": "present",
+      "enforcementLevel": "hook_enforced",
+      "evidence": [
+        {
+          "file": "hooks/gsd-context-monitor.js",
+          "line": 75,
+          "snippet": "// If no metrics file, this is a subagent or fresh session -- exit silently",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "hooks/gsd-workflow-guard.js",
+          "line": 5,
+          "snippet": "// (no active /gsd- skill or Task subagent) and injects an advisory warning.",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "hooks/gsd-workflow-guard.js",
+          "line": 32,
+          "snippet": "// Check if we're inside a GSD workflow (Task subagent or /gsd- skill)",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "get-shit-done",
+      "capability": "parallelism_safety",
+      "status": "present",
+      "enforcementLevel": "script_enforced",
+      "evidence": [
+        {
+          "file": ".github/workflows/hotfix.yml",
+          "line": 137,
+          "snippet": "# conflict leaves a remote artefact the operator can fetch, resolve,",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": ".github/workflows/hotfix.yml",
+          "line": 188,
+          "snippet": "echo \"## Cherry-pick conflict\"",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": ".github/workflows/hotfix.yml",
+          "line": 205,
+          "snippet": "echo \"**To resolve:** \\`git fetch origin && git checkout ${BRANCH} && git cherry-pick -x ${SHA}\\`, fix the conflict, push, then re-run \\`finalize\\` with \\`auto_cherry_pick=false\\`.",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "get-shit-done",
+      "capability": "verification_gates",
+      "status": "present",
+      "enforcementLevel": "script_enforced",
+      "evidence": [
+        {
+          "file": ".github/workflows/hotfix.yml",
+          "line": 353,
+          "snippet": "process.exit(1);",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": ".github/workflows/release-sdk.yml",
+          "line": 601,
+          "snippet": "process.exit(1);",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "commands/gsd/autonomous.md",
+          "line": 44,
+          "snippet": "Preserve all workflow gates (phase discovery, per-phase execution, blocker handling, progress display).",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "get-shit-done",
+      "capability": "rollback_guardrails",
+      "status": "present",
+      "enforcementLevel": "script_enforced",
+      "evidence": [
+        {
+          "file": ".github/workflows/release-sdk.yml",
+          "line": 18,
+          "snippet": "# remain the canonical two-package publish path; restore them to primary",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "commands/gsd/profile-user.md",
+          "line": 29,
+          "snippet": "- `--refresh` -- Rebuild profile even when one exists, backup old profile, show dimension diff",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "commands/gsd/quick.md",
+          "line": 90,
+          "snippet": "backup-s3-policy               2026-04-10  in-progress",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "get-shit-done",
+      "capability": "telemetry_proactive",
+      "status": "present",
+      "enforcementLevel": "hook_enforced",
+      "evidence": [
+        {
+          "file": "hooks/gsd-check-update-worker.js",
+          "line": 52,
+          "snippet": "'gsd-context-monitor.js',",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "hooks/gsd-context-monitor.js",
+          "line": 3,
+          "snippet": "// Context Monitor - PostToolUse/AfterTool hook (Gemini uses AfterTool)",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "hooks/gsd-statusline.js",
+          "line": 321,
+          "snippet": "// Write context metrics to bridge file for the context-monitor PostToolUse hook.",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "context-packet",
+      "capability": "tdd_enforcement",
+      "status": "absent",
+      "enforcementLevel": "none",
+      "evidence": [
+        {
+          "file": ".claude/skills/context-packet/references/api-reference.md",
+          "line": 0,
+          "snippet": "No matching capability evidence found across 15 implementation files for tdd_enforcement",
+          "kind": "negative_scan",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan",
+          "reason": "No matching capability evidence found for tdd_enforcement"
+        }
+      ]
+    },
+    {
+      "competitorId": "context-packet",
+      "capability": "planning_depth",
+      "status": "absent",
+      "enforcementLevel": "none",
+      "evidence": [
+        {
+          "file": ".claude/skills/context-packet/references/api-reference.md",
+          "line": 0,
+          "snippet": "No matching capability evidence found across 15 implementation files for planning_depth",
+          "kind": "negative_scan",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan",
+          "reason": "No matching capability evidence found for planning_depth"
+        }
+      ]
+    },
+    {
+      "competitorId": "context-packet",
+      "capability": "research_flow",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": ".claude/skills/context-packet/references/api-reference.md",
+          "line": 25,
+          "snippet": "submit(\"research\", {",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": ".claude/skills/context-packet/references/api-reference.md",
+          "line": 40,
+          "snippet": "// Returns: [{ node: \"research\", status: \"complete\", packet: {...} }, ...]",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": ".claude/skills/context-packet/references/packet-design.md",
+          "line": 7,
+          "snippet": "- Bad: \"Analysis complete\"",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "context-packet",
+      "capability": "subagent_orchestration",
+      "status": "absent",
+      "enforcementLevel": "none",
+      "evidence": [
+        {
+          "file": ".claude/skills/context-packet/references/api-reference.md",
+          "line": 0,
+          "snippet": "No matching capability evidence found across 15 implementation files for subagent_orchestration",
+          "kind": "negative_scan",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan",
+          "reason": "No matching capability evidence found for subagent_orchestration"
+        }
+      ]
+    },
+    {
+      "competitorId": "context-packet",
+      "capability": "parallelism_safety",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": ".claude/skills/context-packet/references/api-reference.md",
+          "line": 49,
+          "snippet": "Walks DAG in topological order. Parallel nodes run concurrently. Pipes system + context via stdin. Returns all packets.",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": ".claude/skills/context-packet/references/cli-reference.md",
+          "line": 53,
+          "snippet": "Execute the entire pipeline. Walks DAG in topological order. Nodes at the same level run in parallel. For each node: pipes `system prompt + upstream context` to the agent via stdin",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": ".claude/skills/context-packet/references/graph-design.md",
+          "line": 23,
+          "snippet": "Fan-out (one source, parallel workers):",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "context-packet",
+      "capability": "verification_gates",
+      "status": "absent",
+      "enforcementLevel": "none",
+      "evidence": [
+        {
+          "file": ".claude/skills/context-packet/references/api-reference.md",
+          "line": 0,
+          "snippet": "No matching capability evidence found across 15 implementation files for verification_gates",
+          "kind": "negative_scan",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan",
+          "reason": "No matching capability evidence found for verification_gates"
+        }
+      ]
+    },
+    {
+      "competitorId": "context-packet",
+      "capability": "rollback_guardrails",
+      "status": "absent",
+      "enforcementLevel": "none",
+      "evidence": [
+        {
+          "file": ".claude/skills/context-packet/references/api-reference.md",
+          "line": 0,
+          "snippet": "No matching capability evidence found across 15 implementation files for rollback_guardrails",
+          "kind": "negative_scan",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan",
+          "reason": "No matching capability evidence found for rollback_guardrails"
+        }
+      ]
+    },
+    {
+      "competitorId": "context-packet",
+      "capability": "telemetry_proactive",
+      "status": "absent",
+      "enforcementLevel": "none",
+      "evidence": [
+        {
+          "file": ".claude/skills/context-packet/references/api-reference.md",
+          "line": 0,
+          "snippet": "No matching capability evidence found across 15 implementation files for telemetry_proactive",
+          "kind": "negative_scan",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan",
+          "reason": "No matching capability evidence found for telemetry_proactive"
+        }
+      ]
+    },
+    {
+      "competitorId": "compound-engineering-plugin",
+      "capability": "tdd_enforcement",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "docs/skills/ce-debug.md",
+          "line": 43,
+          "snippet": "- **Test-first fix** — write the failing test, verify it fails for the right reason, then implement; never both at once",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "docs/skills/ce-debug.md",
+          "line": 76,
+          "snippet": "If you opt to fix (rather than \"diagnosis only\"), the skill writes a failing test that captures the bug, verifies it fails for the right reason (the root cause, not unrelated setup",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "docs/skills/ce-debug.md",
+          "line": 98,
+          "snippet": "You pick \"fix it now.\" It creates a feature branch, writes the failing test, verifies it fails for the right reason, implements the minimal fix, runs tests, and hands off to `/ce-c",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "compound-engineering-plugin",
+      "capability": "planning_depth",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "docs/skills/ce-brainstorm.md",
+          "line": 81,
+          "snippet": "Phase 2 surfaces 2-3 concrete approaches with at least one **non-obvious angle** — inversion, constraint removal, or cross-domain analogy. Approaches are presented at mechanism / p",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "docs/skills/ce-brainstorm.md",
+          "line": 109,
+          "snippet": "A right-sized requirements doc is written and the Phase 4 menu offers next steps — `/ce-plan` (recommended), agent doc review, Proof iteration, or skip-to-build for trivial scope.",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "docs/skills/ce-brainstorm.md",
+          "line": 166,
+          "snippet": "The Phase 4 handoff offers planning, agent doc review, Proof iteration, direct-to-work for lightweight scope, more clarifying questions, or pause.",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "compound-engineering-plugin",
+      "capability": "research_flow",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "docs/skills/ce-brainstorm.md",
+          "line": 81,
+          "snippet": "Phase 2 surfaces 2-3 concrete approaches with at least one **non-obvious angle** — inversion, constraint removal, or cross-domain analogy. Approaches are presented at mechanism / p",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "docs/skills/ce-clean-gone-branches.md",
+          "line": 120,
+          "snippet": "- You're not on a working copy with a remote configured → the skill needs a remote to compare against",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "docs/skills/ce-code-review.md",
+          "line": 220,
+          "snippet": "- [`ce-debug`](./ce-debug.md) — for fixing bugs found during review, when root-cause investigation matters",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "compound-engineering-plugin",
+      "capability": "subagent_orchestration",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "docs/skills/ce-compound-refresh.md",
+          "line": 42,
+          "snippet": "- **Replace** — the old guidance is now misleading; write a successor (via subagent for context isolation) and delete the old",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "docs/skills/ce-compound-refresh.md",
+          "line": 63,
+          "snippet": "### 4. Replace via subagent — context isolation",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "docs/skills/ce-compound-refresh.md",
+          "line": 65,
+          "snippet": "When a learning's core guidance is now misleading, the orchestrator dispatches a subagent to write the replacement (one at a time, sequentially — replacements may need to read sign",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "compound-engineering-plugin",
+      "capability": "parallelism_safety",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "docs/skills/ce-clean-gone-branches.md",
+          "line": 29,
+          "snippet": "- **Manual cleanup is tedious** — `git branch -vv | grep gone` then `git branch -D` for each one, with worktree handling layered on top",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "docs/skills/ce-clean-gone-branches.md",
+          "line": 30,
+          "snippet": "- **Auto-generated worktree names** like `worktree-jolly-beaming-raven` make it unclear which orphans belong to what",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "docs/skills/ce-clean-gone-branches.md",
+          "line": 38,
+          "snippet": "- **Deletion** — for each branch, remove its worktree first if one exists, then `git branch -D`",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "compound-engineering-plugin",
+      "capability": "verification_gates",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "docs/skills/ce-plan.md",
+          "line": 5,
+          "snippet": "`ce-plan` produces plans that are **decision documents with execution guardrails**, not implementation choreography. The plan captures what decisions have been made, what scope is ",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "docs/skills/ce-plan.md",
+          "line": 53,
+          "snippet": "- Stable U-IDs survive reordering, splitting, and deletion — so blocker references and PR mentions stay valid across plan edits",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "docs/skills/ce-plan.md",
+          "line": 65,
+          "snippet": "Plans capture decisions and constraints, not code: decisions made (with rationale), scope boundaries, atomic units of work, files touched, test scenarios that must pass, and risks ",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "compound-engineering-plugin",
+      "capability": "rollback_guardrails",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "docs/skills/ce-work.md",
+          "line": 52,
+          "snippet": "- Every PR carries an operational validation plan — what to monitor, what triggers rollback",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "docs/skills/ce-work.md",
+          "line": 84,
+          "snippet": "Every PR description includes a `Post-Deploy Monitoring & Validation` section: log queries, metrics to watch, expected healthy signals, failure signals, rollback triggers. If there",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "plugins/compound-engineering/skills/ce-agent-native-architecture/references/agent-execution-patterns.md",
+          "line": 202,
+          "snippet": "- Restore messages to conversation",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "compound-engineering-plugin",
+      "capability": "telemetry_proactive",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "docs/skills/ce-optimize.md",
+          "line": 3,
+          "snippet": "> Run metric-driven iterative optimization loops — define a measurable goal, build measurement scaffolding, run parallel experiments that try many approaches, keep improvements, co",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "docs/skills/ce-optimize.md",
+          "line": 5,
+          "snippet": "`ce-optimize` is the **measurement-driven experimentation** skill. It's for problems where the right change isn't obvious, you can generate several plausible variants, you have a r",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "docs/skills/ce-optimize.md",
+          "line": 27,
+          "snippet": "- **Optimizing the proxy, not the target** — improve a hard metric (cluster count, response length) that doesn't actually correlate with quality",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "oh-my-claudecode",
+      "capability": "tdd_enforcement",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "skills/debug/SKILL.md",
+          "line": 19,
+          "snippet": "- failing tests or commands",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/omc-reference/SKILL.md",
+          "line": 98,
+          "snippet": "- `\"tdd\"→TDD mode`",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/omc-setup/phases/04-welcome.md",
+          "line": 110,
+          "snippet": "| `testing.md` | TDD workflow, 80% coverage target |",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "oh-my-claudecode",
+      "capability": "planning_depth",
+      "status": "present",
+      "enforcementLevel": "test_enforced",
+      "evidence": [
+        {
+          "file": "dist/skills/__tests__/mingw-escape.test.js",
+          "line": 67,
+          "snippet": "describe('skills/omc-setup (SKILL.md + phases)', () => {",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "dist/skills/__tests__/mingw-escape.test.js",
+          "line": 71,
+          "snippet": "...readdirSync(join(setupDir, 'phases')).map(f => join(setupDir, 'phases', f)),",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "dist/skills/__tests__/mingw-escape.test.js",
+          "line": 127,
+          "snippet": "...readdirSync(join(setupDir, 'phases')).map(f => join(setupDir, 'phases', f)),",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "oh-my-claudecode",
+      "capability": "research_flow",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "skills/AGENTS.md",
+          "line": 142,
+          "snippet": "2. Invoke `architect` for analysis",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/AGENTS.md",
+          "line": 182,
+          "snippet": "| Exploration | deepinit, sciomc, external-context | \"deepinit\", \"research\" |",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/autopilot/SKILL.md",
+          "line": 9,
+          "snippet": "Autopilot takes a brief product idea and autonomously handles the full lifecycle: requirements analysis, technical design, planning, parallel implementation, QA cycling, and multi-",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "oh-my-claudecode",
+      "capability": "subagent_orchestration",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "skills/autopilot/SKILL.md",
+          "line": 22,
+          "snippet": "- User wants a single focused code change -- use `ralph` or delegate to an executor agent",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/cancel/SKILL.md",
+          "line": 164,
+          "snippet": "- `.omc/state/subagent-tracking.json`",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/cancel/SKILL.md",
+          "line": 165,
+          "snippet": "- `.omc/state/subagent-tracker.lock`",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "oh-my-claudecode",
+      "capability": "parallelism_safety",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "skills/AGENTS.md",
+          "line": 22,
+          "snippet": "| `ultrawork/SKILL.md` | ultrawork | Maximum parallel agent execution |",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/AGENTS.md",
+          "line": 41,
+          "snippet": "| `sciomc/SKILL.md` | sciomc | Parallel scientist orchestration |",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/autopilot/SKILL.md",
+          "line": 9,
+          "snippet": "Autopilot takes a brief product idea and autonomously handles the full lifecycle: requirements analysis, technical design, planning, parallel implementation, QA cycling, and multi-",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "oh-my-claudecode",
+      "capability": "verification_gates",
+      "status": "present",
+      "enforcementLevel": "test_enforced",
+      "evidence": [
+        {
+          "file": "dist/skills/__tests__/omc-doctor-skill.test.d.ts",
+          "line": 2,
+          "snippet": "//# sourceMappingURL=omc-doctor-skill.test.d.ts.map",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "dist/skills/__tests__/omc-doctor-skill.test.js",
+          "line": 4,
+          "snippet": "describe('omc-doctor skill (issue #2254)', () => {",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "dist/skills/__tests__/omc-doctor-skill.test.js",
+          "line": 6,
+          "snippet": "const skillPath = join(process.cwd(), 'skills', 'omc-doctor', 'SKILL.md');",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "oh-my-claudecode",
+      "capability": "rollback_guardrails",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "skills/configure-notifications/SKILL.md",
+          "line": 984,
+          "snippet": "- Backup legacy to `omc_config.openclaw.json.bak`",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/omc-doctor/SKILL.md",
+          "line": 212,
+          "snippet": "# Backup first (optional - ask user)",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/omc-setup/phases/01-install-claude-md.md",
+          "line": 62,
+          "snippet": "- Backup: Previous CLAUDE.md backed up (if existed)",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "oh-my-claudecode",
+      "capability": "telemetry_proactive",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "skills/cancel/SKILL.md",
+          "line": 373,
+          "snippet": "1. **Check for active MCP workers**: Look for heartbeat files at `.omc/state/team-bridge/{team}/*.heartbeat.json`",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/cancel/SKILL.md",
+          "line": 376,
+          "snippet": "4. **Clean up heartbeat files**: Remove all heartbeat files for the team",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/cancel/SKILL.md",
+          "line": 383,
+          "snippet": "rm -rf .omc/state/team-bridge/       # Heartbeat files",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "spec-kit",
+      "capability": "tdd_enforcement",
+      "status": "present",
+      "enforcementLevel": "script_enforced",
+      "evidence": [
+        {
+          "file": "templates/commands/implement.md",
+          "line": 147,
+          "snippet": "- **Follow TDD approach**: Execute test tasks before their corresponding implementation tasks",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "templates/commands/tasks.md",
+          "line": 137,
+          "snippet": "**Tests are OPTIONAL**: Only generate test tasks if explicitly requested in the feature specification or if user requests TDD approach.",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "spec-kit",
+      "capability": "planning_depth",
+      "status": "present",
+      "enforcementLevel": "script_enforced",
+      "evidence": [
+        {
+          "file": "extensions/git/commands/speckit.git.commit.md",
+          "line": 41,
+          "snippet": "message: \"[Spec Kit] Add implementation plan\"",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "presets/lean/commands/speckit.implement.md",
+          "line": 2,
+          "snippet": "description: Execute the implementation plan by processing all tasks in tasks.md.",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "presets/lean/commands/speckit.plan.md",
+          "line": 17,
+          "snippet": "3. Create an implementation plan and store it in `<feature_directory>/plan.md`.",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "spec-kit",
+      "capability": "research_flow",
+      "status": "present",
+      "enforcementLevel": "script_enforced",
+      "evidence": [
+        {
+          "file": ".github/workflows/codeql.yml",
+          "line": 10,
+          "snippet": "analyze:",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": ".github/workflows/codeql.yml",
+          "line": 11,
+          "snippet": "name: Analyze",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": ".github/workflows/codeql.yml",
+          "line": 29,
+          "snippet": "- name: Perform CodeQL Analysis",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "spec-kit",
+      "capability": "subagent_orchestration",
+      "status": "partial",
+      "enforcementLevel": "script_enforced",
+      "evidence": [
+        {
+          "file": "src/specify_cli/workflows/engine.py",
+          "line": 195,
+          "snippet": "# Delegate to step-specific validation",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "spec-kit",
+      "capability": "parallelism_safety",
+      "status": "present",
+      "enforcementLevel": "script_enforced",
+      "evidence": [
+        {
+          "file": "src/specify_cli/workflows/steps/fan_in/__init__.py",
+          "line": 1,
+          "snippet": "\"\"\"Fan-in step — join point for parallel steps.\"\"\"",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "templates/commands/analyze.md",
+          "line": 97,
+          "snippet": "- Parallel markers [P]",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "templates/commands/checklist.md",
+          "line": 212,
+          "snippet": "- Each item should reference: spec section `[Spec §X.Y]`, or use markers: `[Gap]`, `[Ambiguity]`, `[Conflict]`, `[Assumption]`",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "spec-kit",
+      "capability": "verification_gates",
+      "status": "present",
+      "enforcementLevel": "test_enforced",
+      "evidence": [
+        {
+          "file": "tests/test_extensions.py",
+          "line": 2790,
+          "snippet": "\"\"\"Empty catalogs list in config raises ValidationError (fail-closed for security).\"\"\"",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "tests/test_extensions.py",
+          "line": 2800,
+          "snippet": "# Fail-closed: empty config should raise, not fall back to defaults",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "tests/test_extensions.py",
+          "line": 2806,
+          "snippet": "\"\"\"Catalog entries without URLs raise ValidationError (fail-closed for security).\"\"\"",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "spec-kit",
+      "capability": "rollback_guardrails",
+      "status": "present",
+      "enforcementLevel": "script_enforced",
+      "evidence": [
+        {
+          "file": "scripts/bash/common.sh",
+          "line": 407,
+          "snippet": "# Skip hidden directories (e.g. .backup, .cache)",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "scripts/bash/setup-tasks.sh",
+          "line": 61,
+          "snippet": "echo \"Template 'tasks-template' was not found in any supported location (overrides, presets, extensions, or shared core). Add an override at .specify/templates/overrides/tasks-temp",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "src/specify_cli/workflows/engine.py",
+          "line": 471,
+          "snippet": "# Restore context",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "spec-kit",
+      "capability": "telemetry_proactive",
+      "status": "present",
+      "enforcementLevel": "script_enforced",
+      "evidence": [
+        {
+          "file": "templates/commands/clarify.md",
+          "line": 182,
+          "snippet": "- Non-functional constraint → Add/modify measurable criteria in Success Criteria > Measurable Outcomes (convert vague adjective to metric or explicit target).",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "templates/commands/specify.md",
+          "line": 325,
+          "snippet": "- \"Database can handle 1000 TPS\" (implementation detail, use user-facing metric)",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "spec-kitty",
+      "capability": "tdd_enforcement",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "src/doctrine/skills/spec-kitty-charter-doctrine/references/doctrine-artifact-structure.md",
+          "line": 92,
+          "snippet": "| `testing.tdd_required` | bool | Whether TDD is mandated |",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "src/doctrine/skills/spec-kitty-charter-doctrine/SKILL.md",
+          "line": 124,
+          "snippet": "- `testing_requirements` → directives + tactics (TDD flavour)",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "src/doctrine/skills/spec-kitty-charter-doctrine/SKILL.md",
+          "line": 245,
+          "snippet": "- `TDD required` → `testing.tdd_required: true`",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "spec-kitty",
+      "capability": "planning_depth",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "kitty-specs/055-agent-skills-pack/tasks/WP08-setup-doctor-skill.md",
+          "line": 15,
+          "snippet": "phase: Phase 1 - Core Implementation",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "kitty-specs/055-agent-skills-pack/tasks/WP11-runtime-next-skill.md",
+          "line": 16,
+          "snippet": "phase: Phase 3 - Second Slice",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "src/doctrine/skills/spec-kitty-implement-review/SKILL.md",
+          "line": 11,
+          "snippet": "Does NOT handle: specify/plan/tasks phases, setup or repair, glossary",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "spec-kitty",
+      "capability": "research_flow",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "kitty-specs/spdd-reasons-doctrine-pack-01KQC4AX/tasks/WP03-spdd-reasons-skill.md",
+          "line": 56,
+          "snippet": "- Load mission context: `spec.md`, `plan.md`, `tasks.md`, WP prompts, charter context, glossary, research, contracts, and relevant code.",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "kitty-specs/spdd-reasons-doctrine-pack-01KQC4AX/tasks/WP03-spdd-reasons-skill.md",
+          "line": 59,
+          "snippet": "- In review mode, compare implementation against the canvas and classify divergences.",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "kitty-specs/spdd-reasons-doctrine-pack-01KQC4AX/tasks/WP03-spdd-reasons-skill.md",
+          "line": 116,
+          "snippet": "- Read mission artifacts (spec, plan, tasks, contracts, research).",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "spec-kitty",
+      "capability": "subagent_orchestration",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "src/doctrine/skills/ad-hoc-profile-load/SKILL.md",
+          "line": 170,
+          "snippet": "- `handoff_to` — roles you delegate work to",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "src/doctrine/skills/ad-hoc-profile-load/SKILL.md",
+          "line": 171,
+          "snippet": "- `handoff_from` — roles that delegate to you",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "src/doctrine/skills/spec-kitty-charter-doctrine/SKILL.md",
+          "line": 386,
+          "snippet": "contracts delegate to. They describe a complete mini-workflow (e.g.,",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "spec-kitty",
+      "capability": "parallelism_safety",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "kitty-specs/055-agent-skills-pack/tasks/WP08-setup-doctor-skill.md",
+          "line": 82,
+          "snippet": "- **Step 3: Check Prerequisites** — verify cwd, branch, worktree, dashboard, runtime",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "kitty-specs/055-agent-skills-pack/tasks/WP08-setup-doctor-skill.md",
+          "line": 154,
+          "snippet": "**Cause**: Port conflict or dashboard process crashed.",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "kitty-specs/055-agent-skills-pack/tasks/WP08-setup-doctor-skill.md",
+          "line": 176,
+          "snippet": "- **Parallel?**: Yes (after T032-T034)",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "spec-kitty",
+      "capability": "verification_gates",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "kitty-specs/055-agent-skills-pack/tasks/WP08-setup-doctor-skill.md",
+          "line": 3,
+          "snippet": "title: Author spec-kitty-setup-doctor Skill",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "kitty-specs/055-agent-skills-pack/tasks/WP08-setup-doctor-skill.md",
+          "line": 22,
+          "snippet": "authoritative_surface: src/doctrine/skills/spec-kitty-setup-doctor/",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "kitty-specs/055-agent-skills-pack/tasks/WP08-setup-doctor-skill.md",
+          "line": 26,
+          "snippet": "- src/doctrine/skills/spec-kitty-setup-doctor/SKILL.md",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "spec-kitty",
+      "capability": "rollback_guardrails",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "kitty-specs/055-agent-skills-pack/tasks/WP08-setup-doctor-skill.md",
+          "line": 143,
+          "snippet": "**Recovery**: Run `spec-kitty sync --repair-skills` to restore canonical content.",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "src/doctrine/skills/spec-kitty-bulk-edit-classification/SKILL.md",
+          "line": 5,
+          "snippet": "guardrail on the user's behalf. Triggers: user says any variant of \"rename X",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "src/doctrine/skills/spec-kitty-bulk-edit-classification/SKILL.md",
+          "line": 18,
+          "snippet": "Drive the occurrence-classification guardrail (shipped in #393, DIRECTIVE_035)",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "spec-kitty",
+      "capability": "telemetry_proactive",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "src/doctrine/skills/spec-kitty-bulk-edit-classification/SKILL.md",
+          "line": 24,
+          "snippet": "user-facing string, test fixture, log/telemetry label). Treating them uniformly",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "src/doctrine/skills/spec-kitty-bulk-edit-classification/SKILL.md",
+          "line": 119,
+          "snippet": "> and metric labels are typically left alone to avoid breaking consumers).",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "src/doctrine/skills/spec-kitty-bulk-edit-classification/SKILL.md",
+          "line": 230,
+          "snippet": "touched (API schema, metric labels, historical migration), the",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "shipyard",
+      "capability": "tdd_enforcement",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "skills/code-simplification/SKILL.md",
+          "line": 408,
+          "snippet": "- **shipyard:shipyard-tdd** -- Tests make simplification safe",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/git-workflow/SKILL.md",
+          "line": 168,
+          "snippet": "- Each TDD cycle (test + implementation) gets its own commit",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/git-workflow/SKILL.md",
+          "line": 385,
+          "snippet": "**Proceeding with failing tests**",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "shipyard",
+      "capability": "planning_depth",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "skills/code-simplification/SKILL.md",
+          "line": 3,
+          "snippet": "description: Use after implementing features, before claiming a phase is complete, when reviewing AI-generated code, or when code feels overly complex. Also use when you notice rep",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/code-simplification/SKILL.md",
+          "line": 14,
+          "snippet": "- After all tasks in a phase are complete (before shipping)",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/code-simplification/SKILL.md",
+          "line": 18,
+          "snippet": "- Before claiming a phase is production-ready",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "shipyard",
+      "capability": "research_flow",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "skills/code-simplification/SKILL.md",
+          "line": 20,
+          "snippet": "**The simplifier agent references this skill for systematic cross-task analysis.**",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/code-simplification/SKILL.md",
+          "line": 404,
+          "snippet": "- **shipyard:simplifier** -- Uses this skill as the analysis framework for cross-task simplification",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/git-workflow/SKILL.md",
+          "line": 152,
+          "snippet": "**If tests fail:** Report failures, ask whether to proceed or investigate.",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "shipyard",
+      "capability": "subagent_orchestration",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "skills/shipyard-executing-plans/SKILL.md",
+          "line": 212,
+          "snippet": "In solo mode (neither team-lead nor team-member), this section has no effect — standard subagent dispatch applies.",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/shipyard-handoff/SKILL.md",
+          "line": 75,
+          "snippet": "- **Orchestrator writes the file** — never delegate to a sub-agent; sub-agents frequently fail to write output files",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/shipyard-writing-skills/EXAMPLES.md",
+          "line": 15,
+          "snippet": "description: Use when executing plans - dispatches subagent per task with code review between tasks",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "shipyard",
+      "capability": "parallelism_safety",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "skills/code-simplification/SKILL.md",
+          "line": 70,
+          "snippet": "# RED FLAG: Parallel structure, only names differ",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/code-simplification/SKILL.md",
+          "line": 86,
+          "snippet": "**Parallel hierarchies:** When adding a new type requires changes in multiple places.",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/git-workflow/SKILL.md",
+          "line": 3,
+          "snippet": "description: Use when starting feature work that needs a branch, creating worktrees for isolation, making atomic commits during development, or completing a development branch via ",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "shipyard",
+      "capability": "verification_gates",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "skills/infrastructure-validation/SKILL.md",
+          "line": 33,
+          "snippet": "Run in order. Each step must pass before proceeding.",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/shipyard-executing-plans/SKILL.md",
+          "line": 250,
+          "snippet": "- Hit a blocker mid-batch (missing dependency, test fails, instruction unclear)",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/shipyard-writing-plans/SKILL.md",
+          "line": 103,
+          "snippet": "- **Blocker** (dependency missing, API changed) — stop, document in SUMMARY.md as blocker, escalate",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "shipyard",
+      "capability": "rollback_guardrails",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "skills/using-shipyard/SKILL.md",
+          "line": 51,
+          "snippet": "| Rollback to checkpoint | `/shipyard:rollback` |",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/using-shipyard/SKILL.md",
+          "line": 109,
+          "snippet": "| `/shipyard:rollback` | Reverts to a git checkpoint (state-only or full code+state). Lists recent checkpoints, creates safety checkpoint before reverting. |",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/using-shipyard/SKILL.md",
+          "line": 110,
+          "snippet": "| `/shipyard:recover` | Diagnoses state inconsistencies and offers recovery: resume, rollback, rebuild state from artifacts, or full reset. |",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "shipyard",
+      "capability": "telemetry_proactive",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "skills/code-simplification/SKILL.md",
+          "line": 149,
+          "snippet": "| Metric | Acceptable | Review | Refactor |",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/parallel-dispatch/SKILL.md",
+          "line": 47,
+          "snippet": "- Monitor via `TaskList` until all tasks reach terminal state",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "skills/shipyard-executing-plans/SKILL.md",
+          "line": 198,
+          "snippet": "- **Orchestrate teammates** via TeamCreate → TaskCreate (pre-assign) → Task(team_name) → TaskList (monitor)",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "reap",
+      "capability": "tdd_enforcement",
+      "status": "absent",
+      "enforcementLevel": "none",
+      "evidence": [
+        {
+          "file": ".claude/commands/reapdev.alphaPublish.md",
+          "line": 0,
+          "snippet": "No matching capability evidence found across 152 implementation files for tdd_enforcement",
+          "kind": "negative_scan",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan",
+          "reason": "No matching capability evidence found for tdd_enforcement"
+        }
+      ]
+    },
+    {
+      "competitorId": "reap",
+      "capability": "planning_depth",
+      "status": "present",
+      "enforcementLevel": "prompt_only",
+      "evidence": [
+        {
+          "file": "src/adapters/claude-code/skills/reap.push.md",
+          "line": 24,
+          "snippet": "- After completing a generation (completion --phase commit already auto-commits)",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "src/adapters/claude-code/skills/reap.run.md",
+          "line": 5,
+          "snippet": "This command runs a specific REAP lifecycle stage or phase. Usage:",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "src/adapters/claude-code/skills/reap.run.md",
+          "line": 8,
+          "snippet": "reap run <stage> [--phase <phase>] [options]",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "reap",
+      "capability": "research_flow",
+      "status": "present",
+      "enforcementLevel": "script_enforced",
+      "evidence": [
+        {
+          "file": "src/cli/commands/migrate.ts",
+          "line": 122,
+          "snippet": "// onLifeObjected → needs AI analysis to determine onLifeLearned or onLifePlanned",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "src/cli/commands/migrate.ts",
+          "line": 697,
+          "snippet": "### Hook Analysis Needed",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "src/cli/commands/migrate.ts",
+          "line": 758,
+          "snippet": "Based on your analysis, suggest 3-5 goals for \\`vision/goals.md\\`:",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "reap",
+      "capability": "subagent_orchestration",
+      "status": "present",
+      "enforcementLevel": "script_enforced",
+      "evidence": [
+        {
+          "file": "src/adapters/claude-code/skills/reap.config.md",
+          "line": 10,
+          "snippet": "- `autoSubagent` — whether subagent is auto-invoked",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "src/cli/commands/help.ts",
+          "line": 230,
+          "snippet": "// Unsupported language: delegate translation to AI",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "src/cli/commands/run/evolve.ts",
+          "line": 79,
+          "snippet": "\"Launch a subagent using the Agent tool with:\",",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "reap",
+      "capability": "parallelism_safety",
+      "status": "present",
+      "enforcementLevel": "script_enforced",
+      "evidence": [
+        {
+          "file": "src/adapters/claude-code/skills/reap.merge.md",
+          "line": 2,
+          "snippet": "description: \"REAP Merge — Run merge lifecycle for parallel branches\"",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "src/cli/commands/help.ts",
+          "line": 84,
+          "snippet": "en: \"Merge lifecycle for parallel branches\",",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "src/cli/commands/init/common.ts",
+          "line": 131,
+          "snippet": "- invariants.md items do not conflict with application.md content?",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "reap",
+      "capability": "verification_gates",
+      "status": "absent",
+      "enforcementLevel": "none",
+      "evidence": [
+        {
+          "file": ".claude/commands/reapdev.alphaPublish.md",
+          "line": 0,
+          "snippet": "No matching capability evidence found across 152 implementation files for verification_gates",
+          "kind": "negative_scan",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan",
+          "reason": "No matching capability evidence found for verification_gates"
+        }
+      ]
+    },
+    {
+      "competitorId": "reap",
+      "capability": "rollback_guardrails",
+      "status": "present",
+      "enforcementLevel": "script_enforced",
+      "evidence": [
+        {
+          "file": "scripts/alpha-publish.sh",
+          "line": 29,
+          "snippet": "# Restore original version",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "src/cli/commands/fix.ts",
+          "line": 124,
+          "snippet": "`genome/${gf.name} is missing. Run 'reap init --repair' to restore.`,",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        },
+        {
+          "file": "src/cli/commands/fix.ts",
+          "line": 140,
+          "snippet": "issues.push(\"~/.reap/reap-guide.md missing and cannot restore from package\");",
+          "kind": "code_ref",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan"
+        }
+      ]
+    },
+    {
+      "competitorId": "reap",
+      "capability": "telemetry_proactive",
+      "status": "absent",
+      "enforcementLevel": "none",
+      "evidence": [
+        {
+          "file": ".claude/commands/reapdev.alphaPublish.md",
+          "line": 0,
+          "snippet": "No matching capability evidence found across 152 implementation files for telemetry_proactive",
+          "kind": "negative_scan",
+          "lastValidated": "2026-05-11T19:25:00Z",
+          "validationMethod": "auto-scan",
+          "reason": "No matching capability evidence found for telemetry_proactive"
+        }
+      ]
+    }
+  ],
+  "stalenessPolicy": {
+    "refreshCadenceDays": 30,
+    "nextScan": "2026-06-11T00:49:57Z"
+  }
+}

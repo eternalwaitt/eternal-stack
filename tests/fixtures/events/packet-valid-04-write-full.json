@@ -1,0 +1,23 @@
+{
+  "session_id": "fixture-packet-valid",
+  "tool_name": "Task",
+  "tool_input": {
+    "packet": {
+      "mode": "write",
+      "goal": "rewrite etrnl-review SKILL.md with research_flow and tdd_enforcement sections",
+      "contextSummary": "Track B task B5; scope is skills/etrnl-review/SKILL.md only",
+      "cwd": "/repo",
+      "scope": "skills/etrnl-review/SKILL.md",
+      "readSet": ["skills/etrnl-review/SKILL.md", "docs/research/parity-scorecard.json", "skills/etrnl-plan/SKILL.md"],
+      "writeScope": ["skills/etrnl-review/SKILL.md"],
+      "forbiddenPaths": ["scripts", "hooks", "tests", "skills/etrnl-plan/SKILL.md"],
+      "expectedOutput": "skills/etrnl-review/SKILL.md with Research Flow and TDD Enforcement sections; contract check passes",
+      "verificationCommand": "node scripts/skill-contract-check.mjs --root .",
+      "modelTier": "sonnet",
+      "timeoutSec": 300,
+      "retryPolicy": {"maxRetries": 1, "backoff": "linear", "initialDelayMs": 1000},
+      "noRevert": true,
+      "webSearchGuidance": "no WebSearch needed; use parity-scorecard.json as evidence"
+    }
+  }
+}

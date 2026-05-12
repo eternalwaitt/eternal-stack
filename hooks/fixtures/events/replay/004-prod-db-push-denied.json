@@ -1,0 +1,13 @@
+{
+  "hook": "cc-pretooluse-guard.sh",
+  "expected": { "kind": "deny", "contains": "Production schema mutation" },
+  "payload": {
+    "session_id": "replay-4",
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Bash",
+    "cwd": "/tmp/example",
+    "tool_input": {
+      "command": "prisma db push --url postgresql://prod.example.com/app"
+    }
+  }
+}

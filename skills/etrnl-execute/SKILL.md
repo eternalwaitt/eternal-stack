@@ -90,6 +90,15 @@ After each phase:
 - On repeated failures, dispatch `etrnl-investigator` or diagnose locally before editing again.
 - Stop only for a real blocker: missing dependency, unsafe rollback gap, destructive action, conflict with user edits, or an unclear decision that cannot be derived from the repo.
 
+## Verification Gates (hardened)
+
+Each wave gate is a hard stop — not a soft warning:
+
+1. **Gate failure is a blocker.** If the gate command exits non-zero, do not start the next wave. Record the failure, diagnose the root cause, fix it, and re-run the gate before proceeding.
+2. **Evidence required before wave advance.** Record `execution-ledger.mjs record-check` with status `passed` before marking any task `completed`. A task without a recorded check is incomplete regardless of local observation.
+3. **No self-certification.** Do not mark a gate `passed` based on reading output without running the command. Run the exact command from the plan's Verification gates table.
+4. **Partial gates are not gates.** If the plan specifies a full suite command (`pnpm test`, `bash tests/test-hooks.sh`), running a subset and passing is not gate evidence. Run the full command.
+
 ## Completion
 
 Before claiming done:

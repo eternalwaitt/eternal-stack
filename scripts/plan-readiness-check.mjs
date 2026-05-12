@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { readFileSync } from 'node:fs';
+import { REQUIRED_PLAN_HEADINGS } from './lib/plan-headings.mjs';
 
 const args = process.argv.slice(2);
 const allowDraft = args.includes('--allow-draft');
@@ -33,12 +34,6 @@ function requirePattern(name, pattern, message) {
   }
 }
 
-function requireAny(name, patterns, message) {
-  if (!patterns.some((pattern) => pattern.test(text))) {
-    failures.push({ name, message });
-  }
-}
-
 function forbidPattern(name, pattern, message) {
   if (pattern.test(text)) {
     failures.push({ name, message });
@@ -51,31 +46,23 @@ if (allowDraft) {
   requirePattern('status', /^Status:\s*Final\b/im, 'final plans must declare Status: Final');
 }
 
+const sectionHeadings = REQUIRED_PLAN_HEADINGS
+  .filter((heading) => heading.startsWith('## '))
+  .map((heading) => heading.replace(/^##\s+/, ''));
+
 const requiredSections = [
-  ['goal', [/^Goal:\s*\S/im], 'missing Goal'],
-  ['evidence', [/^Evidence:\s*\S/im], 'missing Evidence'],
-  ['non_goals', [/^Non-goals:\s*\S/im], 'missing Non-goals'],
-  ['what_exists', [/^#{1,6}\s+What already exists\b/im], 'missing What already exists section'],
-  ['not_scope', [/^#{1,6}\s+NOT in scope\b/im], 'missing NOT in scope section'],
-  ['file_map', [/^#{1,6}\s+File map\b/im], 'missing File map section'],
-  ['task_groups', [/^#{1,6}\s+Task groups\b/im], 'missing Task groups section'],
-  ['phases', [/^#{1,6}\s+Phases\b/im], 'missing Phases section'],
-  ['routing', [/^#{1,6}\s+Skill\/tool routing\b/im], 'missing Skill/tool routing section'],
-  ['test_plan', [/^#{1,6}\s+Test plan\b/im], 'missing Test plan section'],
-  ['failure_modes', [/^#{1,6}\s+Failure modes\b/im], 'missing Failure modes section'],
-  ['parallelization', [/^#{1,6}\s+Parallelization strategy\b/im], 'missing Parallelization strategy section'],
-  ['verification', [/^#{1,6}\s+Verification gates\b/im], 'missing Verification gates section'],
-  ['rollback', [/^#{1,6}\s+Rollback\b/im], 'missing Rollback section'],
-  ['handoff', [/^#{1,6}\s+Execution handoff\b/im], 'missing Execution handoff section'],
-  ['readiness_report', [/^#{1,6}\s+Plan Readiness Report\b/im], 'missing Plan Readiness Report section'],
+  ['goal', /^Goal:\s*\S/im, 'missing Goal'],
+  ['evidence', /^Evidence:\s*\S/im, 'missing Evidence'],
+  ['non_goals', /^Non-goals:\s*\S/im, 'missing Non-goals'],
+  ...sectionHeadings.map((heading) => {
+    const key = heading.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return [key, new RegExp(`^##\\s+${escaped}\\b`, 'im'), `missing ${heading} section`];
+  }),
 ];
 
-for (const [name, patterns, message] of requiredSections) {
-  if (patterns.length === 1) {
-    requirePattern(name, patterns[0], message);
-  } else {
-    requireAny(name, patterns, message);
-  }
+for (const [name, pattern, message] of requiredSections) {
+  requirePattern(name, pattern, message);
 }
 
 const readinessChecks = [

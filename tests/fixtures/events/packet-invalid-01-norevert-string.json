@@ -1,0 +1,23 @@
+{
+  "session_id": "fixture-packet-invalid",
+  "tool_name": "Task",
+  "tool_input": {
+    "packet": {
+      "mode": "write",
+      "goal": "patch a script",
+      "contextSummary": "minor fix",
+      "cwd": "/repo",
+      "scope": "scripts/example.mjs",
+      "readSet": ["scripts"],
+      "writeScope": ["scripts/example.mjs"],
+      "forbiddenPaths": ["hooks"],
+      "expectedOutput": "patched script",
+      "verificationCommand": "node scripts/example.mjs",
+      "modelTier": "haiku",
+      "timeoutSec": 60,
+      "retryPolicy": {"maxRetries": 0, "backoff": "none", "initialDelayMs": 0},
+      "noRevert": "true",
+      "webSearchGuidance": "none"
+    }
+  }
+}

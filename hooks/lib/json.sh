@@ -82,3 +82,31 @@ cc_json_block() {
   local reason="$1"
   jq -cn --arg reason "$reason" '{decision: "block", reason: $reason}'
 }
+
+cc_json_current_assistant_text() {
+  local inline msg_id transcript
+  inline="$(cc_json_get '.last_assistant_message // .message // .response')"
+  if [[ -n "$inline" ]]; then
+    printf '%s\n' "$inline"
+    return 0
+  fi
+
+  msg_id="$(cc_json_get '.assistant_message_id // .message_id // .messageId')"
+  transcript="$(cc_json_get '.transcript_path')"
+  if [[ -n "$transcript" && -f "$transcript" && -n "$msg_id" ]]; then
+    local transcript_text
+    if ! transcript_text="$(jq -rs --arg msg_id "$msg_id" '
+      [.[] | select(.type == "assistant")
+      | select((.id // .message.id // .messageId // "") == $msg_id)
+      | (.message.content // [])[]?
+      | select(.type == "text")
+      | .text]
+      | last // empty
+    ' "$transcript" 2>&1)"; then
+      printf 'claude-guard warning: cc_json_current_assistant_text failed to parse transcript %s (msg_id=%s): %s\n' \
+        "$transcript" "$msg_id" "$transcript_text" >&2
+      return 1
+    fi
+    printf '%s\n' "$transcript_text"
+  fi
+}

@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Top-10 Competitor Manifest",
+  "type": "object",
+  "required": [
+    "generatedAt",
+    "selectionPolicy",
+    "competitors"
+  ],
+  "properties": {
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "selectionPolicy": {
+      "type": "object",
+      "required": [
+        "candidateUniverse",
+        "deterministicFilters",
+        "lockSize"
+      ],
+      "properties": {
+        "candidateUniverse": {
+          "type": "integer",
+          "minimum": 10
+        },
+        "deterministicFilters": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "lockSize": {
+          "type": "integer",
+          "const": 10
+        }
+      },
+      "additionalProperties": false
+    },
+    "competitors": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "repoUrl",
+          "commitSha",
+          "license",
+          "analyzedPaths",
+          "collectedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "repoUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "commitSha": {
+            "type": "string",
+            "pattern": "^[A-Fa-f0-9]{40}$"
+          },
+          "license": {
+            "type": "string",
+            "minLength": 1
+          },
+          "analyzedPaths": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^\\S(?:.*\\S)?$"
+            }
+          },
+          "collectedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "localPath": {
+            "type": "string"
+          },
+          "stars": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "defaultBranch": {
+            "type": "string"
+          },
+          "pushedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": false
+}

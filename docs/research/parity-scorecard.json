@@ -1,0 +1,510 @@
+{
+  "generatedAt": "2026-05-12T01:14:54Z",
+  "scorecards": [
+    {
+      "etrnlSkill": "etrnl-agent-files",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 2,
+        "research_flow": 1,
+        "subagent_orchestration": 2,
+        "parallelism_safety": 1,
+        "verification_gates": 2,
+        "rollback_guardrails": 1,
+        "telemetry_proactive": 0
+      },
+      "gaps": [
+        {
+          "capability": "telemetry_proactive",
+          "target": "emit proactive drift report when AGENTS/CLAUDE baselines diverge",
+          "ownerSurface": "hook:cc-posttoolbatch-observer.sh",
+          "sourceRows": [
+            "gstack:telemetry_proactive",
+            "oh-my-claudecode:telemetry_proactive"
+          ]
+        }
+      ],
+      "priority": "P2",
+      "targetMilestone": "M2"
+    },
+    {
+      "etrnlSkill": "etrnl-autoplan",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 3,
+        "research_flow": 0,
+        "subagent_orchestration": 2,
+        "parallelism_safety": 1,
+        "verification_gates": 1,
+        "rollback_guardrails": 1,
+        "telemetry_proactive": 1
+      },
+      "gaps": [
+        {
+          "capability": "research_flow",
+          "target": "add mandatory top-10 competitor compare stage before plan finalization",
+          "ownerSurface": "skill:etrnl-autoplan",
+          "sourceRows": [
+            "gstack:research_flow",
+            "spec-kit:planning_depth"
+          ]
+        },
+        {
+          "capability": "verification_gates",
+          "target": "block final plans lacking code-level citations in evidence section",
+          "ownerSurface": "hook:cc-stop-verifier.sh",
+          "sourceRows": [
+            "get-shit-done:verification_gates",
+            "superpowers:verification_gates"
+          ]
+        }
+      ],
+      "priority": "P0",
+      "targetMilestone": "M1"
+    },
+    {
+      "etrnlSkill": "etrnl-brainstorm",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 2,
+        "research_flow": 0,
+        "subagent_orchestration": 2,
+        "parallelism_safety": 1,
+        "verification_gates": 2,
+        "rollback_guardrails": 1,
+        "telemetry_proactive": 1
+      },
+      "gaps": [
+        {
+          "capability": "research_flow",
+          "target": "require competitor landscape section with explicit does/does-not outputs",
+          "ownerSurface": "skill:etrnl-brainstorm",
+          "sourceRows": [
+            "superpowers:research_flow",
+            "shipyard:planning_depth"
+          ]
+        }
+      ],
+      "priority": "P1",
+      "targetMilestone": "M1"
+    },
+    {
+      "etrnlSkill": "etrnl-code-health",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 2,
+        "research_flow": 1,
+        "subagent_orchestration": 2,
+        "parallelism_safety": 0,
+        "verification_gates": 1,
+        "rollback_guardrails": 1,
+        "telemetry_proactive": 1
+      },
+      "gaps": [
+        {
+          "capability": "verification_gates",
+          "target": "gate health completion on evidence validator and scorecard completeness",
+          "ownerSurface": "script:research-competitor-intel.mjs",
+          "sourceRows": [
+            "get-shit-done:verification_gates",
+            "compound-engineering-plugin:verification_gates"
+          ]
+        },
+        {
+          "capability": "parallelism_safety",
+          "target": "add overlap-safe split for research extraction and parity generation tasks",
+          "ownerSurface": "skill:etrnl-code-health",
+          "sourceRows": [
+            "gstack:parallelism_safety",
+            "reap:parallelism_safety"
+          ]
+        }
+      ],
+      "priority": "P0",
+      "targetMilestone": "M1"
+    },
+    {
+      "etrnlSkill": "etrnl-commit",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 2,
+        "research_flow": 1,
+        "subagent_orchestration": 2,
+        "parallelism_safety": 1,
+        "verification_gates": 2,
+        "rollback_guardrails": 0,
+        "telemetry_proactive": 1
+      },
+      "gaps": [
+        {
+          "capability": "rollback_guardrails",
+          "target": "require rollback snippet for high-risk hook/script changes in commit summary",
+          "ownerSurface": "skill:etrnl-commit",
+          "sourceRows": [
+            "get-shit-done:rollback_guardrails",
+            "shipyard:rollback_guardrails"
+          ]
+        }
+      ],
+      "priority": "P2",
+      "targetMilestone": "M2"
+    },
+    {
+      "etrnlSkill": "etrnl-context-restore",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 2,
+        "research_flow": 1,
+        "subagent_orchestration": 2,
+        "parallelism_safety": 1,
+        "verification_gates": 2,
+        "rollback_guardrails": 2,
+        "telemetry_proactive": 1
+      },
+      "gaps": [
+        {
+          "capability": "telemetry_proactive",
+          "target": "track stale context restores and emit follow-up recommendations",
+          "ownerSurface": "script:context-state.mjs",
+          "sourceRows": [
+            "gstack:telemetry_proactive",
+            "reap:telemetry_proactive"
+          ]
+        }
+      ],
+      "priority": "P2",
+      "targetMilestone": "M3"
+    },
+    {
+      "etrnlSkill": "etrnl-context-save",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 2,
+        "research_flow": 1,
+        "subagent_orchestration": 2,
+        "parallelism_safety": 1,
+        "verification_gates": 1,
+        "rollback_guardrails": 2,
+        "telemetry_proactive": 2
+      },
+      "gaps": [
+        {
+          "capability": "verification_gates",
+          "target": "block save when verification artifacts are missing for execution runs",
+          "ownerSurface": "hook:cc-stop-verifier.sh",
+          "sourceRows": [
+            "superpowers:verification_gates",
+            "spec-kitty:verification_gates"
+          ]
+        }
+      ],
+      "priority": "P2",
+      "targetMilestone": "M3"
+    },
+    {
+      "etrnlSkill": "etrnl-deps",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 2,
+        "research_flow": 1,
+        "subagent_orchestration": 2,
+        "parallelism_safety": 1,
+        "verification_gates": 2,
+        "rollback_guardrails": 0,
+        "telemetry_proactive": 1
+      },
+      "gaps": [
+        {
+          "capability": "rollback_guardrails",
+          "target": "require dependency rollback command sequence in dependency upgrades",
+          "ownerSurface": "skill:etrnl-deps",
+          "sourceRows": [
+            "shipyard:rollback_guardrails",
+            "get-shit-done:rollback_guardrails"
+          ]
+        }
+      ],
+      "priority": "P2",
+      "targetMilestone": "M2"
+    },
+    {
+      "etrnlSkill": "etrnl-execute",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 2,
+        "research_flow": 1,
+        "subagent_orchestration": 2,
+        "parallelism_safety": 0,
+        "verification_gates": 3,
+        "rollback_guardrails": 1,
+        "telemetry_proactive": 1
+      },
+      "gaps": [
+        {
+          "capability": "subagent_orchestration",
+          "target": "upgrade task packet contract to require competitor-evidence ownership per wave",
+          "ownerSurface": "script:agent-task-packet-check.mjs",
+          "sourceRows": [
+            "gstack:subagent_orchestration",
+            "superpowers:subagent_orchestration"
+          ]
+        },
+        {
+          "capability": "parallelism_safety",
+          "target": "add mandatory research-wave overlap checks before parity rewrites",
+          "ownerSurface": "script:execution-wave-check.mjs",
+          "sourceRows": [
+            "gstack:parallelism_safety",
+            "get-shit-done:parallelism_safety"
+          ]
+        }
+      ],
+      "priority": "P0",
+      "targetMilestone": "M1"
+    },
+    {
+      "etrnlSkill": "etrnl-fix-issue",
+      "capabilityScores": {
+        "tdd_enforcement": 0,
+        "planning_depth": 2,
+        "research_flow": 1,
+        "subagent_orchestration": 2,
+        "parallelism_safety": 1,
+        "verification_gates": 2,
+        "rollback_guardrails": 1,
+        "telemetry_proactive": 1
+      },
+      "gaps": [
+        {
+          "capability": "tdd_enforcement",
+          "target": "require failing test reference before fix implementation for skill/hook regressions",
+          "ownerSurface": "skill:etrnl-fix-issue",
+          "sourceRows": [
+            "superpowers:tdd_enforcement",
+            "get-shit-done:tdd_enforcement"
+          ]
+        }
+      ],
+      "priority": "P1",
+      "targetMilestone": "M2"
+    },
+    {
+      "etrnlSkill": "etrnl-parallel",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 2,
+        "research_flow": 1,
+        "subagent_orchestration": 3,
+        "parallelism_safety": 1,
+        "verification_gates": 1,
+        "rollback_guardrails": 1,
+        "telemetry_proactive": 1
+      },
+      "gaps": [
+        {
+          "capability": "parallelism_safety",
+          "target": "add strict no-overlap contract check for research subagent lanes",
+          "ownerSurface": "skill:etrnl-parallel",
+          "sourceRows": [
+            "gstack:parallelism_safety",
+            "spec-kit:parallelism_safety"
+          ]
+        },
+        {
+          "capability": "verification_gates",
+          "target": "require verification receipts from each lane before merge phase",
+          "ownerSurface": "agent:etrnl-quality-reviewer",
+          "sourceRows": [
+            "get-shit-done:verification_gates",
+            "spec-kitty:verification_gates"
+          ]
+        }
+      ],
+      "priority": "P1",
+      "targetMilestone": "M2"
+    },
+    {
+      "etrnlSkill": "etrnl-plan",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 3,
+        "research_flow": 0,
+        "subagent_orchestration": 2,
+        "parallelism_safety": 1,
+        "verification_gates": 2,
+        "rollback_guardrails": 1,
+        "telemetry_proactive": 1
+      },
+      "gaps": [
+        {
+          "capability": "research_flow",
+          "target": "force explicit competitor matrix inputs as a hard precondition for final plan status",
+          "ownerSurface": "skill:etrnl-plan",
+          "sourceRows": [
+            "spec-kit:planning_depth",
+            "superpowers:research_flow"
+          ]
+        }
+      ],
+      "priority": "P0",
+      "targetMilestone": "M1"
+    },
+    {
+      "etrnlSkill": "etrnl-pr",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 2,
+        "research_flow": 1,
+        "subagent_orchestration": 2,
+        "parallelism_safety": 1,
+        "verification_gates": 1,
+        "rollback_guardrails": 1,
+        "telemetry_proactive": 1
+      },
+      "gaps": [
+        {
+          "capability": "verification_gates",
+          "target": "require matrix/backlog artifact diffs in PR checklist when parity work is touched",
+          "ownerSurface": "skill:etrnl-pr",
+          "sourceRows": [
+            "compound-engineering-plugin:verification_gates",
+            "gstack:verification_gates"
+          ]
+        }
+      ],
+      "priority": "P2",
+      "targetMilestone": "M3"
+    },
+    {
+      "etrnlSkill": "etrnl-qa-browser",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 2,
+        "research_flow": 1,
+        "subagent_orchestration": 2,
+        "parallelism_safety": 1,
+        "verification_gates": 2,
+        "rollback_guardrails": 1,
+        "telemetry_proactive": 1
+      },
+      "gaps": [
+        {
+          "capability": "telemetry_proactive",
+          "target": "publish proactive QA drift summary when competitor-facing surfaces regress",
+          "ownerSurface": "script:browser-qa-report.mjs",
+          "sourceRows": [
+            "reap:telemetry_proactive",
+            "gstack:telemetry_proactive"
+          ]
+        }
+      ],
+      "priority": "P1",
+      "targetMilestone": "M2"
+    },
+    {
+      "etrnlSkill": "etrnl-review",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 2,
+        "research_flow": 0,
+        "subagent_orchestration": 2,
+        "parallelism_safety": 1,
+        "verification_gates": 2,
+        "rollback_guardrails": 1,
+        "telemetry_proactive": 1
+      },
+      "gaps": [
+        {
+          "capability": "research_flow",
+          "target": "require code-level competitor citations in review findings for strategy/skill recommendations",
+          "ownerSurface": "skill:etrnl-review",
+          "sourceRows": [
+            "superpowers:research_flow",
+            "spec-kit:research_flow"
+          ]
+        },
+        {
+          "capability": "verification_gates",
+          "target": "fail review completion if recommendation lacks source row references",
+          "ownerSurface": "script:review-log.mjs",
+          "sourceRows": [
+            "get-shit-done:verification_gates",
+            "shipyard:verification_gates"
+          ]
+        }
+      ],
+      "priority": "P0",
+      "targetMilestone": "M1"
+    },
+    {
+      "etrnlSkill": "etrnl-stress-test",
+      "capabilityScores": {
+        "tdd_enforcement": 2,
+        "planning_depth": 2,
+        "research_flow": 1,
+        "subagent_orchestration": 2,
+        "parallelism_safety": 1,
+        "verification_gates": 2,
+        "rollback_guardrails": 0,
+        "telemetry_proactive": 0
+      },
+      "gaps": [
+        {
+          "capability": "rollback_guardrails",
+          "target": "attach deterministic rollback steps for each stress test failure mode",
+          "ownerSurface": "skill:etrnl-stress-test",
+          "sourceRows": [
+            "shipyard:rollback_guardrails",
+            "reap:rollback_guardrails"
+          ]
+        },
+        {
+          "capability": "telemetry_proactive",
+          "target": "emit stress telemetry summary with retry/failure thresholds",
+          "ownerSurface": "script:workflow-health.mjs",
+          "sourceRows": [
+            "gstack:telemetry_proactive",
+            "oh-my-claudecode:telemetry_proactive"
+          ]
+        }
+      ],
+      "priority": "P1",
+      "targetMilestone": "M2"
+    },
+    {
+      "etrnlSkill": "etrnl-test",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 2,
+        "research_flow": 1,
+        "subagent_orchestration": 2,
+        "parallelism_safety": 1,
+        "verification_gates": 1,
+        "rollback_guardrails": 1,
+        "telemetry_proactive": 1
+      },
+      "gaps": [
+        {
+          "capability": "tdd_enforcement",
+          "target": "codify red-green-refactor evidence requirements in test plans",
+          "ownerSurface": "skill:etrnl-test",
+          "sourceRows": [
+            "superpowers:tdd_enforcement",
+            "get-shit-done:tdd_enforcement"
+          ]
+        },
+        {
+          "capability": "verification_gates",
+          "target": "require explicit pass/fail gate snapshots for every mandatory command",
+          "ownerSurface": "hook:cc-stop-verifier.sh",
+          "sourceRows": [
+            "gstack:verification_gates",
+            "spec-kitty:verification_gates"
+          ]
+        }
+      ],
+      "priority": "P0",
+      "targetMilestone": "M1"
+    }
+  ]
+}

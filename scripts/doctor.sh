@@ -43,10 +43,62 @@ report_command() {
   fi
 }
 
+read_skill_hint_fallback() {
+  local hint_path="$1"
+  local line in_array=0
+  while IFS= read -r line; do
+    if (( in_array == 0 )); then
+      [[ "$line" =~ ^[[:space:]]*skills=\([[:space:]]*$ ]] || continue
+      in_array=1
+      continue
+    fi
+    [[ "$line" =~ ^[[:space:]]*\)[[:space:]]*$ ]] && break
+    line="${line%%#*}"
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
+    [[ -z "$line" ]] && continue
+    printf '%s\n' "$line"
+  done < "$hint_path"
+}
+
 for dep in jq git node rg fd; do
   require_command "$dep"
 done
 optional_command sg "sg available" "sg unavailable; live hooks fail open"
+
+if [[ -f "$ROOT/hooks/lib/skill-hints.sh" ]]; then
+  hint_fallback_skills=()
+  while IFS= read -r fallback_skill; do
+    hint_fallback_skills+=("$fallback_skill")
+  done < <(read_skill_hint_fallback "$ROOT/hooks/lib/skill-hints.sh")
+  hint_mismatch=0
+  hint_mismatch_detail=""
+  if (( ${#hint_fallback_skills[@]} != ${#OWNED_SKILLS[@]} )); then
+    hint_mismatch=1
+    hint_mismatch_detail="count expected=${#OWNED_SKILLS[@]} actual=${#hint_fallback_skills[@]}"
+  else
+    for i in "${!OWNED_SKILLS[@]}"; do
+      if [[ "${OWNED_SKILLS[$i]}" != "${hint_fallback_skills[$i]}" ]]; then
+        hint_mismatch=1
+        hint_mismatch_detail="index=$i expected=${OWNED_SKILLS[$i]} actual=${hint_fallback_skills[$i]:-<missing>}"
+        break
+      fi
+    done
+  fi
+  if (( hint_mismatch == 0 )); then
+    ok "skill-hint fallback list synchronized with OWNED_SKILLS"
+  else
+    fail "hooks/lib/skill-hints.sh fallback list differs from scripts/lib/skill-lists.sh OWNED_SKILLS (${hint_mismatch_detail})"
+  fi
+else
+  fail "hooks/lib/skill-hints.sh missing"
+fi
+
+if [[ -f "$ROOT/docs/research/parity-scorecard.schema.json" ]]; then
+  ok "parity scorecard schema present (runtime coverage enforced via validateScorecard)"
+else
+  fail "docs/research/parity-scorecard.schema.json missing"
+fi
 
 hook_tests=()
 if [[ -x "$ROOT/tests/test-hooks.sh" ]]; then
@@ -86,15 +138,67 @@ if [[ -f "$ROOT/scripts/plan-readiness-check.mjs" ]]; then
 else
   fail "plan readiness script missing"
 fi
-for script in agent-task-packet-check execution-ledger execution-wave-check review-log project-buglog browser-qa-report context-state workflow-health prompt-budget-check changelog-release-check port-guard; do
+for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger execution-wave-check review-log project-buglog browser-qa-report context-state workflow-health prompt-budget-check skill-contract-check skill-behavior-smoke changelog-release-check port-guard research-competitor-intel; do
   if [[ -f "$ROOT/scripts/$script.mjs" ]]; then
     report_command "$script syntax valid" "$script syntax invalid" node --check "$ROOT/scripts/$script.mjs"
   else
     fail "$script script missing"
   fi
 done
+for hook_file in "${CRITICAL_HOOKS[@]}"; do
+  if [[ -f "$ROOT/hooks/$hook_file" ]]; then
+    ok "critical hook present: $hook_file"
+  else
+    fail "critical hook missing: $hook_file"
+  fi
+done
+for script_file in "${CRITICAL_SCRIPTS[@]}"; do
+  if [[ -f "$ROOT/scripts/$script_file" ]]; then
+    ok "critical script present: $script_file"
+  else
+    fail "critical script missing: $script_file"
+  fi
+done
+if [[ -f "$ROOT/scripts/lib/research-intel-core.mjs" ]]; then
+  report_command "research intel core syntax valid" "research intel core syntax invalid" node --check "$ROOT/scripts/lib/research-intel-core.mjs"
+else
+  fail "research intel core script missing"
+fi
 if [[ -f "$ROOT/scripts/prompt-budget-check.mjs" ]]; then
   report_command "repo-owned prompt budget check clean" "repo-owned prompt budget check failed" node "$ROOT/scripts/prompt-budget-check.mjs" "$ROOT" --owned-only
+fi
+if [[ -f "$ROOT/scripts/skill-contract-check.mjs" ]]; then
+  report_command "etrnl skill contracts clean" "etrnl skill contract check failed" node "$ROOT/scripts/skill-contract-check.mjs" --root "$ROOT"
+fi
+if [[ -f "$ROOT/scripts/skill-behavior-smoke.mjs" ]]; then
+  report_command "etrnl skill behavior smoke clean" "etrnl skill behavior smoke failed" node "$ROOT/scripts/skill-behavior-smoke.mjs" --root "$ROOT"
+fi
+research_inputs_ok=1
+if [[ ! -f "$ROOT/scripts/research-competitor-intel.mjs" ]]; then
+  fail "research-competitor-intel script missing"
+  research_inputs_ok=0
+fi
+if [[ ! -f "$ROOT/docs/research/top10-lock.json" ]]; then
+  fail "docs/research/top10-lock.json missing"
+  research_inputs_ok=0
+fi
+if [[ ! -f "$ROOT/docs/research/capability-evidence.json" ]]; then
+  fail "docs/research/capability-evidence.json missing"
+  research_inputs_ok=0
+fi
+if [[ ! -f "$ROOT/docs/research/parity-scorecard.json" ]]; then
+  fail "docs/research/parity-scorecard.json missing"
+  research_inputs_ok=0
+fi
+if (( research_inputs_ok == 1 )); then
+  report_command "research manifest contract valid" "research manifest contract failed" node "$ROOT/scripts/research-competitor-intel.mjs" validate-manifest --manifest "$ROOT/docs/research/top10-lock.json"
+  report_command "research evidence contract valid" "research evidence contract failed" node "$ROOT/scripts/research-competitor-intel.mjs" validate-evidence --evidence "$ROOT/docs/research/capability-evidence.json"
+  report_command "research scorecard contract valid" "research scorecard contract failed" node "$ROOT/scripts/research-competitor-intel.mjs" validate-scorecard --scorecard "$ROOT/docs/research/parity-scorecard.json" --skills-file "$ROOT/scripts/lib/skill-lists.sh" --evidence "$ROOT/docs/research/capability-evidence.json"
+fi
+if [[ -d "$ROOT/hooks/fixtures/events/replay" ]]; then
+  report_command "replay fixtures clean" "replay fixtures failed" node "$ROOT/scripts/replay-hook-fixtures.mjs"
+else
+  fail "replay fixture directory missing"
 fi
 
 if [[ -f "$ROOT/templates/settings.json" && -f "$ROOT/templates/settings.strict.json" ]]; then

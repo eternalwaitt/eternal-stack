@@ -87,10 +87,158 @@ assert_command "code-health inventory runs" node "$ROOT/scripts/code-health-inve
 inventory_quiet_json="$(node "$ROOT/scripts/code-health-inventory.mjs" --json --quiet)"
 assert_json_expr "code-health inventory json quiet emits JSON" "$inventory_quiet_json" '.totalFiles >= 1'
 assert_command "plan readiness syntax" node --check "$ROOT/scripts/plan-readiness-check.mjs"
-for script in agent-task-packet-check execution-ledger execution-wave-check review-log browser-qa-report context-state workflow-health prompt-budget-check changelog-release-check port-guard; do
+assert_command "cli arg parser edge cases" node --input-type=module -e '
+import { argValue } from "./scripts/lib/cli-args.mjs";
+const expect = (actual, expected, label) => {
+  if (actual !== expected) {
+    throw new Error(`${label}: expected ${JSON.stringify(expected)} got ${JSON.stringify(actual)}`);
+  }
+};
+expect(argValue(["--flag=value"], "--flag", "fallback"), "value", "equals syntax");
+expect(argValue(["--flag", "value"], "--flag", "fallback"), "value", "space syntax");
+expect(argValue(["--flag="], "--flag", "fallback"), "fallback", "empty equals fallback");
+expect(argValue(["--flag", "--other"], "--flag", "fallback"), "fallback", "next flag fallback");
+expect(argValue(["--flag", "first", "--flag", "second"], "--flag", "fallback"), "first", "first duplicate wins");
+expect(argValue(["--flag", 10, "--other"], "--flag", "fallback"), "fallback", "non-string value ignored");
+'
+assert_command "bash array parser token branches" node --input-type=module -e '
+import { parseBashArray } from "./scripts/lib/bash-array-parser.mjs";
+const expect = (actual, expected, label) => {
+  if (actual !== expected) {
+    throw new Error(`${label}: expected ${JSON.stringify(expected)} got ${JSON.stringify(actual)}`);
+  }
+};
+const source = `ARR=(
+  "double \\"quoted\\" value"
+  "dollar \\$HOME"
+  "tab\\tvalue"
+  "hex\\x41value"
+  "octal\\101value"
+  '"'"'single quoted value'"'"'
+  plain\\ token
+  escaped\\ space\\ token
+)`;
+const parsed = parseBashArray(source, "ARR");
+expect(parsed.length, 8, "token count");
+expect(parsed[0], "double \"quoted\" value", "double-quoted branch");
+expect(parsed[1], "dollar $HOME", "double-quoted escapes");
+expect(parsed[2], "tab\tvalue", "double-quoted control escape");
+expect(parsed[3], "hexAvalue", "double-quoted hex escape");
+expect(parsed[4], "octalAvalue", "double-quoted octal escape");
+expect(parsed[5], "single quoted value", "single-quoted branch");
+expect(parsed[6], "plain token", "unquoted escaped space branch");
+expect(parsed[7], "escaped space token", "unquoted multi-escape branch");
+'
+for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger execution-wave-check review-log browser-qa-report context-state workflow-health prompt-budget-check changelog-release-check port-guard; do
   assert_command "$script syntax" node --check "$ROOT/scripts/$script.mjs"
 done
+assert_command "skill contract syntax" node --check "$ROOT/scripts/skill-contract-check.mjs"
+assert_command "skill contracts pass" node "$ROOT/scripts/skill-contract-check.mjs" --root "$ROOT"
+assert_command "skill behavior smoke syntax" node --check "$ROOT/scripts/skill-behavior-smoke.mjs"
+assert_command "skill behavior smoke pass" node "$ROOT/scripts/skill-behavior-smoke.mjs" --root "$ROOT"
+assert_command "research intel syntax" node --check "$ROOT/scripts/research-competitor-intel.mjs"
+assert_command "research core syntax" node --check "$ROOT/scripts/lib/research-intel-core.mjs"
+assert_command "research manifest validates" node "$ROOT/scripts/research-competitor-intel.mjs" validate-manifest --manifest "$ROOT/docs/research/top10-lock.json"
+assert_command "research evidence validates" node "$ROOT/scripts/research-competitor-intel.mjs" validate-evidence --evidence "$ROOT/docs/research/capability-evidence.json"
+assert_command "research scorecard validates" node "$ROOT/scripts/research-competitor-intel.mjs" validate-scorecard --scorecard "$ROOT/docs/research/parity-scorecard.json" --skills-file "$ROOT/scripts/lib/skill-lists.sh" --evidence "$ROOT/docs/research/capability-evidence.json"
+assert_json_expr "research schema defines scorecards array" "$(jq -c . "$ROOT/docs/research/parity-scorecard.schema.json")" '.properties.scorecards.type == "array"'
+assert_json_expr "research schema avoids hardcoded OWNED_SKILLS minItems" "$(jq -c . "$ROOT/docs/research/parity-scorecard.schema.json")" '(.properties.scorecards.minItems | not)'
+research_manifest_json="$(jq -c . "$ROOT/docs/research/top10-lock.json")"
+assert_json_expr "research lock has 10 unique competitors" "$research_manifest_json" '.competitors | length == 10 and (map(.id) | unique | length == 10)'
+assert_json_expr "research lock commit SHAs pinned" "$research_manifest_json" '(.competitors | map(.commitSha | test("^[A-Fa-f0-9]{40}$")) | all)'
+research_evidence_json="$(jq -c . "$ROOT/docs/research/capability-evidence.json")"
+assert_json_expr "research evidence has full capability coverage" "$research_evidence_json" '.rows | length == 80'
+assert_json_expr "research evidence enforces non-README refs" "$research_evidence_json" '([.rows[].evidence[].file | test("(^|/)README(\\.|$)"; "i")] | any | not)'
+
+bad_manifest="$TMPROOT/research-bad-manifest.json"
+printf '%s\n' '{}' >"$bad_manifest"
+if node "$ROOT/scripts/research-competitor-intel.mjs" validate-manifest --manifest "$bad_manifest" >/dev/null 2>&1; then
+  not_ok "research manifest validator rejects missing fields"
+else
+  ok "research manifest validator rejects missing fields"
+fi
+
+bad_evidence="$TMPROOT/research-bad-evidence.json"
+printf '%s\n' '{"generatedAt":"2026-05-11T00:00:00Z","capabilities":["tdd_enforcement"],"rows":[{"competitorId":"fixture","capability":"tdd_enforcement","status":"present","enforcementLevel":"prompt_only","evidence":[{"file":"README.md","line":1,"snippet":"bad","kind":"code_ref"}]}]}' >"$bad_evidence"
+if node "$ROOT/scripts/research-competitor-intel.mjs" validate-evidence --evidence "$bad_evidence" >/dev/null 2>&1; then
+  not_ok "research evidence validator rejects README citations"
+else
+  ok "research evidence validator rejects README citations"
+fi
+
+fixture_repos="$TMPROOT/research-fixtures"
+fixture_manifest="$TMPROOT/research-fixture-manifest.json"
+cp -- "$ROOT/tests/fixtures/research-fixture-manifest.json" "$fixture_manifest"
+# shellcheck source=tests/fixtures/research-skill-strings.sh
+if [[ ! -f "$ROOT/tests/fixtures/research-skill-strings.sh" ]]; then
+  not_ok "research fixture strings file missing"
+  exit 1
+fi
+source "$ROOT/tests/fixtures/research-skill-strings.sh"
+while IFS=$'\t' read -r fixture_id fixture_path; do
+  if [[ -z "$fixture_id" || -z "$fixture_path" ]]; then
+    not_ok "research fixture manifest row missing id/path"
+    exit 1
+  fi
+  fixture_dir="$fixture_repos/$fixture_path"
+  if ! mkdir -p "$fixture_dir/skills/research" "$fixture_dir/hooks" "$fixture_dir/scripts" "$fixture_dir/tests"; then
+    not_ok "research fixture scaffold failed for $fixture_id"
+    exit 1
+  fi
+  if ! {
+    printf '%s\n' "# Skill ${fixture_id}" "${SKILL_LINE_TDD} for ${fixture_id}." "${SKILL_LINE_PLANNING} for ${fixture_id}." "${SKILL_LINE_RESEARCH} for ${fixture_id}." "$SKILL_LINE_SUBAGENT" "$SKILL_LINE_PARALLELISM" "$SKILL_LINE_GATE" 'Document rollback guardrails and backup restore flow.' "$SKILL_LINE_TELEMETRY" >"$fixture_dir/skills/research/SKILL.md"
+    printf '%s\n' '#!/usr/bin/env bash' "echo \"verification gate blocker fail-closed ${fixture_id}\"" >"$fixture_dir/hooks/pretool.sh"
+    printf '%s\n' '#!/usr/bin/env bash' "echo \"telemetry heartbeat monitor alert ${fixture_id}\"" >"$fixture_dir/scripts/monitor.sh"
+    printf '%s\n' "describe(\"tdd-${fixture_id}\", () => {" "  test(\"${TEST_LINE_TDD}\", () => {});" '});' >"$fixture_dir/tests/tdd.test.ts"
+  }; then
+    not_ok "research fixture file creation failed for $fixture_id"
+    exit 1
+  fi
+done < <(jq -r '.competitors[] | [.id, (.localPath // .id)] | @tsv' "$fixture_manifest")
+fixture_evidence="$TMPROOT/research-fixture-evidence.json"
+assert_command "research extractor runs on fixture repo" node "$ROOT/scripts/research-competitor-intel.mjs" extract --manifest "$fixture_manifest" --repos-root "$fixture_repos" --out "$fixture_evidence"
+fixture_json="$(jq -c . "$fixture_evidence")"
+assert_json_expr "research extractor emits 80 rows for 10 competitors x 8 capabilities" "$fixture_json" '.rows | length == 80'
+assert_json_expr "research extractor detects TDD signal" "$fixture_json" '([.rows[] | select(.capability=="tdd_enforcement") | .status == "present"] | any)'
+assert_json_expr "research extractor emits hook enforcement signal" "$fixture_json" '([.rows[] | select(.enforcementLevel=="hook_enforced")] | length > 0)'
+
+bad_scorecard="$TMPROOT/research-bad-scorecard.json"
+jq '(.scorecards[0].gaps[0].sourceRows[0]) = "unknown:capability"' "$ROOT/docs/research/parity-scorecard.json" >"$bad_scorecard"
+if node "$ROOT/scripts/research-competitor-intel.mjs" validate-scorecard --scorecard "$bad_scorecard" --skills-file "$ROOT/scripts/lib/skill-lists.sh" --evidence "$ROOT/docs/research/capability-evidence.json" >/dev/null 2>&1; then
+  not_ok "research scorecard validator rejects unknown sourceRows"
+else
+  ok "research scorecard validator rejects unknown sourceRows"
+fi
+
+does_doc="$ROOT/docs/research/does-doesnt-by-competitor.md"
+for competitor_id in $(jq -r '.competitors[].id' "$ROOT/docs/research/top10-lock.json"); do
+  # Print lines under `## <competitor_id> ...`; match the first heading token exactly and stop only at the next top-level `##`.
+  section_text="$(awk -v id="$competitor_id" '
+    BEGIN {
+      in_section = 0
+    }
+    /^##[[:space:]]+/ {
+      rest = $0
+      sub(/^##[[:space:]]+/, "", rest)
+      heading_id = rest
+      sub(/[[:space:]].*$/, "", heading_id)
+      if (heading_id == id) {
+        in_section = 1
+        next
+      }
+      if (in_section) {
+        exit
+      }
+    }
+    in_section { print }
+  ' "$does_doc")"
+  assert_contains "does/doesn't section found for $competitor_id" "$section_text" "- "
+  assert_contains "does/doesn't includes does row for $competitor_id" "$section_text" "- does:"
+  assert_contains "does/doesn't includes does-not row for $competitor_id" "$section_text" "- does-not:"
+done
+
 assert_command "port-guard self-test" node "$ROOT/scripts/port-guard.mjs" self-test
+assert_command "replay hook fixtures pass" node "$ROOT/scripts/replay-hook-fixtures.mjs"
 
 budget_root="$TMPROOT/budget"
 mkdir -p "$budget_root/skills/gstack-huge" "$budget_root/skills/etrnl-small"
@@ -176,8 +324,12 @@ fi
 
 qa_report="$(printf '{"routes":["/"],"viewports":["desktop","mobile"],"findings":[]}' | node "$ROOT/scripts/browser-qa-report.mjs" create --path "$TMPROOT/browser-qa.json")"
 assert_command "browser QA report validates" node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_report"
+qa_report_flags="$(node "$ROOT/scripts/browser-qa-report.mjs" create --path "$TMPROOT/browser-qa-flags.json" --routes "/,/campaigns" --viewports "desktop,mobile" --status complete)"
+assert_command "browser QA report flag command validates" node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_report_flags"
 context_file="$(node "$ROOT/scripts/context-state.mjs" save --id fixture-context --title "Fixture" --remaining "finish verification" --verification "tests pending")"
 assert_command "context save validates" node "$ROOT/scripts/context-state.mjs" validate "$context_file"
+context_restore="$(node "$ROOT/scripts/context-state.mjs" restore "$context_file")"
+assert_contains "context restore command works" "$context_restore" "stale="
 stale_context="$(node "$ROOT/scripts/context-state.mjs" save --id fixture-stale-context --title "Stale" --saved-at "2000-01-01T00:00:00Z")"
 context_summary="$(node "$ROOT/scripts/context-state.mjs" show "$stale_context" --stale-hours 1)"
 assert_contains "context restore detects stale context" "$context_summary" "stale=true"

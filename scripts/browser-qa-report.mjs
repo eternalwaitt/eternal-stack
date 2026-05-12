@@ -2,14 +2,12 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
+import { argValue as readArgValue } from "./lib/cli-args.mjs";
 
 const args = process.argv.slice(2);
 const command = args[0] ?? "help";
 
-function argValue(flag, fallback = "") {
-  const index = args.indexOf(flag);
-  return index >= 0 ? args[index + 1] ?? fallback : fallback;
-}
+const argValue = (flag, fallback = "") => readArgValue(args, flag, fallback);
 
 function artifactDir() {
   return process.env.CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR
@@ -32,7 +30,13 @@ function readStdinJson() {
   if (process.stdin.isTTY) return {};
   const raw = readFileSync(0, "utf8").trim();
   if (!raw) return {};
-  return JSON.parse(raw);
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    console.error(`Invalid JSON on stdin: ${detail}`);
+    process.exit(2);
+  }
 }
 
 function reportErrors(report) {
@@ -100,11 +104,20 @@ function summary() {
   }
   const files = readdirSync(reportsDir()).filter((file) => file.endsWith(".json"));
   let openFindings = 0;
+  let validReports = 0;
   for (const file of files) {
-    const report = JSON.parse(readFileSync(path.join(reportsDir(), file), "utf8"));
+    let report;
+    try {
+      report = JSON.parse(readFileSync(path.join(reportsDir(), file), "utf8"));
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      console.error(`Skipping invalid report ${file}: ${detail}`);
+      continue;
+    }
+    validReports += 1;
     openFindings += (report.findings ?? []).filter((finding) => finding.status !== "fixed").length;
   }
-  console.log(`browserQa reports=${files.length} openFindings=${openFindings}`);
+  console.log(`browserQa reports=${validReports} openFindings=${openFindings}`);
 }
 
 if (command === "create") create();

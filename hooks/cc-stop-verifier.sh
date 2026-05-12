@@ -15,6 +15,18 @@ source "$SCRIPT_DIR/lib/code-patterns.sh"
 # shellcheck source=hooks/lib/paths.sh
 source "$SCRIPT_DIR/lib/paths.sh"
 
+# Completion gate flow:
+# [assistant done-claim]
+#        |
+#        v
+# [evidence discipline] -> [ledger checks] -> [fresh verification checks]
+#        |                                     |
+#        v                                     v
+#   block on violation                 block stale/missing runs
+#                                                |
+#                                                v
+#                                      [review/risk checks] -> allow
+
 cc_json_read_stdin
 cc_json_require_jq || exit 0
 cc_json_valid || exit 0
@@ -63,6 +75,7 @@ def norm:
     else . end;
 '
 if [[ "$claims_done" == "true" ]]; then
+  MIGRATION_CMD_REGEX='((npx|bunx|yarn(\s+dlx)?|pnpm(\s+(dlx|exec))?|npm(\s+(run|exec))?)\s+([^;&|]+\s+)*?(--\s+)?)?prisma\s+migrate\s+(status|deploy|resolve)'
   if [[ "$browser_qa_outstanding" == "true" ]]; then
     cc_json_block "Outstanding browser QA is not a completion state. Run the planned dev server and browser workflow when available, record the browser QA artifact, or mark the task blocked with the exact missing tool/error."
     exit 0
@@ -73,6 +86,18 @@ if [[ "$claims_done" == "true" ]]; then
   fi
   if jq -e '((.verificationRuns | length) == 0)' <<<"$state" >/dev/null; then
     cc_json_block "You are trying to claim completion without verification evidence. Re-read the request, map each requested outcome to changed files or command results, run project preflight, verify user-visible behavior, then answer with evidence."
+    exit 0
+  fi
+  # Keep .verificationRuns[].value extraction because run entries are stored as {value, at}.
+  # The migration regex intentionally accepts equivalent status command wrappers.
+  if jq -e --arg migration_cmd_regex "$MIGRATION_CMD_REGEX" '
+    def touched_schema:
+      (.edits // {})
+      | to_entries
+      | any(.key | test("(schema\\.prisma|prisma/migrations/|packages/db/prisma/)"; "i"));
+    touched_schema and ((.verificationRuns // []) | map(.value | ascii_downcase) | any(test($migration_cmd_regex)) | not)
+  ' <<<"$state" >/dev/null; then
+    cc_json_block "You are claiming completion after schema-related edits without migration evidence. Run prisma migrate status/deploy (or equivalent) and include the result before calling this done."
     exit 0
   fi
   # Current state stores edits as path -> timestamp; older state may use {at}.

@@ -3,6 +3,8 @@ set -Eeuo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 cd "$ROOT"
+# shellcheck source=./scripts/lib/skill-lists.sh
+source ./scripts/lib/skill-lists.sh
 # shellcheck source=./tests/lib/harness.sh
 source ./tests/lib/harness.sh
 cc_test_init
@@ -21,6 +23,10 @@ assert_executable "installed browser QA helper" "$CLAUDE_HOME/scripts/browser-qa
 assert_executable "installed context helper" "$CLAUDE_HOME/scripts/context-state.mjs"
 assert_executable "installed wave helper" "$CLAUDE_HOME/scripts/execution-wave-check.mjs"
 assert_executable "installed workflow health helper" "$CLAUDE_HOME/scripts/workflow-health.mjs"
+assert_executable "installed override token helper" "$CLAUDE_HOME/scripts/guard-override-token.mjs"
+assert_executable "installed replay fixture helper" "$CLAUDE_HOME/scripts/replay-hook-fixtures.mjs"
+assert_executable "installed skill contract helper" "$CLAUDE_HOME/scripts/skill-contract-check.mjs"
+assert_executable "installed skill behavior smoke helper" "$CLAUDE_HOME/scripts/skill-behavior-smoke.mjs"
 assert_executable "installed changelog release helper" "$CLAUDE_HOME/scripts/changelog-release-check.mjs"
 assert_executable "installed port guard helper" "$CLAUDE_HOME/scripts/port-guard.mjs"
 assert_executable "installed workflow tool tests" "$CLAUDE_HOME/hooks/test-workflow-tools.sh"
@@ -37,6 +43,15 @@ if compgen -G "$CLAUDE_HOME/hooks/__pycache__/*cc-hindsight-lesson*.pyc" >/dev/n
 else
   ok "install excludes Python bytecode"
 fi
+
+# A5: post-install state verification — confirm critical hooks and scripts are present
+for hook_file in "${CRITICAL_HOOKS[@]}"; do
+  assert_executable "post-install: ${hook_file} present" "$CLAUDE_HOME/hooks/$hook_file"
+done
+for script_file in "${CRITICAL_SCRIPTS[@]}"; do
+  assert_executable "post-install: ${script_file} present" "$CLAUDE_HOME/scripts/$script_file"
+done
+assert_file "post-install: settings.json present" "$CLAUDE_HOME/settings.json"
 
 "$CLAUDE_HOME/scripts/rollback-local.sh" >/dev/null
 for agent in etrnl-adversary etrnl-browser-qa etrnl-design-reviewer etrnl-dx-reviewer etrnl-executor etrnl-investigator etrnl-quality-reviewer etrnl-scout etrnl-spec-reviewer; do

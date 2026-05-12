@@ -97,21 +97,21 @@ wait "$busy_pid" 2>/dev/null || true
 busy_pid=""
 
 sycophancy_transcript="$TMPROOT/sycophancy.jsonl"
-printf '%s\n' '{"type":"assistant","message":{"content":[{"type":"text","text":"You'\''re right - let me search first."}]}}' >"$sycophancy_transcript"
-sycophancy_json="$(jq --arg path "$sycophancy_transcript" '.session_id = "fixture-sycophancy" | .transcript_path = $path | .tool_input.command = "rg -n foo src/app.ts"' <<<"$bash_json")"
+printf '%s\n' '{"id":"msg-sycophancy","type":"assistant","message":{"content":[{"type":"text","text":"You'\''re right - let me search first."}]}}' >"$sycophancy_transcript"
+sycophancy_json="$(jq --arg path "$sycophancy_transcript" '.session_id = "fixture-sycophancy" | .assistant_message_id = "msg-sycophancy" | .transcript_path = $path | .tool_input.command = "rg -n foo src/app.ts"' <<<"$bash_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$sycophancy_json")"
 assert_json_expr "sycophancy phrase denied before tool" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
 assert_contains "sycophancy reason is evidence-first" "$out" "Evidence-before-agreement"
 
 challenge_transcript="$TMPROOT/challenge.jsonl"
-printf '%s\n' '{"type":"assistant","message":{"content":[{"type":"text","text":"Good catch, let me inspect the repo first."}]}}' >"$challenge_transcript"
-challenge_json="$(jq --arg path "$challenge_transcript" '.session_id = "fixture-challenge" | .transcript_path = $path | .tool_input.command = "rg -n foo src/app.ts"' <<<"$bash_json")"
+printf '%s\n' '{"id":"msg-challenge","type":"assistant","message":{"content":[{"type":"text","text":"Good catch, let me inspect the repo first."}]}}' >"$challenge_transcript"
+challenge_json="$(jq --arg path "$challenge_transcript" '.session_id = "fixture-challenge" | .assistant_message_id = "msg-challenge" | .transcript_path = $path | .tool_input.command = "rg -n foo src/app.ts"' <<<"$bash_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$challenge_json")"
 assert_contains "agreement-before-evidence denied" "$out" "Evidence-before-agreement"
 
 evidence_first_transcript="$TMPROOT/evidence-first.jsonl"
-printf '%s\n' '{"type":"assistant","message":{"content":[{"type":"text","text":"I have not verified that yet. I will inspect the repo first."}]}}' >"$evidence_first_transcript"
-evidence_first_json="$(jq --arg path "$evidence_first_transcript" '.session_id = "fixture-evidence-first" | .transcript_path = $path | .tool_input.command = "rg -n foo src/app.ts"' <<<"$bash_json")"
+printf '%s\n' '{"id":"msg-evidence","type":"assistant","message":{"content":[{"type":"text","text":"I have not verified that yet. I will inspect the repo first."}]}}' >"$evidence_first_transcript"
+evidence_first_json="$(jq --arg path "$evidence_first_transcript" '.session_id = "fixture-evidence-first" | .assistant_message_id = "msg-evidence" | .transcript_path = $path | .tool_input.command = "rg -n foo src/app.ts"' <<<"$bash_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$evidence_first_json")"
 assert_json_expr "evidence-first check allowed" "$out" '.continue == true'
 
@@ -144,9 +144,9 @@ clean_edit="$(jq '.tool_input.new_string = "export const value = 2;"' <<<"$edit_
 out="$(run_hook cc-pretooluse-guard.sh "$clean_edit")"
 assert_json_expr "blind edit denied" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
 
-read_event="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-session",tool_name:"Read",cwd:$root,tool_input:{file_path:($root + "/src/app.ts")}}')"
+read_event="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-session",tool_name:"Read",status:"success",cwd:$root,tool_input:{file_path:($root + "/src/app.ts")}}')"
 run_hook cc-posttoolbatch-observer.sh "$read_event" >/dev/null || true
-search_event="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-session",tool_name:"Bash",cwd:$root,tool_input:{command:"rg -n value src"}}')"
+search_event="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-session",tool_name:"Bash",status:"success",cwd:$root,tool_input:{command:"rg -n value src"}}')"
 run_hook cc-posttoolbatch-observer.sh "$search_event" >/dev/null || true
 out="$(run_hook cc-pretooluse-guard.sh "$clean_edit")"
 assert_json_expr "read and search allow edit" "$out" '.continue == true'
@@ -159,7 +159,7 @@ write_json="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-session
 out="$(run_hook cc-pretooluse-guard.sh "$write_json")"
 assert_json_expr "new source without search denied" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
 
-sprawl_search="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-sprawl",tool_name:"Bash",cwd:$root,tool_input:{command:"rg -n created src"}}')"
+sprawl_search="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-sprawl",tool_name:"Bash",status:"success",cwd:$root,tool_input:{command:"rg -n created src"}}')"
 run_hook cc-posttoolbatch-observer.sh "$sprawl_search" >/dev/null || true
 for created in one two three; do
   sprawl_write="$(jq -cn --arg root "$TMPROOT/example" --arg created "$created" '{session_id:"fixture-sprawl",tool_name:"Write",cwd:$root,tool_input:{file_path:($root + "/src/" + $created + ".ts"),content:"export const created = true;"}}')"
@@ -197,14 +197,14 @@ assert_json_expr "skill recorded" "$(jq -c . "$state_file")" '(.skillCalls | len
 
 mkdir -p "$TMPROOT/example/src/auth"
 printf 'export const auth = true;\n' >"$TMPROOT/example/src/auth/session.ts"
-domain_read="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-domain",tool_name:"Read",cwd:$root,tool_input:{file_path:($root + "/src/auth/session.ts")}}')"
+domain_read="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-domain",tool_name:"Read",status:"success",cwd:$root,tool_input:{file_path:($root + "/src/auth/session.ts")}}')"
 run_hook cc-posttoolbatch-observer.sh "$domain_read" >/dev/null || true
-domain_search="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-domain",tool_name:"Bash",cwd:$root,tool_input:{command:"rg -n auth src/auth"}}')"
+domain_search="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-domain",tool_name:"Bash",status:"success",cwd:$root,tool_input:{command:"rg -n auth src/auth"}}')"
 run_hook cc-posttoolbatch-observer.sh "$domain_search" >/dev/null || true
 domain_edit="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-domain",tool_name:"Edit",cwd:$root,tool_input:{file_path:($root + "/src/auth/session.ts"),new_string:"export const auth = false;"}}')"
 out="$(run_hook cc-pretooluse-guard.sh "$domain_edit")"
 assert_json_expr "domain edit requires companion skill" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
-domain_skill="$(jq -cn '{session_id:"fixture-domain",tool_name:"Skill",tool_input:{name:"eternal-best-practices"}}')"
+domain_skill="$(jq -cn '{session_id:"fixture-domain",tool_name:"Skill",status:"success",tool_input:{name:"eternal-best-practices"}}')"
 run_hook cc-posttoolbatch-observer.sh "$domain_skill" >/dev/null || true
 out="$(run_hook cc-pretooluse-guard.sh "$domain_edit")"
 assert_json_expr "domain edit allowed after companion skill" "$out" '.continue == true'
@@ -215,16 +215,16 @@ assert_json_expr "failure blocks with diagnosis" "$out" '.decision == "block"'
 out="$(run_hook cc-posttoolusefailure-diagnose.sh "$failure_json")"
 assert_contains "repeated failure pivots" "$out" "repeated"
 
-repeat_edit_event="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-repeat-edit",tool_name:"Edit",cwd:$root,tool_input:{file_path:($root + "/src/app.ts")}}')"
+repeat_edit_event="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-repeat-edit",tool_name:"Edit",status:"success",cwd:$root,tool_input:{file_path:($root + "/src/app.ts")}}')"
 for _ in 1 2 3; do
   run_hook cc-posttoolbatch-observer.sh "$repeat_edit_event" >/dev/null || true
 done
 repeat_state="$TMPROOT/claude-guard-fixture-repeat-edit.json"
 assert_json_expr "repeated edit recorded" "$(jq -c . "$repeat_state")" '((.repeatedEditFiles // {}) | length) == 1'
 assert_file "project buglog recorded" "$TMPROOT/artifacts/project-buglog.jsonl"
-bug_read="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-bug-suggest",tool_name:"Read",cwd:$root,tool_input:{file_path:($root + "/src/app.ts")}}')"
+bug_read="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-bug-suggest",tool_name:"Read",status:"success",cwd:$root,tool_input:{file_path:($root + "/src/app.ts")}}')"
 run_hook cc-posttoolbatch-observer.sh "$bug_read" >/dev/null || true
-bug_search="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-bug-suggest",tool_name:"Bash",cwd:$root,tool_input:{command:"rg -n value src/app.ts"}}')"
+bug_search="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-bug-suggest",tool_name:"Bash",status:"success",cwd:$root,tool_input:{command:"rg -n value src/app.ts"}}')"
 run_hook cc-posttoolbatch-observer.sh "$bug_search" >/dev/null || true
 bug_edit="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-bug-suggest",tool_name:"Edit",cwd:$root,tool_input:{file_path:($root + "/src/app.ts"),old_string:"export const value = 1;",new_string:"export const value = 3;"}}')"
 out="$(run_hook cc-pretooluse-guard.sh "$bug_edit")"
@@ -287,12 +287,12 @@ out="$(run_hook cc-stop-verifier.sh "$deflection_stop")"
 assert_contains "stop verifier blocks ownership deflection" "$out" "Ownership-deflection"
 
 deflection_transcript="$TMPROOT/deflection.jsonl"
-printf '%s\n' '{"type":"assistant","message":{"content":[{"type":"text","text":"The build failure was not caused by my changes, so I will leave it for later."}]}}' >"$deflection_transcript"
-deflection_json="$(jq --arg path "$deflection_transcript" '.session_id = "fixture-deflection-pretool" | .transcript_path = $path | .tool_input.command = "rg -n foo src/app.ts"' <<<"$bash_json")"
+printf '%s\n' '{"id":"msg-deflection","type":"assistant","message":{"content":[{"type":"text","text":"The build failure was not caused by my changes, so I will leave it for later."}]}}' >"$deflection_transcript"
+deflection_json="$(jq --arg path "$deflection_transcript" '.session_id = "fixture-deflection-pretool" | .assistant_message_id = "msg-deflection" | .transcript_path = $path | .tool_input.command = "rg -n foo src/app.ts"' <<<"$bash_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$deflection_json")"
 assert_contains "pretooluse blocks ownership deflection" "$out" "Ownership-deflection"
 
-post_sycophancy_json="$(jq -cn --arg path "$sycophancy_transcript" '{session_id:"fixture-sycophancy-post",tool_name:"Bash",transcript_path:$path}')"
+post_sycophancy_json="$(jq -cn --arg path "$sycophancy_transcript" '{session_id:"fixture-sycophancy-post",tool_name:"Bash",assistant_message_id:"msg-sycophancy",transcript_path:$path}')"
 out="$(run_hook cc-posttooluse-sycophancy.sh "$post_sycophancy_json")"
 assert_contains "posttooluse blocks sycophancy" "$out" "Evidence-before-agreement"
 
@@ -304,21 +304,110 @@ out="$(run_hook cc-sessionstart-restore.sh "$session_json")"
 assert_json_expr "session compact restores context" "$out" '.hookSpecificOutput.additionalContext | test("Compact recovery")'
 assert_contains "session start injects ETRNL skill hint" "$out" "ETRNL skills"
 
-agent_bad="$(jq -cn '{session_id:"fixture-session",tool_name:"Task",tool_input:{prompt:"do stuff"}}')"
+agent_bad="$(jq -cn '{session_id:"fixture-session",tool_name:"Task",tool_input:{packet:{mode:"read-only",goal:"inspect task",cwd:"/repo",scope:"scripts",readSet:["scripts"],expectedOutput:"summary",noRevert:true}}}')"
 out="$(run_hook cc-pretooluse-guard.sh "$agent_bad")"
 assert_json_expr "underspecified task denied" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
-assert_contains "underspecified task reports multiple missing fields" "$out" "context summary"
+assert_contains "underspecified task reports multiple missing fields" "$out" "contextSummary"
 agent_invalid="$(fixture pretooluse-task-invalid.json)"
 out="$(run_hook cc-pretooluse-guard.sh "$agent_invalid")"
-assert_contains "invalid task fixture reports retry policy" "$out" "retry policy"
+assert_contains "invalid task fixture reports retry policy" "$out" "retryPolicy"
 agent_valid="$(fixture pretooluse-task-valid.json)"
 out="$(run_hook cc-pretooluse-guard.sh "$agent_valid")"
 assert_json_expr "valid task packet allowed" "$out" '.continue == true'
+
+# State migration matrix
+migration_state="$TMPROOT/claude-guard-fixture-migration-v1.json"
+jq -nc '{schemaVersion:1,reads:[],searches:"oops",edits:{},commands:{},verificationRuns:"bad",qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:[],editCounts:[],largeEdits:{},repeatedEditFiles:[],reviewTriggers:{},lastPrompt:null,lastCompactSummary:null,cwd:null,settingsFingerprint:null,startedAt:null}' >"$migration_state"
+migration_event="$(jq -cn '{session_id:"fixture-migration-v1",tool_name:"Bash",cwd:"/tmp/example",tool_input:{command:"rg -n value src"}}')"
+out="$(run_hook cc-pretooluse-guard.sh "$migration_event")"
+assert_json_expr "migration event allowed" "$out" '.continue == true'
+assert_json_expr "state schema upgraded to v2" "$(jq -c . "$migration_state")" '.schemaVersion == 2'
+assert_json_expr "state migration normalizes new buckets" "$(jq -c . "$migration_state")" '(.blockedCommands | type) == "array" and (.successfulCommands | type) == "array" and (.commandLastEditGeneration | type) == "object" and (.prodApprovalMarkers | type) == "array"'
+
+broken_state="$TMPROOT/claude-guard-fixture-migration-broken.json"
+printf '{broken' >"$broken_state"
+broken_event="$(jq -cn '{session_id:"fixture-migration-broken",tool_name:"Bash",cwd:"/tmp/example",tool_input:{command:"rg -n value src"}}')"
+out="$(run_hook cc-pretooluse-guard.sh "$broken_event")"
+assert_json_expr "broken legacy state fails open to default" "$out" '.continue == true'
+assert_json_expr "broken legacy state reset to schema v2" "$(jq -c . "$broken_state")" '.schemaVersion == 2'
+
+# Tiered degraded-mode policy matrix
+no_node_safe_event="$(jq -cn '{session_id:"fixture-no-node-safe",tool_name:"Bash",cwd:"/tmp/example",tool_input:{command:"rg -n value src"}}')"
+safe_no_node="$(PATH="/usr/bin:/bin" run_hook cc-pretooluse-guard.sh "$no_node_safe_event")"
+assert_json_expr "low-risk command allowed when node missing" "$safe_no_node" '.continue == true'
+no_node_secret_event="$(jq -cn '{session_id:"fixture-no-node-secret",tool_name:"Bash",cwd:"/tmp/example",tool_input:{command:"veloz db credentials"}}')"
+secret_no_node="$(PATH="/usr/bin:/bin" run_hook cc-pretooluse-guard.sh "$no_node_secret_event")"
+assert_json_expr "secret command fail-closed when node missing" "$secret_no_node" '.hookSpecificOutput.permissionDecision == "deny"'
+
+# Override token abuse matrix
+override_cmd='prisma db push --url postgresql://prod.example.com/app'
+override_fp="$(bash -c 'source "$1"; cc_command_fingerprint "$2"' _ "$ROOT/hooks/lib/command-classifiers.sh" "$override_cmd")"
+override_token_json="$(node "$ROOT/scripts/guard-override-token.mjs" issue --session fixture-override --command-fingerprint "$override_fp" --reason "breakglass" --ttl 60)"
+override_token="$(jq -r '.token' <<<"$override_token_json")"
+override_event_base="$(jq -cn --arg cmd "$override_cmd" '{session_id:"fixture-override",tool_name:"Bash",cwd:"/tmp/example",tool_input:{command:$cmd}}')"
+override_no_token="$(run_hook cc-pretooluse-guard.sh "$override_event_base")"
+assert_json_expr "prod mutation denied without override token" "$override_no_token" '.hookSpecificOutput.permissionDecision == "deny"'
+override_with_token="$(run_hook cc-pretooluse-guard.sh "$(jq --arg token "$override_token" '.tool_input.guard_override_token = $token' <<<"$override_event_base")")"
+assert_json_expr "prod mutation allowed with valid override token" "$override_with_token" '.continue == true'
+override_replay="$(run_hook cc-pretooluse-guard.sh "$(jq --arg token "$override_token" '.tool_input.guard_override_token = $token' <<<"$override_event_base")")"
+assert_json_expr "override token replay denied" "$override_replay" '.hookSpecificOutput.permissionDecision == "deny"'
+override_mismatch_cmd='prisma db push --url postgresql://prod.example.com/other'
+override_mismatch_event="$(jq -cn --arg cmd "$override_mismatch_cmd" --arg token "$override_token" '{session_id:"fixture-override",tool_name:"Bash",cwd:"/tmp/example",tool_input:{command:$cmd,guard_override_token:$token}}')"
+override_mismatch="$(run_hook cc-pretooluse-guard.sh "$override_mismatch_event")"
+assert_json_expr "override token fingerprint mismatch denied" "$override_mismatch" '.hookSpecificOutput.permissionDecision == "deny"'
+override_exp_fp="$(bash -c 'source "$1"; cc_command_fingerprint "$2"' _ "$ROOT/hooks/lib/command-classifiers.sh" "veloz db credentials")"
+override_exp_json="$(node "$ROOT/scripts/guard-override-token.mjs" issue --session fixture-override-exp --command-fingerprint "$override_exp_fp" --reason "breakglass" --expires-at-ms 1)"
+override_exp_token="$(jq -r '.token' <<<"$override_exp_json")"
+override_exp_event="$(jq -cn --arg token "$override_exp_token" '{session_id:"fixture-override-exp",tool_name:"Bash",cwd:"/tmp/example",tool_input:{command:"veloz db credentials",guard_override_token:$token}}')"
+override_expired="$(run_hook cc-pretooluse-guard.sh "$override_exp_event")"
+assert_json_expr "expired override token denied" "$override_expired" '.hookSpecificOutput.permissionDecision == "deny"'
 
 # Re-run a safe command 10 times to prove non-mutating allowed commands stay idempotent under repeated hook invocations.
 for i in {1..10}; do
   out="$(run_hook cc-pretooluse-guard.sh "$safe_bash")"
   assert_json_expr "safe bash repeated fixture $i" "$out" '.continue == true'
+done
+
+# Guard pattern fixture matrix (A2/A3): 20 invalid (should deny) + 20 valid (should allow)
+shopt -s nullglob
+invalid_guard_fixtures=("$ROOT/tests/fixtures/guard-patterns"/invalid-*.json)
+valid_guard_fixtures=("$ROOT/tests/fixtures/guard-patterns"/valid-*.json)
+invalid_packet_fixtures=("$ROOT/tests/fixtures/events"/packet-invalid-*.json)
+valid_packet_fixtures=("$ROOT/tests/fixtures/events"/packet-valid-*.json)
+shopt -u nullglob
+
+if (( ${#invalid_guard_fixtures[@]} == 0 || ${#valid_guard_fixtures[@]} == 0 )); then
+  not_ok "guard fixture sanity: missing invalid/valid guard-pattern fixture files"
+  finish_tests
+fi
+if (( ${#invalid_packet_fixtures[@]} == 0 || ${#valid_packet_fixtures[@]} == 0 )); then
+  not_ok "packet fixture sanity: missing invalid/valid packet fixture files"
+  finish_tests
+fi
+
+for fixture_file in "${invalid_guard_fixtures[@]}"; do
+  fixture_name="$(basename "$fixture_file" .json)"
+  fixture_cmd="$(jq -r '.tool_input.command' "$fixture_file")"
+  guard_out="$(run_hook cc-pretooluse-guard.sh "$(jq -c . "$fixture_file")")"
+  assert_json_expr "guard denies $fixture_name ($fixture_cmd)" "$guard_out" '.hookSpecificOutput.permissionDecision == "deny"'
+done
+for fixture_file in "${valid_guard_fixtures[@]}"; do
+  fixture_name="$(basename "$fixture_file" .json)"
+  fixture_cmd="$(jq -r '.tool_input.command' "$fixture_file")"
+  guard_out="$(run_hook cc-pretooluse-guard.sh "$(jq -c . "$fixture_file")")"
+  assert_json_expr "guard allows $fixture_name ($fixture_cmd)" "$guard_out" '.continue'
+done
+
+# Packet fixture matrix (C3/C4): 5 invalid packets (should deny) + 5 valid packets (should allow)
+for fixture_file in "${invalid_packet_fixtures[@]}"; do
+  fixture_name="$(basename "$fixture_file" .json)"
+  guard_out="$(run_hook cc-pretooluse-guard.sh "$(jq -c . "$fixture_file")")"
+  assert_json_expr "guard denies $fixture_name" "$guard_out" '.hookSpecificOutput.permissionDecision == "deny"'
+done
+for fixture_file in "${valid_packet_fixtures[@]}"; do
+  fixture_name="$(basename "$fixture_file" .json)"
+  guard_out="$(run_hook cc-pretooluse-guard.sh "$(jq -c . "$fixture_file")")"
+  assert_json_expr "guard allows $fixture_name" "$guard_out" '.continue'
 done
 
 finish_tests

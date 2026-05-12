@@ -1,0 +1,9 @@
+{
+  "session_id": "fixture-guard-valid",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "cwd": "/tmp/example",
+  "tool_input": {
+    "command": "sg -p 'fn $name()' src/"
+  }
+}
