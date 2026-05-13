@@ -31,7 +31,7 @@ After fixing: run the full test suite (not just the changed tests) to confirm no
 5. Fix failures unless the user requested report-only.
 6. After fixes: rerun the full gate to confirm zero failures, zero new warnings.
 
-## Verification Gate
+## Verification Evidence Requirements
 
 Record the final clean run as evidence before reporting done:
 

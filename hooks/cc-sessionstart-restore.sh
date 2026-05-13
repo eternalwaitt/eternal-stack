@@ -66,9 +66,17 @@ if [[ "${CLAUDE_CONTROL_PLANE_UPDATE_CHECK:-1}" != "0" && -f "$SCRIPT_DIR/../scr
   if ! update_stdout_file="$(mktemp "${TMPDIR:-/tmp}/cc-update-check-out.XXXXXX")"; then
     printf 'claude-guard warning: update-check skipped (stdout temp file unavailable)\n' >&2
     update_check_enabled=0
+  elif ! chmod 600 "$update_stdout_file"; then
+    printf 'claude-guard warning: update-check skipped (stdout temp file permissions unavailable)\n' >&2
+    cleanup_update_temp_files
+    update_check_enabled=0
   fi
   if (( update_check_enabled == 1 )) && ! update_stderr_file="$(mktemp "${TMPDIR:-/tmp}/cc-update-check-err.XXXXXX")"; then
     printf 'claude-guard warning: update-check skipped (stderr temp file unavailable)\n' >&2
+    cleanup_update_temp_files
+    update_check_enabled=0
+  elif (( update_check_enabled == 1 )) && ! chmod 600 "$update_stderr_file"; then
+    printf 'claude-guard warning: update-check skipped (stderr temp file permissions unavailable)\n' >&2
     cleanup_update_temp_files
     update_check_enabled=0
   fi

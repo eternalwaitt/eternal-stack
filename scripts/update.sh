@@ -45,16 +45,22 @@ if [[ ! -f "$ROOT/scripts/install.sh" ]]; then
     printf 'fatal: installed updater cannot locate %s\n' "$INSTALL_STATE" >&2
     exit 1
   fi
-  SOURCE_ROOT="$(node -e '
+  if ! command -v node >/dev/null 2>&1; then
+    printf 'fatal: installed updater requires node to read install state: %s\n' "$INSTALL_STATE" >&2
+    exit 1
+  fi
+  SOURCE_ROOT="$(
+    node - "$INSTALL_STATE" <<'NODE'
 const fs = require("node:fs");
 try {
-  const state = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+  const state = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
   process.stdout.write(state.sourceRoot || "");
 } catch (error) {
   process.stderr.write(`fatal: corrupted install state: ${error.message}\n`);
   process.exit(1);
 }
-' "$INSTALL_STATE")"
+NODE
+  )"
   if [[ -z "$SOURCE_ROOT" || ! -f "$SOURCE_ROOT/scripts/update.sh" ]]; then
     printf 'fatal: source checkout missing for installed updater: %s\n' "${SOURCE_ROOT:-<empty>}" >&2
     exit 1
@@ -94,6 +100,11 @@ new_commit="$(git_commit_or_unknown)"
 new_short="${new_commit:0:12}"
 mkdir -p "$CLAUDE_HOME/control-plane"
 just_updated_tmp="$(mktemp "$CLAUDE_HOME/control-plane/just-updated.json.XXXXXX")"
+if ! chmod 600 "$just_updated_tmp"; then
+  rm -f "$just_updated_tmp"
+  printf 'fatal: failed to secure update metadata temp file\n' >&2
+  exit 1
+fi
 if ! jq -n \
   --arg from "$old_short" \
   --arg to "$new_short" \

@@ -234,7 +234,7 @@ export function extractCompetitor(repoRoot, competitorId) {
     const rawEvidence = collectEvidenceForCapability(repoRoot, relFiles, capability);
     const evidence = dedupeEvidence(rawEvidence).slice(0, FINAL_EVIDENCE_LIMIT);
     const strongEvidence = evidence.some((item) =>
-      item.strength === "high" || item.enforcementHint === "hook_enforced" || item.enforcementHint === "test_enforced"
+      item.enforcementHint === "hook_enforced" || item.enforcementHint === "test_enforced"
     );
     const status = strongEvidence || evidence.length >= PRESENT_EVIDENCE_THRESHOLD
       ? "present"

@@ -105,7 +105,20 @@ function assertExpectation(output, expected) {
   } else if (kind === "block") {
     if (output.decision !== "block") throw new Error("expected block");
   } else if (kind === "warn") {
-    if (!output?.hookSpecificOutput?.additionalContext) throw new Error("expected warning context");
+    const additionalContext = output?.hookSpecificOutput?.additionalContext;
+    const isEmptyObject = typeof additionalContext === "object"
+      && additionalContext !== null
+      && !Array.isArray(additionalContext)
+      && Object.keys(additionalContext).length === 0;
+    if (
+      additionalContext === undefined
+      || additionalContext === null
+      || (typeof additionalContext === "string" && additionalContext.trim() === "")
+      || (Array.isArray(additionalContext) && additionalContext.length === 0)
+      || isEmptyObject
+    ) {
+      throw new Error("expected non-empty warning context");
+    }
   }
   if (expected.contains !== undefined) {
     if (typeof expected.contains !== "string") {
