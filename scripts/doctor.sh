@@ -43,6 +43,37 @@ report_command() {
   fi
 }
 
+line_count_file() {
+  local file="$1"
+  local count=0 line
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    ((count += 1))
+  done <"$file"
+  printf '%s\n' "$count"
+}
+
+file_has_exact_line() {
+  local file="$1"
+  local expected="$2"
+  local line
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ "$line" == "$expected" ]] && return 0
+  done <"$file"
+  return 1
+}
+
+check_startup_file_budget() {
+  local file="$1"
+  local label="$2"
+  local count
+  count="$(line_count_file "$file")"
+  if (( count <= 200 )); then
+    ok "$label concise ($count lines)"
+  else
+    fail "$label too large ($count lines; target <= 200)"
+  fi
+}
+
 read_skill_hint_fallback() {
   local hint_path="$1"
   local line in_array=0
@@ -388,6 +419,18 @@ if [[ -f "$ROOT/CLAUDE.md" || -f "$ROOT/templates/CLAUDE.md" || -f "$ROOT/docs/t
 else
   fail "Claude wrapper missing"
 fi
+for startup_file in "$ROOT/AGENTS.md" "$ROOT/CLAUDE.md" "$ROOT/templates/AGENTS.md" "$ROOT/templates/CLAUDE.md" "$ROOT/docs/templates/AGENTS.md" "$ROOT/docs/templates/CLAUDE.md"; do
+  [[ -f "$startup_file" ]] || continue
+  check_startup_file_budget "$startup_file" "${startup_file#"$ROOT/"}"
+done
+for claude_file in "$ROOT/CLAUDE.md" "$ROOT/templates/CLAUDE.md" "$ROOT/docs/templates/CLAUDE.md"; do
+  [[ -f "$claude_file" ]] || continue
+  if file_has_exact_line "$claude_file" "@AGENTS.md"; then
+    ok "${claude_file#"$ROOT/"} imports AGENTS.md"
+  else
+    fail "${claude_file#"$ROOT/"} should import AGENTS.md"
+  fi
+done
 if [[ -x "$ROOT/scripts/rollback-local.sh" ]]; then
   ok "rollback script present"
 else

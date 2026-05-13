@@ -5,8 +5,8 @@ Status key: `done` means implemented in this repo; `live-gated` means intentiona
 | Planned area | Current coverage |
 | --- | --- |
 | Hook library and state | done: JSON, state, paths, preflight, code policy, and complexity helpers. |
-| Observer hooks | done: prompt routing, prompt expansion, post-tool batch, failure diagnosis, session cleanup. |
-| Strict blockers | done: Bash, edit/write, WebSearch, agent/task, evidence-first, stale verification, requested-skill, and domain-skill gates. |
+| Observer hooks | done: prompt routing, prompt expansion, `CLAUDE.md` reinjection, advisory locked rate limiting, post-tool batch observation, and session cleanup. |
+| Strict blockers | done: Bash, directory `Read`, shell output-limiter, edit/write, WebSearch, agent/task, evidence-first, stale verification, requested-skill, domain-skill, first-failure context, repeated-failure, Stop, and SubagentStop gates. |
 | Compact recovery | done: PreCompact/PostCompact state plus SessionStart recovery and skill hints. |
 | Skill set | done: `etrnl-*` repo-owned family plus documented companion skills. |
 | Code health | done: master code-health router, deterministic inventory helper, Health Stack doc, no-skips ledger contract, and companion audit routing. |
@@ -16,7 +16,7 @@ Status key: `done` means implemented in this repo; `live-gated` means intentiona
 | Agent templates | done: default-installed executor/reviewer/investigator/scout/adversary/design/DX/browser QA `etrnl-*` agents. |
 | Shared startup guidance | done: public `AGENTS.md` template plus tiny Claude wrapper importing it. |
 | Rules | done: namespaced `rules/etrnl/*.md` to avoid clobbering existing user rules. |
-| Install/update/rollback/doctor | done: scripts, tests, rollback, canaries, rules, docs, templates, agents, artifact helpers, and workflow-health helpers are installed or checked. |
+| Install/update/rollback/doctor | done: scripts, tests, rollback, canaries, rules, docs, templates, agents, settings audit/repair, installed update metadata, artifact helpers, post-upgrade canary, installed-home doctor, and workflow-health helpers are installed or checked. |
 | Hindsight memory consolidation | live-gated: canary verifies strict config; actual migration/removal of competing memory systems remains a personal live operation. |
 | Plugin/MCP cleanup | live-gated: plan requires inventory and explicit local rollout before removing plugins, MCPs, or permissions. |
 | Shareable repo boundary | done: public templates exclude private identity, accounts, transcripts, secrets, and memories. |

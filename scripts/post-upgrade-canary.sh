@@ -2,10 +2,10 @@
 set -Eeuo pipefail
 
 CLAUDE_HOME="${CLAUDE_HOME:-$HOME/.claude}"
-TARGET="$CLAUDE_HOME/control-plane"
+TARGET="$CLAUDE_HOME"
 
 if [[ ! -d "$TARGET" ]]; then
-  printf 'fail: control-plane install directory missing: %s\n' "$TARGET" >&2
+  printf 'fail: Claude install directory missing: %s\n' "$TARGET" >&2
   exit 1
 fi
 
@@ -15,6 +15,7 @@ required_paths=(
   "hooks/cc-stop-verifier.sh"
   "hooks/cc-posttoolusefailure-diagnose.sh"
   "scripts/update-check.mjs"
+  "control-plane/install.json"
 )
 
 for rel_path in "${required_paths[@]}"; do

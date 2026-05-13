@@ -72,6 +72,11 @@ if ! update_json="$(node "$CLAUDE_HOME/scripts/update-check.mjs" --json 2>&1)"; 
   exit 1
 fi
 assert_json_expr "post-install: update check is clean" "$update_json" '.ok == true and .localUpdateAvailable == false'
+if canary_output="$("$CLAUDE_HOME/scripts/post-upgrade-canary.sh" 2>&1)"; then
+  ok "post-install: post-upgrade canary passes"
+else
+  not_ok "post-install: post-upgrade canary failed: $canary_output"
+fi
 metadata_tmp="$CLAUDE_HOME/control-plane/install.json.tmp"
 trap '[[ -n "${metadata_tmp:-}" ]] && rm -f "$metadata_tmp"' EXIT
 jq '.sourceFingerprint = "stale"' "$CLAUDE_HOME/control-plane/install.json" >"$metadata_tmp"

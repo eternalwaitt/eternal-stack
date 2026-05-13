@@ -2,7 +2,7 @@
 
 @AGENTS.md
 
-Use hooks for enforcement, skills for repeatable workflows, and this file only for Claude-specific routing.
+Use hooks for enforcement, skills for repeatable workflows, and this file only for Claude-specific routing. Keep shared guidance in `AGENTS.md`; do not duplicate it here.
 
 Load the namespaced rule files when relevant:
 

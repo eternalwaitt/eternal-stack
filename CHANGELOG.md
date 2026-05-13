@@ -4,11 +4,24 @@
 
 ## v0.1.10 - 2026-05-13
 
-- Reinject global/project `CLAUDE.md` context on every user prompt with a `CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD=0` kill switch.
+- Reinject global and project `CLAUDE.md`, `.claude/CLAUDE.md`, and `CLAUDE.local.md` context in Claude startup order on every `UserPromptSubmit` so Claude Code sessions keep active guidance even when the host does not reliably include it.
+- Add `CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD=0`, `CLAUDE_CONTROL_PLANE_CLAUDE_MD_MAX_CHARS`, and `CLAUDE_CONTROL_PLANE_USERPROMPT_CONTEXT_MAX_CHARS` controls for prompt reinjection and context caps.
+- Expand in-root markdown `@*.md` references from global/project startup files recursively up to five hops while skipping references outside the allowed global or project roots.
+- Add doctor checks that keep control-plane startup files under 200 lines and ensure Claude wrappers import `AGENTS.md`.
 - Canonicalize installed hook commands during settings merge so `~/.claude` and absolute-home variants dedupe.
-- Add `settings-audit.mjs --fix` and matcher-set compaction so overlapping hook matchers are deduped during install.
-- Replace the legacy race-prone rate limiter with locked `cc-rate-limiter.sh` and migrate installed settings to it.
-- Add first-failure context/repeated-failure blocking, debounced observer warnings, output-limiter denial, directory `Read` preflight, task-packet templates, and plan-readiness repair hints.
+- Add `settings-audit.mjs --fix` with matcher-set compaction, duplicate hook cleanup, legacy rate-limiter migration, and collision-safe temp writes.
+- Replace the legacy race-prone `rate-limiter.sh` with locked repo-owned `cc-rate-limiter.sh`, bounded state rotation, warning debounce, and install-time migration.
+- Add `PreToolUse` denial for directory `Read` calls so agents use inventory/search tools before bulk-reading directories.
+- Add `PreToolUse` denial for shell output-limiter pipes so agents do not hide command output that hooks need to classify.
+- Make local dev-server port guarding fail closed when the helper or Node runtime is unavailable instead of silently skipping the check.
+- Add first-failure context and repeated-identical-failure blocking in `PostToolUseFailure` so agents pivot after the first diagnostic hint.
+- Debounce `PostToolBatch` warning fingerprints so repeated observer guidance does not flood the session.
+- Require `agent-task-packet-check.mjs --template read-only|write` to choose an explicit subagent mode before delegation.
+- Add `plan-readiness-check.mjs --json` repair hints and `--explain` output for deterministic plan repair.
+- Add installed `update-check.mjs` metadata and source-fingerprint drift detection for startup and manual update checks.
+- Expand install verification around strict mode, installed-home doctor, installed update metadata, post-upgrade canary, and settings audit repair.
+- Harden prompt-reference containment, AWS-secret redaction, browser-QA strict summaries, research refresh cadence, and shell command canonicalization from the CodeRabbit follow-up.
+- Expand regression coverage to 181 hook checks and 149 workflow-tool checks for the current release.
 
 ## v0.1.9 - 2026-05-12
 

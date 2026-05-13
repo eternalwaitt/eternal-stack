@@ -1,6 +1,7 @@
 # Agent Baseline
 
 This is the portable, agent-neutral baseline for the control plane. Keep private identity, accounts, credentials, and project-specific memories in local overlays.
+Project `AGENTS.md`/`CLAUDE.md` files override this baseline where they conflict. Keep startup guidance concise; move specialized procedures to scoped rules, skills, hooks, or project docs.
 
 ## Core Rules
 
@@ -12,7 +13,7 @@ This is the portable, agent-neutral baseline for the control plane. Keep private
 
 ## Coding Standards
 
-- Use project logging, schema validation at boundaries, named exports, and local permission checks.
+- Use project logging, schema validation at boundaries, named exports, and local permission checks when they fit the language and repo conventions.
 - For typed languages, use typed environment configuration modules.
 - Do not add lint/type suppressions, TypeScript strictness downgrades, skipped hooks, or placeholder comments.
 - Keep files and functions small enough to review: split files over 300 lines and functions over 50 lines unless the project has a documented exception.

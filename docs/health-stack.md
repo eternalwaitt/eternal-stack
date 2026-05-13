@@ -15,12 +15,16 @@ tests/test-hooks.sh
 tests/test-workflow-tools.sh
 tests/test-install.sh
 node scripts/replay-hook-fixtures.mjs  # executes replay fixtures; doctor.sh below only syntax-checks it
+node scripts/settings-audit.mjs templates/settings.json
+node scripts/settings-audit.mjs templates/settings.strict.json
+node scripts/update-check.mjs --fingerprint-source .
 scripts/doctor.sh
 fd -t f -e sh . hooks scripts tests -x bash -n
 fd -t f -e sh . hooks scripts tests -X shellcheck -x
 node --check \
   scripts/merge-settings.mjs \
   scripts/settings-audit.mjs \
+  scripts/update-check.mjs \
   scripts/code-health-inventory.mjs \
   scripts/research-competitor-intel.mjs \
   scripts/lib/research-intel-core.mjs \

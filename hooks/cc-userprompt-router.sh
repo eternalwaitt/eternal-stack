@@ -36,22 +36,32 @@ cc_prompt_context_cap() {
   fi
 }
 
-cc_prompt_find_upward() {
+cc_prompt_collect_upward() {
   local start="$1"
-  local filename="$2"
-  local dir
+  local dir candidate
+  local files=()
+  local dir_files=()
   if [[ -d "$start" ]]; then
     dir="$(cd -- "$start" 2>/dev/null && pwd -P)" || return 0
   else
     dir="$(cd -- "$(dirname -- "$start")" 2>/dev/null && pwd -P)" || return 0
   fi
   while [[ "$dir" != "/" ]]; do
-    if [[ -f "$dir/$filename" ]]; then
-      printf '%s\n' "$dir/$filename"
-      return 0
+    dir_files=()
+    for candidate in "$dir/CLAUDE.md" "$dir/.claude/CLAUDE.md" "$dir/CLAUDE.local.md"; do
+      [[ -f "$candidate" ]] && dir_files+=("$candidate")
+    done
+    if (( ${#dir_files[@]} > 0 )); then
+      if (( ${#files[@]} > 0 )); then
+        files=("${dir_files[@]}" "${files[@]}")
+      else
+        files=("${dir_files[@]}")
+      fi
     fi
     dir="$(dirname -- "$dir")"
   done
+  (( ${#files[@]} > 0 )) || return 0
+  printf '%s\n' "${files[@]}"
 }
 
 cc_prompt_add_context_file() {
@@ -76,22 +86,33 @@ cc_prompt_add_context_file() {
 cc_prompt_add_referenced_markdown() {
   local source_file="$1"
   local allowed_base="$2"
-  local source_dir allowed_root ref resolved line
+  local depth="${3:-1}"
+  local source_dir allowed_root ref resolved line rest source_name source_content
+  (( depth <= 5 )) || return 0
   source_dir="$(cd -- "$(dirname -- "$source_file")" 2>/dev/null && pwd -P)" || return 0
   allowed_root="$(cd -- "$allowed_base" 2>/dev/null && pwd -P)" || return 0
+  source_name="$(basename -- "$source_file")"
+  source_content="$(<"$source_file")" || return 0
   while IFS= read -r line; do
-    if [[ "$line" =~ ^[[:space:]]*@([A-Za-z0-9._/-]+\.md)[[:space:]]*$ ]]; then
+    rest="$line"
+    while [[ "$rest" =~ @([~A-Za-z0-9._/-]+\.md) ]]; do
       ref="${BASH_REMATCH[1]}"
-      [[ "$ref" == /* ]] || ref="$source_dir/$ref"
+      rest="${rest#*"@$ref"}"
+      case "$ref" in
+        \~/*) ref="$HOME/${ref#\~/}" ;;
+        /*) ;;
+        *) ref="$source_dir/$ref" ;;
+      esac
       [[ -f "$ref" ]] || continue
       resolved="$(cd -- "$(dirname -- "$ref")" 2>/dev/null && pwd -P)/$(basename -- "$ref")" || continue
       case "$resolved" in
         "$allowed_root"|"$allowed_root"/*) ;;
         *) continue ;;
       esac
-      cc_prompt_add_context_file "Referenced by $(basename -- "$source_file")" "$ref"
-    fi
-  done <"$source_file"
+      cc_prompt_add_context_file "Referenced by $source_name" "$ref"
+      cc_prompt_add_referenced_markdown "$resolved" "$allowed_root" "$((depth + 1))"
+    done
+  done <<<"$source_content"
 }
 
 cc_prompt_claude_context() {
@@ -99,18 +120,20 @@ cc_prompt_claude_context() {
     0|false|FALSE|no|NO|off|OFF) return 0 ;;
   esac
 
-  local global_claude project_claude cc_prompt_context cc_prompt_seen_files cc_prompt_remaining_chars
+  local global_claude project_file cc_prompt_context cc_prompt_seen_files cc_prompt_remaining_chars
   cc_prompt_context=""
   cc_prompt_seen_files=""
   cc_prompt_remaining_chars="$(cc_prompt_context_cap "${CLAUDE_CONTROL_PLANE_CLAUDE_MD_MAX_CHARS:-}")"
   global_claude="$HOME/.claude/CLAUDE.md"
-  project_claude="$(cc_prompt_find_upward "$cwd" "CLAUDE.md")"
 
-  cc_prompt_context+="CLAUDE.md reinjection: treat the following as active instructions for this prompt. Disable with CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD=0."
+  cc_prompt_context+="CLAUDE.md reinjection: treat the following as active instructions for this prompt. This mirrors Claude's startup hierarchy where possible. Disable with CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD=0."
   cc_prompt_add_context_file "Global CLAUDE.md" "$global_claude"
-  [[ -z "$project_claude" ]] || cc_prompt_add_context_file "Project CLAUDE.md" "$project_claude"
   [[ ! -f "$global_claude" ]] || cc_prompt_add_referenced_markdown "$global_claude" "$HOME/.claude"
-  [[ -z "$project_claude" || ! -f "$project_claude" ]] || cc_prompt_add_referenced_markdown "$project_claude" "$(dirname -- "$project_claude")"
+  while IFS= read -r project_file; do
+    [[ -n "$project_file" ]] || continue
+    cc_prompt_add_context_file "Project $(basename -- "$project_file")" "$project_file"
+    cc_prompt_add_referenced_markdown "$project_file" "$(dirname -- "$project_file")"
+  done < <(cc_prompt_collect_upward "$cwd")
 
   [[ -n "$cc_prompt_seen_files" ]] || return 0
   printf '%s\n' "$cc_prompt_context"

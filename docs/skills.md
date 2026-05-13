@@ -48,19 +48,30 @@ These skills are not owned by this repo, but the control plane knows about them 
 | Helper | Installed Path | Purpose |
 | --- | --- | --- |
 | `code-health-inventory.mjs` | `~/.claude/scripts/code-health-inventory.mjs` | Inventories tracked files and classifies audit coverage for no-skips code-health runs. |
+| `merge-settings.mjs` | `~/.claude/scripts/merge-settings.mjs` | Merges control-plane hooks into existing Claude settings without replacing unrelated local configuration. |
 | `plan-readiness-check.mjs` | `~/.claude/scripts/plan-readiness-check.mjs` | Rejects thin plans before they are marked final or executed. |
 | `agent-task-packet-check.mjs` | `~/.claude/scripts/agent-task-packet-check.mjs` | Enforces structured subagent packet contracts for `read-only` and `write` task modes before delegation. |
 | `guard-override-token.mjs` | `~/.claude/scripts/guard-override-token.mjs` | Issues and verifies one-time signed override tokens for safety-critical prod/secret commands. |
+| `settings-audit.mjs` | `~/.claude/scripts/settings-audit.mjs` | Audits and repairs duplicate hook commands, overlapping matcher groups, and legacy rate-limiter registrations in Claude settings. |
+| `update-check.mjs` | `~/.claude/scripts/update-check.mjs` | Compares installed metadata with the recorded source checkout, reports local/remote drift, and can run local auto-update when enabled. |
 | `replay-hook-fixtures.mjs` | `~/.claude/scripts/replay-hook-fixtures.mjs` | Replays scrubbed regression fixtures through live hooks and asserts allow/deny/block outcomes. |
 | `execution-ledger.mjs` | `~/.claude/scripts/execution-ledger.mjs` | Creates, validates, and checks local ETRNL run ledgers under `~/.claude/control-plane/runs/`. |
 | `execution-wave-check.mjs` | `~/.claude/scripts/execution-wave-check.mjs` | Groups planned tasks by wave, detects file overlap, and reports worktree eligibility. |
 | `review-log.mjs` | `~/.claude/scripts/review-log.mjs` | Appends, validates, redacts, fingerprints, and summarizes durable review findings. |
-| `browser-qa-report.mjs` | `~/.claude/scripts/browser-qa-report.mjs` | Creates and validates browser QA artifact JSON for UI verification evidence. |
+| `browser-qa-report.mjs` | `~/.claude/scripts/browser-qa-report.mjs` | Creates and validates browser QA artifact JSON, including strict summaries across all report files. |
 | `context-state.mjs` | `~/.claude/scripts/context-state.mjs` | Saves, validates, lists, and restores concise workflow context with stale-state detection. |
 | `workflow-health.mjs` | `~/.claude/scripts/workflow-health.mjs` | Summarizes recent ETRNL workflow runs, stale runs, and artifact freshness from local files. |
 | `prompt-budget-check.mjs` | `~/.claude/scripts/prompt-budget-check.mjs` | Fails oversized skills or agents before prompt bloat becomes default context. |
+| `port-guard.mjs` | `~/.claude/scripts/port-guard.mjs` | Checks or picks explicit free local dev-server ports before commands run. |
+| `project-buglog.mjs` | `~/.claude/scripts/project-buglog.mjs` | Records and suggests project-local repeated bug memories without storing transcripts. |
+| `changelog-release-check.mjs` | `~/.claude/scripts/changelog-release-check.mjs` | Enforces release hygiene so `Unreleased` does not hide shipped work on `main`. |
+| `research-competitor-intel.mjs` | `~/.claude/scripts/research-competitor-intel.mjs` | Validates pinned competitor manifests, evidence rows, parity scorecards, and refresh cadence. |
 | `skill-contract-check.mjs` | `~/.claude/scripts/skill-contract-check.mjs` | Fails when repo-owned skills drift from docs, helper scripts, readiness contracts, SessionStart hints, or installed copies. |
 | `skill-behavior-smoke.mjs` | `~/.claude/scripts/skill-behavior-smoke.mjs` | Runs end-to-end helper smoke checks for the skill behaviors that must fail closed before live use. |
+| `doctor-control-plane.sh` | `~/.claude/scripts/doctor-control-plane.sh` | Checks installed hooks, settings, skills, agents, docs, scripts, strict/default mode, and workflow state. |
+| `update.sh` | `~/.claude/scripts/update.sh` | Re-enters the recorded source checkout and runs the normal installer for local upgrades. |
+| `rollback-local.sh` | `~/.claude/scripts/rollback-local.sh` | Restores the latest installer backup for repo-owned control-plane files. |
+| `post-upgrade-canary.sh` | `~/.claude/scripts/post-upgrade-canary.sh` | Verifies installed critical hooks, update-check script, executable bits, and Claude settings JSON after an upgrade. |
 
 ## Installed Agents
 

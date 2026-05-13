@@ -5,6 +5,16 @@
 ./scripts/doctor.sh
 ```
 
+Default install is intentionally usable but conservative: it installs observer hooks, prompt routing, prompt expansion, `CLAUDE.md` reinjection, the locked advisory rate limiter, post-tool observation, session cleanup, scripts, docs, rules, skills, and agents. Hard blockers stay opt-in.
+
+Strict local install:
+
+```bash
+CLAUDE_CONTROL_PLANE_ENABLE_STRICT=1 ./scripts/install.sh
+./scripts/doctor.sh
+~/.claude/scripts/doctor-control-plane.sh
+```
+
 The installer:
 
 - backs up existing Claude settings and `CLAUDE.md`
@@ -26,9 +36,21 @@ The installer:
 - installs `~/.claude/scripts/update-check.mjs` and `~/.claude/scripts/update.sh` so installed Claude sessions can detect and repair drift from the source checkout
 - runs `settings-audit.mjs --fix` so duplicate hook commands are compacted and the legacy race-prone rate limiter is replaced with `cc-rate-limiter.sh`
 - runs the hook and workflow-tool test harnesses
-- merges safe observer hooks into existing settings by default
+- merges safe observer hooks into existing settings by default, including `UserPromptSubmit` `CLAUDE.md` reinjection and the advisory rate limiter
 - merges strict blocker hooks, including `PreToolUse`, `Stop`, and `SubagentStop`, only when `CLAUDE_CONTROL_PLANE_ENABLE_STRICT=1`
 - records the evidence-before-agreement lesson to Hindsight only as a stable upsert when Hindsight is configured
+
+Post-install verification:
+
+```bash
+./scripts/doctor.sh
+~/.claude/scripts/doctor-control-plane.sh
+node ~/.claude/scripts/settings-audit.mjs ~/.claude/settings.json --json
+node ~/.claude/scripts/update-check.mjs --json
+~/.claude/scripts/post-upgrade-canary.sh
+```
+
+`settings-audit.mjs` should report no duplicate hooks and no legacy `rate-limiter.sh` registrations. `update-check.mjs --json` should show the recorded source checkout, installed commit, source commit, version, dirty-state flag, and whether a local or remote update is available.
 
 Rollback:
 
