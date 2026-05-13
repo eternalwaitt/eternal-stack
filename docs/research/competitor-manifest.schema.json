@@ -68,7 +68,7 @@
           },
           "commitSha": {
             "type": "string",
-            "pattern": "^[A-Fa-f0-9]{40}$"
+            "pattern": "^[0-9a-f]{40}$"
           },
           "license": {
             "type": "string",

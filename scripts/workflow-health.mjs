@@ -13,6 +13,20 @@ const staleHours = Number(process.env.ETRNL_STALE_RUN_HOURS || "24");
 const verbose = process.argv.includes("--verbose") || process.env.VERBOSE === "1";
 const DEFAULT_LEDGER_READ_CONCURRENCY = 8;
 const MAX_LEDGER_READ_CONCURRENCY = 12;
+const configuredLedgerReadConcurrency = Number.parseInt(
+  process.env.ETRNL_LEDGER_READ_CONCURRENCY || String(DEFAULT_LEDGER_READ_CONCURRENCY),
+  10,
+);
+const requestedLedgerReadConcurrency = Number.isFinite(configuredLedgerReadConcurrency) && configuredLedgerReadConcurrency > 0
+  ? configuredLedgerReadConcurrency
+  : DEFAULT_LEDGER_READ_CONCURRENCY;
+const ledgerReadConcurrency = Math.min(requestedLedgerReadConcurrency, MAX_LEDGER_READ_CONCURRENCY);
+
+if (requestedLedgerReadConcurrency > MAX_LEDGER_READ_CONCURRENCY) {
+  console.warn(
+    `workflow-health warning: ETRNL_LEDGER_READ_CONCURRENCY=${requestedLedgerReadConcurrency} exceeds max ${MAX_LEDGER_READ_CONCURRENCY}; capping.`,
+  );
+}
 
 function countJsonFiles(dir) {
   return existsSync(dir) ? readdirSync(dir).filter((file) => file.endsWith(".json")).length : 0;
@@ -31,15 +45,19 @@ function latestMtimeIso(dir) {
   return latest > 0 ? new Date(latest).toISOString().replace(/\.\d{3}Z$/, "Z") : "none";
 }
 
-function incompleteLedger(ledger) {
+function hasIncompleteLedger(ledger) {
   const tasksIncomplete = (ledger.tasks ?? []).some((task) => !["verified", "skipped"].includes(task.status));
   const agentsIncomplete = (ledger.agents ?? []).some((agent) => !["completed", "verified", "skipped"].includes(agent.status));
   return tasksIncomplete || agentsIncomplete;
 }
 
+function isStaleTimestamp(updatedAtMs, staleWindowHours) {
+  return !Number.isNaN(updatedAtMs) && Date.now() - updatedAtMs > staleWindowHours * 60 * 60 * 1000;
+}
+
 function staleRun(ledger) {
   const updatedAt = Date.parse(ledger.updatedAt || ledger.startedAt || "");
-  return incompleteLedger(ledger) && !Number.isNaN(updatedAt) && Date.now() - updatedAt > staleHours * 60 * 60 * 1000;
+  return hasIncompleteLedger(ledger) && isStaleTimestamp(updatedAt, staleHours);
 }
 
 function parseJson(raw, label) {
@@ -53,17 +71,8 @@ function parseJson(raw, label) {
 async function loadLedgers(baseDir, fileNames) {
   const ledgerParseErrors = [];
   const ledgers = [];
-  const configuredConcurrency = Number.parseInt(process.env.ETRNL_LEDGER_READ_CONCURRENCY || String(DEFAULT_LEDGER_READ_CONCURRENCY), 10);
-  const requestedConcurrency = Number.isFinite(configuredConcurrency) && configuredConcurrency > 0
-    ? configuredConcurrency
-    : DEFAULT_LEDGER_READ_CONCURRENCY;
-  const concurrency = Math.min(requestedConcurrency, MAX_LEDGER_READ_CONCURRENCY);
-  if (requestedConcurrency > MAX_LEDGER_READ_CONCURRENCY) {
-    const warning = `workflow-health warning: ETRNL_LEDGER_READ_CONCURRENCY=${requestedConcurrency} exceeds max ${MAX_LEDGER_READ_CONCURRENCY}; capping.`;
-    if (verbose) console.error(warning);
-  }
-  for (let start = 0; start < fileNames.length; start += concurrency) {
-    const chunk = fileNames.slice(start, start + concurrency);
+  for (let start = 0; start < fileNames.length; start += ledgerReadConcurrency) {
+    const chunk = fileNames.slice(start, start + ledgerReadConcurrency);
     const chunkResults = await Promise.all(
       chunk.map(async (file) => {
         const fullPath = path.join(baseDir, file);

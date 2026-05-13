@@ -36,6 +36,10 @@ cd claude-control-plane
 The installer backs up `~/.claude`, copies control-plane assets, installs repo-owned ETRNL agents by default, and merges the safe observer layer by default.
 See [docs/install.md](docs/install.md) for full install/update behavior, including `CLAUDE_CONTROL_PLANE_INSTALL_STARTUP`, `AGENTS.md`/`CLAUDE.md`, `docs/skills.md`, `etrnl-*` migration, and companion skill mapping.
 
+Installs write `~/.claude/control-plane/install.json` so Claude startup can detect source/install drift.
+Run `~/.claude/scripts/update.sh` or `./scripts/update.sh` for manual updates.
+Set `CLAUDE_CONTROL_PLANE_AUTO_UPDATE=1` to enable automatic local updates from the configured source checkout.
+
 Hard blockers are shipped but not enabled automatically. Enable them after tests, doctor, rollback, and a fresh Claude smoke pass.
 
 ## Commands

@@ -10,7 +10,7 @@
       "scope": "skills/etrnl-review/SKILL.md",
       "readSet": ["skills/etrnl-review/SKILL.md", "docs/research/parity-scorecard.json", "skills/etrnl-plan/SKILL.md"],
       "writeScope": ["skills/etrnl-review/SKILL.md"],
-      "forbiddenPaths": ["scripts", "hooks", "tests", "skills/etrnl-plan/SKILL.md"],
+      "forbiddenPaths": ["scripts", "hooks", "tests"],
       "expectedOutput": "skills/etrnl-review/SKILL.md with Research Flow and TDD Enforcement sections; contract check passes",
       "verificationCommand": "node scripts/skill-contract-check.mjs --root .",
       "modelTier": "sonnet",

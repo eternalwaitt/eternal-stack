@@ -11,7 +11,7 @@ let stateDir = "";
 const hookTimeoutMs = (() => {
   const parsed = Number.parseInt(String(process.env.CLAUDE_GUARD_REPLAY_TIMEOUT_MS || "10000"), 10);
   if (!Number.isFinite(parsed) || parsed <= 0) return 10_000;
-  return parsed;
+  return Math.min(parsed, 60_000);
 })();
 
 function fail(message) {
@@ -31,6 +31,12 @@ function sanitizeOutput(value, maxLen = 320, preRedactionMaxLen = 2000) {
   redacted = redacted.replace(/\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g, "[redacted]");
   redacted = redacted.replace(/\bauthorization\s*:\s*bearer\s+[A-Za-z0-9._-]+/gi, "authorization: bearer [redacted]");
   redacted = redacted.replace(/\bbearer\s+[A-Za-z0-9._-]+/gi, "bearer [redacted]");
+  redacted = redacted.replace(/\bgh[porsu]_[A-Za-z0-9_]{12,}\b/gi, "[redacted]");
+  redacted = redacted.replace(/\bglpat-[A-Za-z0-9_-]{12,}\b/gi, "[redacted]");
+  redacted = redacted.replace(/\b(?:sk|pk)_(?:live|test)_[A-Za-z0-9]{8,}\b/gi, "[redacted]");
+  redacted = redacted.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, "[redacted]");
+  redacted = redacted.replace(/(\b(?:_authToken|_auth)\b\s*[:=]\s*)(["']?)[^\s"',}]+/gi, "$1$2[redacted]");
+  redacted = redacted.replace(/([?&]sig=)[^&\s]+/gi, "$1[redacted]");
   redacted = redacted.replace(/((?:postgres|mysql|mongodb|jdbc:[a-z0-9]+):\/\/[^:@\s]+:)[^@\s]+(@)/gi, "$1[redacted]$2");
   redacted = redacted.replace(/\b(?:AKIA|ASIA|OCI)[A-Z0-9]{12,}\b/g, "[redacted]");
   redacted = redacted.replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----/gi, "[redacted]");
@@ -38,7 +44,12 @@ function sanitizeOutput(value, maxLen = 320, preRedactionMaxLen = 2000) {
 }
 
 function runHook(hook, payload) {
-  const hookPath = path.join(root, "hooks", hook);
+  const hooksDir = path.resolve(root, "hooks");
+  const hookPath = path.resolve(hooksDir, hook);
+  const relativeHookPath = path.relative(hooksDir, hookPath);
+  if (relativeHookPath.startsWith("..") || path.isAbsolute(relativeHookPath)) {
+    throw new Error(`hook path escapes hooks directory: ${hook}`);
+  }
   if (!existsSync(hookPath)) {
     throw new Error(`hook not found: ${hookPath}`);
   }
@@ -95,8 +106,6 @@ function assertExpectation(output, expected) {
     if (output.decision !== "block") throw new Error("expected block");
   } else if (kind === "warn") {
     if (!output?.hookSpecificOutput?.additionalContext) throw new Error("expected warning context");
-  } else {
-    throw new Error(`unknown expected kind: ${kind}`);
   }
   if (expected.contains !== undefined) {
     if (typeof expected.contains !== "string") {

@@ -6,7 +6,8 @@
           {
             "type": "command",
             "command": "bash ~/.claude/hooks/cc-sessionstart-restore.sh",
-            "timeout": 5
+            "timeout": 10,
+            "async": true
           }
         ]
       }
@@ -39,6 +40,17 @@
           {
             "type": "command",
             "command": "bash ~/.claude/hooks/cc-posttoolbatch-observer.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/cc-rate-limiter.sh",
             "timeout": 5
           }
         ]

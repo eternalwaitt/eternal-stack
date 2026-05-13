@@ -1,5 +1,43 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
+import path from "node:path";
+
+const args = process.argv.slice(2);
+const templateIndex = args.indexOf("--template");
+if (templateIndex !== -1) {
+  const templateMode = args[templateIndex + 1];
+  if (!templateMode || templateMode.startsWith("--")) {
+    console.error('usage: agent-task-packet-check.mjs --template [read-only|write]');
+    process.exit(2);
+  }
+  if (templateMode !== "read-only" && templateMode !== "write") {
+    console.error('usage: agent-task-packet-check.mjs --template [read-only|write]');
+    process.exit(2);
+  }
+  const packet = {
+    mode: templateMode,
+    goal: "Inspect or change one bounded subsystem.",
+    contextSummary: "Relevant repo facts, current branch/worktree status, and known constraints.",
+    cwd: "/absolute/path/to/repo",
+    scope: "Files, routes, modules, or behavior boundary owned by this task.",
+    readSet: ["path/to/read-first"],
+    expectedOutput: "Concise findings or changed files plus verification evidence.",
+    noRevert: true,
+  };
+  if (templateMode === "write") {
+    Object.assign(packet, {
+      writeScope: ["path/to/owned-file-or-directory"],
+      forbiddenPaths: ["path/to/owned-by-someone-else"],
+      verificationCommand: "project-specific verification command",
+      modelTier: "sonnet",
+      timeoutSec: 1800,
+      retryPolicy: "If blocked, report the exact blocker and stop instead of widening scope.",
+      webSearchGuidance: "Use only when current external docs are needed; cite primary sources.",
+    });
+  }
+  console.log(JSON.stringify({ packet }, null, 2));
+  process.exit(0);
+}
 
 const raw = readFileSync(0, "utf8").trim() || "{}";
 
@@ -89,6 +127,8 @@ for (const key of required) {
 
 if ("readSet" in packet && !Array.isArray(packet.readSet)) {
   violations.push("readSet must be an array");
+} else if ("readSet" in packet && !packet.readSet.every((item) => typeof item === "string")) {
+  violations.push("readSet must be an array of strings");
 }
 
 if (mode === "write" && "forbiddenPaths" in packet && !Array.isArray(packet.forbiddenPaths)) {
@@ -100,10 +140,21 @@ if ("timeoutSec" in packet && (!Number.isFinite(packet.timeoutSec) || packet.tim
 }
 
 function pathList(value, fieldName) {
-  if (Array.isArray(value)) return value;
-  if (typeof value === "string" && value.trim()) return [value];
-  violations.push(`${fieldName} must be a non-empty string or array`);
-  return [];
+  function normalizeScopePath(rawPath) {
+    const normalized = path.posix.normalize(String(rawPath).replace(/\\/g, "/"));
+    if (normalized === "/") return normalized;
+    return normalized.replace(/\/+$/g, "");
+  }
+  // Empty or whitespace-only path entries are always invalid.
+  if (Array.isArray(value)) {
+    const trimmed = value
+      .map((item) => (typeof item === "string" ? item.trim() : item))
+      .filter((item) => typeof item === "string" && item.length > 0);
+    if (trimmed.length !== value.length) return { paths: trimmed, error: `${fieldName} contains empty path entries` };
+    return { paths: trimmed.map(normalizeScopePath) };
+  }
+  if (typeof value === "string" && value.trim()) return { paths: [normalizeScopePath(value.trim())] };
+  return { paths: [], error: `${fieldName} must be a non-empty string or array` };
 }
 
 // noRevert must be explicitly boolean true so workers acknowledge they cannot auto-revert.
@@ -121,8 +172,12 @@ if ("noRevert" in packet) {
 // A path cannot be both claimed for writing and marked as forbidden.
 // Overlap detection uses exact string matching; callers must normalize paths before passing them.
 if (mode === "write" && "writeScope" in packet && "forbiddenPaths" in packet) {
-  const writeScope = pathList(packet.writeScope, "writeScope");
-  const forbiddenPaths = pathList(packet.forbiddenPaths, "forbiddenPaths");
+  const writeScopeResult = pathList(packet.writeScope, "writeScope");
+  const forbiddenPathsResult = pathList(packet.forbiddenPaths, "forbiddenPaths");
+  if (writeScopeResult.error) violations.push(writeScopeResult.error);
+  if (forbiddenPathsResult.error) violations.push(forbiddenPathsResult.error);
+  const writeScope = writeScopeResult.paths;
+  const forbiddenPaths = forbiddenPathsResult.paths;
   const writeScopeSet = new Set(writeScope);
   const overlap = forbiddenPaths.filter((item) => writeScopeSet.has(item));
   if (overlap.length > 0) {
@@ -138,6 +193,7 @@ if (missing.length > 0 || violations.length > 0) {
     console.error(`Subagent task packet has invalid values: ${violations.join(", ")}.`);
   }
   console.error("Include every required structured field so the worker can run without follow-up questions.");
+  console.error("Template: node scripts/agent-task-packet-check.mjs --template write");
   process.exit(1);
 }
 

@@ -6,8 +6,8 @@
  * this returns `fallback`.
  * Duplicate flags resolve from the first occurrence.
  * `--flag=` is treated as an empty value and returns `fallback`.
- * Values that begin with `-` are treated as flags, so negative numerics like
- * `--count -5` are considered missing; use `--count=-5` when negatives are required.
+ * Values that begin with `-` are treated as flags except for negative numerics
+ * like `--count -5`.
  *
  * @example
  * argValue(["--name=Alice", "--age", "30"], "--name", "n/a") // "Alice"
@@ -22,11 +22,12 @@
 export function argValue(args, flag, fallback = "") {
   if (!Array.isArray(args) || typeof flag !== "string") return fallback;
   const safeArgs = args.filter((arg) => typeof arg === "string");
+  const isNegativeNumeric = (value) => /^-\d+(?:\.\d+)?$/.test(value);
   for (let index = 0; index < safeArgs.length; index += 1) {
     const token = safeArgs[index];
     if (token === flag) {
       const value = safeArgs[index + 1];
-      return !value || value.startsWith("-") ? fallback : value;
+      return !value || (value.startsWith("-") && !isNegativeNumeric(value)) ? fallback : value;
     }
     if (token.startsWith(`${flag}=`)) {
       const value = token.slice(flag.length + 1);

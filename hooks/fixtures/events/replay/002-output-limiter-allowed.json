@@ -1,6 +1,6 @@
 {
   "hook": "cc-pretooluse-guard.sh",
-  "expected": { "kind": "allow" },
+  "expected": { "kind": "deny", "contains": "output-limiter" },
   "payload": {
     "session_id": "replay-2",
     "hook_event_name": "PreToolUse",

@@ -53,6 +53,7 @@ cc_state_default() {
     evidenceChallenges: [],
     evidenceDisciplineViolations: [],
     evidenceViolationFingerprints: {},
+    warningFingerprints: {},
     verificationRuns: [],
     qualityRuns: [],
     testRuns: [],
@@ -97,6 +98,14 @@ cc_state_release_lock() {
   fi
 }
 
+cc_state_persist_warning() {
+  local message="$1"
+  local metrics_path now
+  metrics_path="${CLAUDE_GUARD_METRICS_PATH:-${TMPDIR:-/tmp}/claude-guard-metrics.jsonl}"
+  now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  printf '%s state-warning %s\n' "$now" "$message" >>"$metrics_path" 2>/dev/null || true
+}
+
 cc_state_upgrade_filter() {
   cat <<'JQ'
 def arr(v): if (v | type) == "array" then v else [] end;
@@ -116,6 +125,7 @@ def num(v): if (v | type) == "number" then v else 0 end;
   evidenceChallenges: arr(.evidenceChallenges),
   evidenceDisciplineViolations: arr(.evidenceDisciplineViolations),
   evidenceViolationFingerprints: obj(.evidenceViolationFingerprints),
+  warningFingerprints: obj(.warningFingerprints),
   verificationRuns: arr(.verificationRuns),
   qualityRuns: arr(.qualityRuns),
   testRuns: arr(.testRuns),
@@ -215,9 +225,30 @@ cc_state_init() {
 }
 
 cc_state_update() {
-  local file lock tmp
+  local file lock tmp tmp_next critical_update skip_generation_bump
+  critical_update=0
+  skip_generation_bump=0
+  if [[ "${1:-}" == "--critical" ]]; then
+    critical_update=1
+    shift
+  fi
+  if [[ "${1:-}" == "--skip-edit-generation-bump" ]]; then
+    skip_generation_bump=1
+    shift
+  fi
   file="$(cc_state_file)"
-  cc_state_init || true
+  if ! cc_state_init; then
+    local critical_suffix
+    critical_suffix=""
+    if (( critical_update == 1 )); then
+      critical_suffix=" (critical write blocked)"
+    fi
+    cc_state_persist_warning "state init failed before update (critical=${critical_update}) file=${file}"
+    printf 'claude-guard warning: state init failed before update%s\n' "$critical_suffix" >&2
+    if (( critical_update == 1 )); then
+      return 1
+    fi
+  fi
   if ! lock="$(cc_state_acquire_lock)"; then
     printf 'claude-guard warning: state update skipped due to lock timeout\n' >&2
     return 1
@@ -227,13 +258,22 @@ cc_state_update() {
     return 1
   fi
   if jq "$@" "$file" >"$tmp"; then
+    if (( skip_generation_bump == 0 )); then
+      tmp_next="${tmp}.next"
+      if ! jq '.editGeneration = ((.editGeneration // 0) + 1)' "$tmp" >"$tmp_next"; then
+        rm -f -- "$tmp" "$tmp_next"
+        cc_state_release_lock "$lock"
+        return 1
+      fi
+      mv -- "$tmp_next" "$tmp"
+    fi
     if ! chmod 600 "$tmp" || ! mv -- "$tmp" "$file"; then
-      rm -f -- "$tmp"
+      rm -f -- "$tmp" "${tmp}.next"
       cc_state_release_lock "$lock"
       return 1
     fi
   else
-    rm -f -- "$tmp"
+    rm -f -- "$tmp" "${tmp}.next"
     cc_state_release_lock "$lock"
     return 1
   fi
@@ -243,7 +283,11 @@ cc_state_update() {
 cc_state_read() {
   local file
   file="$(cc_state_file)"
-  cc_state_init || true
+  if ! cc_state_init; then
+    cc_state_persist_warning "state init failed before read file=${file}"
+    printf 'claude-guard warning: state init failed before read; resetting default state: %s\n' "$file" >&2
+    cc_state_reset_to_default "$file"
+  fi
   jq -c . "$file"
 }
 
@@ -285,10 +329,12 @@ cc_state_append_value() {
 
 cc_state_append_command() {
   local cmd="$1"
+  local max_items
   local now
+  max_items="$(cc_state_max_items)"
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  cc_state_update --arg cmd "$cmd" --arg now "$now" \
-    ".commands += [{command: \$cmd, at: \$now}] | .commands = (.commands[-200:] // [])"
+  cc_state_update --arg cmd "$cmd" --arg now "$now" --argjson max_items "$max_items" \
+    ".commands += [{command: \$cmd, at: \$now}] | .commands = (.commands[-\$max_items:] // [])"
 }
 
 cc_state_record_command_attempt() {
@@ -297,22 +343,26 @@ cc_state_record_command_attempt() {
 
 cc_state_record_command_success() {
   local cmd="$1"
+  local max_items
   local now
+  max_items="$(cc_state_max_items)"
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  cc_state_update --arg cmd "$cmd" --arg now "$now" \
+  cc_state_update --arg cmd "$cmd" --arg now "$now" --argjson max_items "$max_items" \
     '.successfulCommands += [{command: $cmd, at: $now}] |
-     .successfulCommands = (.successfulCommands[-200:] // []) |
+     .successfulCommands = (.successfulCommands[-$max_items:] // []) |
      .commandLastEditGeneration[$cmd] = (.editGeneration // 0)'
 }
 
 cc_state_record_command_blocked() {
   local cmd="$1"
   local reason="$2"
+  local max_items
   local now
+  max_items="$(cc_state_max_items)"
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  cc_state_update --arg cmd "$cmd" --arg reason "$reason" --arg now "$now" \
+  cc_state_update --arg cmd "$cmd" --arg reason "$reason" --arg now "$now" --argjson max_items "$max_items" \
     '.blockedCommands += [{command: $cmd, reason: $reason, at: $now}] |
-     .blockedCommands = (.blockedCommands[-200:] // []) |
+     .blockedCommands = (.blockedCommands[-$max_items:] // []) |
      .commandLastEditGeneration[$cmd] = (.editGeneration // 0)'
 }
 
@@ -331,7 +381,7 @@ cc_state_get_edit_generation() {
 }
 
 cc_state_increment_edit_generation() {
-  cc_state_update '.editGeneration = ((.editGeneration // 0) + 1)'
+  cc_state_update --skip-edit-generation-bump '.editGeneration = ((.editGeneration // 0) + 1)'
   cc_state_get_edit_generation
 }
 
@@ -348,7 +398,7 @@ cc_state_record_evidence_fingerprint() {
   local fingerprint="$1"
   local now
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  cc_state_update --arg fp "$fingerprint" --arg now "$now" '.evidenceViolationFingerprints[$fp] = $now'
+  cc_state_update --critical --arg fp "$fingerprint" --arg now "$now" '.evidenceViolationFingerprints[$fp] = $now'
 }
 
 cc_state_has_evidence_fingerprint() {
@@ -356,19 +406,35 @@ cc_state_has_evidence_fingerprint() {
   jq -e --arg fp "$fingerprint" '.evidenceViolationFingerprints[$fp] != null' "$(cc_state_file)" >/dev/null 2>&1
 }
 
-cc_state_record_prod_approval_marker() {
-  local marker="$1"
+cc_state_record_warning_fingerprint() {
+  local fingerprint="$1"
   local now
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  cc_state_update --arg marker "$marker" --arg now "$now" \
-    '.prodApprovalMarkers += [{value: $marker, at: $now}] | .prodApprovalMarkers = (.prodApprovalMarkers[-200:] // [])'
+  cc_state_update --skip-edit-generation-bump --arg fp "$fingerprint" --arg now "$now" '.warningFingerprints[$fp] = $now'
+}
+
+cc_state_has_warning_fingerprint() {
+  local fingerprint="$1"
+  jq -e --arg fp "$fingerprint" '.warningFingerprints[$fp] != null' "$(cc_state_file)" >/dev/null 2>&1
+}
+
+cc_state_record_prod_approval_marker() {
+  local marker="$1"
+  local max_items
+  local now
+  max_items="$(cc_state_max_items)"
+  now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  cc_state_update --critical --arg marker "$marker" --arg now "$now" --argjson max_items "$max_items" \
+    '.prodApprovalMarkers += [{value: $marker, at: $now}] | .prodApprovalMarkers = (.prodApprovalMarkers[-$max_items:] // [])'
 }
 
 cc_state_begin_batch() {
-  # NOTE: This is an in-memory snapshot batch API: begin reads once, mutators edit
-  # _CC_STATE_BATCH_PAYLOAD, and commit writes that payload back. Concurrent writers
-  # updating the same state file between begin and commit can be overwritten.
-  # Hooks currently assume single-writer, per-event processing for this batch path.
+  # NOTE: In-memory snapshot batch API: begin reads once, mutators edit
+  # _CC_STATE_BATCH_PAYLOAD, and commit writes that payload back.
+  # Concurrency model: hooks assume single-writer, per-event processing.
+  # Optimistic concurrency is enforced at commit by editGeneration mismatch checks.
+  # There is no built-in retry/backoff on mismatch; callers should treat mismatch as
+  # a non-fatal degraded write and continue the hook path.
   _CC_STATE_BATCH_PAYLOAD="$(cc_state_read)"
   _CC_STATE_BATCH_START_GEN="$(jq -r '.editGeneration // 0' <<<"$_CC_STATE_BATCH_PAYLOAD" 2>/dev/null || printf '0')"
 }
@@ -401,11 +467,13 @@ cc_state_batch_mark_path() {
 cc_state_batch_append_value() {
   local bucket="$1"
   local value="$2"
+  local max_items
   local now
   cc_state_require_batch || return 1
+  max_items="$(cc_state_max_items)"
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  if ! _CC_STATE_BATCH_PAYLOAD="$(jq -c --arg bucket "$bucket" --arg value "$value" --arg now "$now" \
-    '.[ $bucket ] = ((.[ $bucket ] // []) + [{value: $value, at: $now}]) | .[$bucket] = (.[ $bucket ][-200:] // [])' <<<"$_CC_STATE_BATCH_PAYLOAD")"; then
+  if ! _CC_STATE_BATCH_PAYLOAD="$(jq -c --arg bucket "$bucket" --arg value "$value" --arg now "$now" --argjson max_items "$max_items" \
+    '.[ $bucket ] = ((.[ $bucket ] // []) + [{value: $value, at: $now}]) | .[$bucket] = (.[ $bucket ][-$max_items:] // [])' <<<"$_CC_STATE_BATCH_PAYLOAD")"; then
     cc_state_abort_batch
     return 1
   fi
@@ -428,11 +496,13 @@ cc_state_batch_get_edit_count() {
 
 cc_state_batch_append_command_attempt() {
   local cmd="$1"
+  local max_items
   local now
   cc_state_require_batch || return 1
+  max_items="$(cc_state_max_items)"
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  if ! _CC_STATE_BATCH_PAYLOAD="$(jq -c --arg cmd "$cmd" --arg now "$now" \
-    '.commands += [{command: $cmd, at: $now}] | .commands = (.commands[-200:] // [])' <<<"$_CC_STATE_BATCH_PAYLOAD")"; then
+  if ! _CC_STATE_BATCH_PAYLOAD="$(jq -c --arg cmd "$cmd" --arg now "$now" --argjson max_items "$max_items" \
+    '.commands += [{command: $cmd, at: $now}] | .commands = (.commands[-$max_items:] // [])' <<<"$_CC_STATE_BATCH_PAYLOAD")"; then
     cc_state_abort_batch
     return 1
   fi
@@ -440,13 +510,14 @@ cc_state_batch_append_command_attempt() {
 
 cc_state_batch_append_command_success() {
   local cmd="$1"
-  local now generation
+  local max_items now generation
   cc_state_require_batch || return 1
+  max_items="$(cc_state_max_items)"
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   generation="$(jq -r '.editGeneration // 0' <<<"$_CC_STATE_BATCH_PAYLOAD")"
-  if ! _CC_STATE_BATCH_PAYLOAD="$(jq -c --arg cmd "$cmd" --arg now "$now" --argjson generation "$generation" \
+  if ! _CC_STATE_BATCH_PAYLOAD="$(jq -c --arg cmd "$cmd" --arg now "$now" --argjson generation "$generation" --argjson max_items "$max_items" \
     '.successfulCommands += [{command: $cmd, at: $now}] |
-     .successfulCommands = (.successfulCommands[-200:] // []) |
+     .successfulCommands = (.successfulCommands[-$max_items:] // []) |
      .commandLastEditGeneration[$cmd] = $generation' <<<"$_CC_STATE_BATCH_PAYLOAD")"; then
     cc_state_abort_batch
     return 1
@@ -462,7 +533,7 @@ cc_state_batch_increment_edit_generation() {
 }
 
 cc_state_commit_batch() {
-  local file lock tmp started_on_disk started_batch on_disk_generation start_generation
+  local file lock tmp started_on_disk started_batch on_disk_generation start_generation merged_payload max_items
   cc_state_require_batch || return 1
   file="$(cc_state_file)"
   if ! lock="$(cc_state_acquire_lock)"; then
@@ -483,6 +554,11 @@ cc_state_commit_batch() {
     cc_state_abort_batch
     return 1
   fi
+  # Concurrency model for batch commits:
+  # - Hooks are expected to be single-writer per session, but overlapping invocations can still happen.
+  # - startedAt is immutable for a session; a mismatch means the payload is from a different session state.
+  # - Only batch mutators increment editGeneration, so editGeneration is the batch-level optimistic-lock marker.
+  # - Any startedAt/editGeneration mismatch is a deliberate fail-safe: abort this commit instead of racing writes.
   started_on_disk="$(jq -r '.startedAt // empty' "$file" 2>/dev/null || true)"
   started_batch="$(jq -r '.startedAt // empty' <<<"$_CC_STATE_BATCH_PAYLOAD" 2>/dev/null || true)"
   if [[ -n "$started_on_disk" && -n "$started_batch" && "$started_on_disk" != "$started_batch" ]]; then
@@ -492,8 +568,10 @@ cc_state_commit_batch() {
     cc_state_abort_batch
     return 1
   fi
-  # Optimistic lock: this catches concurrent batch commits that bump editGeneration.
-  # Non-batch mutators do not increment editGeneration and therefore won't trip this check.
+  # Optimistic lock: catches concurrent batch commits that bump editGeneration.
+  # Non-batch mutators do not increment editGeneration, so this check alone does
+  # not detect those writes.
+  # Callers are expected to continue without retry if this guard aborts commit.
   on_disk_generation="$(jq -r '.editGeneration // 0' "$file" 2>/dev/null || printf '0')"
   start_generation="${_CC_STATE_BATCH_START_GEN:-0}"
   if [[ "$on_disk_generation" != "$start_generation" ]]; then
@@ -503,7 +581,20 @@ cc_state_commit_batch() {
     cc_state_abort_batch
     return 1
   fi
-  if jq -c "$(cc_state_upgrade_filter)" <<<"$_CC_STATE_BATCH_PAYLOAD" >"$tmp"; then
+  max_items="$(cc_state_max_items)"
+  if ! merged_payload="$(jq -c --argjson max_items "$max_items" --slurpfile on_disk "$file" '
+      . as $batch
+      | ($on_disk[0] // {}) as $disk
+      | $batch
+      | .evidenceViolationFingerprints = (($disk.evidenceViolationFingerprints // {}) + (.evidenceViolationFingerprints // {}))
+      | .prodApprovalMarkers = (((($disk.prodApprovalMarkers // []) + (.prodApprovalMarkers // []))[-$max_items:] // []))
+    ' <<<"$_CC_STATE_BATCH_PAYLOAD")"; then
+    rm -f -- "$tmp"
+    cc_state_release_lock "$lock"
+    cc_state_abort_batch
+    return 1
+  fi
+  if jq -c "$(cc_state_upgrade_filter)" <<<"$merged_payload" >"$tmp"; then
     if ! chmod 600 "$tmp" || ! mv -- "$tmp" "$file"; then
       rm -f -- "$tmp"
       cc_state_release_lock "$lock"

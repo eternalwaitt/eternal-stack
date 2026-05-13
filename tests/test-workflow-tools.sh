@@ -66,6 +66,7 @@ assert_command "execution ledger accepts complete run" node "$ROOT/scripts/execu
 
 for script in \
   cc-pretooluse-guard.sh \
+  cc-rate-limiter.sh \
   cc-posttoolbatch-observer.sh \
   cc-posttoolusefailure-diagnose.sh \
   cc-posttooluse-sycophancy.sh \
@@ -129,9 +130,26 @@ expect(parsed[5], "single quoted value", "single-quoted branch");
 expect(parsed[6], "plain token", "unquoted escaped space branch");
 expect(parsed[7], "escaped space token", "unquoted multi-escape branch");
 '
-for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger execution-wave-check review-log browser-qa-report context-state workflow-health prompt-budget-check changelog-release-check port-guard; do
+for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger execution-wave-check review-log browser-qa-report context-state workflow-health prompt-budget-check changelog-release-check port-guard update-check settings-audit; do
   assert_command "$script syntax" node --check "$ROOT/scripts/$script.mjs"
 done
+assert_command "update shell syntax" bash -n "$ROOT/scripts/update.sh"
+merge_target="$TMPROOT/settings-target.json"
+merge_template="$TMPROOT/settings-template.json"
+printf '%s\n' "{\"hooks\":{\"SessionStart\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/cc-sessionstart-restore.sh\",\"timeout\":5}]},{\"hooks\":[{\"type\":\"command\",\"command\":\"bash $HOME/.claude/hooks/cc-sessionstart-restore.sh\",\"timeout\":7}]}],\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"bash $HOME/.claude/hooks/cc-stop-verifier.sh\",\"timeout\":5}]},{\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/cc-stop-verifier.sh\",\"timeout\":10}]},{\"hooks\":[{\"type\":\"command\",\"command\":\"bash /tmp$HOME/.claude/hooks/not-real.sh\",\"timeout\":1}]}]}}" >"$merge_target"
+printf '%s\n' '{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"bash ~/.claude/hooks/cc-sessionstart-restore.sh","timeout":20}]}]}}' >"$merge_template"
+node "$ROOT/scripts/merge-settings.mjs" "$merge_target" "$merge_template"
+assert_json_expr "merge-settings updates existing hook metadata" "$(jq -c . "$merge_target")" '.hooks.SessionStart[0].hooks[0].timeout == 20'
+assert_json_expr "merge-settings dedupes canonical installed hook paths" "$(jq -c . "$merge_target")" '([.hooks.SessionStart[].hooks[]] | length) == 1'
+assert_json_expr "merge-settings compacts non-template event duplicates" "$(jq -c . "$merge_target")" '([.hooks.Stop[].hooks[] | select(.command | test("cc-stop-verifier"))] | length) == 1'
+assert_json_expr "merge-settings preserves non-prefix home substrings" "$(jq -c . "$merge_target")" "[.hooks.Stop[].hooks[].command] | any(contains(\"/tmp$HOME/.claude/hooks/not-real.sh\"))"
+settings_audit_target="$TMPROOT/settings-audit-target.json"
+printf '%s\n' "{\"hooks\":{\"PostToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"bash $HOME/.claude/hooks/rate-limiter.sh\"}]},{\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/rate-limiter.sh.backup\"}]},{\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/cc-rate-limiter.sh\",\"timeout\":5}]}],\"PreToolUse\":[{\"matcher\":\"Task|Agent\",\"hooks\":[{\"type\":\"command\",\"command\":\"bash $HOME/.claude/hooks/cc-pretooluse-guard.sh\",\"timeout\":5}]},{\"matcher\":\"Task|TaskCreate|Agent\",\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/cc-pretooluse-guard.sh\",\"timeout\":10}]}]}}" >"$settings_audit_target"
+node "$ROOT/scripts/settings-audit.mjs" "$settings_audit_target" --fix
+assert_json_expr "settings-audit rewrites legacy rate limiter" "$(jq -c . "$settings_audit_target")" '([.hooks.PostToolUse[].hooks[].command] | map(select(test("/rate-limiter\\.sh$"))) | length) == 0'
+assert_json_expr "settings-audit ignores backup rate limiter names" "$(jq -c . "$settings_audit_target")" '([.hooks.PostToolUse[].hooks[].command] | any(endswith("rate-limiter.sh.backup")))'
+assert_json_expr "settings-audit compacts matcher supersets" "$(jq -c . "$settings_audit_target")" '([.hooks.PreToolUse[].hooks[] | select(.command | test("cc-pretooluse-guard"))] | length) == 1'
+assert_json_expr "settings-audit preserves TaskCreate matcher" "$(jq -c . "$settings_audit_target")" '(.hooks.PreToolUse[] | select(.hooks[0].command | test("cc-pretooluse-guard")) | .matcher) == "Task|TaskCreate|Agent"'
 assert_command "skill contract syntax" node --check "$ROOT/scripts/skill-contract-check.mjs"
 assert_command "skill contracts pass" node "$ROOT/scripts/skill-contract-check.mjs" --root "$ROOT"
 assert_command "skill behavior smoke syntax" node --check "$ROOT/scripts/skill-behavior-smoke.mjs"
@@ -175,6 +193,44 @@ if [[ ! -f "$ROOT/tests/fixtures/research-skill-strings.sh" ]]; then
   exit 1
 fi
 source "$ROOT/tests/fixtures/research-skill-strings.sh"
+assert_command "research fixture strings align with CAPABILITY_DEFS" env \
+  SKILL_LINE_TDD="$SKILL_LINE_TDD" \
+  SKILL_LINE_PLANNING="$SKILL_LINE_PLANNING" \
+  SKILL_LINE_RESEARCH="$SKILL_LINE_RESEARCH" \
+  SKILL_LINE_SUBAGENT="$SKILL_LINE_SUBAGENT" \
+  SKILL_LINE_PARALLELISM="$SKILL_LINE_PARALLELISM" \
+  SKILL_LINE_GATE="$SKILL_LINE_GATE" \
+  SKILL_LINE_ROLLBACK="$SKILL_LINE_ROLLBACK" \
+  SKILL_LINE_TELEMETRY="$SKILL_LINE_TELEMETRY" \
+  HOOK_LINE_GATE="$HOOK_LINE_GATE" \
+  SCRIPT_LINE_TELEMETRY="$SCRIPT_LINE_TELEMETRY" \
+  TEST_LINE_TDD="$TEST_LINE_TDD" \
+  node --input-type=module -e '
+import { CAPABILITY_DEFS } from "./scripts/lib/research-intel-core.mjs";
+
+const byId = new Map(CAPABILITY_DEFS.map((item) => [item.id, item.patterns]));
+const checks = [
+  ["tdd_enforcement", process.env.SKILL_LINE_TDD],
+  ["tdd_enforcement", process.env.TEST_LINE_TDD],
+  ["planning_depth", process.env.SKILL_LINE_PLANNING],
+  ["research_flow", process.env.SKILL_LINE_RESEARCH],
+  ["subagent_orchestration", process.env.SKILL_LINE_SUBAGENT],
+  ["parallelism_safety", process.env.SKILL_LINE_PARALLELISM],
+  ["verification_gates", process.env.SKILL_LINE_GATE],
+  ["verification_gates", process.env.HOOK_LINE_GATE],
+  ["rollback_guardrails", process.env.SKILL_LINE_ROLLBACK],
+  ["telemetry_proactive", process.env.SKILL_LINE_TELEMETRY],
+  ["telemetry_proactive", process.env.SCRIPT_LINE_TELEMETRY],
+];
+
+for (const [capability, value] of checks) {
+  if (!value) throw new Error(`missing fixture string for ${capability}`);
+  const patterns = byId.get(capability) || [];
+  if (!patterns.some((pattern) => pattern.test(value))) {
+    throw new Error(`fixture string does not match ${capability} patterns: ${value}`);
+  }
+}
+'
 while IFS=$'\t' read -r fixture_id fixture_path; do
   if [[ -z "$fixture_id" || -z "$fixture_path" ]]; then
     not_ok "research fixture manifest row missing id/path"
@@ -197,6 +253,11 @@ while IFS=$'\t' read -r fixture_id fixture_path; do
 done < <(jq -r '.competitors[] | [.id, (.localPath // .id)] | @tsv' "$fixture_manifest")
 fixture_evidence="$TMPROOT/research-fixture-evidence.json"
 assert_command "research extractor runs on fixture repo" node "$ROOT/scripts/research-competitor-intel.mjs" extract --manifest "$fixture_manifest" --repos-root "$fixture_repos" --out "$fixture_evidence"
+if node "$ROOT/scripts/research-competitor-intel.mjs" extract --manifest "$fixture_manifest" --repos-root "$fixture_repos" --out "$TMPROOT/research-overlong-cadence.json" --refresh-cadence-days 3651 >/dev/null 2>&1; then
+  not_ok "research extractor rejects overlong refresh cadence"
+else
+  ok "research extractor rejects overlong refresh cadence"
+fi
 fixture_json="$(jq -c . "$fixture_evidence")"
 assert_json_expr "research extractor emits 80 rows for 10 competitors x 8 capabilities" "$fixture_json" '.rows | length == 80'
 assert_json_expr "research extractor detects TDD signal" "$fixture_json" '([.rows[] | select(.capability=="tdd_enforcement") | .status == "present"] | any)'
@@ -308,6 +369,8 @@ else
 fi
 
 review_fp="$(node "$ROOT/scripts/review-log.mjs" add --path "$TMPROOT/review-log.jsonl" --finding "sk_live_example_should_redact" --severity P1 --status open)"
+aws_secret_value="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+review_fp="$(node "$ROOT/scripts/review-log.mjs" add --path "$TMPROOT/review-log.jsonl" --finding "aws_secret_access_key=$aws_secret_value" --severity P1 --status open)"
 if [[ ${#review_fp} -ge 16 ]]; then
   ok "review log fingerprint emitted"
 else
@@ -315,8 +378,8 @@ else
 fi
 assert_command "review log validates" node "$ROOT/scripts/review-log.mjs" validate --path "$TMPROOT/review-log.jsonl"
 review_summary="$(node "$ROOT/scripts/review-log.mjs" summary --path "$TMPROOT/review-log.jsonl")"
-assert_contains "review log summary unresolved" "$review_summary" "unresolved=1"
-if rg -F "sk_live_example" "$TMPROOT/review-log.jsonl" >/dev/null; then
+assert_contains "review log summary unresolved" "$review_summary" "unresolved=2"
+if rg -F "sk_live_example" "$TMPROOT/review-log.jsonl" >/dev/null || rg -F "$aws_secret_value" "$TMPROOT/review-log.jsonl" >/dev/null; then
   not_ok "review log redacts token-like values"
 else
   ok "review log redacts token-like values"
@@ -326,6 +389,15 @@ qa_report="$(printf '{"routes":["/"],"viewports":["desktop","mobile"],"findings"
 assert_command "browser QA report validates" node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_report"
 qa_report_flags="$(node "$ROOT/scripts/browser-qa-report.mjs" create --path "$TMPROOT/browser-qa-flags.json" --routes "/,/campaigns" --viewports "desktop,mobile" --status complete)"
 assert_command "browser QA report flag command validates" node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_report_flags"
+qa_artifacts="$TMPROOT/browser-qa-artifacts"
+mkdir -p "$qa_artifacts/browser-qa"
+printf '{bad' >"$qa_artifacts/browser-qa/bad.json"
+cp "$qa_report" "$qa_artifacts/browser-qa/good.json"
+if qa_summary="$(CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$qa_artifacts" node "$ROOT/scripts/browser-qa-report.mjs" summary --strict 2>&1)"; then
+  not_ok "browser QA strict summary exits after processing all reports"
+else
+  assert_contains "browser QA strict summary counts valid reports" "$qa_summary" "browserQa reports=1"
+fi
 context_file="$(node "$ROOT/scripts/context-state.mjs" save --id fixture-context --title "Fixture" --remaining "finish verification" --verification "tests pending")"
 assert_command "context save validates" node "$ROOT/scripts/context-state.mjs" validate "$context_file"
 context_restore="$(node "$ROOT/scripts/context-state.mjs" restore "$context_file")"
@@ -362,9 +434,18 @@ if node "$ROOT/scripts/plan-readiness-check.mjs" "$bad_plan" >/dev/null 2>&1; th
 else
   ok "plan readiness rejects incomplete plan"
 fi
+bad_plan_json="$(node "$ROOT/scripts/plan-readiness-check.mjs" "$bad_plan" --json 2>/dev/null || true)"
+assert_json_expr "plan readiness emits repair hints" "$bad_plan_json" '(.repairHints | length) > 0'
 good_plan="$TMPROOT/good-plan.md"
 cp "$ROOT/hooks/fixtures/plans/good-plan.md" "$good_plan"
 assert_command "plan readiness accepts complete plan" node "$ROOT/scripts/plan-readiness-check.mjs" "$good_plan"
+agent_template="$(node "$ROOT/scripts/agent-task-packet-check.mjs" --template write)"
+assert_json_expr "agent packet template includes write scope" "$agent_template" '.packet.writeScope[0] | length > 0'
+if node "$ROOT/scripts/agent-task-packet-check.mjs" --template >/dev/null 2>&1; then
+  not_ok "agent packet template requires explicit mode"
+else
+  ok "agent packet template requires explicit mode"
+fi
 assert_command "hindsight lesson syntax" python3 -m py_compile "$ROOT/hooks/cc-hindsight-lesson.py"
 settings_file="$ROOT/settings.json"
 if [[ ! -f "$settings_file" && -f "$ROOT/templates/settings.json" ]]; then

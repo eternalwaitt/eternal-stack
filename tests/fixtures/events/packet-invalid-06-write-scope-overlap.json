@@ -1,0 +1,23 @@
+{
+  "session_id": "fixture-packet-invalid",
+  "tool_name": "Task",
+  "tool_input": {
+    "packet": {
+      "mode": "write",
+      "goal": "update changelog",
+      "contextSummary": "disjoint ownership violation fixture",
+      "cwd": "/repo",
+      "scope": "CHANGELOG.md",
+      "readSet": ["CHANGELOG.md"],
+      "writeScope": "CHANGELOG.md",
+      "forbiddenPaths": ["CHANGELOG.md", "hooks"],
+      "expectedOutput": "updated changelog",
+      "verificationCommand": "node scripts/changelog-release-check.mjs",
+      "modelTier": "haiku",
+      "timeoutSec": 60,
+      "retryPolicy": { "maxRetries": 1, "backoff": "linear", "initialDelayMs": 100 },
+      "noRevert": true,
+      "webSearchGuidance": "no web search"
+    }
+  }
+}

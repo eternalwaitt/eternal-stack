@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
@@ -220,11 +221,9 @@ function extractSubagentText(event) {
 }
 
 function redactStdinPreview(raw) {
-  const redacted = raw.replace(
-    /((?:"|')?(api[_-]?key|access[_-]?key|private[_-]?key|client[_-]?secret|auth[_-]?token|refresh[_-]?token|token|secret|password|passwd|authorization|bearer|credential|jwt)(?:"|')?\s*[:=]\s*)(?:"[^"]*"|'[^']*'|[^\s"',}]+)/gi,
-    "$1[redacted]",
-  );
-  return redacted.length > 400 ? `${redacted.slice(0, 400)}... [truncated]` : redacted;
+  const content = String(raw || "");
+  const digest = createHash("sha256").update(content).digest("hex");
+  return `stdin redacted (bytes=${Buffer.byteLength(content, "utf8")} sha256=${digest})`;
 }
 
 function recordSubagent() {

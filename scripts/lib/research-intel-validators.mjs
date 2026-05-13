@@ -1,11 +1,12 @@
 const README_RE = /(^|\/)readme(\.[^/]+)?$/i;
+const ALLOWED_ENFORCEMENT_LEVELS = ["prompt_only", "agent_contract", "script_enforced", "hook_enforced", "test_enforced", "none"];
 
 function assert(condition, message, errors) {
   if (!condition) errors.push(message);
 }
 
 function isObject(value) {
-  return typeof value === "object" && value !== null;
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function validateManifestRow(row, index, errors) {
@@ -15,7 +16,12 @@ function validateManifestRow(row, index, errors) {
     return;
   }
   assert(typeof row.id === "string" && row.id.length > 0, `${prefix}.id is required`, errors);
-  assert(typeof row.repoUrl === "string" && /^https:\/\/github\.com\/[^/]+\/[^/]+\/?$/.test(row.repoUrl), `${prefix}.repoUrl must be GitHub URL`, errors);
+  assert(
+    typeof row.repoUrl === "string"
+      && /^https:\/\/github\.com\/[A-Za-z0-9-]+\/[A-Za-z0-9._-]+\/?$/.test(row.repoUrl),
+    `${prefix}.repoUrl must be GitHub URL`,
+    errors,
+  );
   assert(typeof row.commitSha === "string" && /^[A-Fa-f0-9]{40}$/.test(row.commitSha), `${prefix}.commitSha must be full SHA`, errors);
   assert(typeof row.license === "string" && row.license.length > 0, `${prefix}.license is required`, errors);
   assert(Array.isArray(row.analyzedPaths) && row.analyzedPaths.length > 0, `${prefix}.analyzedPaths must have entries`, errors);
@@ -50,7 +56,10 @@ function validateEvidenceItem(item, itemPrefix, errors) {
     return;
   }
   assert(typeof item.file === "string" && item.file.length > 0, `${itemPrefix}.file required`, errors);
+  // READMEs are docs surfaces, not implementation evidence rows for capability scoring.
   assert(!README_RE.test(item.file), `${itemPrefix}.file must not be README`, errors);
+  const allowedKinds = new Set(["code_ref", "negative_scan"]);
+  assert(typeof item.kind === "string" && allowedKinds.has(item.kind), `${itemPrefix}.kind must be one of: ${[...allowedKinds].join(", ")}`, errors);
   if (item.kind === "negative_scan") {
     assert(Number.isInteger(item.line) && item.line === 0, `${itemPrefix}.line must be 0 for negative_scan`, errors);
     assert(typeof item.reason === "string" && item.reason.length > 0, `${itemPrefix}.reason required for negative_scan`, errors);
@@ -71,8 +80,8 @@ function validateEvidenceRow(row, rowIndex, errors) {
   assert(typeof row.capability === "string" && row.capability.length > 0, `${prefix}.capability required`, errors);
   assert(["present", "partial", "absent"].includes(row.status), `${prefix}.status must be present|partial|absent`, errors);
   assert(
-    ["prompt_only", "script_enforced", "hook_enforced", "test_enforced", "none"].includes(row.enforcementLevel),
-    `${prefix}.enforcementLevel invalid`,
+    ALLOWED_ENFORCEMENT_LEVELS.includes(row.enforcementLevel),
+    `${prefix}.enforcementLevel invalid (allowed: ${ALLOWED_ENFORCEMENT_LEVELS.join(", ")})`,
     errors,
   );
   assert(Array.isArray(row.evidence) && row.evidence.length > 0, `${prefix}.evidence must be non-empty`, errors);

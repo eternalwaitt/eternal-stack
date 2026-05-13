@@ -36,22 +36,27 @@ Lead with findings. Treat the original request, written plan, actual diff, insta
 8. When findings are durable, record them with `node ~/.claude/scripts/review-log.mjs add --finding "<finding>" --severity <severity> --status open`.
 9. Say clearly when no blocking findings remain, and name any live-gated follow-up.
 
-## Research Flow (hook_enforced)
+## Research Flow (required_process)
 
 When reviewing strategy decisions, new skill designs, or hook behavior changes:
 
 1. Check whether a research artifact exists at `docs/research/capability-evidence.json` or `docs/research/top10-lock.json`.
+   - Prefer `capability-evidence.json` for row-level, code-cited review findings.
+   - Use `top10-lock.json` for competitor selection context and snapshot provenance when row-level evidence is missing.
 2. For any finding that recommends adding, removing, or changing a capability: cite the source row from the evidence file, or name the explicit gap from `docs/research/etrnl-parity-backlog.md`.
 3. Findings that recommend strategy changes without code-level evidence must be marked `(unverified — no source row)` and cannot be P0/P1 severity.
-4. If no research artifact exists and the scope warrants one, flag this as a missing precondition in the review output.
+4. If neither artifact exists and the scope warrants one, flag this as a missing precondition and ask for artifact generation before treating strategy findings as high-confidence.
 
-## TDD Enforcement (hook_enforced)
+## TDD Review Protocol (required_process)
 
 When reviewing implementation work:
 
 1. Confirm that failing tests were recorded before fixes were applied. If test evidence is missing, flag as a process gap.
-2. Verify that the full test suite was run after changes — not just the changed paths.
-3. For any new code path that lacks tests: flag as a missing coverage finding with the specific file and behavior that should be tested.
+2. For any new code path that lacks tests: flag as a missing coverage finding with the specific file and behavior that should be tested.
+
+## Verification Gate (hook_enforced)
+
+`hooks/cc-stop-verifier.sh` enforces completion-time evidence only: it blocks completion if edits exist but no verification/test run is recorded in guard state. It does not prove red-before-green ordering; reviewers still enforce that via the TDD Review Protocol above.
 
 ## Finding Format
 

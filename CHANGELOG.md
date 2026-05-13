@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## v0.1.10 - 2026-05-13
+
+- Reinject global/project `CLAUDE.md` context on every user prompt with a `CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD=0` kill switch.
+- Canonicalize installed hook commands during settings merge so `~/.claude` and absolute-home variants dedupe.
+- Add `settings-audit.mjs --fix` and matcher-set compaction so overlapping hook matchers are deduped during install.
+- Replace the legacy race-prone rate limiter with locked `cc-rate-limiter.sh` and migrate installed settings to it.
+- Add first-failure context/repeated-failure blocking, debounced observer warnings, output-limiter denial, directory `Read` preflight, task-packet templates, and plan-readiness repair hints.
+
+## v0.1.9 - 2026-05-12
+
+- Add install-aware update metadata, startup drift checks, and Gstack-style local auto-update support for the Claude control plane.
+
 ## v0.1.8 - 2026-05-11
 
 - Harden hook storm control-plane behavior with a shared command-classifier layer, state schema v2 auto-migration, command outcome tracking, and per-event batched state writes.
@@ -10,6 +22,8 @@
 - Scope port checks to dev-server commands only, require review evidence before risky completion commands, and require migration evidence for schema-related completion claims.
 - Add scrubbed replay fixtures plus `replay-hook-fixtures.mjs`, and expand hook tests with migration, override-token, degraded-mode, and structured-packet matrices.
 - Add a top-10 competitor code-intelligence pipeline with pinned manifests, non-README evidence contracts, and parity scorecard/backlog generation for all `etrnl-*` skills.
+- Require readiness-plan sections to include explicit verification gates and a standalone final `## Verdict` handoff.
+- Require planning flows to document research-gating for new capability claims and keep `CHANGELOG.md`, `docs/skills.md`, and `docs/health-stack.md` synchronized for repo-owned workflow changes.
 
 ## v0.1.7 - 2026-05-10
 

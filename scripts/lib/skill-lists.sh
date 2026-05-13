@@ -41,6 +41,7 @@ OWNED_AGENTS=(
 
 CRITICAL_HOOKS=(
   cc-pretooluse-guard.sh
+  cc-rate-limiter.sh
   cc-posttoolbatch-observer.sh
   cc-stop-verifier.sh
   cc-posttoolusefailure-diagnose.sh
@@ -51,9 +52,20 @@ CRITICAL_SCRIPTS=(
   plan-readiness-check.mjs
   agent-task-packet-check.mjs
   guard-override-token.mjs
+  lib/bash-array-parser.mjs
+  lib/cli-args.mjs
+  lib/plan-headings.mjs
+  lib/research-intel-core.mjs
+  lib/research-intel-render.mjs
+  lib/research-intel-validators.mjs
+  lib/skill-lists.sh
+  merge-settings.mjs
+  settings-audit.mjs
   replay-hook-fixtures.mjs
+  research-competitor-intel.mjs
   skill-contract-check.mjs
   skill-behavior-smoke.mjs
+  update-check.mjs
 )
 
 LEGACY_SKILLS=(

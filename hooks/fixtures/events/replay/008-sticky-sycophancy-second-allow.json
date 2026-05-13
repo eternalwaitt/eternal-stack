@@ -1,5 +1,6 @@
 {
   "hook": "cc-posttooluse-sycophancy.sh",
+  "_comment": "Dedup test for cc-posttooluse-sycophancy.sh PostToolUse in session replay-syc: first identical fingerprint is blocked in 007, subsequent identical fingerprint is allowed here.",
   "expected": { "kind": "allow", "allowEmptyOutput": true },
   "payload": {
     "session_id": "replay-syc",

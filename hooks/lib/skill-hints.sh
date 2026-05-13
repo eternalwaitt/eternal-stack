@@ -9,6 +9,13 @@ get_etrnl_skill_hint() {
   else
     skill_lists=""
   fi
+  if [[ -n "$skill_lists" && ! -f "$skill_lists" ]]; then
+    printf 'claude-guard warning: skill list not found: %s\n' "$skill_lists" >&2
+    skill_lists=""
+  elif [[ -n "$skill_lists" && ! -r "$skill_lists" ]]; then
+    printf 'claude-guard warning: skill list not readable: %s\n' "$skill_lists" >&2
+    skill_lists=""
+  fi
   if [[ -n "$skill_lists" && -r "$skill_lists" ]]; then
     # shellcheck source=scripts/lib/skill-lists.sh
     source "$skill_lists"
@@ -17,25 +24,8 @@ get_etrnl_skill_hint() {
     fi
   fi
   if [[ "${#skills[@]}" -eq 0 ]]; then
-    skills=(
-      etrnl-agent-files
-      etrnl-autoplan
-      etrnl-brainstorm
-      etrnl-code-health
-      etrnl-commit
-      etrnl-context-restore
-      etrnl-context-save
-      etrnl-deps
-      etrnl-execute
-      etrnl-fix-issue
-      etrnl-parallel
-      etrnl-plan
-      etrnl-pr
-      etrnl-qa-browser
-      etrnl-review
-      etrnl-stress-test
-      etrnl-test
-    )
+    printf 'claude-guard warning: OWNED_SKILLS missing; run scripts/doctor.sh to restore skill list sync\n' >&2
+    skills=("unknown")
   fi
   joined="$(IFS=', '; printf '%s' "${skills[*]}")"
   message="ETRNL skills: ${joined}"

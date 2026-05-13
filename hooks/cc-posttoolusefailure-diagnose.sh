@@ -14,7 +14,7 @@ source "$SCRIPT_DIR/lib/state.sh"
 cc_json_read_stdin
 cc_json_require_jq || exit 0
 cc_json_valid || exit 0
-cc_state_init
+cc_state_init || exit 0
 
 tool_name="$(cc_json_get '.tool_name // .toolName // .tool')"
 command="$(cc_json_get '.tool_input.command // .input.command // .command')"
@@ -26,5 +26,5 @@ count="$(jq --arg key "$key" '[.failures[]? | select(.value == $key)] | length' 
 if (( count >= 2 )); then
   cc_json_block "The same tool failure has repeated. Stop retrying the exact action; inspect syntax/help/logs or use a different approach."
 else
-  cc_json_block "Tool failed. Before retrying, inspect the error text, verify the command/tool syntax, and choose the next diagnostic step."
+  cc_json_emit_context "PostToolUseFailure" "Tool failed. Before retrying, inspect the error text, verify the command/tool syntax, and choose the next diagnostic step."
 fi

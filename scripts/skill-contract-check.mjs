@@ -86,14 +86,17 @@ function tryShells(shellAttempts, hintScript, timeoutMs) {
     if (result.status === 0) {
       return { succeeded: true, output: result.stdout, errors: shellErrors };
     }
-    shellErrors.push(`${attempt.shell}: ${result.stderr.trim() || result.stdout.trim() || `exit ${result.status}`}`);
+    const fallback = result.signal
+      ? (result.error?.code === "ETIMEDOUT" ? `timed out (${result.signal})` : `signal ${result.signal}`)
+      : `exit ${result.status}`;
+    shellErrors.push(`${attempt.shell}: ${result.stderr.trim() || result.stdout.trim() || fallback}`);
   }
   return { succeeded: false, output: "", errors: shellErrors };
 }
 
 const skillListsPath = path.join(root, "scripts/lib/skill-lists.sh");
 assertFile(skillListsPath, "skill list");
-const skillLists = existsSync(skillListsPath) ? read(skillListsPath) : "";
+const skillLists = read(skillListsPath);
 const ownedSkills = parseBashArray(skillLists, "OWNED_SKILLS", {
   onError: (detail) => fail(`scripts/lib/skill-lists.sh ${detail}`),
 });
@@ -124,9 +127,9 @@ for (const skill of ownedSkills) {
   const text = read(skillPath);
   const frontmatterName = skillFrontmatterName(text, relSkillPath);
   if (frontmatterName !== skill) fail(`${relSkillPath}: frontmatter name is ${frontmatterName || "<missing>"}, expected ${skill}`);
-  if (!docsSkills.includes(`/${skill}`)) fail(`docs/skills.md missing /${skill}`);
+  if (!docsSkills.includes(`/${skill}`)) fail(`${relSkillPath}: docs/skills.md missing /${skill}`);
   if (/\|\s*head\b/.test(text)) {
-    fail(`${skillPath}: contains legacy '| head' helper pattern`);
+    fail(`${relSkillPath}: contains legacy '| head' helper pattern`);
   }
 
   // For ~/.claude/script references in skill text, we validate repo source helpers

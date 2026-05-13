@@ -20,6 +20,7 @@ fd -t f -e sh . hooks scripts tests -x bash -n
 fd -t f -e sh . hooks scripts tests -X shellcheck -x
 node --check \
   scripts/merge-settings.mjs \
+  scripts/settings-audit.mjs \
   scripts/code-health-inventory.mjs \
   scripts/research-competitor-intel.mjs \
   scripts/lib/research-intel-core.mjs \

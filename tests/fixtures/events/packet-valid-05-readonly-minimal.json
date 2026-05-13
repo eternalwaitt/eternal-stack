@@ -4,7 +4,7 @@
   "tool_input": {
     "packet": {
       "mode": "read-only",
-      "goal": "verify all hook tests pass after Track A changes",
+      "goal": "verify all hook tests pass",
       "contextSummary": "Phase gate check; read hook test output only",
       "cwd": "/repo",
       "scope": "tests/",

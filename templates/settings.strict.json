@@ -6,7 +6,7 @@
           {
             "type": "command",
             "command": "bash ~/.claude/hooks/cc-sessionstart-restore.sh",
-            "timeout": 5
+            "timeout": 15
           }
         ]
       }
@@ -35,7 +35,7 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Bash|Edit|Write|MultiEdit|WebSearch|Task|TaskCreate|Agent",
+        "matcher": "Bash|Read|Edit|Write|MultiEdit|WebSearch|Task|TaskCreate|Agent",
         "hooks": [
           {
             "type": "command",
@@ -48,6 +48,11 @@
     "PostToolUse": [
       {
         "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/cc-rate-limiter.sh",
+            "timeout": 5
+          },
           {
             "type": "command",
             "command": "bash ~/.claude/hooks/cc-posttooluse-sycophancy.sh",

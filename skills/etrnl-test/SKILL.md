@@ -7,16 +7,20 @@ disable-model-invocation: true
 
 Run tests with red-green-refactor discipline. Evidence before fixes; gate before done.
 
-## TDD Enforcement (hook_enforced)
+## TDD Protocol (required_process)
 
 Before fixing any failing test or writing new tests:
 
 1. Capture the failing state: run the relevant test command and record the exact failure output (file, line, message).
 2. If adding a new test: write the test first (red), confirm it fails with the expected failure message, then implement the fix (green), then verify the test passes.
 3. Do not implement a fix before the failure is recorded as evidence.
-4. After fixing: run the full test suite (not just the changed tests) to confirm no regressions. A narrowed run is only allowed as a preview; the full suite is required before done.
+4. Here, "edits exist" means tracked source/runtime code changes or tracked test-file changes; documentation/editorial-only changes are excluded unless they also modify runtime or test code.
 
-This flow is enforced by `hooks/cc-stop-verifier.sh` — completion is blocked when edits exist but no test verification run is recorded.
+## Verification Gate (hook_enforced)
+
+After fixing: run the full test suite (not just the changed tests) to confirm no regressions. A narrowed run is only allowed as a preview; the full suite is required before done.
+
+`hooks/cc-stop-verifier.sh` enforces this completion gate by blocking completion when edits exist but no test verification run is recorded.
 
 ## Required Flow
 

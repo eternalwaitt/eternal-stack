@@ -6,6 +6,7 @@ import { argValue } from "./lib/cli-args.mjs";
 
 const args = process.argv.slice(2);
 const command = args[0] ?? "help";
+const strict = args.includes("--strict");
 
 function artifactDir() {
   return process.env.CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR
@@ -103,6 +104,8 @@ function summary() {
   const files = readdirSync(reportsDir()).filter((file) => file.endsWith(".json"));
   let openFindings = 0;
   let validReports = 0;
+  let skipped = 0;
+  const skippedFiles = [];
   for (const file of files) {
     let report;
     try {
@@ -110,6 +113,8 @@ function summary() {
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       console.error(`Skipping invalid report ${file}: ${detail}`);
+      skipped += 1;
+      skippedFiles.push(file);
       continue;
     }
     validReports += 1;
@@ -117,12 +122,18 @@ function summary() {
     openFindings += findings.filter((finding) => finding.status !== "fixed").length;
   }
   console.log(`browserQa reports=${validReports} openFindings=${openFindings}`);
+  if (skipped > 0) {
+    console.error(`browserQa warning: skippedReports=${skipped} files=${skippedFiles.join(",")}`);
+    if (strict) {
+      process.exit(1);
+    }
+  }
 }
 
 if (command === "create") create();
 else if (command === "validate") validate();
 else if (command === "summary") summary();
 else {
-  console.error("usage: browser-qa-report.mjs create|validate|summary");
+  console.error("usage: browser-qa-report.mjs create|validate|summary [--strict]");
   process.exit(2);
 }

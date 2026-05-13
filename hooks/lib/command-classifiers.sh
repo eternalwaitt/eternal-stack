@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  printf 'error: %s is a library and must be sourced\n' "${BASH_SOURCE[0]}" >&2
+  exit 1
+fi
+
 cc_command_normalize() {
   local cmd="$1"
   cmd="$(cc_command_trim "$cmd")"
@@ -20,6 +25,8 @@ cc_command_primary_segment() {
   segment="${segment%%;*}"
   segment="${segment%%&&*}"
   segment="${segment%%||*}"
+  # cc_command_primary_segment trims && first; this strips a later background '&'
+  # for simple background commands without breaking the earlier && split.
   segment="${segment%%&*}"
   cc_command_trim "$segment"
 }
@@ -61,6 +68,9 @@ cc_command_primary_token() {
   local segment token wrapper timeout_duration_pending i
   local -a tokens
   segment="$(cc_command_primary_segment "$1")"
+  if [[ -z "${segment//[[:space:]]/}" ]]; then
+    return 1
+  fi
   read -r -a tokens <<<"$segment"
   wrapper=""
   timeout_duration_pending=0
@@ -114,7 +124,8 @@ cc_command_has_output_limiter() {
   if [[ "$cmd" =~ \|[[:space:]]*(head|tail)([[:space:]]|$) ]]; then
     return 0
   fi
-  # Inspect only same-line sed args after a pipe; newline-separated payloads are excluded.
+  # Extract sed args after a pipe with `[^|;&[:cntrl:]]*`, which excludes control
+  # characters (including newlines), so multiline payload matches are disallowed.
   if [[ "$cmd" =~ \|[[:space:]]*sed[[:space:]]+([^|;&[:cntrl:]]*) ]]; then
     local sed_args
     sed_args="${BASH_REMATCH[1]}"
@@ -126,9 +137,13 @@ cc_command_has_output_limiter() {
 
 cc_command_is_primary_legacy_search() {
   local token next
-  token="$(cc_command_primary_token "$1" || true)"
+  if ! token="$(cc_command_primary_token "$1")"; then
+    return 1
+  fi
   if [[ "$token" == "rtk" ]]; then
-    next="$(cc_command_secondary_token "$1" || true)"
+    if ! next="$(cc_command_secondary_token "$1")"; then
+      return 1
+    fi
     case "$next" in
       grep|find|locate|ls|cat|head|tail|sed|awk|du) return 0 ;;
     esac
@@ -174,7 +189,9 @@ cc_command_is_review_verification() {
 cc_command_is_dev_server_start() {
   local cmd token
   cmd="$(cc_command_normalize "$1")"
-  token="$(cc_command_primary_token "$cmd" || true)"
+  if ! token="$(cc_command_primary_token "$cmd")"; then
+    token=""
+  fi
   [[ "$cmd" =~ (^|[[:space:];&|])(pnpm|npm|yarn|bun)[[:space:]]+(run[[:space:]]+)?(dev(:[a-z0-9_.-]+)?|start|preview|serve)([[:space:];&|]|$) ]] \
     || [[ "$token" =~ ^(node|deno)$ && "$cmd" =~ (^|[[:space:];&|])(dev|start|serve)([[:space:];&|]|$) ]] \
     || [[ "$cmd" =~ (next[[:space:]]+dev|vite([[:space:]]|$)|astro[[:space:]]+dev|nuxt([[:space:]]|$)|rails[[:space:]]+s|python[[:space:]]+-m[[:space:]]+http\.server) ]]
@@ -199,7 +216,7 @@ cc_command_is_prod_schema_mutation() {
   cmd="$(cc_command_normalize "$1")"
   env_hint="$(cc_command_normalize "${2:-}")"
   # Treat dev/test as local hints only when they are separated host-like labels.
-  local_hint_re='(localhost|127\.0\.0\.1|[./:_-](dev|test)([./:_-]|$))'
+  local_hint_re='(localhost(:[0-9]{1,5})?|127\.0\.0\.1(:[0-9]{1,5})?|[./:_-](dev|test|local|staging|qa)(:[0-9]{1,5}|[./:_-]|$))'
   if [[ ! "$cmd" =~ prisma[[:space:]]+db[[:space:]]+push ]]; then
     return 1
   fi
@@ -209,7 +226,13 @@ cc_command_is_prod_schema_mutation() {
   if [[ "$cmd" =~ (postgres(ql)?|mysql|https?)://[^[:space:]]*${local_hint_re} ]]; then
     return 1
   fi
-  if [[ -n "$env_hint" && "$env_hint" =~ (database_url|schema|url).*(localhost|127\.0\.0\.1|[./:_-](dev|test)([./:_-]|$)) ]]; then
+  if [[ "$cmd" =~ (\?|&)(sslmode=disable|ssl=false|ssl=0|tls=false|insecure=true)([&#[:space:]]|$) ]]; then
+    return 1
+  fi
+  if [[ -n "$env_hint" && "$env_hint" =~ (database_url|schema|url).*${local_hint_re} ]]; then
+    return 1
+  fi
+  if [[ -n "$env_hint" && "$env_hint" =~ (\?|&)(sslmode=disable|ssl=false|ssl=0|tls=false|insecure=true)([&#[:space:]]|$) ]]; then
     return 1
   fi
   return 0
@@ -222,7 +245,13 @@ cc_command_may_disclose_secret() {
     || [[ "$cmd" =~ (^|[[:space:]])printenv([[:space:]]|$) ]] \
     || [[ "$cmd" =~ (env[[:space:]]*\|[[:space:]]*cat) ]] \
     || [[ "$cmd" =~ database_url= ]] \
-    || [[ "$cmd" =~ (aws[[:space:]]+secretsmanager|op[[:space:]]+read|vault[[:space:]]+kv) ]]
+    || [[ "$cmd" =~ (aws[[:space:]]+secretsmanager|op[[:space:]]+read|vault[[:space:]]+kv) ]] \
+    || [[ "$cmd" =~ git[[:space:]]+credential ]] \
+    || [[ "$cmd" =~ aws[[:space:]]+sts[[:space:]]+get-session-token ]] \
+    || [[ "$cmd" =~ kubectl[[:space:]]+get[[:space:]]+secret([[:space:]]|$).*(-o|--output)[[:space:]]*(yaml|json) ]] \
+    || [[ "$cmd" =~ docker[[:space:]]+inspect ]] \
+    || [[ "$cmd" =~ (^|[[:space:]])export[[:space:]]+[A-Za-z_][A-Za-z0-9_]*= ]] \
+    || [[ "$cmd" =~ base64[[:space:]]+(-d|--decode) ]]
 }
 
 cc_command_fingerprint() {

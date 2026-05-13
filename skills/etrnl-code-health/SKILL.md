@@ -18,14 +18,14 @@ Run code health as a closed-loop audit, not as a vague lint pass. Route to deter
 - `fix`: apply fixes only after audit evidence exists or the user explicitly asks to fix all valid findings.
 - `no-skips`: every tracked file is inventoried and every finding is dispositioned.
 
-## TDD Enforcement (hook_enforced)
+## TDD Enforcement (skill_process)
 
 When the audit triggers fixes, apply red-green-refactor discipline:
 
 1. For each finding that maps to a regression or missing test: identify the test file or command that would catch it.
 2. Confirm the test currently fails (red) before applying a fix. If no test exists, write the minimal test first.
 3. Apply the fix (green). Confirm the test passes.
-4. Rerun the full health gate — not just the changed paths — before marking the finding `fixed`.
+4. Rerun the canonical health gate — `tests/test-hooks.sh` and `scripts/doctor.sh` — not just the changed paths, and require both to pass before marking the finding `fixed`.
 
 Do not mark a finding `fixed` based on inspection alone. Require a passing gate run as evidence.
 
@@ -55,7 +55,7 @@ Do not mark a finding `fixed` based on inspection alone. Require a passing gate 
    - `ast-grep` for structural naming/import/API-pattern sweeps.
 5. Create a findings ledger.
 6. Fix in batches only when the mode allows edits.
-7. Rerun the full required gate, not changed-files-only, before declaring whole-codebase health.
+7. Rerun the canonical health gate (`tests/test-hooks.sh` and `scripts/doctor.sh`), not changed-files-only, before declaring whole-codebase health.
 
 ## No-Skips Contract
 

@@ -14,7 +14,7 @@
       ],
       "writeScope": "scripts/example.mjs",
       "forbiddenPaths": [
-        "package manifests"
+        "package.json"
       ],
       "expectedOutput": "changed files and verification",
       "verificationCommand": "pnpm test",

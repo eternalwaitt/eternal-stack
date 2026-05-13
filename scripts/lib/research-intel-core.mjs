@@ -47,8 +47,12 @@ export const CAPABILITY_DEFS = [
 
 const RELEVANT_SEGMENTS = ["skill", "hook", "command", "workflow", "script", "agent", "test"];
 const TEXT_EXTENSIONS = new Set([".md", ".sh", ".mjs", ".js", ".jsx", ".ts", ".tsx", ".json", ".yaml", ".yml", ".toml", ".ini", ".hcl", ".py", ".txt"]);
+// Capture enough matches to avoid missing relevant evidence in larger repos before dedupe/scoring.
 export const RAW_EVIDENCE_LIMIT = 6;
+// Keep only the strongest compact subset per capability row to limit report noise.
 export const FINAL_EVIDENCE_LIMIT = 3;
+export const PRESENT_EVIDENCE_THRESHOLD = 2;
+export const PARTIAL_EVIDENCE_THRESHOLD = 1;
 
 export function readJson(filePath) {
   try {
@@ -62,7 +66,7 @@ export function readJson(filePath) {
 
 export function writeJson(filePath, data) {
   mkdirSync(path.dirname(filePath), { recursive: true });
-  writeFileSync(filePath, `${JSON.stringify(data, null, 2)}\n`, "utf8");
+  writeFileSync(filePath, `${JSON.stringify(data, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
 }
 
 function normalizePath(value) {
@@ -146,29 +150,31 @@ function collectEvidenceForCapability(repoRoot, relFiles, capability) {
     const scoreDiff = filePriority(left) - filePriority(right);
     return scoreDiff !== 0 ? scoreDiff : left.localeCompare(right);
   });
-  const patternsByFlags = capability.patterns.reduce((map, pattern) => {
-    const normalizedFlags = Array.from(
-      new Set(pattern.flags.split("").filter((flag) => flag !== "g" && flag !== "y")),
-    ).sort().join("");
-    const grouped = map.get(normalizedFlags) ?? [];
-    grouped.push(pattern);
-    map.set(normalizedFlags, grouped);
-    return map;
-  }, new Map());
-  const combinedPatterns = [...patternsByFlags.entries()].map(([flags, patterns]) =>
-    new RegExp(patterns.map((pattern) => `(?:${pattern.source})`).join("|"), flags),
-  );
+  const normalizedPatterns = capability.patterns.map((pattern) => ({
+    source: pattern.source,
+    flags: Array.from(new Set(pattern.flags.split("").filter((flag) => flag !== "g" && flag !== "y"))).sort().join(""),
+  }));
+  const uniqueFlags = [...new Set(normalizedPatterns.map((pattern) => pattern.flags))];
+  const combinedPatterns = uniqueFlags.length === 1
+    ? [new RegExp(normalizedPatterns.map((pattern) => `(?:${pattern.source})`).join("|"), uniqueFlags[0])]
+    : uniqueFlags.map((flags) => {
+        const grouped = normalizedPatterns.filter((pattern) => pattern.flags === flags);
+        return new RegExp(grouped.map((pattern) => `(?:${pattern.source})`).join("|"), flags);
+      });
   const evidence = [];
   for (const relPath of prioritized) {
+    if (evidence.length >= RAW_EVIDENCE_LIMIT) return evidence;
     const absPath = path.join(repoRoot, relPath);
-    let lines;
+    let fileText;
     try {
-      lines = readFileSync(absPath, "utf8").split(/\r?\n/);
+      fileText = readFileSync(absPath, "utf8");
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       console.warn(`research-intel-core warning: cannot read file ${absPath}: ${detail}`);
       continue;
     }
+    if (!combinedPatterns.some((pattern) => pattern.test(fileText))) continue;
+    const lines = fileText.split(/\r?\n/);
     for (let index = 0; index < lines.length; index += 1) {
       const line = lines[index];
       if (!combinedPatterns.some((pattern) => pattern.test(line))) continue;
@@ -227,13 +233,21 @@ export function extractCompetitor(repoRoot, competitorId) {
   const rows = CAPABILITY_DEFS.map((capability) => {
     const rawEvidence = collectEvidenceForCapability(repoRoot, relFiles, capability);
     const evidence = dedupeEvidence(rawEvidence).slice(0, FINAL_EVIDENCE_LIMIT);
-    const status = evidence.length >= 2 ? "present" : evidence.length === 1 ? "partial" : "absent";
+    const strongEvidence = evidence.some((item) =>
+      item.strength === "high" || item.enforcementHint === "hook_enforced" || item.enforcementHint === "test_enforced"
+    );
+    const status = strongEvidence || evidence.length >= PRESENT_EVIDENCE_THRESHOLD
+      ? "present"
+      : evidence.length >= PARTIAL_EVIDENCE_THRESHOLD
+        ? "partial"
+        : "absent";
     if (status === "absent") return buildAbsentRow(competitorId, capability, relFiles, extractedAt);
     const normalizedEvidence = evidence.map((item) => ({
       file: item.file,
       line: item.line,
       snippet: item.snippet,
       kind: "code_ref",
+      enforcementHint: item.enforcementHint ?? "none",
       lastValidated: extractedAt,
     }));
     return {

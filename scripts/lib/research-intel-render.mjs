@@ -10,10 +10,19 @@ function escapeTableCell(value) {
     .replace(/\r?\n/g, " ");
 }
 
-function statusEmoji(status) {
+function statusLabel(status) {
   if (status === "present") return "does";
   if (status === "partial") return "partial";
   return "does-not";
+}
+
+function prioritySortValue(priority) {
+  const value = String(priority ?? "").trim().toUpperCase();
+  const milestone = value.match(/\bP(\d+)\b/);
+  if (milestone) return Number.parseInt(milestone[1], 10);
+  const numericPrefix = value.match(/^-?\d+(?:\.\d+)?/);
+  const numeric = numericPrefix ? Number.parseFloat(numericPrefix[0]) : Number.NaN;
+  return Number.isFinite(numeric) ? numeric : Number.POSITIVE_INFINITY;
 }
 
 export function markerRows(manifest, evidenceDoc) {
@@ -35,7 +44,7 @@ export function markerRows(manifest, evidenceDoc) {
     const rows = rowsByCompetitor.get(competitor.id) ?? [];
     const byCapability = Object.fromEntries(rows.map((row) => [row.capability, row]));
     const cells = Object.fromEntries(
-      Object.values(byCapability).map((row) => [row.capability, `${statusEmoji(row.status)}/${row.enforcementLevel}`]),
+      Object.values(byCapability).map((row) => [row.capability, `${statusLabel(row.status)}/${row.enforcementLevel}`]),
     );
     return { id: competitor.id, rows: byCapability, cells };
   });
@@ -104,7 +113,13 @@ export function renderParityBacklog(scorecard) {
     "| Skill | Priority | Milestone | Gaps |",
     "| --- | --- | --- | --- |",
   ];
-  const sorted = [...scorecard.scorecards].sort((a, b) => String(a.priority ?? "").localeCompare(String(b.priority ?? "")));
+  const sorted = [...scorecard.scorecards].sort((a, b) => {
+    // Sort numerically by `P#`/numeric priority first, then lexicographically as a stable tie-breaker.
+    const left = prioritySortValue(a.priority);
+    const right = prioritySortValue(b.priority);
+    if (left !== right) return left - right;
+    return String(a.priority ?? "").localeCompare(String(b.priority ?? ""));
+  });
   for (const row of sorted) {
     const gaps = row.gaps.map((gap) => `${gap.capability}:${gap.target}`).join("; ");
     lines.push(`| ${row.etrnlSkill} | ${row.priority} | ${row.targetMilestone} | ${gaps || "none"} |`);

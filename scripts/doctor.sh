@@ -48,12 +48,48 @@ read_skill_hint_fallback() {
   local line in_array=0
   while IFS= read -r line; do
     if (( in_array == 0 )); then
+      # Entry detection: start parsing only once we hit the `skills=(` line.
       [[ "$line" =~ ^[[:space:]]*skills=\([[:space:]]*$ ]] || continue
       in_array=1
       continue
     fi
+    # Closing-paren detection: stop after the array body.
     [[ "$line" =~ ^[[:space:]]*\)[[:space:]]*$ ]] && break
-    line="${line%%#*}"
+    # Empty-line handling: preserve behavior by skipping blank entries.
+    if [[ -n "$line" ]]; then
+      # Array body accumulation: remove inline comments safely via Python unescape logic.
+      line="$(python3 - "$line" <<'PY'
+import sys
+line = sys.argv[1]
+out = []
+in_single = False
+in_double = False
+escaped = False
+for ch in line:
+    if escaped:
+        out.append(ch)
+        escaped = False
+        continue
+    if ch == "\\" and not in_single:
+        out.append(ch)
+        escaped = True
+        continue
+    if ch == "'" and not in_double:
+        in_single = not in_single
+        out.append(ch)
+        continue
+    if ch == '"' and not in_single:
+        in_double = not in_double
+        out.append(ch)
+        continue
+    if ch == "#" and not in_single and not in_double:
+        break
+    out.append(ch)
+print("".join(out))
+PY
+)"
+    fi
+    # Normalize whitespace before emitting parsed values.
     line="${line#"${line%%[![:space:]]*}"}"
     line="${line%"${line##*[![:space:]]}"}"
     [[ -z "$line" ]] && continue
@@ -71,6 +107,13 @@ if [[ -f "$ROOT/hooks/lib/skill-hints.sh" ]]; then
   while IFS= read -r fallback_skill; do
     hint_fallback_skills+=("$fallback_skill")
   done < <(read_skill_hint_fallback "$ROOT/hooks/lib/skill-hints.sh")
+  if (( ${#hint_fallback_skills[@]} == 0 )); then
+    if rg -q "OWNED_SKILLS" "$ROOT/hooks/lib/skill-hints.sh"; then
+      ok "skill-hints derive from OWNED_SKILLS"
+    else
+      fail "hooks/lib/skill-hints.sh has no fallback list and does not derive from OWNED_SKILLS"
+    fi
+  else
   hint_mismatch=0
   hint_mismatch_detail=""
   if (( ${#hint_fallback_skills[@]} != ${#OWNED_SKILLS[@]} )); then
@@ -89,6 +132,7 @@ if [[ -f "$ROOT/hooks/lib/skill-hints.sh" ]]; then
     ok "skill-hint fallback list synchronized with OWNED_SKILLS"
   else
     fail "hooks/lib/skill-hints.sh fallback list differs from scripts/lib/skill-lists.sh OWNED_SKILLS (${hint_mismatch_detail})"
+  fi
   fi
 else
   fail "hooks/lib/skill-hints.sh missing"
@@ -127,6 +171,11 @@ else
   # Installed doctors run after settings were already merged; source checkouts must still keep merge-settings.mjs.
   ok "merge-settings check skipped outside source checkout"
 fi
+if [[ -f "$ROOT/scripts/settings-audit.mjs" ]]; then
+  report_command "settings-audit syntax valid" "settings-audit syntax invalid" node --check "$ROOT/scripts/settings-audit.mjs"
+else
+  fail "settings-audit script missing"
+fi
 if [[ -f "$ROOT/scripts/code-health-inventory.mjs" ]]; then
   report_command "code-health inventory syntax valid" "code-health inventory syntax invalid" node --check "$ROOT/scripts/code-health-inventory.mjs"
   report_command "code-health inventory runs" "code-health inventory failed" node "$ROOT/scripts/code-health-inventory.mjs" --json --quiet
@@ -138,7 +187,7 @@ if [[ -f "$ROOT/scripts/plan-readiness-check.mjs" ]]; then
 else
   fail "plan readiness script missing"
 fi
-for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger execution-wave-check review-log project-buglog browser-qa-report context-state workflow-health prompt-budget-check skill-contract-check skill-behavior-smoke changelog-release-check port-guard research-competitor-intel; do
+for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger execution-wave-check review-log project-buglog browser-qa-report context-state workflow-health prompt-budget-check skill-contract-check skill-behavior-smoke changelog-release-check port-guard update-check research-competitor-intel settings-audit; do
   if [[ -f "$ROOT/scripts/$script.mjs" ]]; then
     report_command "$script syntax valid" "$script syntax invalid" node --check "$ROOT/scripts/$script.mjs"
   else
@@ -167,12 +216,8 @@ fi
 if [[ -f "$ROOT/scripts/prompt-budget-check.mjs" ]]; then
   report_command "repo-owned prompt budget check clean" "repo-owned prompt budget check failed" node "$ROOT/scripts/prompt-budget-check.mjs" "$ROOT" --owned-only
 fi
-if [[ -f "$ROOT/scripts/skill-contract-check.mjs" ]]; then
-  report_command "etrnl skill contracts clean" "etrnl skill contract check failed" node "$ROOT/scripts/skill-contract-check.mjs" --root "$ROOT"
-fi
-if [[ -f "$ROOT/scripts/skill-behavior-smoke.mjs" ]]; then
-  report_command "etrnl skill behavior smoke clean" "etrnl skill behavior smoke failed" node "$ROOT/scripts/skill-behavior-smoke.mjs" --root "$ROOT"
-fi
+report_command "etrnl skill contracts clean" "etrnl skill contract check failed" node "$ROOT/scripts/skill-contract-check.mjs" --root "$ROOT"
+report_command "etrnl skill behavior smoke clean" "etrnl skill behavior smoke failed" node "$ROOT/scripts/skill-behavior-smoke.mjs" --root "$ROOT"
 research_inputs_ok=1
 if [[ ! -f "$ROOT/scripts/research-competitor-intel.mjs" ]]; then
   fail "research-competitor-intel script missing"
@@ -203,6 +248,8 @@ fi
 
 if [[ -f "$ROOT/templates/settings.json" && -f "$ROOT/templates/settings.strict.json" ]]; then
   report_command "settings templates valid" "settings template invalid" jq empty "$ROOT/templates/settings.json" "$ROOT/templates/settings.strict.json"
+  report_command "settings default audit clean" "settings default audit failed" node "$ROOT/scripts/settings-audit.mjs" "$ROOT/templates/settings.json"
+  report_command "settings strict audit clean" "settings strict audit failed" node "$ROOT/scripts/settings-audit.mjs" "$ROOT/templates/settings.strict.json"
   if jq -e '.hooks.PreToolUse and .hooks.PostToolUse and .hooks.PostToolUseFailure and .hooks.Stop and .hooks.SubagentStop and .hooks.PreCompact and .hooks.PostCompact' "$ROOT/templates/settings.strict.json" >/dev/null; then
     ok "strict template registers blocker hooks"
   else
@@ -210,6 +257,7 @@ if [[ -f "$ROOT/templates/settings.json" && -f "$ROOT/templates/settings.strict.
   fi
 elif [[ -f "$ROOT/settings.json" ]]; then
   report_command "installed settings valid" "installed settings invalid" jq empty "$ROOT/settings.json"
+  report_command "installed settings audit clean" "installed settings audit failed" node "$ROOT/scripts/settings-audit.mjs" "$ROOT/settings.json"
 else
   ok "settings template check skipped outside source checkout"
 fi
@@ -344,6 +392,16 @@ if [[ -x "$ROOT/scripts/rollback-local.sh" ]]; then
   ok "rollback script present"
 else
   fail "rollback script missing"
+fi
+if [[ -x "$ROOT/scripts/update.sh" ]]; then
+  ok "update script present"
+else
+  fail "update script missing"
+fi
+if [[ -f "$ROOT/control-plane/install.json" ]]; then
+  report_command "installed update metadata valid" "installed update metadata invalid" jq empty "$ROOT/control-plane/install.json"
+elif [[ -f "$ROOT/scripts/update-check.mjs" ]]; then
+  report_command "source update fingerprint available" "source update fingerprint failed" node "$ROOT/scripts/update-check.mjs" --fingerprint-source "$ROOT"
 fi
 
 companion_hits=0

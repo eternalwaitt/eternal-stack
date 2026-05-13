@@ -27,9 +27,13 @@ REPEATED_EDIT_THRESHOLD=3
 BUGLOG_WARN_INTERVAL_SEC=300
 BUGLOG_LOCK_ROOT="${TMPDIR:-/tmp}/claude-guard-buglog-locks"
 BUGLOG_RECORD_TIMEOUT_SEC=10
-# find -mmin uses minutes; keeping "+${BUGLOG_RECORD_TIMEOUT_SEC}" intentionally yields
-# a conservative 10-minute stale-lock cleanup window at the 10-second default timeout.
-BUGLOG_STALE_LOCK_MMIN="+${BUGLOG_RECORD_TIMEOUT_SEC}"
+# find -mmin uses minutes (not seconds): "+N" means "older than N minutes".
+# Convert BUGLOG_RECORD_TIMEOUT_SEC to minutes (rounded up, min 1) for stale-lock cleanup.
+BUGLOG_STALE_LOCK_MINUTES="$(((BUGLOG_RECORD_TIMEOUT_SEC + 59) / 60))"
+if (( BUGLOG_STALE_LOCK_MINUTES < 1 )); then
+  BUGLOG_STALE_LOCK_MINUTES=1
+fi
+BUGLOG_STALE_LOCK_MMIN="+${BUGLOG_STALE_LOCK_MINUTES}"
 
 rate_limited_buglog_warn() {
   local local_abs="$1"
@@ -75,14 +79,18 @@ run_buglog_record_with_timeout() {
   while kill -0 "$pid" 2>/dev/null; do
     now="$(date +%s)"
     if (( now - start >= timeout_sec )); then
-      kill "$pid" 2>/dev/null || true
-      sleep 1
-      kill -9 "$pid" 2>/dev/null || true
-      wait "$pid" 2>/dev/null || true
+      if kill -0 "$pid" 2>/dev/null; then
+        kill "$pid" 2>/dev/null || true
+        sleep 0.2
+        if kill -0 "$pid" 2>/dev/null; then
+          kill -9 "$pid" 2>/dev/null || true
+        fi
+        wait "$pid" 2>/dev/null || true
+      fi
       return 124
     fi
-    # One-second polling keeps hook overhead low; timeout can overshoot by <1s.
-    sleep 1
+    # Poll quickly so fallback timeout behavior stays close to timeout(1).
+    sleep 0.1
   done
   wait "$pid"
 }
@@ -126,18 +134,21 @@ mark_edit_in_batch() {
     if command -v node >/dev/null 2>&1 && [[ -f "$SCRIPT_DIR/../scripts/project-buglog.mjs" ]]; then
       local buglog_lock
       buglog_lock="${BUGLOG_LOCK_ROOT}/$(printf '%s' "$local_abs" | tr -cs '[:alnum:]' '_')"
-      mkdir -p "$BUGLOG_LOCK_ROOT" 2>/dev/null || true
-      find "$BUGLOG_LOCK_ROOT" -mindepth 1 -maxdepth 1 -type d -mmin "$BUGLOG_STALE_LOCK_MMIN" -exec rmdir {} + 2>/dev/null || true
-      if mkdir "$buglog_lock" 2>/dev/null; then
-        if ! run_buglog_record_with_timeout "$BUGLOG_RECORD_TIMEOUT_SEC" node "$SCRIPT_DIR/../scripts/project-buglog.mjs" record \
-          --cwd "$cwd" \
-          --file "$local_abs" \
-          --category repeat-edit \
-          --summary "This file was edited repeatedly in one session; check the previous failed approach before patching again." \
-          --session "$session_id"; then
-          rate_limited_buglog_warn "$local_abs" "$session_id"
+      if ! mkdir -p "$BUGLOG_LOCK_ROOT" 2>/dev/null; then
+        rate_limited_buglog_warn "$local_abs" "$session_id"
+      else
+        find "$BUGLOG_LOCK_ROOT" -mindepth 1 -maxdepth 1 -type d -mmin "$BUGLOG_STALE_LOCK_MMIN" -exec rmdir {} + 2>/dev/null || true
+        if mkdir "$buglog_lock" 2>/dev/null; then
+          if ! run_buglog_record_with_timeout "$BUGLOG_RECORD_TIMEOUT_SEC" node "$SCRIPT_DIR/../scripts/project-buglog.mjs" record \
+            --cwd "$cwd" \
+            --file "$local_abs" \
+            --category repeat-edit \
+            --summary "This file was edited repeatedly in one session; check the previous failed approach before patching again." \
+            --session "$session_id"; then
+            rate_limited_buglog_warn "$local_abs" "$session_id"
+          fi
+          rmdir "$buglog_lock" 2>/dev/null || true
         fi
-        rmdir "$buglog_lock" 2>/dev/null || true
       fi
     fi
   fi
@@ -238,14 +249,33 @@ fi
 
 state="$(cc_state_read)"
 warnings=()
+add_warning() {
+  local fingerprint_source="$1"
+  local message="$2"
+  local fingerprint
+  fingerprint="$(cc_command_fingerprint "$fingerprint_source" 2>/dev/null || printf 'missing-hash')"
+  if [[ "$fingerprint" == "missing-hash" ]]; then
+    warnings+=("$message")
+    return 0
+  fi
+  if cc_state_has_warning_fingerprint "$fingerprint"; then
+    return 0
+  fi
+  cc_state_record_warning_fingerprint "$fingerprint" || true
+  warnings+=("$message")
+}
+
 if jq -e '(.edits | length) > 0 and ((.qualityRuns | length) == 0)' <<<"$state" >/dev/null; then
-  warnings+=("Quality verification is stale or missing after edits.")
+  edit_generation="$(jq -r '.editGeneration // 0' <<<"$state" 2>/dev/null || printf '0')"
+  add_warning "quality-missing:${edit_generation}" "Quality verification is stale or missing after edits."
 fi
 if jq -e '(.requestedSkills | length) > 0 and ((.skillCalls | length) == 0)' <<<"$state" >/dev/null; then
-  warnings+=("A requested skill has not been recorded yet.")
+  requested_count="$(jq -r '(.requestedSkills // []) | length' <<<"$state" 2>/dev/null || printf '0')"
+  add_warning "requested-skill-missing:${requested_count}" "A requested skill has not been recorded yet."
 fi
 if jq -e '((.repeatedEditFiles // {}) | length) > 0' <<<"$state" >/dev/null; then
-  warnings+=("Repeated edits detected; bug memory has been updated and a second-pass review may be required.")
+  repeated_keys="$(jq -r '((.repeatedEditFiles // {}) | keys | sort | join(","))' <<<"$state" 2>/dev/null || printf 'unknown')"
+  add_warning "repeated-edits:${repeated_keys}" "Repeated edits detected; bug memory has been updated and a second-pass review may be required."
 fi
 
 if (( ${#warnings[@]} > 0 )); then

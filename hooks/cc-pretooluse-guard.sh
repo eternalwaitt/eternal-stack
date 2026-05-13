@@ -33,6 +33,7 @@ source "$SCRIPT_DIR/../scripts/lib/skill-lists.sh"
 #    |                               no
 #    +-------------------------------> [repeat/evidence checks] --> [allow/deny]
 
+# Intentional module-level globals used across helper functions in this hook.
 current_tool=""
 current_bash_command=""
 cwd=""
@@ -52,6 +53,16 @@ deny() {
   exit 0
 }
 
+emit_state_init_failure_event() {
+  local metrics_path now host payload
+  metrics_path="${CLAUDE_GUARD_METRICS_PATH:-${TMPDIR:-/tmp}/claude-guard-metrics.jsonl}"
+  now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  host="$(hostname 2>/dev/null || printf 'unknown-host')"
+  payload="$(jq -cn --arg at "$now" --arg host "$host" --arg hook "cc-pretooluse-guard" --arg event "state_init_failed" \
+    '{event: $event, hook: $hook, at: $at, host: $host, cause: "cc_state_init returned non-zero"}')"
+  printf '%s\n' "$payload" >>"$metrics_path" 2>/dev/null || true
+}
+
 cc_json_read_stdin
 if ! cc_json_require_jq; then
   if [[ "${CC_ALLOW_NO_JQ:-0}" == "1" ]]; then
@@ -66,6 +77,7 @@ fi
 cc_json_valid || fail_open "invalid JSON input"
 if ! cc_state_init; then
   printf 'claude-guard warning: state init failed in pretooluse guard; continuing with degraded state tracking\n' >&2
+  emit_state_init_failure_event
 fi
 
 current_tool="$(cc_json_get '.tool_name // .toolName // .tool')"
@@ -134,6 +146,16 @@ is_source_edit_tool() {
     Edit|Write|MultiEdit) return 0 ;;
     *) return 1 ;;
   esac
+}
+
+handle_read() {
+  local file_path abs
+  file_path="$(cc_json_get '.tool_input.file_path')"
+  abs="$(cc_abs_path "$file_path" "$cwd")"
+  if [[ -n "$abs" && -d "$abs" ]]; then
+    deny "Read was pointed at a directory: $abs. Use fd/eza for directory listing or read a specific file path."
+  fi
+  cc_json_allow
 }
 
 command_is_email_send() {
@@ -264,7 +286,7 @@ migration_evidence_missing() {
 verify_override_token() {
   local command="$1"
   local action="$2"
-  local override_script token fingerprint output marker safe_reason session_id
+  local override_script token fingerprint output marker safe_reason safe_reason_raw omitted_chars session_id
   override_script="$SCRIPT_DIR/../scripts/guard-override-token.mjs"
   if [[ ! -f "$override_script" ]] || ! command -v node >/dev/null 2>&1; then
     deny "Safety-critical command blocked: override verification is unavailable. Install the control-plane scripts and retry with a one-time approved override token."
@@ -284,8 +306,13 @@ verify_override_token() {
   if [[ -z "$fingerprint" || "$fingerprint" == "missing-hash" ]]; then
     deny "Safety-critical command blocked: unable to fingerprint command for override validation."
   fi
-  if ! output="$(node "$override_script" verify --session "$session_id" --command-fingerprint "$fingerprint" --token "$token" 2>&1)"; then
-    safe_reason="$(printf '%s' "$output" | tr -d '\000-\011\013\014\016-\037\177' | tr -d '\033' | tr '\n' ' ' | sed -E 's/[[:space:]]+/ /g' | cut -c1-240)"
+  if ! output="$(CLAUDE_GUARD_OVERRIDE_TOKEN="$token" node "$override_script" verify --session "$session_id" --command-fingerprint "$fingerprint" 2>&1)"; then
+    safe_reason_raw="$(printf '%s' "$output" | tr -d '\000-\011\013\014\016-\037\177' | tr -d '\033' | tr '\n' ' ' | sed -E 's/[[:space:]]+/ /g')"
+    safe_reason="$safe_reason_raw"
+    if (( ${#safe_reason_raw} > 240 )); then
+      omitted_chars=$(( ${#safe_reason_raw} - 240 ))
+      safe_reason="${safe_reason_raw:0:240}... (truncated, ${omitted_chars} chars omitted)"
+    fi
     deny "Safety-critical command blocked: override token rejected: ${safe_reason:-unknown error}."
   fi
   marker="override:${fingerprint}:$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -312,6 +339,9 @@ handle_bash() {
 
   if cc_command_is_primary_legacy_search "$cmd"; then
     deny "Use the modern CLI toolkit instead of legacy shell commands. Prefer rg/fd/bat/eza/sd/dust/trash, or project scripts that wrap them intentionally. Also avoid piping to legacy tools (head, tail, grep, sed, awk, cat) — use rg for search, bat for display, eza for listing."
+  fi
+  if cc_command_has_output_limiter "$cmd"; then
+    deny "Avoid shell output-limiter pipes such as head, tail, or sed -n after another command. Use native limits instead, for example rg -m/--max-count, fd --max-results, bat --line-range, jq filters, or write a bounded report file."
   fi
 
   local success_count
@@ -368,21 +398,28 @@ handle_bash() {
 }
 
 handle_edit() {
-  local file_path abs text old_text violation tmp context is_new_source new_count bug_context
+  local file_path abs text old_text violation tmp context is_new_source new_count bug_context old_text_status
   file_path="$(cc_json_get '.tool_input.file_path')"
   abs="$(cc_abs_path "$file_path" "$cwd")"
   text="$(cc_extract_edit_text)"
-  old_text="$(cc_extract_old_edit_text)"
+  old_text=""
+  if old_text="$(cc_extract_old_edit_text)"; then
+    old_text_status=0
+  else
+    old_text_status=$?
+  fi
   context=""
   is_new_source=false
 
   if violation="$(cc_policy_violation "$text")"; then
     deny "$violation"
   fi
+  if [[ -n "$abs" && "$current_tool" == "Write" && -e "$abs" && "$old_text_status" -ne 0 ]]; then
+    deny "Cannot read existing content for safety checks: $abs"
+  fi
   if [[ -n "$abs" && "$current_tool" == "Write" && -f "$abs" ]]; then
     if ! old_text="$(<"$abs" 2>/dev/null)"; then
-      printf 'claude-guard warning: could not read existing file for safety check: %s\n' "$abs" >&2
-      old_text=""
+      deny "Cannot read existing file for safety checks: $abs"
     fi
   fi
   if [[ -n "$abs" ]] && (cc_is_source_path "$abs" || [[ "$abs" == *.json || "$abs" == *.yaml || "$abs" == *.yml || "$abs" == *.toml ]] ); then
@@ -447,7 +484,7 @@ handle_edit() {
   else
     cc_json_allow
   fi
-  exit 0
+  return 0
 }
 
 handle_websearch() {
@@ -470,6 +507,10 @@ handle_agent() {
 }
 
 case "$current_tool" in
+  Read)
+    block_evidence_discipline_before_tool
+    handle_read
+    ;;
   Bash)
     block_evidence_discipline_before_tool
     handle_bash "$(cc_json_get '.tool_input.command // .input.command // .command')"
@@ -486,6 +527,7 @@ case "$current_tool" in
     block_evidence_discipline_before_tool
     if is_source_edit_tool; then
       handle_edit
+      exit 0
     fi
     cc_json_allow
     ;;

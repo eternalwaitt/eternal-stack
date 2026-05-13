@@ -8,8 +8,9 @@ import { argValue as readArgValue } from "./lib/cli-args.mjs";
 const args = process.argv.slice(2);
 const command = args[0] ?? "help";
 const RESOLVED = new Set(["resolved", "fixed", "auto-fixed", "false-positive", "skipped"]);
-
-const argValue = (flag, fallback = "") => readArgValue(args, flag, fallback);
+const ALLOWED_SEVERITIES = new Set(["critical", "p0", "p1", "p2", "p3", "major", "minor", "trivial", "warning", "info"]);
+const ALLOWED_STATUSES = new Set(["open", "triaged", "in-progress", "resolved", "fixed", "auto-fixed", "false-positive", "skipped"]);
+const ALLOWED_ACTIONS = new Set(["unresolved", "triaged", "resolved", "fixed", "auto-fixed", "false-positive", "skipped"]);
 
 function artifactDir() {
   return process.env.CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR
@@ -17,7 +18,7 @@ function artifactDir() {
 }
 
 function logPath() {
-  return argValue("--path") || path.join(artifactDir(), "review-log.jsonl");
+  return readArgValue(args, "--path") || path.join(artifactDir(), "review-log.jsonl");
 }
 
 function nowIso() {
@@ -37,7 +38,7 @@ function redact(value) {
     .replace(/npm_[A-Za-z0-9]{12,}/g, "[REDACTED_SECRET]")
     .replace(/xox[baprs]-[A-Za-z0-9-]{12,}/g, "[REDACTED_SECRET]")
     .replace(/AKIA[A-Z0-9]{16}/g, "[REDACTED_SECRET]")
-    .replace(/(aws_secret_access_key\s*[:=]\s*["']?)[A-Za-z0-9/+]{40}={0,2}(["']?)/gi, "$1[REDACTED_SECRET]$2");
+    .replace(/(aws_secret_access_key\s*[:=]\s*["']?)[A-Za-z0-9/+=]{40}(["']?)/gi, "$1[REDACTED_SECRET]$2");
 }
 
 function fingerprint(record) {
@@ -61,27 +62,54 @@ function readEntries(file) {
   });
 }
 
+function validateEnumArg(flagName, rawValue, allowedValues) {
+  const normalized = String(rawValue ?? "").trim().toLowerCase();
+  if (allowedValues.has(normalized)) return normalized;
+  throw new Error(`review-log add invalid ${flagName}: ${JSON.stringify(rawValue)} (allowed: ${[...allowedValues].join(", ")})`);
+}
+
+function validateCategoryArg(rawValue) {
+  const normalized = String(rawValue ?? "").trim().toLowerCase();
+  if (/^[a-z0-9][a-z0-9._-]{0,63}$/.test(normalized)) return normalized;
+  throw new Error(
+    `review-log add invalid --category: ${JSON.stringify(rawValue)} (must match /^[a-z0-9][a-z0-9._-]{0,63}$/)`,
+  );
+}
+
 function addEntry() {
   const file = logPath();
-  const finding = argValue("--finding");
+  const finding = readArgValue(args, "--finding");
   if (!finding) {
     console.error("review-log add requires --finding.");
+    process.exit(2);
+  }
+  let severity;
+  let status;
+  let action;
+  let category;
+  try {
+    severity = validateEnumArg("--severity", readArgValue(args, "--severity", "info"), ALLOWED_SEVERITIES);
+    status = validateEnumArg("--status", readArgValue(args, "--status", "open"), ALLOWED_STATUSES);
+    action = validateEnumArg("--action", readArgValue(args, "--action", "unresolved"), ALLOWED_ACTIONS);
+    category = validateCategoryArg(readArgValue(args, "--category", "review"));
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
     process.exit(2);
   }
   const record = redact({
     schemaVersion: 1,
     id: `review-${Date.now()}`,
-    runId: argValue("--run-id"),
-    planPath: argValue("--plan"),
-    specialist: argValue("--specialist", "general"),
-    severity: argValue("--severity", "info"),
-    status: argValue("--status", "open"),
-    action: argValue("--action", "unresolved"),
-    category: argValue("--category", "review"),
-    path: argValue("--file"),
-    line: argValue("--line"),
+    runId: readArgValue(args, "--run-id"),
+    planPath: readArgValue(args, "--plan"),
+    specialist: readArgValue(args, "--specialist", "general"),
+    severity,
+    status,
+    action,
+    category,
+    path: readArgValue(args, "--file"),
+    line: readArgValue(args, "--line"),
     finding,
-    verification: argValue("--verification"),
+    verification: readArgValue(args, "--verification"),
     at: nowIso(),
   });
   record.fingerprint = fingerprint(record);

@@ -9,7 +9,7 @@
       "cwd": "/repo",
       "scope": "scripts/example.mjs",
       "readSet": ["scripts"],
-      "writeScope": ["scripts/example.mjs"],
+      "writeScope": "scripts/example.mjs",
       "forbiddenPaths": ["hooks"],
       "expectedOutput": "patched script",
       "verificationCommand": "node scripts/example.mjs",

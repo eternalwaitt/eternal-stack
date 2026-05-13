@@ -5,14 +5,16 @@
     "packet": {
       "mode": "write",
       "goal": "implement task T1",
-      "contextSummary": "approved plan exists",
+      "contextSummary": "approved plan exists; missing retryPolicy for write mode",
       "cwd": "/repo",
       "scope": "scripts only",
       "readSet": [
         "scripts",
         "tests"
       ],
-      "writeScope": "scripts/example.mjs",
+      "writeScope": [
+        "scripts/example.mjs"
+      ],
       "forbiddenPaths": [
         "package.json"
       ],

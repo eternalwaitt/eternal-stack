@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "generatedAt": "2026-05-11T19:25:00Z",
   "selectionPolicy": {
-    "candidateUniverse": 11,
+    "candidateUniverse": 10,
     "deterministicFilters": [
       "public GitHub repo",
       "non-archived and recently maintained",

@@ -108,7 +108,8 @@ function detectStaleState(contextRestore) {
       else if ("stale" in parsed) parsedStale = parsed.stale;
     }
   } catch {
-    const match = contextRestore.match(/["']?(?:isstale|stale)["']?\s*(?::|=|\s)\s*["']?(true|false|1|0)["']?/i);
+    // Text fallback accepts only explicit key:value or key=value tokens.
+    const match = contextRestore.match(/\b(?:isstale|stale)\b\s*(?::|=)\s*["']?(true|false|1|0)["']?/i);
     if (!match) return { hasStaleKey: false, hasStaleValue: false, rawValue: null };
     const normalized = match[1].toLowerCase();
     return { hasStaleKey: true, hasStaleValue: true, rawValue: normalized === "true" || normalized === "1" };
@@ -117,6 +118,18 @@ function detectStaleState(contextRestore) {
   if ([true, 1, "true", "1"].includes(parsedStale)) return { hasStaleKey: true, hasStaleValue: true, rawValue: true };
   if ([false, 0, "false", "0"].includes(parsedStale)) return { hasStaleKey: true, hasStaleValue: true, rawValue: false };
   return { hasStaleKey: true, hasStaleValue: false, rawValue: parsedStale };
+}
+
+function renderErrorDetail(error) {
+  if (error instanceof Error) return error.stack || error.message;
+  if (error && typeof error === "object") {
+    try {
+      return JSON.stringify(error, (_key, value) => (typeof value === "bigint" ? String(value) : value));
+    } catch {
+      return "<unrepresentable error>";
+    }
+  }
+  return String(error ?? "<unrepresentable error>");
 }
 
 function write(file, content) {
@@ -277,10 +290,27 @@ const validTaskPacket = {
 expectPass("task packet checker accepts complete packet", "node", [script("agent-task-packet-check.mjs")], {
   input: JSON.stringify(validTaskPacket),
 });
-expectFail("task packet checker rejects incomplete packet", "node", [script("agent-task-packet-check.mjs")], {
-  expectedText: "missing",
-  input: JSON.stringify({ tool_input: { packet: { mode: "read-only", goal: "only" } } }),
+const incompleteTaskPacket = { tool_input: { packet: { mode: "read-only", goal: "only" } } };
+if (
+  incompleteTaskPacket.tool_input?.packet?.mode === "read-only"
+  && incompleteTaskPacket.tool_input?.packet?.goal === "only"
+) {
+  ok("task packet incomplete fixture is explicit");
+} else {
+  fail("task packet incomplete fixture is explicit", JSON.stringify(incompleteTaskPacket));
+}
+const incompletePacketOutput = expectFail("task packet checker rejects incomplete packet", "node", [script("agent-task-packet-check.mjs")], {
+  input: JSON.stringify(incompleteTaskPacket),
 });
+if (
+  incompletePacketOutput.includes("contextSummary")
+  && incompletePacketOutput.includes("readSet")
+  && incompletePacketOutput.includes("expectedOutput")
+) {
+  ok("task packet checker reports missing required fields");
+} else {
+  fail("task packet checker reports missing required fields", incompletePacketOutput);
+}
 
 const waveInput = JSON.stringify({
   useWorktrees: true,
@@ -312,9 +342,7 @@ try {
   if (JSON.parse(inventory).totalFiles === 1) ok("code health inventory counts tracked file");
   else fail("code health inventory counts tracked file", inventory);
 } catch (error) {
-  const detail = error instanceof Error
-    ? (error.stack || error.message)
-    : String(error ?? "<unrepresentable error>");
+  const detail = renderErrorDetail(error);
   fail("code health inventory counts tracked file", `invalid JSON output\nraw=${inventory}\nerror=${detail}`);
 }
 

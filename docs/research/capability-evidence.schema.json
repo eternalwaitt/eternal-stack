@@ -22,6 +22,7 @@
       "properties": {
         "refreshCadenceDays": {
           "type": "integer",
+          "description": "Minimum 1 day; 0 is disallowed to avoid continuous immediate refresh loops.",
           "minimum": 1
         },
         "nextScan": {

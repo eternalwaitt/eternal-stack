@@ -29,6 +29,8 @@ assert_executable "installed skill contract helper" "$CLAUDE_HOME/scripts/skill-
 assert_executable "installed skill behavior smoke helper" "$CLAUDE_HOME/scripts/skill-behavior-smoke.mjs"
 assert_executable "installed changelog release helper" "$CLAUDE_HOME/scripts/changelog-release-check.mjs"
 assert_executable "installed port guard helper" "$CLAUDE_HOME/scripts/port-guard.mjs"
+assert_executable "installed update check helper" "$CLAUDE_HOME/scripts/update-check.mjs"
+assert_executable "installed update helper" "$CLAUDE_HOME/scripts/update.sh"
 assert_executable "installed workflow tool tests" "$CLAUDE_HOME/hooks/test-workflow-tools.sh"
 assert_file "installed test harness" "$CLAUDE_HOME/hooks/lib/test-harness.sh"
 assert_file "installed busy-port helper" "$CLAUDE_HOME/tests/lib/busy-port-server.mjs"
@@ -38,6 +40,8 @@ assert_symlink "installed harness symlink" "$CLAUDE_HOME/hooks/lib/test-harness.
 assert_executable "installed source-style hook tests" "$CLAUDE_HOME/tests/test-hooks.sh"
 assert_executable "installed source-style workflow tests" "$CLAUDE_HOME/tests/test-workflow-tools.sh"
 assert_file "installed source-style test harness" "$CLAUDE_HOME/tests/lib/harness.sh"
+assert_file "installed guard-pattern fixture" "$CLAUDE_HOME/tests/fixtures/guard-patterns/invalid-01-grep-direct.json"
+assert_file "installed packet fixture" "$CLAUDE_HOME/tests/fixtures/events/packet-valid-01-readonly.json"
 if compgen -G "$CLAUDE_HOME/hooks/__pycache__/*cc-hindsight-lesson*.pyc" >/dev/null; then
   not_ok "install excludes Python bytecode"
 else
@@ -49,9 +53,37 @@ for hook_file in "${CRITICAL_HOOKS[@]}"; do
   assert_executable "post-install: ${hook_file} present" "$CLAUDE_HOME/hooks/$hook_file"
 done
 for script_file in "${CRITICAL_SCRIPTS[@]}"; do
-  assert_executable "post-install: ${script_file} present" "$CLAUDE_HOME/scripts/$script_file"
+  if [[ "$script_file" == lib/* ]]; then
+    assert_file "post-install: ${script_file} present" "$CLAUDE_HOME/scripts/$script_file"
+  else
+    assert_executable "post-install: ${script_file} present" "$CLAUDE_HOME/scripts/$script_file"
+  fi
 done
 assert_file "post-install: settings.json present" "$CLAUDE_HOME/settings.json"
+assert_file "post-install: update metadata present" "$CLAUDE_HOME/control-plane/install.json"
+if ! command -v jq >/dev/null 2>&1; then
+  not_ok "post-install: jq not available for update metadata checks"
+  finish_tests
+  exit 1
+fi
+if ! update_json="$(node "$CLAUDE_HOME/scripts/update-check.mjs" --json 2>&1)"; then
+  not_ok "post-install: update-check.mjs failed: $update_json"
+  finish_tests
+  exit 1
+fi
+assert_json_expr "post-install: update check is clean" "$update_json" '.ok == true and .localUpdateAvailable == false'
+metadata_tmp="$CLAUDE_HOME/control-plane/install.json.tmp"
+trap '[[ -n "${metadata_tmp:-}" ]] && rm -f "$metadata_tmp"' EXIT
+jq '.sourceFingerprint = "stale"' "$CLAUDE_HOME/control-plane/install.json" >"$metadata_tmp"
+mv -- "$metadata_tmp" "$CLAUDE_HOME/control-plane/install.json"
+metadata_tmp=""
+trap - EXIT
+if ! stale_update_json="$(node "$CLAUDE_HOME/scripts/update-check.mjs" --json 2>&1)"; then
+  not_ok "post-install: stale update-check.mjs failed: $stale_update_json"
+  finish_tests
+  exit 1
+fi
+assert_json_expr "post-install: stale metadata detects update" "$stale_update_json" '.ok == true and .localUpdateAvailable == true'
 
 "$CLAUDE_HOME/scripts/rollback-local.sh" >/dev/null
 for agent in etrnl-adversary etrnl-browser-qa etrnl-design-reviewer etrnl-dx-reviewer etrnl-executor etrnl-investigator etrnl-quality-reviewer etrnl-scout etrnl-spec-reviewer; do

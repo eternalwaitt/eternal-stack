@@ -27,7 +27,7 @@ function usage() {
   console.log("  research-competitor-intel.mjs validate-evidence --evidence <file>");
   console.log("  research-competitor-intel.mjs validate-scorecard --scorecard <file> [--skills-file <file>] [--evidence <file>]");
   console.log(
-    "  research-competitor-intel.mjs extract --manifest <file> --repos-root <dir> --out <file> [--manifest-out <file>] [--write-manifest]",
+    "  research-competitor-intel.mjs extract --manifest <file> --repos-root <dir> --out <file> [--manifest-out <file>] [--write-manifest] [--refresh-cadence-days <days>]",
   );
   console.log("  research-competitor-intel.mjs generate --manifest <file> --evidence <file> --scorecard <file> --out-dir <dir>");
 }
@@ -42,13 +42,25 @@ function nowIsoNoMillis() {
 }
 
 function plusDaysIsoNoMillis(baseIso, days) {
-  return new Date(Date.parse(baseIso) + days * 24 * 60 * 60 * 1000).toISOString().replace(/\.\d{3}Z$/, "Z");
+  const next = new Date(baseIso);
+  // Use UTC date arithmetic so day-rollovers do not drift with local DST shifts.
+  // If wall-clock local-time precision is ever required, switch to a timezone-aware library.
+  next.setUTCDate(next.getUTCDate() + days);
+  return next.toISOString().replace(/\.\d{3}Z$/, "Z");
 }
 
 function requireArg(flag, fallback = "") {
   const value = argValue(args, flag, fallback);
   if (!value) fail(`${flag} is required`);
   return value;
+}
+
+function positiveIntArg(flag, fallback) {
+  const raw = argValue(args, flag, "");
+  if (!raw) return fallback;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) fail(`${flag} must be a positive integer`);
+  return parsed;
 }
 
 function reportErrors(errors) {
@@ -107,7 +119,7 @@ function processCompetitorEntry(competitor, reposRoot, generatedAt) {
   if (!existsSync(repoDir)) fail(`competitor repo directory not found: ${repoDir}`);
   const extracted = extractCompetitor(repoDir, competitor.id);
   const copy = { ...competitor, analyzedPaths: extracted.analyzedPaths };
-  if (!copy.collectedAt) copy.collectedAt = generatedAt;
+  if (!copy.collectedAt) copy.collectedAt = nowIsoNoMillis();
   return { copy, rows: extracted.rows };
 }
 
@@ -122,9 +134,20 @@ function runExtract() {
   const manifest = readJson(manifestPath);
   reportErrors(validateManifest(manifest));
   const generatedAt = nowIsoNoMillis();
-  const refreshCadenceDays = 30;
+  const refreshCadenceDays = positiveIntArg("--refresh-cadence-days", 30);
+  const maxRefreshCadenceDays = 3650;
+  if (refreshCadenceDays > maxRefreshCadenceDays) {
+    fail(`--refresh-cadence-days must be <= ${maxRefreshCadenceDays}`);
+  }
   const rows = [];
-  const enriched = { ...manifest, competitors: [] };
+  const enriched = {
+    ...manifest,
+    selectionPolicy: {
+      ...(manifest.selectionPolicy || {}),
+      collectionTimestampPolicy: "per_repo_collection_time",
+    },
+    competitors: [],
+  };
   for (const competitor of manifest.competitors) {
     const { copy, rows: compRows } = processCompetitorEntry(competitor, reposRoot, generatedAt);
     enriched.competitors.push(copy);

@@ -1,4 +1,4 @@
-<!-- /autoplan restore point: ~/.gstack/projects/eternalwaitt-claude-control-plane/main-autoplan-restore-20260511-213325.md -->
+<!-- autoplan restore point available -->
 # ETRNL Superiority Implementation Plan (Single Executable Spec)
 
 Status: Final
@@ -8,9 +8,17 @@ Quality bar: 10/10 completeness on every planning/implementation gate
 
 Goal: Upgrade all owned etrnl-* skills, hooks, and agent contracts so ETRNL reliability is measurably enforced — with P0 skills at hook_enforced or test_enforced on TDD, research flow, planning depth, and verification gates — and release as M1 with parallel tracks A (enforcement backbone), B (P0 skill rewrites), and C (agent contracts).
 
-Non-goals: Closed-source competitor reverse engineering; UI or frontend work; private identity or account details in repo; rebuilding research artifacts already validated in docs/research/; Wave 3.5 post-M1 deliverables (superiority benchmark harness, docs/troubleshooting.md, docs/skills.md contracts).
+Non-goals: Closed-source competitor reverse engineering; UI or frontend work; private identity or account details in repo; rebuilding research artifacts already validated in docs/research/; Wave 3.5 post-M1 deliverables (superiority benchmark harness, docs/troubleshooting.md).
 
-Evidence: docs/research/top10-lock.json (ok: manifest valid, 10 competitors), docs/research/capability-evidence.json (ok: evidence valid, 80 rows), docs/research/parity-scorecard.json (ok: scorecard valid, 17 entries), docs/research/etrnl-parity-backlog.md (6 P0/M1, 5 P1/M2, 6 P2/M3), hooks/cc-pretooluse-guard.sh:461 (agent packet enforcement via node scripts/agent-task-packet-check.mjs), tests/test-hooks.sh PASSED 100 checks, scripts/skill-behavior-smoke.mjs (untracked, partial), scripts/skill-contract-check.mjs (untracked, partial).
+Evidence:
+- docs/research/top10-lock.json (ok: manifest valid, 10 competitors)
+- docs/research/capability-evidence.json (ok: evidence valid, 80 rows)
+- docs/research/parity-scorecard.json (ok: scorecard valid, 17 entries)
+- docs/research/etrnl-parity-backlog.md (6 P0/M1, 5 P1/M2, 6 P2/M3)
+- hooks/cc-pretooluse-guard.sh:461 (agent packet enforcement via node scripts/agent-task-packet-check.mjs)
+- tests/test-hooks.sh (PASSED 100 checks at plan lock time)
+- scripts/skill-behavior-smoke.mjs (tracked; passing in workflow test suite)
+- scripts/skill-contract-check.mjs (tracked; passing in workflow test suite)
 
 Assumptions: Research artifacts remain valid until 2026-06-10 (nextScan date). No other engineer is modifying hook files concurrently.
 
@@ -21,7 +29,7 @@ Assumptions: Research artifacts remain valid until 2026-06-10 (nextScan date). N
 - `docs/research/parity-scorecard.json` — 17 ETRNL skills scored on 8 capabilities, validated ok
 - `docs/research/capability-matrix.md` and `docs/research/etrnl-parity-backlog.md` — complete
 - `scripts/research-competitor-intel.mjs` — validate-manifest/evidence/scorecard, extract, generate
-- `scripts/lib/research-intel-core.mjs`, `scripts/skill-behavior-smoke.mjs`, `scripts/skill-contract-check.mjs` — untracked, partial
+- `scripts/lib/research-intel-core.mjs`, `scripts/skill-behavior-smoke.mjs`, `scripts/skill-contract-check.mjs` — tracked and validated in workflow tests
 - `hooks/cc-pretooluse-guard.sh:461` — agent packet enforcement via `node scripts/agent-task-packet-check.mjs`
 - `hooks/cc-posttooluse-sycophancy.sh`, `hooks/cc-stop-verifier.sh` — enforcement hooks
 - `tests/test-hooks.sh` — 100 checks, all passing
@@ -32,7 +40,7 @@ Assumptions: Research artifacts remain valid until 2026-06-10 (nextScan date). N
 - Closed-source competitor reverse engineering (no code-level access)
 - Rebuilding Wave 0 research artifacts (already validated complete)
 - UI or frontend work
-- Wave 3.5 post-M1: superiority benchmark harness, docs/troubleshooting.md, docs/skills.md contracts
+- Wave 3.5 post-M1: superiority benchmark harness, docs/troubleshooting.md
 - P1/P2 skill rewrites (etrnl-brainstorm, etrnl-fix-issue, etrnl-parallel, etrnl-qa-browser, etrnl-stress-test and P2 group) — deferred to M2
 
 ## File map
@@ -52,6 +60,7 @@ Assumptions: Research artifacts remain valid until 2026-06-10 (nextScan date). N
 - `skills/etrnl-plan/SKILL.md` — rewrite: add research_flow hook_enforced, planning_depth
 - `skills/etrnl-review/SKILL.md` — rewrite: add research_flow + tdd_enforcement hook_enforced
 - `skills/etrnl-test/SKILL.md` — rewrite: add tdd_enforcement hook_enforced
+- `docs/skills.md` — modify: sync rewritten skill contracts and execution expectations
 
 **Track C — Agent Contract Hardening:**
 - `scripts/agent-task-packet-check.mjs` — modify: add disjoint-ownership + no-revert policy validation
@@ -86,30 +95,16 @@ Assumptions: Research artifacts remain valid until 2026-06-10 (nextScan date). N
 - C3: Create agent packet fixtures in `tests/fixtures/events/`
 - C4: Add packet fixture tests to `tests/test-hooks.sh`
 
-Groups 1, 2, and 3 have no file overlap and can run as parallel waves.
+Groups 1, 2, and 3 can run in parallel waves, with one overlap: both Track A and Track C modify `tests/test-hooks.sh`.
 
 ## Phases
 
-**Phase 1 — Enforcement Backbone (Track A):**
-- A1 → A2 → A3: Guard hints + fixture tests
-- A4 → A5: Install verification
-- Gate: `bash tests/test-hooks.sh` returns `PASSED: ≥110 checks` (100 existing + new)
+Execution phases are canonicalized in the later sections:
+- `## Pre-Gate Verification Checklist (autoplan 2026-05-12)`
+- `## Phase 4 — Final Approval Gate`
+- `## M1 Execution Plan (Post-Approval)`
 
-**Phase 2 — P0 Skill Rewrites (Track B, parallel across B1..B6):**
-- Read current skill, identify gaps from parity-scorecard.json, rewrite to etrnl-plan format
-- Each skill gets: Inputs/Outputs, deterministic steps, verification gate, failure/rollback, hook refs
-- Gate: `node scripts/skill-contract-check.mjs` passes; `node scripts/skill-behavior-smoke.mjs` passes
-
-**Phase 3 — Agent Contract Hardening (Track C):**
-- C1 → C2 → C3 → C4: Packet validation upgrades + fixture tests
-- Gate: hook tests 076-079 pass; new packet fixture tests pass
-
-**Phase 4 — Final Gate:**
-- All three research validators return `ok:`
-- `bash tests/test-hooks.sh` PASSED (all checks including new)
-- `node scripts/skill-contract-check.mjs` PASSED
-- `docs/health-stack.md` explicitly lists the new validators and where they are enforced
-- Manual audit: 5 block message types each include self-serve hint
+This section intentionally stays brief to avoid duplicating gate/phase definitions in two places.
 
 ## Skill/tool routing
 
@@ -154,20 +149,12 @@ Sequential within each track due to dependencies (A1→A2→A3, C1→C2→C3→C
 
 | Gate | Command | Expected |
 |---|---|---|
-| Research artifacts valid | `node scripts/research-competitor-intel.mjs validate-manifest --manifest docs/research/top10-lock.json` | `ok: manifest valid (10 competitors)` |
-| Hook suite | `bash tests/test-hooks.sh` | `PASSED: ≥110 checks` after A3 + C4 |
-| Skill contracts | `node scripts/skill-contract-check.mjs` | all 17 skills pass |
-| Skill smoke | `node scripts/skill-behavior-smoke.mjs` | all P0 skills emit `ok:` |
-| Install verification | `bash tests/test-install.sh` | PASSED including new A5 check |
-| Health-stack docs | `rg -n 'replay-hook-fixtures|skill-contract-check|skill-behavior-smoke' docs/health-stack.md` | each validator is documented |
-| Manual block hint audit | trigger 5 guard block types | each includes modern-tool hint |
+| Canonical pre-gate validators | `see ## Pre-Gate Verification Checklist (autoplan 2026-05-12)` | single source of truth |
+| Canonical per-track execution gates | `see ## M1 Execution Plan (Post-Approval)` | single source of truth |
 
 ## Rollback
 
-- Any single task: `git revert HEAD` on that commit; or `scripts/rollback-local.sh <file>`
-- Full M1 rollback: restore from `~/.gstack/projects/eternalwaitt-claude-control-plane/main-autoplan-restore-20260511-213325.md`
-- Verification after rollback: `bash tests/test-hooks.sh` must return `PASSED: 100 checks`
-- Failure budget trigger: if hook false-positive rate > 10%, add escape hint first before narrowing pattern
+Canonical rollback instructions are maintained in `### Rollback Path` under `## M1 Execution Plan (Post-Approval)` to avoid drift.
 
 ## Execution handoff
 
@@ -596,6 +583,37 @@ Wave 3.5 (post-M1):
 D1 docs/skills.md contracts      (after B1..B6 complete)
 D2 docs/troubleshooting.md       (after A1 complete)
 D3 superiority benchmark harness (after B1..B6 + C4 complete)
+```
+
+```mermaid
+graph TD
+  A1 --> A2 --> A3
+  A4 --> A5
+  C1 --> C2 --> C3 --> C4
+
+  B1
+  B2
+  B3
+  B4
+  B5
+  B6
+
+  B1 --> D1
+  B2 --> D1
+  B3 --> D1
+  B4 --> D1
+  B5 --> D1
+  B6 --> D1
+
+  B1 --> D3
+  B2 --> D3
+  B3 --> D3
+  B4 --> D3
+  B5 --> D3
+  B6 --> D3
+
+  A1 --> D2
+  C4 --> D3
 ```
 
 ### Rollback Path

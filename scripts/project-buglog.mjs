@@ -28,6 +28,14 @@ function normalizeFile(cwd, file) {
   return path.relative(cwd || process.cwd(), resolved) || path.basename(resolved);
 }
 
+function normalizeSummary(summary) {
+  return String(summary || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]+/gu, " ")
+    .replace(/\s+/g, " ");
+}
+
 function fingerprint(record) {
   const version = Number(record.fingerprintVersion ?? 1);
   if (version === 1) {
@@ -37,7 +45,7 @@ function fingerprint(record) {
       .slice(0, 16);
   }
   return createHash("sha256")
-    .update([version, record.cwd, record.file, record.category, record.sessionId, record.summary].join(":"))
+    .update([version, record.cwd, record.file, record.category, record.sessionId, normalizeSummary(record.summary)].join(":"))
     .digest("hex")
     .slice(0, 16);
 }

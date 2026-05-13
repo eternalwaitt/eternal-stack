@@ -95,6 +95,9 @@ cc_json_current_assistant_text() {
   transcript="$(cc_json_get '.transcript_path')"
   if [[ -n "$transcript" && -f "$transcript" && -n "$msg_id" ]]; then
     local transcript_text
+    # Transcript fallback scans assistant entries for any of the supported id fields
+    # (.id, .message.id, .messageId), extracts text blocks from message.content,
+    # and returns the last matching text string for this message id.
     if ! transcript_text="$(jq -rs --arg msg_id "$msg_id" '
       [.[] | select(.type == "assistant")
       | select((.id // .message.id // .messageId // "") == $msg_id)

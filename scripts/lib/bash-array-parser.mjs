@@ -4,6 +4,10 @@ export function escapeRegexLiteral(value) {
 
 export function stripBashComment(line) {
   let result = "";
+  // Bash parsing rules mirrored here:
+  // - backslashes are literal inside single quotes (so '\' is only escape-active when !inSingle)
+  // - backslashes escape next chars outside single quotes, including within double quotes
+  // - '#' starts a comment only when not inside single or double quotes.
   let inSingle = false;
   let inDouble = false;
   let escaped = false;
@@ -56,6 +60,32 @@ function unquoteToken(token) {
   return token.replace(/\\(.)/g, "$1");
 }
 
+function validateTokenStreamSource(rawValues) {
+  let inSingle = false;
+  let inDouble = false;
+  let escaped = false;
+  for (const char of rawValues) {
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char === "\\" && !inSingle) {
+      escaped = true;
+      continue;
+    }
+    if (char === "'" && !inDouble) {
+      inSingle = !inSingle;
+      continue;
+    }
+    if (char === '"' && !inSingle) {
+      inDouble = !inDouble;
+    }
+  }
+  if (inSingle || inDouble) return "contains an unclosed quote";
+  if (escaped) return "ends with an unmatched escape";
+  return "";
+}
+
 export function parseBashArray(source, name, options = {}) {
   const onError = typeof options.onError === "function" ? options.onError : null;
   const assignment = new RegExp(`^\\s*${escapeRegexLiteral(name)}\\s*=\\s*\\(`, "m").exec(source);
@@ -86,7 +116,13 @@ export function parseBashArray(source, name, options = {}) {
     onError?.(`has unterminated ${name} array`);
     return [];
   }
-  const rawValues = bodyLines.map((line) => stripBashComment(line).trim()).filter(Boolean).join(" ");
+  // Join with spaces so multiline arrays stay token-equivalent to shell whitespace.
+  const rawValues = bodyLines.map((line) => stripBashComment(line)).join(" ");
+  const streamError = validateTokenStreamSource(rawValues);
+  if (streamError) {
+    onError?.(`${name} ${streamError}`);
+    return [];
+  }
   // Token branches: "double-quoted with escapes" | 'single-quoted literal' | unquoted tokens (with backslash escapes).
   const matched = rawValues.match(/"(?:\\.|[^"\\])*"|'[^']*'|(?:\\.|[^\s"'])+/g);
   const tokens = matched !== null ? matched : [];

@@ -230,5 +230,5 @@ cc_extract_old_edit_text() {
       .tool_input.old_string,
       ((.tool_input.edits // [])[] | .old_string)
     ] | map(select(type == "string")) | join("\n")
-  ' <<<"${HOOK_INPUT:-{}}" 2>/dev/null || true
+  ' <<<"${HOOK_INPUT:-{}}" 2>/dev/null
 }

@@ -9,12 +9,7 @@ if [[ ! -f "$settings" ]]; then
   exit 1
 fi
 
-if [[ ! -r "$settings" ]]; then
-  printf 'fail: settings file not readable: %s\n' "$settings" >&2
-  exit 1
-fi
-
-if ! jq empty "$settings" >/dev/null 2>&1; then
+if ! jq empty "$settings" >/dev/null; then
   printf 'fail: settings file contains invalid JSON: %s\n' "$settings" >&2
   exit 1
 fi

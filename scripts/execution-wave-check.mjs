@@ -30,9 +30,12 @@ function analyzeWave(wave, plans, submodules, useWorktrees) {
   const fileToPlanIds = new Map();
   for (const plan of plans) {
     for (const file of plan.files) {
-      const owners = fileToPlanIds.get(file) ?? new Set();
+      let owners = fileToPlanIds.get(file);
+      if (!owners) {
+        owners = new Set();
+        fileToPlanIds.set(file, owners);
+      }
       owners.add(plan.id);
-      fileToPlanIds.set(file, owners);
     }
   }
   const overlaps = [...fileToPlanIds.entries()]

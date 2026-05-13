@@ -3,6 +3,7 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypt
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import { argValue } from "./lib/cli-args.mjs";
 
 const args = process.argv.slice(2);
 const command = args[0] ?? "help";
@@ -10,6 +11,10 @@ const DEFAULT_STORE_RETENTION_MS = 86_400_000;
 const DEFAULT_LOCK_MAX_ATTEMPTS = 200;
 const DEFAULT_LOCK_BASE_DELAY_MS = 25;
 const DEFAULT_LOCK_MAX_DELAY_MS = 250;
+const DEFAULT_LOCK_STALE_MS = 30_000;
+const DEFAULT_MAX_ISSUED_PER_SESSION = 100;
+const DEFAULT_MAX_STORE_BYTES = 262_144;
+const STORE_HASH_KEY_PATTERN = /^[a-f0-9]{64}$/;
 
 function parsePositiveIntegerEnv(name, fallback) {
   const raw = process.env[name];
@@ -20,20 +25,18 @@ function parsePositiveIntegerEnv(name, fallback) {
 }
 
 const storeRetentionMs = parsePositiveIntegerEnv("CLAUDE_GUARD_OVERRIDE_STORE_RETENTION_MS", DEFAULT_STORE_RETENTION_MS);
+const maxIssuedPerSession = parsePositiveIntegerEnv(
+  "CLAUDE_GUARD_OVERRIDE_MAX_ISSUED_PER_SESSION",
+  DEFAULT_MAX_ISSUED_PER_SESSION,
+);
+const maxStoreBytes = parsePositiveIntegerEnv(
+  "CLAUDE_GUARD_OVERRIDE_MAX_STORE_BYTES",
+  DEFAULT_MAX_STORE_BYTES,
+);
 
 function fail(message, code = 1) {
   console.error(message);
   process.exit(code);
-}
-
-function argValue(flag, fallback = "") {
-  const index = args.indexOf(flag);
-  if (index < 0) return fallback;
-  const value = args[index + 1];
-  if (!value || value.startsWith("--")) {
-    fail(`${flag} requires a value.`);
-  }
-  return value;
 }
 
 function stateDir() {
@@ -61,8 +64,8 @@ function readJson(file, fallback) {
   try {
     return JSON.parse(readFileSync(file, "utf8"));
   } catch (error) {
-    console.error(`claude-guard warning: override store malformed (${file}): ${error.message}; using fallback store`);
-    return fallback;
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(`override store malformed (${file}): ${detail}`);
   }
 }
 
@@ -72,13 +75,38 @@ function writeJson(file, payload) {
   renameSync(tmp, file);
 }
 
+function createHashBucket() {
+  return Object.create(null);
+}
+
+function isStoreHashKey(value) {
+  return typeof value === "string" && STORE_HASH_KEY_PATTERN.test(value);
+}
+
+function assertStoreHashKey(value, label) {
+  if (!isStoreHashKey(value)) {
+    fail(`${label} hash is malformed.`);
+  }
+}
+
+function normalizeHashBucket(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return createHashBucket();
+  const normalized = createHashBucket();
+  for (const [hash, meta] of Object.entries(value)) {
+    if (isStoreHashKey(hash)) {
+      normalized[hash] = meta;
+    }
+  }
+  return normalized;
+}
+
 function pruneStore(store, nowMs) {
   const pruned = {
-    issuedHashes: {},
-    usedHashes: {},
+    issuedHashes: createHashBucket(),
+    usedHashes: createHashBucket(),
   };
-  const issued = store?.issuedHashes ?? {};
-  const used = store?.usedHashes ?? {};
+  const issued = normalizeHashBucket(store?.issuedHashes);
+  const used = normalizeHashBucket(store?.usedHashes);
   for (const [hash, meta] of Object.entries(issued)) {
     const atMs = Date.parse(String(meta?.at ?? ""));
     if (Number.isFinite(atMs) && nowMs - atMs <= storeRetentionMs) {
@@ -92,6 +120,25 @@ function pruneStore(store, nowMs) {
     }
   }
   return pruned;
+}
+
+function storeSizeBytes(store) {
+  return Buffer.byteLength(JSON.stringify(store), "utf8");
+}
+
+function trimIssuedHashesToCap(store, cap) {
+  const issuedEntries = Object.entries(store?.issuedHashes ?? {});
+  if (issuedEntries.length < cap) return;
+  const sorted = issuedEntries
+    .map(([hash, meta]) => {
+      const atMs = Date.parse(String(meta?.at ?? ""));
+      return { hash, atMs: Number.isFinite(atMs) ? atMs : 0 };
+    })
+    .sort((left, right) => left.atMs - right.atMs);
+  while (sorted.length >= cap) {
+    const removed = sorted.shift();
+    if (removed) delete store.issuedHashes[removed.hash];
+  }
 }
 
 function base64url(input) {
@@ -191,7 +238,9 @@ function readLockMetadata(pidPath) {
 }
 
 function writeLockMetadata(pidPath, lockId) {
-  writeFileSync(pidPath, `${JSON.stringify({ pid: process.pid, lockId, createdAtMs: Date.now() })}\n`, { mode: 0o600 });
+  const tmpPath = `${pidPath}.tmp-${process.pid}-${Date.now()}`;
+  writeFileSync(tmpPath, `${JSON.stringify({ pid: process.pid, lockId, createdAtMs: Date.now() })}\n`, { mode: 0o600 });
+  renameSync(tmpPath, pidPath);
 }
 
 async function withStoreLock(session, callback) {
@@ -202,7 +251,7 @@ async function withStoreLock(session, callback) {
   const maxAttempts = parsePositiveIntegerEnv("CLAUDE_GUARD_OVERRIDE_LOCK_MAX_ATTEMPTS", DEFAULT_LOCK_MAX_ATTEMPTS);
   const baseDelayMs = parsePositiveIntegerEnv("CLAUDE_GUARD_OVERRIDE_LOCK_BASE_DELAY_MS", DEFAULT_LOCK_BASE_DELAY_MS);
   const maxDelayMs = parsePositiveIntegerEnv("CLAUDE_GUARD_OVERRIDE_LOCK_MAX_DELAY_MS", DEFAULT_LOCK_MAX_DELAY_MS);
-  const staleLockMs = 30_000;
+  const staleLockMs = parsePositiveIntegerEnv("CLAUDE_GUARD_OVERRIDE_LOCK_STALE_MS", DEFAULT_LOCK_STALE_MS);
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     try {
       mkdirSync(lockPath);
@@ -246,7 +295,9 @@ async function withStoreLock(session, callback) {
       if (attempt === maxAttempts - 1) {
         fail(`Timed out acquiring override token lock: ${lockPath}`);
       }
-      const backoffMs = Math.min(maxDelayMs, baseDelayMs * Math.pow(2, Math.min(attempt, 4)));
+      const maxExponent = Math.max(0, Math.floor(Math.log2(maxDelayMs / baseDelayMs)));
+      const exponent = Math.min(attempt, maxExponent);
+      const backoffMs = Math.min(maxDelayMs, baseDelayMs * Math.pow(2, exponent));
       const jitterMs = randomBytes(1)[0] % 25;
       await sleepMs(backoffMs + jitterMs);
     }
@@ -259,13 +310,13 @@ async function withStoreLock(session, callback) {
 }
 
 async function issue() {
-  const session = argValue("--session");
-  const commandFingerprint = argValue("--command-fingerprint");
-  const reason = argValue("--reason");
+  const session = argValue(args, "--session");
+  const commandFingerprint = argValue(args, "--command-fingerprint");
+  const reason = argValue(args, "--reason");
   if (!session.trim()) fail("--session is required.");
   if (!commandFingerprint.trim()) fail("--command-fingerprint is required.");
   if (!reason.trim()) fail("--reason is required.");
-  const issuedAtMs = Number(argValue("--issued-at-ms", String(Date.now())));
+  const issuedAtMs = Number(argValue(args, "--issued-at-ms", String(Date.now())));
   if (!Number.isFinite(issuedAtMs) || issuedAtMs <= 0) {
     fail("--issued-at-ms must be a positive number.");
   }
@@ -274,8 +325,8 @@ async function issue() {
   if (issuedAtMs < now - issuedAtSkewMs || issuedAtMs > now + issuedAtSkewMs) {
     fail("--issued-at-ms must be within 5 minutes of current time.");
   }
-  const expiresAtArg = argValue("--expires-at-ms", "");
-  const ttl = Number(argValue("--ttl", "300"));
+  const expiresAtArg = argValue(args, "--expires-at-ms", "");
+  const ttl = Number(argValue(args, "--ttl", "300"));
   if (!expiresAtArg && (!Number.isFinite(ttl) || ttl <= 0 || ttl > 3600)) {
     fail("--ttl must be a number between 1 and 3600 seconds.");
   }
@@ -293,35 +344,54 @@ async function issue() {
   };
   const token = signPayload(payload);
   const tokenHash = sha256(token);
+  assertStoreHashKey(tokenHash, "override token");
   await withStoreLock(session, () => {
     const storePath = tokenStorePath(session);
-    const store = pruneStore(readJson(storePath, { usedHashes: {}, issuedHashes: {} }), Date.now());
+    const store = pruneStore(
+      readJson(storePath, { usedHashes: createHashBucket(), issuedHashes: createHashBucket() }),
+      Date.now(),
+    );
+    trimIssuedHashesToCap(store, maxIssuedPerSession);
+    if (Object.keys(store.issuedHashes).length >= maxIssuedPerSession) {
+      fail(`Override token issue limit reached for session ${session}; prune or wait for retention cleanup.`);
+    }
+    if (storeSizeBytes(store) > maxStoreBytes) {
+      fail(`Override token store too large (${storeSizeBytes(store)} bytes > ${maxStoreBytes}).`);
+    }
     store.issuedHashes[tokenHash] = { at: new Date(issuedAtMs).toISOString(), reason, commandFingerprint };
+    if (storeSizeBytes(store) > maxStoreBytes) {
+      fail(`Override token store would exceed max size after issue (${maxStoreBytes} bytes).`);
+    }
     writeJson(storePath, store);
   });
   console.log(JSON.stringify({ token, expiresAtMs: payload.expiresAtMs }));
 }
 
 async function verify() {
-  const session = argValue("--session");
-  const commandFingerprint = argValue("--command-fingerprint");
-  const token = argValue("--token");
+  const session = argValue(args, "--session");
+  const commandFingerprint = argValue(args, "--command-fingerprint");
+  const token = argValue(args, "--token", process.env.CLAUDE_GUARD_OVERRIDE_TOKEN || "");
   if (!session.trim()) fail("--session is required.");
   if (!commandFingerprint.trim()) fail("--command-fingerprint is required.");
-  if (!token.trim()) fail("--token is required.");
+  if (!token.trim()) fail("--token is required (or set CLAUDE_GUARD_OVERRIDE_TOKEN).");
   const now = Date.now();
   const verified = verifyToken(token);
   if (!verified.ok) fail(verified.reason);
   const payload = verified.payload;
   if (payload.session !== session) fail("Override token session mismatch.");
   if (payload.commandFingerprint !== commandFingerprint) fail("Override token fingerprint mismatch.");
-  if (payload.expiresAtMs < now) fail("Override token is expired.");
+  // Expiration is inclusive: expiresAtMs equal to now is treated as expired.
+  if (payload.expiresAtMs <= now) fail("Override token is expired.");
 
   const tokenHash = sha256(token);
+  assertStoreHashKey(tokenHash, "override token");
   await withStoreLock(session, () => {
     const storePath = tokenStorePath(session);
-    const store = pruneStore(readJson(storePath, { usedHashes: {}, issuedHashes: {} }), Date.now());
-    if (store.usedHashes[tokenHash]) fail("Override token was already used.");
+    const store = pruneStore(
+      readJson(storePath, { usedHashes: createHashBucket(), issuedHashes: createHashBucket() }),
+      Date.now(),
+    );
+    if (Object.prototype.hasOwnProperty.call(store.usedHashes, tokenHash)) fail("Override token was already used.");
     store.usedHashes[tokenHash] = {
       at: new Date(now).toISOString(),
       commandFingerprint,
@@ -342,7 +412,7 @@ try {
       [
         "usage:",
         "  guard-override-token issue --session <id> --command-fingerprint <sha> --reason <text> [--ttl <seconds>] [--issued-at-ms <epoch-ms>] [--expires-at-ms <epoch-ms>]",
-        "  guard-override-token verify --session <id> --command-fingerprint <sha> --token <token>",
+        "  guard-override-token verify --session <id> --command-fingerprint <sha> [--token <token> | CLAUDE_GUARD_OVERRIDE_TOKEN]",
       ].join("\n"),
       2,
     );

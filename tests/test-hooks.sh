@@ -34,6 +34,25 @@ out="$(run_hook cc-pretooluse-guard.sh "$bash_json")"
 assert_json_expr "legacy grep denied" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
 assert_contains "legacy grep reason" "$out" "modern CLI"
 
+primary_nested="$(bash -c 'source "$1"; cc_command_primary_token "$2" || true' _ "$ROOT/hooks/lib/command-classifiers.sh" "sudo timeout 10s command rg -n foo src/app.ts")"
+if [[ "$primary_nested" == "rg" ]]; then ok "primary token resolves nested wrappers"; else not_ok "primary token resolves nested wrappers: got '$primary_nested'"; fi
+primary_env_sudo="$(bash -c 'source "$1"; cc_command_primary_token "$2" || true' _ "$ROOT/hooks/lib/command-classifiers.sh" "VAR=x sudo -u user command rg -n foo src/app.ts")"
+if [[ "$primary_env_sudo" == "rg" ]]; then ok "primary token resolves env + sudo wrapper"; else not_ok "primary token resolves env + sudo wrapper: got '$primary_env_sudo'"; fi
+primary_timeout_flag_only="$(bash -c 'source "$1"; cc_command_primary_token "$2" || true' _ "$ROOT/hooks/lib/command-classifiers.sh" "timeout --kill-after")"
+if [[ -z "$primary_timeout_flag_only" ]]; then ok "primary token handles timeout flag missing arg"; else not_ok "primary token handles timeout flag missing arg: got '$primary_timeout_flag_only'"; fi
+primary_timeout_flag_arg_only="$(bash -c 'source "$1"; cc_command_primary_token "$2" || true' _ "$ROOT/hooks/lib/command-classifiers.sh" "timeout --kill-after command")"
+if [[ -z "$primary_timeout_flag_arg_only" ]]; then ok "primary token handles timeout consumed arg without command"; else not_ok "primary token handles timeout consumed arg without command: got '$primary_timeout_flag_arg_only'"; fi
+prod_schema_detect="$(bash -c 'source "$1"; cc_command_is_prod_schema_mutation "$2" "$3"; echo $?' _ "$ROOT/hooks/lib/command-classifiers.sh" "prisma db push --url postgresql://prod.example.com/app" "")"
+if [[ "$prod_schema_detect" == "0" ]]; then ok "prod schema detection flags production URL"; else not_ok "prod schema detection flags production URL: got '$prod_schema_detect'"; fi
+prod_schema_localhost="$(bash -c 'source "$1"; cc_command_is_prod_schema_mutation "$2" "$3"; echo $?' _ "$ROOT/hooks/lib/command-classifiers.sh" "prisma db push --url postgresql://localhost/app" "")"
+if [[ "$prod_schema_localhost" == "1" ]]; then ok "prod schema detection excludes localhost URL"; else not_ok "prod schema detection excludes localhost URL: got '$prod_schema_localhost'"; fi
+prod_schema_dev_schema="$(bash -c 'source "$1"; cc_command_is_prod_schema_mutation "$2" "$3"; echo $?' _ "$ROOT/hooks/lib/command-classifiers.sh" "prisma db push --schema ./dev.schema" "")"
+if [[ "$prod_schema_dev_schema" == "1" ]]; then ok "prod schema detection excludes dev schema path"; else not_ok "prod schema detection excludes dev schema path: got '$prod_schema_dev_schema'"; fi
+prod_schema_dev_host_port="$(bash -c 'source "$1"; cc_command_is_prod_schema_mutation "$2" "$3"; echo $?' _ "$ROOT/hooks/lib/command-classifiers.sh" "prisma db push --url postgresql://db-staging.example.com:5433/app" "")"
+if [[ "$prod_schema_dev_host_port" == "1" ]]; then ok "prod schema detection excludes staged host with port"; else not_ok "prod schema detection excludes staged host with port: got '$prod_schema_dev_host_port'"; fi
+prod_schema_env_hint="$(bash -c 'source "$1"; cc_command_is_prod_schema_mutation "$2" "$3"; echo $?' _ "$ROOT/hooks/lib/command-classifiers.sh" "prisma db push" "DATABASE_URL=postgresql://qa-db.example.com:5433/app")"
+if [[ "$prod_schema_env_hint" == "1" ]]; then ok "prod schema detection excludes qa env hint"; else not_ok "prod schema detection excludes qa env hint: got '$prod_schema_env_hint'"; fi
+
 large_bash_json="$(node -e 'process.stdout.write(JSON.stringify({session_id:"fixture-large",tool_name:"Bash",tool_input:{command:"grep -n foo src/app.ts"},padding:"x".repeat(2 * 1024 * 1024)}))')"
 out="$(printf '%s' "$large_bash_json" | "$ROOT/hooks/cc-pretooluse-guard.sh")"
 assert_json_expr "large JSON payload still enforced" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
@@ -41,6 +60,16 @@ assert_json_expr "large JSON payload still enforced" "$out" '.hookSpecificOutput
 safe_bash="$(jq '.tool_input.command = "rg -n foo src/app.ts"' <<<"$bash_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$safe_bash")"
 assert_json_expr "rg allowed" "$out" '.continue == true'
+
+output_limiter_bash="$(jq '.tool_input.command = "rg -n foo src/app.ts | head -20"' <<<"$bash_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$output_limiter_bash")"
+assert_json_expr "output limiter pipe denied" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+assert_contains "output limiter reason" "$out" "output-limiter"
+
+read_dir_json="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-read-dir",tool_name:"Read",cwd:$root,tool_input:{file_path:$root}}')"
+out="$(run_hook cc-pretooluse-guard.sh "$read_dir_json")"
+assert_json_expr "directory read denied before tool error" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+assert_contains "directory read reason" "$out" "directory"
 
 dangerous_outside="$(jq --arg cwd "$ROOT" '.cwd = $cwd | .tool_input.command = "cp /etc/passwd \($cwd)/passwd-copy"' <<<"$bash_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$dangerous_outside")"
@@ -170,10 +199,29 @@ sprawl_fourth="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-spra
 out="$(run_hook cc-pretooluse-guard.sh "$sprawl_fourth")"
 assert_contains "file sprawl denied" "$out" "File-sprawl"
 
-prompt="$(fixture userpromptsubmit.json)"
-out="$(run_hook cc-userprompt-router.sh "$prompt")"
+mkdir -p "$TMPROOT/home/.claude" "$TMPROOT/example"
+printf '%s\n' '# Global Claude' 'Reuse before create from injected global.' >"$TMPROOT/home/.claude/CLAUDE.md"
+printf '%s\n' '# Project Claude' 'Project-specific gotcha from injected CLAUDE.md.' '@AGENTS.md' '@../outside.md' >"$TMPROOT/example/CLAUDE.md"
+printf '%s\n' '# Project Agents' 'Agent local rule from referenced AGENTS.md.' >"$TMPROOT/example/AGENTS.md"
+printf '%s\n' 'Outside secret should not be injected.' >"$TMPROOT/outside.md"
+prompt="$(fixture userpromptsubmit.json | jq --arg cwd "$TMPROOT/example" '.cwd = $cwd')"
+out="$(HOME="$TMPROOT/home" run_hook cc-userprompt-router.sh "$prompt")"
 assert_json_expr "prompt router emits context" "$out" '.hookSpecificOutput.additionalContext | length > 0'
 assert_contains "prompt router names code review workflow" "$out" "etrnl-review"
+assert_contains "prompt router reinjects global CLAUDE.md" "$out" "Reuse before create from injected global"
+assert_contains "prompt router reinjects project CLAUDE.md" "$out" "Project-specific gotcha from injected CLAUDE.md"
+assert_contains "prompt router expands CLAUDE.md references" "$out" "Agent local rule from referenced AGENTS.md"
+if [[ "$out" == *"Outside secret should not be injected"* ]]; then
+  not_ok "prompt router skips out-of-root CLAUDE.md references"
+else
+  ok "prompt router skips out-of-root CLAUDE.md references"
+fi
+out="$(HOME="$TMPROOT/home" CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD=0 run_hook cc-userprompt-router.sh "$prompt")"
+if [[ "$out" == *"Project-specific gotcha from injected CLAUDE.md"* ]]; then
+  not_ok "prompt router disables CLAUDE.md reinjection"
+else
+  ok "prompt router disables CLAUDE.md reinjection"
+fi
 challenge_prompt="$(jq -cn '{session_id:"fixture-challenge-prompt",prompt:"why is Vega saying you are right? I thought we had a hook for this"}')"
 out="$(run_hook cc-userprompt-router.sh "$challenge_prompt")"
 assert_contains "challenge prompt gets evidence protocol" "$out" "Evidence-first correction protocol"
@@ -211,9 +259,21 @@ assert_json_expr "domain edit allowed after companion skill" "$out" '.continue =
 
 failure_json="$(jq -cn '{session_id:"fixture-session",tool_name:"Bash",tool_input:{command:"bad --flag"},error:"unknown flag"}')"
 out="$(run_hook cc-posttoolusefailure-diagnose.sh "$failure_json")"
-assert_json_expr "failure blocks with diagnosis" "$out" '.decision == "block"'
+assert_json_expr "first failure emits context only" "$out" '.hookSpecificOutput.hookEventName == "PostToolUseFailure"'
 out="$(run_hook cc-posttoolusefailure-diagnose.sh "$failure_json")"
 assert_contains "repeated failure pivots" "$out" "repeated"
+
+rate_event="$(jq -cn '{session_id:"fixture-rate",tool_name:"Bash",tool_input:{command:"rg -n value src"}}')"
+run_hook cc-rate-limiter.sh "$rate_event" >/dev/null || true
+out="$(CLAUDE_CONTROL_PLANE_RATE_LIMITER_RAPID_THRESHOLD=1 run_hook cc-rate-limiter.sh "$rate_event")"
+assert_contains "rate limiter emits pace context" "$out" "Pace check"
+
+warning_edit_event="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-warning-debounce",tool_name:"Edit",status:"success",cwd:$root,tool_input:{file_path:($root + "/src/app.ts")}}')"
+out="$(run_hook cc-posttoolbatch-observer.sh "$warning_edit_event")"
+assert_contains "observer emits first stale-quality warning" "$out" "Quality verification"
+warning_non_edit_event="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-warning-debounce",tool_name:"Bash",status:"success",cwd:$root,tool_input:{command:"rg -n value src/app.ts"}}')"
+out="$(run_hook cc-posttoolbatch-observer.sh "$warning_non_edit_event")"
+if [[ -z "$out" ]]; then ok "observer debounces duplicate stale-quality warning"; else not_ok "observer debounces duplicate stale-quality warning: $out"; fi
 
 repeat_edit_event="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-repeat-edit",tool_name:"Edit",status:"success",cwd:$root,tool_input:{file_path:($root + "/src/app.ts")}}')"
 for _ in 1 2 3; do
@@ -250,6 +310,35 @@ stale_stop="$(jq -cn '{session_id:"fixture-stale",last_assistant_message:"Done, 
 out="$(run_hook cc-stop-verifier.sh "$stale_stop")"
 assert_contains "stop verifier blocks stale verification" "$out" "stale verification"
 
+# Schema-edit migration evidence matrix
+schema_missing_state="$TMPROOT/claude-guard-fixture-schema-missing.json"
+jq -nc '{schemaVersion:2,reads:{},searches:{},edits:{"/tmp/example/prisma/schema.prisma":"2026-01-01T00:00:01Z"},commands:[],failures:[],skillCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],verificationRuns:[{value:"pnpm test",at:"2026-01-01T00:00:02Z"}],qualityRuns:[{value:"pnpm test",at:"2026-01-01T00:00:02Z"}],testRuns:[{value:"pnpm test",at:"2026-01-01T00:00:02Z"}],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],blockedCommands:[],successfulCommands:[],commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"",lastCompactSummary:"",cwd:"",settingsFingerprint:"",startedAt:""}' >"$schema_missing_state"
+schema_missing_stop="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-schema-missing",cwd:$root,last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$schema_missing_stop")"
+assert_contains "schema edit without migration verification blocked" "$out" "schema-related edits without migration evidence"
+
+schema_ok_state="$TMPROOT/claude-guard-fixture-schema-ok.json"
+jq -nc '{schemaVersion:2,reads:{},searches:{},edits:{"/tmp/example/prisma/schema.prisma":"2026-01-01T00:00:01Z"},commands:[],failures:[],skillCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],verificationRuns:[{value:"pnpm test",at:"2026-01-01T00:00:02Z"},{value:"npx prisma migrate status",at:"2026-01-01T00:00:03Z"}],qualityRuns:[{value:"pnpm test",at:"2026-01-01T00:00:02Z"}],testRuns:[{value:"pnpm test",at:"2026-01-01T00:00:02Z"}],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],blockedCommands:[],successfulCommands:[],commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"",lastCompactSummary:"",cwd:"",settingsFingerprint:"",startedAt:""}' >"$schema_ok_state"
+schema_ok_stop="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-schema-ok",cwd:$root,last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$schema_ok_stop")"
+if [[ -z "$out" ]]; then ok "schema edit with migration verification allowed"; else not_ok "schema edit with migration verification should pass: $out"; fi
+
+for bunx_cmd in "bunx --bun prisma migrate status" "bunx --bun prisma migrate deploy" "bunx --bun prisma migrate resolve"; do
+  bunx_state_id="$(printf '%s' "$bunx_cmd" | tr -cs '[:alnum:]' '-')"
+  schema_bunx_state="$TMPROOT/claude-guard-fixture-schema-bunx-${bunx_state_id}.json"
+  jq -nc --arg cmd "$bunx_cmd" '{schemaVersion:2,reads:{},searches:{},edits:{"/tmp/example/prisma/schema.prisma":"2026-01-01T00:00:01Z"},commands:[],failures:[],skillCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],verificationRuns:[{value:"pnpm test",at:"2026-01-01T00:00:02Z"},{value:$cmd,at:"2026-01-01T00:00:03Z"}],qualityRuns:[{value:"pnpm test",at:"2026-01-01T00:00:02Z"}],testRuns:[{value:"pnpm test",at:"2026-01-01T00:00:02Z"}],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],blockedCommands:[],successfulCommands:[],commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"",lastCompactSummary:"",cwd:"",settingsFingerprint:"",startedAt:""}' >"$schema_bunx_state"
+  schema_bunx_stop="$(jq -cn --arg root "$TMPROOT/example" --arg sid "$bunx_state_id" '{session_id:("fixture-schema-bunx-" + $sid),cwd:$root,last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"
+  out="$(run_hook cc-stop-verifier.sh "$schema_bunx_stop")"
+  if [[ -z "$out" ]]; then ok "schema edit with $bunx_cmd allowed"; else not_ok "schema edit with $bunx_cmd should pass: $out"; fi
+done
+
+schema_bunx_negative_state="$TMPROOT/claude-guard-fixture-schema-bunx-negative.json"
+jq -nc '{schemaVersion:2,reads:{},searches:{},edits:{"/tmp/example/prisma/schema.prisma":"2026-01-01T00:00:01Z"},commands:[],failures:[],skillCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],verificationRuns:[{value:"pnpm test",at:"2026-01-01T00:00:02Z"},{value:"bunx --bun prisma db push",at:"2026-01-01T00:00:03Z"}],qualityRuns:[{value:"pnpm test",at:"2026-01-01T00:00:02Z"}],testRuns:[{value:"pnpm test",at:"2026-01-01T00:00:02Z"}],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],blockedCommands:[],successfulCommands:[],commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"",lastCompactSummary:"",cwd:"",settingsFingerprint:"",startedAt:""}' >"$schema_bunx_negative_state"
+schema_bunx_negative_stop="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-schema-bunx-negative",cwd:$root,last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$schema_bunx_negative_stop")"
+assert_contains "schema edit with bunx non-migrate command blocked" "$out" "schema-related edits without migration evidence"
+
+# Non-schema edit permit path is already covered by fixture-fresh-quality above.
 mkdir -p "$TMPROOT/example/tests"
 curl_state="$TMPROOT/claude-guard-fixture-curl-only.json"
 jq -nc '{schemaVersion:1,reads:{},searches:{},edits:{"/tmp/example/src/app.ts":"2026-01-01T00:00:01Z"},commands:[],failures:[],skillCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],verificationRuns:[{value:"curl http://localhost:3000",at:"2026-01-01T00:00:02Z"}],qualityRuns:[],testRuns:[],browserRuns:[{value:"curl http://localhost:3000",at:"2026-01-01T00:00:02Z"}],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],lastPrompt:"",lastCompactSummary:"",cwd:"",settingsFingerprint:"",startedAt:""}' >"$curl_state"
@@ -355,12 +444,24 @@ override_mismatch_cmd='prisma db push --url postgresql://prod.example.com/other'
 override_mismatch_event="$(jq -cn --arg cmd "$override_mismatch_cmd" --arg token "$override_token" '{session_id:"fixture-override",tool_name:"Bash",cwd:"/tmp/example",tool_input:{command:$cmd,guard_override_token:$token}}')"
 override_mismatch="$(run_hook cc-pretooluse-guard.sh "$override_mismatch_event")"
 assert_json_expr "override token fingerprint mismatch denied" "$override_mismatch" '.hookSpecificOutput.permissionDecision == "deny"'
+override_staging_cmd='prisma db push --url postgresql://db.staging.example.com:5433/app'
+override_staging_event="$(jq -cn --arg cmd "$override_staging_cmd" '{session_id:"fixture-override-staging",tool_name:"Bash",cwd:"/tmp/example",tool_input:{command:$cmd}}')"
+override_staging="$(run_hook cc-pretooluse-guard.sh "$override_staging_event")"
+assert_json_expr "staging schema mutation with explicit port allowed without override" "$override_staging" '.continue == true'
+override_non_secure_cmd='prisma db push --url postgresql://db.example.com/app?sslmode=disable'
+override_non_secure_event="$(jq -cn --arg cmd "$override_non_secure_cmd" '{session_id:"fixture-override-non-secure",tool_name:"Bash",cwd:"/tmp/example",tool_input:{command:$cmd}}')"
+override_non_secure="$(run_hook cc-pretooluse-guard.sh "$override_non_secure_event")"
+assert_json_expr "non-secure query flag treated as non-prod and allowed" "$override_non_secure" '.continue == true'
 override_exp_fp="$(bash -c 'source "$1"; cc_command_fingerprint "$2"' _ "$ROOT/hooks/lib/command-classifiers.sh" "veloz db credentials")"
+# Use epoch+1ms to guarantee the token is already expired when issued.
 override_exp_json="$(node "$ROOT/scripts/guard-override-token.mjs" issue --session fixture-override-exp --command-fingerprint "$override_exp_fp" --reason "breakglass" --expires-at-ms 1)"
 override_exp_token="$(jq -r '.token' <<<"$override_exp_json")"
 override_exp_event="$(jq -cn --arg token "$override_exp_token" '{session_id:"fixture-override-exp",tool_name:"Bash",cwd:"/tmp/example",tool_input:{command:"veloz db credentials",guard_override_token:$token}}')"
 override_expired="$(run_hook cc-pretooluse-guard.sh "$override_exp_event")"
 assert_json_expr "expired override token denied" "$override_expired" '.hookSpecificOutput.permissionDecision == "deny"'
+secret_git_event="$(jq -cn '{session_id:"fixture-secret-git",tool_name:"Bash",cwd:"/tmp/example",tool_input:{command:"git credential fill"}}')"
+secret_git_denied="$(run_hook cc-pretooluse-guard.sh "$secret_git_event")"
+assert_json_expr "git credential command denied without override token" "$secret_git_denied" '.hookSpecificOutput.permissionDecision == "deny"'
 
 # Re-run a safe command 10 times to prove non-mutating allowed commands stay idempotent under repeated hook invocations.
 for i in {1..10}; do
@@ -395,10 +496,10 @@ for fixture_file in "${valid_guard_fixtures[@]}"; do
   fixture_name="$(basename "$fixture_file" .json)"
   fixture_cmd="$(jq -r '.tool_input.command' "$fixture_file")"
   guard_out="$(run_hook cc-pretooluse-guard.sh "$(jq -c . "$fixture_file")")"
-  assert_json_expr "guard allows $fixture_name ($fixture_cmd)" "$guard_out" '.continue'
+  assert_json_expr "guard allows $fixture_name ($fixture_cmd)" "$guard_out" '.continue == true'
 done
 
-# Packet fixture matrix (C3/C4): 5 invalid packets (should deny) + 5 valid packets (should allow)
+# Packet fixture matrix (C3/C4): 6 invalid packets (should deny) + 5 valid packets (should allow)
 for fixture_file in "${invalid_packet_fixtures[@]}"; do
   fixture_name="$(basename "$fixture_file" .json)"
   guard_out="$(run_hook cc-pretooluse-guard.sh "$(jq -c . "$fixture_file")")"
@@ -407,7 +508,7 @@ done
 for fixture_file in "${valid_packet_fixtures[@]}"; do
   fixture_name="$(basename "$fixture_file" .json)"
   guard_out="$(run_hook cc-pretooluse-guard.sh "$(jq -c . "$fixture_file")")"
-  assert_json_expr "guard allows $fixture_name" "$guard_out" '.continue'
+  assert_json_expr "guard allows $fixture_name" "$guard_out" '.continue == true'
 done
 
 finish_tests
