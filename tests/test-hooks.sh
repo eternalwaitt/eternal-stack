@@ -65,6 +65,13 @@ output_limiter_bash="$(jq '.tool_input.command = "rg -n foo src/app.ts | head -2
 out="$(run_hook cc-pretooluse-guard.sh "$output_limiter_bash")"
 assert_json_expr "output limiter pipe denied" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
 assert_contains "output limiter reason" "$out" "output-limiter"
+readiness_help_bash="$(jq '.tool_input.command = "node ~/.claude/scripts/plan-readiness-check.mjs --help 2>&1 || bat ~/.claude/scripts/plan-readiness-check.mjs"' <<<"$bash_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$readiness_help_bash")"
+assert_json_expr "plan readiness help probe denied" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+assert_contains "plan readiness help reason" "$out" "plan-readiness-check.mjs <plan-path>"
+readiness_help_only_bash="$(jq '.tool_input.command = "node ~/.claude/scripts/plan-readiness-check.mjs --help"' <<<"$bash_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$readiness_help_only_bash")"
+assert_json_expr "plan readiness direct help allowed" "$out" '.continue == true'
 
 read_dir_json="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-read-dir",tool_name:"Read",cwd:$root,tool_input:{file_path:$root}}')"
 out="$(run_hook cc-pretooluse-guard.sh "$read_dir_json")"
@@ -80,6 +87,25 @@ dangerous_quoted="$(jq --arg cwd "$ROOT" '.cwd = $cwd | .tool_input.command = "c
 out="$(run_hook cc-pretooluse-guard.sh "$dangerous_quoted")"
 assert_json_expr "dangerous quoted outside path denied" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
 assert_contains "dangerous quoted outside path named" "$out" "/etc/passwd"
+
+gws_help_state="$TMPROOT/claude-guard-fixture-gws-help.json"
+jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[{value:"gws gmail help",at:"2026-01-01T00:00:00Z"}],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:""}' >"$gws_help_state"
+gws_write_with_help="$(jq '.session_id = "fixture-gws-help" | .tool_input.command = "gws gmail users messages batchModify --params {} --json {}"' <<<"$bash_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$gws_write_with_help")"
+assert_json_expr "gws help does not satisfy write preflight" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+assert_contains "gws help denial names account verification" "$out" "Help output is not account verification"
+
+email_triage_raw_mutation_state="$TMPROOT/claude-guard-fixture-email-triage-raw-mutation.json"
+jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[{value:"email-triage",at:"2026-01-01T00:00:00Z"}],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[{value:"gws gmail account whoami",at:"2026-01-01T00:00:00Z"}],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"/email-triage agencia",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:""}' >"$email_triage_raw_mutation_state"
+email_triage_raw_mutation="$(jq '.session_id = "fixture-email-triage-raw-mutation" | .tool_input.command = "gws gmail users messages batchModify --params {} --json {}"' <<<"$bash_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$email_triage_raw_mutation")"
+assert_json_expr "email triage blocks raw gmail mutation" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+assert_contains "email triage raw mutation reason" "$out" "Raw Gmail mutation is blocked"
+
+live_hook_edit="$(jq -cn --arg file "$HOME/.claude/hooks/cc-stop-verifier.sh" '{session_id:"fixture-live-hook-edit",tool_name:"Edit",cwd:"/tmp",tool_input:{file_path:$file,old_string:"old",new_string:"new"}}')"
+out="$(run_hook cc-pretooluse-guard.sh "$live_hook_edit")"
+assert_json_expr "live claude hook edit denied" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+assert_contains "live claude hook edit reason" "$out" "Live ~/.claude/hooks edits are blocked"
 
 dev_no_port="$(jq '.tool_input.command = "pnpm dev:web"' <<<"$bash_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$dev_no_port")"
@@ -250,10 +276,38 @@ assert_contains "health prompt routes code health" "$out" "etrnl-code-health"
 health_state="$TMPROOT/claude-guard-fixture-health-prompt.json"
 assert_json_expr "health skill recorded" "$(jq -c . "$health_state")" 'any(.requestedSkills[]?.value; . == "etrnl-code-health")'
 
+skill_trigger_cases="$ROOT/tests/fixtures/skill-triggering/cases.json"
+skill_trigger_count="$(jq 'length' "$skill_trigger_cases")"
+for (( i = 0; i < skill_trigger_count; i++ )); do
+  case_name="$(jq -r ".[$i].name" "$skill_trigger_cases")"
+  case_prompt="$(jq -r ".[$i].prompt" "$skill_trigger_cases")"
+  case_session="fixture-skill-trigger-$i"
+  case_event="$(jq -cn --arg session "$case_session" --arg prompt "$case_prompt" '{session_id:$session,prompt:$prompt}')"
+  run_hook cc-userprompt-router.sh "$case_event" >/dev/null || true
+  case_state="$TMPROOT/claude-guard-$case_session.json"
+  case_state_json="$(jq -c . "$case_state")"
+  while IFS= read -r expected_skill; do
+    [[ -n "$expected_skill" ]] || continue
+    assert_json_expr "skill trigger $case_name records $expected_skill" "$case_state_json" "any(.requestedSkills[]?.value; . == \"$expected_skill\")"
+  done < <(jq -r ".[$i].expectedSkills[]?" "$skill_trigger_cases")
+  while IFS= read -r unexpected_skill; do
+    [[ -n "$unexpected_skill" ]] || continue
+    assert_json_expr "skill trigger $case_name does not record $unexpected_skill" "$case_state_json" "([.requestedSkills[]?.value] | index(\"$unexpected_skill\") | not)"
+  done < <(jq -r ".[$i].unexpectedSkills[]?" "$skill_trigger_cases")
+done
+
 skill_json="$(jq -cn '{session_id:"fixture-session",hook_event_name:"UserPromptExpansion",command_name:"etrnl-review"}')"
 run_hook cc-userprompt-expansion.sh "$skill_json" >/dev/null || true
 state_file="$TMPROOT/claude-guard-fixture-session.json"
 assert_json_expr "skill recorded" "$(jq -c . "$state_file")" '(.skillCalls | length) > 0'
+agent_event="$(jq -cn '{session_id:"fixture-agent-observer",tool_name:"Agent",status:"success",tool_input:{subagent_type:"etrnl-executor",description:"bounded implementation",packet:{mode:"write",goal:"bounded task"}}}')"
+run_hook cc-posttoolbatch-observer.sh "$agent_event" >/dev/null || true
+agent_state="$TMPROOT/claude-guard-fixture-agent-observer.json"
+assert_json_expr "implementation agent recorded" "$(jq -c . "$agent_state")" 'any(.agentCalls[]?.value; test("subagent=etrnl-executor") and test("mode=write"))'
+review_agent_event="$(jq -cn '{session_id:"fixture-reviewer-observer",tool_name:"Task",status:"success",tool_input:{subagent_type:"etrnl-spec-reviewer",description:"review spec",packet:{mode:"read-only",goal:"review implemented plan"}}}')"
+run_hook cc-posttoolbatch-observer.sh "$review_agent_event" >/dev/null || true
+review_agent_state="$TMPROOT/claude-guard-fixture-reviewer-observer.json"
+assert_json_expr "reviewer agent recorded separately" "$(jq -c . "$review_agent_state")" 'any(.reviewerAgentCalls[]?.value; test("subagent=etrnl-spec-reviewer"))'
 
 mkdir -p "$TMPROOT/example/src/auth"
 printf 'export const auth = true;\n' >"$TMPROOT/example/src/auth/session.ts"
@@ -301,6 +355,23 @@ run_hook cc-posttoolbatch-observer.sh "$bug_search" >/dev/null || true
 bug_edit="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-bug-suggest",tool_name:"Edit",cwd:$root,tool_input:{file_path:($root + "/src/app.ts"),old_string:"export const value = 1;",new_string:"export const value = 3;"}}')"
 out="$(run_hook cc-pretooluse-guard.sh "$bug_edit")"
 assert_contains "bug memory surfaced before edit" "$out" "Previous bug notes"
+out="$(run_hook cc-pretooluse-guard.sh "$bug_edit")"
+if [[ "$out" == *"Previous bug notes"* ]]; then
+  not_ok "bug memory suggestion debounced in session"
+else
+  ok "bug memory suggestion debounced in session"
+fi
+bug_disabled_read="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-bug-disabled",tool_name:"Read",status:"success",cwd:$root,tool_input:{file_path:($root + "/src/app.ts")}}')"
+run_hook cc-posttoolbatch-observer.sh "$bug_disabled_read" >/dev/null || true
+bug_disabled_search="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-bug-disabled",tool_name:"Bash",status:"success",cwd:$root,tool_input:{command:"rg -n value src/app.ts"}}')"
+run_hook cc-posttoolbatch-observer.sh "$bug_disabled_search" >/dev/null || true
+bug_disabled_edit="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-bug-disabled",tool_name:"Edit",cwd:$root,tool_input:{file_path:($root + "/src/app.ts"),old_string:"export const value = 1;",new_string:"export const value = 4;"}}')"
+out="$(CLAUDE_CONTROL_PLANE_LEARNING_HINTS=0 run_hook cc-pretooluse-guard.sh "$bug_disabled_edit")"
+if [[ "$out" == *"Previous bug notes"* ]]; then
+  not_ok "bug memory disabled by env flag"
+else
+  ok "bug memory disabled by env flag"
+fi
 
 too_big="$TMPROOT/example/src/too-big.ts"
 for i in {1..301}; do printf 'export const value%s = %s;\n' "$i" "$i"; done >"$too_big"
@@ -315,6 +386,25 @@ assert_json_expr "stop verifier blocks unverified completion" "$out" '.decision 
 browser_outstanding_stop="$(jq -cn '{session_id:"fixture-browser-outstanding",last_assistant_message:"Phases 0-10 complete. Only the manual browser pass is still outstanding - needs pnpm dev:web and a real browser.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$browser_outstanding_stop")"
 assert_contains "stop verifier blocks outstanding browser QA" "$out" "Outstanding browser QA"
+
+mkdir -p "$TMPROOT/bin"
+printf '%s\n' '#!/usr/bin/env bash' 'if [[ "${VIVAZ_EMAIL_VERIFY_FAIL:-0}" == "1" ]]; then exit 1; fi' 'if [[ "$1 $2" == "triage verify" ]]; then printf "{\"ok\":true}\n"; exit 0; fi' 'exit 0' >"$TMPROOT/bin/vivaz-email"
+chmod +x "$TMPROOT/bin/vivaz-email"
+
+email_triage_missing_state="$TMPROOT/claude-guard-fixture-email-triage-missing.json"
+jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[{value:"email-triage",at:"2026-01-01T00:00:00Z"}],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"/email-triage agencia",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$email_triage_missing_state"
+email_triage_missing_stop="$(jq -cn '{session_id:"fixture-email-triage-missing",last_assistant_message:"Done, email triage complete.",stop_hook_active:false}')"
+out="$(PATH="$TMPROOT/bin:$PATH" run_hook cc-stop-verifier.sh "$email_triage_missing_stop")"
+assert_contains "email triage stop requires runtime run command" "$out" "vivaz-email triage run"
+
+email_triage_ok_state="$TMPROOT/claude-guard-fixture-email-triage-ok.json"
+jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[{command:"vivaz-email triage run --account agencia",at:"2026-01-01T00:00:01Z"}],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[{value:"email-triage",at:"2026-01-01T00:00:00Z"}],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"/email-triage agencia",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$email_triage_ok_state"
+email_triage_ok_stop="$(jq -cn '{session_id:"fixture-email-triage-ok",last_assistant_message:"Done, email triage complete.",stop_hook_active:false}')"
+out="$(PATH="$TMPROOT/bin:$PATH" run_hook cc-stop-verifier.sh "$email_triage_ok_stop")"
+if [[ -z "$out" ]]; then ok "email triage verified ledger satisfies stop"; else not_ok "email triage verified ledger should pass: $out"; fi
+
+out="$(VIVAZ_EMAIL_VERIFY_FAIL=1 PATH="$TMPROOT/bin:$PATH" run_hook cc-stop-verifier.sh "$email_triage_ok_stop")"
+assert_contains "email triage failed ledger blocks stop" "$out" "latest vivaz-email triage ledger"
 
 stale_state="$TMPROOT/claude-guard-fixture-stale.json"
 jq -nc '{schemaVersion:1,reads:{},searches:{},edits:{"/tmp/a.ts":"2026-01-01T00:00:02Z"},commands:[],failures:[],skillCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],verificationRuns:[{value:"pnpm test",at:"2026-01-01T00:00:01Z"}],newFileSearches:[],lastPrompt:"",lastCompactSummary:"",cwd:"",settingsFingerprint:"",startedAt:""}' >"$stale_state"
@@ -379,6 +469,61 @@ requested_stop="$(jq -cn '{session_id:"fixture-requested",last_assistant_message
 out="$(run_hook cc-stop-verifier.sh "$requested_stop")"
 assert_contains "stop verifier blocks missing requested skill" "$out" "requested skill"
 
+execute_no_agent_state="$TMPROOT/claude-guard-fixture-execute-no-agent.json"
+jq -nc '{
+  schemaVersion: 3,
+  reads: {},
+  searches: {},
+  edits: {
+    "/tmp/example/src/a.ts": "2026-01-01T00:00:01Z",
+    "/tmp/example/src/b.ts": "2026-01-01T00:00:01Z"
+  },
+  commands: [],
+  blockedCommands: [],
+  successfulCommands: [],
+  failures: [],
+  skillCalls: [{value:"etrnl-execute", at:"2026-01-01T00:00:00Z"}],
+  agentCalls: [],
+  reviewerAgentCalls: [],
+  requestedSkills: [{value:"etrnl-execute", at:"2026-01-01T00:00:00Z"}],
+  evidenceChallenges: [],
+  evidenceDisciplineViolations: [],
+  verificationRuns: [{value:"pnpm test", at:"2026-01-01T00:00:02Z"}],
+  qualityRuns: [{value:"pnpm test", at:"2026-01-01T00:00:02Z"}],
+  testRuns: [{value:"pnpm test", at:"2026-01-01T00:00:02Z"}],
+  browserRuns: [],
+  reviewRuns: [{value:"etrnl-review", at:"2026-01-01T00:00:02Z"}],
+  newFileSearches: [],
+  newSourceFiles: {},
+  editCounts: {},
+  largeEdits: [],
+  repeatedEditFiles: {},
+  reviewTriggers: [],
+  editGeneration: 0,
+  commandLastEditGeneration: {},
+  prodApprovalMarkers: [],
+  lastPrompt: "",
+  lastCompactSummary: "",
+  cwd: "",
+  settingsFingerprint: "",
+  startedAt: "2026-01-01T00:00:00Z"
+}' >"$execute_no_agent_state"
+execute_no_agent_stop="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-execute-no-agent",cwd:$root,last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$execute_no_agent_stop")"
+assert_contains "etrnl-execute multi-file source edits require implementation agent" "$out" "implementation subagent"
+jq '.agentCalls = [{value:"subagent=etrnl-scout mode=read-only goal=discovery", at:"2026-01-01T00:00:01Z"}]' "$execute_no_agent_state" >"$execute_no_agent_state.tmp" && mv "$execute_no_agent_state.tmp" "$execute_no_agent_state"
+out="$(run_hook cc-stop-verifier.sh "$execute_no_agent_stop")"
+assert_contains "read-only scout does not satisfy implementation gate" "$out" "implementation subagent"
+jq '.agentCalls = [{value:"subagent=etrnl-executor mode=write taskId=T1 lineageId=wave-1.T1 goal=bounded task packetHash=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", at:"2026-01-01T00:00:01Z"}]' "$execute_no_agent_state" >"$execute_no_agent_state.tmp" && mv "$execute_no_agent_state.tmp" "$execute_no_agent_state"
+out="$(run_hook cc-stop-verifier.sh "$execute_no_agent_stop")"
+assert_contains "etrnl-execute implementation without reviewers blocks" "$out" "reviewer subagent"
+jq '.reviewerAgentCalls = [{value:"subagent=etrnl-spec-reviewer mode=read-only taskId=T1 lineageId=wave-1.T1 goal=spec review packetHash=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", at:"2026-01-01T00:00:02Z"}]' "$execute_no_agent_state" >"$execute_no_agent_state.tmp" && mv "$execute_no_agent_state.tmp" "$execute_no_agent_state"
+out="$(run_hook cc-stop-verifier.sh "$execute_no_agent_stop")"
+assert_contains "etrnl-execute missing quality reviewer blocks" "$out" "reviewer subagent"
+jq '.reviewerAgentCalls = [{value:"subagent=etrnl-spec-reviewer mode=read-only taskId=T1 lineageId=wave-1.T1 goal=spec review packetHash=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", at:"2026-01-01T00:00:02Z"},{value:"subagent=etrnl-quality-reviewer mode=read-only taskId=T1 lineageId=wave-1.T1 goal=quality review packetHash=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", at:"2026-01-01T00:00:03Z"}]' "$execute_no_agent_state" >"$execute_no_agent_state.tmp" && mv "$execute_no_agent_state.tmp" "$execute_no_agent_state"
+out="$(run_hook cc-stop-verifier.sh "$execute_no_agent_stop")"
+if [[ -z "$out" ]]; then ok "etrnl-execute implementation plus reviewer agents satisfies stop gate"; else not_ok "etrnl-execute implementation plus reviewer agents should satisfy stop gate: $out"; fi
+
 sycophancy_stop="$(jq -cn '{session_id:"fixture-session",last_assistant_message:"You are right - I will check.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$sycophancy_stop")"
 assert_contains "stop verifier blocks sycophancy" "$out" "Evidence-before-agreement"
@@ -400,10 +545,24 @@ assert_contains "posttooluse blocks sycophancy" "$out" "Evidence-before-agreemen
 precompact_json="$(jq -cn '{session_id:"fixture-session",hook_event_name:"PreCompact"}')"
 out="$(run_hook cc-precompact-save.sh "$precompact_json")"
 assert_json_expr "precompact allows after save" "$out" '.continue == true'
+postcompact_json="$(jq -cn '{session_id:"fixture-session",hook_event_name:"PostCompact",summary:"compact persisted"}')"
+run_hook cc-postcompact-record.sh "$postcompact_json" >/dev/null
+assert_json_expr "postcompact records recovery metadata" "$(jq -c . "$TMPROOT/claude-guard-fixture-session.json")" '.lastCompactSummary == "compact persisted" and .lastCompactAt != "" and .compactCount == 1'
 session_json="$(jq -cn '{session_id:"fixture-session",hook_event_name:"SessionStart",source:"compact"}')"
 out="$(run_hook cc-sessionstart-restore.sh "$session_json")"
 assert_json_expr "session compact restores context" "$out" '.hookSpecificOutput.additionalContext | test("Compact recovery")'
 assert_contains "session start injects ETRNL skill hint" "$out" "ETRNL skills"
+
+node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-session-status --plan "$ROOT/hooks/fixtures/plans/good-plan.md" >/dev/null
+node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-session-status --task T1 --title Task --status in_progress
+status_session_json="$(jq -cn '{session_id:"fixture-session-status",hook_event_name:"SessionStart"}')"
+out="$(run_hook cc-sessionstart-restore.sh "$status_session_json")"
+assert_contains "session start injects workflow status" "$out" "Workflow status:"
+assert_contains "session start workflow status names unfinished work" "$out" "unfinished=1"
+startup_buglog_path="$TMPROOT/artifacts/project-buglog.jsonl"
+CLAUDE_CONTROL_PLANE_BUGLOG="$startup_buglog_path" node "$ROOT/scripts/project-buglog.mjs" record --cwd "$ROOT" --file scripts/example.mjs --category repeated-edit --summary "repeat startup hint" >/dev/null
+out="$(CLAUDE_CONTROL_PLANE_BUGLOG="$startup_buglog_path" CLAUDE_CONTROL_PLANE_LEARNING_STARTUP_HINTS=1 run_hook cc-sessionstart-restore.sh "$status_session_json")"
+assert_contains "session start can inject project learning hints" "$out" "Project learning hints:"
 
 agent_bad="$(jq -cn '{session_id:"fixture-session",tool_name:"Task",tool_input:{packet:{mode:"read-only",goal:"inspect task",cwd:"/repo",scope:"scripts",readSet:["scripts"],expectedOutput:"summary",noRevert:true}}}')"
 out="$(run_hook cc-pretooluse-guard.sh "$agent_bad")"
@@ -422,15 +581,15 @@ jq -nc '{schemaVersion:1,reads:[],searches:"oops",edits:{},commands:{},verificat
 migration_event="$(jq -cn '{session_id:"fixture-migration-v1",tool_name:"Bash",cwd:"/tmp/example",tool_input:{command:"rg -n value src"}}')"
 out="$(run_hook cc-pretooluse-guard.sh "$migration_event")"
 assert_json_expr "migration event allowed" "$out" '.continue == true'
-assert_json_expr "state schema upgraded to v2" "$(jq -c . "$migration_state")" '.schemaVersion == 2'
-assert_json_expr "state migration normalizes new buckets" "$(jq -c . "$migration_state")" '(.blockedCommands | type) == "array" and (.successfulCommands | type) == "array" and (.commandLastEditGeneration | type) == "object" and (.prodApprovalMarkers | type) == "array"'
+assert_json_expr "state schema upgraded to v4" "$(jq -c . "$migration_state")" '.schemaVersion == 4'
+assert_json_expr "state migration normalizes new buckets" "$(jq -c . "$migration_state")" '(.blockedCommands | type) == "array" and (.successfulCommands | type) == "array" and (.commandLastEditGeneration | type) == "object" and (.prodApprovalMarkers | type) == "array" and (.reviewerAgentCalls | type) == "array" and (.compactCount | type) == "number" and (.lastCompactAt | type) == "string"'
 
 broken_state="$TMPROOT/claude-guard-fixture-migration-broken.json"
 printf '{broken' >"$broken_state"
 broken_event="$(jq -cn '{session_id:"fixture-migration-broken",tool_name:"Bash",cwd:"/tmp/example",tool_input:{command:"rg -n value src"}}')"
 out="$(run_hook cc-pretooluse-guard.sh "$broken_event")"
 assert_json_expr "broken legacy state fails open to default" "$out" '.continue == true'
-assert_json_expr "broken legacy state reset to schema v2" "$(jq -c . "$broken_state")" '.schemaVersion == 2'
+assert_json_expr "broken legacy state reset to schema v4" "$(jq -c . "$broken_state")" '.schemaVersion == 4'
 
 # Tiered degraded-mode policy matrix
 no_node_safe_event="$(jq -cn '{session_id:"fixture-no-node-safe",tool_name:"Bash",cwd:"/tmp/example",tool_input:{command:"rg -n value src"}}')"
@@ -511,7 +670,7 @@ for fixture_file in "${valid_guard_fixtures[@]}"; do
   assert_json_expr "guard allows $fixture_name ($fixture_cmd)" "$guard_out" '.continue == true'
 done
 
-# Packet fixture matrix (C3/C4): 6 invalid packets (should deny) + 5 valid packets (should allow)
+# Packet fixture matrix (C3/C4): invalid packets should deny, valid packets should allow.
 for fixture_file in "${invalid_packet_fixtures[@]}"; do
   fixture_name="$(basename "$fixture_file" .json)"
   guard_out="$(run_hook cc-pretooluse-guard.sh "$(jq -c . "$fixture_file")")"

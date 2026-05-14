@@ -1,0 +1,110 @@
+[
+  {
+    "name": "agent files prompt routes etrnl-agent-files",
+    "prompt": "align AGENTS.md and CLAUDE.md with the current hook behavior",
+    "expectedSkills": ["etrnl-agent-files"],
+    "unexpectedSkills": ["etrnl-execute"]
+  },
+  {
+    "name": "autoplan prompt routes etrnl-autoplan",
+    "prompt": "autoplan docs/plans/example.md and run all reviews automatically",
+    "expectedSkills": ["etrnl-autoplan"],
+    "unexpectedSkills": ["etrnl-execute"]
+  },
+  {
+    "name": "brainstorm prompt routes etrnl-brainstorm",
+    "prompt": "think through and scope this feature before implementation",
+    "expectedSkills": ["etrnl-brainstorm"],
+    "unexpectedSkills": ["etrnl-execute"]
+  },
+  {
+    "name": "code health prompt routes etrnl-code-health",
+    "prompt": "run a no skips code health audit on the whole repo",
+    "expectedSkills": ["etrnl-code-health"],
+    "unexpectedSkills": ["etrnl-commit"]
+  },
+  {
+    "name": "commit prompt routes etrnl-commit",
+    "prompt": "commit the verified changes after checking the diff",
+    "expectedSkills": ["etrnl-commit"],
+    "unexpectedSkills": ["etrnl-pr"]
+  },
+  {
+    "name": "context restore prompt routes etrnl-context-restore",
+    "prompt": "restore context from the saved handover and resume the work",
+    "expectedSkills": ["etrnl-context-restore"],
+    "unexpectedSkills": ["etrnl-context-save"]
+  },
+  {
+    "name": "context save prompt routes etrnl-context-save",
+    "prompt": "write a handover prompt so I can start a fresh session",
+    "expectedSkills": ["etrnl-context-save"],
+    "unexpectedSkills": ["etrnl-context-restore"]
+  },
+  {
+    "name": "dependency prompt routes etrnl-deps",
+    "prompt": "upgrade this package and run the dependency audit",
+    "expectedSkills": ["etrnl-deps"],
+    "unexpectedSkills": ["etrnl-pr"]
+  },
+  {
+    "name": "execute prompt routes etrnl-execute",
+    "prompt": "implement the approved plan now",
+    "expectedSkills": ["etrnl-execute"],
+    "unexpectedSkills": ["etrnl-commit"]
+  },
+  {
+    "name": "fix issue prompt routes etrnl-fix-issue",
+    "prompt": "reproduce and fix issue #123",
+    "expectedSkills": ["etrnl-fix-issue"],
+    "unexpectedSkills": ["etrnl-plan"]
+  },
+  {
+    "name": "parallel prompt routes etrnl-parallel",
+    "prompt": "fan out the independent checks to multiple agents",
+    "expectedSkills": ["etrnl-parallel"],
+    "unexpectedSkills": ["etrnl-commit"]
+  },
+  {
+    "name": "plan prompt routes etrnl-plan",
+    "prompt": "write a detailed implementation plan for this repo",
+    "expectedSkills": ["etrnl-plan"],
+    "unexpectedSkills": ["etrnl-execute"]
+  },
+  {
+    "name": "pr prompt routes etrnl-pr",
+    "prompt": "prepare a pull request with verification evidence",
+    "expectedSkills": ["etrnl-pr"],
+    "unexpectedSkills": ["etrnl-commit"]
+  },
+  {
+    "name": "browser QA prompt routes etrnl-qa-browser",
+    "prompt": "run browser QA on the changed routes and check console and network",
+    "expectedSkills": ["etrnl-qa-browser"],
+    "unexpectedSkills": ["etrnl-execute"]
+  },
+  {
+    "name": "review prompt routes etrnl-review",
+    "prompt": "do a final review pass for loose ends",
+    "expectedSkills": ["etrnl-review"],
+    "unexpectedSkills": ["etrnl-commit"]
+  },
+  {
+    "name": "stress prompt routes etrnl-stress-test",
+    "prompt": "stress test this rollout and list failure modes",
+    "expectedSkills": ["etrnl-stress-test"],
+    "unexpectedSkills": ["etrnl-execute"]
+  },
+  {
+    "name": "test prompt routes etrnl-test",
+    "prompt": "run tests and fix test failures",
+    "expectedSkills": ["etrnl-test"],
+    "unexpectedSkills": ["etrnl-commit"]
+  },
+  {
+    "name": "ambiguous prompt does not over-route",
+    "prompt": "what changed here?",
+    "expectedSkills": [],
+    "unexpectedSkills": ["etrnl-execute", "etrnl-commit", "etrnl-pr"]
+  }
+]

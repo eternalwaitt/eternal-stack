@@ -32,6 +32,7 @@ node --check \
   scripts/lib/research-intel-validators.mjs \
   scripts/plan-readiness-check.mjs \
   scripts/agent-task-packet-check.mjs \
+  scripts/lib/evidence-trace.mjs \
   scripts/guard-override-token.mjs \
   scripts/replay-hook-fixtures.mjs \
   scripts/execution-ledger.mjs \
@@ -53,15 +54,28 @@ Workflow health:
 
 ```bash
 node scripts/workflow-health.mjs
+node scripts/workflow-health.mjs status
+node scripts/workflow-health.mjs status --json
+node scripts/workflow-health.mjs doctor --json --all
+node scripts/workflow-health.mjs prune --older-than-days 30 --dry-run --all
 node scripts/prompt-budget-check.mjs .
 node scripts/prompt-budget-check.mjs ~/.claude --owned-only
 node scripts/review-log.mjs summary
 node scripts/project-buglog.mjs validate
+node scripts/project-buglog.mjs suggest --file <path> --json
+node scripts/project-buglog.mjs suggest-project --json
 node scripts/browser-qa-report.mjs summary
 node scripts/context-state.mjs list
+node scripts/update-check.mjs --explain
+scripts/post-upgrade-canary.sh
 ```
 
-`scripts/workflow-health.mjs` reads run ledgers in parallel with `ETRNL_LEDGER_READ_CONCURRENCY` (default `8`, capped at `12` for constrained systems).
+- `scripts/workflow-health.mjs` reads run ledgers in parallel with `ETRNL_LEDGER_READ_CONCURRENCY` (default `8`, capped at `12` for constrained systems). `workflow-health.mjs status` is the concise text surface used by SessionStart hints; `status --json` is the machine-readable surface for active run id, unfinished work, missing artifacts, browser/context freshness, phase/UAT state, stale run count, and the next deterministic action.
+- `cc-postcompact-record.sh` records compact timestamp/count metadata, and `cc-sessionstart-restore.sh` includes compact recovery plus workflow status when unfinished/stale work or UAT findings exist.
+- `browser-qa-report.mjs` supports schema v1 plus schema v2 matrix reports; a completed v2 report must include route/viewport rows, numeric `consoleErrors` and `failedRequests`, fresh screenshot captures, matching `screenshotSha256`, and provenance with tool, target URL, command, and capture time.
+- `project-buglog.mjs suggest --json` emits redacted local suggestions with severity, fingerprint, last-seen, and suggested guard; `suggest-project --json` gives cross-session project hints without returning the raw cwd. Hooks debounce these hints and honor `CLAUDE_CONTROL_PLANE_LEARNING_HINTS=0`.
+- `agent-task-packet-check.mjs --template write` includes `taskId`, `lineageId`, reviewer contracts, and a stable packet hash; multi-file write scopes fail without spec and quality reviewer requirements.
+- `execution-ledger.mjs` writes schema v2 ledgers with cwd/project id, events, phases, reviews, atomic updates, and bound write evidence checks (`record-agent`, `record-review`, `check-bound-execute`).
 
 Doctor reports installed hooks and agents, strict/observer mode, ledger and artifact directories, stale runs, unresolved review findings, browser/context artifact counts, prompt-budget drift, and optional Codex/Gemini/browser/design tool availability. Missing optional tools are reported as `not installed`; they are not hard failures unless a plan explicitly requires them.
 It also enforces changelog release hygiene: on `main`, `## Unreleased` must be empty, and post-tag commits require the first dated release section to advance beyond the latest git tag.

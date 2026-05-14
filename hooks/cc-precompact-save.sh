@@ -12,7 +12,7 @@ cc_json_require_jq || exit 0
 cc_json_valid || exit 0
 cc_state_init
 
-summary="$(jq -c '{edits, verificationRuns, requestedSkills, skillCalls, lastPrompt}' "$(cc_state_file)")"
+summary="$(jq -c '{edits, verificationRuns, requestedSkills, skillCalls, agentCalls, lastPrompt}' "$(cc_state_file)")"
 # Escape the jq variable so the shell leaves the literal $summary for jq.
 cc_state_update --arg summary "$summary" ".lastCompactSummary = \$summary"
 printf '{"continue":true,"suppressOutput":true}\n'

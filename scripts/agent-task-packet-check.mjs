@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { packetHash } from "./lib/evidence-trace.mjs";
 
 const args = process.argv.slice(2);
+const knownCommands = new Set(["hash"]);
+const command = knownCommands.has(args[0]) ? args[0] : "";
 const templateIndex = args.indexOf("--template");
 if (templateIndex !== -1) {
   const templateMode = args[templateIndex + 1];
@@ -26,6 +29,8 @@ if (templateIndex !== -1) {
   };
   if (templateMode === "write") {
     Object.assign(packet, {
+      taskId: "T1",
+      lineageId: "wave-1.T1",
       writeScope: ["path/to/owned-file-or-directory"],
       forbiddenPaths: ["path/to/owned-by-someone-else"],
       verificationCommand: "project-specific verification command",
@@ -33,23 +38,16 @@ if (templateIndex !== -1) {
       timeoutSec: 1800,
       retryPolicy: "If blocked, report the exact blocker and stop instead of widening scope.",
       webSearchGuidance: "Use only when current external docs are needed; cite primary sources.",
+      reviewers: ["etrnl-spec-reviewer", "etrnl-quality-reviewer"],
+      specReviewRequired: true,
+      qualityReviewRequired: true,
+      integrationOwner: "parent agent",
+      expectedDiffShape: "Small patch within writeScope plus tests/docs needed for the change.",
     });
   }
   console.log(JSON.stringify({ packet }, null, 2));
   process.exit(0);
 }
-
-const raw = readFileSync(0, "utf8").trim() || "{}";
-
-let event;
-try {
-  event = JSON.parse(raw);
-} catch (error) {
-  console.error(`Task packet input is not valid JSON: ${error.message}`);
-  process.exit(2);
-}
-
-const payload = event.tool_input ?? event.toolInput ?? event;
 
 function parsePromptPacket(value) {
   if (typeof value !== "string") return null;
@@ -59,6 +57,28 @@ function parsePromptPacket(value) {
     return JSON.parse(trimmed);
   } catch {
     return null;
+  }
+}
+
+function readInput() {
+  const fileArg = args
+    .slice(command ? 1 : 0)
+    .find((arg) => arg && !arg.startsWith("-")) || "";
+  let raw = "";
+  try {
+    raw = fileArg
+      ? readFileSync(fileArg, "utf8").trim()
+      : readFileSync(0, "utf8").trim();
+  } catch (error) {
+    console.error(`Failed to read task packet input from ${fileArg || "stdin"}: ${error.message}`);
+    process.exit(2);
+  }
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    console.error(`Task packet input is not valid JSON: ${error.message}`);
+    process.exit(2);
   }
 }
 
@@ -78,11 +98,18 @@ function getPacket(value) {
   return null;
 }
 
+const event = readInput();
+const payload = event.tool_input ?? event.toolInput ?? event;
 const packet = getPacket(payload);
 if (!packet || typeof packet !== "object" || Array.isArray(packet)) {
   console.error("Subagent task packet is missing: packet.");
   console.error("Provide structured JSON under tool_input.packet (or a JSON prompt body).");
   process.exit(1);
+}
+
+if (command === "hash" || args.includes("--hash")) {
+  console.log(packetHash(packet));
+  process.exit(0);
 }
 
 if (typeof packet.mode !== "string") {
@@ -106,6 +133,8 @@ const baseFields = [
 ];
 
 const writeFields = [
+  "taskId",
+  "lineageId",
   "writeScope",
   "forbiddenPaths",
   "verificationCommand",
@@ -133,6 +162,37 @@ if ("readSet" in packet && !Array.isArray(packet.readSet)) {
 
 if (mode === "write" && "forbiddenPaths" in packet && !Array.isArray(packet.forbiddenPaths)) {
   violations.push("forbiddenPaths must be an array");
+}
+
+if ("reviewers" in packet) {
+  if (!Array.isArray(packet.reviewers)) {
+    violations.push("reviewers must be an array");
+  } else if (!packet.reviewers.every((item) => typeof item === "string" && item.trim().length > 0)) {
+    violations.push("reviewers must be an array of non-empty strings");
+  }
+}
+
+for (const key of ["specReviewRequired", "qualityReviewRequired"]) {
+  if (key in packet && typeof packet[key] !== "boolean") {
+    violations.push(`${key} must be a boolean`);
+  }
+}
+
+for (const key of ["integrationOwner", "expectedDiffShape"]) {
+  if (key in packet && (typeof packet[key] !== "string" || packet[key].trim().length === 0)) {
+    violations.push(`${key} must be a non-empty string`);
+  }
+}
+
+// Dots are intentional for hierarchical ids such as `wave-1.T1`.
+for (const key of ["taskId", "lineageId"]) {
+  if (key in packet) {
+    if (typeof packet[key] !== "string" || packet[key].trim().length === 0) {
+      violations.push(`${key} must be a non-empty string`);
+    } else if (!/^[A-Za-z0-9_.-]+$/.test(packet[key])) {
+      violations.push(`${key} must contain only letters, numbers, dots, underscores, or hyphens`);
+    }
+  }
 }
 
 if ("timeoutSec" in packet && (!Number.isFinite(packet.timeoutSec) || packet.timeoutSec <= 0)) {
@@ -183,6 +243,19 @@ if (mode === "write" && "writeScope" in packet && "forbiddenPaths" in packet) {
   if (overlap.length > 0) {
     violations.push(`writeScope and forbiddenPaths overlap (disjoint-ownership violation): ${overlap.join(", ")}`);
   }
+  if (writeScope.length >= 2) {
+    const reviewers = Array.isArray(packet.reviewers) ? packet.reviewers : [];
+    if (packet.specReviewRequired !== true) missing.push("specReviewRequired");
+    if (packet.qualityReviewRequired !== true) missing.push("qualityReviewRequired");
+    if (!("integrationOwner" in packet)) missing.push("integrationOwner");
+    if (!("expectedDiffShape" in packet)) missing.push("expectedDiffShape");
+    if (packet.specReviewRequired === true && !reviewers.includes("etrnl-spec-reviewer")) {
+      violations.push("reviewers must include etrnl-spec-reviewer when specReviewRequired is true");
+    }
+    if (packet.qualityReviewRequired === true && !reviewers.includes("etrnl-quality-reviewer")) {
+      violations.push("reviewers must include etrnl-quality-reviewer when qualityReviewRequired is true");
+    }
+  }
 }
 
 if (missing.length > 0 || violations.length > 0) {
@@ -197,4 +270,4 @@ if (missing.length > 0 || violations.length > 0) {
   process.exit(1);
 }
 
-console.log("Task packet ok");
+console.log(`Task packet ok packetHash=${packetHash(packet)}`);

@@ -19,8 +19,11 @@ Common causes:
 - duplicated hook commands or overlapping matchers in `~/.claude/settings.json`
 - legacy `~/.claude/hooks/rate-limiter.sh` registrations that should be migrated to `cc-rate-limiter.sh`
 - incomplete run ledger under `~/.claude/control-plane/runs/`
+- open UAT findings recorded in the active execution ledger
 - missing required artifact under `~/.claude/control-plane/artifacts/`
+- completed browser QA reports missing real console/network summaries or v2 route/viewport matrix counts
 - subagent output missing `ETRNL_TASK_ID`
+- multi-file `etrnl-execute` work missing implementation, spec-review, or quality-review subagent evidence
 - `CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD=0` disabled prompt-context reinjection
 - `CLAUDE.md` prompt context clipped by `CLAUDE_CONTROL_PLANE_CLAUDE_MD_MAX_CHARS` or `CLAUDE_CONTROL_PLANE_USERPROMPT_CONTEXT_MAX_CHARS`
 - markdown `@*.md` references skipped because they resolve outside the allowed global/project root, exceed the five-hop recursion cap, or point to non-markdown files
@@ -31,6 +34,7 @@ To inspect install and settings drift:
 ```bash
 node ~/.claude/scripts/settings-audit.mjs ~/.claude/settings.json --json
 node ~/.claude/scripts/update-check.mjs --json
+node ~/.claude/scripts/update-check.mjs --explain
 ~/.claude/scripts/post-upgrade-canary.sh
 ```
 
@@ -51,6 +55,8 @@ To inspect recent workflow state:
 
 ```bash
 ~/.claude/scripts/workflow-health.mjs
+~/.claude/scripts/workflow-health.mjs status
+~/.claude/scripts/workflow-health.mjs status --json
 ~/.claude/scripts/execution-ledger.mjs history
 ~/.claude/scripts/review-log.mjs summary
 ~/.claude/scripts/browser-qa-report.mjs summary

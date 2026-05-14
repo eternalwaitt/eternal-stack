@@ -258,6 +258,131 @@ const printText = (result) => {
   }
 };
 
+const countInstalledEntries = (dir, label, predicate) => {
+  if (!fs.existsSync(dir)) return 0;
+  try {
+    return fs.readdirSync(dir, { withFileTypes: true })
+      .filter(predicate)
+      .length;
+  } catch (error) {
+    if (process.env.VERBOSE === "1") {
+      const detail = error instanceof Error ? error.message : String(error);
+      console.error(`update-check warning: unable to count ${label}: ${detail}`);
+    }
+    return -1;
+  }
+};
+
+const countInstalledSkills = () => {
+  const skillsDir = path.join(claudeHome, "skills");
+  return countInstalledEntries(skillsDir, "installed skills", (entry) => entry.isDirectory() && entry.name.startsWith("etrnl-"));
+};
+
+const countInstalledAgents = () => {
+  const agentsDir = path.join(claudeHome, "agents");
+  return countInstalledEntries(agentsDir, "installed agents", (entry) => entry.isFile() && /^etrnl-.*\.md$/.test(entry.name));
+};
+
+const settingsMode = (installState) => {
+  if (installState.settingsMode) return installState.settingsMode;
+  const settingsPath = path.join(claudeHome, "settings.json");
+  if (!fs.existsSync(settingsPath)) return "missing";
+  try {
+    const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+    const hooks = settings
+      && typeof settings === "object"
+      && !Array.isArray(settings)
+      && settings.hooks
+      && typeof settings.hooks === "object"
+      && !Array.isArray(settings.hooks)
+      ? settings.hooks
+      : {};
+    const commands = Object.values(hooks).flatMap((eventHooks) => {
+      if (!Array.isArray(eventHooks)) return [];
+      return eventHooks.flatMap((entry) => {
+        if (!entry || typeof entry !== "object" || Array.isArray(entry) || !Array.isArray(entry.hooks)) return [];
+        return entry.hooks
+          .filter((hook) => hook && typeof hook === "object" && !Array.isArray(hook) && hook.command !== undefined)
+          .map((hook) => String(hook.command));
+      });
+    });
+    if (commands.length === 0) return "custom";
+    const hasAllDefaultHooks = [
+      "cc-sessionstart-restore.sh",
+      "cc-userprompt-router.sh",
+      "cc-posttoolbatch-observer.sh",
+      "cc-rate-limiter.sh",
+      "cc-sessionend-save.sh",
+    ].every((token) => commands.some((command) => command.includes(token)));
+    const hasStrictOnlyHook = [
+      "cc-pretooluse-guard.sh",
+      "cc-stop-verifier.sh",
+      "cc-posttoolusefailure-diagnose.sh",
+      "cc-subagentstop-record.sh",
+      "cc-precompact-save.sh",
+      "cc-postcompact-record.sh",
+    ].some((token) => commands.some((command) => command.includes(token)));
+    if (hasStrictOnlyHook) return "strict";
+    return hasAllDefaultHooks ? "default" : "custom";
+  } catch {
+    return "unreadable";
+  }
+};
+
+const staleInstalledScripts = (root) => {
+  const sourceScripts = path.join(root, "scripts");
+  const installedScripts = path.join(claudeHome, "scripts");
+  if (!fs.existsSync(sourceScripts) || !fs.existsSync(installedScripts)) return [];
+  const sourceOnly = new Set(["scripts/install.sh"]);
+  const renamed = new Map([["scripts/doctor.sh", "scripts/doctor-control-plane.sh"]]);
+  const files = [];
+  walkFiles(root, "scripts", files);
+  return files
+    .filter((relPath) => /\.(mjs|sh)$/.test(relPath) || relPath.startsWith("scripts/lib/"))
+    .filter((relPath) => !sourceOnly.has(relPath))
+    .filter((relPath) => {
+      const installedRelPath = renamed.get(relPath) || relPath;
+      const sourceFile = path.join(root, relPath);
+      const installedFile = path.join(claudeHome, installedRelPath);
+      if (!fs.existsSync(installedFile)) return true;
+      return fs.readFileSync(sourceFile).compare(fs.readFileSync(installedFile)) !== 0;
+    })
+    .sort();
+};
+
+const driftSummary = (root, source, installState) => {
+  const staleScripts = staleInstalledScripts(root);
+  return {
+    sourceDirty: source.sourceDirty,
+    installedCommit: installState.sourceCommit || "unknown",
+    sourceCommit: source.sourceCommit,
+    installedSkillCount: countInstalledSkills(),
+    installedAgentCount: countInstalledAgents(),
+    settingsMode: settingsMode(installState),
+    staleInstalledScripts: {
+      count: staleScripts.length,
+      files: staleScripts.slice(0, 20),
+      truncated: staleScripts.length > 20,
+    },
+  };
+};
+
+const printExplain = (result) => {
+  console.log(`Claude control-plane update check: ${result.updateAvailable ? "update available" : "current"}`);
+  console.log(`Installed commit: ${result.installedCommitShort}`);
+  console.log(`Source commit: ${result.sourceCommitShort}`);
+  console.log(`Source dirty: ${result.sourceDirty ? "yes" : "no"}`);
+  console.log(`Installed skills: ${result.drift.installedSkillCount}`);
+  console.log(`Installed agents: ${result.drift.installedAgentCount}`);
+  console.log(`Settings mode: ${result.drift.settingsMode}`);
+  console.log(`Stale installed scripts: ${result.drift.staleInstalledScripts.count}`);
+  if (result.localUpdateAvailable) {
+    console.log(`Next action: ${result.updateCommand}`);
+  } else {
+    console.log("Next action: none");
+  }
+};
+
 if (hasFlag("--fingerprint-source")) {
   let root = null;
   try {
@@ -293,6 +418,7 @@ if (hasFlag("--source-version")) {
 }
 
 const jsonOutput = hasFlag("--json");
+const explainOutput = hasFlag("--explain");
 const force = hasFlag("--force");
 const remoteEnabled = hasFlag("--remote") || process.env.CLAUDE_CONTROL_PLANE_REMOTE_UPDATE_CHECK === "1";
 const autoEnabled = hasFlag("--auto") || process.env.CLAUDE_CONTROL_PLANE_AUTO_UPDATE === "1";
@@ -301,6 +427,7 @@ const installState = readJson(installStatePath, null);
 if (!installState?.sourceRoot) {
   const result = { ok: false, updateAvailable: false, warning: "install-metadata-missing" };
   if (jsonOutput) console.log(JSON.stringify(result, null, 2));
+  else if (explainOutput) console.log("Claude control-plane update check: install metadata missing");
   else printText(result);
   process.exit(0);
 }
@@ -309,6 +436,7 @@ const root = path.resolve(installState.sourceRoot);
 if (!fs.existsSync(path.join(root, "scripts", "install.sh"))) {
   const result = { ok: false, updateAvailable: false, warning: "source-root-missing" };
   if (jsonOutput) console.log(JSON.stringify(result, null, 2));
+  else if (explainOutput) console.log("Claude control-plane update check: source root missing");
   else printText(result);
   process.exit(0);
 }
@@ -379,10 +507,13 @@ const result = {
   remote,
   justUpdated,
   autoUpdate,
+  drift: driftSummary(root, source, installState),
 };
 
 if (jsonOutput) {
   console.log(JSON.stringify(result, null, 2));
+} else if (explainOutput) {
+  printExplain(result);
 } else {
   printText(result);
 }

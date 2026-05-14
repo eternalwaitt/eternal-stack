@@ -58,6 +58,18 @@ cc_state_update --arg cwd "$cwd" ".cwd = \$cwd"
 
 skill_hint="$(get_etrnl_skill_hint)"
 update_hint=""
+workflow_status_hint=""
+workflow_status_json=""
+learning_hint=""
+WORKFLOW_ISSUE_FILTER='
+  def workflow_issue:
+    (.unfinishedTasks > 0)
+      or (.blockedTasks > 0)
+      or (.failedChecks > 0)
+      or ((.staleRuns // .runs.stale // 0) > 0)
+      or ((.uat.openFindings // 0) > 0)
+      or ((.missingArtifacts // []) | length > 0);
+'
 if [[ "${CLAUDE_CONTROL_PLANE_UPDATE_CHECK:-1}" != "0" && -f "$SCRIPT_DIR/../scripts/update-check.mjs" ]] && command -v node >/dev/null 2>&1; then
   update_check_cmd=(node "$SCRIPT_DIR/../scripts/update-check.mjs")
   [[ "${CLAUDE_CONTROL_PLANE_AUTO_UPDATE:-0}" == "1" ]] && update_check_cmd+=(--auto)
@@ -104,11 +116,96 @@ if [[ "${CLAUDE_CONTROL_PLANE_UPDATE_CHECK:-1}" != "0" && -f "$SCRIPT_DIR/../scr
     trap - EXIT INT TERM
   fi
 fi
+if [[ -f "$SCRIPT_DIR/../scripts/workflow-health.mjs" ]] && command -v node >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+  if workflow_status_json="$(node "$SCRIPT_DIR/../scripts/workflow-health.mjs" status --json --cwd "$cwd" --session "$(cc_session_id)" 2>/dev/null)" \
+    && jq -e . >/dev/null 2>&1 <<<"$workflow_status_json"; then
+    workflow_status_hint="$(jq -r "$WORKFLOW_ISSUE_FILTER"'
+      workflow_issue as $has_issue
+      | if ((((.activeRunId // "") | tostring | length) > 0) or $has_issue) then
+        [
+          "run=\(.activeRunId // "none")",
+          "unfinished=\(.unfinishedTasks)",
+          "blocked=\(.blockedTasks)",
+          "failedChecks=\(.failedChecks)",
+          "staleRuns=\(.staleRuns // .runs.stale // 0)",
+          "uatOpen=\(.uat.openFindings // 0)",
+          "next=\(.nextAction)"
+        ]
+        | "Workflow status: " + join(" ")
+      else
+        ""
+      end
+    ' <<<"$workflow_status_json")"
+    if (( ${#workflow_status_hint} > 220 )); then
+      truncated="$(printf '%s' "$workflow_status_hint" | cut -c1-217)"
+      word_truncated="${truncated% *}"
+      if [[ -n "$word_truncated" && "$word_truncated" != "$truncated" ]]; then
+        truncated="$word_truncated"
+      fi
+      workflow_status_hint="${truncated}..."
+    fi
+  else
+    printf 'claude-guard warning: workflow status hint skipped\n' >&2
+  fi
+fi
+if [[ "${CLAUDE_CONTROL_PLANE_LEARNING_STARTUP_HINTS:-}" != "0" \
+  && -f "$SCRIPT_DIR/../scripts/project-buglog.mjs" ]] \
+  && command -v node >/dev/null 2>&1 \
+  && command -v jq >/dev/null 2>&1; then
+  learning_enabled=false
+  if [[ "${CLAUDE_CONTROL_PLANE_LEARNING_STARTUP_HINTS:-}" == "1" ]]; then
+    learning_enabled=true
+  elif [[ -n "$workflow_status_json" ]] && jq -e "$WORKFLOW_ISSUE_FILTER"' workflow_issue' >/dev/null 2>&1 <<<"$workflow_status_json"; then
+    learning_enabled=true
+  fi
+  if [[ "$learning_enabled" == "true" ]]; then
+    learning_json=""
+    if learning_json="$(node "$SCRIPT_DIR/../scripts/project-buglog.mjs" suggest-project --cwd "$cwd" --json --limit 3 2>/dev/null)" \
+      && jq -e . >/dev/null 2>&1 <<<"$learning_json"; then
+      learning_limit="${CLAUDE_CONTROL_PLANE_LEARNING_HINT_MAX_CHARS:-500}"
+      learning_hint_candidate="Project learning hints:"
+      retained_learning_fps=()
+      while IFS=$'\t' read -r bug_fp bug_severity bug_category bug_summary bug_guard; do
+        [[ -n "$bug_fp" ]] || continue
+        if cc_state_has_warning_fingerprint "startup-learning:$bug_fp"; then
+          continue
+        fi
+        learning_line="- [$bug_severity] $bug_category: $bug_summary (suggested guard: $bug_guard)"
+        next_learning_hint="$learning_hint_candidate"$'\n'"$learning_line"
+        if [[ "$(printf '%s' "$next_learning_hint" | trim_chars "$learning_limit")" != "$next_learning_hint" ]]; then
+          continue
+        fi
+        learning_hint_candidate="$next_learning_hint"
+        retained_learning_fps+=("$bug_fp")
+      done < <(jq -r '.suggestions[]? | [.fingerprint, .severity, .category, .summary, .suggestedGuard] | @tsv' <<<"$learning_json")
+      if (( ${#retained_learning_fps[@]} > 0 )); then
+        learning_hint="$learning_hint_candidate"
+        for bug_fp in "${retained_learning_fps[@]}"; do
+          cc_state_record_warning_fingerprint "startup-learning:$bug_fp" || true
+        done
+      fi
+    else
+      printf 'claude-guard warning: project learning hint skipped\n' >&2
+    fi
+  fi
+fi
 state="$(cc_state_read)"
 if [[ "$source_name" == "compact" ]]; then
-  msg="$(jq -r --arg hint "$skill_hint" '"Compact recovery: " + (.lastCompactSummary // "no saved summary") + "\n" + $hint' <<<"$state")"
+  msg="$(jq -r --arg hint "$skill_hint" '
+    "Compact recovery: "
+    + (.lastCompactSummary // "no saved summary")
+    + (if ((.lastCompactAt // "") | length) > 0 then " (last compact: " + .lastCompactAt + ", count: " + ((.compactCount // 0) | tostring) + ")" else "" end)
+    + "\n"
+    + $hint
+  ' <<<"$state")"
+  if [[ -n "$workflow_status_hint" ]]; then
+    msg="$msg"$'\n'"$workflow_status_hint"
+  fi
   if [[ -n "$update_hint" ]]; then
     msg="$msg"$'\n'"$update_hint"
+  fi
+  if [[ -n "$learning_hint" ]]; then
+    msg="$msg"$'\n'"$learning_hint"
   fi
   msg="$(printf '%s' "$msg" | trim_chars 1200)"
 else
@@ -117,8 +214,14 @@ else
     msg="$msg. Git: $branch, dirty files: ${dirty:-0}"
   fi
   msg="$msg. $skill_hint"
+  if [[ -n "$workflow_status_hint" ]]; then
+    msg="$msg $workflow_status_hint"
+  fi
   if [[ -n "$update_hint" ]]; then
     msg="$msg Update: $update_hint"
+  fi
+  if [[ -n "$learning_hint" ]]; then
+    msg="$msg $learning_hint"
   fi
   msg="$(printf '%s' "$msg" | trim_chars 1500)"
 fi

@@ -4,7 +4,7 @@
 # [hook event]
 #    |
 #    v
-# [init + migrate to v2]
+# [init + migrate to v4; v3 was an internal-only schema during hook hardening]
 #    |
 #    v
 # [apply event mutations]
@@ -40,7 +40,7 @@ cc_state_lock() {
 
 cc_state_default() {
   jq -cn --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{
-    schemaVersion: 2,
+    schemaVersion: 4,
     reads: {},
     searches: {},
     edits: {},
@@ -49,6 +49,8 @@ cc_state_default() {
     successfulCommands: [],
     failures: [],
     skillCalls: [],
+    agentCalls: [],
+    reviewerAgentCalls: [],
     requestedSkills: [],
     evidenceChallenges: [],
     evidenceDisciplineViolations: [],
@@ -70,6 +72,8 @@ cc_state_default() {
     prodApprovalMarkers: [],
     lastPrompt: "",
     lastCompactSummary: "",
+    lastCompactAt: "",
+    compactCount: 0,
     cwd: "",
     settingsFingerprint: "",
     startedAt: $now
@@ -112,7 +116,7 @@ def arr(v): if (v | type) == "array" then v else [] end;
 def obj(v): if (v | type) == "object" then v else {} end;
 def num(v): if (v | type) == "number" then v else 0 end;
 {
-  schemaVersion: 2,
+  schemaVersion: 4,
   reads: obj(.reads),
   searches: obj(.searches),
   edits: obj(.edits),
@@ -121,6 +125,8 @@ def num(v): if (v | type) == "number" then v else 0 end;
   successfulCommands: arr(.successfulCommands),
   failures: arr(.failures),
   skillCalls: arr(.skillCalls),
+  agentCalls: arr(.agentCalls),
+  reviewerAgentCalls: arr(.reviewerAgentCalls),
   requestedSkills: arr(.requestedSkills),
   evidenceChallenges: arr(.evidenceChallenges),
   evidenceDisciplineViolations: arr(.evidenceDisciplineViolations),
@@ -142,6 +148,8 @@ def num(v): if (v | type) == "number" then v else 0 end;
   prodApprovalMarkers: arr(.prodApprovalMarkers),
   lastPrompt: (.lastPrompt // ""),
   lastCompactSummary: (.lastCompactSummary // ""),
+  lastCompactAt: (.lastCompactAt // ""),
+  compactCount: num(.compactCount),
   cwd: (.cwd // ""),
   settingsFingerprint: (.settingsFingerprint // ""),
   startedAt: (.startedAt // "")

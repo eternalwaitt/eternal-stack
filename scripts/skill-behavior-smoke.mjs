@@ -5,6 +5,8 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { argValue } from "./lib/cli-args.mjs";
+import { parseBashArray } from "./lib/bash-array-parser.mjs";
+import { hasKeywords } from "./lib/text-matchers.mjs";
 
 const args = process.argv.slice(2);
 
@@ -140,6 +142,34 @@ function write(file, content) {
 const goodPlan = path.join(root, "hooks/fixtures/plans/good-plan.md");
 const badPlan = path.join(tmp, "bad-plan.md");
 write(badPlan, "# Bad Plan\n\nStatus: Final\n\nGoal: too thin\n");
+const executeSkill = readFileSync(path.join(root, "skills/etrnl-execute/SKILL.md"), "utf8");
+
+if (hasKeywords(executeSkill, ["dispatch", "write-capable", "implementation subagents", "parallel-safe"])) {
+  ok("execute skill requires implementation subagents for parallel-safe waves");
+} else {
+  fail("execute skill requires implementation subagents for parallel-safe waves", "missing dispatch/write-capable/parallel-safe concept");
+}
+if (hasKeywords(executeSkill, ["sequential-degraded", "blocker", "editing"])) {
+  ok("execute skill documents sequential-degraded fallback");
+} else {
+  fail("execute skill documents sequential-degraded fallback", "missing sequential-degraded blocker/editing concept");
+}
+
+const skillListSource = readFileSync(path.join(root, "scripts/lib/skill-lists.sh"), "utf8");
+const ownedSkills = parseBashArray(skillListSource, "OWNED_SKILLS");
+const triggerCasesPath = path.join(root, "tests/fixtures/skill-triggering/cases.json");
+try {
+  const triggerCases = JSON.parse(readFileSync(triggerCasesPath, "utf8"));
+  const coveredSkills = new Set(triggerCases.flatMap((item) => item.expectedSkills || []));
+  const missingTriggers = ownedSkills.filter((skill) => !coveredSkills.has(skill));
+  if (missingTriggers.length === 0) {
+    ok("skill trigger fixtures cover every owned skill");
+  } else {
+    fail("skill trigger fixtures cover every owned skill", `missing: ${missingTriggers.join(", ")}`);
+  }
+} catch (error) {
+  fail("skill trigger fixtures are readable", renderErrorDetail(error));
+}
 
 expectFail("plan readiness rejects thin plan", "node", [script("plan-readiness-check.mjs"), badPlan], { expectedText: "missing Evidence" });
 expectPass("plan readiness accepts fixture plan", "node", [script("plan-readiness-check.mjs"), goodPlan]);
@@ -208,6 +238,10 @@ const qaReport = expectPass("browser QA report create supports skill command fla
   "/,/campaigns",
   "--viewports",
   "desktop,mobile",
+  "--console",
+  "no console errors",
+  "--network",
+  "no failed requests",
   "--status",
   "complete",
   "--path",
@@ -270,6 +304,8 @@ const validTaskPacket = {
   tool_input: {
     packet: {
       mode: "write",
+      taskId: "T-smoke",
+      lineageId: "wave-1.T-smoke",
       goal: "test",
       contextSummary: "smoke",
       cwd: "repo",

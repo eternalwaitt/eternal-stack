@@ -59,22 +59,23 @@ Before finalizing any plan for a capability or feature that competes with or par
 3. Group work by subsystem and dependency.
 4. Name disjoint write scopes and safe subagent candidates.
 5. Include verification commands for each phase and the final gate.
-6. Include failure modes, rollback notes, and non-scope.
-7. Include the question policy:
+6. For multi-session, multi-route, or multi-workstream plans, include optional `Phase:`, `Workstream:`, and `UAT Gate:` metadata so `/etrnl-execute` can record phase/UAT state in the ledger.
+7. Include failure modes, rollback notes, and non-scope.
+8. Include the question policy:
    - auto-continue mechanical phases
    - ask only for destructive actions, scope expansion, missing credentials, conflicting user edits, repeated stalls, or subjective product/taste decisions
-8. Include an autoplan decision log:
+9. Include an autoplan decision log:
    - phase: CEO, Eng, Design, DX, Adversarial
    - decision
    - rationale
    - consensus or disagreement
    - artifact needed, if any
    - final gate category: none, taste, premise, destructive, user challenge
-9. Include artifact requirements for execution:
+10. Include artifact requirements for execution:
    - `review-log.jsonl` when review findings are created
    - `browser-qa-report.json` when UI/browser behavior changes
    - context-save when work is long-running or likely to be resumed
-10. The final plan must pass `node ~/.claude/scripts/plan-readiness-check.mjs <plan-path>` before `/etrnl-execute` starts.
+11. The final plan must pass `node ~/.claude/scripts/plan-readiness-check.mjs <plan-path>` before `/etrnl-execute` starts.
     Use the exact readiness-compatible headings in the Output section. Do not leave `TODO`, `TBD`, "handle edge cases", "wire it up", or "similar to above" in the plan.
 
 ## Task Packet Drafting
@@ -95,6 +96,7 @@ For each subagent candidate, include:
 - retry policy
 - do-not-revert instruction
 - WebSearch guidance
+- for multi-file write scopes: reviewers, spec review requirement, quality review requirement, integration owner, and expected diff shape
 
 ## Output
 
@@ -104,6 +106,7 @@ Return or save a single implementation plan with this readiness-compatible shape
 - `Goal:`
 - `Evidence:`
 - `Non-goals:`
+- Optional `Phase:`, `Workstream:`, and `UAT Gate:` metadata when the plan spans multiple phases, routes, or workstreams.
 - `## What already exists`
 - `## NOT in scope`
 - `## File map`

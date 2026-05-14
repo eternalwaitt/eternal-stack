@@ -16,7 +16,7 @@ Claude Code personal and project skills use hyphenated command names. If this co
 | `/etrnl-commit` | User only | Reviews, verifies, stages, and commits relevant work. |
 | `/etrnl-deps` | User only | Handles targeted dependency maintenance with migration checks. |
 | `/etrnl-stress-test` | Model or user | Stress-tests architecture, rollout, migration, automation, and safety assumptions. |
-| `/etrnl-execute` | User only | Executes an approved readiness-checked implementation plan end to end with run ledger, bounded subagents, reviews, and verification. |
+| `/etrnl-execute` | User only | Executes an approved readiness-checked implementation plan end to end with run ledger, write-mode implementation subagents for parallel-safe multi-file work, reviews, and verification. |
 | `/etrnl-fix-issue` | User only | Reproduces and fixes tracked issues with focused verification. |
 | `/etrnl-parallel` | User only | Thin explicit fanout helper; `/etrnl-execute` owns normal plan orchestration. |
 | `/etrnl-pr` | User only | Prepares or updates pull requests with verification evidence. |
@@ -50,28 +50,29 @@ These skills are not owned by this repo, but the control plane knows about them 
 | `code-health-inventory.mjs` | `~/.claude/scripts/code-health-inventory.mjs` | Inventories tracked files and classifies audit coverage for no-skips code-health runs. |
 | `merge-settings.mjs` | `~/.claude/scripts/merge-settings.mjs` | Merges control-plane hooks into existing Claude settings without replacing unrelated local configuration. |
 | `plan-readiness-check.mjs` | `~/.claude/scripts/plan-readiness-check.mjs` | Rejects thin plans before they are marked final or executed. |
-| `agent-task-packet-check.mjs` | `~/.claude/scripts/agent-task-packet-check.mjs` | Enforces structured subagent packet contracts for `read-only` and `write` task modes before delegation. |
+| `agent-task-packet-check.mjs` | `~/.claude/scripts/agent-task-packet-check.mjs` | Enforces structured subagent packet contracts with task identity, lineage identity, packet hashes, and explicit spec/quality reviewer contracts for multi-file writes. |
 | `guard-override-token.mjs` | `~/.claude/scripts/guard-override-token.mjs` | Issues and verifies one-time signed override tokens for safety-critical prod/secret commands. |
 | `settings-audit.mjs` | `~/.claude/scripts/settings-audit.mjs` | Audits and repairs duplicate hook commands, overlapping matcher groups, and legacy rate-limiter registrations in Claude settings. |
-| `update-check.mjs` | `~/.claude/scripts/update-check.mjs` | Compares installed metadata with the recorded source checkout, reports local/remote drift, and can run local auto-update when enabled. |
+| `update-check.mjs` | `~/.claude/scripts/update-check.mjs` | Compares installed metadata with the recorded source checkout, reports local/remote drift, emits `--explain` diagnostics, and can run local auto-update when enabled. |
 | `replay-hook-fixtures.mjs` | `~/.claude/scripts/replay-hook-fixtures.mjs` | Replays scrubbed regression fixtures through live hooks and asserts allow/deny/block outcomes. |
-| `execution-ledger.mjs` | `~/.claude/scripts/execution-ledger.mjs` | Creates, validates, and checks local ETRNL run ledgers under `~/.claude/control-plane/runs/`. |
+| `execution-ledger.mjs` | `~/.claude/scripts/execution-ledger.mjs` | Creates, validates, and checks local ETRNL run ledgers, including task lineage, packet-bound write evidence, reviews, optional phase/workstream metadata, and UAT completion gates. |
 | `execution-wave-check.mjs` | `~/.claude/scripts/execution-wave-check.mjs` | Groups planned tasks by wave, detects file overlap, and reports worktree eligibility. |
 | `review-log.mjs` | `~/.claude/scripts/review-log.mjs` | Appends, validates, redacts, fingerprints, and summarizes durable review findings. |
-| `browser-qa-report.mjs` | `~/.claude/scripts/browser-qa-report.mjs` | Creates and validates browser QA artifact JSON, including strict summaries across all report files. |
+| `browser-qa-report.mjs` | `~/.claude/scripts/browser-qa-report.mjs` | Creates, migrates, hashes, and validates browser QA artifacts; v2 `complete` reports require route/viewport matrix rows, screenshot hashes, fresh capture timestamps, provenance, and numeric console/network counts. |
 | `context-state.mjs` | `~/.claude/scripts/context-state.mjs` | Saves, validates, lists, and restores concise workflow context with stale-state detection. |
-| `workflow-health.mjs` | `~/.claude/scripts/workflow-health.mjs` | Summarizes recent ETRNL workflow runs, stale runs, and artifact freshness from local files. |
+| `workflow-health.mjs` | `~/.claude/scripts/workflow-health.mjs` | Summarizes recent ETRNL workflow runs, filtered `status --json`, doctor/prune diagnostics, stale runs, missing artifacts, UAT state, and next local action from local files. |
 | `prompt-budget-check.mjs` | `~/.claude/scripts/prompt-budget-check.mjs` | Fails oversized skills or agents before prompt bloat becomes default context. |
 | `port-guard.mjs` | `~/.claude/scripts/port-guard.mjs` | Checks or picks explicit free local dev-server ports before commands run. |
-| `project-buglog.mjs` | `~/.claude/scripts/project-buglog.mjs` | Records and suggests project-local repeated bug memories without storing transcripts. |
+| `project-buglog.mjs` | `~/.claude/scripts/project-buglog.mjs` | Records and suggests project-local repeated bug memories with cross-session fingerprints, redaction, file/project JSON output, stale-hint filtering, and no transcript storage. |
 | `changelog-release-check.mjs` | `~/.claude/scripts/changelog-release-check.mjs` | Enforces release hygiene so `Unreleased` does not hide shipped work on `main`. |
 | `research-competitor-intel.mjs` | `~/.claude/scripts/research-competitor-intel.mjs` | Validates pinned competitor manifests, evidence rows, parity scorecards, and refresh cadence. |
 | `skill-contract-check.mjs` | `~/.claude/scripts/skill-contract-check.mjs` | Fails when repo-owned skills drift from docs, helper scripts, readiness contracts, SessionStart hints, or installed copies. |
 | `skill-behavior-smoke.mjs` | `~/.claude/scripts/skill-behavior-smoke.mjs` | Runs end-to-end helper smoke checks for the skill behaviors that must fail closed before live use. |
 | `doctor-control-plane.sh` | `~/.claude/scripts/doctor-control-plane.sh` | Checks installed hooks, settings, skills, agents, docs, scripts, strict/default mode, and workflow state. |
 | `update.sh` | `~/.claude/scripts/update.sh` | Re-enters the recorded source checkout and runs the normal installer for local upgrades. |
-| `rollback-local.sh` | `~/.claude/scripts/rollback-local.sh` | Restores the latest installer backup for repo-owned control-plane files. |
-| `post-upgrade-canary.sh` | `~/.claude/scripts/post-upgrade-canary.sh` | Verifies installed critical hooks, update-check script, executable bits, and Claude settings JSON after an upgrade. |
+| `uninstall.sh` | `~/.claude/scripts/uninstall.sh` | Prints the rollback command and refuses destructive automatic deletion. |
+| `rollback-local.sh` | `~/.claude/scripts/rollback-local.sh` | Restores the latest installer backup and removes/restores repo-owned agents, skills, hooks, and settings safely. |
+| `post-upgrade-canary.sh` | `~/.claude/scripts/post-upgrade-canary.sh` | Verifies installed critical hooks, update-check/browser-QA scripts, executable bits, settings JSON, and completed browser-QA rejection after an upgrade. |
 
 ## Installed Agents
 

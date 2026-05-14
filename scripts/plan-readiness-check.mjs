@@ -129,6 +129,12 @@ for (const [name, pattern, message] of readinessChecks) {
   requirePattern(name, pattern, message);
 }
 
+const optionalMetadata = {
+  phase: /^Phase:\s*\S/im.test(text) || /^##\s+Phase\b/im.test(text),
+  workstream: /^Workstream:\s*\S/im.test(text) || /^##\s+Workstream\b/im.test(text),
+  uatGate: /^UAT Gate:\s*\S/im.test(text) || /^##\s+UAT Gate\b/im.test(text),
+};
+
 forbidPattern('tbd', /\bTBD\b/i, 'plan still contains TBD');
 // Word boundaries prevent matching TODO inside "TODOS.md".
 forbidPattern('todo', /\bTODO\b/i, 'plan still contains TODO');
@@ -137,7 +143,7 @@ forbidPattern('wire_it_up', /wire it up/i, 'replace vague "wire it up" with conc
 forbidPattern('similar_to_above', /similar to above/i, 'replace "similar to above" with explicit steps');
 
 if (json) {
-  console.log(JSON.stringify({ ok: failures.length === 0, failures, repairHints }, null, 2));
+  console.log(JSON.stringify({ ok: failures.length === 0, failures, repairHints, optionalMetadata }, null, 2));
 } else if (failures.length === 0) {
   console.log(`ok: plan readiness passed for ${planPath}`);
 } else {

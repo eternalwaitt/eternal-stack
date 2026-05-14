@@ -4,6 +4,8 @@
   "tool_input": {
     "packet": {
       "mode": "write",
+      "taskId": "T2",
+      "lineageId": "wave-1.T2",
       "goal": "add disjoint-ownership check to packet checker",
       "contextSummary": "Track C task C1; write scope is agent-task-packet-check.mjs only",
       "cwd": "/repo",

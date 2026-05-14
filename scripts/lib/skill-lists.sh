@@ -49,12 +49,15 @@ CRITICAL_HOOKS=(
 
 CRITICAL_SCRIPTS=(
   execution-ledger.mjs
+  execute-evidence-check.mjs
   plan-readiness-check.mjs
   agent-task-packet-check.mjs
   guard-override-token.mjs
   lib/bash-array-parser.mjs
   lib/cli-args.mjs
+  lib/evidence-trace.mjs
   lib/plan-headings.mjs
+  lib/text-matchers.mjs
   lib/research-intel-core.mjs
   lib/research-intel-render.mjs
   lib/research-intel-validators.mjs

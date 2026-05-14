@@ -30,7 +30,8 @@ Process:
 2. Use the configured browser workflow from the task packet.
 3. Start the provided local dev command when the target needs it. Do not treat browser QA as impossible merely because it requires a local server or browser tooling; run it or report the exact unavailable tool/error.
 4. Classify findings as blocker, warning, or note.
-5. Validate the report with `browser-qa-report.mjs validate` when available.
+5. Prefer a schema v2 browser QA report with one route/viewport matrix row per check, screenshot path, matching `screenshotSha256`, fresh `capturedAt`, numeric `consoleErrors`, numeric `failedRequests`, and provenance (`tool`, `targetUrl`, `command`, `capturedAt`).
+6. Validate the report with `browser-qa-report.mjs validate` when available.
 
 Output format:
 - `ETRNL_TASK_ID: <id>`

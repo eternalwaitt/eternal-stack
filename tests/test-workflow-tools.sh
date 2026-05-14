@@ -63,6 +63,60 @@ else
 fi
 node "$ROOT/scripts/execution-ledger.mjs" record-artifact --session fixture-ledger --type review-log --path "$TMPROOT/review-log.jsonl"
 assert_command "execution ledger accepts complete run" node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-ledger
+bound_ledger_path="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-bound --plan "$ROOT/hooks/fixtures/plans/good-plan.md" --cwd "$ROOT")"
+assert_file "execution ledger bound init creates file" "$bound_ledger_path"
+node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-bound --task T-write --title "Write task" --status verified --mode write --lineage wave-1.T-write --packet-hash abc123 --requires-implementation-evidence --spec-review-required --quality-review-required
+node "$ROOT/scripts/execution-ledger.mjs" record-check --session fixture-bound --name final --command "pnpm test" --status passed
+if node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-bound >/dev/null 2>&1; then
+  not_ok "execution ledger blocks unbound write evidence"
+else
+  ok "execution ledger blocks unbound write evidence"
+fi
+node "$ROOT/scripts/execution-ledger.mjs" record-agent --session fixture-bound --id worker-1 --role etrnl-executor --mode write --task T-write --lineage wave-1.T-write --packet-hash abc123 --status completed
+node "$ROOT/scripts/execution-ledger.mjs" record-review --session fixture-bound --reviewer etrnl-spec-reviewer --task T-write --lineage wave-1.T-write --packet-hash abc123 --status verified
+if node "$ROOT/scripts/execution-ledger.mjs" check-bound-execute --session fixture-bound --task T-write >/dev/null 2>&1; then
+  not_ok "execution ledger blocks missing quality reviewer"
+else
+  ok "execution ledger blocks missing quality reviewer"
+fi
+node "$ROOT/scripts/execution-ledger.mjs" record-review --session fixture-bound --reviewer etrnl-quality-reviewer --task T-write --lineage wave-1.T-write --packet-hash abc123 --status verified
+assert_command "execution ledger accepts bound write evidence" node "$ROOT/scripts/execution-ledger.mjs" check-bound-execute --session fixture-bound --task T-write
+review_order_ledger_path="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-review-order --plan "$ROOT/hooks/fixtures/plans/good-plan.md" --cwd "$ROOT")"
+assert_file "execution ledger review order init creates file" "$review_order_ledger_path"
+node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-review-order --task T-write --title "Write task" --status verified --mode write --lineage wave-1.T-write --packet-hash abc123 --requires-implementation-evidence --spec-review-required
+node "$ROOT/scripts/execution-ledger.mjs" record-check --session fixture-review-order --name final --command "pnpm test" --status passed
+node "$ROOT/scripts/execution-ledger.mjs" record-review --session fixture-review-order --reviewer etrnl-spec-reviewer --task T-write --lineage wave-1.T-write --packet-hash abc123 --status verified
+sleep 1
+node "$ROOT/scripts/execution-ledger.mjs" record-agent --session fixture-review-order --id worker-1 --role etrnl-executor --mode write --task T-write --lineage wave-1.T-write --packet-hash abc123 --status completed
+if order_out="$(node "$ROOT/scripts/execution-ledger.mjs" check-bound-execute --session fixture-review-order --task T-write 2>&1)"; then
+  not_ok "execution ledger rejects reviewer evidence before implementation"
+else
+  assert_contains "execution ledger review ordering reason" "$order_out" "after implementation"
+fi
+lineage_ledger_path="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-lineage-binding --plan "$ROOT/hooks/fixtures/plans/good-plan.md" --cwd "$ROOT")"
+assert_file "execution ledger lineage init creates file" "$lineage_ledger_path"
+node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-lineage-binding --task T-write --title "Write task" --status verified --mode write --lineage wave-1.T-write --packet-hash abc123 --requires-implementation-evidence --spec-review-required
+node "$ROOT/scripts/execution-ledger.mjs" record-check --session fixture-lineage-binding --name final --command "pnpm test" --status passed
+node "$ROOT/scripts/execution-ledger.mjs" record-agent --session fixture-lineage-binding --id worker-1 --role etrnl-executor --mode write --task T-write --lineage wave-1.T-write --packet-hash abc123 --status completed
+node "$ROOT/scripts/execution-ledger.mjs" record-review --session fixture-lineage-binding --reviewer etrnl-spec-reviewer --task T-write --lineage wave-2.T-write --packet-hash abc123 --status verified
+if lineage_out="$(node "$ROOT/scripts/execution-ledger.mjs" check-bound-execute --session fixture-lineage-binding --task T-write 2>&1)"; then
+  not_ok "execution ledger rejects mismatched reviewer lineage"
+else
+  assert_contains "execution ledger lineage binding reason" "$lineage_out" "missing etrnl-spec-reviewer"
+fi
+uat_ledger_path="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-uat --plan "$ROOT/hooks/fixtures/plans/good-plan.md")"
+assert_file "execution ledger UAT init creates file" "$uat_ledger_path"
+node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-uat --task T1 --title Task --status verified
+node "$ROOT/scripts/execution-ledger.mjs" record-check --session fixture-uat --name final --command "pnpm test" --status passed
+node "$ROOT/scripts/execution-ledger.mjs" set-phase --session fixture-uat --phase P1 --workstream browser --status uat
+node "$ROOT/scripts/execution-ledger.mjs" record-uat --session fixture-uat --artifact "$TMPROOT/browser-qa.json" --open-findings 2
+if node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-uat >/dev/null 2>&1; then
+  not_ok "execution ledger blocks open UAT findings"
+else
+  ok "execution ledger blocks open UAT findings"
+fi
+node "$ROOT/scripts/execution-ledger.mjs" record-uat --session fixture-uat --artifact "$TMPROOT/browser-qa.json" --open-findings 0
+assert_command "execution ledger accepts closed UAT findings" node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-uat
 
 for script in \
   cc-pretooluse-guard.sh \
@@ -130,7 +184,7 @@ expect(parsed[5], "single quoted value", "single-quoted branch");
 expect(parsed[6], "plain token", "unquoted escaped space branch");
 expect(parsed[7], "escaped space token", "unquoted multi-escape branch");
 '
-for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger execution-wave-check review-log browser-qa-report context-state workflow-health prompt-budget-check changelog-release-check port-guard update-check settings-audit; do
+for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger execute-evidence-check execution-wave-check review-log project-buglog browser-qa-report context-state workflow-health prompt-budget-check changelog-release-check port-guard update-check settings-audit; do
   assert_command "$script syntax" node --check "$ROOT/scripts/$script.mjs"
 done
 assert_command "update shell syntax" bash -n "$ROOT/scripts/update.sh"
@@ -384,11 +438,81 @@ if rg -F "sk_live_example" "$TMPROOT/review-log.jsonl" >/dev/null || rg -F "$aws
 else
   ok "review log redacts token-like values"
 fi
+buglog_path="$TMPROOT/project-buglog.jsonl"
+BUGLOG_TOKEN="sk_live_example_should_not_persist"
+BUGLOG_SECRET="aws_secret_access_key=$aws_secret_value"
+buglog_fp="$(CLAUDE_CONTROL_PLANE_BUGLOG="$buglog_path" node "$ROOT/scripts/project-buglog.mjs" record --cwd "$TMPROOT/project" --file src/app.ts --category repeated-edit --summary "repeat failure leaked $BUGLOG_TOKEN and $BUGLOG_SECRET")"
+if [[ ${#buglog_fp} -ge 16 ]]; then
+  ok "project buglog fingerprint emitted"
+else
+  not_ok "project buglog fingerprint emitted"
+fi
+buglog_fp_session2="$(CLAUDE_CONTROL_PLANE_BUGLOG="$buglog_path" node "$ROOT/scripts/project-buglog.mjs" record --cwd "$TMPROOT/project" --file src/app.ts --category repeated-edit --summary "repeat failure leaked $BUGLOG_TOKEN and $BUGLOG_SECRET" --session other-session)"
+if [[ "$buglog_fp_session2" == "$buglog_fp" ]]; then
+  ok "project buglog fingerprint is cross-session stable"
+else
+  not_ok "project buglog fingerprint is cross-session stable"
+fi
+buglog_json="$(CLAUDE_CONTROL_PLANE_BUGLOG="$buglog_path" node "$ROOT/scripts/project-buglog.mjs" suggest --cwd "$TMPROOT/project" --file src/app.ts --json)"
+assert_json_expr "project buglog suggest emits JSON" "$buglog_json" '.schemaVersion == 1 and (.suggestions | length) == 1'
+assert_json_expr "project buglog suggest includes guard recommendation" "$buglog_json" '(.suggestions[0].suggestedGuard | length) > 0'
+buglog_project_json="$(CLAUDE_CONTROL_PLANE_BUGLOG="$buglog_path" node "$ROOT/scripts/project-buglog.mjs" suggest-project --cwd "$TMPROOT/project" --json)"
+assert_json_expr "project buglog project hints omit raw cwd" "$buglog_project_json" '.project == "project" and (.cwd | not) and (.suggestions | length) == 1'
+if rg -F "$BUGLOG_TOKEN" "$buglog_path" >/dev/null || rg -F "$aws_secret_value" "$buglog_path" >/dev/null || printf '%s' "$buglog_json" | rg -F "$aws_secret_value" >/dev/null; then
+  not_ok "project buglog redacts token-like values"
+else
+  ok "project buglog redacts token-like values"
+fi
+stale_buglog_path="$TMPROOT/stale-project-buglog.jsonl"
+printf '%s\n' '{"schemaVersion":1,"fingerprintVersion":2,"cwd":"'"$TMPROOT"'/stale","file":"src/stale.ts","category":"repeat-edit","summary":"old bug","sessionId":"old","at":"2000-01-01T00:00:00Z","fingerprint":"oldbug1234567890"}' >"$stale_buglog_path"
+stale_buglog_json="$(CLAUDE_CONTROL_PLANE_BUGLOG="$stale_buglog_path" node "$ROOT/scripts/project-buglog.mjs" suggest --cwd "$TMPROOT/stale" --file src/stale.ts --json --max-age-days 1)"
+assert_json_expr "project buglog suppresses stale hints" "$stale_buglog_json" '(.suggestions | length) == 0'
 
 qa_report="$(printf '{"routes":["/"],"viewports":["desktop","mobile"],"findings":[]}' | node "$ROOT/scripts/browser-qa-report.mjs" create --path "$TMPROOT/browser-qa.json")"
 assert_command "browser QA report validates" node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_report"
-qa_report_flags="$(node "$ROOT/scripts/browser-qa-report.mjs" create --path "$TMPROOT/browser-qa-flags.json" --routes "/,/campaigns" --viewports "desktop,mobile" --status complete)"
+if unchecked_qa="$(node "$ROOT/scripts/browser-qa-report.mjs" create --path "$TMPROOT/browser-qa-unchecked.json" --routes "/,/campaigns" --viewports "desktop,mobile" --status complete 2>&1)"; then
+  not_ok "browser QA report rejects unchecked complete report"
+else
+  assert_contains "browser QA report rejects unchecked console summary" "$unchecked_qa" "consoleSummary"
+  assert_contains "browser QA report rejects unchecked network summary" "$unchecked_qa" "networkSummary"
+fi
+qa_report_flags="$(node "$ROOT/scripts/browser-qa-report.mjs" create --path "$TMPROOT/browser-qa-flags.json" --routes "/,/campaigns" --viewports "desktop,mobile" --console "no console errors" --network "no failed requests" --status complete)"
 assert_command "browser QA report flag command validates" node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_report_flags"
+if v2_unchecked_qa="$(node "$ROOT/scripts/browser-qa-report.mjs" create --path "$TMPROOT/browser-qa-v2-unchecked.json" --schema-version 2 --routes "/,/campaigns" --viewports "desktop,mobile" --console "no console errors" --network "no failed requests" --status complete 2>&1)"; then
+  not_ok "browser QA v2 rejects incomplete matrix evidence"
+else
+  assert_contains "browser QA v2 rejects missing route status" "$v2_unchecked_qa" "matrix[0].status"
+  assert_contains "browser QA v2 rejects missing console error count" "$v2_unchecked_qa" "consoleErrors"
+  assert_contains "browser QA v2 rejects missing failed request count" "$v2_unchecked_qa" "failedRequests"
+fi
+printf '%s\n' "desktop screenshot bytes" >"$TMPROOT/desktop-home.png"
+printf '%s\n' "mobile screenshot bytes" >"$TMPROOT/mobile-home.png"
+desktop_hash="$(node "$ROOT/scripts/browser-qa-report.mjs" hash "$TMPROOT/desktop-home.png")"
+mobile_hash="$(node "$ROOT/scripts/browser-qa-report.mjs" hash "$TMPROOT/mobile-home.png")"
+qa_captured_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+qa_v2_matrix="$(jq -cn \
+  --arg capturedAt "$qa_captured_at" \
+  --arg desktopHash "$desktop_hash" \
+  --arg mobileHash "$mobile_hash" \
+  '[{"route":"/","viewport":"desktop","status":"passed","screenshot":"desktop-home.png","screenshotSha256":$desktopHash,"capturedAt":$capturedAt,"consoleErrors":0,"failedRequests":0},{"route":"/","viewport":"mobile","status":"passed","screenshot":"mobile-home.png","screenshotSha256":$mobileHash,"capturedAt":$capturedAt,"consoleErrors":0,"failedRequests":0}]')"
+qa_provenance="$(jq -cn --arg capturedAt "$qa_captured_at" '{"tool":"playwright-cli","targetUrl":"http://127.0.0.1:4173","command":"playwright-cli screenshot","capturedAt":$capturedAt}')"
+qa_report_explicit_v1="$(node "$ROOT/scripts/browser-qa-report.mjs" create --path "$TMPROOT/browser-qa-explicit-v1.json" --schema-version 1 --matrix "$qa_v2_matrix" --console "checked console logs" --network "checked network panel" --status complete)"
+assert_json_expr "browser QA explicit schema version 1 stays v1" "$(jq -c . "$qa_report_explicit_v1")" '.schemaVersion == 1 and (.matrix | not)'
+qa_duplicate_matrix="$(jq -cn \
+  --arg capturedAt "$qa_captured_at" \
+  --arg desktopHash "$desktop_hash" \
+  '[{"route":"/","viewport":"desktop","status":"passed","screenshot":"desktop-home.png","screenshotSha256":$desktopHash,"capturedAt":$capturedAt,"consoleErrors":0,"failedRequests":0},{"route":"/","viewport":"desktop","status":"passed","screenshot":"desktop-home.png","screenshotSha256":$desktopHash,"capturedAt":$capturedAt,"consoleErrors":0,"failedRequests":0}]')"
+if matrix_out="$(node "$ROOT/scripts/browser-qa-report.mjs" create --path "$TMPROOT/browser-qa-v2-duplicate.json" --artifact-root "$TMPROOT" --schema-version 2 --routes "/" --viewports "desktop,mobile" --target-url "http://127.0.0.1:4173" --tool "playwright-cli" --provenance "$qa_provenance" --matrix "$qa_duplicate_matrix" --console "checked console logs" --network "checked network panel" --status complete 2>&1)"; then
+  not_ok "browser QA v2 rejects incomplete route viewport matrix"
+else
+  assert_contains "browser QA v2 reports missing matrix combination" "$matrix_out" "matrix missing route / viewport mobile"
+  assert_contains "browser QA v2 reports duplicate matrix combination" "$matrix_out" "matrix contains duplicate route / viewport desktop"
+fi
+qa_report_v2="$(node "$ROOT/scripts/browser-qa-report.mjs" create --path "$TMPROOT/browser-qa-v2.json" --artifact-root "$TMPROOT" --schema-version 2 --routes "/" --viewports "desktop,mobile" --target-url "http://127.0.0.1:4173" --tool "playwright-cli" --provenance "$qa_provenance" --matrix "$qa_v2_matrix" --console "checked console logs" --network "checked network panel" --status complete)"
+assert_command "browser QA v2 report validates" node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_report_v2" --artifact-root "$TMPROOT"
+qa_migrated="$(node "$ROOT/scripts/browser-qa-report.mjs" migrate "$qa_report" --path "$TMPROOT/browser-qa-migrated.json")"
+assert_command "browser QA migrate emits valid v2 draft" node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_migrated"
+assert_json_expr "browser QA migrated report is v2" "$(jq -c . "$qa_migrated")" '.schemaVersion == 2 and (.matrix | length) == 2'
 qa_artifacts="$TMPROOT/browser-qa-artifacts"
 mkdir -p "$qa_artifacts/browser-qa"
 printf '{bad' >"$qa_artifacts/browser-qa/bad.json"
@@ -415,6 +539,37 @@ printf '%s\n' '{"schemaVersion":1,"runId":"stale-run","updatedAt":"2000-01-01T00
 health_out="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs")"
 assert_contains "workflow health detects stale runs" "$health_out" "staleRuns=1"
 assert_contains "workflow health reports artifact freshness" "$health_out" "artifactFreshness latest=none"
+health_status_json="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" status --json)"
+assert_json_expr "workflow health status emits schema" "$health_status_json" '.schemaVersion == 1'
+assert_json_expr "workflow health status reports active run" "$health_status_json" '.activeRunId == "stale-run"'
+assert_json_expr "workflow health status reports unfinished work" "$health_status_json" '.unfinishedTasks == 1 and .runs.stale == 1'
+assert_json_expr "workflow health status reports next action" "$health_status_json" '(.nextAction | length) > 0'
+mkdir -p "$health_root/project-a" "$health_root/project-b"
+jq -n --arg cwd "$health_root/project-a" '{"schemaVersion":2,"runId":"project-a-run","sessionId":"project-a-session","cwd":$cwd,"projectId":"project-a","updatedAt":"2026-05-13T11:00:00Z","tasks":[{"id":"T1","status":"verified"}],"agents":[],"checks":[{"name":"fixture","status":"passed"}],"events":[]}' >"$health_root/runs/project-a-run.json"
+filtered_health_json="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" status --json --cwd "$health_root/project-a")"
+assert_json_expr "workflow health cwd filter selects matching run" "$filtered_health_json" '.activeRunId == "project-a-run" and .filters.cwd != ""'
+filtered_empty_health_json="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" status --json --cwd "$health_root/project-b")"
+assert_json_expr "workflow health cwd filter excludes unrelated runs" "$filtered_empty_health_json" '.activeRunId == "" and .runs.total == 0'
+if workflow_unknown_out="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" nope --json 2>&1)"; then
+  not_ok "workflow health rejects unknown command even in json mode"
+else
+  assert_contains "workflow health unknown command reason" "$workflow_unknown_out" "Unknown workflow-health command"
+fi
+doctor_health_json="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" doctor --json --all)"
+assert_json_expr "workflow health doctor reports ledgers" "$doctor_health_json" '.command == "doctor" and .ledgers.total >= 2'
+jq -n '{"schemaVersion":2,"runId":"old-terminal-run","sessionId":"old","cwd":"/tmp/old","projectId":"old","updatedAt":"2000-01-01T00:00:00Z","tasks":[{"id":"T1","status":"verified"}],"agents":[],"checks":[{"name":"fixture","status":"passed"}],"events":[]}' >"$health_root/runs/old-terminal-run.json"
+prune_health_json="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" prune --older-than-days 30 --dry-run --json --all)"
+assert_json_expr "workflow health prune dry-run reports prunable ledgers" "$prune_health_json" '.command == "prune" and .dryRun == true and (.prunable | map(.runId) | index("old-terminal-run")) != null and .pruned == 0'
+printf '%s\n' '{"schemaVersion":1,"runId":"artifact-run","updatedAt":"2026-05-13T12:00:00Z","tasks":[{"id":"T1","status":"verified"}],"agents":[],"checks":[{"name":"fixture","status":"passed"}],"requiredArtifacts":["browser-qa-report"],"artifacts":[]}' >"$health_root/runs/artifact-run.json"
+artifact_status_json="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" status --json)"
+assert_json_expr "workflow health status reports missing artifacts" "$artifact_status_json" '(.missingArtifacts | index("browser-qa-report")) != null'
+printf '%s\n' '{"schemaVersion":1,"runId":"uat-run","updatedAt":"2026-05-13T13:00:00Z","phaseId":"P1","workstreamId":"browser","phaseStatus":"uat","uatArtifact":"browser-qa.json","uatOpenFindings":2,"tasks":[{"id":"T1","status":"verified"}],"agents":[],"checks":[{"name":"fixture","status":"passed"}],"requiredArtifacts":[],"artifacts":[]}' >"$health_root/runs/uat-run.json"
+uat_status_json="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" status --json)"
+assert_json_expr "workflow health status reports UAT state" "$uat_status_json" '.phase.id == "P1" and .uat.openFindings == 2'
+assert_json_expr "workflow health next action prefers UAT findings" "$uat_status_json" '(.nextAction | contains("UAT findings"))'
+uat_status_text="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" status)"
+assert_contains "workflow health status text reports active run" "$uat_status_text" "activeRun=uat-run"
+assert_contains "workflow health status text reports next action" "$uat_status_text" "nextAction=resolve UAT findings: 2"
 empty_health="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/missing-runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs")"
 assert_contains "workflow health reports artifacts without ledger dir" "$empty_health" "reviewLog entries=0"
 
@@ -439,8 +594,18 @@ assert_json_expr "plan readiness emits repair hints" "$bad_plan_json" '(.repairH
 good_plan="$TMPROOT/good-plan.md"
 cp "$ROOT/hooks/fixtures/plans/good-plan.md" "$good_plan"
 assert_command "plan readiness accepts complete plan" node "$ROOT/scripts/plan-readiness-check.mjs" "$good_plan"
+phase_plan="$TMPROOT/phase-plan.md"
+{
+  printf 'Phase: P1\n'
+  printf 'Workstream: browser\n'
+  printf 'UAT Gate: browser QA matrix has zero open findings\n\n'
+  cat "$ROOT/hooks/fixtures/plans/good-plan.md"
+} >"$phase_plan"
+phase_plan_json="$(node "$ROOT/scripts/plan-readiness-check.mjs" "$phase_plan" --json)"
+assert_json_expr "plan readiness recognizes optional phase metadata" "$phase_plan_json" '.ok == true and .optionalMetadata.phase == true and .optionalMetadata.workstream == true and .optionalMetadata.uatGate == true'
 agent_template="$(node "$ROOT/scripts/agent-task-packet-check.mjs" --template write)"
 assert_json_expr "agent packet template includes write scope" "$agent_template" '.packet.writeScope[0] | length > 0'
+assert_json_expr "agent packet template includes reviewer contract" "$agent_template" '(.packet.reviewers | index("etrnl-spec-reviewer")) != null and .packet.specReviewRequired == true and .packet.qualityReviewRequired == true'
 if node "$ROOT/scripts/agent-task-packet-check.mjs" --template >/dev/null 2>&1; then
   not_ok "agent packet template requires explicit mode"
 else

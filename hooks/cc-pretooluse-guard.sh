@@ -165,7 +165,28 @@ command_is_email_send() {
 
 command_is_gws_write() {
   local cmd="$1"
-  [[ "$cmd" =~ (gws|gmail|drive|calendar) ]] && [[ "$cmd" =~ (create|update|delete|send|write|upload|move|trash) ]]
+  [[ "$cmd" =~ (gws|gmail|drive|calendar) ]] && [[ "$cmd" =~ (create|update|delete|send|write|upload|move|trash|modify|batchModify) ]]
+}
+
+cc_email_triage_active() {
+  jq -e '
+    ([.requestedSkills[]?.value // empty | ascii_downcase] | any(. == "email-triage" or . == "/email-triage"))
+      or ((.lastPrompt // "" | ascii_downcase) | test("/email-triage|email[- ]triage"))
+  ' "$(cc_state_file)" >/dev/null 2>&1
+}
+
+command_is_raw_email_triage_gmail_mutation() {
+  local cmd="$1"
+  local vivaz_apply_regex='(^|[[:space:];&|])([^[:space:];&|]*/)?vivaz-email[[:space:]]+triage[[:space:]]+apply([[:space:]]|$)'
+  local gmail_mutation_regex='(gws|gmail)[^;&|]*(batchModify|modify|move|trash|delete)'
+  [[ "$cmd" =~ $vivaz_apply_regex ]] && return 1
+  [[ "$cmd" =~ $gmail_mutation_regex ]]
+}
+
+command_writes_live_claude_hooks() {
+  local cmd="$1"
+  local live_hook_write_re='(tee|cat|cp|mv|rsync|install|chmod|chown|rm|trash)[^;&|]*((\$HOME|~|/Users/[^[:space:]/]+)?/\.claude/hooks)'
+  [[ "$cmd" =~ $live_hook_write_re ]]
 }
 
 command_is_dangerous_outside_cwd() {
@@ -343,6 +364,10 @@ handle_bash() {
   if cc_command_has_output_limiter "$cmd"; then
     deny "Avoid shell output-limiter pipes such as head, tail, or sed -n after another command. Use native limits instead, for example rg -m/--max-count, fd --max-results, bat --line-range, jq filters, or write a bounded report file."
   fi
+  local readiness_help_probe_re='plan-readiness-check\.mjs[[:space:]][^;|&]*--help[^;|]*(;|\|\||\|)'
+  if [[ "$cmd" =~ $readiness_help_probe_re ]]; then
+    deny "Do not probe plan-readiness-check.mjs with --help during execute startup. Run node ~/.claude/scripts/plan-readiness-check.mjs <plan-path> directly; if it fails, report or repair the concrete plan-readiness blocker."
+  fi
 
   local success_count
   success_count="$(cc_state_count_successful_command "$cmd")"
@@ -365,8 +390,16 @@ handle_bash() {
     deny "Email sending is blocked until a draft has been shown to the user and explicit approval is recorded."
   fi
 
-  if command_is_gws_write "$cmd" && ! jq -e '.verificationRuns[]? | .value | test("gws.*(account|whoami|help)|gmail.*(account|whoami|help)|drive.*(account|whoami|help)")' "$(cc_state_file)" >/dev/null 2>&1; then
-    deny "Google Workspace write actions require an account/help check first."
+  if cc_email_triage_active && command_is_raw_email_triage_gmail_mutation "$cmd"; then
+    deny "Raw Gmail mutation is blocked during email-triage. Use vivaz-email triage run/report for dry-run evidence, and only use vivaz-email triage apply --run-id <id> after the runtime apply executor is implemented."
+  fi
+
+  if command_writes_live_claude_hooks "$cmd"; then
+    deny "Live ~/.claude/hooks edits are blocked. Edit the source-controlled control-plane hook, run the installer, and verify source/install sync instead."
+  fi
+
+  if command_is_gws_write "$cmd" && ! jq -e '.verificationRuns[]? | .value | test("gws.*(account|whoami)|gmail.*(account|whoami)|drive.*(account|whoami)")' "$(cc_state_file)" >/dev/null 2>&1; then
+    deny "Google Workspace write actions require a real account/whoami check first. Help output is not account verification."
   fi
 
   local outside_path
@@ -414,6 +447,11 @@ handle_edit() {
   if violation="$(cc_policy_violation "$text")"; then
     deny "$violation"
   fi
+  case "$abs" in
+    "$HOME/.claude/hooks"|"$HOME/.claude/hooks"/*)
+      deny "Live ~/.claude/hooks edits are blocked. Edit source-controlled hooks and run the install/sync path."
+      ;;
+  esac
   if [[ -n "$abs" && "$current_tool" == "Write" && -e "$abs" && "$old_text_status" -ne 0 ]]; then
     deny "Cannot read existing content for safety checks: $abs"
   fi
@@ -448,9 +486,24 @@ handle_edit() {
     if cc_domain_sensitive_path "$abs" && ! cc_domain_skill_seen; then
       deny "This path touches domain-sensitive code. Invoke eternal-best-practices or the relevant domain skill before editing auth, tenant, money, payment, i18n, Prisma, permissions, or soft-delete surfaces."
     fi
-    if command -v node >/dev/null 2>&1 && [[ -f "$SCRIPT_DIR/../scripts/project-buglog.mjs" ]]; then
-      if ! bug_context="$(node "$SCRIPT_DIR/../scripts/project-buglog.mjs" suggest --cwd "$cwd" --file "$abs" 2>&1)"; then
-        deny "Project bug memory is malformed or unreadable: $bug_context"
+    if [[ "${CLAUDE_CONTROL_PLANE_LEARNING_HINTS:-1}" != "0" ]] && command -v node >/dev/null 2>&1 && [[ -f "$SCRIPT_DIR/../scripts/project-buglog.mjs" ]]; then
+      if ! bug_json="$(node "$SCRIPT_DIR/../scripts/project-buglog.mjs" suggest --cwd "$cwd" --file "$abs" --json 2>&1)"; then
+        printf 'claude-guard warning: project bug memory hint skipped: %s\n' "$bug_json" >&2
+        bug_json=""
+      fi
+      bug_context=""
+      if [[ -n "$bug_json" ]]; then
+        while IFS=$'\t' read -r bug_fp bug_severity bug_category bug_summary bug_guard; do
+          [[ -n "$bug_fp" ]] || continue
+          if cc_state_has_warning_fingerprint "learning:$bug_fp"; then
+            continue
+          fi
+          cc_state_record_warning_fingerprint "learning:$bug_fp"
+          if [[ -z "$bug_context" ]]; then
+            bug_context="Previous bug notes for $abs:"
+          fi
+          bug_context+=$'\n'"- [$bug_severity] $bug_category: $bug_summary (suggested guard: $bug_guard)"
+        done < <(jq -r '.suggestions[]? | [.fingerprint, .severity, .category, .summary, .suggestedGuard] | @tsv' <<<"$bug_json")
       fi
       if [[ -n "$bug_context" ]]; then
         context="$bug_context"

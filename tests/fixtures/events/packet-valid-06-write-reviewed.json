@@ -1,0 +1,34 @@
+{
+  "session_id": "fixture-packet-valid-06",
+  "tool_name": "Task",
+  "tool_input": {
+    "packet": {
+      "mode": "write",
+      "taskId": "T6",
+      "lineageId": "wave-1.T6",
+      "goal": "patch two workflow scripts",
+      "contextSummary": "multi-file implementation with explicit reviewer contract",
+      "cwd": "/repo",
+      "scope": "scripts/workflow-health.mjs and scripts/browser-qa-report.mjs",
+      "readSet": ["scripts", "tests"],
+      "writeScope": ["scripts/workflow-health.mjs", "scripts/browser-qa-report.mjs"],
+      "forbiddenPaths": ["hooks"],
+      "expectedOutput": "patched scripts with tests",
+      "verificationCommand": "./tests/test-workflow-tools.sh",
+      "modelTier": "sonnet",
+      "timeoutSec": 600,
+      "retryPolicy": {
+        "maxRetries": 1,
+        "backoff": "linear",
+        "initialDelayMs": 500
+      },
+      "noRevert": true,
+      "webSearchGuidance": "no WebSearch needed",
+      "reviewers": ["etrnl-spec-reviewer", "etrnl-quality-reviewer"],
+      "specReviewRequired": true,
+      "qualityReviewRequired": true,
+      "integrationOwner": "parent agent",
+      "expectedDiffShape": "two-script patch plus focused workflow tests"
+    }
+  }
+}

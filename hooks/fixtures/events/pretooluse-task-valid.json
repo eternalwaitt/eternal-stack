@@ -4,6 +4,8 @@
   "tool_input": {
     "packet": {
       "mode": "write",
+      "taskId": "T1",
+      "lineageId": "wave-1.T1",
       "goal": "implement task T1",
       "contextSummary": "approved plan exists",
       "cwd": "/repo",

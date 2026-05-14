@@ -23,11 +23,37 @@ This reusable skill is the canonical browser QA workflow; `agents/etrnl-browser-
    - visible empty/error/loading states when reachable
    - accessibility basics: keyboard reachability, labels, contrast risks, touch targets
 5. Save screenshots or paths only when useful for evidence.
-6. Create a structured artifact:
-   - `node ~/.claude/scripts/browser-qa-report.mjs create --routes "<routes>" --viewports "<viewports>" --status complete`
-7. Validate the artifact:
+6. Create a structured artifact. Prefer schema v2 matrix evidence for new UI work:
+   - Build one matrix row per route x viewport with `route`, `viewport`, `status`, `screenshot`, `screenshotSha256`, `capturedAt`, `consoleErrors`, and `failedRequests`.
+   - `status complete` must have real console/network summaries, numeric counts, non-empty screenshot files under the artifact root, matching screenshot hashes, fresh capture timestamps, and provenance fields: `tool`, `targetUrl`, `command`, `capturedAt`.
+   - First run `node ~/.claude/scripts/browser-qa-report.mjs hash <screenshot-path>` for each screenshot.
+   - Put the returned SHA256 value into that row's `screenshotSha256` field inside the `--matrix` JSON.
+   - Only then run the create command with all v2 fields:
+     ```bash
+     node ~/.claude/scripts/browser-qa-report.mjs create \
+       --schema-version 2 \
+       --artifact-root "<artifact-root>" \
+       --target-url "<url>" \
+       --tool "<tool>" \
+       --provenance '<json-provenance>' \
+       --routes "<routes>" \
+       --viewports "<viewports>" \
+       --matrix '<json-matrix>' \
+       --console "<console findings summary>" \
+       --network "<network findings summary>" \
+       --status complete
+     ```
+   - Error handling and troubleshooting:
+     - If `hash` fails, check the exit code, verify the screenshot path and permissions, confirm the screenshot file exists under the artifact root, then rerun `hash`.
+     - If the screenshot is still being written, use a short retry loop with backoff; abort with a clear message if the file never appears before hashing.
+     - If `create` fails after hashing, verify the matrix still references the same screenshot path and `screenshotSha256`, rerun `create`, or rerun `hash` plus `create` if the file changed.
+     - Capture the failed command output, exit code, timestamp, screenshot file size, and recalculated hash for debugging.
+   - Existing v1 artifacts can be migrated to a draft with `node ~/.claude/scripts/browser-qa-report.mjs migrate <old-report> --path <new-report>`.
+7. For legacy/simple runs, v1 is still accepted when the report includes checked console and network summaries:
+   - `node ~/.claude/scripts/browser-qa-report.mjs create --routes "<routes>" --viewports "<viewports>" --console "<console findings summary>" --network "<network findings summary>" --status complete`
+8. Validate the artifact:
    - `node ~/.claude/scripts/browser-qa-report.mjs validate <report-path>`
-8. Record the artifact in the active ledger when one exists:
+9. Record the artifact in the active ledger when one exists:
    - `node ~/.claude/scripts/execution-ledger.mjs record-artifact --type browser-qa-report --path <report-path> --session "$CLAUDE_SESSION_ID"`
 
 ## Output

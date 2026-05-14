@@ -48,6 +48,9 @@ Workflow state:
 - `CLAUDE_CONTROL_PLANE_RUNS_DIR` overrides local execution-ledger storage.
 - `CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR` overrides local review, browser-QA, context, and buglog artifact storage.
 - `CLAUDE_CONTROL_PLANE_BUGLOG` overrides the project bug-memory file used by `project-buglog.mjs`.
+- `CLAUDE_CONTROL_PLANE_LEARNING_STARTUP_HINTS=1` enables project-level bug-memory hints at SessionStart; `0` disables them. When unset, hints are only considered when scoped workflow-health reports active trouble.
+- `CLAUDE_CONTROL_PLANE_LEARNING_HINT_MAX_CHARS` caps SessionStart learning hints; default is `500` characters.
+- `CLAUDE_CONTROL_PLANE_LEARNING_HINT_MAX_AGE_DAYS` caps stale bug-memory suggestions; default is `90` days.
 - `ETRNL_STALE_RUN_HOURS`, `ETRNL_CONTEXT_STALE_HOURS`, and `ETRNL_LEDGER_READ_CONCURRENCY` tune workflow-health and context staleness checks.
 
 Guard state and break-glass:

@@ -48,9 +48,13 @@ Goal: <one sentence>
 Non-goals: <explicit exclusions>
 Evidence: <files, commands, docs, runtime surfaces checked>
 Assumptions: <only if still unresolved>
+Phase: <optional phase id for multi-phase work>
+Workstream: <optional workstream id for split ownership>
+UAT Gate: <optional UAT completion condition for browser/user-acceptance work>
 ```
 
 Include `Status`, `Goal`, `Non-goals`, and `Evidence` as plain top-level key/value lines under the title (not `##` headings). Then add the required `##` section headings below.
+`Phase`, `Workstream`, and `UAT Gate` are optional metadata. Use them only when the work spans multiple sessions, routes, workstreams, or user-acceptance/browser gates.
 
 - `## What already exists`: existing code, scripts, flows, helpers, docs, or runtime surfaces that solve part of the problem.
 - `## NOT in scope`: considered work that is explicitly deferred, with one-line rationale.

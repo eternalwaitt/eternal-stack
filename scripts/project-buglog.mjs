@@ -7,7 +7,8 @@ import { argValue } from "./lib/cli-args.mjs";
 
 const args = process.argv.slice(2);
 const command = args[0] ?? "help";
-const BUGLOG_FINGERPRINT_VERSION = 2;
+const jsonMode = args.includes("--json");
+const BUGLOG_FINGERPRINT_VERSION = 3;
 
 function artifactDir() {
   return process.env.CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR
@@ -36,16 +37,36 @@ function normalizeSummary(summary) {
     .replace(/\s+/g, " ");
 }
 
+function redactText(value) {
+  return String(value || "")
+    .replace(/-----BEGIN[A-Z ]*PRIVATE KEY-----[\s\S]*?-----END[A-Z ]*PRIVATE KEY-----/g, "[REDACTED_PRIVATE_KEY]")
+    .replace(/\bsk_(?:live|test)_[A-Za-z0-9_=-]{8,}\b/g, "[REDACTED_TOKEN]")
+    .replace(/\bsk-[A-Za-z0-9_-]{20,}\b/g, "[REDACTED_TOKEN]")
+    .replace(/\b(AKIA|ASIA)[A-Z0-9]{16}\b/g, "[REDACTED_AWS_KEY]")
+    .replace(/\b(aws_secret_access_key|aws_session_token|password|passwd|token|api[_-]?key)\s*=\s*[^ \n\r\t]+/gi, "$1=[REDACTED]")
+    .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, "[REDACTED_JWT]")
+    .replace(/\b(Bearer)\s+[A-Za-z0-9._~+/=-]{16,}\b/g, "$1 [REDACTED]");
+}
+
 function fingerprint(record) {
   const version = Number(record.fingerprintVersion ?? 1);
+  // Fingerprint versions are intentionally compatible: v1 used sessionId only,
+  // v2 added normalized summaries, and v3 drops sessionId so repeated lessons
+  // dedupe across sessions and can power local learning hints.
   if (version === 1) {
     return createHash("sha256")
       .update([record.cwd, record.file, record.category, record.sessionId].join(":"))
       .digest("hex")
       .slice(0, 16);
   }
+  if (version === 2) {
+    return createHash("sha256")
+      .update([version, record.cwd, record.file, record.category, record.sessionId, normalizeSummary(record.summary)].join(":"))
+      .digest("hex")
+      .slice(0, 16);
+  }
   return createHash("sha256")
-    .update([version, record.cwd, record.file, record.category, record.sessionId, normalizeSummary(record.summary)].join(":"))
+    .update([version, record.cwd, record.file, record.category, normalizeSummary(record.summary)].join(":"))
     .digest("hex")
     .slice(0, 16);
 }
@@ -61,6 +82,49 @@ function parseEntry(line, index, file) {
 function readEntries(file) {
   if (!existsSync(file)) return [];
   return readFileSync(file, "utf8").split(/\n/).filter(Boolean).map((line, index) => parseEntry(line, index, file));
+}
+
+function suggestedGuard(category) {
+  const normalized = String(category || "").toLowerCase();
+  if (normalized.includes("secret") || normalized.includes("credential")) return "add secret/credential pre-tool or post-tool gate";
+  if (normalized.includes("browser") || normalized.includes("qa")) return "add browser-qa-report validation or route fixture";
+  if (normalized.includes("verification") || normalized.includes("test")) return "add smoke, doctor, or test workflow gate";
+  if (normalized.includes("repeat") || normalized.includes("edit")) return "add regression fixture for repeated edit failure";
+  return "add deterministic hook, checker, or regression test";
+}
+
+function severityFor(entry) {
+  const text = `${entry.category || ""} ${entry.summary || ""}`.toLowerCase();
+  if (/secret|credential|token|password|api[_-]?key|prod|production|data loss/.test(text)) return "P0";
+  if (/verification|browser|qa|silent|fallback|repeat|regression/.test(text)) return "P1";
+  return "P2";
+}
+
+function suggestionFor(entry) {
+  return {
+    file: entry.file,
+    category: entry.category,
+    summary: redactText(entry.summary),
+    severity: severityFor(entry),
+    fingerprint: entry.fingerprint,
+    lastSeen: entry.at || "",
+    suggestedGuard: suggestedGuard(entry.category),
+  };
+}
+
+function maxAgeMs() {
+  const raw = argValue(args, "--max-age-days", process.env.CLAUDE_CONTROL_PLANE_LEARNING_HINT_MAX_AGE_DAYS || "90");
+  const days = Number(raw);
+  if (!Number.isFinite(days) || days <= 0) return null;
+  return days * 24 * 60 * 60 * 1000;
+}
+
+function freshEnough(entry) {
+  const windowMs = maxAgeMs();
+  if (windowMs === null) return true;
+  const seen = Date.parse(entry.at || "");
+  if (!Number.isFinite(seen)) return true;
+  return Date.now() - seen <= windowMs;
 }
 
 function record() {
@@ -81,7 +145,7 @@ function record() {
     cwd,
     file,
     category,
-    summary,
+    summary: redactText(summary),
     sessionId: argValue(args, "--session", process.env.CLAUDE_SESSION_ID || "default"),
     at: nowIso(),
   };
@@ -106,12 +170,54 @@ function suggest() {
   const file = normalizeFile(cwd, rawFile);
   const entries = readEntries(buglogPath())
     .filter((entry) => entry.cwd === cwd && entry.file === file)
+    .filter(freshEnough)
     .slice(-3)
     .reverse();
+  if (jsonMode) {
+    console.log(JSON.stringify({
+      schemaVersion: 1,
+      cwd,
+      file,
+      suggestions: entries.map(suggestionFor),
+    }, null, 2));
+    return;
+  }
   if (entries.length === 0) return;
   console.log(`Previous bug notes for ${file}:`);
   for (const entry of entries) {
-    console.log(`- ${entry.category}: ${entry.summary}`);
+    console.log(`- ${entry.category}: ${redactText(entry.summary)}`);
+  }
+}
+
+function latestUnique(entries) {
+  const byFingerprint = new Map();
+  for (const entry of entries) {
+    byFingerprint.set(entry.fingerprint, entry);
+  }
+  return [...byFingerprint.values()].sort((left, right) => String(left.at || "").localeCompare(String(right.at || "")));
+}
+
+function suggestProject() {
+  const cwd = path.resolve(argValue(args, "--cwd", process.cwd()));
+  const limit = Number.parseInt(argValue(args, "--limit", "5"), 10);
+  const entries = latestUnique(
+    readEntries(buglogPath())
+      .filter((entry) => entry.cwd === cwd)
+      .filter(freshEnough),
+  ).slice(-Math.max(1, Number.isFinite(limit) ? limit : 5)).reverse();
+  const suggestions = entries.map(suggestionFor);
+  if (jsonMode) {
+    console.log(JSON.stringify({
+      schemaVersion: 1,
+      project: path.basename(cwd),
+      suggestions,
+    }, null, 2));
+    return;
+  }
+  if (suggestions.length === 0) return;
+  console.log(`Previous project bug notes for ${path.basename(cwd)}:`);
+  for (const suggestion of suggestions) {
+    console.log(`- ${suggestion.file}: ${suggestion.category}: ${suggestion.summary}`);
   }
 }
 
@@ -121,9 +227,9 @@ function validate() {
   for (const entry of entries) {
     if (entry.schemaVersion !== 1) errors.push("entry missing schemaVersion");
     const fingerprintVersion = Number(entry.fingerprintVersion ?? 1);
-    if (![1, 2].includes(fingerprintVersion)) {
+    if (![1, 2, 3].includes(fingerprintVersion)) {
       errors.push(
-        `${entry.file || "<unknown>"} invalid fingerprintVersion (supported fingerprintVersion values: 1, 2; got ${entry.fingerprintVersion})`,
+        `${entry.file || "<unknown>"} invalid fingerprintVersion (supported fingerprintVersion values: 1, 2, 3; got ${entry.fingerprintVersion})`,
       );
     }
     if (!entry.cwd || !entry.file) errors.push("entry missing cwd/file");
@@ -139,8 +245,9 @@ function validate() {
 
 if (command === "record") record();
 else if (command === "suggest") suggest();
+else if (command === "suggest-project") suggestProject();
 else if (command === "validate") validate();
 else {
-  console.error("usage: project-buglog.mjs record|suggest|validate");
+  console.error("usage: project-buglog.mjs record|suggest|suggest-project|validate");
   process.exit(2);
 }

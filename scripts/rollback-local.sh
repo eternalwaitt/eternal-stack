@@ -13,6 +13,14 @@ if [[ -z "${OWNED_AGENTS+x}" || "${#OWNED_AGENTS[@]}" -eq 0 ]]; then
   printf 'OWNED_AGENTS is missing from %s/scripts/lib/skill-lists.sh\n' "$ROOT" >&2
   exit 1
 fi
+if [[ -z "${OWNED_SKILLS+x}" || "${#OWNED_SKILLS[@]}" -eq 0 ]]; then
+  printf 'OWNED_SKILLS is missing from %s/scripts/lib/skill-lists.sh\n' "$ROOT" >&2
+  exit 1
+fi
+if [[ -z "${CRITICAL_HOOKS+x}" || "${#CRITICAL_HOOKS[@]}" -eq 0 ]]; then
+  printf 'CRITICAL_HOOKS is missing from %s/scripts/lib/skill-lists.sh\n' "$ROOT" >&2
+  exit 1
+fi
 
 latest_backup() {
   local candidate latest
@@ -109,6 +117,37 @@ for agent in "${OWNED_AGENTS[@]}"; do
     restored_count=$((restored_count + 1))
   fi
 done
+
+mkdir -p "$ROOT/skills"
+for skill in "${OWNED_SKILLS[@]}"; do
+  rm -rf -- "$ROOT/skills/$skill"
+  if [[ -d "$BACKUP/skills/$skill" ]]; then
+    cp -R -- "$BACKUP/skills/$skill" "$ROOT/skills/$skill"
+    restored+=("skills/$skill")
+    restored_count=$((restored_count + 1))
+  fi
+done
+
+mkdir -p "$ROOT/hooks"
+for hook_file in "${CRITICAL_HOOKS[@]}"; do
+  rm -f -- "$ROOT/hooks/$hook_file"
+  if [[ -f "$BACKUP/hooks/$hook_file" ]]; then
+    cp -- "$BACKUP/hooks/$hook_file" "$ROOT/hooks/$hook_file"
+    if ! chmod +x "$ROOT/hooks/$hook_file" 2>/dev/null; then
+      printf 'warning: failed to make %s executable; restored hook may not run\n' "$ROOT/hooks/$hook_file" >&2
+    fi
+    restored+=("hooks/$hook_file")
+    restored_count=$((restored_count + 1))
+  fi
+done
+
+if [[ -f "$ROOT/settings.json" ]]; then
+  if command -v jq >/dev/null 2>&1; then
+    jq empty "$ROOT/settings.json"
+  else
+    printf 'warning: jq not found; settings JSON not verified after rollback\n' >&2
+  fi
+fi
 
 printf 'Restored Claude config backup from %s\n' "$BACKUP"
 if (( restored_count > 0 )); then

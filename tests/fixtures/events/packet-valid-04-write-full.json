@@ -4,6 +4,8 @@
   "tool_input": {
     "packet": {
       "mode": "write",
+      "taskId": "T4",
+      "lineageId": "wave-1.T4",
       "goal": "rewrite etrnl-review SKILL.md with research_flow and tdd_enforcement sections",
       "contextSummary": "Track B task B5; scope is skills/etrnl-review/SKILL.md only",
       "cwd": "/repo",

@@ -19,6 +19,17 @@ if [[ "${CLAUDE_CONTROL_PLANE_ENABLE_STRICT:-0}" == "1" ]]; then
   SETTINGS_TEMPLATE="$ROOT/templates/settings.strict.json"
 fi
 
+settings_mode_for_template() {
+  case "$1" in
+    "$ROOT/templates/settings.json") printf 'default\n' ;;
+    "$ROOT/templates/settings.strict.json") printf 'strict\n' ;;
+    *)
+      printf 'install warning: unknown settings template for metadata: %s\n' "$1" >&2
+      printf 'unknown\n'
+      ;;
+  esac
+}
+
 copy_dir_contents() {
   local source_dir="$1"
   local target_dir="$2"
@@ -56,6 +67,12 @@ if [[ -d "$TARGET/rules/eternal-control" ]]; then
   cp -R -- "$TARGET/rules/eternal-control" "$BACKUP/rules/eternal-control"
   legacy_rules_present=1
 fi
+mkdir -p "$BACKUP/hooks"
+for hook_file in "${CRITICAL_HOOKS[@]}"; do
+  if [[ -f "$TARGET/hooks/$hook_file" ]]; then
+    cp -- "$TARGET/hooks/$hook_file" "$BACKUP/hooks/$hook_file"
+  fi
+done
 mkdir -p "$BACKUP/agents"
 for agent in "${OWNED_AGENTS[@]}"; do
   if [[ -f "$TARGET/agents/$agent.md" ]]; then
@@ -64,6 +81,11 @@ for agent in "${OWNED_AGENTS[@]}"; do
 done
 
 mkdir -p "$BACKUP/skills"
+for skill in "${OWNED_SKILLS[@]}"; do
+  if [[ -d "$TARGET/skills/$skill" ]]; then
+    cp -R -- "$TARGET/skills/$skill" "$BACKUP/skills/$skill"
+  fi
+done
 legacy_moved=0
 for skill in "${LEGACY_SKILLS[@]}"; do
   if [[ -d "$TARGET/skills/$skill" ]]; then
@@ -128,6 +150,7 @@ cp -- "$ROOT/scripts/agent-task-packet-check.mjs" "$TARGET/scripts/agent-task-pa
 cp -- "$ROOT/scripts/guard-override-token.mjs" "$TARGET/scripts/guard-override-token.mjs"
 cp -- "$ROOT/scripts/replay-hook-fixtures.mjs" "$TARGET/scripts/replay-hook-fixtures.mjs"
 cp -- "$ROOT/scripts/execution-ledger.mjs" "$TARGET/scripts/execution-ledger.mjs"
+cp -- "$ROOT/scripts/execute-evidence-check.mjs" "$TARGET/scripts/execute-evidence-check.mjs"
 cp -- "$ROOT/scripts/execution-wave-check.mjs" "$TARGET/scripts/execution-wave-check.mjs"
 cp -- "$ROOT/scripts/review-log.mjs" "$TARGET/scripts/review-log.mjs"
 cp -- "$ROOT/scripts/project-buglog.mjs" "$TARGET/scripts/project-buglog.mjs"
@@ -142,6 +165,7 @@ cp -- "$ROOT/scripts/port-guard.mjs" "$TARGET/scripts/port-guard.mjs"
 cp -- "$ROOT/scripts/research-competitor-intel.mjs" "$TARGET/scripts/research-competitor-intel.mjs"
 cp -- "$ROOT/scripts/update-check.mjs" "$TARGET/scripts/update-check.mjs"
 cp -- "$ROOT/scripts/update.sh" "$TARGET/scripts/update.sh"
+cp -- "$ROOT/scripts/uninstall.sh" "$TARGET/scripts/uninstall.sh"
 cp -- "$ROOT/scripts/canary-websearch.sh" "$TARGET/scripts/canary-websearch.sh"
 cp -- "$ROOT/scripts/canary-hindsight.sh" "$TARGET/scripts/canary-hindsight.sh"
 cp -- "$ROOT/scripts/post-upgrade-canary.sh" "$TARGET/scripts/post-upgrade-canary.sh"
@@ -162,7 +186,7 @@ if [[ "$legacy_rules_present" == "1" ]]; then
 fi
 
 write_install_metadata() {
-  local commit branch dirty fingerprint version metadata_tmp source_git_available
+  local commit branch dirty fingerprint version metadata_tmp source_git_available settings_mode
   local fingerprint_stderr_file version_stderr_file update_check_error
   local git_output
   if ! command -v jq >/dev/null 2>&1; then
@@ -213,6 +237,7 @@ write_install_metadata() {
   rm -f "$version_stderr_file"
   mkdir -p "$TARGET/control-plane"
   metadata_tmp="$(mktemp "$TARGET/control-plane/install.json.tmp.XXXXXX")"
+  settings_mode="$(settings_mode_for_template "$SETTINGS_TEMPLATE")"
   jq -n \
     --arg sourceRoot "$ROOT" \
     --arg sourceCommit "$commit" \
@@ -220,10 +245,11 @@ write_install_metadata() {
     --arg sourceBranch "$branch" \
     --arg sourceFingerprint "$fingerprint" \
     --arg sourceVersion "$version" \
+    --arg settingsMode "$settings_mode" \
     --arg installedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     --argjson sourceGitAvailable "$source_git_available" \
     --argjson sourceDirty "$dirty" \
-    '{sourceRoot:$sourceRoot,sourceCommit:$sourceCommit,sourceCommitShort:$sourceCommitShort,sourceBranch:$sourceBranch,sourceGitAvailable:$sourceGitAvailable,sourceDirty:$sourceDirty,sourceFingerprint:$sourceFingerprint,sourceVersion:$sourceVersion,installedAt:$installedAt}' >"$metadata_tmp"
+    '{sourceRoot:$sourceRoot,sourceCommit:$sourceCommit,sourceCommitShort:$sourceCommitShort,sourceBranch:$sourceBranch,sourceGitAvailable:$sourceGitAvailable,sourceDirty:$sourceDirty,sourceFingerprint:$sourceFingerprint,sourceVersion:$sourceVersion,settingsMode:$settingsMode,installedAt:$installedAt}' >"$metadata_tmp"
   install -m 600 "$metadata_tmp" "$TARGET/control-plane/install.json"
   rm -f "$metadata_tmp"
 }
@@ -264,6 +290,7 @@ verify_install_state() {
   fi
 }
 verify_install_state
+CLAUDE_HOME="$TARGET" "$TARGET/scripts/post-upgrade-canary.sh"
 
 printf 'Installed Claude control plane files. Backup: %s\n' "$BACKUP"
 printf 'Installed ETRNL agents: %s\n' "${OWNED_AGENTS[*]}"

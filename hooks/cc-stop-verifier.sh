@@ -74,7 +74,86 @@ def norm:
     elif . == "agent-file-doctor" then "agent-files"
     else . end;
 '
+
+cc_email_triage_requested() {
+  jq -e "$NORM_JQ"'
+    ([.requestedSkills[]?.value // empty | norm] | any(. == "email-triage"))
+      or ((.lastPrompt // "" | ascii_downcase) | test("/email-triage|email[- ]triage"))
+  ' <<<"$state" >/dev/null
+}
+
+cc_email_triage_request_at() {
+  jq -r "$NORM_JQ"'
+    [.requestedSkills[]?
+      | select((.value // "" | norm) == "email-triage")
+      | (.at // "")]
+    | map(select(. != ""))
+    | max // (.startedAt // "")
+  ' <<<"$state"
+}
+
+cc_email_triage_run_command_after() {
+  local since="$1"
+  jq -e --arg since "$since" '
+    [.successfulCommands[]?
+      | select((.at // "") >= $since)
+      | (.command // "")
+      | select(test("(^|[[:space:];&|])([^[:space:];&|]*/)?vivaz-email[[:space:]]+triage[[:space:]]+run([[:space:]]|$)"))]
+    | length > 0
+  ' <<<"$state" >/dev/null
+}
+
+cc_email_triage_latest_account_after() {
+  local since="$1" cmd account
+  cmd="$(jq -r --arg since "$since" '
+    [.successfulCommands[]?
+      | select((.at // "") >= $since)
+      | (.command // "")
+      | select(test("(^|[[:space:];&|])([^[:space:];&|]*/)?vivaz-email[[:space:]]+triage[[:space:]]+run([[:space:]]|$)"))]
+    | last // ""
+  ' <<<"$state")"
+  account=""
+  if [[ "$cmd" =~ --account(=|[[:space:]]+)([A-Za-z0-9_-]+) ]]; then
+    account="${BASH_REMATCH[2]}"
+  fi
+  printf '%s\n' "$account"
+}
+
+cc_email_triage_cli() {
+  local candidate resolved
+  for candidate in "${VIVAZ_EMAIL_BIN:-}" "${VIVAZ_EMAIL_CLI:-}"; do
+    [[ -n "$candidate" ]] || continue
+    if [[ -x "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+    if resolved="$(command -v "$candidate" 2>/dev/null)"; then
+      printf '%s\n' "$resolved"
+      return 0
+    fi
+  done
+  if command -v vivaz-email >/dev/null 2>&1; then
+    command -v vivaz-email
+    return 0
+  fi
+  return 1
+}
+
+cc_email_triage_verify_latest() {
+  local since="$1" account cli
+  if ! cli="$(cc_email_triage_cli)"; then
+    return 1
+  fi
+  account="$(cc_email_triage_latest_account_after "$since")"
+  if [[ -n "$account" ]]; then
+    "$cli" triage verify --latest --account "$account" >/dev/null 2>&1
+  else
+    "$cli" triage verify --latest >/dev/null 2>&1
+  fi
+}
+
 if [[ "$claims_done" == "true" ]]; then
+  email_triage_verified=false
   MIGRATION_CMD_REGEX='((npx|bunx|yarn(\s+dlx)?|pnpm(\s+(dlx|exec))?|npm(\s+(run|exec))?)\s+([^;&|]+\s+)*?(--\s+)?)?\bprisma\b\s+\bmigrate\b\s+(status|deploy|resolve)\b'
   if [[ "$browser_qa_outstanding" == "true" ]]; then
     cc_json_block "Outstanding browser QA is not a completion state. Run the planned dev server and browser workflow when available, record the browser QA artifact, or mark the task blocked with the exact missing tool/error."
@@ -84,7 +163,19 @@ if [[ "$claims_done" == "true" ]]; then
     cc_json_block "$ledger_status"
     exit 0
   fi
-  if jq -e '((.verificationRuns | length) == 0)' <<<"$state" >/dev/null; then
+  if cc_email_triage_requested; then
+    email_triage_since="$(cc_email_triage_request_at)"
+    if ! cc_email_triage_run_command_after "$email_triage_since"; then
+      cc_json_block "email-triage completion requires a successful vivaz-email triage run command in this session."
+      exit 0
+    fi
+    if ! cc_email_triage_verify_latest "$email_triage_since"; then
+      cc_json_block "email-triage completion requires the latest vivaz-email triage ledger to verify successfully."
+      exit 0
+    fi
+    email_triage_verified=true
+  fi
+  if [[ "$email_triage_verified" != "true" ]] && jq -e '((.verificationRuns | length) == 0)' <<<"$state" >/dev/null; then
     cc_json_block "You are trying to claim completion without verification evidence. Re-read the request, map each requested outcome to changed files or command results, run project preflight, verify user-visible behavior, then answer with evidence."
     exit 0
   fi
@@ -219,11 +310,25 @@ else:
     exit 0
   fi
   if jq -e "$NORM_JQ"'
-    ([.requestedSkills[]?.value // empty | norm] - [.skillCalls[]?.value // empty | norm]) | length > 0
+    ([.requestedSkills[]?.value // empty | norm | select(. != "email-triage")] - [.skillCalls[]?.value // empty | norm]) | length > 0
   ' <<<"$state" >/dev/null; then
     cc_json_block "A requested skill was not recorded. Invoke it or explicitly state why it is unavailable before claiming completion."
     exit 0
   fi
+  if ! execute_gate_status="$(node "$SCRIPT_DIR/../scripts/execute-evidence-check.mjs" 2>/dev/null <<<"$state")"; then
+    cc_json_block "etrnl-execute evidence checker failed. Re-run source gates or inspect scripts/execute-evidence-check.mjs before claiming completion."
+    exit 0
+  fi
+  case "$execute_gate_status" in
+    missing-agent)
+      cc_json_block "etrnl-execute touched multiple source files without write-mode implementation subagent evidence. Dispatch etrnl-executor/Task workers with structured packets for parallel-safe work, or state the exact sequential-degraded blocker before claiming completion."
+      exit 0
+      ;;
+    missing-reviewers)
+      cc_json_block "etrnl-execute multi-file source completion needs reviewer subagent evidence. Run etrnl-spec-reviewer and etrnl-quality-reviewer after implementation, then include the review evidence before claiming completion."
+      exit 0
+      ;;
+  esac
   if jq -e '
     def source_edit_count:
       (.edits // {})

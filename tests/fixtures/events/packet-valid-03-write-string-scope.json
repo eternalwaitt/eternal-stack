@@ -4,6 +4,8 @@
   "tool_input": {
     "packet": {
       "mode": "write",
+      "taskId": "T3",
+      "lineageId": "wave-1.T3",
       "goal": "update CHANGELOG with M-one release notes",
       "contextSummary": "etrnl-commit task; write scope is CHANGELOG.md only",
       "cwd": "/repo",

@@ -98,6 +98,26 @@ assert_no_file() {
   fi
 }
 
+assert_directory() {
+  local name="$1"
+  local dir="$2"
+  if [[ -d "$dir" ]]; then
+    ok "$name"
+  else
+    not_ok "$name"
+  fi
+}
+
+assert_no_directory() {
+  local name="$1"
+  local dir="$2"
+  if [[ ! -d "$dir" ]]; then
+    ok "$name"
+  else
+    not_ok "$name"
+  fi
+}
+
 assert_symlink() {
   local name="$1"
   local file="$2"

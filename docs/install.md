@@ -18,6 +18,7 @@ CLAUDE_CONTROL_PLANE_ENABLE_STRICT=1 ./scripts/install.sh
 The installer:
 
 - backs up existing Claude settings and `CLAUDE.md`
+- backs up pre-existing repo-owned hooks, skills, and agent files so rollback can restore them or remove newly installed copies
 - copies reusable hooks, hook libraries, fixtures, docs, skills, and ETRNL agent templates
 - copies control-plane assets:
   - public `AGENTS.md` baseline
@@ -26,16 +27,16 @@ The installer:
   - rollback script
   - canaries
   - hook test harness
-  - execution ledger, task-packet, wave-check, review-log, browser-QA, context-state, workflow-health, prompt-budget, changelog release, settings audit, and port guard helpers
+  - execution ledger, task-packet, wave-check, review-log, browser-QA, context-state, workflow-health, prompt-budget, changelog release, update drift, settings audit, and port guard helpers
 - stores startup templates under `~/.claude/docs/templates/`
 - only overwrites existing `AGENTS.md`/`CLAUDE.md` when `CLAUDE_CONTROL_PLANE_INSTALL_STARTUP=1`
 - moves legacy repo-owned skill folders into the install backup before copying `etrnl-*` skills
   - legacy examples: `writing-plans`, `execute-plan`, `etrnl-run-plan`, `eternal-control-writing-plans`, or `eternal-*` control-plane folders
 - installs repo-owned `etrnl-*` agents into `~/.claude/agents/` by default
-- writes `~/.claude/control-plane/install.json` with the source checkout, commit, version, and installed source fingerprint
-- installs `~/.claude/scripts/update-check.mjs` and `~/.claude/scripts/update.sh` so installed Claude sessions can detect and repair drift from the source checkout
+- writes `~/.claude/control-plane/install.json` with the source checkout, commit, version, installed source fingerprint, and settings mode
+- installs `~/.claude/scripts/update-check.mjs`, `update.sh`, and `uninstall.sh` so installed Claude sessions can explain, detect, and repair drift from the source checkout
 - runs `settings-audit.mjs --fix` so duplicate hook commands are compacted and the legacy race-prone rate limiter is replaced with `cc-rate-limiter.sh`
-- runs the hook and workflow-tool test harnesses
+- runs the hook and workflow-tool test harnesses plus the post-upgrade canary
 - merges safe observer hooks into existing settings by default, including `UserPromptSubmit` `CLAUDE.md` reinjection and the advisory rate limiter
 - merges strict blocker hooks, including `PreToolUse`, `Stop`, and `SubagentStop`, only when `CLAUDE_CONTROL_PLANE_ENABLE_STRICT=1`
 - records the evidence-before-agreement lesson to Hindsight only as a stable upsert when Hindsight is configured
@@ -47,10 +48,11 @@ Post-install verification:
 ~/.claude/scripts/doctor-control-plane.sh
 node ~/.claude/scripts/settings-audit.mjs ~/.claude/settings.json --json
 node ~/.claude/scripts/update-check.mjs --json
+node ~/.claude/scripts/update-check.mjs --explain
 ~/.claude/scripts/post-upgrade-canary.sh
 ```
 
-`settings-audit.mjs` should report no duplicate hooks and no legacy `rate-limiter.sh` registrations. `update-check.mjs --json` should show the recorded source checkout, installed commit, source commit, version, dirty-state flag, and whether a local or remote update is available.
+`settings-audit.mjs` should report no duplicate hooks and no legacy `rate-limiter.sh` registrations. `update-check.mjs --json` should show the recorded source checkout, installed/source commits, version, dirty-state flag, installed skill/agent counts, settings mode, stale installed script count, and whether a local or remote update is available.
 
 Rollback:
 
@@ -58,7 +60,7 @@ Rollback:
 ~/.claude/scripts/rollback-local.sh
 ```
 
-Rollback removes current repo-owned `etrnl-*` agent files and restores backed-up versions when they existed before install.
+Rollback removes current repo-owned `etrnl-*` agent, skill, and critical hook files, restores backed-up versions when they existed before install, and validates settings JSON when `jq` is available.
 
 Update:
 

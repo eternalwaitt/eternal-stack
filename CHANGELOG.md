@@ -4,6 +4,15 @@
 
 ## v0.1.10 - 2026-05-13
 
+- Add best-of-all-worlds quick wins from the GStack/GSD/Superpowers gap-closure plan: skill-trigger fixtures for every owned `etrnl-*` skill, `workflow-health status`/`status --json`, SessionStart workflow hints, compact timestamp/count recovery metadata, redacted `project-buglog suggest --json`, browser QA v2 matrix validation/migration, and installed browser-QA rejection canary coverage.
+- Harden the next control-plane evidence path with screenshot-hash/provenance checks for complete browser QA v2 reports, task packet `taskId`/`lineageId` plus packet hashes, schema v2 execution ledger events/reviews, packet-bound write evidence checks, cwd-filtered workflow health, and cross-session project buglog hints.
+- Add optional phase/workstream/UAT ledger metadata with `execution-ledger.mjs set-phase` and `record-uat`; open UAT findings now block ledger completion and appear in workflow-health status.
+- Harden subagent orchestration so multi-file write task packets require spec/quality reviewer contracts, reviewer subagent calls are recorded separately, and `etrnl-execute` multi-file completion requires implementation plus spec and quality reviewer evidence.
+- Expand install/update/rollback drift UX with settings-mode metadata, `update-check.mjs --explain`, installed skill/agent/stale-script drift counts, `uninstall.sh` installation, rollback removal/restoration of repo-owned skills/hooks/agents, and settings validation after rollback.
+- Block `etrnl-execute` completion when a run changes multiple source files after the execute request without write-mode implementation subagent evidence, and harden the skill contract so parallel-safe waves require `etrnl-executor`/write-task workers or an explicit sequential-degraded blocker.
+- Deny `plan-readiness-check.mjs --help` probes during execute startup so `/etrnl-execute` runs the readiness checker directly against the plan path.
+- Reject completed browser QA reports unless they include real console and network summaries, so `etrnl-qa-browser` cannot validate unchecked UI evidence.
+- Add a canonical best-of-all-worlds gap-closure plan for the larger GStack/GSD/Superpowers-inspired workflow upgrades that are too broad for a drive-by patch.
 - Reinject global and project `CLAUDE.md`, `.claude/CLAUDE.md`, and `CLAUDE.local.md` context in Claude startup order on every `UserPromptSubmit` so Claude Code sessions keep active guidance even when the host does not reliably include it.
 - Add `CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD=0`, `CLAUDE_CONTROL_PLANE_CLAUDE_MD_MAX_CHARS`, and `CLAUDE_CONTROL_PLANE_USERPROMPT_CONTEXT_MAX_CHARS` controls for prompt reinjection and context caps.
 - Expand in-root markdown `@*.md` references from global/project startup files recursively up to five hops while skipping references outside the allowed global or project roots.

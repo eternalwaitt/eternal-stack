@@ -31,6 +31,7 @@ assert_executable "installed changelog release helper" "$CLAUDE_HOME/scripts/cha
 assert_executable "installed port guard helper" "$CLAUDE_HOME/scripts/port-guard.mjs"
 assert_executable "installed update check helper" "$CLAUDE_HOME/scripts/update-check.mjs"
 assert_executable "installed update helper" "$CLAUDE_HOME/scripts/update.sh"
+assert_executable "installed uninstall helper" "$CLAUDE_HOME/scripts/uninstall.sh"
 assert_executable "installed workflow tool tests" "$CLAUDE_HOME/hooks/test-workflow-tools.sh"
 assert_file "installed test harness" "$CLAUDE_HOME/hooks/lib/test-harness.sh"
 assert_file "installed busy-port helper" "$CLAUDE_HOME/tests/lib/busy-port-server.mjs"
@@ -72,6 +73,16 @@ if ! update_json="$(node "$CLAUDE_HOME/scripts/update-check.mjs" --json 2>&1)"; 
   exit 1
 fi
 assert_json_expr "post-install: update check is clean" "$update_json" '.ok == true and .localUpdateAvailable == false'
+assert_json_expr "post-install: drift reports installed skills" "$update_json" ".drift.installedSkillCount >= ${#OWNED_SKILLS[@]}"
+assert_json_expr "post-install: drift reports installed agents" "$update_json" ".drift.installedAgentCount >= ${#OWNED_AGENTS[@]}"
+assert_json_expr "post-install: drift reports settings mode" "$update_json" '.drift.settingsMode == "default"'
+assert_json_expr "post-install: drift reports fresh scripts" "$update_json" '.drift.staleInstalledScripts.count == 0'
+if explain_out="$(node "$CLAUDE_HOME/scripts/update-check.mjs" --explain 2>&1)"; then
+  assert_contains "post-install: update explain names installed commit" "$explain_out" "Installed commit"
+  assert_contains "post-install: update explain names stale scripts" "$explain_out" "Stale installed scripts"
+else
+  not_ok "post-install: update explain failed: $explain_out"
+fi
 if canary_output="$("$CLAUDE_HOME/scripts/post-upgrade-canary.sh" 2>&1)"; then
   ok "post-install: post-upgrade canary passes"
 else
@@ -94,5 +105,12 @@ assert_json_expr "post-install: stale metadata detects update" "$stale_update_js
 for agent in etrnl-adversary etrnl-browser-qa etrnl-design-reviewer etrnl-dx-reviewer etrnl-executor etrnl-investigator etrnl-quality-reviewer etrnl-scout etrnl-spec-reviewer; do
   assert_no_file "rollback removed $agent" "$CLAUDE_HOME/agents/$agent.md"
 done
+for skill in "${OWNED_SKILLS[@]}"; do
+  assert_no_directory "rollback removed $skill" "$CLAUDE_HOME/skills/$skill"
+done
+for hook_file in "${CRITICAL_HOOKS[@]}"; do
+  assert_no_file "rollback removed $hook_file" "$CLAUDE_HOME/hooks/$hook_file"
+done
+assert_command "rollback leaves settings valid" jq empty "$CLAUDE_HOME/settings.json"
 
 finish_tests

@@ -157,11 +157,41 @@ mark_edit_in_batch() {
   fi
 }
 
+agent_call_path() {
+  local payload="$1"
+  local rendered packet_json packet_hash
+  rendered="$(jq -r '
+    [
+      ("subagent=" + (.tool_input.subagent_type // .tool_input.agent // .tool_input.name // "")),
+      ("mode=" + (.tool_input.packet.mode // "")),
+      ("taskId=" + (.tool_input.packet.taskId // "")),
+      ("lineageId=" + (.tool_input.packet.lineageId // "")),
+      ("goal=" + (.tool_input.packet.goal // .tool_input.description // ""))
+    ]
+    | map(select(. != "subagent=" and . != "mode=" and . != "taskId=" and . != "lineageId=" and . != "goal="))
+    | join(" ")
+  ' <<<"$payload" 2>/dev/null || true)"
+  packet_json="$(jq -c 'select((.tool_input.packet // null) | type == "object") | .tool_input.packet' <<<"$payload" 2>/dev/null || true)"
+  if [[ -n "$packet_json" && -f "$SCRIPT_DIR/../scripts/agent-task-packet-check.mjs" ]]; then
+    packet_hash="$(printf '%s' "$packet_json" | node "$SCRIPT_DIR/../scripts/agent-task-packet-check.mjs" --hash 2>/dev/null || true)"
+    if [[ -n "$packet_hash" ]]; then
+      rendered="${rendered:+$rendered }packetHash=$packet_hash"
+    fi
+  fi
+  printf '%s\n' "$rendered"
+}
+
+agent_subagent_key() {
+  local payload="$1"
+  jq -r '.tool_input.subagent_type // .tool_input.agent // .tool_input.name // empty' <<<"$payload" 2>/dev/null || true
+}
+
 record_tool() {
   local name="$1"
   local path="$2"
   local command="$3"
   local succeeded="$4"
+  local subagent_key="${5:-}"
   case "$name" in
     Read)
       local read_abs
@@ -194,6 +224,11 @@ record_tool() {
       if cc_command_is_review_verification "$command"; then
         cc_state_batch_append_value reviewRuns "$command"
       fi
+      local vivaz_triage_regex='(^|[[:space:];&|])(vivaz-email|[^[:space:];&|]*/vivaz-email)[[:space:]]+triage[[:space:]]+(verify|report)([[:space:]]|$)'
+      # Match standalone or path-prefixed `vivaz-email triage verify` or `report`; anchors avoid partial command-word matches.
+      if [[ "$command" =~ $vivaz_triage_regex ]]; then
+        cc_state_batch_append_value verificationRuns "$command"
+      fi
       ;;
     Edit|Write|MultiEdit)
       if [[ "$succeeded" != "true" ]]; then
@@ -207,6 +242,18 @@ record_tool() {
         return 0
       fi
       cc_state_batch_append_value skillCalls "$path"
+      ;;
+    Agent|Task|TaskCreate)
+      if [[ "$succeeded" != "true" ]]; then
+        cc_state_batch_append_value failures "$name failed: ${path:-subagent}"
+        return 0
+      fi
+      cc_state_batch_append_value agentCalls "${path:-$name}"
+      case "$subagent_key" in
+        etrnl-spec-reviewer|etrnl-quality-reviewer)
+          cc_state_batch_append_value reviewerAgentCalls "${path:-$name}"
+          ;;
+      esac
       ;;
     mcp__context7*|mcp__serena*)
       if [[ "$succeeded" != "true" ]]; then
@@ -224,21 +271,28 @@ fi
 if jq -e '.tool_calls or .toolCalls or .batch' <<<"$HOOK_INPUT" >/dev/null 2>&1; then
   while IFS= read -r item; do
     name="$(jq -r '.tool_name // .toolName // .tool // empty' <<<"$item")"
+    subagent_key=""
     if [[ "$name" == "Skill" ]]; then
       path="$(jq -r '.tool_input.name // .tool_input.skill // empty' <<<"$item")"
+    elif [[ "$name" == "Agent" || "$name" == "Task" || "$name" == "TaskCreate" ]]; then
+      path="$(agent_call_path "$item")"
+      subagent_key="$(agent_subagent_key "$item")"
     else
       path="$(jq -r '.tool_input.file_path // empty' <<<"$item")"
     fi
     command="$(jq -r '.tool_input.command // empty' <<<"$item")"
     success="true"
     call_succeeded "$item" || success="false"
-    record_tool "$name" "$path" "$command" "$success"
+    record_tool "$name" "$path" "$command" "$success" "$subagent_key"
   done < <(jq -c '(.tool_calls // .toolCalls // .batch // [])[]' <<<"$HOOK_INPUT")
 else
   success="true"
   call_succeeded "$HOOK_INPUT" || success="false"
   if [[ "$tool_name" == "Skill" ]]; then
     record_tool "$tool_name" "$skill_name" "$cmd" "$success"
+  elif [[ "$tool_name" == "Agent" || "$tool_name" == "Task" || "$tool_name" == "TaskCreate" ]]; then
+    path="$(agent_call_path "$HOOK_INPUT")"
+    record_tool "$tool_name" "$path" "$cmd" "$success" "$(agent_subagent_key "$HOOK_INPUT")"
   else
     record_tool "$tool_name" "$file_path" "$cmd" "$success"
   fi

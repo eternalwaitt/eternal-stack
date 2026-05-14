@@ -14,6 +14,8 @@ cc_state_init
 
 summary="$(cc_json_get '.summary // .compact_summary')"
 if [[ -n "$summary" ]]; then
+  now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   # Escape the jq variable so the shell leaves the literal $summary for jq.
-  cc_state_update --arg summary "$summary" ".lastCompactSummary = \$summary"
+  cc_state_update --arg summary "$summary" --arg now "$now" \
+    '.lastCompactSummary = $summary | .lastCompactAt = $now | .compactCount = ((.compactCount // 0) + 1)'
 fi

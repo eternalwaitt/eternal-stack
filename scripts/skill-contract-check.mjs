@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { argValue } from "./lib/cli-args.mjs";
 import { parseBashArray } from "./lib/bash-array-parser.mjs";
 import { REQUIRED_PLAN_HEADINGS } from "./lib/plan-headings.mjs";
+import { hasKeywords } from "./lib/text-matchers.mjs";
 
 const args = process.argv.slice(2);
 const root = path.resolve(argValue(args, "--root", path.join(path.dirname(fileURLToPath(import.meta.url)), "..")));
@@ -172,6 +173,25 @@ if (existsSync(executePath)) {
   }
   if (!/If the readiness check fails.*Do not continue into implementation/s.test(execute)) {
     fail("etrnl-execute missing fail-closed readiness wording");
+  }
+  const executeRequiredConcepts = [
+    {
+      label: "parallel-safe wave dispatch",
+      keywords: ["dispatch", "write-capable", "implementation subagents", "parallel-safe"],
+    },
+    {
+      label: "parent orchestrator edit prohibition",
+      keywords: ["parent orchestrator", "must not edit", "implementation subagents"],
+    },
+    {
+      label: "sequential-degraded fallback",
+      keywords: ["sequential-degraded", "blocker", "editing"],
+    },
+  ];
+  for (const concept of executeRequiredConcepts) {
+    if (!hasKeywords(execute, concept.keywords)) {
+      fail(`etrnl-execute missing ${concept.label} concept: ${concept.keywords.join(", ")}`);
+    }
   }
 }
 
