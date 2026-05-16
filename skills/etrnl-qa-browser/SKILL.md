@@ -13,7 +13,7 @@ This reusable skill is the canonical browser QA workflow; `agents/etrnl-browser-
 ## Workflow
 
 1. Identify the target URL, changed routes, required auth state, and viewport set.
-2. Prefer `playwright-cli` when installed. Use one named browser session per agent/task.
+2. Use `playwright-cli` when installed. Use one named browser session per agent/task.
 3. Start the provided local dev command when the target needs it. Do not leave browser QA "manual" or "outstanding" just because it needs a local server or browser tooling; run it or report the exact unavailable tool/error.
 4. Check each route for:
    - page load success
@@ -22,8 +22,8 @@ This reusable skill is the canonical browser QA workflow; `agents/etrnl-browser-
    - desktop and mobile layout issues
    - visible empty/error/loading states when reachable
    - accessibility basics: keyboard reachability, labels, contrast risks, touch targets
-5. Save screenshots or paths only when useful for evidence.
-6. Create a structured artifact. Prefer schema v2 matrix evidence for new UI work:
+5. Save screenshots or paths when they provide evidence.
+6. Create a structured artifact. Use schema v2 matrix evidence for new UI work:
    - Build one matrix row per route x viewport with `route`, `viewport`, `status`, `screenshot`, `screenshotSha256`, `capturedAt`, `consoleErrors`, and `failedRequests`.
    - `status complete` must have real console/network summaries, numeric counts, non-empty screenshot files under the artifact root, matching screenshot hashes, fresh capture timestamps, and provenance fields: `tool`, `targetUrl`, `command`, `capturedAt`.
    - First run `node ~/.claude/scripts/browser-qa-report.mjs hash <screenshot-path>` for each screenshot.

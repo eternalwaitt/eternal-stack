@@ -26,6 +26,19 @@ for dep in jq node rg fd; do
 done
 if command -v sg >/dev/null 2>&1; then ok "dependency sg"; else ok "dependency sg unavailable but live hooks fail open"; fi
 
+mkdir -p "$TMPROOT/bin"
+printf '%s\n' '#!/usr/bin/env bash' 'exit 0' >"$TMPROOT/bin/rtk"
+chmod +x "$TMPROOT/bin/rtk"
+rtk_rg_bad="$(jq -cn '{hook_event_name:"PreToolUse",tool_name:"Bash",tool_input:{command:"rg -li \"MCR\" /tmp/contracts"}}')"
+out="$(PATH="$TMPROOT/bin:$PATH" run_hook cc-rtk-rg-compat.sh "$rtk_rg_bad")"
+assert_json_expr "rtk rg compat proxies files-with-matches search" "$out" '.hookSpecificOutput.updatedInput.command == "rtk proxy --ultra-compact rg -li \"MCR\" /tmp/contracts"'
+rtk_rg_safe="$(jq -cn '{hook_event_name:"PreToolUse",tool_name:"Bash",tool_input:{command:"rg -n \"MCR\" /tmp/contracts"}}')"
+out="$(PATH="$TMPROOT/bin:$PATH" run_hook cc-rtk-rg-compat.sh "$rtk_rg_safe")"
+if [[ -z "$out" ]]; then ok "rtk rg compat leaves compact-safe rg search to RTK"; else not_ok "rtk rg compat should not rewrite compact-safe rg search: $out"; fi
+rtk_rg_compound="$(jq -cn '{hook_event_name:"PreToolUse",tool_name:"Bash",tool_input:{command:"rg -li \"MCR\" /tmp/contracts && rm -rf /tmp/nope"}}')"
+out="$(PATH="$TMPROOT/bin:$PATH" run_hook cc-rtk-rg-compat.sh "$rtk_rg_compound")"
+if [[ -z "$out" ]]; then ok "rtk rg compat does not rewrite compound shell commands"; else not_ok "rtk rg compat should not rewrite compound shell commands: $out"; fi
+
 invalid="$(printf '{bad' | "$ROOT/hooks/cc-pretooluse-guard.sh")"
 assert_json_expr "invalid JSON fails open" "$invalid" '.continue == true'
 
@@ -65,6 +78,11 @@ output_limiter_bash="$(jq '.tool_input.command = "rg -n foo src/app.ts | head -2
 out="$(run_hook cc-pretooluse-guard.sh "$output_limiter_bash")"
 assert_json_expr "output limiter pipe denied" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
 assert_contains "output limiter reason" "$out" "output-limiter"
+diagnostic_tail_bash="$(jq '.tool_input.command = "pnpm test 2>&1 | tail -80"' <<<"$bash_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$diagnostic_tail_bash")"
+assert_json_expr "diagnostic verification tail allowed" "$out" '.continue == true'
+rtk_filtered_check_types="$(bash -c 'source "$1"; cc_command_is_quality_verification "$2"; echo $?' _ "$ROOT/hooks/lib/command-classifiers.sh" "rtk pnpm --filter @tcg-collector/api check-types 2>&1 | tail -20")"
+if [[ "$rtk_filtered_check_types" == "0" ]]; then ok "rtk pnpm filtered check-types counts as quality verification"; else not_ok "rtk pnpm filtered check-types should count as quality verification: got '$rtk_filtered_check_types'"; fi
 readiness_help_bash="$(jq '.tool_input.command = "node ~/.claude/scripts/plan-readiness-check.mjs --help 2>&1 || bat ~/.claude/scripts/plan-readiness-check.mjs"' <<<"$bash_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$readiness_help_bash")"
 assert_json_expr "plan readiness help probe denied" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
@@ -205,6 +223,22 @@ search_event="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-sessi
 run_hook cc-posttoolbatch-observer.sh "$search_event" >/dev/null || true
 out="$(run_hook cc-pretooluse-guard.sh "$clean_edit")"
 assert_json_expr "read and search allow edit" "$out" '.continue == true'
+existing_write="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-session",tool_name:"Write",cwd:$root,tool_input:{file_path:($root + "/src/app.ts"),content:"export const value = 5;"}}')"
+out="$(run_hook cc-pretooluse-guard.sh "$existing_write")"
+assert_json_expr "existing source Write reads disk fallback and is allowed" "$out" '.continue == true'
+
+missing_status_read="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-missing-status",hook_event_name:"PostToolBatch",tool_name:"Read",cwd:$root,tool_input:{file_path:($root + "/src/app.ts")},tool_response:{type:"text"}}')"
+run_hook cc-posttoolbatch-observer.sh "$missing_status_read" >/dev/null || true
+missing_status_search="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-missing-status",hook_event_name:"PostToolBatch",tool_name:"Bash",cwd:$root,tool_input:{command:"fd app.ts src"},tool_response:{stdout:"src/app.ts"}}')"
+run_hook cc-posttoolbatch-observer.sh "$missing_status_search" >/dev/null || true
+missing_status_state="$TMPROOT/claude-guard-fixture-missing-status.json"
+assert_json_expr "posttoolbatch missing status records successful read" "$(jq -c . "$missing_status_state")" '(.reads | length) == 1 and ([.failures[]?.value | select(test("Read failed"))] | length) == 0'
+assert_json_expr "posttoolbatch missing status records successful search command" "$(jq -c . "$missing_status_state")" '(.successfulCommands | length) == 1 and (.searches | length) == 1'
+failed_response_read="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-failed-response",hook_event_name:"PostToolBatch",tool_name:"Read",cwd:$root,tool_input:{file_path:($root + "/src/app.ts")},tool_response:{is_error:true,content:"blocked"}}')"
+run_hook cc-posttoolbatch-observer.sh "$failed_response_read" >/dev/null || true
+failed_response_state="$TMPROOT/claude-guard-fixture-failed-response.json"
+assert_json_expr "posttoolbatch explicit failed response does not record read" "$(jq -c . "$failed_response_state")" '(.reads | length) == 0 and ([.failures[]?.value | select(test("Read failed"))] | length) == 1'
+
 large_new_string="$(node -e 'for (let i = 0; i < 130; i += 1) console.log("export const value" + i + " = " + i + ";")')"
 large_edit="$(jq --arg text "$large_new_string" '.tool_input.old_string = "export const oldValue = 1;" | .tool_input.new_string = $text' <<<"$edit_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$large_edit")"
@@ -224,6 +258,15 @@ done
 sprawl_fourth="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-sprawl",tool_name:"Write",cwd:$root,tool_input:{file_path:($root + "/src/four.ts"),content:"export const created = true;"}}')"
 out="$(run_hook cc-pretooluse-guard.sh "$sprawl_fourth")"
 assert_contains "file sprawl denied" "$out" "File-sprawl"
+planned_sprawl_search="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-planned-sprawl",tool_name:"Bash",status:"success",cwd:$root,tool_input:{command:"rg -n planned src"}}')"
+run_hook cc-posttoolbatch-observer.sh "$planned_sprawl_search" >/dev/null || true
+planned_sprawl_agent="$(jq -cn '{session_id:"fixture-planned-sprawl",tool_name:"Agent",status:"success",tool_input:{subagent_type:"etrnl-executor",description:"planned file split",packet:{mode:"write",goal:"planned split",writeScope:["src"]}}}')"
+run_hook cc-posttoolbatch-observer.sh "$planned_sprawl_agent" >/dev/null || true
+for created in planned-one planned-two planned-three planned-four; do
+  planned_write="$(jq -cn --arg root "$TMPROOT/example" --arg created "$created" '{session_id:"fixture-planned-sprawl",tool_name:"Write",cwd:$root,tool_input:{file_path:($root + "/src/" + $created + ".ts"),content:"export const planned = true;"}}')"
+  out="$(run_hook cc-pretooluse-guard.sh "$planned_write")"
+  assert_json_expr "planned write-scope new source $created allowed past sprawl limit" "$out" '.continue == true'
+done
 
 mkdir -p "$TMPROOT/home/.claude/rules" "$TMPROOT/example/.claude" "$TMPROOT/example/rules" "$TMPROOT/example/subdir"
 printf '%s\n' '# Global Claude' 'Reuse before create from injected global.' '@AGENTS.md' '@~/.claude/rules/global-extra.md' >"$TMPROOT/home/.claude/CLAUDE.md"
@@ -328,6 +371,9 @@ out="$(run_hook cc-posttoolusefailure-diagnose.sh "$failure_json")"
 assert_json_expr "first failure emits context only" "$out" '.hookSpecificOutput.hookEventName == "PostToolUseFailure"'
 out="$(run_hook cc-posttoolusefailure-diagnose.sh "$failure_json")"
 assert_contains "repeated failure pivots" "$out" "repeated"
+large_failure_json="$(jq -cn '{session_id:"fixture-large-failure",tool_name:"Read",tool_input:{file_path:"/tmp/huge-output.txt"},error:"File content exceeds maximum allowed tokens"}')"
+out="$(run_hook cc-posttoolusefailure-diagnose.sh "$large_failure_json")"
+assert_contains "large-output failure gets targeted diagnostic" "$out" "targeted read/search"
 
 rate_event="$(jq -cn '{session_id:"fixture-rate",tool_name:"Bash",tool_input:{command:"rg -n value src"}}')"
 run_hook cc-rate-limiter.sh "$rate_event" >/dev/null || true
@@ -395,13 +441,29 @@ email_triage_missing_state="$TMPROOT/claude-guard-fixture-email-triage-missing.j
 jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[{value:"email-triage",at:"2026-01-01T00:00:00Z"}],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"/email-triage agencia",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$email_triage_missing_state"
 email_triage_missing_stop="$(jq -cn '{session_id:"fixture-email-triage-missing",last_assistant_message:"Done, email triage complete.",stop_hook_active:false}')"
 out="$(PATH="$TMPROOT/bin:$PATH" run_hook cc-stop-verifier.sh "$email_triage_missing_stop")"
-assert_contains "email triage stop requires runtime run command" "$out" "vivaz-email triage run"
+assert_contains "email triage stop requires runtime guarded-run command" "$out" "vivaz-email triage guarded-run"
 
 email_triage_ok_state="$TMPROOT/claude-guard-fixture-email-triage-ok.json"
-jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[{command:"vivaz-email triage run --account agencia",at:"2026-01-01T00:00:01Z"}],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[{value:"email-triage",at:"2026-01-01T00:00:00Z"}],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"/email-triage agencia",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$email_triage_ok_state"
-email_triage_ok_stop="$(jq -cn '{session_id:"fixture-email-triage-ok",last_assistant_message:"Done, email triage complete.",stop_hook_active:false}')"
+jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[{command:"vivaz-email triage guarded-run --account agencia",at:"2026-01-01T00:00:01Z"}],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[{value:"email-triage",at:"2026-01-01T00:00:00Z"}],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"/email-triage agencia",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$email_triage_ok_state"
+email_triage_ok_report="# Email Triage Report"$'\n\n'"Run: triage_fixture_agencia"$'\n\n'"## Latest Thread State"$'\n\n'"- Latest thread state checked against the most recent message."$'\n\n'"## Pre-existing Action Backlog"$'\n\n'"- Pre-existing action backlog reviewed before archive/action decisions."$'\n\n'"## Top Action Items"$'\n\n'"- P0 item"$'\n\n'"## Reply Queue"$'\n\n'"### 1. P0 item"$'\n\n'"Proposed reply:"$'\n\n'"## Action Items"$'\n\n'"- item"
+email_triage_ok_stop="$(jq -cn --arg message "$email_triage_ok_report" '{session_id:"fixture-email-triage-ok",last_assistant_message:$message,stop_hook_active:false}')"
 out="$(PATH="$TMPROOT/bin:$PATH" run_hook cc-stop-verifier.sh "$email_triage_ok_stop")"
 if [[ -z "$out" ]]; then ok "email triage verified ledger satisfies stop"; else not_ok "email triage verified ledger should pass: $out"; fi
+
+email_triage_missing_context_report="# Email Triage Report"$'\n\n'"Run: triage_fixture_agencia"$'\n\n'"## Top Action Items"$'\n\n'"- P0 item"$'\n\n'"## Reply Queue"$'\n\n'"### 1. P0 item"$'\n\n'"## Action Items"$'\n\n'"- item"
+email_triage_missing_context_stop="$(jq -cn --arg message "$email_triage_missing_context_report" '{session_id:"fixture-email-triage-ok",last_assistant_message:$message,stop_hook_active:false}')"
+out="$(PATH="$TMPROOT/bin:$PATH" run_hook cc-stop-verifier.sh "$email_triage_missing_context_stop")"
+assert_contains "email triage report missing latest/backlog blocked" "$out" "latest thread state"
+
+email_triage_summary_stop="$(jq -cn '{session_id:"fixture-email-triage-ok",last_assistant_message:"Inbox zero verified for agencia.",stop_hook_active:false}')"
+out="$(PATH="$TMPROOT/bin:$PATH" run_hook cc-stop-verifier.sh "$email_triage_summary_stop")"
+assert_contains "email triage one-line summary blocked" "$out" "one-line inbox-zero summary is not actionable"
+
+email_triage_report_state="$TMPROOT/claude-guard-fixture-email-triage-report.json"
+jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[{command:"vivaz-email triage report --run-id triage_2026-05-14T18-23-14-478Z_agencia_6219c271 --format markdown",at:"2026-01-01T00:00:01Z"}],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[{value:"email-triage",at:"2026-01-01T00:00:00Z"}],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"/email-triage agencia",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$email_triage_report_state"
+email_triage_report_stop="$(jq -cn --arg message "$email_triage_ok_report" '{session_id:"fixture-email-triage-report",last_assistant_message:$message,stop_hook_active:false}')"
+out="$(PATH="$TMPROOT/bin:$PATH" run_hook cc-stop-verifier.sh "$email_triage_report_stop")"
+if [[ -z "$out" ]]; then ok "email triage explicit report run satisfies stop"; else not_ok "email triage explicit report run should pass: $out"; fi
 
 out="$(VIVAZ_EMAIL_VERIFY_FAIL=1 PATH="$TMPROOT/bin:$PATH" run_hook cc-stop-verifier.sh "$email_triage_ok_stop")"
 assert_contains "email triage failed ledger blocks stop" "$out" "latest vivaz-email triage ledger"
@@ -468,6 +530,23 @@ jq -nc '{schemaVersion:1,reads:{},searches:{},edits:{},commands:[],failures:[],s
 requested_stop="$(jq -cn '{session_id:"fixture-requested",last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$requested_stop")"
 assert_contains "stop verifier blocks missing requested skill" "$out" "requested skill"
+
+doc_health_state="$TMPROOT/claude-guard-fixture-doc-health.json"
+jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[{value:"node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked",at:"2026-01-01T00:00:01Z"}],failures:[],skillCalls:[{value:"etrnl-documentation-health",at:"2026-01-01T00:00:00Z"}],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[{value:"etrnl-documentation-health",at:"2026-01-01T00:00:00Z"}],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[{value:"node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked",at:"2026-01-01T00:00:01Z"}],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:false,planExecutionRequestedAt:"",lastPrompt:"run documentation health",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$doc_health_state"
+doc_health_stop="$(jq -cn '{session_id:"fixture-doc-health",last_assistant_message:"Done, docs look fine.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$doc_health_stop")"
+assert_contains "documentation health blocks shallow completion" "$out" "coverage counters"
+jq '.successfulCommands += [{value:"node ~/.claude/scripts/documentation-health-ledger-check.mjs --report /tmp/doc-health.md",at:"2026-01-01T00:00:02Z"}] | .verificationRuns += [{value:"node ~/.claude/scripts/documentation-health-ledger-check.mjs --report /tmp/doc-health.md",at:"2026-01-01T00:00:02Z"}]' "$doc_health_state" >"$doc_health_state.tmp" && mv "$doc_health_state.tmp" "$doc_health_state"
+doc_health_full_message=$'Done.\n\n# Documentation Health Audit\n\n## Documentation Inventory\ncanonical docs and secondary docs classified.\n\n## Findings Ledger\nseverity | source_of_truth | disposition | verification\nP2 | scripts/install.sh | fixed | scripts/doctor.sh passed\n\n## Scorecard\nOverall documentation health: 8/10\n\nDOCS_FILES_REVIEWED: 12\nSOURCE_FILES_SAMPLED_OR_REVIEWED: 6\nCHECKS_SKIPPED: []\nFINAL_DOC_HEALTH_SCORE: 82/100\n'
+doc_health_full_stop="$(jq -cn --arg message "$doc_health_full_message" '{session_id:"fixture-doc-health",last_assistant_message:$message,stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$doc_health_full_stop")"
+if [[ -z "$out" ]]; then ok "documentation health complete report satisfies stop gate"; else not_ok "documentation health complete report should satisfy stop gate: $out"; fi
+
+plan_execution_no_ledger_state="$TMPROOT/claude-guard-fixture-plan-execution-no-ledger.json"
+jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[{value:"pnpm test",at:"2026-01-01T00:00:01Z"}],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"docs/plans/example.md",activePlanPathUpdatedAt:"2026-01-01T00:00:00Z",planExecutionRequested:true,planExecutionRequestedAt:"2026-01-01T00:00:00Z",lastPrompt:"implement now",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$plan_execution_no_ledger_state"
+plan_execution_no_ledger_stop="$(jq -cn '{session_id:"fixture-plan-execution-no-ledger",last_assistant_message:"Done, implemented the plan.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$plan_execution_no_ledger_stop")"
+assert_contains "plan execution completion requires ledger" "$out" "No active execution ledger"
 
 execute_no_agent_state="$TMPROOT/claude-guard-fixture-execute-no-agent.json"
 jq -nc '{
@@ -574,6 +653,23 @@ assert_contains "invalid task fixture reports retry policy" "$out" "retryPolicy"
 agent_valid="$(fixture pretooluse-task-valid.json)"
 out="$(run_hook cc-pretooluse-guard.sh "$agent_valid")"
 assert_json_expr "valid task packet allowed" "$out" '.continue == true'
+wrapped_packet_prompt="$(jq -cn '{packet:{mode:"read-only",goal:"inspect wrapped prompt",context_summary:"repo facts and constraints",cwd:"/repo",scope:"scripts",read_set:["scripts"],expected_output:"summary",no_revert:true}}')"
+agent_wrapped="$(jq -cn --arg prompt "$wrapped_packet_prompt" '{session_id:"fixture-task-wrapped-prompt",tool_name:"Task",tool_input:{subagent_type:"etrnl-scout",prompt:$prompt}}')"
+out="$(run_hook cc-pretooluse-guard.sh "$agent_wrapped")"
+assert_json_expr "prompt-wrapped task packet with aliases allowed" "$out" '.continue == true'
+run_hook cc-posttoolbatch-observer.sh "$(jq '.status = "success"' <<<"$agent_wrapped")" >/dev/null || true
+wrapped_agent_state="$TMPROOT/claude-guard-fixture-task-wrapped-prompt.json"
+assert_json_expr "observer records prompt-wrapped task packet mode" "$(jq -c . "$wrapped_agent_state")" 'any(.agentCalls[]?.value; test("subagent=etrnl-scout") and test("mode=read-only"))'
+
+agent_fallback_state="$TMPROOT/claude-guard-fixture-agent-packet-fallback.json"
+jq -nc '{schemaVersion:4,requestedSkills:[{value:"etrnl-execute",at:"2026-01-01T00:00:00Z"}],planExecutionRequested:true}' >"$agent_fallback_state"
+bad_agent_prompt='{"packet":{"mode":"write"}} trailing prose'
+agent_packet_bad="$(jq -cn --arg root "$TMPROOT/example" --arg prompt "$bad_agent_prompt" '{session_id:"fixture-agent-packet-fallback",tool_name:"Agent",cwd:$root,tool_input:{subagent_type:"claude",description:"bad packet",prompt:$prompt}}')"
+out="$(run_hook cc-pretooluse-guard.sh "$agent_packet_bad")"
+assert_contains "malformed agent packet tells retry" "$out" "JSON-only task packet"
+fallback_edit="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-agent-packet-fallback",tool_name:"Edit",cwd:$root,tool_input:{file_path:($root + "/src/app.ts"),old_string:"export const value = 1;",new_string:"export const value = 2;"}}')"
+out="$(run_hook cc-pretooluse-guard.sh "$fallback_edit")"
+assert_contains "agent packet failure blocks direct source fallback" "$out" "malformed packet is not a sequential-degraded blocker"
 
 # State migration matrix
 migration_state="$TMPROOT/claude-guard-fixture-migration-v1.json"

@@ -14,6 +14,32 @@ const root = path.resolve(argValue(args, "--root", path.join(path.dirname(fileUR
 const claudeHome = path.resolve(argValue(args, "--claude-home", process.env.CLAUDE_HOME || path.join(homedir(), ".claude")));
 const checkInstalled = args.includes("--installed");
 const errors = [];
+const softDirectivePatterns = [
+  { label: "should", pattern: /\bshould\b/i },
+  { label: "could", pattern: /\bcould\b/i },
+  { label: "consider", pattern: /\bconsider\b/i },
+  { label: "recommend", pattern: /\brecommend(?:s|ed|ation|ations)?\b/i },
+  { label: "prefer", pattern: /\bprefer(?:s|red)?\b/i },
+  { label: "try", pattern: /\btry\b/i },
+  { label: "may", pattern: /\bmay\b/i },
+  { label: "might", pattern: /\bmight\b/i },
+  { label: "optional", pattern: /\boption(?:al|ally)\b/i },
+  { label: "if useful", pattern: /\bif useful\b/i },
+  { label: "when useful", pattern: /\bwhen useful\b/i },
+  { label: "as needed", pattern: /\bas needed\b/i },
+  { label: "where practical", pattern: /\bwhere practical\b/i },
+  { label: "where possible", pattern: /\bwhere possible\b/i },
+  { label: "when possible", pattern: /\bwhen possible\b/i },
+  { label: "best effort", pattern: /\bbest[- ]effort\b/i },
+  { label: "aim to", pattern: /\baim to\b/i },
+  { label: "strive", pattern: /\bstrive\b/i },
+  { label: "encourage", pattern: /\bencourage\b/i },
+  { label: "usually", pattern: /\busually\b/i },
+  { label: "generally", pattern: /\bgenerally\b/i },
+  { label: "suggest", pattern: /\bsuggest(?:s|ed|ion|ions)?\b/i },
+  { label: "advisory", pattern: /\badvisory\b/i },
+  { label: "guidance", pattern: /\bguidance\b/i },
+];
 
 function fail(message) {
   errors.push(message);
@@ -95,6 +121,35 @@ function tryShells(shellAttempts, hintScript, timeoutMs) {
   return { succeeded: false, output: "", errors: shellErrors };
 }
 
+function markdownFilesUnder(dir) {
+  if (!existsSync(dir)) return [];
+  const files = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const child = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...markdownFilesUnder(child));
+    } else if (entry.isFile() && child.endsWith(".md")) {
+      files.push(child);
+    }
+  }
+  return files.sort((left, right) => left.localeCompare(right));
+}
+
+function assertDirectiveLanguage(file, text) {
+  const relPath = path.relative(root, file) || file;
+  const lines = text.split(/\r?\n/);
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (!line.trim()) continue;
+    for (const entry of softDirectivePatterns) {
+      if (entry.pattern.test(line)) {
+        fail(`${relPath}:${index + 1}: advisory wording "${entry.label}" is not allowed; use directive language or explicit unavailable/not-applicable/blocker wording`);
+        break;
+      }
+    }
+  }
+}
+
 const skillListsPath = path.join(root, "scripts/lib/skill-lists.sh");
 assertFile(skillListsPath, "skill list");
 const skillLists = read(skillListsPath);
@@ -126,6 +181,10 @@ for (const skill of ownedSkills) {
   if (!existsSync(skillPath)) continue;
   const relSkillPath = path.relative(root, skillPath) || `skills/${skill}/SKILL.md`;
   const text = read(skillPath);
+  assertDirectiveLanguage(skillPath, text);
+  for (const referencePath of markdownFilesUnder(path.join(skillsDir, skill, "references"))) {
+    assertDirectiveLanguage(referencePath, read(referencePath));
+  }
   const frontmatterName = skillFrontmatterName(text, relSkillPath);
   if (frontmatterName !== skill) fail(`${relSkillPath}: frontmatter name is ${frontmatterName || "<missing>"}, expected ${skill}`);
   if (!docsSkills.includes(`/${skill}`)) fail(`${relSkillPath}: docs/skills.md missing /${skill}`);

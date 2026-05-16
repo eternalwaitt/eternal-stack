@@ -63,6 +63,13 @@ else
 fi
 node "$ROOT/scripts/execution-ledger.mjs" record-artifact --session fixture-ledger --type review-log --path "$TMPROOT/review-log.jsonl"
 assert_command "execution ledger accepts complete run" node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-ledger
+if node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-ledger --require-ledger --require-tasks --require-plan-phases >/dev/null 2>&1; then
+  not_ok "execution ledger requires plan phases for plan execution"
+else
+  ok "execution ledger requires plan phases for plan execution"
+fi
+node "$ROOT/scripts/execution-ledger.mjs" set-phase --session fixture-ledger --phase P1 --status verified
+assert_command "execution ledger accepts verified plan phases" node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-ledger --require-ledger --require-tasks --require-plan-phases
 bound_ledger_path="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-bound --plan "$ROOT/hooks/fixtures/plans/good-plan.md" --cwd "$ROOT")"
 assert_file "execution ledger bound init creates file" "$bound_ledger_path"
 node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-bound --task T-write --title "Write task" --status verified --mode write --lineage wave-1.T-write --packet-hash abc123 --requires-implementation-evidence --spec-review-required --quality-review-required
@@ -117,6 +124,19 @@ else
 fi
 node "$ROOT/scripts/execution-ledger.mjs" record-uat --session fixture-uat --artifact "$TMPROOT/browser-qa.json" --open-findings 0
 assert_command "execution ledger accepts closed UAT findings" node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-uat
+
+doc_health_bad_state="$(jq -nc '{requestedSkills:[{value:"etrnl-documentation-health",at:"2026-01-01T00:00:00Z"}],successfulCommands:[],verificationRuns:[] }')"
+doc_health_bad_status="$(jq -cn --argjson state "$doc_health_bad_state" --arg message "Done, docs look fine." '{state:$state,message:$message}' | node "$ROOT/scripts/documentation-health-ledger-check.mjs")"
+if [[ "$doc_health_bad_status" == "missing-inventory" ]]; then ok "documentation health checker requires inventory"; else not_ok "documentation health checker requires inventory: $doc_health_bad_status"; fi
+
+doc_health_shallow_state="$(jq -nc '{requestedSkills:[{value:"etrnl-documentation-health",at:"2026-01-01T00:00:00Z"}],successfulCommands:[{value:"node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked",at:"2026-01-01T00:00:01Z"}],verificationRuns:[{value:"node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked",at:"2026-01-01T00:00:01Z"}]}')"
+doc_health_shallow_status="$(jq -cn --argjson state "$doc_health_shallow_state" --arg message "Done, docs look fine." '{state:$state,message:$message}' | node "$ROOT/scripts/documentation-health-ledger-check.mjs")"
+if [[ "$doc_health_shallow_status" == "missing-coverage-counters" ]]; then ok "documentation health checker rejects shallow report"; else not_ok "documentation health checker rejects shallow report: $doc_health_shallow_status"; fi
+
+doc_health_full_state="$(jq -nc '{requestedSkills:[{value:"etrnl-documentation-health",at:"2026-01-01T00:00:00Z"}],successfulCommands:[{value:"node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked",at:"2026-01-01T00:00:01Z"},{value:"node ~/.claude/scripts/documentation-health-ledger-check.mjs --report /tmp/doc-health.md",at:"2026-01-01T00:00:02Z"}],verificationRuns:[{value:"node ~/.claude/scripts/documentation-health-ledger-check.mjs --report /tmp/doc-health.md",at:"2026-01-01T00:00:02Z"}]}')"
+doc_health_full_message=$'# Documentation Health Audit\n\n## Documentation Inventory\ncanonical docs and secondary docs classified.\n\n## Findings Ledger\nseverity | source_of_truth | disposition | verification\nP2 | scripts/install.sh | fixed | scripts/doctor.sh passed\n\n## Scorecard\nOverall documentation health: 8/10\n\nDOCS_FILES_REVIEWED: 12\nSOURCE_FILES_SAMPLED_OR_REVIEWED: 6\nCHECKS_SKIPPED: []\nFINAL_DOC_HEALTH_SCORE: 82/100\n'
+doc_health_full_status="$(jq -cn --argjson state "$doc_health_full_state" --arg message "$doc_health_full_message" '{state:$state,message:$message}' | node "$ROOT/scripts/documentation-health-ledger-check.mjs")"
+if [[ -z "$doc_health_full_status" ]]; then ok "documentation health checker accepts complete report"; else not_ok "documentation health checker accepts complete report: $doc_health_full_status"; fi
 
 for script in \
   cc-pretooluse-guard.sh \
@@ -184,7 +204,7 @@ expect(parsed[5], "single quoted value", "single-quoted branch");
 expect(parsed[6], "plain token", "unquoted escaped space branch");
 expect(parsed[7], "escaped space token", "unquoted multi-escape branch");
 '
-for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger execute-evidence-check execution-wave-check review-log project-buglog browser-qa-report context-state workflow-health prompt-budget-check changelog-release-check port-guard update-check settings-audit; do
+for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger execute-evidence-check execution-wave-check documentation-health-ledger-check review-log project-buglog browser-qa-report context-state workflow-health prompt-budget-check changelog-release-check port-guard update-check settings-audit; do
   assert_command "$script syntax" node --check "$ROOT/scripts/$script.mjs"
 done
 assert_command "update shell syntax" bash -n "$ROOT/scripts/update.sh"
@@ -197,15 +217,42 @@ assert_json_expr "merge-settings updates existing hook metadata" "$(jq -c . "$me
 assert_json_expr "merge-settings dedupes canonical installed hook paths" "$(jq -c . "$merge_target")" '([.hooks.SessionStart[].hooks[]] | length) == 1'
 assert_json_expr "merge-settings compacts non-template event duplicates" "$(jq -c . "$merge_target")" '([.hooks.Stop[].hooks[] | select(.command | test("cc-stop-verifier"))] | length) == 1'
 assert_json_expr "merge-settings preserves non-prefix home substrings" "$(jq -c . "$merge_target")" "[.hooks.Stop[].hooks[].command] | any(contains(\"/tmp$HOME/.claude/hooks/not-real.sh\"))"
+merge_order_target="$TMPROOT/merge-order-target.json"
+merge_order_template="$TMPROOT/merge-order-template.json"
+printf '%s\n' '{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"rtk hook claude"}]},{"matcher":"Bash|Read|Edit|Write|MultiEdit|WebSearch|Task|TaskCreate|Agent","hooks":[{"type":"command","command":"bash ~/.claude/hooks/cc-pretooluse-guard.sh","timeout":10}]}]}}' >"$merge_order_target"
+printf '%s\n' '{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"bash ~/.claude/hooks/cc-rtk-rg-compat.sh","timeout":5}]}]}}' >"$merge_order_template"
+node "$ROOT/scripts/merge-settings.mjs" "$merge_order_target" "$merge_order_template"
+assert_json_expr "merge-settings orders rtk rg compat before native rtk hook" "$(jq -c . "$merge_order_target")" '([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/cc-rtk-rg-compat.sh")) < ([.hooks.PreToolUse[].hooks[0].command] | index("rtk hook claude"))'
+assert_json_expr "merge-settings orders rtk rg compat before pretool guard" "$(jq -c . "$merge_order_target")" '([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/cc-rtk-rg-compat.sh")) < ([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/cc-pretooluse-guard.sh"))'
 settings_audit_target="$TMPROOT/settings-audit-target.json"
-printf '%s\n' "{\"hooks\":{\"PostToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"bash $HOME/.claude/hooks/rate-limiter.sh\"}]},{\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/rate-limiter.sh.backup\"}]},{\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/cc-rate-limiter.sh\",\"timeout\":5}]}],\"PreToolUse\":[{\"matcher\":\"Task|Agent\",\"hooks\":[{\"type\":\"command\",\"command\":\"bash $HOME/.claude/hooks/cc-pretooluse-guard.sh\",\"timeout\":5}]},{\"matcher\":\"Task|TaskCreate|Agent\",\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/cc-pretooluse-guard.sh\",\"timeout\":10}]}]}}" >"$settings_audit_target"
-node "$ROOT/scripts/settings-audit.mjs" "$settings_audit_target" --fix
+settings_audit_home="$TMPROOT/settings-audit-home"
+mkdir -p "$settings_audit_home/.claude/hooks"
+printf '%s\n' '#!/usr/bin/env bash' '# rtk-hook-version: 3' >"$settings_audit_home/.claude/hooks/rtk-rewrite.sh"
+printf '%s\n' "{\"hooks\":{\"PostToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"bash $settings_audit_home/.claude/hooks/rate-limiter.sh\"}]},{\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/rate-limiter.sh.backup\"}]},{\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/cc-rate-limiter.sh\",\"timeout\":5}]}],\"PreToolUse\":[{\"matcher\":\"Bash\",\"hooks\":[{\"type\":\"command\",\"command\":\"~/.claude/hooks/rtk-rewrite.sh\"}]},{\"matcher\":\"Bash\",\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/custom-local-guard.sh\"}]},{\"matcher\":\"Task|Agent\",\"hooks\":[{\"type\":\"command\",\"command\":\"bash $settings_audit_home/.claude/hooks/cc-pretooluse-guard.sh\",\"timeout\":5}]},{\"matcher\":\"Task|TaskCreate|Agent\",\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/cc-pretooluse-guard.sh\",\"timeout\":10}]}]}}" >"$settings_audit_target"
+HOME="$settings_audit_home" node "$ROOT/scripts/settings-audit.mjs" "$settings_audit_target" --fix
 assert_json_expr "settings-audit rewrites legacy rate limiter" "$(jq -c . "$settings_audit_target")" '([.hooks.PostToolUse[].hooks[].command] | map(select(test("/rate-limiter\\.sh$"))) | length) == 0'
 assert_json_expr "settings-audit ignores backup rate limiter names" "$(jq -c . "$settings_audit_target")" '([.hooks.PostToolUse[].hooks[].command] | any(endswith("rate-limiter.sh.backup")))'
 assert_json_expr "settings-audit compacts matcher supersets" "$(jq -c . "$settings_audit_target")" '([.hooks.PreToolUse[].hooks[] | select(.command | test("cc-pretooluse-guard"))] | length) == 1'
 assert_json_expr "settings-audit preserves TaskCreate matcher" "$(jq -c . "$settings_audit_target")" '(.hooks.PreToolUse[] | select(.hooks[0].command | test("cc-pretooluse-guard")) | .matcher) == "Task|TaskCreate|Agent"'
+settings_audit_report="$(HOME="$settings_audit_home" node "$ROOT/scripts/settings-audit.mjs" "$settings_audit_target" --json)"
+assert_json_expr "settings-audit reports stale rtk rewrite conflict" "$settings_audit_report" 'any(.after.conflictingHooks[]?; .id == "rtk-rewrite" and .hook == "rtk-rewrite.sh")'
+assert_json_expr "settings-audit reports unknown external hooks" "$settings_audit_report" 'any(.after.externalHooks[]?; .owner == "unknown-external" and .hook == "custom-local-guard.sh")'
+printf '%s\n' '#!/usr/bin/env bash' '# rtk-hook-version: 4' 'rg_rewrite_needs_proxy() { return 0; }' >"$settings_audit_home/.claude/hooks/rtk-rewrite.sh"
+settings_audit_report="$(HOME="$settings_audit_home" node "$ROOT/scripts/settings-audit.mjs" "$settings_audit_target" --json)"
+assert_json_expr "settings-audit accepts fixed rtk rewrite hook" "$settings_audit_report" '([.after.conflictingHooks[]? | select(.id == "rtk-rewrite")] | length) == 0'
 assert_command "skill contract syntax" node --check "$ROOT/scripts/skill-contract-check.mjs"
 assert_command "skill contracts pass" node "$ROOT/scripts/skill-contract-check.mjs" --root "$ROOT"
+advisory_skill_root="$TMPROOT/advisory-skill-root"
+mkdir -p "$advisory_skill_root/scripts/lib" "$advisory_skill_root/docs" "$advisory_skill_root/skills/etrnl-soft" "$advisory_skill_root/hooks/lib"
+printf '%s\n' 'OWNED_SKILLS=(' '  "etrnl-soft"' ')' 'OWNED_AGENTS=()' >"$advisory_skill_root/scripts/lib/skill-lists.sh"
+printf '%s\n' '# ETRNL Skills' '' '| Command | Purpose |' '| --- | --- |' '| /etrnl-soft | Test skill |' >"$advisory_skill_root/docs/skills.md"
+printf '%s\n' 'get_etrnl_skill_hint() {' '  printf "%s\n" "/etrnl-soft"' '}' >"$advisory_skill_root/hooks/lib/skill-hints.sh"
+printf '%s\n' '---' 'name: etrnl-soft' 'description: Test skill.' '---' '# Soft Skill' '' '- Prefer advisory language.' >"$advisory_skill_root/skills/etrnl-soft/SKILL.md"
+if advisory_skill_out="$(node "$ROOT/scripts/skill-contract-check.mjs" --root "$advisory_skill_root" 2>&1)"; then
+  not_ok "skill contracts reject advisory wording"
+else
+  assert_contains "skill contracts reject advisory wording" "$advisory_skill_out" 'advisory wording "prefer"'
+fi
 assert_command "skill behavior smoke syntax" node --check "$ROOT/scripts/skill-behavior-smoke.mjs"
 assert_command "skill behavior smoke pass" node "$ROOT/scripts/skill-behavior-smoke.mjs" --root "$ROOT"
 assert_command "research intel syntax" node --check "$ROOT/scripts/research-competitor-intel.mjs"
@@ -594,6 +641,26 @@ assert_json_expr "plan readiness emits repair hints" "$bad_plan_json" '(.repairH
 good_plan="$TMPROOT/good-plan.md"
 cp "$ROOT/hooks/fixtures/plans/good-plan.md" "$good_plan"
 assert_command "plan readiness accepts complete plan" node "$ROOT/scripts/plan-readiness-check.mjs" "$good_plan"
+large_plan="$TMPROOT/large-plan.md"
+cp "$ROOT/hooks/fixtures/plans/good-plan.md" "$large_plan"
+for i in $(seq 1 2600); do
+  printf 'Detailed execution evidence line %04d: concrete owned file, command, expected signal, rollback note, and verification result placeholder.\n' "$i"
+done >>"$large_plan"
+if node "$ROOT/scripts/plan-readiness-check.mjs" "$large_plan" >/dev/null 2>&1; then
+  not_ok "plan readiness rejects oversized final plan without digest"
+else
+  ok "plan readiness rejects oversized final plan without digest"
+fi
+printf '%s\n' '' '## Execution Digest' '' '- Oversized detail is chunked into referenced execution artifacts.' >>"$large_plan"
+assert_command "plan readiness accepts oversized final plan with digest" node "$ROOT/scripts/plan-readiness-check.mjs" "$large_plan"
+immediate_plan="$TMPROOT/immediate-first-patch-plan.md"
+cp "$ROOT/hooks/fixtures/plans/good-plan.md" "$immediate_plan"
+printf '%s\n' '' '## Immediate First Patch' '' '- Do only the first slice.' >>"$immediate_plan"
+if immediate_out="$(node "$ROOT/scripts/plan-readiness-check.mjs" "$immediate_plan" 2>&1)"; then
+  not_ok "plan readiness rejects ambiguous immediate first patch"
+else
+  assert_contains "plan readiness rejects ambiguous immediate first patch" "$immediate_out" "Immediate First Patch"
+fi
 phase_plan="$TMPROOT/phase-plan.md"
 {
   printf 'Phase: P1\n'

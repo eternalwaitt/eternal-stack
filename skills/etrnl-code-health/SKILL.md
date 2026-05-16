@@ -32,12 +32,12 @@ Do not mark a finding `fixed` based on inspection alone. Require a passing gate 
 ## Required Flow
 
 1. Inventory the repo:
-   - Prefer `node ~/.claude/scripts/code-health-inventory.mjs --json`.
+   - Use `node ~/.claude/scripts/code-health-inventory.mjs --json` when installed.
    - If not installed, use `node scripts/code-health-inventory.mjs --json` inside the repository being audited.
    - Use `--json` for any programmatic parsing; plain `git ls-files` is only a last-resort list and must be converted into the coverage ledger before reporting coverage.
    - Classify every tracked file by source, test, docs, config, script, migration, fixture/generated, or asset.
 2. Load the repo health stack:
-   - Prefer `docs/health-stack.md`.
+   - Use `docs/health-stack.md` when it exists.
    - Otherwise search for a `## Health Stack` block in `AGENTS.md`, `CLAUDE.md`, `README.md`, or project docs.
    - If no stack exists, detect commands from package/build config and record the missing Health Stack as a finding.
 3. Run deterministic gates before AI review:
@@ -91,7 +91,7 @@ For JS/TS repos, standardize on:
 
 - Knip for unused files, exports, and dependencies.
 - Existing ESLint/Oxlint/Biome rather than blind migration.
-- Fallow is optional/experimental: pilot it as an all-in-one health scanner, but do not require it for normal execution.
+- Fallow is non-canonical experimental evidence: run it only when already configured or explicitly requested, and never use it as the sole health verdict.
 - dependency-cruiser plus boundary lint rules for architecture.
 - jscpd plus `finding-duplicate-functions` for duplicate coverage.
 - TSDoc/TypeDoc/API Extractor for public APIs.

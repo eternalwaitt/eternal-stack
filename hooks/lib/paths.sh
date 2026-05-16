@@ -23,6 +23,8 @@ cc_abs_path() {
   if [[ "$path" == /* ]]; then
     if [[ -e "$path" ]]; then
       (cd "$(dirname "$path")" && printf '%s/%s\n' "$(pwd -P)" "$(basename "$path")")
+    elif [[ -d "$(dirname "$path")" ]]; then
+      (cd "$(dirname "$path")" && printf '%s/%s\n' "$(pwd -P)" "$(basename "$path")")
     else
       printf '%s\n' "$path"
     fi

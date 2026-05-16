@@ -10,6 +10,7 @@ Project `AGENTS.md`/`CLAUDE.md` files override this baseline where they conflict
 - Minimal diffs: change only what the request and verified evidence require.
 - Evidence first: fresh repo, runtime, logs, tests, or live checks beat memory and stale docs.
 - Verify before done: run the relevant preflight, smoke, or live check before claiming completion.
+- Plan execution is all in-scope work: when the user asks to implement or execute a plan, complete every item in the plan's `Execution scope` or stop with a concrete blocker. Do not silently choose the first phase, first patch, MVP, or safest subset.
 
 ## Coding Standards
 
@@ -23,6 +24,7 @@ Project `AGENTS.md`/`CLAUDE.md` files override this baseline where they conflict
 
 - When work is unclear, brainstorm into a saved design/spec before planning.
 - Save implementation plans to disk, review them, improve them, then mark them final.
+- Final plans must include `Execution scope:`. Default to `all_phases`; use `first_patch_only` or a named subset only when the user explicitly asks for partial execution.
 - During execution, default non-trivial work to completeness 10/10, preserve user changes, keep a local run ledger and artifacts when available, use bounded subagents only with structured task packets, check file overlap before parallel work, and continue through mechanical phases without asking the user to continue.
 - For local dev servers, choose an explicit free port before running the command; do not rely on default 3000/3001 ports.
 - For reviews, lead with findings and exact file or command evidence.

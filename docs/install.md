@@ -52,7 +52,7 @@ node ~/.claude/scripts/update-check.mjs --explain
 ~/.claude/scripts/post-upgrade-canary.sh
 ```
 
-`settings-audit.mjs` should report no duplicate hooks and no legacy `rate-limiter.sh` registrations. `update-check.mjs --json` should show the recorded source checkout, installed/source commits, version, dirty-state flag, installed skill/agent counts, settings mode, stale installed script count, and whether a local or remote update is available.
+`settings-audit.mjs` should report no duplicate hooks and no legacy `rate-limiter.sh` registrations. Its JSON output also lists external hooks and known conflicts such as stale pre-v4 `rtk-rewrite.sh`; these are not removed automatically. `update-check.mjs --json` should show the recorded source checkout, installed/source commits, version, dirty-state flag, installed skill/agent counts, settings mode, stale installed script count, and whether a local or remote update is available.
 
 Rollback:
 

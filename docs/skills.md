@@ -10,6 +10,7 @@ Claude Code personal and project skills use hyphenated command names. If this co
 | `/etrnl-autoplan` | Model or user | Creates readiness-compatible execution plans with task groups, subagent candidates, verification gates, and question policy. |
 | `/etrnl-brainstorm` | Model or user | Turns ambiguous ideas into approved design/spec files before implementation planning. |
 | `/etrnl-code-health` | Model or user | Runs the canonical code-health router: inventory, Health Stack, deterministic gates, companion audits, ledger, and no-skips closure. |
+| `/etrnl-documentation-health` | Model or user | Runs documentation-health audits and fixes across READMEs, docs, ADRs, runbooks, API/runtime docs, AI context, and code comments with inventory, drift evidence, and parallel review lanes. |
 | `/etrnl-context-save` | User or model | Saves concise resumable workflow state without storing transcripts or credentials. |
 | `/etrnl-context-restore` | User or model | Restores a saved context summary and flags stale continuation state. |
 | `/etrnl-review` | Model or user | Reviews code, plans, risks, loose ends, and final pass readiness. |
@@ -66,7 +67,7 @@ These skills are not owned by this repo, but the control plane knows about them 
 | `project-buglog.mjs` | `~/.claude/scripts/project-buglog.mjs` | Records and suggests project-local repeated bug memories with cross-session fingerprints, redaction, file/project JSON output, stale-hint filtering, and no transcript storage. |
 | `changelog-release-check.mjs` | `~/.claude/scripts/changelog-release-check.mjs` | Enforces release hygiene so `Unreleased` does not hide shipped work on `main`. |
 | `research-competitor-intel.mjs` | `~/.claude/scripts/research-competitor-intel.mjs` | Validates pinned competitor manifests, evidence rows, parity scorecards, and refresh cadence. |
-| `skill-contract-check.mjs` | `~/.claude/scripts/skill-contract-check.mjs` | Fails when repo-owned skills drift from docs, helper scripts, readiness contracts, SessionStart hints, or installed copies. |
+| `skill-contract-check.mjs` | `~/.claude/scripts/skill-contract-check.mjs` | Fails when repo-owned skills drift from docs, helper scripts, readiness contracts, directive-language rules, SessionStart hints, or installed copies. |
 | `skill-behavior-smoke.mjs` | `~/.claude/scripts/skill-behavior-smoke.mjs` | Runs end-to-end helper smoke checks for the skill behaviors that must fail closed before live use. |
 | `doctor-control-plane.sh` | `~/.claude/scripts/doctor-control-plane.sh` | Checks installed hooks, settings, skills, agents, docs, scripts, strict/default mode, and workflow state. |
 | `update.sh` | `~/.claude/scripts/update.sh` | Re-enters the recorded source checkout and runs the normal installer for local upgrades. |

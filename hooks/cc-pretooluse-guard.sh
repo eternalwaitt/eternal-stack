@@ -350,6 +350,59 @@ cc_check_repeat_edit_generation() {
   (( last_generation >= edit_generation ))
 }
 
+cc_write_scope_allows_new_source() {
+  local abs="$1"
+  jq -e --arg abs "$abs" --arg cwd "$cwd" '
+    def norm:
+      gsub("\\\\"; "/")
+      | gsub("/+"; "/")
+      | sub("/$"; "");
+    def abs_scope($scope):
+      ($scope | norm) as $scope_norm
+      | if ($scope_norm | startswith("/")) then $scope_norm
+        else (($cwd | norm) + "/" + $scope_norm) | norm
+        end;
+    ($abs | norm) as $target
+    | [
+        .agentCalls[]?.value // ""
+        | select(test("(^| )mode=write( |$)"))
+        | ((capture("(^| )writeScope=(?<scope>[^ ]+)")? // {}) | .scope // empty)
+        | split(",")[]
+        | select(length > 0)
+        | abs_scope(.)
+      ]
+      | any(. as $scope | $target == $scope or ($target | startswith($scope + "/")))
+  ' "$(cc_state_file)" >/dev/null 2>&1
+}
+
+cc_unresolved_agent_packet_failure_after_execute() {
+  jq -e '
+    def norm:
+      ascii_downcase
+      | sub("^/"; "")
+      | sub("^skill\\("; "")
+      | sub("\\)$"; "")
+      | sub("^eternal-control-"; "")
+      | sub("^etrnl-"; "")
+      | if . == "execute-plan" or . == "run-plan" then "execute" else . end;
+    ([.requestedSkills[]?
+      | select((.value // "" | norm) == "execute")
+      | (.at // "")]
+      | map(select(. != ""))
+      | max // "") as $execute_at
+    | ($execute_at != "")
+      and any(.failures[]?;
+        ((.at // "") >= $execute_at)
+        and ((.value // "") | test("Agent packet validation failed|Subagent task packet"; "i")))
+      and ([
+        .agentCalls[]?
+        | select((.at // "") >= $execute_at)
+        | (.value // "" | ascii_downcase)
+        | select(test("subagent=etrnl-executor") and test("mode=write") and test("packethash=[a-f0-9]{64}"))
+      ] | length == 0)
+  ' "$(cc_state_file)" >/dev/null 2>&1
+}
+
 handle_bash() {
   local cmd="$1"
   current_bash_command="$cmd"
@@ -361,7 +414,7 @@ handle_bash() {
   if cc_command_is_primary_legacy_search "$cmd"; then
     deny "Use the modern CLI toolkit instead of legacy shell commands. Prefer rg/fd/bat/eza/sd/dust/trash, or project scripts that wrap them intentionally. Also avoid piping to legacy tools (head, tail, grep, sed, awk, cat) — use rg for search, bat for display, eza for listing."
   fi
-  if cc_command_has_output_limiter "$cmd"; then
+  if cc_command_has_output_limiter "$cmd" && ! cc_command_output_limiter_is_diagnostic "$cmd"; then
     deny "Avoid shell output-limiter pipes such as head, tail, or sed -n after another command. Use native limits instead, for example rg -m/--max-count, fd --max-results, bat --line-range, jq filters, or write a bounded report file."
   fi
   local readiness_help_probe_re='plan-readiness-check\.mjs[[:space:]][^;|&]*--help[^;|]*(;|\|\||\|)'
@@ -452,7 +505,7 @@ handle_edit() {
       deny "Live ~/.claude/hooks edits are blocked. Edit source-controlled hooks and run the install/sync path."
       ;;
   esac
-  if [[ -n "$abs" && "$current_tool" == "Write" && -e "$abs" && "$old_text_status" -ne 0 ]]; then
+  if [[ -n "$abs" && "$current_tool" == "Write" && -e "$abs" && ! -f "$abs" && "$old_text_status" -ne 0 ]]; then
     deny "Cannot read existing content for safety checks: $abs"
   fi
   if [[ -n "$abs" && "$current_tool" == "Write" && -f "$abs" ]]; then
@@ -470,6 +523,9 @@ handle_edit() {
   fi
 
   if [[ -n "$abs" ]] && cc_is_source_path "$abs" && ! cc_is_exempt_path "$abs"; then
+    if cc_unresolved_agent_packet_failure_after_execute; then
+      deny "A required /etrnl-execute Agent/Task packet was rejected. Retry the Agent/Task call with a JSON-only task packet before editing source files. A malformed packet is not a sequential-degraded blocker."
+    fi
     if [[ "$current_tool" != "Write" && -e "$abs" ]] && ! cc_state_has_read "$abs"; then
       deny "Read the existing source file before editing it: $abs"
     fi
@@ -478,7 +534,7 @@ handle_edit() {
     fi
     if [[ "$current_tool" == "Write" && ! -e "$abs" ]]; then
       new_count="$(jq '(.newSourceFiles // {}) | length' "$(cc_state_file)" 2>/dev/null || printf '0\n')"
-      if (( new_count >= 3 )); then
+      if (( new_count >= 3 )) && ! cc_write_scope_allows_new_source "$abs"; then
         deny "File-sprawl violation. This session is creating too many new source files. Reuse existing files, split the plan, or run a second-pass review before continuing."
       fi
       is_new_source=true
@@ -554,7 +610,11 @@ handle_websearch() {
 handle_agent() {
   local output
   if ! output="$(node "$SCRIPT_DIR/../scripts/agent-task-packet-check.mjs" <<<"$HOOK_INPUT" 2>&1)"; then
-    deny "$output"
+    local safe_output
+    safe_output="$(printf '%s' "$output" | tr '\n' ' ' | sed -E 's/[[:space:]]+/ /g')"
+    cc_state_append_value failures "Agent packet validation failed: ${safe_output:-unknown error}" || true
+    cc_state_append_value reviewTriggers "agent packet validation failed" || true
+    deny "$output"$'\n'"Retry the Agent/Task call with a JSON-only task packet. Do not proceed with direct parent source edits or a sequential-degraded fallback for a malformed packet."
   fi
   cc_json_allow
 }

@@ -2,6 +2,7 @@
 
 Status: Final
 
+Execution scope: all_phases
 Goal: Ship safer planning.
 Non-goals: No source implementation.
 Evidence: README.md, TODOS.md, and scripts checked.

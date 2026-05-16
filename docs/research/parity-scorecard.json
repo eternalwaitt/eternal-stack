@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-12T01:14:54Z",
+  "generatedAt": "2026-05-16T00:00:00Z",
   "scorecards": [
     {
       "etrnlSkill": "etrnl-agent-files",
@@ -122,6 +122,41 @@
       ],
       "priority": "P0",
       "targetMilestone": "M1"
+    },
+    {
+      "etrnlSkill": "etrnl-documentation-health",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 2,
+        "research_flow": 1,
+        "subagent_orchestration": 2,
+        "parallelism_safety": 2,
+        "verification_gates": 1,
+        "rollback_guardrails": 1,
+        "telemetry_proactive": 0
+      },
+      "gaps": [
+        {
+          "capability": "verification_gates",
+          "target": "add a machine-checkable documentation ledger validator for inventory coverage and terminal dispositions",
+          "ownerSurface": "script:documentation-health-ledger-check.mjs",
+          "sourceRows": [
+            "get-shit-done:verification_gates",
+            "compound-engineering-plugin:verification_gates"
+          ]
+        },
+        {
+          "capability": "telemetry_proactive",
+          "target": "emit docs-drift summaries when docs, skills, changelog, or AI-context files change",
+          "ownerSurface": "hook:cc-posttoolbatch-observer.sh",
+          "sourceRows": [
+            "gstack:telemetry_proactive",
+            "oh-my-claudecode:telemetry_proactive"
+          ]
+        }
+      ],
+      "priority": "P1",
+      "targetMilestone": "M2"
     },
     {
       "etrnlSkill": "etrnl-commit",

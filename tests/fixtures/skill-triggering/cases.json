@@ -24,6 +24,12 @@
     "unexpectedSkills": ["etrnl-commit"]
   },
   {
+    "name": "documentation health prompt routes etrnl-documentation-health",
+    "prompt": "run a documentation health audit for docs drift, stale READMEs, ADR health, and TSDoc coverage",
+    "expectedSkills": ["etrnl-documentation-health"],
+    "unexpectedSkills": ["etrnl-code-health"]
+  },
+  {
     "name": "commit prompt routes etrnl-commit",
     "prompt": "commit the verified changes after checking the diff",
     "expectedSkills": ["etrnl-commit"],

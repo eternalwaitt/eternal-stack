@@ -1,6 +1,6 @@
 ---
 name: etrnl-execute
-description: ETRNL control-plane plan execution workflow for Claude Code. Use only when the user explicitly asks to execute an implementation plan; hidden from model auto-invocation because it edits files and may run commands.
+description: ETRNL control-plane plan execution workflow for Claude Code. Use only when the user explicitly asks to execute an implementation plan; hidden from model auto-invocation because it edits files and runs commands.
 model: sonnet
 effort: medium
 disable-model-invocation: true
@@ -8,6 +8,8 @@ disable-model-invocation: true
 # ETRNL Execute
 
 Execute an approved plan end to end. Create a local run ledger, fan out bounded implementation subagents for parallel-safe work, review worker output, run verification, and continue through mechanical phases without asking the user to continue.
+
+When the user asks to execute or implement a plan, completion means every item inside the plan's `Execution scope` is verified or explicitly blocked. Do not silently choose the first phase, first patch, safest subset, MVP, or a shorter path. Partial execution is allowed only when the plan says `Execution scope: first_patch_only` or the user explicitly narrows the request in the current turn.
 
 ## Startup
 
@@ -20,7 +22,7 @@ Execute an approved plan end to end. Create a local run ledger, fan out bounded 
 4. Start a ledger when the helper is installed:
    - `node ~/.claude/scripts/execution-ledger.mjs init --plan <plan-path> --session "$CLAUDE_SESSION_ID"`
    - Record task progress with `node ~/.claude/scripts/execution-ledger.mjs set-task --task <id> --status <status> --session "$CLAUDE_SESSION_ID"`.
-   - Record optional phase metadata with `node ~/.claude/scripts/execution-ledger.mjs set-phase --phase <id> --workstream <id> --status in_progress --session "$CLAUDE_SESSION_ID"`.
+   - Record every in-scope plan phase with `node ~/.claude/scripts/execution-ledger.mjs set-phase --phase <id> --workstream <id> --status in_progress --session "$CLAUDE_SESSION_ID"` before starting it and `--status verified` after its gate passes. Phase metadata is mandatory for plan execution.
    - Record UAT closure with `node ~/.claude/scripts/execution-ledger.mjs record-uat --artifact <path> --open-findings <count> --session "$CLAUDE_SESSION_ID"`; open findings block completion.
    - Require planned artifacts with `node ~/.claude/scripts/execution-ledger.mjs require-artifact --type <artifact-type> --session "$CLAUDE_SESSION_ID"`.
    - Keep the printed path in working notes and update it as tasks/checks complete when practical.
@@ -33,6 +35,7 @@ Execute an approved plan end to end. Create a local run ledger, fan out bounded 
 ## Execution
 
 1. Continue through the approved plan without asking between mechanical phases.
+   - Treat `Execution scope: all_phases` as a hard contract to execute the full plan. If the plan has no `Execution scope`, stop and patch the plan before editing.
 2. Ask the user only for destructive actions, scope expansion, missing credentials, conflicting user edits, repeated stalls, or subjective product/taste decisions.
 3. Group tasks by dependency and write scope. Execute dependent work sequentially; dispatch independent read-only review or disjoint write work to fresh subagents.
     - Use wave-based execution: earlier waves must finish before later waves.
@@ -42,12 +45,15 @@ Execute an approved plan end to end. Create a local run ledger, fan out bounded 
     - MUST dispatch write-capable implementation subagents for every parallel-safe wave with two or more independent source-file tasks.
     - The parent orchestrator must not edit files directly for tasks assigned to implementation subagents; it only coordinates, integrates, verifies, and repairs blocked work.
     - Use direct parent edits only for a single local task, a dependency-ordered sequential wave, an overlap conflict, missing subagent runtime, or a user-requested no-subagent run; state the exact sequential-degraded blocker before editing.
+    - A malformed or rejected subagent packet is not a sequential-degraded blocker. Fix the packet and retry the subagent call before any source edit for that task.
     - Use worktree isolation only when the task is write-capable, disjoint, not touching submodule paths, and the runtime supports it.
     - Emit heartbeat text at wave and task boundaries: `[checkpoint] wave <n> task <id> starting`.
     - If a subagent completion signal is missing, spot-check expected output, git state, and ledger artifacts before deciding whether to retry or continue.
     - While a subagent owns a task, do not duplicate its implementation locally.
 4. Every subagent call must include a structured task packet:
    - Generate the packet skeleton with `node ~/.claude/scripts/agent-task-packet-check.mjs --template read-only` or `node ~/.claude/scripts/agent-task-packet-check.mjs --template write`, then fill it before dispatch.
+   - Pass the final packet as structured `tool_input.packet` when the tool supports it. If Claude Code only exposes a prompt field, the entire prompt must be one valid JSON object with either top-level packet fields or `{ "packet": { ... }, "instructions": "..." }`; do not add Markdown or prose outside the JSON.
+   - If the Agent/Task call is rejected with `Subagent task packet is missing` or another packet error, retry with a JSON-only prompt. Do not switch to parent edits.
    - taskId
    - lineageId
    - goal
@@ -63,10 +69,11 @@ Execute an approved plan end to end. Create a local run ledger, fan out bounded 
    - timeout
    - retry policy
    - do-not-revert instruction
-   - WebSearch guidance
+   - WebSearch policy
    - for multi-file write scopes: `reviewers`, `specReviewRequired`, `qualityReviewRequired`, `integrationOwner`, and `expectedDiffShape`
    - Run `node ~/.claude/scripts/agent-task-packet-check.mjs --hash` on the final packet JSON and keep the packet hash with task notes.
-5. Prefer repo-owned agents by role:
+   - If a plan or task handoff is too large to read cleanly in one tool call, create a short `## Execution Digest` or `## Plan Index` and dispatch bounded chunks by task id instead of pasting the full artifact into one worker prompt.
+5. Use repo-owned agents by role:
    - `etrnl-scout` for read-only discovery before planning or risky edits
    - `etrnl-executor` for bounded implementation
    - `etrnl-spec-reviewer` for read-only spec/task-packet review
@@ -101,7 +108,7 @@ After each phase:
   - `node ~/.claude/scripts/execution-ledger.mjs record-review --reviewer etrnl-quality-reviewer --task <id> --lineage <lineage-id> --packet-hash <hash> --status verified --session "$CLAUDE_SESSION_ID"`
 - Record artifact evidence when created:
   - `node ~/.claude/scripts/execution-ledger.mjs record-artifact --type review-log --path <path> --session "$CLAUDE_SESSION_ID"`
-  - `node ~/.claude/scripts/execution-ledger.mjs record-artifact --type browser-qa-report --path <path> --session "$CLAUDE_SESSION_ID"`; prefer browser-QA v2 matrix reports for UI work.
+  - `node ~/.claude/scripts/execution-ledger.mjs record-artifact --type browser-qa-report --path <path> --session "$CLAUDE_SESSION_ID"`; use browser-QA v2 matrix reports for UI work.
   - `node ~/.claude/scripts/execution-ledger.mjs record-artifact --type context-save --path <path> --session "$CLAUDE_SESSION_ID"`
 - On repeated failures, dispatch `etrnl-investigator` or diagnose locally before editing again.
 - Stop only for a real blocker: missing dependency, unsafe rollback gap, destructive action, conflict with user edits, or an unclear decision that cannot be derived from the repo.
@@ -120,7 +127,7 @@ Required complete-row fields:
 
 - `route`, `viewport`, `status` (`passed`, `failed`, `blocked`, or `skipped`), `consoleErrors`, `failedRequests`, and fresh ISO `capturedAt`.
 - For non-skipped rows: `screenshot` under the artifact root and matching `screenshotSha256`.
-- Optional metadata belongs in row fields such as `browser`, `browserVersion`, `device`, `platform`, `testCaseId`, `sessionId`, and `environment`; keep names stable if a CSV export is used.
+- Conditional metadata belongs in row fields such as `browser`, `browserVersion`, `device`, `platform`, `testCaseId`, `sessionId`, and `environment`; keep names stable if a CSV export is used.
 
 Passing JSON shape:
 
@@ -180,6 +187,6 @@ Before claiming done:
    - `node ~/.claude/scripts/review-log.mjs validate` when review findings were logged.
    - `node ~/.claude/scripts/browser-qa-report.mjs validate <report-path>` when browser QA ran.
    - `node ~/.claude/scripts/context-state.mjs validate <context-path>` when context was saved.
-6. Run `node ~/.claude/scripts/execution-ledger.mjs check-stop --session "$CLAUDE_SESSION_ID"` when a ledger exists.
+6. Run `node ~/.claude/scripts/execution-ledger.mjs check-stop --session "$CLAUDE_SESSION_ID" --require-ledger --require-tasks --require-plan-phases`.
 7. If more than one source file was modified during this execution, confirm packet-bound write-mode implementation subagent evidence plus `etrnl-spec-reviewer` and `etrnl-quality-reviewer` evidence, or document the explicit sequential-degraded blocker that justified direct parent edits.
 8. Report completed phases, verification, artifacts, remaining risks, and changed files.

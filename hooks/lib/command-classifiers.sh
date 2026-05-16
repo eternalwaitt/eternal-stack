@@ -135,6 +135,25 @@ cc_command_has_output_limiter() {
   return 1
 }
 
+cc_command_output_limiter_is_diagnostic() {
+  local cmd
+  cmd="$(cc_command_normalize "$1")"
+  # Allow bounded tails/heads for long diagnostic streams, while keeping search
+  # output untrimmed so evidence and hook classifiers can see full matches.
+  if [[ ! "$cmd" =~ \|[[:space:]]*(head|tail)[[:space:]]+(-n[[:space:]]*)?-?[0-9]{1,4}([[:space:]]|$) ]]; then
+    return 1
+  fi
+  if [[ "$cmd" =~ (^|[[:space:];&|])(rg|fd|sg|git[[:space:]]+grep|rtk[[:space:]]+grep)([[:space:];&|]|$) ]]; then
+    return 1
+  fi
+  if cc_command_is_quality_verification "$cmd"; then
+    return 0
+  fi
+  [[ "$cmd" =~ (^|[[:space:];&|])(pnpm|npm|yarn|bun|gh|vercel|veloz|pm2|journalctl|playwright|playwright-cli)([[:space:];&|]|$) ]] \
+    || [[ "$cmd" =~ (^|[[:space:];&|])(docker|kubectl)[[:space:]]+logs([[:space:];&|]|$) ]] \
+    || [[ "$cmd" =~ (build|lint|log|logs|test|typecheck) ]]
+}
+
 cc_command_is_primary_legacy_search() {
   local token next
   if ! token="$(cc_command_primary_token "$1")"; then
@@ -163,7 +182,7 @@ cc_command_is_quality_verification() {
   local cmd
   cmd="$(cc_command_normalize "$1")"
   [[ "$cmd" =~ (^|[[:space:];&|])(tsc|eslint|oxlint|biome|prettier|typecheck|lint|test|build|pytest|ruff|mypy|pyright|cargo[[:space:]]+(test|clippy|build|check)|go[[:space:]]+(test|vet)|composer[[:space:]]+test)([[:space:];&|]|$) ]] \
-    || [[ "$cmd" =~ (pnpm|npm|yarn|bun)[[:space:]]+(run[[:space:]]+)?(typecheck|lint|test|build|check)([[:space:];&|]|$) ]]
+    || [[ "$cmd" =~ (^|[[:space:];&|])(rtk[[:space:]]+)?(pnpm|npm|yarn|bun)([[:space:]]+[^[:space:];&|]+)*[[:space:]]+(run[[:space:]]+)?(typecheck|check-types|lint|test|build|check)([[:space:];&|]|$) ]]
 }
 
 cc_command_is_test_verification() {

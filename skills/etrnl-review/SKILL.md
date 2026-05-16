@@ -32,7 +32,7 @@ Lead with findings. Treat the original request, written plan, actual diff, insta
    - Performance: N+1 queries, memory, caching, slow paths, and work on hot paths.
    - Parallelization: safe lanes, shared modules, dependencies, and conflict risks.
 6. Point to exact files, commands, or plan sections.
-7. Recommend or apply the smallest fix that closes the risk.
+7. Apply the smallest fix that closes the risk when in fix/remediation mode; otherwise record the smallest fix that closes the risk.
 8. When findings are durable, record them with `node ~/.claude/scripts/review-log.mjs add --finding "<finding>" --severity <severity> --status open`.
 9. Say clearly when no blocking findings remain, and name any live-gated follow-up.
 
@@ -41,10 +41,10 @@ Lead with findings. Treat the original request, written plan, actual diff, insta
 When reviewing strategy decisions, new skill designs, or hook behavior changes:
 
 1. Check whether a research artifact exists at `docs/research/capability-evidence.json` or `docs/research/top10-lock.json`.
-   - Prefer `capability-evidence.json` for row-level, code-cited review findings.
+   - Use `capability-evidence.json` for row-level, code-cited review findings when it exists.
    - Use `top10-lock.json` for competitor selection context and snapshot provenance when row-level evidence is missing.
-2. For any finding that recommends adding, removing, or changing a capability: cite the source row from the evidence file, or name the explicit gap from `docs/research/etrnl-parity-backlog.md`.
-3. Findings that recommend strategy changes without code-level evidence must be marked `(unverified — no source row)` and cannot be P0/P1 severity.
+2. For any finding that changes a capability: cite the source row from the evidence file, or name the explicit gap from `docs/research/etrnl-parity-backlog.md`.
+3. Strategy-change findings without code-level evidence must be marked `(unverified — no source row)` and cannot be P0/P1 severity.
 4. If neither artifact exists and the scope warrants one, flag this as a missing precondition and ask for artifact generation before treating strategy findings as high-confidence.
 
 ## TDD Review Protocol (required_process)
@@ -52,7 +52,7 @@ When reviewing strategy decisions, new skill designs, or hook behavior changes:
 When reviewing implementation work:
 
 1. Confirm that failing tests were recorded before fixes were applied. If test evidence is missing, flag as a process gap.
-2. For any new code path that lacks tests: flag as a missing coverage finding with the specific file and behavior that should be tested.
+2. For any new code path that lacks tests: flag as a missing coverage finding with the specific file and behavior that must be tested.
 
 ## Verification Gate (hook_enforced)
 
@@ -64,7 +64,7 @@ Use confidence when the finding depends on concrete code or diff evidence:
 
 `[P1] (confidence: 9/10) file:line - finding`
 
-Suppress low-confidence speculation unless the severity would be P0/P1. Outside-voice findings are informational until the user approves them; present agreement as a recommendation, not a decision.
+Suppress low-confidence speculation unless the severity would be P0/P1. Outside-voice findings are informational until the user approves them; present agreement as an evidence note, not a decision.
 
 ## Output
 

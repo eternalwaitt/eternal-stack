@@ -27,6 +27,40 @@ record_skill() {
   [[ -n "$skill" ]] && cc_state_append_value requestedSkills "$skill"
 }
 
+mark_plan_execution_requested() {
+  local now
+  now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  cc_state_update --arg now "$now" '
+    .planExecutionRequested = true |
+    .planExecutionRequestedAt = $now
+  ' >/dev/null || true
+}
+
+record_execute_skill() {
+  record_skill "etrnl-execute"
+  mark_plan_execution_requested
+}
+
+record_active_plan_path() {
+  local plan_path=""
+  local now
+  if [[ "$prompt" =~ (/[^[:space:]]+\.md) ]]; then
+    plan_path="${BASH_REMATCH[1]}"
+  elif [[ "$prompt" =~ ([A-Za-z0-9_./-]*(docs/plans|plans|\.claude/plans)/[A-Za-z0-9_.-]+\.md) ]]; then
+    plan_path="${BASH_REMATCH[1]}"
+  fi
+  [[ -n "$plan_path" ]] || return 0
+
+  now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  cc_state_update --arg plan "$plan_path" --arg now "$now" '
+    .activePlanPath = $plan |
+    .activePlanPathUpdatedAt = $now
+  ' >/dev/null || true
+}
+
+record_active_plan_path
+active_plan_path="$(cc_state_read | jq -r '.activePlanPath // ""' 2>/dev/null || true)"
+
 cc_prompt_context_cap() {
   local value="${1:-}"
   if [[ "$value" =~ ^[0-9]+$ ]] && (( value > 0 )); then
@@ -149,13 +183,18 @@ legacy_aliases="writing-plans|execute-plan|run-plan|code-review|commit|deps|test
 # Group 2 is the requested skill name for etrnl-* slash commands and legacy aliases.
 slash_skill_re="(^|[[:space:]])/(etrnl-[A-Za-z0-9_-]+|${legacy_aliases})([[:space:]]|$)"
 if [[ "$prompt" =~ $slash_skill_re ]]; then
-  record_skill "${BASH_REMATCH[2]}"
+  slash_skill="${BASH_REMATCH[2]}"
+  record_skill "$slash_skill"
+  case "$slash_skill" in
+    etrnl-execute|execute-plan|run-plan) mark_plan_execution_requested ;;
+  esac
 fi
 
 notes=()
 claude_context="$(cc_prompt_claude_context)"
 [[ -z "$claude_context" ]] || notes+=("$claude_context")
 notes+=("Evidence-first correction protocol: do not use reflexive agreement phrases like \"You're right\". State what is verified or unverified, then name the evidence check or correction.")
+documentation_health_pattern='documentation[[:space:]-]+health|docs[[:space:]-]+health|documentation[[:space:]-]+audit|docs[[:space:]-]+audit|documentation[[:space:]-]+drift|docs[[:space:]-]+drift|stale[[:space:]]+docs|readme[[:space:]-]+audit|adr[[:space:]-]+health|runbook[[:space:]-]+audit|api[[:space:]-]+docs[[:space:]-]+audit|tsdoc|jsdoc|code[[:space:]-]+documentation[[:space:]-]+health|onboarding[[:space:]-]+docs|documentation[[:space:]-]+pass'
 code_health_pattern='code[[:space:]]+health|health[[:space:]]+check|repo[[:space:]]+rot|audit[[:space:]]+.*(whole|entire)[[:space:]]+codebase|no[[:space:]]+skips|dead[[:space:]]+code|pr-gate'
 case "$prompt_lower" in
   *"why"*|*"are you sure"*|*"that's not"*|*"thats not"*|*"not what"*|*"wrong"*|*"still"*|*"wasn't"*|*"wasnt"*|*"i thought"*|*"you said"*|*"she said"*|*"loose ends"*|*"wdym"*)
@@ -184,12 +223,20 @@ if [[ "$prompt_lower" =~ write[[:space:]]+a[[:space:]]+plan|implementation[[:spa
   notes+=("Use etrnl-plan: write the plan to disk, review it, improve it, mark it Final, and keep chat short.")
 fi
 if [[ "$prompt_lower" =~ execute[[:space:]]+.*plan|implement[[:space:]]+.*plan|carry[[:space:]]+out[[:space:]]+.*plan ]]; then
-  record_skill "etrnl-execute"
+  record_execute_skill
   notes+=("Use etrnl-execute only for user-requested plan execution; preserve checkpoints and verification evidence.")
+fi
+if [[ -n "$active_plan_path" ]] && [[ "$prompt_lower" =~ (^|[[:space:]])(implement now|do it|execute now|continue the plan|continue plan|finish the plan|finish it|carry on)([[:space:]]|$) ]]; then
+  record_execute_skill
+  notes+=("Use etrnl-execute for the active plan: $active_plan_path. Complete every in-scope phase or stop with a blocker.")
 fi
 if [[ "$prompt_lower" =~ $code_health_pattern ]]; then
   record_skill "etrnl-code-health"
   notes+=("Use etrnl-code-health: inventory every tracked file, load the repo Health Stack, create a findings ledger, and close every finding as fixed, false-positive, accepted-risk, or blocked.")
+fi
+if [[ "$prompt_lower" =~ $documentation_health_pattern ]]; then
+  record_skill "etrnl-documentation-health"
+  notes+=("Use etrnl-documentation-health: inventory docs first, verify claims against source/runtime truth, fan out read-only documentation lanes when broad, and close every finding with evidence.")
 fi
 if [[ "$prompt_lower" =~ browser[[:space:]]+qa|browser[[:space:]]+test|route.*viewport|screenshot|console.*network|ui[[:space:]]+verification ]]; then
   record_skill "etrnl-qa-browser"

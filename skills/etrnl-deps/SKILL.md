@@ -12,7 +12,7 @@ disable-model-invocation: true
 3. Run the project's dependency vulnerability scan (`npm audit`, `pnpm audit`, `yarn audit`, GitHub Dependabot/CodeQL, Snyk, or ecosystem equivalent), fail on critical/high issues, and capture results in the upgrade record.
 4. Install dependencies, then run Knip (`pnpm knip`) or the repo's equivalent when available to detect unused dependencies, exports, and files.
 5. Fail on unused production dependencies; record unused devDependencies for review unless the repo config says to fail on all Knip findings.
-6. Prefer targeted upgrades.
+6. Use targeted upgrades. Broad upgrades require explicit user request, security evidence, or compatibility evidence.
 7. Read changelogs for major or security-sensitive changes.
 8. Run tests, typecheck, and build.
 9. Document migration notes and dependency removals.

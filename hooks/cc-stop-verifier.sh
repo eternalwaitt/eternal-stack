@@ -98,9 +98,35 @@ cc_email_triage_run_command_after() {
     [.successfulCommands[]?
       | select((.at // "") >= $since)
       | (.command // "")
-      | select(test("(^|[[:space:];&|])([^[:space:];&|]*/)?vivaz-email[[:space:]]+triage[[:space:]]+run([[:space:]]|$)"))]
+      | select(test("(^|[[:space:];&|])([^[:space:];&|]*/)?vivaz-email[[:space:]]+triage[[:space:]]+guarded-run([[:space:]]|$)"))]
     | length > 0
   ' <<<"$state" >/dev/null
+}
+
+cc_email_triage_report_run_id_after() {
+  local since="$1" cmd run_id
+  cmd="$(jq -r --arg since "$since" '
+    [.successfulCommands[]?
+      | select((.at // "") >= $since)
+      | (.command // "")
+      | select(test("(^|[[:space:];&|])([^[:space:];&|]*/)?vivaz-email[[:space:]]+triage[[:space:]]+report([[:space:]]|$)"))
+      | select(test("(^|[[:space:]])--run-id(=|[[:space:]]+)"))]
+    | last // ""
+  ' <<<"$state")"
+  run_id=""
+  if [[ "$cmd" =~ --run-id(=|[[:space:]]+)([A-Za-z0-9_.:-]+) ]]; then
+    run_id="${BASH_REMATCH[2]}"
+  fi
+  printf '%s\n' "$run_id"
+}
+
+cc_email_triage_evidence_after() {
+  local since="$1" report_run_id
+  if cc_email_triage_run_command_after "$since"; then
+    return 0
+  fi
+  report_run_id="$(cc_email_triage_report_run_id_after "$since")"
+  [[ -n "$report_run_id" ]]
 }
 
 cc_email_triage_latest_account_after() {
@@ -109,7 +135,7 @@ cc_email_triage_latest_account_after() {
     [.successfulCommands[]?
       | select((.at // "") >= $since)
       | (.command // "")
-      | select(test("(^|[[:space:];&|])([^[:space:];&|]*/)?vivaz-email[[:space:]]+triage[[:space:]]+run([[:space:]]|$)"))]
+      | select(test("(^|[[:space:];&|])([^[:space:];&|]*/)?vivaz-email[[:space:]]+triage[[:space:]]+guarded-run([[:space:]]|$)"))]
     | last // ""
   ' <<<"$state")"
   account=""
@@ -140,9 +166,14 @@ cc_email_triage_cli() {
 }
 
 cc_email_triage_verify_latest() {
-  local since="$1" account cli
+  local since="$1" account cli report_run_id
   if ! cli="$(cc_email_triage_cli)"; then
     return 1
+  fi
+  report_run_id="$(cc_email_triage_report_run_id_after "$since")"
+  if [[ -n "$report_run_id" ]]; then
+    "$cli" triage verify --run-id "$report_run_id" >/dev/null 2>&1
+    return $?
   fi
   account="$(cc_email_triage_latest_account_after "$since")"
   if [[ -n "$account" ]]; then
@@ -152,6 +183,36 @@ cc_email_triage_verify_latest() {
   fi
 }
 
+cc_email_triage_message_has_report() {
+  local lower
+  lower="$(printf '%s' "$message" | tr '[:upper:]' '[:lower:]')"
+  [[ "$message" == *"# Email Triage Report"* ]] \
+    && [[ "$message" == *"## Top Action Items"* ]] \
+    && [[ "$message" == *"## Reply Queue"* ]] \
+    && [[ "$message" == *"## Action Items"* || "$message" == *"Run: triage_"* ]] \
+    && [[ "$lower" =~ latest[[:space:]-]*(thread|message|state)|most[[:space:]-]+recent[[:space:]-]+thread ]] \
+    && [[ "$lower" =~ pre[[:space:]-]*existing|preexisting|action[[:space:]-]*backlog|existing[[:space:]-]*action|already[[:space:]-]*open ]]
+}
+
+cc_plan_execution_requested() {
+  jq -e "$NORM_JQ"'
+    .planExecutionRequested == true
+  ' <<<"$state" >/dev/null
+}
+
+cc_documentation_health_requested() {
+  jq -e "$NORM_JQ"'
+    ([.requestedSkills[]?.value // empty | norm] | any(. == "documentation-health" or . == "docs-health" or . == "documentation-audit"))
+      or ((.lastPrompt // "" | ascii_downcase) | test("documentation[- ]health|docs[- ]health|documentation[- ]audit|docs[- ]audit|documentation[- ]drift|docs[- ]drift"))
+  ' <<<"$state" >/dev/null
+}
+
+if [[ "$claims_done" != "true" ]] \
+  && cc_email_triage_requested \
+  && [[ "$message_lower" =~ (email[[:space:]]+triage[[:space:]]+report|#[[:space:]]*email[[:space:]]+triage[[:space:]]+report|run:[[:space:]]+triage_|inbox[[:space:]-]*zero|verified|inbox[[:space:]]+candidates|action[[:space:]]+backlog|archive[[:space:]]+plan) ]]; then
+  claims_done=true
+fi
+
 if [[ "$claims_done" == "true" ]]; then
   email_triage_verified=false
   MIGRATION_CMD_REGEX='((npx|bunx|yarn(\s+dlx)?|pnpm(\s+(dlx|exec))?|npm(\s+(run|exec))?)\s+([^;&|]+\s+)*?(--\s+)?)?\bprisma\b\s+\bmigrate\b\s+(status|deploy|resolve)\b'
@@ -159,18 +220,26 @@ if [[ "$claims_done" == "true" ]]; then
     cc_json_block "Outstanding browser QA is not a completion state. Run the planned dev server and browser workflow when available, record the browser QA artifact, or mark the task blocked with the exact missing tool/error."
     exit 0
   fi
-  if ! ledger_status="$(node "$SCRIPT_DIR/../scripts/execution-ledger.mjs" check-stop --session "$(cc_session_id)" 2>&1)"; then
+  ledger_args=(check-stop --session "$(cc_session_id)")
+  if cc_plan_execution_requested; then
+    ledger_args+=(--require-ledger --require-tasks --require-plan-phases)
+  fi
+  if ! ledger_status="$(node "$SCRIPT_DIR/../scripts/execution-ledger.mjs" "${ledger_args[@]}" 2>&1)"; then
     cc_json_block "$ledger_status"
     exit 0
   fi
   if cc_email_triage_requested; then
     email_triage_since="$(cc_email_triage_request_at)"
-    if ! cc_email_triage_run_command_after "$email_triage_since"; then
-      cc_json_block "email-triage completion requires a successful vivaz-email triage run command in this session."
+    if ! cc_email_triage_evidence_after "$email_triage_since"; then
+      cc_json_block "email-triage completion requires a successful vivaz-email triage guarded-run command or a rendered report for an explicit verified run in this session."
       exit 0
     fi
     if ! cc_email_triage_verify_latest "$email_triage_since"; then
       cc_json_block "email-triage completion requires the latest vivaz-email triage ledger to verify successfully."
+      exit 0
+    fi
+    if ! cc_email_triage_message_has_report; then
+      cc_json_block "email-triage completion must paste the generated runtime report, including '# Email Triage Report', '## Top Action Items', '## Reply Queue', latest thread state, and pre-existing action backlog. A one-line inbox-zero summary is not actionable."
       exit 0
     fi
     email_triage_verified=true
@@ -178,6 +247,27 @@ if [[ "$claims_done" == "true" ]]; then
   if [[ "$email_triage_verified" != "true" ]] && jq -e '((.verificationRuns | length) == 0)' <<<"$state" >/dev/null; then
     cc_json_block "You are trying to claim completion without verification evidence. Re-read the request, map each requested outcome to changed files or command results, run project preflight, verify user-visible behavior, then answer with evidence."
     exit 0
+  fi
+  if cc_documentation_health_requested; then
+    doc_health_input="$(jq -cn --argjson state "$state" --arg message "$message" '{state:$state,message:$message}')"
+    if ! doc_health_status="$(node "$SCRIPT_DIR/../scripts/documentation-health-ledger-check.mjs" 2>/dev/null <<<"$doc_health_input")"; then
+      cc_json_block "documentation-health completion checker failed. Re-run the documentation-health gate or inspect scripts/documentation-health-ledger-check.mjs before claiming completion."
+      exit 0
+    fi
+    case "$doc_health_status" in
+      missing-inventory)
+        cc_json_block "documentation-health completion requires a fresh inventory command: node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked. A surface-level doc skim is not enough."
+        exit 0
+        ;;
+      missing-report|missing-coverage-counters|missing-source-truth|missing-ledger|missing-scorecard|missing-inventory-classification)
+        cc_json_block "documentation-health completion requires the final report to include coverage counters, source-of-truth mapping, documentation classifications, a findings ledger with severity/disposition/verification, and a scorecard. Expand the report before claiming completion."
+        exit 0
+        ;;
+      missing-validation)
+        cc_json_block "documentation-health completion requires at least one deterministic validation gate after the inventory, such as documentation-health-ledger-check.mjs, markdown/link tooling, skill-contract-check.mjs, tests/test-hooks.sh, or scripts/doctor.sh."
+        exit 0
+        ;;
+    esac
   fi
   # Keep .verificationRuns[].value extraction because run entries are stored as {value, at}.
   # The migration regex intentionally accepts equivalent status command wrappers.

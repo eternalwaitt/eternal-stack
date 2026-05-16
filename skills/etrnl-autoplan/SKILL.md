@@ -10,6 +10,8 @@ Create execution-ready plans for `/etrnl-execute`. Do not implement the plan.
 
 Default to completeness 10/10 for non-trivial work. Do not offer fast, reduced, MVP, or partial paths unless the user explicitly asks for a spike, prototype, or quick pass.
 
+Every final plan must make execution scope machine-readable. Use `Execution scope: all_phases` by default. Use `Execution scope: first_patch_only` or an explicit subset only when the user asked for partial execution in that turn.
+
 ## Gauntlet-Lite Review
 
 Run the review gauntlet before finalizing the plan:
@@ -29,14 +31,14 @@ Run the review gauntlet before finalizing the plan:
    - Reuse `/etrnl-stress-test` posture.
    - Challenge the most likely false assumption, hidden coupling, verification gaps, and shareable-repo leakage.
 6. Outside voices:
-   - Prefer `etrnl-scout`, `etrnl-adversary`, `etrnl-design-reviewer`, and `etrnl-dx-reviewer` as read-only subagent candidates when scope is large enough.
-   - If Codex, Gemini, Octopus, gstack design, or GPT image/mock tooling is installed, mark it as an optional escalation path; missing tools are reported, not silently skipped.
+   - Use `etrnl-scout`, `etrnl-adversary`, `etrnl-design-reviewer`, and `etrnl-dx-reviewer` as read-only subagent candidates when scope is large enough.
+   - If Codex, Gemini, Octopus, gstack design, or GPT image/mock tooling is installed, mark it as an applicable escalation path; report missing tools instead of silently skipping them.
 
 ## Decision Policy
 
 - Mechanical decision: auto-pick the most complete option.
 - Blast-radius expansion: auto-include when it touches files already modified by the plan or direct importers and remains bounded.
-- Taste decision: choose a recommended default, log it, and surface it in the final gate.
+- Taste decision: choose the default, log it, and surface it in the final gate.
 - User challenge: never auto-decide changes that contradict the user's explicit direction.
 - Human-gate only premises, subjective taste, destructive actions, missing credentials, scope outside blast radius, or repeated stalls.
 
@@ -49,7 +51,7 @@ Before finalizing any plan for a capability or feature that competes with or par
 3. If no research artifact exists or it is expired, require generating fresh research artifacts via the repository research pipeline before finalizing the plan. Do not substitute web summaries for code-level evidence.
 4. If the script is missing, execution fails, or dependencies are unavailable: mark the plan metadata as `research-pending` and record `research_failure` details (`error`, `timestamp`, and attempted evidence file paths under `docs/research/*`).
 5. Default outcome is block finalization until fresh artifacts are produced. Finalization is only allowed with `risk_acknowledged: true` plus compensating rationale and references to `docs/research/etrnl-parity-backlog.md` or existing evidence rows.
-6. For each plan recommendation that maps to a competitor capability, record the source row from the capability evidence file or name the explicit gap from the parity backlog.
+6. For each planned capability change that maps to a competitor capability, record the source row from the capability evidence file or name the explicit gap from the parity backlog.
 7. Plans that propose new ETRNL skill or hook behaviors must cite at least one non-README code-level source from the evidence file, or name a gap from `docs/research/etrnl-parity-backlog.md`.
 
 ## Plan Requirements
@@ -59,23 +61,24 @@ Before finalizing any plan for a capability or feature that competes with or par
 3. Group work by subsystem and dependency.
 4. Name disjoint write scopes and safe subagent candidates.
 5. Include verification commands for each phase and the final gate.
-6. For multi-session, multi-route, or multi-workstream plans, include optional `Phase:`, `Workstream:`, and `UAT Gate:` metadata so `/etrnl-execute` can record phase/UAT state in the ledger.
-7. Include failure modes, rollback notes, and non-scope.
-8. Include the question policy:
+6. For multi-session, multi-route, or multi-workstream plans, include conditional `Phase:`, `Workstream:`, and `UAT Gate:` metadata so `/etrnl-execute` can record phase/UAT state in the ledger.
+7. Do not include `## Immediate First Patch`, `## First Slice`, or similar partial-completion headings in a final all-phases plan. Express sequencing under `## Phases` instead.
+8. Include failure modes, rollback notes, and non-scope.
+9. Include the question policy:
    - auto-continue mechanical phases
    - ask only for destructive actions, scope expansion, missing credentials, conflicting user edits, repeated stalls, or subjective product/taste decisions
-9. Include an autoplan decision log:
+10. Include an autoplan decision log:
    - phase: CEO, Eng, Design, DX, Adversarial
    - decision
    - rationale
    - consensus or disagreement
    - artifact needed, if any
    - final gate category: none, taste, premise, destructive, user challenge
-10. Include artifact requirements for execution:
+11. Include artifact requirements for execution:
    - `review-log.jsonl` when review findings are created
    - `browser-qa-report.json` when UI/browser behavior changes
    - context-save when work is long-running or likely to be resumed
-11. The final plan must pass `node ~/.claude/scripts/plan-readiness-check.mjs <plan-path>` before `/etrnl-execute` starts.
+12. The final plan must pass `node ~/.claude/scripts/plan-readiness-check.mjs <plan-path>` before `/etrnl-execute` starts.
     Use the exact readiness-compatible headings in the Output section. Do not leave `TODO`, `TBD`, "handle edge cases", "wire it up", or "similar to above" in the plan.
 
 ## Task Packet Drafting
@@ -95,7 +98,7 @@ For each subagent candidate, include:
 - timeout
 - retry policy
 - do-not-revert instruction
-- WebSearch guidance
+- WebSearch policy
 - for multi-file write scopes: reviewers, spec review requirement, quality review requirement, integration owner, and expected diff shape
 
 ## Output
@@ -103,10 +106,11 @@ For each subagent candidate, include:
 Return or save a single implementation plan with this readiness-compatible shape:
 
 - `Status: Final`
+- `Execution scope: all_phases`
 - `Goal:`
 - `Evidence:`
 - `Non-goals:`
-- Optional `Phase:`, `Workstream:`, and `UAT Gate:` metadata when the plan spans multiple phases, routes, or workstreams.
+- Conditional `Phase:`, `Workstream:`, and `UAT Gate:` metadata when the plan spans multiple phases, routes, or workstreams.
 - `## What already exists`
 - `## NOT in scope`
 - `## File map`
@@ -134,7 +138,7 @@ The Plan Readiness Report must explicitly cover:
 - Performance Review
 - Failure modes
 - Parallelization
-- Final recommendation inputs that justify the verdict section
+- Final decision inputs that justify the verdict section
 
 The final plan must include a separate `## Verdict` section with one explicit outcome:
 - Ready for execution

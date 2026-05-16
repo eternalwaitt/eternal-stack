@@ -29,7 +29,7 @@ Flag and fix before finalizing:
 - Irreversible action has no rollback.
 - Verification does not prove the user-visible outcome.
 - A new artifact type lacks distribution/build/publish/install coverage.
-- Task group mixes unrelated subsystems that should have separate ownership.
+- Task group mixes unrelated subsystems that require separate ownership.
 - Non-trivial data flow, state machine, processing pipeline, or test map lacks an ASCII diagram.
 - New codepaths lack realistic production failure modes.
 - Test coverage omits code paths, user flows, error states, regressions, or E2E/eval needs.
@@ -102,20 +102,20 @@ Apply these as review instincts:
 - Reuse before create.
 - Boring by default; spend innovation only where it clearly buys user value.
 - Incremental and reversible beats big-bang rewrite.
-- Systems over heroes; the plan should survive a tired maintainer at 3am.
+- Systems over heroes; the plan must survive a tired maintainer at 3am.
 - Essential complexity only; challenge accidental complexity before adding abstractions.
 - DX is product quality; painful local setup, slow CI, or unclear commands create bad software.
 - Make the change easy, then make the easy change; avoid structural and behavioral churn in one step.
 
-## Advisory Findings
+## Non-Blocking Findings
 
-Mention only if useful:
+Record when evidence shows the issue exists:
 
-- Step could be smaller.
-- A task could be parallelized safely.
+- Step is larger than necessary.
+- A task is safe for parallel execution.
 - A better existing helper or convention is available.
-- The plan could reduce churn by reusing an existing test or fixture.
-- Brooks health or audit modes would add useful evidence where installed.
+- The plan reduces churn by reusing an existing test or fixture.
+- Brooks health or audit modes add useful evidence where installed.
 
 ## Approval Rule
 

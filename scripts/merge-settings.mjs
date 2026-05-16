@@ -91,6 +91,29 @@ const compactExistingEventHooks = (eventName) => {
   return existingHooksByCommand;
 };
 
+const commandOrder = (command) => {
+  const canonical = canonicalCommand(command);
+  if (canonical.includes("cc-rtk-rg-compat.sh")) return 10;
+  if (canonical.includes("cc-pretooluse-guard.sh")) return 20;
+  if (canonical === "rtk hook claude" || canonical.includes("rtk-rewrite.sh")) return 30;
+  return 100;
+};
+
+const orderEventHooks = (eventName) => {
+  target.hooks[eventName] ??= [];
+  target.hooks[eventName] = target.hooks[eventName]
+    .map((group, index) => ({
+      group,
+      index,
+      order: Math.min(...(group.hooks ?? []).map((hook) => commandOrder(hook.command)), 100),
+    }))
+    .sort((left, right) => {
+      if (left.order !== right.order) return left.order - right.order;
+      return left.index - right.index;
+    })
+    .map((item) => item.group);
+};
+
 for (const eventName of Object.keys(target.hooks)) {
   compactExistingEventHooks(eventName);
 }
@@ -123,6 +146,8 @@ for (const [eventName, templateGroups] of Object.entries(template.hooks ?? {})) 
     }
   }
 }
+
+orderEventHooks("PreToolUse");
 
 const tempPath = `${targetPath}.tmp-${process.pid}-${randomBytes(4).toString("hex")}`;
 try {

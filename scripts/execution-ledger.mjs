@@ -139,6 +139,12 @@ function validateLedger(ledger) {
     if (!agent.status) errors.push(`agent ${agent.id || "<unknown>"} is missing status`);
     if (agent.mode === "write" && !agent.packetHash) errors.push(`agent ${agent.id || "<unknown>"} write evidence is missing packetHash`);
   }
+  for (const phase of Array.isArray(ledger.phases) ? ledger.phases : []) {
+    if (!phase.id) errors.push("phase is missing id");
+    if (!PHASE_STATUSES.has(phase.status)) {
+      errors.push(`phase ${phase.id || "<unknown>"} has invalid status ${phase.status}`);
+    }
+  }
   return errors;
 }
 
@@ -205,9 +211,11 @@ function boundEvidenceErrors(ledger) {
   return errors;
 }
 
-function completionErrors(ledger) {
+function completionErrors(ledger, options = {}) {
   const errors = validateLedger(ledger);
-  const unfinishedTasks = (ledger.tasks ?? [])
+  const tasks = ledger.tasks ?? [];
+  const phases = ledger.phases ?? [];
+  const unfinishedTasks = tasks
     .filter((task) => !["verified", "skipped"].includes(task.status))
     .map((task) => `${task.id}:${task.status}`);
   const unfinishedAgents = (ledger.agents ?? [])
@@ -220,6 +228,21 @@ function completionErrors(ledger) {
   if (missingArtifacts.length > 0) errors.push(`missing artifacts: ${missingArtifacts.join(", ")}`);
   if (Number(ledger.uatOpenFindings || 0) > 0) errors.push(`open UAT findings: ${ledger.uatOpenFindings}`);
   if ((ledger.checks ?? []).length === 0) errors.push("no verification checks recorded");
+  if (options.requireTasks && tasks.length === 0) errors.push("no execution tasks recorded");
+  if (options.requirePlanPhases && !ledger.planPath) errors.push("no plan path recorded");
+  if (options.requirePlanPhases && phases.length === 0) errors.push("no plan phases recorded");
+  if (options.requirePlanPhases && phases.length > 0) {
+    const latestPhaseStatuses = new Map();
+    for (const phase of phases) {
+      if (phase.id) latestPhaseStatuses.set(phase.id, phase.status);
+    }
+    const unfinishedPhases = [...latestPhaseStatuses.entries()]
+      .filter(([, status]) => !["verified", "skipped"].includes(status))
+      .map(([id, status]) => `${id}:${status}`);
+    if (unfinishedPhases.length > 0) {
+      errors.push(`plan phases not verified or explicitly skipped: ${unfinishedPhases.join(", ")}`);
+    }
+  }
   errors.push(...boundEvidenceErrors(ledger));
   return errors;
 }
@@ -270,6 +293,8 @@ function validateCommand() {
 
 function checkStop() {
   const sessionId = argValue("--session", process.env.CLAUDE_SESSION_ID || "default");
+  const requireTasks = args.includes("--require-tasks");
+  const requirePlanPhases = args.includes("--require-plan-phases");
   const file = currentLedgerPath(sessionId);
   if (!file) {
     if (args.includes("--require-ledger")) {
@@ -278,7 +303,7 @@ function checkStop() {
     }
     return;
   }
-  const errors = completionErrors(readJson(file));
+  const errors = completionErrors(readJson(file), { requireTasks, requirePlanPhases });
   if (errors.length > 0) {
     console.error(`Execution ledger is not complete: ${errors.join("; ")}`);
     process.exit(1);
@@ -640,6 +665,6 @@ else if (command === "record-review") recordReview();
 else if (command === "record-subagent") recordSubagent();
 else if (command === "history") history();
 else {
-  console.error("usage: execution-ledger.mjs init|validate|check-stop|check-bound-execute|set-task|set-phase|record-uat|record-check|require-artifact|record-artifact|record-agent|record-review|record-subagent|history");
+  console.error("usage: execution-ledger.mjs init|validate|check-stop [--require-ledger] [--require-tasks] [--require-plan-phases]|check-bound-execute|set-task|set-phase|record-uat|record-check|require-artifact|record-artifact|record-agent|record-review|record-subagent|history");
   process.exit(2);
 }

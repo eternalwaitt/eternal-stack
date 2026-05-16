@@ -60,6 +60,39 @@ function parsePromptPacket(value) {
   }
 }
 
+const fieldAliases = new Map([
+  ["context", "contextSummary"],
+  ["context_summary", "contextSummary"],
+  ["read_set", "readSet"],
+  ["write_scope", "writeScope"],
+  ["forbidden_files", "forbiddenPaths"],
+  ["forbidden_paths", "forbiddenPaths"],
+  ["expected_output", "expectedOutput"],
+  ["no_revert", "noRevert"],
+  ["verification_command", "verificationCommand"],
+  ["model_tier", "modelTier"],
+  ["timeout_sec", "timeoutSec"],
+  ["retry_policy", "retryPolicy"],
+  ["web_search_guidance", "webSearchGuidance"],
+  ["task_id", "taskId"],
+  ["lineage_id", "lineageId"],
+  ["spec_review_required", "specReviewRequired"],
+  ["quality_review_required", "qualityReviewRequired"],
+  ["integration_owner", "integrationOwner"],
+  ["expected_diff_shape", "expectedDiffShape"],
+]);
+
+function normalizePacket(packet) {
+  if (!packet || typeof packet !== "object" || Array.isArray(packet)) return packet;
+  const normalized = { ...packet };
+  for (const [source, target] of fieldAliases.entries()) {
+    if (!(target in normalized) && source in normalized) {
+      normalized[target] = normalized[source];
+    }
+  }
+  return normalized;
+}
+
 function readInput() {
   const fileArg = args
     .slice(command ? 1 : 0)
@@ -88,13 +121,18 @@ function readInput() {
 // 3) JSON parsed from value.prompt.
 function getPacket(value) {
   if (value && typeof value.packet === "object" && value.packet !== null && !Array.isArray(value.packet)) {
-    return value.packet;
+    return normalizePacket(value.packet);
   }
   if (value && typeof value === "object" && !Array.isArray(value) && value.mode) {
-    return value;
+    return normalizePacket(value);
   }
   const parsed = parsePromptPacket(value?.prompt);
-  if (parsed) return parsed;
+  if (parsed && typeof parsed.packet === "object" && parsed.packet !== null && !Array.isArray(parsed.packet)) {
+    return normalizePacket(parsed.packet);
+  }
+  if (parsed && typeof parsed === "object" && !Array.isArray(parsed) && parsed.mode) {
+    return normalizePacket(parsed);
+  }
   return null;
 }
 

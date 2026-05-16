@@ -12,6 +12,7 @@
 | etrnl-review | P0 | M1 | research_flow:require code-level competitor citations in review findings for strategy/skill recommendations; verification_gates:fail review completion if recommendation lacks source row references |
 | etrnl-test | P0 | M1 | tdd_enforcement:codify red-green-refactor evidence requirements in test plans; verification_gates:require explicit pass/fail gate snapshots for every mandatory command |
 | etrnl-brainstorm | P1 | M1 | research_flow:require competitor landscape section with explicit does/does-not outputs |
+| etrnl-documentation-health | P1 | M2 | verification_gates:add a machine-checkable documentation ledger validator for inventory coverage and terminal dispositions; telemetry_proactive:emit docs-drift summaries when docs, skills, changelog, or AI-context files change |
 | etrnl-fix-issue | P1 | M2 | tdd_enforcement:require failing test reference before fix implementation for skill/hook regressions |
 | etrnl-parallel | P1 | M2 | parallelism_safety:add strict no-overlap contract check for research subagent lanes; verification_gates:require verification receipts from each lane before merge phase |
 | etrnl-qa-browser | P1 | M2 | telemetry_proactive:publish proactive QA drift summary when competitor-facing surfaces regress |

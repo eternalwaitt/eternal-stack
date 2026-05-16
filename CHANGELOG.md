@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+## v0.1.16 - 2026-05-16
+
+- Harden repo-owned ETRNL skills and reference docs from advisory phrasing into directive workflow contracts, and make `skill-contract-check.mjs` fail on soft directive language unless the text states an unavailable, not-applicable, or blocker path.
+
+## v0.1.15 - 2026-05-16
+
+- Add a machine-checkable `/etrnl-documentation-health` completion gate so shallow docs-health summaries are blocked unless they include inventory evidence, source-of-truth mapping, classifications, findings ledger dispositions, skipped-check reasons, scorecard, and validation.
+
+## v0.1.14 - 2026-05-16
+
+- Block `/etrnl-execute` source edits after malformed Agent/Task packets until a valid JSON-only implementation subagent packet succeeds, and recognize RTK-wrapped filtered `check-types` commands as quality evidence.
+
+## v0.1.13 - 2026-05-16
+
+- Add `/etrnl-documentation-health` as the documentation-health specialist for docs drift, ADR/runbook/API/runtime docs, AI context, and TSDoc/JSDoc audits with progressive-disclosure references and parallel review lanes.
+
+## v0.1.12 - 2026-05-15
+
+- Fix Claude Code session-friction found in the May 13-15 transcript audit: existing-file `Write` calls now read disk content before safety checks, prompt-wrapped task packets are accepted and recorded, planned write scopes can justify file-split sprawl, diagnostic verification tails are allowed for long logs, and large final plans require an execution digest or plan index.
+- Harden completion/failure guidance with targeted `PostToolUseFailure` diagnostics and stricter email-triage stop checks for latest-thread state plus pre-existing action backlog evidence.
+
+## v0.1.11 - 2026-05-14
+
+- Enforce plan-execution completeness by requiring `Execution scope` in readiness checks, rejecting ambiguous final `Immediate First Patch` plans, routing active-plan shorthand into `/etrnl-execute`, and blocking completion without a task/phase ledger for requested plan execution.
+- Fix PostToolBatch success detection for Claude Code payloads that omit top-level status fields, add an RTK `rg` compatibility prehook so unsafe `rg` forms route through `rtk proxy --ultra-compact rg` instead of broken `rtk grep` rewrites, and surface stale external hook conflicts such as pre-v4 `rtk-rewrite.sh` in settings audit output.
+
 ## v0.1.10 - 2026-05-13
 
 - Add best-of-all-worlds quick wins from the GStack/GSD/Superpowers gap-closure plan: skill-trigger fixtures for every owned `etrnl-*` skill, `workflow-health status`/`status --json`, SessionStart workflow hints, compact timestamp/count recovery metadata, redacted `project-buglog suggest --json`, browser QA v2 matrix validation/migration, and installed browser-QA rejection canary coverage.

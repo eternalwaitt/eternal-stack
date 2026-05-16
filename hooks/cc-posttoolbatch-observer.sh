@@ -103,20 +103,32 @@ skill_name="$(cc_json_get '.tool_input.name // .tool_input.skill // .command_nam
 
 call_succeeded() {
   local payload="$1"
-  local denied status
+  local denied status is_error error_text
   denied="$(jq -r '.hookSpecificOutput.permissionDecision // .permissionDecision // empty' <<<"$payload" 2>/dev/null || true)"
-  status="$(jq -r '.status // .tool_status // .result.status // empty' <<<"$payload" 2>/dev/null || true)"
+  status="$(jq -r '.status // .tool_status // .toolResponse.status // .tool_response.status // .toolResult.status // .tool_result.status // .result.status // empty' <<<"$payload" 2>/dev/null || true)"
+  is_error="$(jq -r '[.is_error, .isError, .toolResponse.is_error, .toolResponse.isError, .tool_response.is_error, .tool_response.isError, .toolResult.is_error, .toolResult.isError, .tool_result.is_error, .tool_result.isError, .result.is_error, .result.isError] | map(select(. != null)) | first // false' <<<"$payload" 2>/dev/null || printf 'false')"
+  error_text="$(jq -r '.error // .toolResponse.error // .tool_response.error // .toolResult.error // .tool_result.error // .result.error // empty' <<<"$payload" 2>/dev/null || true)"
   denied="$(printf '%s' "$denied" | tr '[:upper:]' '[:lower:]')"
   status="$(printf '%s' "$status" | tr '[:upper:]' '[:lower:]')"
-  if [[ "$denied" == "deny" || "$status" == "error" || "$status" == "failed" ]]; then
+  is_error="$(printf '%s' "$is_error" | tr '[:upper:]' '[:lower:]')"
+  if [[ "$denied" == "deny" || "$is_error" == "true" || -n "$error_text" ]]; then
     return 1
   fi
+  case "$status" in
+    error|failed|failure|cancelled|canceled|denied) return 1 ;;
+  esac
   if [[ "$denied" == "allow" ]]; then
     return 0
   fi
   case "$status" in
     success|succeeded|completed|ok) return 0 ;;
   esac
+  # Claude Code PostToolBatch payloads can omit a top-level success/status
+  # field for successful calls. PostToolUseFailure handles failed calls, so a
+  # well-formed tool payload with no explicit failure is success.
+  if jq -e 'has("tool_input") or has("toolInput") or has("tool_name") or has("toolName") or has("tool")' <<<"$payload" >/dev/null 2>&1; then
+    return 0
+  fi
   return 1
 }
 
@@ -157,22 +169,46 @@ mark_edit_in_batch() {
   fi
 }
 
+agent_call_packet_json() {
+  local payload="$1"
+  jq -c '
+    def prompt_packet:
+      (.tool_input.prompt // .toolInput.prompt // "" | select(type == "string") | fromjson? // empty)
+      | if ((.packet // null) | type) == "object" then .packet
+        elif ((.mode // null) | type) == "string" then .
+        else empty end;
+    if ((.tool_input.packet // .toolInput.packet // null) | type) == "object" then
+      (.tool_input.packet // .toolInput.packet)
+    else
+      prompt_packet
+    end
+  ' <<<"$payload" 2>/dev/null || true
+}
+
 agent_call_path() {
   local payload="$1"
   local rendered packet_json packet_hash
-  rendered="$(jq -r '
+  packet_json="$(agent_call_packet_json "$payload")"
+  if [[ -z "$packet_json" ]]; then
+    packet_json="{}"
+  fi
+  rendered="$(jq -r --argjson packet "$packet_json" '
+    def path_list(value):
+      if (value | type) == "array" then value | map(tostring) | join(",")
+      elif (value | type) == "string" then value
+      else "" end;
     [
-      ("subagent=" + (.tool_input.subagent_type // .tool_input.agent // .tool_input.name // "")),
-      ("mode=" + (.tool_input.packet.mode // "")),
-      ("taskId=" + (.tool_input.packet.taskId // "")),
-      ("lineageId=" + (.tool_input.packet.lineageId // "")),
-      ("goal=" + (.tool_input.packet.goal // .tool_input.description // ""))
+      ("subagent=" + (.tool_input.subagent_type // .toolInput.subagent_type // .tool_input.agent // .toolInput.agent // .tool_input.name // .toolInput.name // "")),
+      ("mode=" + ($packet.mode // "")),
+      ("taskId=" + ($packet.taskId // $packet.task_id // "")),
+      ("lineageId=" + ($packet.lineageId // $packet.lineage_id // "")),
+      ("writeScope=" + path_list($packet.writeScope // $packet.write_scope // "")),
+      ("goal=" + ($packet.goal // .tool_input.description // .toolInput.description // ""))
     ]
-    | map(select(. != "subagent=" and . != "mode=" and . != "taskId=" and . != "lineageId=" and . != "goal="))
+    | map(select(. != "subagent=" and . != "mode=" and . != "taskId=" and . != "lineageId=" and . != "writeScope=" and . != "goal="))
     | join(" ")
   ' <<<"$payload" 2>/dev/null || true)"
-  packet_json="$(jq -c 'select((.tool_input.packet // null) | type == "object") | .tool_input.packet' <<<"$payload" 2>/dev/null || true)"
-  if [[ -n "$packet_json" && -f "$SCRIPT_DIR/../scripts/agent-task-packet-check.mjs" ]]; then
+  if [[ "$packet_json" != "{}" && -f "$SCRIPT_DIR/../scripts/agent-task-packet-check.mjs" ]]; then
     packet_hash="$(printf '%s' "$packet_json" | node "$SCRIPT_DIR/../scripts/agent-task-packet-check.mjs" --hash 2>/dev/null || true)"
     if [[ -n "$packet_hash" ]]; then
       rendered="${rendered:+$rendered }packetHash=$packet_hash"

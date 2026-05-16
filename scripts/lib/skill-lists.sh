@@ -16,6 +16,7 @@ OWNED_SKILLS=(
   etrnl-context-restore
   etrnl-context-save
   etrnl-deps
+  etrnl-documentation-health
   etrnl-execute
   etrnl-fix-issue
   etrnl-parallel
@@ -48,6 +49,7 @@ CRITICAL_HOOKS=(
 )
 
 CRITICAL_SCRIPTS=(
+  documentation-health-ledger-check.mjs
   execution-ledger.mjs
   execute-evidence-check.mjs
   plan-readiness-check.mjs

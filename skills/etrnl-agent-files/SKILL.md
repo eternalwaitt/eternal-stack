@@ -32,4 +32,4 @@ Maintain instruction files as routing/configuration surfaces, not memory stores.
 - Do not append session learnings directly.
 - Do not mine entire transcripts into instruction files.
 - Do not store private identity, secrets, permissions, transcripts, or memory dumps in the public repo.
-- Prefer fresh repo evidence over remembered instruction text.
+- Use fresh repo evidence before remembered instruction text.

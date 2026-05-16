@@ -2,6 +2,7 @@
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
+import path from "node:path";
 
 const args = process.argv.slice(2);
 const fix = args.includes("--fix");
@@ -70,14 +71,78 @@ const matcherOverlaps = (left, right) => {
 };
 
 const isLegacyRateLimiter = (command) => /(^|\s)(bash\s+)?~\/\.claude\/hooks\/rate-limiter\.sh(\s|$)/.test(canonicalCommand(command));
+const knownCompanionHooks = new Set([
+  "block-email-send.sh",
+  "block-junk-files.sh",
+  "block-secrets.sh",
+  "check-code-quality.sh",
+  "cli-update-check.sh",
+  "enforce-cli-toolkit.sh",
+  "enforce-positive-rules.sh",
+  "log-compact-event.sh",
+  "pre-compact-backup.sh",
+  "pre-compact-context.sh",
+  "pre-deploy-veloz.sh",
+  "pre-stop-checklist.sh",
+  "rtk-rewrite.sh",
+  "session-start.sh",
+  "suggest-compact.sh",
+  "terminal-title.sh",
+  "verification-gate.sh",
+]);
 const rewriteKnownHookCommand = (command) => {
   if (isLegacyRateLimiter(command)) return "bash ~/.claude/hooks/cc-rate-limiter.sh";
   return command;
 };
 
+const hookBasename = (command) => {
+  const canonical = canonicalCommand(command);
+  const match = canonical.match(/(?:^|\s)(?:bash\s+)?~\/\.claude\/hooks\/([^ "';&|]+)/);
+  if (!match) return "";
+  return path.basename(match[1]);
+};
+
+const hookPath = (command) => {
+  const canonical = canonicalCommand(command);
+  const match = canonical.match(/(?:^|\s)(?:bash\s+)?~\/\.claude\/hooks\/([^ "';&|]+)/);
+  if (!match) return "";
+  return path.join(homeDir, ".claude", "hooks", match[1]);
+};
+
+const hookOwner = (basename) => {
+  if (!basename) return "";
+  if (basename.startsWith("cc-")) return "repo-owned";
+  if (knownCompanionHooks.has(basename)) return "known-companion";
+  return "unknown-external";
+};
+
+const rtkRewriteHasRgProxyGuard = (command) => {
+  const filePath = hookPath(command);
+  if (!filePath) return false;
+  try {
+    const body = fs.readFileSync(filePath, "utf8");
+    return /rtk-hook-version:\s*(?:[4-9]|\d{2,})/.test(body) || body.includes("rg_rewrite_needs_proxy");
+  } catch {
+    return false;
+  }
+};
+
+const conflictForHook = (basename, command) => {
+  if (basename === "rtk-rewrite.sh") {
+    if (rtkRewriteHasRgProxyGuard(command)) return null;
+    return {
+      id: "rtk-rewrite",
+      reason: "outdated rtk-rewrite.sh rewrites Bash commands before the control-plane guard; observed rg -> rtk grep rewrites can break recursive directory searches",
+    };
+  }
+  return null;
+};
+
 function collectIssues(settings) {
   const duplicateHooks = [];
   const legacyHooks = [];
+  const externalHooks = [];
+  const conflictingHooks = [];
   for (const [eventName, groups] of Object.entries(settings.hooks ?? {})) {
     const seen = [];
     for (const group of groups ?? []) {
@@ -85,6 +150,20 @@ function collectIssues(settings) {
         const command = String(hook.command ?? "").trim();
         if (!command) continue;
         const canonical = canonicalCommand(command);
+        const basename = hookBasename(command);
+        const owner = hookOwner(basename);
+        if (owner && owner !== "repo-owned") {
+          const external = {
+            eventName,
+            matcher: group.matcher ?? "*",
+            command: canonical,
+            hook: basename,
+            owner,
+          };
+          externalHooks.push(external);
+          const conflict = conflictForHook(basename, command);
+          if (conflict) conflictingHooks.push({ ...external, ...conflict });
+        }
         for (const prior of seen) {
           if (prior.canonical === canonical && matcherOverlaps(prior.matcher, group.matcher)) {
             duplicateHooks.push({
@@ -102,7 +181,7 @@ function collectIssues(settings) {
       }
     }
   }
-  return { duplicateHooks, legacyHooks };
+  return { duplicateHooks, legacyHooks, externalHooks, conflictingHooks };
 }
 
 function rewriteKnownHooks(settings) {
@@ -172,6 +251,13 @@ if (json) {
   console.log(`ok: settings audit clean for ${settingsPath}`);
   if (fix && (before.duplicateHooks.length > 0 || before.legacyHooks.length > 0)) {
     console.log(`fixed: duplicates=${before.duplicateHooks.length} legacyRateLimiters=${before.legacyHooks.length}`);
+  }
+  for (const conflict of after.conflictingHooks) {
+    console.log(`warning: conflicting external hook ${conflict.eventName} ${conflict.matcher}: ${conflict.command} (${conflict.reason})`);
+  }
+  const unknownCount = after.externalHooks.filter((hook) => hook.owner === "unknown-external").length;
+  if (unknownCount > 0) {
+    console.log(`warning: ${unknownCount} unknown external hook(s) present; inspect --json output before blaming repo-owned control-plane hooks`);
   }
 } else {
   console.error(`fail: settings audit found issues in ${settingsPath}`);

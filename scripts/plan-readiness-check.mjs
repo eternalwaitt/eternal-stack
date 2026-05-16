@@ -30,6 +30,7 @@ try {
 const failures = [];
 const repairHints = [];
 let normalizedSectionHeadings = [];
+const largeFinalPlanCharLimit = Number.parseInt(process.env.CLAUDE_PLAN_READINESS_MAX_CHARS ?? '120000', 10);
 
 function requirePattern(name, pattern, message) {
   if (!pattern.test(text)) {
@@ -41,7 +42,13 @@ function requirePattern(name, pattern, message) {
 function forbidPattern(name, pattern, message) {
   if (pattern.test(text)) {
     failures.push({ name, message });
+    repairHints.push(repairHintFor(name, message));
   }
+}
+
+function addFailure(name, message) {
+  failures.push({ name, message });
+  repairHints.push(repairHintFor(name, message));
 }
 
 function normalizeHeadingKey(heading) {
@@ -55,6 +62,8 @@ function repairHintFor(name, message) {
   }
   const hintMap = {
     status: allowDraft ? 'Add top metadata: Status: Draft or Status: Final' : 'Add top metadata: Status: Final',
+    execution_scope:
+      'Add top metadata: Execution scope: all_phases, first_patch_only, or an explicit subset.',
     goal: 'Add top metadata: Goal: one concrete outcome.',
     evidence: 'Add top metadata: Evidence: exact files, logs, sessions, or commands read.',
     non_goals: 'Add top metadata: Non-goals: explicit excluded work.',
@@ -65,6 +74,10 @@ function repairHintFor(name, message) {
     performance_review: 'In ## Plan Readiness Report, add "- Performance Review: ..."',
     readiness_failure_modes_bullet: 'In ## Plan Readiness Report, add "- Failure modes: ..."',
     parallelization_review: 'In ## Plan Readiness Report, add "- Parallelization: ..."',
+    immediate_first_patch:
+      'Rename "Immediate First Patch" to an explicit phase, or set Execution scope: first_patch_only if the plan is intentionally partial.',
+    plan_too_large:
+      'Add ## Execution Digest or ## Plan Index with chunk/subplan boundaries, then move oversized detail into referenced artifacts.',
   };
   return hintMap[name] ?? `Fix: ${message}`;
 }
@@ -78,6 +91,7 @@ function requireStatusHeading(allowDraftMode) {
 }
 
 requireStatusHeading(allowDraft);
+requirePattern('execution_scope', /^Execution scope:\s*\S/im, 'missing Execution scope');
 
 const sectionHeadings = REQUIRED_PLAN_HEADINGS
   .filter((heading) => heading.startsWith('## '))
@@ -115,6 +129,34 @@ for (const [name, pattern, message] of requiredSections) {
   requirePattern(name, pattern, message);
 }
 
+const isFinal = /^Status:\s*Final\b/im.test(text);
+const executionScope = text.match(/^Execution scope:\s*(.+)$/im)?.[1]?.trim() ?? '';
+const firstPatchOnly = /\b(first_patch_only|first patch only|first-patch-only)\b/i.test(executionScope);
+const hasImmediateFirstPatchHeading = /^##\s+Immediate First Patch\b/im.test(text);
+
+if (isFinal && hasImmediateFirstPatchHeading && !firstPatchOnly) {
+  addFailure(
+    'immediate_first_patch',
+    'Final plans must not contain "## Immediate First Patch" unless Execution scope is first_patch_only.',
+  );
+}
+
+const hasLargePlanDigest =
+  /^##\s+(Execution Digest|Plan Index|Chunk Index|Subplan Index)\b/im.test(text)
+  || /^Plan index:\s*\S/im.test(text);
+if (
+  isFinal
+  && Number.isFinite(largeFinalPlanCharLimit)
+  && largeFinalPlanCharLimit > 0
+  && text.length > largeFinalPlanCharLimit
+  && !hasLargePlanDigest
+) {
+  addFailure(
+    'plan_too_large',
+    `Final plan is ${text.length} characters, above the ${largeFinalPlanCharLimit} character control-plane limit, without an Execution Digest or Plan Index.`,
+  );
+}
+
 const readinessChecks = [
   ['scope_challenge', /Scope Challenge/im, 'readiness report must cover Scope Challenge'],
   ['architecture_review', /Architecture Review/im, 'readiness report must cover Architecture Review'],
@@ -143,7 +185,7 @@ forbidPattern('wire_it_up', /wire it up/i, 'replace vague "wire it up" with conc
 forbidPattern('similar_to_above', /similar to above/i, 'replace "similar to above" with explicit steps');
 
 if (json) {
-  console.log(JSON.stringify({ ok: failures.length === 0, failures, repairHints, optionalMetadata }, null, 2));
+  console.log(JSON.stringify({ ok: failures.length === 0, executionScope, failures, repairHints, optionalMetadata }, null, 2));
 } else if (failures.length === 0) {
   console.log(`ok: plan readiness passed for ${planPath}`);
 } else {
