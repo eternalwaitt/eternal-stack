@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.1.17 - 2026-05-16
+
+- Add a deterministic `documentation-comment-health.mjs` scanner and require documentation-health reports to include TSDoc/JSDoc comment-health counters, blocking sampled-only comment-health claims unless the repo is explicitly not applicable.
+
 ## v0.1.16 - 2026-05-16
 
 - Harden repo-owned ETRNL skills and reference docs from advisory phrasing into directive workflow contracts, and make `skill-contract-check.mjs` fail on soft directive language unless the text states an unavailable, not-applicable, or blocker path.

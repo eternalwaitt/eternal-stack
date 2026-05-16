@@ -74,6 +74,10 @@ function hasValidation(commands) {
   ));
 }
 
+function hasCommentHealth(commands) {
+  return commands.some((command) => /documentation-comment-health\.mjs/.test(command));
+}
+
 function hasAny(message, patterns) {
   return patterns.some((pattern) => pattern.test(message));
 }
@@ -92,6 +96,17 @@ function reportStatus(message) {
   ];
   if (!hasAll(message, coverageRequired)) return "missing-coverage-counters";
 
+  const commentHealthNotApplicable = /COMMENT_HEALTH_NOT_APPLICABLE:/i.test(message);
+  const commentHealthRequired = [
+    /TSDOC_JSDOC_FILES_SCANNED:/,
+    /COMMENT_TARGETS_REVIEWED:/,
+    /COMMENT_TARGETS_DOCUMENTED:/,
+    /COMMENT_TARGETS_MISSING_DOCS:/,
+  ];
+  if (!commentHealthNotApplicable && !hasAll(message, commentHealthRequired)) {
+    return "missing-comment-health-counters";
+  }
+
   const sourceTruth = [/source[_ -]of[_ -]truth/i, /source of truth/i];
   if (!hasAny(message, sourceTruth)) return "missing-source-truth";
 
@@ -100,6 +115,10 @@ function reportStatus(message) {
 
   const scorecardRequired = [/scorecard/i, /overall documentation health|overall health/i];
   if (!hasAll(message, scorecardRequired)) return "missing-scorecard";
+
+  if (!hasAny(message, [/TSDoc\/JSDoc/i, /Comment Health/i, /comment health/i])) {
+    return "missing-comment-health-section";
+  }
 
   const inventoryRequired = [/canonical/i, /secondary|stale|misleading|archive|generated|duplicate|delete_candidate|missing/i];
   if (!hasAll(message, inventoryRequired)) return "missing-inventory-classification";
@@ -119,6 +138,9 @@ function docHealthGateStatus(state, message) {
   if (!hasInventory(commands)) return "missing-inventory";
   const status = reportStatus(message);
   if (status) return status;
+  if (!/COMMENT_HEALTH_NOT_APPLICABLE:/i.test(message) && !hasCommentHealth(commands)) {
+    return "missing-comment-health-check";
+  }
   if (!hasValidation(commands)) return "missing-validation";
   return "";
 }

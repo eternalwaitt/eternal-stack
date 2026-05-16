@@ -49,6 +49,7 @@ CRITICAL_HOOKS=(
 )
 
 CRITICAL_SCRIPTS=(
+  documentation-comment-health.mjs
   documentation-health-ledger-check.mjs
   execution-ledger.mjs
   execute-evidence-check.mjs

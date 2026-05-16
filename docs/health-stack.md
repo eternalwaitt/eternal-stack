@@ -6,6 +6,7 @@ Use this stack when running `etrnl-code-health` in this repo.
 
 ```bash
 node scripts/code-health-inventory.mjs --json --include-untracked
+node scripts/documentation-comment-health.mjs --root . --json --include-untracked
 # Research checks are split so each stage fails with clear scope:
 # validate-manifest (structure), validate-evidence (evidence rows), validate-scorecard (skills/evidence parity).
 node scripts/research-competitor-intel.mjs validate-manifest --manifest docs/research/top10-lock.json
@@ -78,6 +79,7 @@ scripts/post-upgrade-canary.sh
 - `execution-ledger.mjs` writes schema v2 ledgers with cwd/project id, events, phases, reviews, atomic updates, and bound write evidence checks (`record-agent`, `record-review`, `check-bound-execute`).
 - `etrnl-documentation-health` is the documentation-specialist health workflow. Use it when docs, ADRs, runbooks, API/runtime docs, AI context, or TSDoc/JSDoc are the target; it still inherits this repo's contract gates after repo-owned skill or docs changes.
 - `skill-contract-check.mjs` rejects soft directive language in repo-owned skills and their reference docs. Workflow instructions use mandatory defaults plus explicit unavailable, not-applicable, or blocker paths.
+- `documentation-comment-health.mjs` is mandatory for documentation-health runs against JS/TS repos. Reports must include TSDOC/JSDOC and COMMENT_TARGET counters, or an explicit `COMMENT_HEALTH_NOT_APPLICABLE:` line with evidence.
 
 Doctor reports installed hooks and agents, strict/observer mode, ledger and artifact directories, stale runs, unresolved review findings, browser/context artifact counts, prompt-budget drift, settings-audit external hook inventory, and optional Codex/Gemini/browser/design tool availability. Missing optional tools are reported as `not installed`; they are not hard failures unless a plan explicitly requires them.
 It also enforces changelog release hygiene: on `main`, `## Unreleased` must be empty, and post-tag commits require the first dated release section to advance beyond the latest git tag.

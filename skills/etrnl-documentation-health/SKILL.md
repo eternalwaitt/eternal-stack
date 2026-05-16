@@ -28,15 +28,19 @@ Infer mode from the request. If the user says "run", "execute", "fix", "bring to
    - Use `node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked` when installed.
    - If unavailable, use `node scripts/code-health-inventory.mjs --json --include-untracked`.
    - Fall back to tracked-file inventory with explicit `CHECKS_SKIPPED` reasons.
-4. Classify every documentation surface as `canonical`, `secondary`, `stale`, `misleading`, `archive`, `generated`, `duplicate`, `delete_candidate`, or `missing`.
-5. Map each important doc claim to a source of truth: scripts, package manifests, routes, schemas, migrations, tests, hooks, CI, deployment config, typed env modules, or actual installed/runtime state when relevant.
-6. Run deterministic documentation gates when available:
+4. Run comment health inventory before conclusions:
+   - Use `node ~/.claude/scripts/documentation-comment-health.mjs --root . --json --include-untracked` when installed.
+   - If unavailable, use `node scripts/documentation-comment-health.mjs --root . --json --include-untracked`.
+   - If the repo has no JS/TS source surface, write `COMMENT_HEALTH_NOT_APPLICABLE:` with evidence from inventory.
+5. Classify every documentation surface as `canonical`, `secondary`, `stale`, `misleading`, `archive`, `generated`, `duplicate`, `delete_candidate`, or `missing`.
+6. Map each important doc claim to a source of truth: scripts, package manifests, routes, schemas, migrations, tests, hooks, CI, deployment config, typed env modules, or actual installed/runtime state when relevant.
+7. Run deterministic documentation gates when available:
    - `markdownlint-cli2`, `cspell`, `vale`, link checkers, TypeDoc/API Extractor, or repo-specific docs scripts.
    - For this control plane, include `node scripts/skill-contract-check.mjs`, `tests/test-hooks.sh`, and `scripts/doctor.sh` after any repo-owned skill/docs change.
-7. Create a findings ledger with severity, evidence, disposition, and verification.
-8. In `fix` mode, patch the smallest canonical surface. Update stale docs instead of adding competing docs. Add local READMEs or comments only where they prevent real misuse.
-9. Rerun validation. Do not claim 100/100 with open findings unless each one is blocked or accepted with owner and evidence.
-10. Final completion is hook-gated. A short narrative such as "docs look healthy" is not valid completion. The final report must include coverage counters, source-of-truth mapping, documentation classifications, a findings ledger with severity/disposition/verification, skipped-check reasons, and the full scorecard.
+8. Create a findings ledger with severity, evidence, disposition, and verification.
+9. In `fix` mode, patch the smallest canonical surface. Update stale docs instead of adding competing docs. Add local READMEs or comments only where they prevent real misuse.
+10. Rerun validation. Do not claim 100/100 with open findings unless each one is blocked or accepted with owner and evidence.
+11. Final completion is hook-gated. A short narrative such as "docs look healthy" is not valid completion. The final report must include coverage counters, comment-health counters, source-of-truth mapping, documentation classifications, a findings ledger with severity/disposition/verification, skipped-check reasons, and the full scorecard.
 
 ## Parallel Subagent Fan-Out
 
@@ -80,6 +84,16 @@ Do not require comments everywhere. Require useful comments on public or risky s
 
 Classify comments as `useful`, `missing`, `noise`, `stale`, `misleading`, or `wrong-format`. For TypeScript, use TSDoc. Do not duplicate TypeScript types in comments. Use `@param name - Description`, `@remarks`, `@throws`, `@deprecated` with replacement policy, and `{@link Symbol}` only when they add real value.
 
+The final report must include these exact counters from the comment inventory:
+
+- `TSDOC_JSDOC_FILES_SCANNED:`
+- `COMMENT_TARGETS_REVIEWED:`
+- `COMMENT_TARGETS_DOCUMENTED:`
+- `COMMENT_TARGETS_MISSING_DOCS:`
+- `COMMENT_TARGETS_WRONG_FORMAT:`
+
+Do not report `MISSING_TSDOC_JSDOC_TARGETS: 0` from sampled source files. Use the comment-health inventory count or record `COMMENT_HEALTH_NOT_APPLICABLE:` with evidence.
+
 ## Findings Ledger
 
 Use `references/ledger-and-report.md` for the full schema and final report format.
@@ -110,7 +124,8 @@ Before final completion:
 3. List exclusions with evidence, not assumptions.
 4. Run the target repo health stack. If a gate is unavailable, record it in `CHECKS_SKIPPED` with reason.
 5. In `fix` mode, rerun the checks that prove edited docs match source behavior.
-6. Report scores 1-10 for root clarity, discoverability, freshness, architecture clarity, structure clarity, API/contract docs, runtime docs, ADRs, AI context, comments, onboarding, enforcement, and overall health.
+6. Report comment-health counters from `documentation-comment-health.mjs` or `COMMENT_HEALTH_NOT_APPLICABLE:` with evidence.
+7. Report scores 1-10 for root clarity, discoverability, freshness, architecture clarity, structure clarity, API/contract docs, runtime docs, ADRs, AI context, comments, onboarding, enforcement, and overall health.
 
 The stop hook enforces this contract with `documentation-health-ledger-check.mjs`.
 For this control plane, use `node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked` before conclusions and run at least one deterministic docs/skill validation gate before final completion.
