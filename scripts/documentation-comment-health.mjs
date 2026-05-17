@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
+import { isAuditExcludedPath, isGeneratedOrFixturePath } from "./lib/audit-exclusions.mjs";
 import { argValue } from "./lib/cli-args.mjs";
 
 const args = process.argv.slice(2);
@@ -8,20 +9,6 @@ const root = path.resolve(argValue(args, "--root", process.cwd()));
 const json = args.includes("--json");
 
 const sourceExtensions = new Set([".cjs", ".js", ".jsx", ".mjs", ".ts", ".tsx"]);
-const excludedDirs = new Set([
-  ".audit",
-  ".git",
-  ".next",
-  ".turbo",
-  ".worktrees",
-  "build",
-  "coverage",
-  "dbscans",
-  "dist",
-  "generated",
-  "node_modules",
-  "vendor",
-]);
 const testPattern = /(^|\/)(__tests__|tests?|fixtures?|__mocks__)(\/|$)|\.(test|spec)\.[cm]?[jt]sx?$/i;
 const riskPattern = /(^|\/)(api|app|routes?|scripts?|queue|workers?|modules?|lib|packages?|services?)\/|contract|router|schema|env|auth|permission|security|payment|billing|s3|qdrant|redis|scan|integration|client/i;
 
@@ -46,7 +33,8 @@ function walk(dir, files = []) {
   for (const entry of entries) {
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      if (!excludedDirs.has(entry.name)) walk(fullPath, files);
+      const relativePath = path.relative(root, fullPath);
+      if (!isAuditExcludedPath(relativePath) && !isGeneratedOrFixturePath(relativePath)) walk(fullPath, files);
       continue;
     }
     if (!entry.isFile()) continue;

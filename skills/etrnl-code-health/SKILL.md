@@ -36,6 +36,8 @@ Do not mark a finding `fixed` based on inspection alone. Require a passing gate 
    - If not installed, use `node scripts/code-health-inventory.mjs --json` inside the repository being audited.
    - Use `--json` for any programmatic parsing; plain `git ls-files` is only a last-resort list and must be converted into the coverage ledger before reporting coverage.
    - Classify every tracked file by source, test, docs, config, script, migration, fixture/generated, or asset.
+   - List vendor, dependency, build output, cache, generated, fixture, local agent state, worktree, log, and audit-artifact paths as explicit exclusions with reasons. Do not audit them as source, docs, config, or action items.
+   - Run external tools with ignore/exclude settings for the same exclusions before trusting their finding counts.
 2. Load the repo health stack:
    - Use `docs/health-stack.md` when it exists.
    - Otherwise search for a `## Health Stack` block in `AGENTS.md`, `CLAUDE.md`, `README.md`, or project docs.

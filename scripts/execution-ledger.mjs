@@ -8,6 +8,7 @@ import { nowIso, safeId } from "./lib/evidence-trace.mjs";
 
 const STATUSES = new Set(["pending", "in_progress", "reviewing", "changes_requested", "verified", "blocked", "skipped"]);
 const PHASE_STATUSES = new Set(["pending", "in_progress", "uat", "verified", "blocked", "skipped"]);
+const CHECK_STATUSES = new Set(["passed", "failed", "blocked", "skipped"]);
 const AGENT_DONE = new Set(["completed", "verified", "skipped"]);
 // Defaults allow brief multi-agent contention; tune with env vars for unusually slow disks.
 const LOCK_TIMEOUT_MS = Number(process.env.ETRNL_LEDGER_LOCK_TIMEOUT_MS || 30000);
@@ -145,6 +146,18 @@ function validateLedger(ledger) {
       errors.push(`phase ${phase.id || "<unknown>"} has invalid status ${phase.status}`);
     }
   }
+  for (const check of Array.isArray(ledger.checks) ? ledger.checks : []) {
+    if (!check.name) errors.push("check is missing name");
+    if (!check.command) errors.push(`check ${check.name || "<unknown>"} is missing command`);
+    if (!CHECK_STATUSES.has(check.status)) errors.push(`check ${check.name || "<unknown>"} has invalid status ${check.status}`);
+  }
+  for (const artifact of Array.isArray(ledger.artifacts) ? ledger.artifacts : []) {
+    if (!artifact.type) errors.push("artifact is missing type");
+    if (!artifact.path) errors.push(`artifact ${artifact.type || "<unknown>"} is missing path`);
+    if (artifact.path && !existsSync(path.resolve(ledger.cwd || process.cwd(), artifact.path))) {
+      errors.push(`artifact ${artifact.type || "<unknown>"} path does not exist: ${artifact.path}`);
+    }
+  }
   return errors;
 }
 
@@ -223,11 +236,15 @@ function completionErrors(ledger, options = {}) {
     .map((agent) => `${agent.id}:${agent.status}`);
   const artifactTypes = new Set((ledger.artifacts ?? []).map((artifact) => artifact.type));
   const missingArtifacts = (ledger.requiredArtifacts ?? []).filter((type) => !artifactTypes.has(type));
+  const failedChecks = (ledger.checks ?? [])
+    .filter((check) => check.status !== "passed")
+    .map((check) => `${check.name || "<unknown>"}:${check.status || "<missing>"}`);
   if (unfinishedTasks.length > 0) errors.push(`unfinished tasks: ${unfinishedTasks.join(", ")}`);
   if (unfinishedAgents.length > 0) errors.push(`unfinished agents: ${unfinishedAgents.join(", ")}`);
   if (missingArtifacts.length > 0) errors.push(`missing artifacts: ${missingArtifacts.join(", ")}`);
   if (Number(ledger.uatOpenFindings || 0) > 0) errors.push(`open UAT findings: ${ledger.uatOpenFindings}`);
   if ((ledger.checks ?? []).length === 0) errors.push("no verification checks recorded");
+  if (failedChecks.length > 0) errors.push(`verification checks not passed: ${failedChecks.join(", ")}`);
   if (options.requireTasks && tasks.length === 0) errors.push("no execution tasks recorded");
   if (options.requirePlanPhases && !ledger.planPath) errors.push("no plan path recorded");
   if (options.requirePlanPhases && phases.length === 0) errors.push("no plan phases recorded");
@@ -402,6 +419,10 @@ function recordCheck() {
     console.error("record-check requires --name and --command.");
     process.exit(2);
   }
+  if (!CHECK_STATUSES.has(status)) {
+    console.error(`record-check got invalid --status: ${status}.`);
+    process.exit(2);
+  }
   const file = currentLedgerOrFail();
   updateJson(file, (ledger) => {
     ledger.checks = ledger.checks ?? [];
@@ -438,6 +459,11 @@ function recordArtifact() {
   }
   const file = currentLedgerOrFail();
   updateJson(file, (ledger) => {
+    const resolvedArtifactPath = path.resolve(ledger.cwd || process.cwd(), artifactPath);
+    if (!existsSync(resolvedArtifactPath)) {
+      console.error(`record-artifact path does not exist: ${artifactPath}`);
+      process.exit(1);
+    }
     ledger.artifacts = ledger.artifacts ?? [];
     ledger.artifacts.push({ type, path: artifactPath, status: argValue("--status", "recorded"), at: nowIso() });
     ledger.updatedAt = nowIso();

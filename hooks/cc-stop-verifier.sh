@@ -207,6 +207,13 @@ cc_documentation_health_requested() {
   ' <<<"$state" >/dev/null
 }
 
+cc_code_health_requested() {
+  jq -e "$NORM_JQ"'
+    ([.requestedSkills[]?.value // empty | norm] | any(. == "code-health" or . == "repo-health" or . == "codebase-health" or . == "health"))
+      or ((.lastPrompt // "" | ascii_downcase) | test("code[- ]health|repo[- ]health|codebase[- ]health|no skips|loose ends|whole codebase audit|entire codebase audit"))
+  ' <<<"$state" >/dev/null
+}
+
 if [[ "$claims_done" != "true" ]] \
   && cc_email_triage_requested \
   && [[ "$message_lower" =~ (email[[:space:]]+triage[[:space:]]+report|#[[:space:]]*email[[:space:]]+triage[[:space:]]+report|run:[[:space:]]+triage_|inbox[[:space:]-]*zero|verified|inbox[[:space:]]+candidates|action[[:space:]]+backlog|archive[[:space:]]+plan) ]]; then
@@ -263,8 +270,61 @@ if [[ "$claims_done" == "true" ]]; then
         cc_json_block "documentation-health completion requires the final report to include coverage counters, source-of-truth mapping, documentation classifications, a findings ledger with severity/disposition/verification, and a scorecard. Expand the report before claiming completion."
         exit 0
         ;;
+      missing-comment-health-counters|missing-comment-health-check|missing-comment-health-section)
+        cc_json_block "documentation-health completion requires a real TSDoc/JSDoc/comment-health scan command and counters. Sampled comment-health claims are not completion evidence."
+        exit 0
+        ;;
+      missing-ledger-rows|open-findings|invalid-disposition|accepted-risk-missing-owner|missing-action-resolution-plan)
+        cc_json_block "documentation-health completion requires parsed findings rows with terminal dispositions plus an action-item resolution plan. Open, TODO, follow-up, blank, or ownerless accepted-risk rows are not closed."
+        exit 0
+        ;;
+      invalid-timestamp)
+        cc_json_block "documentation-health completion has malformed or untrusted command timestamps. Re-run the inventory, comment-health, and validation gates before claiming completion."
+        exit 0
+        ;;
       missing-validation)
         cc_json_block "documentation-health completion requires at least one deterministic validation gate after the inventory, such as documentation-health-ledger-check.mjs, markdown/link tooling, skill-contract-check.mjs, tests/test-hooks.sh, or scripts/doctor.sh."
+        exit 0
+        ;;
+      "")
+        ;;
+      *)
+        cc_json_block "documentation-health completion checker returned an unhandled blocking status: $doc_health_status. Fix the report or checker wiring before claiming completion."
+        exit 0
+        ;;
+    esac
+  fi
+  if cc_code_health_requested; then
+    code_health_input="$(jq -cn --argjson state "$state" --arg message "$message" '{state:$state,message:$message}')"
+    if ! code_health_status="$(node "$SCRIPT_DIR/../scripts/code-health-ledger-check.mjs" 2>/dev/null <<<"$code_health_input")"; then
+      cc_json_block "code-health completion checker failed. Re-run the code-health gate or inspect scripts/code-health-ledger-check.mjs before claiming completion."
+      exit 0
+    fi
+    case "$code_health_status" in
+      "")
+        ;;
+      missing-inventory)
+        cc_json_block "code-health completion requires a fresh inventory command: node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked. A surface-level repo skim is not enough."
+        exit 0
+        ;;
+      missing-report|missing-coverage-counters|missing-coverage-map|missing-action-items|missing-resolution-plan|missing-final-gate-status)
+        cc_json_block "code-health completion requires coverage counters, coverage map, action items, a resolution plan, and final gate status. Expand the report before claiming completion."
+        exit 0
+        ;;
+      missing-ledger|missing-ledger-rows|open-findings|invalid-disposition|accepted-risk-missing-owner|open-action-items|unreconciled-action-items)
+        cc_json_block "code-health completion requires every action item and finding to have a terminal disposition: fixed, false_positive_with_evidence, accepted_risk_with_owner, or blocked. Open/TODO/follow-up/blank rows are not completion."
+        exit 0
+        ;;
+      invalid-timestamp)
+        cc_json_block "code-health completion has malformed or untrusted command timestamps. Re-run the inventory and validation gates before claiming completion."
+        exit 0
+        ;;
+      missing-validation)
+        cc_json_block "code-health completion requires a deterministic validation gate after inventory and findings integration, such as tests/test-hooks.sh, tests/test-workflow-tools.sh, scripts/doctor.sh, or the target repo health stack."
+        exit 0
+        ;;
+      *)
+        cc_json_block "code-health completion checker returned an unhandled blocking status: $code_health_status. Fix the report or checker wiring before claiming completion."
         exit 0
         ;;
     esac

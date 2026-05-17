@@ -218,7 +218,7 @@ if [[ -f "$ROOT/scripts/plan-readiness-check.mjs" ]]; then
 else
   fail "plan readiness script missing"
 fi
-for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger execute-evidence-check execution-wave-check documentation-health-ledger-check review-log project-buglog browser-qa-report context-state workflow-health prompt-budget-check skill-contract-check skill-behavior-smoke changelog-release-check port-guard update-check research-competitor-intel settings-audit; do
+for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger execute-evidence-check execution-wave-check code-health-ledger-check documentation-comment-health documentation-health-ledger-check review-log project-buglog browser-qa-report context-state workflow-health prompt-budget-check skill-contract-check skill-behavior-smoke changelog-release-check port-guard update-check research-competitor-intel settings-audit; do
   if [[ -f "$ROOT/scripts/$script.mjs" ]]; then
     report_command "$script syntax valid" "$script syntax invalid" node --check "$ROOT/scripts/$script.mjs"
   else
@@ -485,7 +485,43 @@ else
 fi
 
 if git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1 && [[ -f "$ROOT/CHANGELOG.md" ]]; then
-  if rg -n --glob '!.git/**' --glob '!node_modules/**' --glob '!vendor/**' 'sk_live_[A-Za-z0-9]{16,}|ghp_[A-Za-z0-9_]{20,}|glpat-[A-Za-z0-9_-]{20,}|xoxb-[0-9A-Za-z-]{20,}|npm_[A-Za-z0-9]{20,}|AKIA[A-Z0-9]{16}|sk-ant-[A-Za-z0-9_-]{20,}|sk-proj-[A-Za-z0-9_-]{20,}' "$ROOT" >/dev/null 2>&1; then
+  credential_scan_globs=(
+    --glob '!.agents/**'
+    --glob '!.audit/**'
+    --glob '!.cache/**'
+    --glob '!.claude/**'
+    --glob '!.codex/**'
+    --glob '!.cursor/**'
+    --glob '!.git/**'
+    --glob '!.idea/**'
+    --glob '!.netlify/**'
+    --glob '!.next/**'
+    --glob '!.nuxt/**'
+    --glob '!.output/**'
+    --glob '!.parcel-cache/**'
+    --glob '!.svelte-kit/**'
+    --glob '!.turbo/**'
+    --glob '!.vercel/**'
+    --glob '!.vite/**'
+    --glob '!.vitest/**'
+    --glob '!.vscode/**'
+    --glob '!.worktrees/**'
+    --glob '!build/**'
+    --glob '!cache/**'
+    --glob '!coverage/**'
+    --glob '!dbscans/**'
+    --glob '!dist/**'
+    --glob '!generated/**'
+    --glob '!logs/**'
+    --glob '!node_modules/**'
+    --glob '!out/**'
+    --glob '!storybook-static/**'
+    --glob '!temp/**'
+    --glob '!tmp/**'
+    --glob '!tool-output/**'
+    --glob '!vendor/**'
+  )
+  if rg -n "${credential_scan_globs[@]}" 'sk_live_[A-Za-z0-9]{16,}|ghp_[A-Za-z0-9_]{20,}|glpat-[A-Za-z0-9_-]{20,}|xoxb-[0-9A-Za-z-]{20,}|npm_[A-Za-z0-9]{20,}|AKIA[A-Z0-9]{16}|sk-ant-[A-Za-z0-9_-]{20,}|sk-proj-[A-Za-z0-9_-]{20,}' "$ROOT" >/dev/null 2>&1; then
     fail "private credential pattern found in repo"
   else
     ok "credential pattern scan clean"

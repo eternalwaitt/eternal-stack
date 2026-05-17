@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
 
-const DOC_SKILL = "documentation-health";
+const CODE_HEALTH_SKILL = "code-health";
 const TERMINAL_DISPOSITIONS = new Set([
   "fixed",
   "false_positive_with_evidence",
@@ -24,7 +24,7 @@ function readInput() {
     return { state: parsed, message: String(parsed.lastAssistantMessage || "") };
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
-    throw new Error(`invalid documentation health input JSON: ${detail}`);
+    throw new Error(`invalid code health input JSON: ${detail}`);
   }
 }
 
@@ -38,12 +38,9 @@ function norm(value) {
     .replace(/^etrnl-/, "")
     .replace(/\s+/g, "-");
   const aliases = new Map([
-    ["docs-health", DOC_SKILL],
-    ["doc-health", DOC_SKILL],
-    ["documentation-audit", DOC_SKILL],
-    ["docs-audit", DOC_SKILL],
-    ["documentation-drift", DOC_SKILL],
-    ["docs-drift", DOC_SKILL],
+    ["repo-health", CODE_HEALTH_SKILL],
+    ["codebase-health", CODE_HEALTH_SKILL],
+    ["health", CODE_HEALTH_SKILL],
   ]);
   return aliases.get(normalized) || normalized;
 }
@@ -57,9 +54,9 @@ function parseStamp(value) {
   return Number.isFinite(parsed) ? parsed : Number.NaN;
 }
 
-function latestDocHealthRequest(state) {
+function latestCodeHealthRequest(state) {
   const times = (state.requestedSkills || [])
-    .filter((item) => norm(item?.value) === DOC_SKILL)
+    .filter((item) => norm(item?.value) === CODE_HEALTH_SKILL)
     .map((item) => parseStamp(stamp(item)))
     .filter(Number.isFinite);
   return times.length > 0 ? Math.max(...times) : 0;
@@ -93,20 +90,8 @@ function hasInventory(commands) {
 
 function hasValidation(commands) {
   return commands.some((command) => (
-    /documentation-health-ledger-check\.mjs|markdownlint|cspell|vale|lychee|linkinator|markdown-link-check|skill-contract-check\.mjs|tests\/test-hooks\.sh|scripts\/doctor\.sh|doctor-control-plane\.sh/.test(command)
+    /tests\/test-hooks\.sh|tests\/test-workflow-tools\.sh|scripts\/doctor\.sh|doctor-control-plane\.sh|pnpm\s+(run\s+)?(typecheck|lint|test|build)|npm\s+(run\s+)?(typecheck|lint|test|build)|yarn\s+(run\s+)?(typecheck|lint|test|build)|bun\s+(run\s+)?(typecheck|lint|test|build)|cargo\s+(test|clippy|build|check)|go\s+test|pytest|ruff|mypy|pyright/i.test(command)
   ));
-}
-
-function hasCommentHealth(commands) {
-  return commands.some((command) => /documentation-comment-health\.mjs/.test(command));
-}
-
-function hasAny(message, patterns) {
-  return patterns.some((pattern) => pattern.test(message));
-}
-
-function hasAll(message, patterns) {
-  return patterns.every((pattern) => pattern.test(message));
 }
 
 function counterValue(message, label) {
@@ -144,7 +129,9 @@ function tableRowsAfterLedgerHeading(message) {
 
 function ledgerStatus(message) {
   if (!/findings ledger/i.test(message)) return "missing-ledger";
-  if (!hasAll(message, [/severity/i, /disposition/i, /verification/i])) return "missing-ledger";
+  if (!/severity/i.test(message) || !/disposition/i.test(message) || !/verification/i.test(message)) {
+    return "missing-ledger";
+  }
   const rows = tableRowsAfterLedgerHeading(message);
   if (rows.length === 0) return "missing-ledger-rows";
   for (const row of rows) {
@@ -164,78 +151,54 @@ function ledgerStatus(message) {
 
 function reportStatus(message) {
   if (!message.trim()) return "missing-report";
-  if (!hasNumericCounters(message, ["DOCS_FILES_TOTAL", "DOCS_FILES_REVIEWED"])) {
-    return "missing-coverage-counters";
-  }
-  if (!hasAny(message, [/SOURCE_FILES_TOTAL_APPLICABLE:/, /SOURCE_FILES_SAMPLED_OR_REVIEWED:/])) {
-    return "missing-coverage-counters";
-  }
-  if (!/CHECKS_SKIPPED:/i.test(message) || !/^FINAL_DOC_HEALTH_SCORE:\s*\d+\/100\b/im.test(message)) {
-    return "missing-coverage-counters";
-  }
-
-  const commentHealthNotApplicable = /COMMENT_HEALTH_NOT_APPLICABLE:/i.test(message);
-  const commentHealthRequired = [
-    "TSDOC_JSDOC_FILES_SCANNED",
-    "COMMENT_TARGETS_REVIEWED",
-    "COMMENT_TARGETS_DOCUMENTED",
-    "COMMENT_TARGETS_MISSING_DOCS",
-    "COMMENT_TARGETS_WRONG_FORMAT",
+  const requiredCounters = [
+    "CODE_HEALTH_FILES_TOTAL",
+    "CODE_HEALTH_FILES_AUDITED",
+    "ACTION_ITEMS_TOTAL",
+    "ACTION_ITEMS_OPEN",
+    "ACTION_ITEMS_TERMINAL",
   ];
-  if (!commentHealthNotApplicable && !hasNumericCounters(message, commentHealthRequired)) {
-    return "missing-comment-health-counters";
+  if (!hasNumericCounters(message, requiredCounters)) return "missing-coverage-counters";
+  if (!/CHECKS_SKIPPED:/i.test(message) || !/^FINAL_CODE_HEALTH_SCORE:\s*\d+\/100\b/im.test(message)) {
+    return "missing-coverage-counters";
   }
-
-  const sourceTruth = [/source[_ -]of[_ -]truth/i, /source of truth/i];
-  if (!hasAny(message, sourceTruth)) return "missing-source-truth";
-
+  if (counterValue(message, "ACTION_ITEMS_OPEN") !== 0) return "open-action-items";
+  const terminal = counterValue(message, "ACTION_ITEMS_TERMINAL");
+  const total = counterValue(message, "ACTION_ITEMS_TOTAL");
+  if (Number.isInteger(terminal) && Number.isInteger(total) && terminal !== total) {
+    return "unreconciled-action-items";
+  }
   const ledger = ledgerStatus(message);
   if (ledger) return ledger;
-
-  const scorecardRequired = [/scorecard/i, /overall documentation health|overall health/i];
-  if (!hasAll(message, scorecardRequired)) return "missing-scorecard";
-
-  if (!hasAny(message, [/TSDoc\/JSDoc/i, /Comment Health/i, /comment health/i])) {
-    return "missing-comment-health-section";
-  }
-
-  const inventoryRequired = [/canonical/i, /secondary|stale|misleading|archive|generated|duplicate|delete_candidate|missing/i];
-  if (!hasAll(message, inventoryRequired)) return "missing-inventory-classification";
-
-  if (!hasAll(message, [/action items/i, /resolution plan|remediation plan|immediate fixes/i])) {
-    return "missing-action-resolution-plan";
-  }
-
+  if (!/coverage map/i.test(message)) return "missing-coverage-map";
+  if (!/action items/i.test(message)) return "missing-action-items";
+  if (!/resolution plan|remediation plan/i.test(message)) return "missing-resolution-plan";
+  if (!/final gate status|verification gate|health stack/i.test(message)) return "missing-final-gate-status";
   return "";
 }
 
-function docHealthGateStatus(state, message) {
-  const requestedAt = latestDocHealthRequest(state);
+function codeHealthGateStatus(state, message) {
+  const requestedAt = latestCodeHealthRequest(state);
   if (!requestedAt) return "";
   if (hasInvalidTimestampsAfter(state.successfulCommands, requestedAt) || hasInvalidTimestampsAfter(state.verificationRuns, requestedAt)) {
     return "invalid-timestamp";
   }
-
   const commands = [
     ...valuesAfter(state.successfulCommands, requestedAt),
     ...valuesAfter(state.verificationRuns, requestedAt),
   ];
-
   if (!hasInventory(commands)) return "missing-inventory";
   const status = reportStatus(message);
   if (status) return status;
-  if (!/COMMENT_HEALTH_NOT_APPLICABLE:/i.test(message) && !hasCommentHealth(commands)) {
-    return "missing-comment-health-check";
-  }
   if (!hasValidation(commands)) return "missing-validation";
   return "";
 }
 
 try {
   const { state, message } = readInput();
-  process.stdout.write(docHealthGateStatus(state, message));
+  process.stdout.write(codeHealthGateStatus(state, message));
 } catch (error) {
   const detail = error instanceof Error ? error.message : String(error);
-  console.error(`documentation-health-ledger-check failed: ${detail}`);
+  console.error(`code-health-ledger-check failed: ${detail}`);
   process.exit(2);
 }

@@ -55,6 +55,12 @@ function normalizeHeadingKey(heading) {
   return heading.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
 }
 
+function sectionBody(heading) {
+  const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = text.match(new RegExp(`^##\\s+${escaped}\\b[^\n]*\\n([\\s\\S]*?)(?=^##\\s+|(?![\\s\\S]))`, 'im'));
+  return match ? match[1] : '';
+}
+
 function repairHintFor(name, message) {
   const section = normalizedSectionHeadings.find((item) => item.normalizedKey === name);
   if (section) {
@@ -133,6 +139,16 @@ const isFinal = /^Status:\s*Final\b/im.test(text);
 const executionScope = text.match(/^Execution scope:\s*(.+)$/im)?.[1]?.trim() ?? '';
 const firstPatchOnly = /\b(first_patch_only|first patch only|first-patch-only)\b/i.test(executionScope);
 const hasImmediateFirstPatchHeading = /^##\s+Immediate First Patch\b/im.test(text);
+const validExecutionScope =
+  /^(all_phases|first_patch_only|phase_[a-z0-9_.-]+(?:_phase_[a-z0-9_.-]+)*_only)$/i.test(executionScope)
+  || /^phase_[a-z0-9_.-]+(?:_phase_[a-z0-9_.-]+)*$/i.test(executionScope);
+
+if (executionScope && !validExecutionScope) {
+  addFailure(
+    'execution_scope',
+    'Execution scope must be all_phases, first_patch_only, or an explicit phase subset such as phase_1_phase_2_only.',
+  );
+}
 
 if (isFinal && hasImmediateFirstPatchHeading && !firstPatchOnly) {
   addFailure(
@@ -157,18 +173,21 @@ if (
   );
 }
 
+const readinessReport = sectionBody('Plan Readiness Report');
 const readinessChecks = [
-  ['scope_challenge', /Scope Challenge/im, 'readiness report must cover Scope Challenge'],
-  ['architecture_review', /Architecture Review/im, 'readiness report must cover Architecture Review'],
-  ['code_quality_review', /Code Quality Review/im, 'readiness report must cover Code Quality Review'],
-  ['test_review', /Test Review/im, 'readiness report must cover Test Review'],
-  ['performance_review', /Performance Review/im, 'readiness report must cover Performance Review'],
-  ['readiness_failure_modes_bullet', /^-\s*Failure modes:/im, 'readiness report must cover Failure modes'],
-  ['parallelization_review', /Parallelization/im, 'readiness report must cover Parallelization'],
+  ['scope_challenge', /^-\s*Scope Challenge:\s*\S/im, 'readiness report must cover Scope Challenge'],
+  ['architecture_review', /^-\s*Architecture Review:\s*\S/im, 'readiness report must cover Architecture Review'],
+  ['code_quality_review', /^-\s*Code Quality Review:\s*\S/im, 'readiness report must cover Code Quality Review'],
+  ['test_review', /^-\s*Test Review:\s*\S/im, 'readiness report must cover Test Review'],
+  ['performance_review', /^-\s*Performance Review:\s*\S/im, 'readiness report must cover Performance Review'],
+  ['readiness_failure_modes_bullet', /^-\s*Failure modes:\s*\S/im, 'readiness report must cover Failure modes'],
+  ['parallelization_review', /^-\s*Parallelization:\s*\S/im, 'readiness report must cover Parallelization'],
 ];
 
 for (const [name, pattern, message] of readinessChecks) {
-  requirePattern(name, pattern, message);
+  if (!pattern.test(readinessReport)) {
+    addFailure(name, message);
+  }
 }
 
 const optionalMetadata = {

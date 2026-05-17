@@ -49,6 +49,7 @@ CRITICAL_HOOKS=(
 )
 
 CRITICAL_SCRIPTS=(
+  code-health-ledger-check.mjs
   documentation-comment-health.mjs
   documentation-health-ledger-check.mjs
   execution-ledger.mjs
@@ -56,6 +57,7 @@ CRITICAL_SCRIPTS=(
   plan-readiness-check.mjs
   agent-task-packet-check.mjs
   guard-override-token.mjs
+  lib/audit-exclusions.mjs
   lib/bash-array-parser.mjs
   lib/cli-args.mjs
   lib/evidence-trace.mjs

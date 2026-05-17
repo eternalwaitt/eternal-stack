@@ -1,5 +1,6 @@
 import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { isAuditExcludedPath, isGeneratedOrFixturePath } from "./audit-exclusions.mjs";
 import { parseBashArray } from "./bash-array-parser.mjs";
 
 export const CAPABILITY_DEFS = [
@@ -120,7 +121,7 @@ function listFilesRecursive(rootDir, prefix = "", visited = new Set()) {
     }
     if (stats.isSymbolicLink()) return [];
     if (entry.isDirectory()) {
-      if (entry.name === ".git" || entry.name === "node_modules") return [];
+      if (isAuditExcludedPath(nextPrefix) || isGeneratedOrFixturePath(nextPrefix)) return [];
       return listFilesRecursive(abs, nextPrefix, visited);
     }
     return [nextPrefix];

@@ -403,6 +403,35 @@ cc_unresolved_agent_packet_failure_after_execute() {
   ' "$(cc_state_file)" >/dev/null 2>&1
 }
 
+cc_execute_direct_source_edit_without_degraded_marker() {
+  jq -e '
+    def norm:
+      ascii_downcase
+      | sub("^/"; "")
+      | sub("^skill\\("; "")
+      | sub("\\)$"; "")
+      | sub("^eternal-control-"; "")
+      | sub("^etrnl-"; "")
+      | if . == "execute-plan" or . == "run-plan" then "execute" else . end;
+    ([.requestedSkills[]?
+      | select((.value // "" | norm) == "execute")
+      | (.at // "")]
+      | map(select(. != ""))
+      | max // "") as $execute_at
+    | if $execute_at == "" then false
+      else ([.successfulCommands[]?
+        | select((.at // "") >= $execute_at)
+        | (.command // .value // "")
+        | ascii_downcase
+        | select(test("execution-ledger\\.mjs")
+            and test("set-task")
+            and test("sequential-degraded|sequential_degraded")
+            and test("--summary|--title"))]
+        | length) == 0
+      end
+  ' "$(cc_state_file)" >/dev/null 2>&1
+}
+
 handle_bash() {
   local cmd="$1"
   current_bash_command="$cmd"
@@ -525,6 +554,9 @@ handle_edit() {
   if [[ -n "$abs" ]] && cc_is_source_path "$abs" && ! cc_is_exempt_path "$abs"; then
     if cc_unresolved_agent_packet_failure_after_execute; then
       deny "A required /etrnl-execute Agent/Task packet was rejected. Retry the Agent/Task call with a JSON-only task packet before editing source files. A malformed packet is not a sequential-degraded blocker."
+    fi
+    if cc_execute_direct_source_edit_without_degraded_marker; then
+      deny "/etrnl-execute source edits must be owned by write-mode implementation subagents. Direct parent source edits require a recorded sequential-degraded ledger marker with the exact blocker before editing."
     fi
     if [[ "$current_tool" != "Write" && -e "$abs" ]] && ! cc_state_has_read "$abs"; then
       deny "Read the existing source file before editing it: $abs"

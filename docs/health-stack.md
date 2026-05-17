@@ -27,6 +27,10 @@ node --check \
   scripts/settings-audit.mjs \
   scripts/update-check.mjs \
   scripts/code-health-inventory.mjs \
+  scripts/code-health-ledger-check.mjs \
+  scripts/documentation-comment-health.mjs \
+  scripts/documentation-health-ledger-check.mjs \
+  scripts/lib/audit-exclusions.mjs \
   scripts/research-competitor-intel.mjs \
   scripts/lib/research-intel-core.mjs \
   scripts/lib/research-intel-render.mjs \
@@ -37,6 +41,7 @@ node --check \
   scripts/guard-override-token.mjs \
   scripts/replay-hook-fixtures.mjs \
   scripts/execution-ledger.mjs \
+  scripts/execute-evidence-check.mjs \
   scripts/execution-wave-check.mjs \
   scripts/review-log.mjs \
   scripts/project-buglog.mjs \
@@ -79,6 +84,7 @@ scripts/post-upgrade-canary.sh
 - `execution-ledger.mjs` writes schema v2 ledgers with cwd/project id, events, phases, reviews, atomic updates, and bound write evidence checks (`record-agent`, `record-review`, `check-bound-execute`).
 - `etrnl-documentation-health` is the documentation-specialist health workflow. Use it when docs, ADRs, runbooks, API/runtime docs, AI context, or TSDoc/JSDoc are the target; it still inherits this repo's contract gates after repo-owned skill or docs changes.
 - `skill-contract-check.mjs` rejects soft directive language in repo-owned skills and their reference docs. Workflow instructions use mandatory defaults plus explicit unavailable, not-applicable, or blocker paths.
+- `scripts/lib/audit-exclusions.mjs` is the shared exclusion policy for code-health inventory and documentation comment inventory. Vendor, build output, caches, local agent state, worktrees, generated folders, fixtures, logs, and `.audit` artifacts are listed or skipped with reasons; they are not audited as source/docs action items.
 - `documentation-comment-health.mjs` is mandatory for documentation-health runs against JS/TS repos. Reports must include TSDOC/JSDOC and COMMENT_TARGET counters, or an explicit `COMMENT_HEALTH_NOT_APPLICABLE:` line with evidence.
 
 Doctor reports installed hooks and agents, strict/observer mode, ledger and artifact directories, stale runs, unresolved review findings, browser/context artifact counts, prompt-budget drift, settings-audit external hook inventory, and optional Codex/Gemini/browser/design tool availability. Missing optional tools are reported as `not installed`; they are not hard failures unless a plan explicitly requires them.

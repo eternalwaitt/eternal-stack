@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.1.18 - 2026-05-17
+
+- Harden `etrnl-code-health` and `etrnl-documentation-health` completion gates so shallow reports, open action items, non-terminal findings, missing comment-health counters, and missing resolution plans block completion instead of passing as advisory summaries.
+- Add a shared audit exclusion policy for code-health inventory, documentation comment health, research evidence extraction, and credential scans so dependency folders, build output, caches, generated files, worktrees, local agent state, logs, and `.audit` artifacts are listed or skipped with reasons instead of audited as source/docs findings.
+- Tighten execute/parallel orchestration checks with stricter packet overlap detection, bound implementation/reviewer evidence, failed-check rejection, existing-artifact validation, and direct parent source-edit blocking unless the run is explicitly recorded as sequential degraded.
+
 ## v0.1.17 - 2026-05-16
 
 - Add a deterministic `documentation-comment-health.mjs` scanner and require documentation-health reports to include TSDoc/JSDoc comment-health counters, blocking sampled-only comment-health claims unless the repo is explicitly not applicable.

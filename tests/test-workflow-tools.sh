@@ -61,7 +61,8 @@ if node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-ledger
 else
   ok "execution ledger blocks missing required artifact"
 fi
-node "$ROOT/scripts/execution-ledger.mjs" record-artifact --session fixture-ledger --type review-log --path "$TMPROOT/review-log.jsonl"
+printf '%s\n' '{"findings":[]}' >"$TMPROOT/execution-review-log.jsonl"
+node "$ROOT/scripts/execution-ledger.mjs" record-artifact --session fixture-ledger --type review-log --path "$TMPROOT/execution-review-log.jsonl"
 assert_command "execution ledger accepts complete run" node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-ledger
 if node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-ledger --require-ledger --require-tasks --require-plan-phases >/dev/null 2>&1; then
   not_ok "execution ledger requires plan phases for plan execution"
@@ -133,14 +134,30 @@ doc_health_shallow_state="$(jq -nc '{requestedSkills:[{value:"etrnl-documentatio
 doc_health_shallow_status="$(jq -cn --argjson state "$doc_health_shallow_state" --arg message "Done, docs look fine." '{state:$state,message:$message}' | node "$ROOT/scripts/documentation-health-ledger-check.mjs")"
 if [[ "$doc_health_shallow_status" == "missing-coverage-counters" ]]; then ok "documentation health checker rejects shallow report"; else not_ok "documentation health checker rejects shallow report: $doc_health_shallow_status"; fi
 
-doc_health_missing_comment_message=$'# Documentation Health Audit\n\n## Documentation Inventory\ncanonical docs and secondary docs classified.\n\n## Findings Ledger\nseverity | source_of_truth | disposition | verification\nP2 | scripts/install.sh | fixed | scripts/doctor.sh passed\n\n## Scorecard\nOverall documentation health: 8/10\n\nDOCS_FILES_REVIEWED: 12\nSOURCE_FILES_SAMPLED_OR_REVIEWED: 6\nCHECKS_SKIPPED: []\nFINAL_DOC_HEALTH_SCORE: 82/100\n'
+doc_health_missing_comment_message=$'# Documentation Health Audit\n\n## Documentation Inventory\ncanonical docs and secondary docs classified.\n\n## Findings Ledger\n| severity | source_of_truth | disposition | verification |\n| --- | --- | --- | --- |\n| P2 | scripts/install.sh | fixed | scripts/doctor.sh passed |\n\n## Scorecard\nOverall documentation health: 8/10\n\nDOCS_FILES_TOTAL: 12\nDOCS_FILES_REVIEWED: 12\nSOURCE_FILES_SAMPLED_OR_REVIEWED: 6\nCHECKS_SKIPPED: []\nFINAL_DOC_HEALTH_SCORE: 82/100\n'
 doc_health_missing_comment_status="$(jq -cn --argjson state "$doc_health_shallow_state" --arg message "$doc_health_missing_comment_message" '{state:$state,message:$message}' | node "$ROOT/scripts/documentation-health-ledger-check.mjs")"
 if [[ "$doc_health_missing_comment_status" == "missing-comment-health-counters" ]]; then ok "documentation health checker requires comment counters"; else not_ok "documentation health checker requires comment counters: $doc_health_missing_comment_status"; fi
 
 doc_health_full_state="$(jq -nc '{requestedSkills:[{value:"etrnl-documentation-health",at:"2026-01-01T00:00:00Z"}],successfulCommands:[{value:"node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked",at:"2026-01-01T00:00:01Z"},{value:"node ~/.claude/scripts/documentation-comment-health.mjs --root . --json --include-untracked",at:"2026-01-01T00:00:02Z"},{value:"node ~/.claude/scripts/documentation-health-ledger-check.mjs --report /tmp/doc-health.md",at:"2026-01-01T00:00:03Z"}],verificationRuns:[{value:"node ~/.claude/scripts/documentation-health-ledger-check.mjs --report /tmp/doc-health.md",at:"2026-01-01T00:00:03Z"}]}')"
-doc_health_full_message=$'# Documentation Health Audit\n\n## Documentation Inventory\ncanonical docs and secondary docs classified.\n\n## 10. TSDoc/JSDoc And Comments\nComment Health classified useful, missing, stale, misleading, noise, and wrong-format targets.\n\n## Findings Ledger\nseverity | source_of_truth | disposition | verification\nP2 | scripts/install.sh | fixed | scripts/doctor.sh passed\n\n## Scorecard\nTSDoc/JSDoc/comment health: 8/10\nOverall documentation health: 8/10\n\nDOCS_FILES_REVIEWED: 12\nSOURCE_FILES_SAMPLED_OR_REVIEWED: 6\nTSDOC_JSDOC_FILES_SCANNED: 4\nCOMMENT_TARGETS_REVIEWED: 9\nCOMMENT_TARGETS_DOCUMENTED: 7\nCOMMENT_TARGETS_MISSING_DOCS: 2\nCOMMENT_TARGETS_WRONG_FORMAT: 0\nCHECKS_SKIPPED: []\nFINAL_DOC_HEALTH_SCORE: 82/100\n'
+doc_health_full_message=$'# Documentation Health Audit\n\n## Documentation Inventory\ncanonical docs and secondary docs classified.\n\n## 10. TSDoc/JSDoc And Comments\nComment Health classified useful, missing, stale, misleading, noise, and wrong-format targets.\n\n## Findings Ledger\n| severity | source_of_truth | disposition | verification |\n| --- | --- | --- | --- |\n| P2 | scripts/install.sh | fixed | scripts/doctor.sh passed |\n\n## Action Items\nAll action items are terminal.\n\n## Resolution Plan\nImmediate fixes are verified.\n\n## Scorecard\nTSDoc/JSDoc/comment health: 8/10\nOverall documentation health: 8/10\n\nDOCS_FILES_TOTAL: 12\nDOCS_FILES_REVIEWED: 12\nSOURCE_FILES_SAMPLED_OR_REVIEWED: 6\nTSDOC_JSDOC_FILES_SCANNED: 4\nCOMMENT_TARGETS_REVIEWED: 9\nCOMMENT_TARGETS_DOCUMENTED: 7\nCOMMENT_TARGETS_MISSING_DOCS: 2\nCOMMENT_TARGETS_WRONG_FORMAT: 0\nCHECKS_SKIPPED: []\nFINAL_DOC_HEALTH_SCORE: 82/100\n'
 doc_health_full_status="$(jq -cn --argjson state "$doc_health_full_state" --arg message "$doc_health_full_message" '{state:$state,message:$message}' | node "$ROOT/scripts/documentation-health-ledger-check.mjs")"
 if [[ -z "$doc_health_full_status" ]]; then ok "documentation health checker accepts complete report"; else not_ok "documentation health checker accepts complete report: $doc_health_full_status"; fi
+
+code_health_bad_state="$(jq -nc '{requestedSkills:[{value:"etrnl-code-health",at:"2026-01-01T00:00:00Z"}],successfulCommands:[],verificationRuns:[] }')"
+code_health_bad_status="$(jq -cn --argjson state "$code_health_bad_state" --arg message "Done, code looks fine." '{state:$state,message:$message}' | node "$ROOT/scripts/code-health-ledger-check.mjs")"
+if [[ "$code_health_bad_status" == "missing-inventory" ]]; then ok "code health checker requires inventory"; else not_ok "code health checker requires inventory: $code_health_bad_status"; fi
+
+code_health_state="$(jq -nc '{requestedSkills:[{value:"etrnl-code-health",at:"2026-01-01T00:00:00Z"}],successfulCommands:[{value:"node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked",at:"2026-01-01T00:00:01Z"},{value:"tests/test-workflow-tools.sh",at:"2026-01-01T00:00:02Z"}],verificationRuns:[{value:"tests/test-workflow-tools.sh",at:"2026-01-01T00:00:02Z"}]}')"
+code_health_shallow_status="$(jq -cn --argjson state "$code_health_state" --arg message "Done, code looks fine." '{state:$state,message:$message}' | node "$ROOT/scripts/code-health-ledger-check.mjs")"
+if [[ "$code_health_shallow_status" == "missing-coverage-counters" ]]; then ok "code health checker rejects shallow report"; else not_ok "code health checker rejects shallow report: $code_health_shallow_status"; fi
+
+code_health_open_message=$'# Code Health Audit\n\n## Coverage Map\nEvery tracked file inventoried.\n\n## Findings Ledger\n| severity | evidence | disposition | verification |\n| --- | --- | --- | --- |\n| P1 | scripts/example.ts | open | pending |\n\n## Action Items\nOne action item remains open.\n\n## Resolution Plan\nFix every valid finding.\n\n## Final Gate Status\nHealth stack pending.\n\nCODE_HEALTH_FILES_TOTAL: 10\nCODE_HEALTH_FILES_AUDITED: 8\nACTION_ITEMS_TOTAL: 1\nACTION_ITEMS_OPEN: 1\nACTION_ITEMS_TERMINAL: 0\nCHECKS_SKIPPED: []\nFINAL_CODE_HEALTH_SCORE: 40/100\n'
+code_health_open_status="$(jq -cn --argjson state "$code_health_state" --arg message "$code_health_open_message" '{state:$state,message:$message}' | node "$ROOT/scripts/code-health-ledger-check.mjs")"
+if [[ "$code_health_open_status" == "open-action-items" ]]; then ok "code health checker blocks open action items"; else not_ok "code health checker blocks open action items: $code_health_open_status"; fi
+
+code_health_full_message=$'# Code Health Audit\n\n## Coverage Map\nEvery tracked file inventoried and exclusions are listed with reasons.\n\n## Findings Ledger\n| severity | evidence | disposition | verification |\n| --- | --- | --- | --- |\n| P1 | scripts/example.ts | fixed | tests/test-workflow-tools.sh passed |\n\n## Action Items\nAll action items are terminal.\n\n## Resolution Plan\nEvery valid finding is fixed.\n\n## Final Gate Status\nHealth stack passed.\n\nCODE_HEALTH_FILES_TOTAL: 10\nCODE_HEALTH_FILES_AUDITED: 8\nACTION_ITEMS_TOTAL: 1\nACTION_ITEMS_OPEN: 0\nACTION_ITEMS_TERMINAL: 1\nCHECKS_SKIPPED: []\nFINAL_CODE_HEALTH_SCORE: 100/100\n'
+code_health_full_status="$(jq -cn --argjson state "$code_health_state" --arg message "$code_health_full_message" '{state:$state,message:$message}' | node "$ROOT/scripts/code-health-ledger-check.mjs")"
+if [[ -z "$code_health_full_status" ]]; then ok "code health checker accepts complete report"; else not_ok "code health checker accepts complete report: $code_health_full_status"; fi
 
 doc_comment_root="$TMPROOT/doc-comment-health"
 mkdir -p "$doc_comment_root/src"
@@ -158,6 +175,59 @@ export function missingRoute() {
 TS
 doc_comment_json="$(node "$ROOT/scripts/documentation-comment-health.mjs" --root "$doc_comment_root" --json)"
 assert_json_expr "documentation comment health counts targets" "$doc_comment_json" '.tsdocJsdocTargetCount == 2 and .documentedTargetCount == 1 and .missingDocTargetCount == 1'
+
+doc_comment_exclusion_root="$TMPROOT/doc-comment-health-exclusions"
+mkdir -p \
+  "$doc_comment_exclusion_root/.cache" \
+  "$doc_comment_exclusion_root/.audit" \
+  "$doc_comment_exclusion_root/dist" \
+  "$doc_comment_exclusion_root/generated" \
+  "$doc_comment_exclusion_root/node_modules/pkg" \
+  "$doc_comment_exclusion_root/src" \
+  "$doc_comment_exclusion_root/tool-output" \
+  "$doc_comment_exclusion_root/vendor/pkg"
+cat >"$doc_comment_exclusion_root/src/api.ts" <<'TS'
+export function realRoute() {
+  return true
+}
+TS
+cat >"$doc_comment_exclusion_root/node_modules/pkg/index.ts" <<'TS'
+export function dependencyRoute() {
+  return true
+}
+TS
+cat >"$doc_comment_exclusion_root/.audit/report.ts" <<'TS'
+export function auditArtifactRoute() {
+  return true
+}
+TS
+cat >"$doc_comment_exclusion_root/dist/out.ts" <<'TS'
+export function buildOutputRoute() {
+  return true
+}
+TS
+cat >"$doc_comment_exclusion_root/generated/client.ts" <<'TS'
+export function generatedRoute() {
+  return true
+}
+TS
+cat >"$doc_comment_exclusion_root/vendor/pkg/index.ts" <<'TS'
+export function vendorRoute() {
+  return true
+}
+TS
+cat >"$doc_comment_exclusion_root/.cache/cache.ts" <<'TS'
+export function cacheRoute() {
+  return true
+}
+TS
+cat >"$doc_comment_exclusion_root/tool-output/report.ts" <<'TS'
+export function toolOutputRoute() {
+  return true
+}
+TS
+doc_comment_exclusion_json="$(node "$ROOT/scripts/documentation-comment-health.mjs" --root "$doc_comment_exclusion_root" --json)"
+assert_json_expr "documentation comment health skips obvious folders" "$doc_comment_exclusion_json" '.sourceFilesScanned == 1 and .tsdocJsdocTargetCount == 1 and .targets[0].path == "src/api.ts"'
 
 for script in \
   cc-pretooluse-guard.sh \
@@ -178,10 +248,45 @@ do
 done
 
 assert_command "complexity syntax" node --check "$ROOT/hooks/lib/complexity-check.mjs"
+assert_command "audit exclusions syntax" node --check "$ROOT/scripts/lib/audit-exclusions.mjs"
 assert_command "code-health inventory syntax" node --check "$ROOT/scripts/code-health-inventory.mjs"
 assert_command "code-health inventory runs" node "$ROOT/scripts/code-health-inventory.mjs" --json
 inventory_quiet_json="$(node "$ROOT/scripts/code-health-inventory.mjs" --json --quiet)"
 assert_json_expr "code-health inventory json quiet emits JSON" "$inventory_quiet_json" '.totalFiles >= 1'
+inventory_exclusion_root="$TMPROOT/code-health-inventory-exclusions"
+mkdir -p \
+  "$inventory_exclusion_root/.audit" \
+  "$inventory_exclusion_root/.cache" \
+  "$inventory_exclusion_root/.claude" \
+  "$inventory_exclusion_root/build" \
+  "$inventory_exclusion_root/cache" \
+  "$inventory_exclusion_root/dist" \
+  "$inventory_exclusion_root/generated" \
+  "$inventory_exclusion_root/logs" \
+  "$inventory_exclusion_root/node_modules/pkg" \
+  "$inventory_exclusion_root/out" \
+  "$inventory_exclusion_root/src" \
+  "$inventory_exclusion_root/tool-output" \
+  "$inventory_exclusion_root/vendor/pkg"
+git -C "$inventory_exclusion_root" init -q
+git -C "$inventory_exclusion_root" config user.email "tests@example.invalid"
+git -C "$inventory_exclusion_root" config user.name "Tests"
+printf '%s\n' 'export const real = true' >"$inventory_exclusion_root/src/app.ts"
+printf '%s\n' 'export const dep = true' >"$inventory_exclusion_root/node_modules/pkg/index.js"
+printf '%s\n' '# audit report' >"$inventory_exclusion_root/.audit/report.md"
+printf '%s\n' 'export const cache = true' >"$inventory_exclusion_root/.cache/cache.js"
+printf '%s\n' 'export const builtMore = true' >"$inventory_exclusion_root/build/out.js"
+printf '%s\n' 'local cache' >"$inventory_exclusion_root/cache/run.log"
+printf '%s\n' 'export const built = true' >"$inventory_exclusion_root/dist/out.js"
+printf '%s\n' 'export const generated = true' >"$inventory_exclusion_root/generated/client.ts"
+printf '%s\n' '{"session":"local"}' >"$inventory_exclusion_root/.claude/state.json"
+printf '%s\n' 'local log' >"$inventory_exclusion_root/logs/run.log"
+printf '%s\n' 'export const out = true' >"$inventory_exclusion_root/out/bundle.js"
+printf '%s\n' 'tool output' >"$inventory_exclusion_root/tool-output/report.txt"
+printf '%s\n' 'export const vendor = true' >"$inventory_exclusion_root/vendor/pkg/index.js"
+git -C "$inventory_exclusion_root" add -f . >/dev/null
+inventory_exclusion_json="$(node "$ROOT/scripts/code-health-inventory.mjs" --json --root="$inventory_exclusion_root")"
+assert_json_expr "code-health inventory lists obvious folders without auditing them" "$inventory_exclusion_json" '([.files[] | select(.path == "src/app.ts" and .auditScope == "audit")] | length) == 1 and ([.files[] | select(.path != "src/app.ts")] | all(.auditScope == "listed")) and ([.files[] | select(.path | startswith(".audit/"))][0].category == "excluded")'
 assert_command "plan readiness syntax" node --check "$ROOT/scripts/plan-readiness-check.mjs"
 assert_command "cli arg parser edge cases" node --input-type=module -e '
 import { argValue } from "./scripts/lib/cli-args.mjs";
@@ -225,7 +330,7 @@ expect(parsed[5], "single quoted value", "single-quoted branch");
 expect(parsed[6], "plain token", "unquoted escaped space branch");
 expect(parsed[7], "escaped space token", "unquoted multi-escape branch");
 '
-for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger execute-evidence-check execution-wave-check documentation-comment-health documentation-health-ledger-check review-log project-buglog browser-qa-report context-state workflow-health prompt-budget-check changelog-release-check port-guard update-check settings-audit; do
+for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger execute-evidence-check execution-wave-check code-health-ledger-check documentation-comment-health documentation-health-ledger-check review-log project-buglog browser-qa-report context-state workflow-health prompt-budget-check changelog-release-check port-guard update-check settings-audit; do
   assert_command "$script syntax" node --check "$ROOT/scripts/$script.mjs"
 done
 assert_command "update shell syntax" bash -n "$ROOT/scripts/update.sh"
@@ -363,11 +468,18 @@ while IFS=$'\t' read -r fixture_id fixture_path; do
     not_ok "research fixture scaffold failed for $fixture_id"
     exit 1
   fi
+  if ! mkdir -p "$fixture_dir/dist/skills" "$fixture_dir/vendor/scripts" "$fixture_dir/.cache/hooks"; then
+    not_ok "research fixture exclusion scaffold failed for $fixture_id"
+    exit 1
+  fi
   if ! {
     printf '%s\n' "# Skill ${fixture_id}" "${SKILL_LINE_TDD} for ${fixture_id}." "${SKILL_LINE_PLANNING} for ${fixture_id}." "${SKILL_LINE_RESEARCH} for ${fixture_id}." "$SKILL_LINE_SUBAGENT" "$SKILL_LINE_PARALLELISM" "$SKILL_LINE_GATE" "$SKILL_LINE_ROLLBACK." "$SKILL_LINE_TELEMETRY" >"$fixture_dir/skills/research/SKILL.md"
     printf '%s\n' '#!/usr/bin/env bash' "echo \"${HOOK_LINE_GATE} ${fixture_id}\"" >"$fixture_dir/hooks/pretool.sh"
     printf '%s\n' '#!/usr/bin/env bash' "echo \"${SCRIPT_LINE_TELEMETRY} ${fixture_id}\"" >"$fixture_dir/scripts/monitor.sh"
     printf '%s\n' "describe(\"tdd-${fixture_id}\", () => {" "  test(\"${TEST_LINE_TDD}\", () => {});" '});' >"$fixture_dir/tests/tdd.test.ts"
+    printf '%s\n' "# Excluded Skill ${fixture_id}" "${SKILL_LINE_TDD} excluded for ${fixture_id}." >"$fixture_dir/dist/skills/SKILL.md"
+    printf '%s\n' '#!/usr/bin/env bash' "echo \"${SCRIPT_LINE_TELEMETRY} excluded ${fixture_id}\"" >"$fixture_dir/vendor/scripts/monitor.sh"
+    printf '%s\n' '#!/usr/bin/env bash' "echo \"${HOOK_LINE_GATE} excluded ${fixture_id}\"" >"$fixture_dir/.cache/hooks/pretool.sh"
   }; then
     not_ok "research fixture file creation failed for $fixture_id"
     exit 1
@@ -384,6 +496,7 @@ fixture_json="$(jq -c . "$fixture_evidence")"
 assert_json_expr "research extractor emits 80 rows for 10 competitors x 8 capabilities" "$fixture_json" '.rows | length == 80'
 assert_json_expr "research extractor detects TDD signal" "$fixture_json" '([.rows[] | select(.capability=="tdd_enforcement") | .status == "present"] | any)'
 assert_json_expr "research extractor emits hook enforcement signal" "$fixture_json" '([.rows[] | select(.enforcementLevel=="hook_enforced")] | length > 0)'
+assert_json_expr "research extractor skips generated and vendor evidence" "$fixture_json" '([.rows[].evidence[].file | test("(^|/)(dist|vendor|\\.cache)(/|$)")] | any | not)'
 
 bad_scorecard="$TMPROOT/research-bad-scorecard.json"
 jq '(.scorecards[0].gaps[0].sourceRows[0]) = "unknown:capability"' "$ROOT/docs/research/parity-scorecard.json" >"$bad_scorecard"

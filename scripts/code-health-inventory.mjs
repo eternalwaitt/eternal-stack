@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
 import path from "node:path";
+import { classifyAuditPathExclusion } from "./lib/audit-exclusions.mjs";
 
 const args = process.argv.slice(2);
 let json = false;
@@ -107,12 +108,8 @@ const lockfileAndBuildPatterns = [
 function classify(file) {
   const lower = file.toLowerCase();
   const ext = path.extname(lower);
-  if (/(^|\/)(node_modules|vendor|dist|build|coverage|\.next|\.turbo|\.parcel-cache|\.cache|out|\.output)\//.test(lower)) {
-    return { category: "excluded", auditScope: "listed", reason: "vendor/build output" };
-  }
-  if (/(^|\/)(__generated__|generated|fixtures?|__pycache__|\.pytest_cache|[^/]+\.egg-info)\//.test(lower)) {
-    return { category: "generated-or-fixture", auditScope: "listed", reason: "generated or fixture-like path" };
-  }
+  const excluded = classifyAuditPathExclusion(lower);
+  if (excluded) return excluded;
   if (/(^|\/)(migrations?)\//.test(lower)) {
     return { category: "migration", auditScope: "audit-with-care", reason: "migration/history file" };
   }

@@ -255,6 +255,12 @@ function pathList(value, fieldName) {
   return { paths: [], error: `${fieldName} must be a non-empty string or array` };
 }
 
+function pathsOverlap(left, right) {
+  if (left === right) return true;
+  if (left === "." || right === ".") return true;
+  return left.startsWith(`${right}/`) || right.startsWith(`${left}/`);
+}
+
 // noRevert must be explicitly boolean true so workers acknowledge they cannot auto-revert.
 // String "true", number 1, and other truthy values are rejected to prevent accidental acknowledgment.
 if ("noRevert" in packet) {
@@ -276,12 +282,20 @@ if (mode === "write" && "writeScope" in packet && "forbiddenPaths" in packet) {
   if (forbiddenPathsResult.error) violations.push(forbiddenPathsResult.error);
   const writeScope = writeScopeResult.paths;
   const forbiddenPaths = forbiddenPathsResult.paths;
-  const writeScopeSet = new Set(writeScope);
-  const overlap = forbiddenPaths.filter((item) => writeScopeSet.has(item));
+  const overlap = forbiddenPaths.filter((forbiddenPath) => writeScope.some((writePath) => pathsOverlap(writePath, forbiddenPath)));
   if (overlap.length > 0) {
     violations.push(`writeScope and forbiddenPaths overlap (disjoint-ownership violation): ${overlap.join(", ")}`);
   }
-  if (writeScope.length >= 2) {
+  const waveSize = "waveSize" in packet ? Number(packet.waveSize) : 1;
+  if ("waveSize" in packet && (!Number.isInteger(waveSize) || waveSize <= 0)) {
+    violations.push("waveSize must be a positive integer when provided");
+  }
+  if ("parallelSafe" in packet && typeof packet.parallelSafe !== "boolean") {
+    violations.push("parallelSafe must be a boolean when provided");
+  }
+  const parallelWritePacket = writeScope.length >= 2 || waveSize >= 2 || packet.parallelSafe === true;
+  if (mode === "write" && waveSize >= 2 && !("waveId" in packet)) missing.push("waveId");
+  if (parallelWritePacket) {
     const reviewers = Array.isArray(packet.reviewers) ? packet.reviewers : [];
     if (packet.specReviewRequired !== true) missing.push("specReviewRequired");
     if (packet.qualityReviewRequired !== true) missing.push("qualityReviewRequired");

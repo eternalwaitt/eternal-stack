@@ -28,6 +28,7 @@ Infer mode from the request. If the user says "run", "execute", "fix", "bring to
    - Use `node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked` when installed.
    - If unavailable, use `node scripts/code-health-inventory.mjs --json --include-untracked`.
    - Fall back to tracked-file inventory with explicit `CHECKS_SKIPPED` reasons.
+   - List vendor, dependency, build output, cache, generated, fixture, local agent state, worktree, log, and audit-artifact paths as explicit exclusions with reasons. Do not audit them as documentation or comment action items.
 4. Run comment health inventory before conclusions:
    - Use `node ~/.claude/scripts/documentation-comment-health.mjs --root . --json --include-untracked` when installed.
    - If unavailable, use `node scripts/documentation-comment-health.mjs --root . --json --include-untracked`.

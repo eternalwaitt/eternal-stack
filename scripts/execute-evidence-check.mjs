@@ -70,31 +70,51 @@ function hasBoundIdentity(text) {
   return TASK_ID_RE.test(text) && LINEAGE_ID_RE.test(text) && PACKET_HASH_RE.test(text);
 }
 
+function parseStamp(item) {
+  const parsed = Date.parse(String(item?.at || ""));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function bindingFromText(text) {
+  const taskId = text.match(/taskid=([a-z0-9](?:[a-z0-9_.-]*[a-z0-9])?)(?=\s|$)/)?.[1] || "";
+  const lineageId = text.match(/lineageid=([a-z0-9](?:[a-z0-9_.-]*[a-z0-9])?)(?=\s|$)/)?.[1] || "";
+  const packetHashValue = text.match(/packethash=([a-f0-9]{64})/)?.[1] || "";
+  if (!taskId || !lineageId || !packetHashValue) return "";
+  return `${taskId}|${lineageId}|${packetHashValue}`;
+}
+
 function implementationAgentsAfter(state, timestamp) {
   return (state.agentCalls || [])
     .filter((item) => String(item?.at || "") >= timestamp)
-    .map(agentText)
-    .filter((text) => IMPLEMENTATION_AGENT_RE.test(text) && WRITE_MODE_RE.test(text) && hasBoundIdentity(text))
-    .length;
+    .map((item) => ({ text: agentText(item), at: parseStamp(item) }))
+    .filter((item) => IMPLEMENTATION_AGENT_RE.test(item.text) && WRITE_MODE_RE.test(item.text) && hasBoundIdentity(item.text));
 }
 
 function reviewerAgentsAfter(state, timestamp, reviewer) {
   return [...(state.reviewerAgentCalls || []), ...(state.agentCalls || [])]
     .filter((item) => String(item?.at || "") >= timestamp)
-    .map(agentText)
-    .filter((text) => text.includes(`subagent=${reviewer}`) && hasBoundIdentity(text))
-    .length;
+    .map((item) => ({ text: agentText(item), at: parseStamp(item) }))
+    .filter((item) => item.text.includes(`subagent=${reviewer}`) && hasBoundIdentity(item.text));
 }
 
 function executeGateStatus(state) {
   const executeAt = latestExecuteRequest(state);
   if (!executeAt) return "";
-  if (sourceEditsAfter(state, executeAt) < 2) return "";
-  const implementationCount = implementationAgentsAfter(state, executeAt);
-  if (implementationCount === 0) return "missing-agent";
-  const missingSpec = reviewerAgentsAfter(state, executeAt, "etrnl-spec-reviewer") === 0;
-  const missingQuality = reviewerAgentsAfter(state, executeAt, "etrnl-quality-reviewer") === 0;
-  return missingSpec || missingQuality ? "missing-reviewers" : "";
+  if (sourceEditsAfter(state, executeAt) < 1) return "";
+  const implementations = implementationAgentsAfter(state, executeAt);
+  if (implementations.length === 0) return "missing-agent";
+  const specReviews = reviewerAgentsAfter(state, executeAt, "etrnl-spec-reviewer");
+  const qualityReviews = reviewerAgentsAfter(state, executeAt, "etrnl-quality-reviewer");
+  const specsByKey = new Map(specReviews.map((item) => [bindingFromText(item.text), item.at]).filter(([key]) => key));
+  const qualityByKey = new Map(qualityReviews.map((item) => [bindingFromText(item.text), item.at]).filter(([key]) => key));
+  for (const implementation of implementations) {
+    const key = bindingFromText(implementation.text);
+    if (!key) return "missing-agent";
+    const specAt = specsByKey.get(key) || 0;
+    const qualityAt = qualityByKey.get(key) || 0;
+    if (specAt <= implementation.at || qualityAt <= implementation.at) return "missing-reviewers";
+  }
+  return "";
 }
 
 try {
