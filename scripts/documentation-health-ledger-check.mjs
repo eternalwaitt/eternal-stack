@@ -9,6 +9,10 @@ const TERMINAL_DISPOSITIONS = new Set([
   "blocked",
 ]);
 const NON_TERMINAL_DISPOSITIONS = new Set(["open", "later", "todo", "follow-up", "follow_up", ""]);
+const BASELINE_PATH_RE = /(^|\/)(?:docs\/policy\/[^/\n]*baseline[^/\n]*|scripts\/docs\/[^/\n]*baseline[^/\n]*|[^/\n]*(?:comment|documentation|docs?)[^/\n]*baseline[^/\n]*)\.(?:json|md|mjs|cjs|js|ts|tsx)$/i;
+const BASELINE_WRITE_COMMAND_RE = /\b--write-baseline\b|(^|[\s;&|])(?:pnpm|npm|yarn|bun)\s+(?:run\s+)?[^\s;&|]*baseline\b|(^|[\/\s])comment-health-baseline\.(?:mjs|cjs|js|ts)(?=.*\b--write-baseline\b)/i;
+const BASELINE_REPORT_RE = /\b(?:baseline (?:written|created|generated|refreshed)|(?:wrote|created|generated|refreshed) (?:a )?(?:new )?baseline|must not increase|--write-baseline|docs:comments:baseline|comment[-_ ]health[-_ ]baseline)\b/i;
+const BASELINE_NEGATED_RE = /\b(?:no|not|never|without|did not|didn't)\b.{0,60}\bbaseline\b|\bbaseline\b.{0,60}\b(?:not|never)\b/i;
 
 function readInput() {
   const raw = readFileSync(0, "utf8").trim();
@@ -81,6 +85,23 @@ function hasInvalidTimestampsAfter(items, timestamp) {
     const itemStamp = parseStamp(raw);
     return !Number.isFinite(itemStamp);
   });
+}
+
+function recordStamp(value) {
+  if (!value || typeof value !== "object") return String(value || "");
+  return String(value.at || value.timestamp || value.updatedAt || value.time || "");
+}
+
+function mapKeysAfter(records, timestamp) {
+  if (!records || typeof records !== "object") return [];
+  return Object.entries(records)
+    .filter(([, value]) => {
+      const raw = recordStamp(value);
+      if (!raw) return true;
+      const parsed = parseStamp(raw);
+      return !Number.isFinite(parsed) || parsed >= timestamp;
+    })
+    .map(([key]) => key);
 }
 
 function hasInventory(commands) {
@@ -162,6 +183,43 @@ function ledgerStatus(message) {
   return "";
 }
 
+function baselineExplicitlyRequested(state) {
+  return /\bbaseline\b|\bratchet\b/i.test(String(state.lastPrompt || ""));
+}
+
+function baselineHasTerminalRiskDisposition(message) {
+  const baselineRows = tableRowsAfterLedgerHeading(message).filter((row) => BASELINE_REPORT_RE.test(row));
+  if (baselineRows.length === 0) return false;
+  return baselineRows.some((row) => {
+    const cells = row.split("|").slice(1, -1).map((cell) => cell.trim());
+    const disposition = normalizeDisposition(cells.find((cell) => {
+      const normalized = normalizeDisposition(cell);
+      return TERMINAL_DISPOSITIONS.has(normalized) || NON_TERMINAL_DISPOSITIONS.has(normalized);
+    }) || cells.at(-2) || cells.at(-1) || "");
+    if (disposition === "blocked") return true;
+    return disposition === "accepted_risk_with_owner" && /\b(owner|accepted by|risk owner)\b/i.test(row);
+  });
+}
+
+function reportsBaselineClosure(message) {
+  return message
+    .split(/\r?\n/)
+    .some((line) => BASELINE_REPORT_RE.test(line) && !BASELINE_NEGATED_RE.test(line));
+}
+
+function baselineEvidenceStatus(state, message, commands, requestedAt) {
+  const changedPaths = [
+    ...mapKeysAfter(state.edits, requestedAt),
+    ...mapKeysAfter(state.newSourceFiles, requestedAt),
+  ];
+  const touchedBaseline = changedPaths.some((path) => BASELINE_PATH_RE.test(path));
+  const wroteBaseline = commands.some((command) => BASELINE_WRITE_COMMAND_RE.test(command));
+  const reportedBaselineClosure = reportsBaselineClosure(message);
+  if (!touchedBaseline && !wroteBaseline && !reportedBaselineClosure) return "";
+  if (baselineExplicitlyRequested(state) && baselineHasTerminalRiskDisposition(message)) return "";
+  return "baseline-without-remediation";
+}
+
 function reportStatus(message) {
   if (!message.trim()) return "missing-report";
   if (!hasNumericCounters(message, ["DOCS_FILES_TOTAL", "DOCS_FILES_REVIEWED"])) {
@@ -224,6 +282,8 @@ function docHealthGateStatus(state, message) {
   if (!hasInventory(commands)) return "missing-inventory";
   const status = reportStatus(message);
   if (status) return status;
+  const baselineStatus = baselineEvidenceStatus(state, message, commands, requestedAt);
+  if (baselineStatus) return baselineStatus;
   if (!/COMMENT_HEALTH_NOT_APPLICABLE:/i.test(message) && !hasCommentHealth(commands)) {
     return "missing-comment-health-check";
   }

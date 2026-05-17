@@ -12,13 +12,23 @@ This is the documentation specialist. Use `etrnl-code-health` for whole-codebase
 
 ## Modes
 
-- `audit`: read-only inventory, drift analysis, findings, scorecard, and required fixes.
-- `fix`: audit, patch valid documentation/comment issues, rerun validation, and close every finding.
+- `audit`: read-only inventory, drift analysis, findings, scorecard, actionable findings ledger, and remediation plan.
+- `fix`: audit, patch valid documentation/comment issues, rerun validation, and close or terminally dispose every finding.
+- `execute`: same as `fix`; remediate findings or record a terminal disposition with evidence.
 - `gate`: decide whether documentation health passes a release or merge bar.
 - `deep-dive`: exhaustively document one subsystem, app, package, feature, API, runbook, or module.
 - `starter-kit`: create or repair a minimal documentation system for a young repo.
 
-Infer mode from the request. If the user says "run", "execute", "fix", "bring to 100", or similar, use `fix` mode unless the user explicitly asks for report-only. If the user says "audit", "review", or "check", keep the first pass read-only unless the repo instructions say audits include remediation.
+Infer mode from the request. If the user says "run", "execute", "fix", "bring to 100", or similar, use `fix`/`execute` mode unless the user explicitly asks for report-only. If the user says "audit", "review", or "check", keep the first pass read-only unless the repo instructions say audits include remediation.
+
+## Execution Contract
+
+Documentation health is never satisfied by prose alone.
+
+- In `audit` mode, produce an actionable findings ledger and remediation plan. Every finding must include evidence, severity, owner/action needed when known, and the exact next remediation or terminal disposition path.
+- In `fix`/`execute` mode, remediate every valid item or terminally dispose it as `false_positive_with_evidence`, `accepted_risk_with_owner`, or `blocked` with evidence. Do not leave `open` items in the final state.
+- Baseline, ratchet, waiver, or snapshot creation is not remediation. Use it only when the user explicitly requests it, and record the unresolved item as `blocked` or `accepted_risk_with_owner` with owner, evidence, and reason.
+- Lowering the bar, creating a new baseline, or deferring work cannot be counted as a fix, a health improvement, or a closed finding unless the terminal disposition above is complete.
 
 ## Required Flow
 
@@ -38,10 +48,12 @@ Infer mode from the request. If the user says "run", "execute", "fix", "bring to
 7. Run deterministic documentation gates when available:
    - `markdownlint-cli2`, `cspell`, `vale`, link checkers, TypeDoc/API Extractor, or repo-specific docs scripts.
    - For this control plane, include `node scripts/skill-contract-check.mjs`, `tests/test-hooks.sh`, and `scripts/doctor.sh` after any repo-owned skill/docs change.
-8. Create a findings ledger with severity, evidence, disposition, and verification.
-9. In `fix` mode, patch the smallest canonical surface. Update stale docs instead of adding competing docs. Add local READMEs or comments only where they prevent real misuse.
-10. Rerun validation. Do not claim 100/100 with open findings unless each one is blocked or accepted with owner and evidence.
-11. Final completion is hook-gated. A short narrative such as "docs look healthy" is not valid completion. The final report must include coverage counters, comment-health counters, source-of-truth mapping, documentation classifications, a findings ledger with severity/disposition/verification, skipped-check reasons, and the full scorecard.
+8. Create an actionable findings ledger and remediation plan with severity, evidence, disposition, owner/action needed when known, verification, and exact next step.
+9. In `fix`/`execute` mode, patch the smallest canonical surface and remediate every valid finding. Update stale docs instead of adding competing docs. Add local READMEs or comments only where they prevent real misuse.
+10. Terminally dispose unresolved findings before final completion. Allowed terminal non-fixed states are `false_positive_with_evidence`, `accepted_risk_with_owner`, and `blocked`; each needs evidence and owner/action where relevant.
+11. Do not create a baseline, ratchet, waiver, or snapshot as a substitute for remediation unless explicitly requested. If requested, record the unresolved item as `blocked` or `accepted_risk_with_owner` with owner, evidence, and reason.
+12. Rerun validation. Do not claim 100/100 with open findings unless each one is blocked or accepted with owner and evidence.
+13. Final completion is hook-gated. A short narrative such as "docs look healthy" is not valid completion. The final report must include coverage counters, comment-health counters, source-of-truth mapping, documentation classifications, a findings ledger with severity/disposition/verification, skipped-check reasons, and the full scorecard.
 
 ## Parallel Subagent Fan-Out
 
@@ -124,7 +136,7 @@ Before final completion:
 2. Verify every relevant surface is current, fixed, classified, accepted, blocked, or explicitly excluded.
 3. List exclusions with evidence, not assumptions.
 4. Run the target repo health stack. If a gate is unavailable, record it in `CHECKS_SKIPPED` with reason.
-5. In `fix` mode, rerun the checks that prove edited docs match source behavior.
+5. In `fix`/`execute` mode, rerun the checks that prove edited docs match source behavior and confirm no finding remains `open`.
 6. Report comment-health counters from `documentation-comment-health.mjs` or `COMMENT_HEALTH_NOT_APPLICABLE:` with evidence.
 7. Report scores 1-10 for root clarity, discoverability, freshness, architecture clarity, structure clarity, API/contract docs, runtime docs, ADRs, AI context, comments, onboarding, enforcement, and overall health.
 

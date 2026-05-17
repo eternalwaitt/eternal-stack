@@ -278,6 +278,10 @@ if [[ "$claims_done" == "true" ]]; then
         cc_json_block "documentation-health completion requires parsed findings rows with terminal dispositions plus an action-item resolution plan. Open, TODO, follow-up, blank, or ownerless accepted-risk rows are not closed."
         exit 0
         ;;
+      baseline-without-remediation)
+        cc_json_block "documentation-health cannot treat baseline or ratchet creation as remediation. Baseline files quantify existing debt; they do not close TSDoc/JSDoc or documentation action items. Continue by fixing the findings, producing a remediation plan, or recording the baseline as blocked/accepted_risk_with_owner only if the user explicitly requested baseline work."
+        exit 0
+        ;;
       invalid-timestamp)
         cc_json_block "documentation-health completion has malformed or untrusted command timestamps. Re-run the inventory, comment-health, and validation gates before claiming completion."
         exit 0

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## v0.1.19 - 2026-05-17
+
+- Block `etrnl-documentation-health` completion when a run writes or refreshes documentation/comment baselines as a substitute for remediation, unless baseline work was explicitly requested and recorded as blocked or accepted risk with an owner.
+- Tighten the documentation-health skill contract so audit mode must return an actionable remediation ledger, while fix/execute mode must remediate or terminally dispose every finding instead of stopping at a debt ratchet.
+
 ## v0.1.18 - 2026-05-17
 
 - Harden `etrnl-code-health` and `etrnl-documentation-health` completion gates so shallow reports, open action items, non-terminal findings, missing comment-health counters, and missing resolution plans block completion instead of passing as advisory summaries.
