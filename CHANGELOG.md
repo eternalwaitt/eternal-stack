@@ -2,8 +2,22 @@
 
 ## Unreleased
 
+## v0.1.21 - 2026-05-19
+
+- Allow `/email-triage` queue and stop gates to accept provider-verified Inbox Zero runs with `queue_ready_without_mutation: true`, so already-clean inboxes with an existing action backlog can open the runtime queue without requiring an impossible Gmail mutation.
+
+## v0.1.20 - 2026-05-18
+
+- Add `/email-triage <account>` as an installed Claude custom command that runs the guarded VIVAZ email runtime flow and renders the next reply queue item, so operators no longer need to remember the long CLI command.
+- Split `/email-triage <account>` guidance into explicit Inbox Zero then action-queue phases, with provider verification required before queue items are shown.
+- Require email-triage completion to prove an applied `vivaz-email triage guarded-run --apply` Inbox Zero run before showing the reply queue, so dry runs cannot satisfy the stop gate.
+- Block `vivaz-email triage queue` during `/email-triage` until provider verification proves an applied Gmail mutation and Inbox Zero, preventing stale dry-run skill flows from opening the action queue before Inbox Zero verification.
+- Block normal `vivaz-email triage run` during `/email-triage`, while preserving the explicit `--no-sync` maintainer debug path, and add a post-upgrade canary for stale dry-run and queue-before-verify flows.
+- Route email-triage runs through required ML insights/draft QA before a queue item is shown, so generated replies are not accepted on deterministic bucket labels alone.
+
 ## v0.1.19 - 2026-05-17
 
+- Route email-triage completion through the new reply-queue flow: `vivaz-email triage run` plus a single rendered queue item now satisfies the stop gate, while claiming triage complete with an active queue item is blocked.
 - Block `etrnl-documentation-health` completion when a run writes or refreshes documentation/comment baselines as a substitute for remediation, unless baseline work was explicitly requested and recorded as blocked or accepted risk with an owner.
 - Tighten the documentation-health skill contract so audit mode must return an actionable remediation ledger, while fix/execute mode must remediate or terminally dispose every finding instead of stopping at a debt ratchet.
 

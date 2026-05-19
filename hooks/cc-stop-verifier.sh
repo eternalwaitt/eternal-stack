@@ -98,18 +98,18 @@ cc_email_triage_run_command_after() {
     [.successfulCommands[]?
       | select((.at // "") >= $since)
       | (.command // "")
-      | select(test("(^|[[:space:];&|])([^[:space:];&|]*/)?vivaz-email[[:space:]]+triage[[:space:]]+guarded-run([[:space:]]|$)"))]
+      | select(test("(^|[[:space:];&|])([^[:space:];&|]*/)?vivaz-email[[:space:]]+triage[[:space:]]+(run|guarded-run)([[:space:]]|$)"))]
     | length > 0
   ' <<<"$state" >/dev/null
 }
 
-cc_email_triage_report_run_id_after() {
+cc_email_triage_output_run_id_after() {
   local since="$1" cmd run_id
   cmd="$(jq -r --arg since "$since" '
     [.successfulCommands[]?
       | select((.at // "") >= $since)
       | (.command // "")
-      | select(test("(^|[[:space:];&|])([^[:space:];&|]*/)?vivaz-email[[:space:]]+triage[[:space:]]+report([[:space:]]|$)"))
+      | select(test("(^|[[:space:];&|])([^[:space:];&|]*/)?vivaz-email[[:space:]]+triage[[:space:]]+(queue|report)([[:space:]]|$)"))
       | select(test("(^|[[:space:]])--run-id(=|[[:space:]]+)"))]
     | last // ""
   ' <<<"$state")"
@@ -121,12 +121,12 @@ cc_email_triage_report_run_id_after() {
 }
 
 cc_email_triage_evidence_after() {
-  local since="$1" report_run_id
+  local since="$1" output_run_id
   if cc_email_triage_run_command_after "$since"; then
     return 0
   fi
-  report_run_id="$(cc_email_triage_report_run_id_after "$since")"
-  [[ -n "$report_run_id" ]]
+  output_run_id="$(cc_email_triage_output_run_id_after "$since")"
+  [[ -n "$output_run_id" ]]
 }
 
 cc_email_triage_latest_account_after() {
@@ -135,7 +135,7 @@ cc_email_triage_latest_account_after() {
     [.successfulCommands[]?
       | select((.at // "") >= $since)
       | (.command // "")
-      | select(test("(^|[[:space:];&|])([^[:space:];&|]*/)?vivaz-email[[:space:]]+triage[[:space:]]+guarded-run([[:space:]]|$)"))]
+      | select(test("(^|[[:space:];&|])([^[:space:];&|]*/)?vivaz-email[[:space:]]+triage[[:space:]]+(run|guarded-run)([[:space:]]|$)"))]
     | last // ""
   ' <<<"$state")"
   account=""
@@ -166,21 +166,54 @@ cc_email_triage_cli() {
 }
 
 cc_email_triage_verify_latest() {
-  local since="$1" account cli report_run_id
+  local verify_json
+  if ! verify_json="$(cc_email_triage_verify_json_after "$1")"; then
+    return 1
+  fi
+  jq -e '.ok == true and (.data.verified == true)' <<<"$verify_json" >/dev/null
+}
+
+cc_email_triage_verify_applied() {
+  local verify_json
+  if ! verify_json="$(cc_email_triage_verify_json_after "$1")"; then
+    return 1
+  fi
+  jq -e '
+    .ok == true
+    and (.data.verified == true)
+    and ((.data.inbox_zero_verified // false) == true)
+    and (((.data.inbox_count // 1) | tonumber) == 0)
+    and (
+      ((.data.gmail_mutated // false) == true)
+      or ((.data.queue_ready_without_mutation // false) == true)
+    )
+  ' <<<"$verify_json" >/dev/null
+}
+
+cc_email_triage_verify_json_after() {
+  local since="$1" account cli output_run_id
   if ! cli="$(cc_email_triage_cli)"; then
     return 1
   fi
-  report_run_id="$(cc_email_triage_report_run_id_after "$since")"
-  if [[ -n "$report_run_id" ]]; then
-    "$cli" triage verify --run-id "$report_run_id" >/dev/null 2>&1
+  output_run_id="$(cc_email_triage_output_run_id_after "$since")"
+  if [[ -n "$output_run_id" ]]; then
+    "$cli" triage verify --run-id "$output_run_id"
     return $?
   fi
   account="$(cc_email_triage_latest_account_after "$since")"
   if [[ -n "$account" ]]; then
-    "$cli" triage verify --latest --account "$account" >/dev/null 2>&1
+    "$cli" triage verify --latest --account "$account"
   else
-    "$cli" triage verify --latest >/dev/null 2>&1
+    "$cli" triage verify --latest
   fi
+}
+
+cc_email_triage_message_has_queue() {
+  local lower
+  lower="$(printf '%s' "$message" | tr '[:upper:]' '[:lower:]')"
+  [[ "$message" == *"# Email Reply Queue"* ]] \
+    && [[ "$message" == *"## Next Step"* ]] \
+    && { [[ "$lower" == *"approve/send"* ]] || [[ "$lower" == *"show the next item"* ]] || [[ "$message" == *"No reply actions are currently queued"* ]]; }
 }
 
 cc_email_triage_message_has_report() {
@@ -192,6 +225,15 @@ cc_email_triage_message_has_report() {
     && [[ "$message" == *"## Action Items"* || "$message" == *"Run: triage_"* ]] \
     && [[ "$lower" =~ latest[[:space:]-]*(thread|message|state)|most[[:space:]-]+recent[[:space:]-]+thread ]] \
     && [[ "$lower" =~ pre[[:space:]-]*existing|preexisting|action[[:space:]-]*backlog|existing[[:space:]-]*action|already[[:space:]-]*open ]]
+}
+
+cc_email_triage_message_has_runtime_output() {
+  cc_email_triage_message_has_queue || cc_email_triage_message_has_report
+}
+
+cc_email_triage_message_claims_complete_with_active_queue() {
+  [[ "$message_lower" =~ ([[:alnum:]_-]+[[:space:]]+)?triage[[:space:]]+complete ]] \
+    && [[ "$message" != *"No reply actions are currently queued"* ]]
 }
 
 cc_plan_execution_requested() {
@@ -238,15 +280,23 @@ if [[ "$claims_done" == "true" ]]; then
   if cc_email_triage_requested; then
     email_triage_since="$(cc_email_triage_request_at)"
     if ! cc_email_triage_evidence_after "$email_triage_since"; then
-      cc_json_block "email-triage completion requires a successful vivaz-email triage guarded-run command or a rendered report for an explicit verified run in this session."
+      cc_json_block "email-triage phase 1 must clear INBOX first. Run vivaz-email triage guarded-run --account <id> --max-inbox 500 --apply --require-insights and verify Inbox Zero before opening the action queue."
       exit 0
     fi
     if ! cc_email_triage_verify_latest "$email_triage_since"; then
       cc_json_block "email-triage completion requires the latest vivaz-email triage ledger to verify successfully."
       exit 0
     fi
-    if ! cc_email_triage_message_has_report; then
-      cc_json_block "email-triage completion must paste the generated runtime report, including '# Email Triage Report', '## Top Action Items', '## Reply Queue', latest thread state, and pre-existing action backlog. A one-line inbox-zero summary is not actionable."
+    if ! cc_email_triage_verify_applied "$email_triage_since"; then
+      cc_json_block "email-triage Inbox Zero completion requires provider-verified INBOX zero and either gmail_mutated true or queue_ready_without_mutation true. Use vivaz-email triage guarded-run --account <id> --max-inbox 500 --apply --require-insights, verify inbox_count is 0, then open the action queue."
+      exit 0
+    fi
+    if ! cc_email_triage_message_has_runtime_output; then
+      cc_json_block "email-triage completion must paste the generated runtime queue item, including '# Email Reply Queue' and '## Next Step', or an explicit audit report. A one-line inbox-zero summary is not actionable."
+      exit 0
+    fi
+    if cc_email_triage_message_claims_complete_with_active_queue; then
+      cc_json_block "email-triage queue is not complete after opening one active item. Do not say triage complete; present the active queue item and wait for Victor's decision."
       exit 0
     fi
     email_triage_verified=true

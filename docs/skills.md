@@ -25,6 +25,12 @@ Claude Code personal and project skills use hyphenated command names. If this co
 | `/etrnl-test` | User only | Runs project preflight and reports or fixes failures. |
 | `/etrnl-plan` | Model or user | Creates a plan file, reviews it, improves it, then finalizes it. |
 
+## Custom Commands
+
+| Command | Invocation | Purpose |
+| --- | --- | --- |
+| `/email-triage <account>` | User only | Runs VIVAZ email triage in two phases: first archive/label every current INBOX item and provider-verify Inbox Zero with `vivaz-email triage guarded-run --account <account> --max-inbox 500 --apply --require-insights`, then render one action/reply queue item only after `triage verify` reports `inbox_zero_verified: true` and `inbox_count: 0`. |
+
 ## Companion Skills
 
 These skills are not owned by this repo, but the control plane knows about them and routes to them when installed. Keeping them outside the `etrnl-*` family avoids hiding the repo boundary while preserving the stronger workflow from the original planning sessions.

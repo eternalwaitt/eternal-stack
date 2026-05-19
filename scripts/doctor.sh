@@ -338,6 +338,25 @@ else
   fail "skills directory or docs/skills.md missing"
 fi
 
+if [[ -d "$ROOT/commands" && -f "$ROOT/docs/skills.md" ]]; then
+  command_check_failed=0
+  for command_name in "${OWNED_COMMANDS[@]}"; do
+    command_file="$ROOT/commands/$command_name.md"
+    if [[ ! -f "$command_file" ]]; then
+      fail "owned command missing: $command_name"
+      command_check_failed=1
+    elif ! rg -F "/$command_name" "$ROOT/docs/skills.md" >/dev/null; then
+      fail "docs/skills.md missing /$command_name"
+      command_check_failed=1
+    fi
+  done
+  if [[ "$command_check_failed" == "0" ]]; then
+    ok "custom commands installed and documented"
+  fi
+else
+  fail "commands directory or docs/skills.md missing"
+fi
+
 if [[ -d "$ROOT/agents" ]]; then
   agent_check_failed=0
   for agent in "${OWNED_AGENTS[@]}"; do

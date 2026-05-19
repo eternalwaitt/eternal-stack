@@ -183,6 +183,120 @@ command_is_raw_email_triage_gmail_mutation() {
   [[ "$cmd" =~ $gmail_mutation_regex ]]
 }
 
+command_is_email_triage_queue() {
+  local cmd="$1"
+  [[ "$cmd" =~ (^|[[:space:];&|])([^[:space:];&|]*/)?vivaz-email[[:space:]]+triage[[:space:]]+queue([[:space:]]|$) ]]
+}
+
+command_is_email_triage_dry_run() {
+  local cmd="$1"
+  [[ "$cmd" =~ (^|[[:space:];&|])([^[:space:];&|]*/)?vivaz-email[[:space:]]+triage[[:space:]]+run([[:space:]]|$) ]]
+}
+
+command_is_email_triage_debug_dry_run() {
+  local cmd="$1"
+  [[ "$cmd" =~ (^|[[:space:]])--no-sync([[:space:]]|$) ]]
+}
+
+cc_email_triage_verify_seen() {
+  jq -e '
+    def email_triage_request_at:
+      [.requestedSkills[]?
+        | select(((.value // "") | ascii_downcase) == "email-triage" or ((.value // "") | ascii_downcase) == "/email-triage")
+        | (.at // "")]
+      | map(select(. != ""))
+      | max // (.startedAt // "");
+    email_triage_request_at as $since
+    | any(.successfulCommands[]?;
+        ((.at // "") >= $since)
+        and ((.command // "") | test("(^|[[:space:];&|])([^[:space:];&|]*/)?vivaz-email[[:space:]]+triage[[:space:]]+verify([[:space:]]|$)")))
+  ' "$(cc_state_file)" >/dev/null 2>&1
+}
+
+cc_email_triage_request_at() {
+  jq -r '
+    [.requestedSkills[]?
+      | select(((.value // "") | ascii_downcase) == "email-triage" or ((.value // "") | ascii_downcase) == "/email-triage")
+      | (.at // "")]
+    | map(select(. != ""))
+    | max // (.startedAt // "")
+  ' "$(cc_state_file)" 2>/dev/null
+}
+
+cc_email_triage_queue_run_id() {
+  local cmd="$1" run_id
+  run_id=""
+  if [[ "$cmd" =~ --run-id(=|[[:space:]]+)([A-Za-z0-9_.:-]+) ]]; then
+    run_id="${BASH_REMATCH[2]}"
+  fi
+  printf '%s\n' "$run_id"
+}
+
+cc_email_triage_latest_account_after() {
+  local since="$1" cmd account
+  cmd="$(jq -r --arg since "$since" '
+    [.successfulCommands[]?
+      | select((.at // "") >= $since)
+      | (.command // "")
+      | select(test("(^|[[:space:];&|])([^[:space:];&|]*/)?vivaz-email[[:space:]]+triage[[:space:]]+(run|guarded-run)([[:space:]]|$)"))]
+    | last // ""
+  ' "$(cc_state_file)" 2>/dev/null)"
+  account=""
+  if [[ "$cmd" =~ --account(=|[[:space:]]+)([A-Za-z0-9_-]+) ]]; then
+    account="${BASH_REMATCH[2]}"
+  fi
+  printf '%s\n' "$account"
+}
+
+cc_email_triage_cli() {
+  local candidate resolved
+  for candidate in "${VIVAZ_EMAIL_BIN:-}" "${VIVAZ_EMAIL_CLI:-}"; do
+    [[ -n "$candidate" ]] || continue
+    if [[ -x "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+    if resolved="$(command -v "$candidate" 2>/dev/null)"; then
+      printf '%s\n' "$resolved"
+      return 0
+    fi
+  done
+  if command -v vivaz-email >/dev/null 2>&1; then
+    command -v vivaz-email
+    return 0
+  fi
+  return 1
+}
+
+cc_email_triage_queue_verified() {
+  local cmd="$1" since run_id account cli verify_json
+  since="$(cc_email_triage_request_at)"
+  if ! cli="$(cc_email_triage_cli)"; then
+    return 1
+  fi
+  run_id="$(cc_email_triage_queue_run_id "$cmd")"
+  if [[ -n "$run_id" ]]; then
+    verify_json="$("$cli" triage verify --run-id "$run_id" 2>/dev/null)" || return 1
+  else
+    account="$(cc_email_triage_latest_account_after "$since")"
+    if [[ -n "$account" ]]; then
+      verify_json="$("$cli" triage verify --latest --account "$account" 2>/dev/null)" || return 1
+    else
+      verify_json="$("$cli" triage verify --latest 2>/dev/null)" || return 1
+    fi
+  fi
+  jq -e '
+    .ok == true
+    and (.data.verified == true)
+    and ((.data.inbox_zero_verified // false) == true)
+    and (((.data.inbox_count // 1) | tonumber) == 0)
+    and (
+      ((.data.gmail_mutated // false) == true)
+      or ((.data.queue_ready_without_mutation // false) == true)
+    )
+  ' <<<"$verify_json" >/dev/null 2>&1
+}
+
 command_writes_live_claude_hooks() {
   local cmd="$1"
   local live_hook_write_re='(tee|cat|cp|mv|rsync|install|chmod|chown|rm|trash)[^;&|]*((\$HOME|~|/Users/[^[:space:]/]+)?/\.claude/hooks)'
@@ -473,7 +587,19 @@ handle_bash() {
   fi
 
   if cc_email_triage_active && command_is_raw_email_triage_gmail_mutation "$cmd"; then
-    deny "Raw Gmail mutation is blocked during email-triage. Use vivaz-email triage run/report for dry-run evidence, and only use vivaz-email triage apply --run-id <id> after the runtime apply executor is implemented."
+    deny "Raw Gmail mutation is blocked during email-triage. Phase 1 must use the VIVAZ runtime: vivaz-email triage guarded-run --account <id> --max-inbox 500 --apply --require-insights, then vivaz-email triage verify --latest --account <id>. Only after verified Inbox Zero, open the queue."
+  fi
+
+  if cc_email_triage_active && command_is_email_triage_dry_run "$cmd" && ! command_is_email_triage_debug_dry_run "$cmd"; then
+    deny "Dry email-triage runs are blocked during /email-triage. Phase 1 must clear INBOX with vivaz-email triage guarded-run --account <id> --max-inbox 500 --apply --require-insights, then vivaz-email triage verify --latest --account <id> before any queue item is shown."
+  fi
+
+  if cc_email_triage_active && command_is_email_triage_queue "$cmd" && ! cc_email_triage_verify_seen; then
+    deny "email-triage queue is blocked until Inbox Zero verification has run. First run vivaz-email triage guarded-run --account <id> --max-inbox 500 --apply --require-insights, then vivaz-email triage verify --latest --account <id>. Open the queue only after verify reports inbox_zero_verified true and inbox_count 0."
+  fi
+
+  if cc_email_triage_active && command_is_email_triage_queue "$cmd" && ! cc_email_triage_queue_verified "$cmd"; then
+    deny "email-triage queue is blocked until provider verification proves Inbox Zero and either gmail_mutated true or queue_ready_without_mutation true. Run vivaz-email triage verify --latest --account <id> and require inbox_zero_verified true and inbox_count 0 before opening the queue."
   fi
 
   if command_writes_live_claude_hooks "$cmd"; then
