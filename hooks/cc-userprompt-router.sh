@@ -212,7 +212,17 @@ if [[ "$prompt_lower" =~ auto[[:space:]-]?plan|autoplan|run[[:space:]]+all[[:spa
 fi
 if [[ "$prompt_lower" =~ /email-triage|email[[:space:]-]+triage ]]; then
   record_skill "email-triage"
-  notes+=("Use email-triage as a deterministic runtime command only: run vivaz-email triage, verify the ledger, and paste the generated report.")
+  email_triage_account=""
+  if [[ "$prompt_lower" =~ /email-triage[[:space:]]+([a-z0-9_-]+) ]]; then
+    email_triage_account="${BASH_REMATCH[1]}"
+  elif [[ "$prompt_lower" =~ email[[:space:]-]+triage[[:space:]]+(for[[:space:]]+)?([a-z0-9_-]+) ]]; then
+    email_triage_account="${BASH_REMATCH[2]}"
+  fi
+  if [[ -n "$email_triage_account" ]]; then
+    notes+=("Use /email-triage as two phases. Phase 1: Inbox Zero first. Run: vivaz-email triage guarded-run --account $email_triage_account --max-inbox 500 --apply --require-insights, then verify with vivaz-email triage verify --latest --account $email_triage_account. Do not open the queue unless verify reports inbox_zero_verified true and inbox_count 0. Phase 2: only after Inbox Zero, paste one generated queue item with vivaz-email triage queue --run-id <run-id> --mode reply --format markdown --next. Do not say triage complete while an item is active.")
+  else
+    notes+=("Use /email-triage as two phases. If no account id is present, ask for it. Phase 1: Inbox Zero first with vivaz-email triage guarded-run --account <id> --max-inbox 500 --apply --require-insights, then vivaz-email triage verify --latest --account <id>. Do not open the queue unless verify reports inbox_zero_verified true and inbox_count 0. Phase 2: only after Inbox Zero, paste one generated queue item with vivaz-email triage queue --run-id <run-id> --mode reply --format markdown --next. Do not say triage complete while an item is active.")
+  fi
 fi
 if [[ "$prompt_lower" =~ agent[[:space:]-]?files|instruction[[:space:]]+files|startup[[:space:]]+guidance|align[[:space:]]+.*agents\.md|align[[:space:]]+.*claude\.md ]]; then
   record_skill "etrnl-agent-files"

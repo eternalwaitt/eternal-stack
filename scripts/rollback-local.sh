@@ -17,6 +17,10 @@ if [[ -z "${OWNED_SKILLS+x}" || "${#OWNED_SKILLS[@]}" -eq 0 ]]; then
   printf 'OWNED_SKILLS is missing from %s/scripts/lib/skill-lists.sh\n' "$ROOT" >&2
   exit 1
 fi
+if [[ -z "${OWNED_COMMANDS+x}" || "${#OWNED_COMMANDS[@]}" -eq 0 ]]; then
+  printf 'OWNED_COMMANDS is missing from %s/scripts/lib/skill-lists.sh\n' "$ROOT" >&2
+  exit 1
+fi
 if [[ -z "${CRITICAL_HOOKS+x}" || "${#CRITICAL_HOOKS[@]}" -eq 0 ]]; then
   printf 'CRITICAL_HOOKS is missing from %s/scripts/lib/skill-lists.sh\n' "$ROOT" >&2
   exit 1
@@ -124,6 +128,16 @@ for skill in "${OWNED_SKILLS[@]}"; do
   if [[ -d "$BACKUP/skills/$skill" ]]; then
     cp -R -- "$BACKUP/skills/$skill" "$ROOT/skills/$skill"
     restored+=("skills/$skill")
+    restored_count=$((restored_count + 1))
+  fi
+done
+
+mkdir -p "$ROOT/commands"
+for command_name in "${OWNED_COMMANDS[@]}"; do
+  rm -f -- "$ROOT/commands/$command_name.md"
+  if [[ -f "$BACKUP/commands/$command_name.md" ]]; then
+    cp -- "$BACKUP/commands/$command_name.md" "$ROOT/commands/$command_name.md"
+    restored+=("commands/$command_name.md")
     restored_count=$((restored_count + 1))
   fi
 done

@@ -10,6 +10,7 @@ if [[ ! -d "$TARGET" ]]; then
 fi
 
 required_paths=(
+  "commands/email-triage.md"
   "hooks/cc-pretooluse-guard.sh"
   "hooks/cc-posttoolbatch-observer.sh"
   "hooks/cc-stop-verifier.sh"
@@ -87,6 +88,73 @@ if missing_screenshot_qa="$(node "$TARGET/scripts/browser-qa-report.mjs" create 
 fi
 if [[ "$missing_screenshot_qa" != *"screenshot"* ]]; then
   printf 'fail: browser QA v2 canary rejected for unexpected reason: %s\n' "$missing_screenshot_qa" >&2
+  exit 1
+fi
+
+canary_state="$canary_tmp/state"
+mkdir -p "$canary_state"
+email_state="$canary_state/claude-guard-canary-email-triage.json"
+jq -nc '{
+  schemaVersion: 4,
+  requestedSkills: [{value: "email-triage", at: "2026-01-01T00:00:00Z"}],
+  successfulCommands: [],
+  commands: [],
+  blockedCommands: [],
+  verificationRuns: [],
+  lastPrompt: "/email-triage agencia",
+  startedAt: "2026-01-01T00:00:00Z"
+}' >"$email_state"
+email_dry_payload="$(jq -nc '{session_id:"canary-email-triage",tool_name:"Bash",tool_input:{command:"vivaz-email triage run --account agencia --max-inbox 50"}}')"
+email_dry_out="$(printf '%s' "$email_dry_payload" | CLAUDE_GUARD_STATE_DIR="$canary_state" "$TARGET/hooks/cc-pretooluse-guard.sh")"
+if ! jq -e '.hookSpecificOutput.permissionDecision == "deny"' <<<"$email_dry_out" >/dev/null; then
+  printf 'fail: email-triage canary accepted dry triage run: %s\n' "$email_dry_out" >&2
+  exit 1
+fi
+if [[ "$email_dry_out" != *"Dry email-triage runs are blocked"* ]]; then
+  printf 'fail: email-triage dry-run canary rejected for unexpected reason: %s\n' "$email_dry_out" >&2
+  exit 1
+fi
+
+jq '.successfulCommands = [{command:"vivaz-email triage guarded-run --account agencia --max-inbox 500 --apply --require-insights", at:"2026-01-01T00:00:01Z"}]' "$email_state" >"$email_state.tmp"
+mv -- "$email_state.tmp" "$email_state"
+email_queue_payload="$(jq -nc '{session_id:"canary-email-triage",tool_name:"Bash",tool_input:{command:"vivaz-email triage queue --run-id triage_canary --mode reply --format markdown --next"}}')"
+email_queue_out="$(printf '%s' "$email_queue_payload" | CLAUDE_GUARD_STATE_DIR="$canary_state" "$TARGET/hooks/cc-pretooluse-guard.sh")"
+if ! jq -e '.hookSpecificOutput.permissionDecision == "deny"' <<<"$email_queue_out" >/dev/null; then
+  printf 'fail: email-triage canary accepted queue before verify: %s\n' "$email_queue_out" >&2
+  exit 1
+fi
+if [[ "$email_queue_out" != *"queue is blocked until Inbox Zero verification"* ]]; then
+  printf 'fail: email-triage queue canary rejected for unexpected reason: %s\n' "$email_queue_out" >&2
+  exit 1
+fi
+
+canary_vivaz_email="$canary_tmp/vivaz-email"
+printf '%s\n' '#!/usr/bin/env bash' 'if [[ "$1 $2" == "triage verify" ]]; then' '  if [[ "${VIVAZ_EMAIL_VERIFY_NONZERO:-0}" == "1" ]]; then printf "{\"ok\":true,\"data\":{\"verified\":true,\"dry_run\":false,\"gmail_mutated\":true,\"inbox_zero_verified\":true,\"inbox_count\":1}}\n"; elif [[ "${VIVAZ_EMAIL_VERIFY_READY:-0}" == "1" ]]; then printf "{\"ok\":true,\"data\":{\"verified\":true,\"dry_run\":true,\"gmail_mutated\":false,\"inbox_zero_verified\":true,\"queue_ready_without_mutation\":true,\"inbox_count\":0,\"action_backlog_count\":31}}\n"; else printf "{\"ok\":true,\"data\":{\"verified\":true,\"dry_run\":false,\"gmail_mutated\":true,\"inbox_zero_verified\":true,\"inbox_count\":0}}\n"; fi' '  exit 0' 'fi' 'exit 0' >"$canary_vivaz_email"
+chmod +x "$canary_vivaz_email"
+jq '.successfulCommands = [
+  {command:"vivaz-email triage guarded-run --account agencia --max-inbox 500 --apply --require-insights", at:"2026-01-01T00:00:01Z"},
+  {command:"vivaz-email triage verify --latest --account agencia", at:"2026-01-01T00:00:02Z"}
+]' "$email_state" >"$email_state.tmp"
+mv -- "$email_state.tmp" "$email_state"
+email_queue_verified_out="$(printf '%s' "$email_queue_payload" | VIVAZ_EMAIL_BIN="$canary_vivaz_email" CLAUDE_GUARD_STATE_DIR="$canary_state" "$TARGET/hooks/cc-pretooluse-guard.sh")"
+if ! jq -e '.continue == true' <<<"$email_queue_verified_out" >/dev/null; then
+  printf 'fail: email-triage canary blocked provider-verified queue: %s\n' "$email_queue_verified_out" >&2
+  exit 1
+fi
+
+email_queue_no_mutation_out="$(printf '%s' "$email_queue_payload" | VIVAZ_EMAIL_VERIFY_READY=1 VIVAZ_EMAIL_BIN="$canary_vivaz_email" CLAUDE_GUARD_STATE_DIR="$canary_state" "$TARGET/hooks/cc-pretooluse-guard.sh")"
+if ! jq -e '.continue == true' <<<"$email_queue_no_mutation_out" >/dev/null; then
+  printf 'fail: email-triage canary blocked no-mutation ready queue: %s\n' "$email_queue_no_mutation_out" >&2
+  exit 1
+fi
+
+email_queue_bad_verify_out="$(printf '%s' "$email_queue_payload" | VIVAZ_EMAIL_VERIFY_NONZERO=1 VIVAZ_EMAIL_BIN="$canary_vivaz_email" CLAUDE_GUARD_STATE_DIR="$canary_state" "$TARGET/hooks/cc-pretooluse-guard.sh")"
+if ! jq -e '.hookSpecificOutput.permissionDecision == "deny"' <<<"$email_queue_bad_verify_out" >/dev/null; then
+  printf 'fail: email-triage canary accepted queue after nonzero provider verify: %s\n' "$email_queue_bad_verify_out" >&2
+  exit 1
+fi
+if [[ "$email_queue_bad_verify_out" != *"provider verification proves Inbox Zero"* ]]; then
+  printf 'fail: email-triage bad-verify canary rejected for unexpected reason: %s\n' "$email_queue_bad_verify_out" >&2
   exit 1
 fi
 

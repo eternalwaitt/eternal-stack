@@ -80,6 +80,13 @@ for agent in "${OWNED_AGENTS[@]}"; do
   fi
 done
 
+mkdir -p "$BACKUP/commands"
+for command_name in "${OWNED_COMMANDS[@]}"; do
+  if [[ -f "$TARGET/commands/$command_name.md" ]]; then
+    cp -- "$TARGET/commands/$command_name.md" "$BACKUP/commands/$command_name.md"
+  fi
+done
+
 mkdir -p "$BACKUP/skills"
 for skill in "${OWNED_SKILLS[@]}"; do
   if [[ -d "$TARGET/skills/$skill" ]]; then
@@ -102,11 +109,14 @@ for skill in "${LEGACY_SKILLS[@]}"; do
   fi
 done
 
-mkdir -p "$TARGET/hooks" "$TARGET/scripts" "$TARGET/docs/templates" "$TARGET/skills" "$TARGET/agents" "$TARGET/rules" "$TARGET/tests/lib" "$TARGET/tests/fixtures"
+mkdir -p "$TARGET/hooks" "$TARGET/scripts" "$TARGET/docs/templates" "$TARGET/skills" "$TARGET/agents" "$TARGET/commands" "$TARGET/rules" "$TARGET/tests/lib" "$TARGET/tests/fixtures"
 copy_dir_contents "$ROOT/hooks" "$TARGET/hooks"
 copy_dir_contents "$ROOT/skills" "$TARGET/skills"
 for agent in "${OWNED_AGENTS[@]}"; do
   cp -- "$ROOT/agents/$agent.md" "$TARGET/agents/$agent.md"
+done
+for command_name in "${OWNED_COMMANDS[@]}"; do
+  cp -- "$ROOT/commands/$command_name.md" "$TARGET/commands/$command_name.md"
 done
 copy_dir_contents "$ROOT/docs" "$TARGET/docs"
 rules_tmp="$TARGET/rules/etrnl.tmp"

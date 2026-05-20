@@ -16,6 +16,9 @@ export CLAUDE_GUARD_STATE_DIR="$TMPROOT/state"
 for agent in etrnl-adversary etrnl-browser-qa etrnl-design-reviewer etrnl-dx-reviewer etrnl-executor etrnl-investigator etrnl-quality-reviewer etrnl-scout etrnl-spec-reviewer; do
   assert_file "installed $agent" "$CLAUDE_HOME/agents/$agent.md"
 done
+for command_name in "${OWNED_COMMANDS[@]}"; do
+  assert_file "installed $command_name command" "$CLAUDE_HOME/commands/$command_name.md"
+done
 assert_executable "installed execution ledger helper" "$CLAUDE_HOME/scripts/execution-ledger.mjs"
 assert_executable "installed review log helper" "$CLAUDE_HOME/scripts/review-log.mjs"
 assert_executable "installed project buglog helper" "$CLAUDE_HOME/scripts/project-buglog.mjs"
@@ -107,6 +110,9 @@ for agent in etrnl-adversary etrnl-browser-qa etrnl-design-reviewer etrnl-dx-rev
 done
 for skill in "${OWNED_SKILLS[@]}"; do
   assert_no_directory "rollback removed $skill" "$CLAUDE_HOME/skills/$skill"
+done
+for command_name in "${OWNED_COMMANDS[@]}"; do
+  assert_no_file "rollback removed $command_name command" "$CLAUDE_HOME/commands/$command_name.md"
 done
 for hook_file in "${CRITICAL_HOOKS[@]}"; do
   assert_no_file "rollback removed $hook_file" "$CLAUDE_HOME/hooks/$hook_file"
