@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "artifactType": "deep-stack-plan",
+  "deepReview": { "status": "failed", "phases": ["ceo", "engineering", "dx", "adversarial", "specialist", "reuse", "simplifier"] },
+  "sourceManifest": { "sources": [{ "sourceId": "repo", "version": "current", "commit": "0000000000000000000000000000000000000000", "hash": "sha256:fixture", "capturedAt": "2026-06-01T12:00:00Z", "refreshCommand": "node scripts/deep-stack-check.mjs create --plan p --out o", "requiredFiles": ["scripts/deep-stack-check.mjs"] }] },
+  "skillMatrix": [{ "skill": "code-simplifier", "status": "required", "trigger": "source", "evidence": "diff" }],
+  "reuseInventory": { "searchedPaths": ["scripts"], "decisions": [] },
+  "findings": [],
+  "completionAudit": [{ "planItem": "finish everything", "classification": "NOT_DONE", "evidence": "missing", "diffPaths": [], "reason": "not complete", "impact": "high" }],
+  "riskTier": { "tier": 2, "deepReviewPassed": false, "reason": "fixture", "requiredArtifacts": [], "verificationGate": "tests/test-workflow-tools.sh", "acceptedRisks": [] }
+}

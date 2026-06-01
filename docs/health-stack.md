@@ -32,6 +32,8 @@ node --check \
   scripts/documentation-health-ledger-check.mjs \
   scripts/lib/audit-exclusions.mjs \
   scripts/research-competitor-intel.mjs \
+  scripts/deep-stack-check.mjs \
+  scripts/lib/deep-stack-artifacts.mjs \
   scripts/lib/research-intel-core.mjs \
   scripts/lib/research-intel-render.mjs \
   scripts/lib/research-intel-validators.mjs \
@@ -64,6 +66,8 @@ node scripts/workflow-health.mjs status
 node scripts/workflow-health.mjs status --json
 node scripts/workflow-health.mjs doctor --json --all
 node scripts/workflow-health.mjs prune --older-than-days 30 --dry-run --all
+node scripts/deep-stack-check.mjs validate-plan --plan <plan-path>
+node scripts/deep-stack-check.mjs create --plan <plan-path> --out <artifact-dir>
 node scripts/prompt-budget-check.mjs .
 node scripts/prompt-budget-check.mjs ~/.claude --owned-only
 node scripts/review-log.mjs summary
@@ -81,8 +85,11 @@ scripts/post-upgrade-canary.sh
 - `browser-qa-report.mjs` supports schema v1 plus schema v2 matrix reports; a completed v2 report must include route/viewport rows, numeric `consoleErrors` and `failedRequests`, fresh screenshot captures, matching `screenshotSha256`, and provenance with tool, target URL, command, and capture time.
 - `project-buglog.mjs suggest --json` emits redacted local suggestions with severity, fingerprint, last-seen, and suggested guard; `suggest-project --json` gives cross-session project hints without returning the raw cwd. Hooks debounce these hints and honor `CLAUDE_CONTROL_PLANE_LEARNING_HINTS=0`.
 - `agent-task-packet-check.mjs --template write` includes `taskId`, `lineageId`, reviewer contracts, and a stable packet hash; multi-file write scopes fail without spec and quality reviewer requirements.
+- `deep-stack-check.mjs` is the single operator-facing deep-stack artifact gate. Final plans require `Deep stack artifacts:` by default and fail closed on missing source manifests, skill matrices, reuse inventories, high/blocker findings, completion gaps, TypeScript trigger mistakes, or Hybrid execution risk-tier violations. Historical plans can use the explicit transition flag only when they are not newly generated final plans.
 - `execution-ledger.mjs` writes schema v2 ledgers with cwd/project id, events, phases, reviews, atomic updates, and bound write evidence checks (`record-agent`, `record-review`, `check-bound-execute`).
 - `etrnl-documentation-health` is the documentation-specialist health workflow. Use it when docs, ADRs, runbooks, API/runtime docs, AI context, or TSDoc/JSDoc are the target; it still inherits this repo's contract gates after repo-owned skill or docs changes.
+- `etrnl-email-reply-quality` is the VIVAZ outgoing-reply quality workflow. It pairs the runtime `vivaz-email drafts check` gate with `humanizer-ptbr` cleanup for draft typography, Brazilian Portuguese, AI-tell issues, assistant meta text, stiff boilerplate, and fake deal commitments. Vale and LanguageTool are the next deterministic prose-lint layers to prototype before broadening runtime dependencies.
+- `etrnl-disk-cleanup` is the local storage-recovery workflow. It requires host/filesystem evidence, a dry-run manifest, approved transient path classes, `trash` deletion, and before/after free-space verification so cleanup requests do not fight the generic dangerous-filesystem guard.
 - `skill-contract-check.mjs` rejects soft directive language in repo-owned skills and their reference docs. Workflow instructions use mandatory defaults plus explicit unavailable, not-applicable, or blocker paths.
 - `scripts/lib/audit-exclusions.mjs` is the shared exclusion policy for code-health inventory and documentation comment inventory. Vendor, build output, caches, local agent state, worktrees, generated folders, fixtures, logs, and `.audit` artifacts are listed or skipped with reasons; they are not audited as source/docs action items.
 - `documentation-comment-health.mjs` is mandatory for documentation-health runs against JS/TS repos. Reports must include TSDOC/JSDOC and COMMENT_TARGET counters, or an explicit `COMMENT_HEALTH_NOT_APPLICABLE:` line with evidence.

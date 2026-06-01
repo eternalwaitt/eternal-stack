@@ -20,6 +20,8 @@ for command_name in "${OWNED_COMMANDS[@]}"; do
   assert_file "installed $command_name command" "$CLAUDE_HOME/commands/$command_name.md"
 done
 assert_executable "installed execution ledger helper" "$CLAUDE_HOME/scripts/execution-ledger.mjs"
+assert_executable "installed deep-stack helper" "$CLAUDE_HOME/scripts/deep-stack-check.mjs"
+assert_file "installed deep-stack artifact library" "$CLAUDE_HOME/scripts/lib/deep-stack-artifacts.mjs"
 assert_executable "installed review log helper" "$CLAUDE_HOME/scripts/review-log.mjs"
 assert_executable "installed project buglog helper" "$CLAUDE_HOME/scripts/project-buglog.mjs"
 assert_executable "installed browser QA helper" "$CLAUDE_HOME/scripts/browser-qa-report.mjs"
@@ -33,6 +35,7 @@ assert_executable "installed skill behavior smoke helper" "$CLAUDE_HOME/scripts/
 assert_executable "installed changelog release helper" "$CLAUDE_HOME/scripts/changelog-release-check.mjs"
 assert_executable "installed port guard helper" "$CLAUDE_HOME/scripts/port-guard.mjs"
 assert_executable "installed update check helper" "$CLAUDE_HOME/scripts/update-check.mjs"
+assert_executable "installed codex RTK pre-tool hook" "$CLAUDE_HOME/scripts/codex-rtk-pre-tool-use.sh"
 assert_executable "installed update helper" "$CLAUDE_HOME/scripts/update.sh"
 assert_executable "installed uninstall helper" "$CLAUDE_HOME/scripts/uninstall.sh"
 assert_executable "installed workflow tool tests" "$CLAUDE_HOME/hooks/test-workflow-tools.sh"

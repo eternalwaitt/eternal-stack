@@ -224,6 +224,14 @@ if [[ "$prompt_lower" =~ /email-triage|email[[:space:]-]+triage ]]; then
     notes+=("Use /email-triage as two phases. If no account id is present, ask for it. Phase 1: Inbox Zero first with vivaz-email triage guarded-run --account <id> --max-inbox 500 --apply --require-insights, then vivaz-email triage verify --latest --account <id>. Do not open the queue unless verify reports inbox_zero_verified true and inbox_count 0. Phase 2: only after Inbox Zero, paste one generated queue item with vivaz-email triage queue --run-id <run-id> --mode reply --format markdown --next. Do not say triage complete while an item is active.")
   fi
 fi
+if [[ "$prompt_lower" =~ disk[[:space:]-]+cleanup|clean[[:space:]]+up[[:space:]]+disk|free[[:space:]]+(disk|ssd|storage)[[:space:]]+space|reclaim[[:space:]]+(disk|ssd|storage)[[:space:]]+space ]]; then
+  record_skill "etrnl-disk-cleanup"
+  notes+=("Use etrnl-disk-cleanup: inspect disk usage first, write a dry-run deletion manifest with exact paths and byte counts, then use trash only for approved cache/build/log paths. Do not use rm -r/rm -rf for cleanup.")
+fi
+if [[ "$prompt_lower" =~ email[[:space:]-]+reply[[:space:]-]+quality|brazilian[[:space:]]+portuguese[[:space:]]+email|bad[[:space:]]+portuguese[[:space:]]+.*repl|em[[:space:]-]+dash.*email|humanize[[:space:]]+email[[:space:]]+reply|draft[[:space:]-]+checker|ai[[:space:]-]+tell.*email|vivaz[[:space:]]+email[[:space:]]+reply ]]; then
+  record_skill "etrnl-email-reply-quality"
+  notes+=("Use etrnl-email-reply-quality: run vivaz-email drafts check, rewrite failed drafts with natural Brazilian Portuguese and humanizer cleanup, then rerun the checker before approval.")
+fi
 if [[ "$prompt_lower" =~ agent[[:space:]-]?files|instruction[[:space:]]+files|startup[[:space:]]+guidance|align[[:space:]]+.*agents\.md|align[[:space:]]+.*claude\.md ]]; then
   record_skill "etrnl-agent-files"
   notes+=("Use etrnl-agent-files: keep AGENTS.md, CLAUDE.md, rules, and agent instructions aligned without bloating startup context.")
@@ -278,7 +286,10 @@ if [[ "$prompt_lower" =~ fix[[:space:]]+issue|issue[[:space:]]+#[0-9]+|bug[[:spa
 fi
 if [[ "$prompt_lower" =~ parallel|fan[[:space:]-]?out|split[[:space:]]+.*agents|multiple[[:space:]]+agents ]]; then
   record_skill "etrnl-parallel"
-  notes+=("Use etrnl-parallel only for explicit bounded fanout with disjoint ownership and final integration checks.")
+  notes+=("Use etrnl-parallel only for explicit bounded fanout with disjoint ownership and final integration checks. Generate each Task packet first with node \${CLAUDE_HOME:-\$HOME/.claude}/scripts/agent-task-packet-check.mjs --template read-only or --template write; do not handwrite partial packets.")
+fi
+if [[ "$prompt_lower" =~ subagent|agent[[:space:]]+packet|task[[:space:]]+packet|delegate[[:space:]]+to[[:space:]]+agent ]]; then
+  notes+=("Before any Agent/Task call, generate a complete packet with node \${CLAUDE_HOME:-\$HOME/.claude}/scripts/agent-task-packet-check.mjs --template read-only or --template write, then pass the JSON-only packet to the agent call.")
 fi
 if [[ "$prompt_lower" =~ stress[[:space:]-]?test|red[[:space:]-]?team|failure[[:space:]]+modes|adversarial[[:space:]]+stress ]]; then
   record_skill "etrnl-stress-test"
@@ -294,6 +305,9 @@ if [[ "$prompt_lower" =~ audit|code[[:space:]]+review|pr[[:space:]]+review|desig
 fi
 if [[ "$prompt" =~ (current|latest|docs|API|library|package) ]]; then
   notes+=("Use context7 or official/current docs before relying on memory.")
+fi
+if [[ "$prompt_lower" =~ (^|[^a-z0-9_])(recommend[[:space:]].*(buy|purchase|choose|for)|which[[:space:]].*should[[:space:]]+i|what[[:space:]].*should[[:space:]]+i[[:space:]]+buy|shopping|buying|purchase|iphone|airpods|apple[[:space:]]+watch|travel|restaurant|look[[:space:]]+up[[:space:]].*(price|review|news)|compare[[:space:]].*(price|model|plan))([^a-z0-9_]|$) ]]; then
+  notes+=("For advice/search answers, use current source evidence when facts can drift. Completion evidence is dated URLs/sources, not repo lint/test preflight.")
 fi
 if [[ "$prompt" =~ (implement|fix|edit|code|repo|project) ]]; then
   notes+=("Read before edit and search for existing references/helpers before creating new code.")

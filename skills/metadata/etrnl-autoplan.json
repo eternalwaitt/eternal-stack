@@ -3,5 +3,7 @@
   "ownerReview": "CEO/founder review",
   "dxReview": "DX review",
   "adversarialReview": true,
-  "completeness": "10/10"
+  "completeness": "10/10",
+  "deepStack": "hybrid",
+  "executionTiering": "after-deep-review-only"
 }

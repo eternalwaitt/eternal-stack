@@ -37,6 +37,11 @@ Assumptions: None.
 CODE PATH COVERAGE
 - [TESTED] readiness pass and fail cases.
 
+## Test-first execution plan
+
+- Red: run the thin-plan readiness fixture and confirm it fails.
+- Green: run this complete fixture through readiness when legacy transition mode is explicitly enabled.
+
 ## Failure modes
 
 - Thin plan passes review: covered by readiness checker.

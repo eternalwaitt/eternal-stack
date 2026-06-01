@@ -54,6 +54,18 @@
     "unexpectedSkills": ["etrnl-pr"]
   },
   {
+    "name": "disk cleanup prompt routes etrnl-disk-cleanup",
+    "prompt": "free SSD space with a disk cleanup pass",
+    "expectedSkills": ["etrnl-disk-cleanup"],
+    "unexpectedSkills": ["etrnl-commit"]
+  },
+  {
+    "name": "email reply quality prompt routes etrnl-email-reply-quality",
+    "prompt": "check this VIVAZ email reply for bad Brazilian Portuguese, em dashes, and AI tells",
+    "expectedSkills": ["etrnl-email-reply-quality"],
+    "unexpectedSkills": ["etrnl-commit"]
+  },
+  {
     "name": "execute prompt routes etrnl-execute",
     "prompt": "implement the approved plan now",
     "expectedSkills": ["etrnl-execute"],

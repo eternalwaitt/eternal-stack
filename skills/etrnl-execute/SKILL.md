@@ -19,6 +19,7 @@ When the user asks to execute or implement a plan, completion means every item i
    - `node ~/.claude/scripts/plan-readiness-check.mjs <plan-path>`
    - Do not probe helper availability with `--help`, pipes, `head`, or other legacy shell commands.
    - If the readiness check fails or a hook blocks the command, stop and report the blocker. Do not continue into implementation.
+   - If the plan contains `Deep stack artifacts:`, also run `node scripts/deep-stack-check.mjs validate-plan --plan <plan-path>` from a source checkout or `node ~/.claude/scripts/deep-stack-check.mjs validate-plan --plan <plan-path>` after install before editing.
 4. Start a ledger when the helper is installed:
    - `node ~/.claude/scripts/execution-ledger.mjs init --plan <plan-path> --session "$CLAUDE_SESSION_ID"`
    - Record task progress with `node ~/.claude/scripts/execution-ledger.mjs set-task --task <id> --status <status> --session "$CLAUDE_SESSION_ID"`.
@@ -27,9 +28,15 @@ When the user asks to execute or implement a plan, completion means every item i
    - Require planned artifacts with `node ~/.claude/scripts/execution-ledger.mjs require-artifact --type <artifact-type> --session "$CLAUDE_SESSION_ID"`.
    - Keep the printed path in working notes and update it as tasks/checks complete when practical.
 5. Extract phases, task groups, verification gates, rollback steps, explicit stop conditions, dependencies, and write ownership.
-6. Critically review the plan before editing:
+6. Extract Hybrid execution risk tier if the plan contains deep-stack artifacts:
+   - Tier 0: docs/no-source/tiny change, local verification only.
+   - Tier 1: one small source surface, normal tests plus completion check.
+   - Tier 2: multi-file/source workflow, spec reviewer, quality reviewer, simplifier, completion audit.
+   - Tier 3: hooks, installed-home changes, auth, money, security, migrations, data loss risk, or broad control-plane behavior; full deep stack plus staged install and rollback proof.
+   - Execution tiers are valid only after deep plan/autoplan/review passes.
+7. Critically review the plan before editing:
    - If it has missing files, vague steps, unsafe actions, or impossible verification, stop and report the blockers.
-   - If non-trivial work lacks "What already exists", "NOT in scope", test coverage, failure modes, rollout/rollback, or parallelization/conflict notes, stop and patch the plan before editing code.
+   - If non-trivial work lacks "What already exists", "NOT in scope", test coverage, a test-first execution plan, failure modes, rollout/rollback, or parallelization/conflict notes, stop and patch the plan before editing code.
    - If it is executable, create a todo/checklist from the plan.
 
 ## Execution
@@ -71,6 +78,7 @@ When the user asks to execute or implement a plan, completion means every item i
    - do-not-revert instruction
    - WebSearch policy
    - for multi-file write scopes: `reviewers`, `specReviewRequired`, `qualityReviewRequired`, `integrationOwner`, and `expectedDiffShape`
+   - for deep-stack execution: `deepStackExecution`, `deepStackArtifacts`, `riskTier`, `completionEvidence`, and `simplifierReviewRequired`
    - Run `node ~/.claude/scripts/agent-task-packet-check.mjs --hash` on the final packet JSON and keep the packet hash with task notes.
    - If a plan or task handoff is too large to read cleanly in one tool call, create a short `## Execution Digest` or `## Plan Index` and dispatch bounded chunks by task id instead of pasting the full artifact into one worker prompt.
 5. Use repo-owned agents by role:
@@ -84,9 +92,14 @@ When the user asks to execute or implement a plan, completion means every item i
    - `etrnl-dx-reviewer` for developer-facing workflow review
    - `etrnl-browser-qa` for browser evidence and report artifacts
 6. Mark each task in progress before editing and complete only after its verification passes.
-7. Update plan checkboxes when the plan is the source of truth.
-8. Preserve user changes and do not revert unrelated dirty files.
-9. Before broad edits, invoke required domain companions when installed:
+7. Use TDD for source changes:
+   - Before changing production source for a task, run the existing targeted test or add the smallest failing test/bug probe that proves the planned behavior gap.
+   - Record the red result in the ledger with `record-check --status failed` or in working notes when the ledger is unavailable.
+   - Implement only enough to turn that test/probe green, then run the phase gate.
+   - If a task genuinely cannot be tested first, record the exact reason and compensating verification command before editing. "Too much work" is not a valid reason.
+8. Update plan checkboxes when the plan is the source of truth.
+9. Preserve user changes and do not revert unrelated dirty files.
+10. Before broad edits, invoke required domain companions when installed:
    - `eternal-best-practices` for auth, tenant, money, i18n, Prisma, permissions, soft-delete, and stack policy.
    - `finding-duplicate-functions` when reducing duplication or consolidating repeated logic.
    - `code-simplifier` after implementation and before final scoring/completion.
@@ -97,6 +110,7 @@ When the user asks to execute or implement a plan, completion means every item i
 After each phase:
 
 - Run the exact Verify block from the plan.
+- Confirm the red test/probe for each source task exists before accepting green verification.
 - If the plan omits verification, derive the smallest project preflight that proves the changed behavior.
 - If the plan calls for browser/manual QA and browser tooling is available, run it before final completion; a pending browser pass is a blocker, not a residual risk.
 - If the plan has a UAT gate, record `record-uat`; do not mark a phase complete while `uatOpenFindings` is greater than zero.
@@ -107,6 +121,8 @@ After each phase:
   - `node ~/.claude/scripts/execution-ledger.mjs record-review --reviewer etrnl-spec-reviewer --task <id> --lineage <lineage-id> --packet-hash <hash> --status verified --session "$CLAUDE_SESSION_ID"`
   - `node ~/.claude/scripts/execution-ledger.mjs record-review --reviewer etrnl-quality-reviewer --task <id> --lineage <lineage-id> --packet-hash <hash> --status verified --session "$CLAUDE_SESSION_ID"`
 - Record artifact evidence when created:
+  - `node ~/.claude/scripts/execution-ledger.mjs record-artifact --type deep-stack-artifacts --path <path> --session "$CLAUDE_SESSION_ID"`
+  - `node ~/.claude/scripts/execution-ledger.mjs record-artifact --type completion-audit --path <path> --session "$CLAUDE_SESSION_ID"`
   - `node ~/.claude/scripts/execution-ledger.mjs record-artifact --type review-log --path <path> --session "$CLAUDE_SESSION_ID"`
   - `node ~/.claude/scripts/execution-ledger.mjs record-artifact --type browser-qa-report --path <path> --session "$CLAUDE_SESSION_ID"`; use browser-QA v2 matrix reports for UI work.
   - `node ~/.claude/scripts/execution-ledger.mjs record-artifact --type context-save --path <path> --session "$CLAUDE_SESSION_ID"`
@@ -182,11 +198,12 @@ Before claiming done:
 1. Re-read the original request and plan completion criteria.
 2. Map every requested outcome to changed files and verification evidence.
 3. Run the simplification/dedupe/domain review passes listed by the plan or triggered by changed files.
-4. Run final project preflight.
-5. Validate required artifacts:
+4. For deep-stack plans, ensure the completion audit has no high-impact `PARTIAL` or `NOT_DONE` item without explicit Victor acceptance.
+5. Run final project preflight.
+6. Validate required artifacts:
    - `node ~/.claude/scripts/review-log.mjs validate` when review findings were logged.
    - `node ~/.claude/scripts/browser-qa-report.mjs validate <report-path>` when browser QA ran.
    - `node ~/.claude/scripts/context-state.mjs validate <context-path>` when context was saved.
-6. Run `node ~/.claude/scripts/execution-ledger.mjs check-stop --session "$CLAUDE_SESSION_ID" --require-ledger --require-tasks --require-plan-phases`.
-7. If more than one source file was modified during this execution, confirm packet-bound write-mode implementation subagent evidence plus `etrnl-spec-reviewer` and `etrnl-quality-reviewer` evidence, or document the explicit sequential-degraded blocker that justified direct parent edits.
-8. Report completed phases, verification, artifacts, remaining risks, and changed files.
+7. Run `node ~/.claude/scripts/execution-ledger.mjs check-stop --session "$CLAUDE_SESSION_ID" --require-ledger --require-tasks --require-plan-phases`.
+8. If more than one source file was modified during this execution, confirm packet-bound write-mode implementation subagent evidence plus `etrnl-spec-reviewer`, `etrnl-quality-reviewer`, and `code-simplifier` evidence, or document the explicit sequential-degraded blocker that justified direct parent edits.
+9. Report completed phases, verification, artifacts, remaining risks, and changed files.

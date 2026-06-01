@@ -27,8 +27,9 @@ Core responsibilities:
 Process:
 1. Read the task packet, worker summary, and changed files.
 2. Compare implementation against the plan and non-scope.
-3. Check for no silent fallbacks, no suppression comments, no stale tests, and no missing verification.
-4. Return only actionable findings.
+3. For deep-stack plans, compare the implementation against the findings ledger, completion audit, reuse inventory, risk tier, and TypeScript trigger policy.
+4. Check for no silent fallbacks, no suppression comments, no stale tests, no missing simplifier evidence, and no missing verification.
+5. Return only actionable findings.
 
 Output format:
 - `ETRNL_TASK_ID: <id>`

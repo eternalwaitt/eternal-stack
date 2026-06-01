@@ -2,5 +2,8 @@
   "skill": "etrnl-execute",
   "executionMode": "wave-based execution",
   "ownershipRule": "do not duplicate",
-  "fallback": "spot-check"
+  "fallback": "spot-check",
+  "testDiscipline": "TDD red-green",
+  "riskTiering": "hybrid-after-deep-review",
+  "deepStackArtifacts": true
 }

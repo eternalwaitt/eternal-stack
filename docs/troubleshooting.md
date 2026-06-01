@@ -19,6 +19,8 @@ Common causes:
 - duplicated hook commands or overlapping matchers in `~/.claude/settings.json`
 - legacy `~/.claude/hooks/rate-limiter.sh` registrations that should be migrated to `cc-rate-limiter.sh`
 - stale command-rewrite hooks such as pre-v4 `rtk-rewrite.sh` running before the control-plane guard; these can turn valid `rg` commands into broken `rtk grep` commands
+- stale Codex RTK hook installs under `~/.codex/hooks/rtk-pre-tool-use.sh`; current installs rewrite through `updatedInput`, proxy unsafe `rg` forms, and block broad `.codex` scans before huge session output
+- legacy CLI blockers such as `enforce-cli-toolkit.sh` on `PreToolUse:Bash`; these can deny raw commands before RTK/default command routing gets a chance to handle them
 - incomplete run ledger under `~/.claude/control-plane/runs/`
 - open UAT findings recorded in the active execution ledger
 - missing required artifact under `~/.claude/control-plane/artifacts/`
@@ -34,6 +36,7 @@ To inspect install and settings drift:
 
 ```bash
 node ~/.claude/scripts/settings-audit.mjs ~/.claude/settings.json --json
+node ~/.claude/scripts/settings-audit.mjs ~/.claude/settings.json --strict-conflicts
 node ~/.claude/scripts/update-check.mjs --json
 node ~/.claude/scripts/update-check.mjs --explain
 ~/.claude/scripts/post-upgrade-canary.sh
@@ -46,13 +49,21 @@ node ~/.claude/scripts/settings-audit.mjs ~/.claude/settings.json --fix
 ~/.claude/scripts/doctor-control-plane.sh
 ```
 
-`settings-audit.mjs --json` also reports `externalHooks` and
-`conflictingHooks`. It does not delete external hooks automatically. For
+`settings-audit.mjs --json` reports `externalHooks` and `conflictingHooks`.
+Use `--strict-conflicts` when the audit is a health gate; it fails closed on
+known conflicting hooks. It does not delete external hooks automatically. For
 `rtk-rewrite.sh`, upgrade the hook to v4 or newer so unsupported `rg` flags route
 through `rtk proxy --ultra-compact rg` instead of broken `rtk grep` rewrites.
-The repo-owned `cc-rtk-rg-compat.sh` prehook performs the same protection for
-native RTK hooks such as `rtk hook claude`, while leaving compact-safe searches
-like `rg -n "term" src/file.ts` available for RTK's compact `rtk grep` rewrite.
+For Codex, sync `scripts/codex-rtk-pre-tool-use.sh` to
+`~/.codex/hooks/rtk-pre-tool-use.sh` so RTK wrapping is applied before command
+execution instead of after a failed first attempt. Set
+`CODEX_RTK_HOOK_DENY_REWRITE=1` only as a compatibility fallback if the host
+does not honor `updatedInput`.
+For `enforce-cli-toolkit.sh`, remove or replace the hook so `rtk hook claude`
+and `cc-pretooluse-guard.sh` own command routing and safety checks. The
+repo-owned `cc-rtk-rg-compat.sh` prehook protects native RTK hooks such as
+`rtk hook claude`, while leaving compact-safe searches like `rg -n "term"
+src/file.ts` available for RTK's compact `rtk grep` rewrite.
 
 To replay scrubbed hook regressions against the installed hooks:
 

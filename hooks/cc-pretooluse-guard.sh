@@ -17,6 +17,8 @@ source "$SCRIPT_DIR/lib/paths.sh"
 source "$SCRIPT_DIR/lib/code-patterns.sh"
 # shellcheck source=hooks/lib/command-classifiers.sh
 source "$SCRIPT_DIR/lib/command-classifiers.sh"
+# shellcheck source=scripts/lib/codex-memory-scan.sh
+source "$SCRIPT_DIR/../scripts/lib/codex-memory-scan.sh"
 # shellcheck source=scripts/lib/skill-lists.sh
 source "$SCRIPT_DIR/../scripts/lib/skill-lists.sh"
 
@@ -165,13 +167,22 @@ command_is_email_send() {
 
 command_is_gws_write() {
   local cmd="$1"
-  [[ "$cmd" =~ (gws|gmail|drive|calendar) ]] && [[ "$cmd" =~ (create|update|delete|send|write|upload|move|trash|modify|batchModify) ]]
+  local workspace_cmd_re='(^|[[:space:];&|])((GOOGLE_WORKSPACE_CLI_CONFIG_DIR=[^[:space:]]+[[:space:]]+)?([^[:space:];&|]*/)?(gws|gmail|drive|calendar))([[:space:]]|$)'
+  local write_token_re='(^|[[:space:];&|])(create|update|delete|send|write|upload|move|trash|modify|batchModify)([[:space:];&|]|$)'
+  [[ "$cmd" =~ $workspace_cmd_re ]] && [[ "$cmd" =~ $write_token_re ]]
 }
 
 cc_email_triage_active() {
   jq -e '
     ([.requestedSkills[]?.value // empty | ascii_downcase] | any(. == "email-triage" or . == "/email-triage"))
       or ((.lastPrompt // "" | ascii_downcase) | test("/email-triage|email[- ]triage"))
+  ' "$(cc_state_file)" >/dev/null 2>&1
+}
+
+cc_disk_cleanup_active() {
+  jq -e '
+    ([.requestedSkills[]?.value // empty | ascii_downcase] | any(. == "etrnl-disk-cleanup" or . == "/etrnl-disk-cleanup"))
+      or ((.lastPrompt // "" | ascii_downcase) | test("disk[ -]cleanup|clean up disk|free (disk|ssd|storage) space|reclaim (disk|ssd|storage) space"))
   ' "$(cc_state_file)" >/dev/null 2>&1
 }
 
@@ -308,16 +319,48 @@ command_is_dangerous_outside_cwd() {
   [[ "$cmd" =~ (trash|mv|cp|chmod|chown)[[:space:]].*/ ]] || [[ "$cmd" =~ rm[[:space:]]+-r ]]
 }
 
+command_is_recursive_remove() {
+  local cmd="$1"
+  local recursive_remove_re='(^|[[:space:];&|/])rm[[:space:]][^;&|]*(-[A-Za-z]*[rR]|--recursive)'
+  [[ "$cmd" =~ $recursive_remove_re ]]
+}
+
+path_is_disk_cleanup_allowed() {
+  local path="$1" home="${HOME:-}"
+  [[ -n "$home" ]] || return 1
+  case "$path" in
+    "$home/Library/Caches"|"$home/Library/Caches"/*) return 0 ;;
+    "$home/Library/Developer/Xcode/DerivedData"|"$home/Library/Developer/Xcode/DerivedData"/*) return 0 ;;
+    "$home/Library/Logs"|"$home/Library/Logs"/*) return 0 ;;
+    "$home/.cache"|"$home/.cache"/*) return 0 ;;
+    "$home/.npm/_cacache"|"$home/.npm/_cacache"/*) return 0 ;;
+    "$home/.pnpm-store"|"$home/.pnpm-store"/*) return 0 ;;
+    "$home/.bun/install/cache"|"$home/.bun/install/cache"/*) return 0 ;;
+    /tmp/*|/private/tmp/*|/var/folders/*|/private/var/folders/*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 path_is_allowed_for_dangerous_command() {
   local path="$1"
   case "$path" in
     "$cwd"|"$cwd"/*|/tmp/*|/private/tmp/*|/var/folders/*|/private/var/folders/*) return 0 ;;
-    *) return 1 ;;
+    *)
+      if cc_disk_cleanup_active && path_is_disk_cleanup_allowed "$path"; then
+        return 0
+      fi
+      return 1
+      ;;
   esac
 }
 
 dangerous_token_outside_path() {
   local path="$1"
+  local home="${HOME:-}"
+  case "$path" in
+    "~") [[ -n "$home" ]] || return 0; path="$home" ;;
+    "~/"*) [[ -n "$home" ]] || return 0; path="$home/${path#~/}" ;;
+  esac
   [[ "$path" == /* ]] || return 1
   if ! path_is_allowed_for_dangerous_command "$path"; then
     printf '%s\n' "$path"
@@ -560,6 +603,9 @@ handle_bash() {
   if cc_command_has_output_limiter "$cmd" && ! cc_command_output_limiter_is_diagnostic "$cmd"; then
     deny "Avoid shell output-limiter pipes such as head, tail, or sed -n after another command. Use native limits instead, for example rg -m/--max-count, fd --max-results, bat --line-range, jq filters, or write a bounded report file."
   fi
+  if command_is_broad_codex_memory_scan "$cmd"; then
+    deny "Broad ~/.codex scans are blocked to prevent runaway session/memory output. Search ~/.codex/memories/MEMORY.md first, then one specific rollout_summaries file with a bounded query."
+  fi
   local readiness_help_probe_re='plan-readiness-check\.mjs[[:space:]][^;|&]*--help[^;|]*(;|\|\||\|)'
   if [[ "$cmd" =~ $readiness_help_probe_re ]]; then
     deny "Do not probe plan-readiness-check.mjs with --help during execute startup. Run node ~/.claude/scripts/plan-readiness-check.mjs <plan-path> directly; if it fails, report or repair the concrete plan-readiness blocker."
@@ -611,6 +657,9 @@ handle_bash() {
   fi
 
   local outside_path
+  if cc_disk_cleanup_active && command_is_recursive_remove "$cmd"; then
+    deny "Disk cleanup must use trash or a runtime-owned cleanup command, not rm -r/rm -rf. Produce a dry-run manifest first, then trash only approved cache/build/log paths."
+  fi
   if command_is_dangerous_outside_cwd "$cmd" && outside_path="$(dangerous_command_outside_path "$cmd")"; then
     deny "Dangerous filesystem commands must stay inside the current project or an explicit temporary directory. Outside path: $outside_path"
   fi
@@ -692,7 +741,8 @@ handle_edit() {
     fi
     if [[ "$current_tool" == "Write" && ! -e "$abs" ]]; then
       new_count="$(jq '(.newSourceFiles // {}) | length' "$(cc_state_file)" 2>/dev/null || printf '0\n')"
-      if (( new_count >= 3 )) && ! cc_write_scope_allows_new_source "$abs"; then
+      # File-sprawl check is opt-in. Set CLAUDE_GUARD_FILE_SPRAWL=1 to re-enable it.
+      if [[ "${CLAUDE_GUARD_FILE_SPRAWL:-0}" == "1" ]] && (( new_count >= 3 )) && ! cc_write_scope_allows_new_source "$abs"; then
         deny "File-sprawl violation. This session is creating too many new source files. Reuse existing files, split the plan, or run a second-pass review before continuing."
       fi
       is_new_source=true
@@ -772,7 +822,7 @@ handle_agent() {
     safe_output="$(printf '%s' "$output" | tr '\n' ' ' | sed -E 's/[[:space:]]+/ /g')"
     cc_state_append_value failures "Agent packet validation failed: ${safe_output:-unknown error}" || true
     cc_state_append_value reviewTriggers "agent packet validation failed" || true
-    deny "$output"$'\n'"Retry the Agent/Task call with a JSON-only task packet. Do not proceed with direct parent source edits or a sequential-degraded fallback for a malformed packet."
+    deny "$output"$'\n'"Retry the Agent/Task call with a JSON-only task packet. Generate the packet with: node ${CLAUDE_HOME:-$HOME/.claude}/scripts/agent-task-packet-check.mjs --template read-only or node ${CLAUDE_HOME:-$HOME/.claude}/scripts/agent-task-packet-check.mjs --template write. Do not proceed with direct parent source edits or a sequential-degraded fallback for a malformed packet."
   fi
   cc_json_allow
 }

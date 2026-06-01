@@ -42,6 +42,37 @@ else
   not_ok "complexity check accepts simple file: $complexity_out"
 fi
 
+mkdir -p "$TMPROOT/codex-bin"
+cat >"$TMPROOT/codex-bin/rtk" <<'BASH'
+#!/usr/bin/env bash
+if [[ "$1" == "rewrite" ]]; then
+  shift
+  if [[ "$*" == "git status" ]]; then printf "rtk git status\n"; exit 0; fi
+  if [[ "$*" == "rg -n foo src" ]]; then printf "rtk grep -n foo src\n"; exit 0; fi
+  printf "%s\n" "$*"
+  exit 1
+fi
+exit 0
+BASH
+chmod +x "$TMPROOT/codex-bin/rtk"
+codex_git_event="$(jq -cn '{tool_input:{command:"git status"}}')"
+codex_git_out="$(PATH="$TMPROOT/codex-bin:$PATH" bash "$ROOT/scripts/codex-rtk-pre-tool-use.sh" <<<"$codex_git_event")"
+assert_json_expr "codex RTK hook rewrites with updatedInput" "$codex_git_out" '.hookSpecificOutput.permissionDecision == "allow" and .hookSpecificOutput.updatedInput.command == "rtk git status"'
+codex_rg_files_event="$(jq -cn '{tool_input:{command:"rg --files src"}}')"
+codex_rg_files_out="$(PATH="$TMPROOT/codex-bin:$PATH" bash "$ROOT/scripts/codex-rtk-pre-tool-use.sh" <<<"$codex_rg_files_event")"
+assert_json_expr "codex RTK hook proxies rg --files" "$codex_rg_files_out" '.hookSpecificOutput.updatedInput.command == "rtk proxy --ultra-compact rg --files src"'
+codex_broad_scan_event="$(jq -cn '{tool_input:{command:"rg -n rtk /Users/testuser/.codex"}}')"
+codex_broad_scan_out="$(PATH="$TMPROOT/codex-bin:$PATH" bash "$ROOT/scripts/codex-rtk-pre-tool-use.sh" <<<"$codex_broad_scan_event")"
+assert_json_expr "codex RTK hook blocks broad codex scans" "$codex_broad_scan_out" '.hookSpecificOutput.permissionDecision == "deny"'
+codex_config_scan_event="$(jq -cn '{tool_input:{command:"rg -n token /Users/testuser/.codex/config.toml"}}')"
+codex_config_scan_out="$(PATH="$TMPROOT/codex-bin:$PATH" bash "$ROOT/scripts/codex-rtk-pre-tool-use.sh" <<<"$codex_config_scan_event")"
+assert_json_expr "codex RTK hook blocks config scans" "$codex_config_scan_out" '.hookSpecificOutput.permissionDecision == "deny"'
+codex_rg_pipe_event="$(jq -cn '{tool_input:{command:"rg --files src | head -20"}}')"
+codex_rg_pipe_out="$(PATH="$TMPROOT/codex-bin:$PATH" bash "$ROOT/scripts/codex-rtk-pre-tool-use.sh" <<<"$codex_rg_pipe_event")"
+if [[ -z "$codex_rg_pipe_out" ]]; then ok "codex RTK hook does not proxy shell-control rg"; else not_ok "codex RTK hook should not proxy shell-control rg: $codex_rg_pipe_out"; fi
+codex_deny_out="$(CODEX_RTK_HOOK_DENY_REWRITE=1 PATH="$TMPROOT/codex-bin:$PATH" bash "$ROOT/scripts/codex-rtk-pre-tool-use.sh" <<<"$codex_git_event")"
+assert_json_expr "codex RTK hook keeps deny fallback mode" "$codex_deny_out" '.hookSpecificOutput.permissionDecision == "deny" and (.hookSpecificOutput.permissionDecisionReason | test("rtk git status"))'
+
 ledger_path="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-ledger --plan "$ROOT/hooks/fixtures/plans/good-plan.md")"
 assert_file "execution ledger init creates file" "$ledger_path"
 node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-ledger --task T1 --title Task --status in_progress
@@ -255,9 +286,14 @@ done
 assert_command "complexity syntax" node --check "$ROOT/hooks/lib/complexity-check.mjs"
 assert_command "audit exclusions syntax" node --check "$ROOT/scripts/lib/audit-exclusions.mjs"
 assert_command "code-health inventory syntax" node --check "$ROOT/scripts/code-health-inventory.mjs"
-assert_command "code-health inventory runs" node "$ROOT/scripts/code-health-inventory.mjs" --json
-inventory_quiet_json="$(node "$ROOT/scripts/code-health-inventory.mjs" --json --quiet)"
-assert_json_expr "code-health inventory json quiet emits JSON" "$inventory_quiet_json" '.totalFiles >= 1'
+if git -C "$ROOT" rev-parse --show-toplevel >/dev/null 2>&1; then
+  assert_command "code-health inventory runs" node "$ROOT/scripts/code-health-inventory.mjs" --json
+  inventory_quiet_json="$(node "$ROOT/scripts/code-health-inventory.mjs" --json --quiet)"
+  assert_json_expr "code-health inventory json quiet emits JSON" "$inventory_quiet_json" '.totalFiles >= 1'
+else
+  ok "SKIPPED (not in git repo) code-health inventory runs"
+  ok "SKIPPED (not in git repo) code-health inventory quiet JSON emits JSON"
+fi
 inventory_exclusion_root="$TMPROOT/code-health-inventory-exclusions"
 mkdir -p \
   "$inventory_exclusion_root/.audit" \
@@ -293,6 +329,8 @@ git -C "$inventory_exclusion_root" add -f . >/dev/null
 inventory_exclusion_json="$(node "$ROOT/scripts/code-health-inventory.mjs" --json --root="$inventory_exclusion_root")"
 assert_json_expr "code-health inventory lists obvious folders without auditing them" "$inventory_exclusion_json" '([.files[] | select(.path == "src/app.ts" and .auditScope == "audit")] | length) == 1 and ([.files[] | select(.path != "src/app.ts")] | all(.auditScope == "listed")) and ([.files[] | select(.path | startswith(".audit/"))][0].category == "excluded")'
 assert_command "plan readiness syntax" node --check "$ROOT/scripts/plan-readiness-check.mjs"
+assert_command "deep-stack check syntax" node --check "$ROOT/scripts/deep-stack-check.mjs"
+assert_command "deep-stack artifact library syntax" node --check "$ROOT/scripts/lib/deep-stack-artifacts.mjs"
 assert_command "cli arg parser edge cases" node --input-type=module -e '
 import { argValue } from "./scripts/lib/cli-args.mjs";
 const expect = (actual, expected, label) => {
@@ -335,7 +373,7 @@ expect(parsed[5], "single quoted value", "single-quoted branch");
 expect(parsed[6], "plain token", "unquoted escaped space branch");
 expect(parsed[7], "escaped space token", "unquoted multi-escape branch");
 '
-for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger execute-evidence-check execution-wave-check code-health-ledger-check documentation-comment-health documentation-health-ledger-check review-log project-buglog browser-qa-report context-state workflow-health prompt-budget-check changelog-release-check port-guard update-check settings-audit; do
+for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger execute-evidence-check execution-wave-check code-health-ledger-check documentation-comment-health documentation-health-ledger-check review-log project-buglog browser-qa-report context-state workflow-health prompt-budget-check changelog-release-check port-guard update-check settings-audit deep-stack-check; do
   assert_command "$script syntax" node --check "$ROOT/scripts/$script.mjs"
 done
 assert_command "update shell syntax" bash -n "$ROOT/scripts/update.sh"
@@ -359,7 +397,7 @@ settings_audit_target="$TMPROOT/settings-audit-target.json"
 settings_audit_home="$TMPROOT/settings-audit-home"
 mkdir -p "$settings_audit_home/.claude/hooks"
 printf '%s\n' '#!/usr/bin/env bash' '# rtk-hook-version: 3' >"$settings_audit_home/.claude/hooks/rtk-rewrite.sh"
-printf '%s\n' "{\"hooks\":{\"PostToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"bash $settings_audit_home/.claude/hooks/rate-limiter.sh\"}]},{\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/rate-limiter.sh.backup\"}]},{\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/cc-rate-limiter.sh\",\"timeout\":5}]}],\"PreToolUse\":[{\"matcher\":\"Bash\",\"hooks\":[{\"type\":\"command\",\"command\":\"~/.claude/hooks/rtk-rewrite.sh\"}]},{\"matcher\":\"Bash\",\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/custom-local-guard.sh\"}]},{\"matcher\":\"Task|Agent\",\"hooks\":[{\"type\":\"command\",\"command\":\"bash $settings_audit_home/.claude/hooks/cc-pretooluse-guard.sh\",\"timeout\":5}]},{\"matcher\":\"Task|TaskCreate|Agent\",\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/cc-pretooluse-guard.sh\",\"timeout\":10}]}]}}" >"$settings_audit_target"
+printf '%s\n' "{\"hooks\":{\"PostToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"bash $settings_audit_home/.claude/hooks/rate-limiter.sh\"}]},{\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/rate-limiter.sh.backup\"}]},{\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/cc-rate-limiter.sh\",\"timeout\":5}]}],\"PreToolUse\":[{\"matcher\":\"Bash\",\"hooks\":[{\"type\":\"command\",\"command\":\"~/.claude/hooks/rtk-rewrite.sh\"}]},{\"matcher\":\"Bash\",\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/enforce-cli-toolkit.sh\"}]},{\"matcher\":\"Bash\",\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/custom-local-guard.sh\"}]},{\"matcher\":\"Task|Agent\",\"hooks\":[{\"type\":\"command\",\"command\":\"bash $settings_audit_home/.claude/hooks/cc-pretooluse-guard.sh\",\"timeout\":5}]},{\"matcher\":\"Task|TaskCreate|Agent\",\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/cc-pretooluse-guard.sh\",\"timeout\":10}]}]}}" >"$settings_audit_target"
 HOME="$settings_audit_home" node "$ROOT/scripts/settings-audit.mjs" "$settings_audit_target" --fix
 assert_json_expr "settings-audit rewrites legacy rate limiter" "$(jq -c . "$settings_audit_target")" '([.hooks.PostToolUse[].hooks[].command] | map(select(test("/rate-limiter\\.sh$"))) | length) == 0'
 assert_json_expr "settings-audit ignores backup rate limiter names" "$(jq -c . "$settings_audit_target")" '([.hooks.PostToolUse[].hooks[].command] | any(endswith("rate-limiter.sh.backup")))'
@@ -367,7 +405,11 @@ assert_json_expr "settings-audit compacts matcher supersets" "$(jq -c . "$settin
 assert_json_expr "settings-audit preserves TaskCreate matcher" "$(jq -c . "$settings_audit_target")" '(.hooks.PreToolUse[] | select(.hooks[0].command | test("cc-pretooluse-guard")) | .matcher) == "Task|TaskCreate|Agent"'
 settings_audit_report="$(HOME="$settings_audit_home" node "$ROOT/scripts/settings-audit.mjs" "$settings_audit_target" --json)"
 assert_json_expr "settings-audit reports stale rtk rewrite conflict" "$settings_audit_report" 'any(.after.conflictingHooks[]?; .id == "rtk-rewrite" and .hook == "rtk-rewrite.sh")'
+assert_json_expr "settings-audit reports legacy cli toolkit conflict" "$settings_audit_report" 'any(.after.conflictingHooks[]?; .id == "legacy-cli-toolkit" and .hook == "enforce-cli-toolkit.sh")'
 assert_json_expr "settings-audit reports unknown external hooks" "$settings_audit_report" 'any(.after.externalHooks[]?; .owner == "unknown-external" and .hook == "custom-local-guard.sh")'
+settings_audit_strict_status=0
+HOME="$settings_audit_home" node "$ROOT/scripts/settings-audit.mjs" "$settings_audit_target" --strict-conflicts >/dev/null 2>&1 || settings_audit_strict_status=$?
+if [[ "$settings_audit_strict_status" -ne 0 ]]; then ok "settings-audit strict conflicts fail closed"; else not_ok "settings-audit strict conflicts should fail closed"; fi
 printf '%s\n' '#!/usr/bin/env bash' '# rtk-hook-version: 4' 'rg_rewrite_needs_proxy() { return 0; }' >"$settings_audit_home/.claude/hooks/rtk-rewrite.sh"
 settings_audit_report="$(HOME="$settings_audit_home" node "$ROOT/scripts/settings-audit.mjs" "$settings_audit_target" --json)"
 assert_json_expr "settings-audit accepts fixed rtk rewrite hook" "$settings_audit_report" '([.after.conflictingHooks[]? | select(.id == "rtk-rewrite")] | length) == 0'
@@ -768,6 +810,7 @@ execute_meta="$(jq -c . "$ROOT/skills/metadata/etrnl-execute.json")"
 assert_json_expr "execute includes wave execution" "$execute_meta" '.executionMode == "wave-based execution"'
 assert_json_expr "execute includes subagent ownership rule" "$execute_meta" '.ownershipRule == "do not duplicate"'
 assert_json_expr "execute includes spot-check fallback" "$execute_meta" '.fallback == "spot-check"'
+assert_json_expr "execute includes TDD discipline" "$execute_meta" '.testDiscipline == "TDD red-green"'
 bad_plan="$TMPROOT/bad-plan.md"
 printf '%s\n' '# Bad Plan' '' 'Status: Final' '' 'Goal: Thin plan.' >"$bad_plan"
 if node "$ROOT/scripts/plan-readiness-check.mjs" "$bad_plan" >/dev/null 2>&1; then
@@ -779,23 +822,99 @@ bad_plan_json="$(node "$ROOT/scripts/plan-readiness-check.mjs" "$bad_plan" --jso
 assert_json_expr "plan readiness emits repair hints" "$bad_plan_json" '(.repairHints | length) > 0'
 good_plan="$TMPROOT/good-plan.md"
 cp "$ROOT/hooks/fixtures/plans/good-plan.md" "$good_plan"
-assert_command "plan readiness accepts complete plan" node "$ROOT/scripts/plan-readiness-check.mjs" "$good_plan"
+if good_plan_missing_deep_out="$(node "$ROOT/scripts/plan-readiness-check.mjs" "$good_plan" 2>&1)"; then
+  not_ok "plan readiness rejects final plan without deep artifacts"
+else
+  assert_contains "plan readiness rejects final plan without deep artifacts" "$good_plan_missing_deep_out" "DEEP_ARTIFACT_REQUIRED"
+fi
+assert_command "plan readiness allows legacy transitional plan only with explicit flag" node "$ROOT/scripts/plan-readiness-check.mjs" "$good_plan" --allow-transitional-deep-stack
+deep_stack_fixture="$ROOT/tests/fixtures/deep-stack/deep-stack.valid.json"
+assert_command "deep-stack artifact validates" node "$ROOT/scripts/deep-stack-check.mjs" validate-artifact --artifact "$deep_stack_fixture"
+created_deep_dir="$TMPROOT/created-deep-stack"
+created_deep_artifact="$(node "$ROOT/scripts/deep-stack-check.mjs" create --plan "$good_plan" --out "$created_deep_dir")"
+if created_deep_out="$(node "$ROOT/scripts/deep-stack-check.mjs" validate-artifact --artifact "$created_deep_artifact" 2>&1)"; then
+  not_ok "deep-stack create skeleton fails closed until evidence is filled"
+else
+  assert_contains "deep-stack create skeleton fails closed until evidence is filled" "$created_deep_out" "DEEP_REVIEW_NOT_PASSED"
+fi
+invalid_deep_artifact="$TMPROOT/invalid-deep-stack.json"
+printf '{not json\n' >"$invalid_deep_artifact"
+if invalid_deep_out="$(node "$ROOT/scripts/deep-stack-check.mjs" validate-artifact --artifact "$invalid_deep_artifact" 2>&1)"; then
+  not_ok "deep-stack artifact rejects invalid JSON"
+else
+  assert_contains "deep-stack artifact rejects invalid JSON" "$invalid_deep_out" "DEEP_ARTIFACT_INVALID_JSON"
+fi
+assert_command "deep-stack plan readiness accepts opted-in artifact" node "$ROOT/scripts/plan-readiness-check.mjs" "$ROOT/tests/fixtures/deep-stack/plan.deep-stack.valid.md"
+assert_command "deep-stack validate-plan accepts opted-in artifact" node "$ROOT/scripts/deep-stack-check.mjs" validate-plan --plan "$ROOT/tests/fixtures/deep-stack/plan.deep-stack.valid.md"
+if deep_stack_no_metadata_out="$(node "$ROOT/scripts/deep-stack-check.mjs" validate-plan --plan "$good_plan" 2>&1)"; then
+  not_ok "deep-stack validate-plan rejects missing metadata by default"
+else
+  assert_contains "deep-stack validate-plan rejects missing metadata by default" "$deep_stack_no_metadata_out" "DEEP_ARTIFACT_REQUIRED"
+fi
+assert_command "deep-stack validate-plan transitional flag is explicit" node "$ROOT/scripts/deep-stack-check.mjs" validate-plan --plan "$good_plan" --allow-transitional
+missing_deep_plan_json="$(node "$ROOT/scripts/plan-readiness-check.mjs" "$ROOT/tests/fixtures/deep-stack/plan.deep-stack.missing-artifact.md" --json 2>/dev/null || true)"
+assert_json_expr "deep-stack readiness blocks missing artifact" "$missing_deep_plan_json" '.ok == false and ([.failures[].name] | index("DEEP_ARTIFACT_MISSING") != null) and ([.repairHints[]] | any(contains("deep-stack-check.mjs create")))'
+empty_deep_plan="$TMPROOT/empty-deep-artifact-plan.md"
+cp "$ROOT/tests/fixtures/deep-stack/plan.deep-stack.valid.md" "$empty_deep_plan"
+perl -0pi -e 's/^Deep stack artifacts:.*$/Deep stack artifacts:   /m' "$empty_deep_plan"
+empty_deep_plan_json="$(node "$ROOT/scripts/plan-readiness-check.mjs" "$empty_deep_plan" --json 2>/dev/null || true)"
+assert_json_expr "deep-stack readiness blocks empty artifact metadata" "$empty_deep_plan_json" '.ok == false and ([.failures[].name] | index("DEEP_ARTIFACT_PATH_EMPTY") != null)'
+assert_command "deep-stack source manifest validates" node "$ROOT/scripts/deep-stack-check.mjs" validate-sources --artifact "$deep_stack_fixture"
+missing_commit_artifact="$TMPROOT/deep-stack-missing-commit.json"
+jq 'del(.sourceManifest.sources[0].commit)' "$deep_stack_fixture" >"$missing_commit_artifact"
+if missing_commit_out="$(node "$ROOT/scripts/deep-stack-check.mjs" validate-sources --artifact "$missing_commit_artifact" 2>&1)"; then
+  not_ok "deep-stack source manifest requires commit"
+else
+  assert_contains "deep-stack source manifest requires commit" "$missing_commit_out" "SOURCE_FIELD_MISSING"
+fi
+if source_private_out="$(node "$ROOT/scripts/deep-stack-check.mjs" validate-sources --artifact "$ROOT/tests/fixtures/deep-stack/source.private-path.json" 2>&1)"; then
+  not_ok "deep-stack source manifest rejects private paths"
+else
+  assert_contains "deep-stack source manifest rejects private paths" "$source_private_out" "SOURCE_PRIVATE_VALUE"
+fi
+assert_command "deep-stack skill matrix accepts plain TypeScript negative control" node "$ROOT/scripts/deep-stack-check.mjs" validate-skills --artifact "$deep_stack_fixture"
+assert_command "deep-stack advanced TypeScript fixture validates" node "$ROOT/scripts/deep-stack-check.mjs" validate-skills --artifact "$ROOT/tests/fixtures/deep-stack/typescript.advanced-required.json"
+if reuse_out="$(node "$ROOT/scripts/deep-stack-check.mjs" validate-reuse --artifact "$ROOT/tests/fixtures/deep-stack/reuse.missing-justification.json" 2>&1)"; then
+  not_ok "deep-stack reuse inventory rejects unjustified new surface"
+else
+  assert_contains "deep-stack reuse inventory rejects unjustified new surface" "$reuse_out" "REUSE_NEW_SURFACE_JUSTIFICATION"
+fi
+if findings_out="$(node "$ROOT/scripts/deep-stack-check.mjs" validate-findings --artifact "$ROOT/tests/fixtures/deep-stack/findings.open-high.json" 2>&1)"; then
+  not_ok "deep-stack findings block open high finding"
+else
+  assert_contains "deep-stack findings block open high finding" "$findings_out" "FINDING_OPEN_HIGH"
+fi
+if completion_out="$(node "$ROOT/scripts/deep-stack-check.mjs" validate-completion --artifact "$ROOT/tests/fixtures/deep-stack/completion.not-done-high.json" 2>&1)"; then
+  not_ok "deep-stack completion blocks high-impact not done"
+else
+  assert_contains "deep-stack completion blocks high-impact not done" "$completion_out" "COMPLETION_HIGH_IMPACT_OPEN"
+fi
+if risk_before_review_out="$(node "$ROOT/scripts/deep-stack-check.mjs" validate-risk-tier --artifact "$ROOT/tests/fixtures/deep-stack/risk-tier.before-review.json" 2>&1)"; then
+  not_ok "deep-stack risk tier requires passed deep review"
+else
+  assert_contains "deep-stack risk tier requires passed deep review" "$risk_before_review_out" "RISK_TIER_BEFORE_DEEP_REVIEW"
+fi
+if risk_tier3_out="$(node "$ROOT/scripts/deep-stack-check.mjs" validate-risk-tier --artifact "$ROOT/tests/fixtures/deep-stack/risk-tier.tier3-missing-install.json" 2>&1)"; then
+  not_ok "deep-stack tier 3 requires staged install"
+else
+  assert_contains "deep-stack tier 3 requires staged install" "$risk_tier3_out" "RISK_TIER3_STAGED_INSTALL"
+fi
 large_plan="$TMPROOT/large-plan.md"
 cp "$ROOT/hooks/fixtures/plans/good-plan.md" "$large_plan"
 for i in $(seq 1 2600); do
   printf 'Detailed execution evidence line %04d: concrete owned file, command, expected signal, rollback note, and verification result placeholder.\n' "$i"
 done >>"$large_plan"
-if node "$ROOT/scripts/plan-readiness-check.mjs" "$large_plan" >/dev/null 2>&1; then
+if node "$ROOT/scripts/plan-readiness-check.mjs" "$large_plan" --allow-transitional-deep-stack >/dev/null 2>&1; then
   not_ok "plan readiness rejects oversized final plan without digest"
 else
   ok "plan readiness rejects oversized final plan without digest"
 fi
 printf '%s\n' '' '## Execution Digest' '' '- Oversized detail is chunked into referenced execution artifacts.' >>"$large_plan"
-assert_command "plan readiness accepts oversized final plan with digest" node "$ROOT/scripts/plan-readiness-check.mjs" "$large_plan"
+assert_command "plan readiness accepts oversized final plan with digest" node "$ROOT/scripts/plan-readiness-check.mjs" "$large_plan" --allow-transitional-deep-stack
 immediate_plan="$TMPROOT/immediate-first-patch-plan.md"
 cp "$ROOT/hooks/fixtures/plans/good-plan.md" "$immediate_plan"
 printf '%s\n' '' '## Immediate First Patch' '' '- Do only the first slice.' >>"$immediate_plan"
-if immediate_out="$(node "$ROOT/scripts/plan-readiness-check.mjs" "$immediate_plan" 2>&1)"; then
+if immediate_out="$(node "$ROOT/scripts/plan-readiness-check.mjs" "$immediate_plan" --allow-transitional-deep-stack 2>&1)"; then
   not_ok "plan readiness rejects ambiguous immediate first patch"
 else
   assert_contains "plan readiness rejects ambiguous immediate first patch" "$immediate_out" "Immediate First Patch"
@@ -807,11 +926,31 @@ phase_plan="$TMPROOT/phase-plan.md"
   printf 'UAT Gate: browser QA matrix has zero open findings\n\n'
   cat "$ROOT/hooks/fixtures/plans/good-plan.md"
 } >"$phase_plan"
-phase_plan_json="$(node "$ROOT/scripts/plan-readiness-check.mjs" "$phase_plan" --json)"
+phase_plan_json="$(node "$ROOT/scripts/plan-readiness-check.mjs" "$phase_plan" --json --allow-transitional-deep-stack)"
 assert_json_expr "plan readiness recognizes optional phase metadata" "$phase_plan_json" '.ok == true and .optionalMetadata.phase == true and .optionalMetadata.workstream == true and .optionalMetadata.uatGate == true'
 agent_template="$(node "$ROOT/scripts/agent-task-packet-check.mjs" --template write)"
 assert_json_expr "agent packet template includes write scope" "$agent_template" '.packet.writeScope[0] | length > 0'
 assert_json_expr "agent packet template includes reviewer contract" "$agent_template" '(.packet.reviewers | index("etrnl-spec-reviewer")) != null and .packet.specReviewRequired == true and .packet.qualityReviewRequired == true'
+deep_packet="$(jq -cn '{packet:{mode:"write",goal:"Implement deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T1",lineageId:"wave-1.T1",writeScope:["scripts/deep-stack-check.mjs"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"tests/test-workflow-tools.sh",modelTier:"sonnet",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,deepStackArtifacts:"tests/fixtures/deep-stack/deep-stack.valid.json",riskTier:{tier:2,reason:"multi-file after review",verificationGate:"tests/test-workflow-tools.sh"},completionEvidence:"completion audit row",specReviewRequired:true,qualityReviewRequired:true,simplifierReviewRequired:true,reviewers:["etrnl-spec-reviewer","etrnl-quality-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
+assert_command "agent packet accepts deep-stack execution contract" node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$deep_packet"
+bad_deep_packet="$(jq -cn '{packet:{mode:"write",goal:"Implement deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T1",lineageId:"wave-1.T1",writeScope:["scripts/deep-stack-check.mjs"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"tests/test-workflow-tools.sh",modelTier:"sonnet",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,specReviewRequired:true,qualityReviewRequired:true,reviewers:["etrnl-spec-reviewer","etrnl-quality-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
+if bad_deep_packet_out="$(node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$bad_deep_packet" 2>&1)"; then
+  not_ok "agent packet rejects missing deep-stack contract"
+else
+  assert_contains "agent packet rejects missing deep-stack contract" "$bad_deep_packet_out" "deepStackArtifacts"
+fi
+bad_deep_packet_reviewers="$(jq -cn '{packet:{mode:"write",goal:"Implement deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T1",lineageId:"wave-1.T1",writeScope:["scripts/deep-stack-check.mjs"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"tests/test-workflow-tools.sh",modelTier:"sonnet",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,deepStackArtifacts:"tests/fixtures/deep-stack/deep-stack.valid.json",riskTier:{tier:2,reason:"multi-file after review",verificationGate:"tests/test-workflow-tools.sh"},completionEvidence:"completion audit row",specReviewRequired:true,qualityReviewRequired:true,simplifierReviewRequired:true,reviewers:["etrnl-spec-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
+if bad_deep_packet_reviewers_out="$(node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$bad_deep_packet_reviewers" 2>&1)"; then
+  not_ok "agent packet rejects missing deep-stack reviewer"
+else
+  assert_contains "agent packet rejects missing deep-stack reviewer" "$bad_deep_packet_reviewers_out" "etrnl-quality-reviewer"
+fi
+bad_deep_packet_no_scope="$(jq -cn '{packet:{mode:"write",goal:"Implement deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T1",lineageId:"wave-1.T1",verificationCommand:"tests/test-workflow-tools.sh",modelTier:"sonnet",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,specReviewRequired:true,qualityReviewRequired:true,reviewers:["etrnl-spec-reviewer","etrnl-quality-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
+if bad_deep_packet_no_scope_out="$(node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$bad_deep_packet_no_scope" 2>&1)"; then
+  not_ok "agent packet rejects deep-stack contract without write scope"
+else
+  assert_contains "agent packet rejects deep-stack contract without write scope" "$bad_deep_packet_no_scope_out" "deepStackArtifacts"
+fi
 if node "$ROOT/scripts/agent-task-packet-check.mjs" --template >/dev/null 2>&1; then
   not_ok "agent packet template requires explicit mode"
 else

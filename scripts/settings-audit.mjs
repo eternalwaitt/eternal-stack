@@ -7,10 +7,11 @@ import path from "node:path";
 const args = process.argv.slice(2);
 const fix = args.includes("--fix");
 const json = args.includes("--json");
+const strictConflicts = args.includes("--strict-conflicts");
 const settingsPath = args.find((arg) => !arg.startsWith("--"));
 
 if (!settingsPath) {
-  console.error("usage: settings-audit.mjs <settings.json> [--fix] [--json]");
+  console.error("usage: settings-audit.mjs <settings.json> [--fix] [--json] [--strict-conflicts]");
   process.exit(2);
 }
 
@@ -127,12 +128,18 @@ const rtkRewriteHasRgProxyGuard = (command) => {
   }
 };
 
-const conflictForHook = (basename, command) => {
+const conflictForHook = (basename, command, eventName, matcher) => {
   if (basename === "rtk-rewrite.sh") {
     if (rtkRewriteHasRgProxyGuard(command)) return null;
     return {
       id: "rtk-rewrite",
       reason: "outdated rtk-rewrite.sh rewrites Bash commands before the control-plane guard; observed rg -> rtk grep rewrites can break recursive directory searches",
+    };
+  }
+  if (basename === "enforce-cli-toolkit.sh" && eventName === "PreToolUse" && matcherOverlaps(matcher, "Bash")) {
+    return {
+      id: "legacy-cli-toolkit",
+      reason: "legacy CLI-toolkit blocker denies raw Bash commands instead of letting RTK rewrite them; observed first-failure loops should be handled by rtk hook claude plus cc-pretooluse-guard",
     };
   }
   return null;
@@ -161,7 +168,7 @@ function collectIssues(settings) {
             owner,
           };
           externalHooks.push(external);
-          const conflict = conflictForHook(basename, command);
+          const conflict = conflictForHook(basename, command, eventName, group.matcher);
           if (conflict) conflictingHooks.push({ ...external, ...conflict });
         }
         for (const prior of seen) {
@@ -239,8 +246,9 @@ if (fix) {
 }
 const after = collectIssues(settings);
 const result = {
-  ok: after.duplicateHooks.length === 0 && after.legacyHooks.length === 0,
+  ok: after.duplicateHooks.length === 0 && after.legacyHooks.length === 0 && (!strictConflicts || after.conflictingHooks.length === 0),
   fixed: fix,
+  strictConflicts,
   before,
   after,
 };
@@ -266,6 +274,9 @@ if (json) {
   }
   for (const legacy of after.legacyHooks) {
     console.error(`- legacy rate limiter ${legacy.eventName} ${legacy.matcher}: ${legacy.command}`);
+  }
+  for (const conflict of after.conflictingHooks) {
+    console.error(`- conflicting external hook ${conflict.eventName} ${conflict.matcher}: ${conflict.command} (${conflict.reason})`);
   }
 }
 

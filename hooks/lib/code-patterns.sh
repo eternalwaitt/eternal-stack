@@ -53,7 +53,14 @@ cc_test_quality_violations() {
   local violations=()
   local empty_test_re='\b(it|test)[[:space:]]*\([^,]+,[[:space:]]*(async[[:space:]]*)?\([^)]*\)[[:space:]]*=>[[:space:]]*\{[[:space:]]*\}[[:space:]]*\)'
   local commented_assertion_re=$'(^|\n)[[:space:]]*(//|#)[[:space:]]*(await[[:space:]]+)?(expect|assert|should|self\\.assert)'
-  local trivial_assertion_re=$'(expect|assert)[^\n;]{0,120}(true|1)[[:space:]]*\\)?[[:space:]]*;?'
+  # Trivial = the assertion SUBJECT (first arg) is itself a bare literal:
+  # assert(true), assert.ok(1), expect(true).toBe(true), assert.equal(1, 1).
+  # Must NOT flag assertions whose EXPECTED value is a literal while the actual
+  # is a real expression — assert.equal(x, 1) / assert.equal(x, true) are the
+  # correct way to assert a count/boolean, not always-true assertions. The old
+  # pattern matched (true|1) anywhere within 120 chars of assert, so it also
+  # tripped on digits inside unrelated strings (exit=130, :18801).
+  local trivial_assertion_re=$'((expect|assert)(\\.[A-Za-z]+)*|self\\.assert[A-Za-z0-9_]+)[[:space:]]*\\([[:space:]]*(true|false|True|False|1|0)([[:space:]]*,[^)]*)?[[:space:]]*\\)'
   if [[ "$text" =~ (describe|it|test|suite)\.skip[[:space:]]*\( || "$text" =~ (^|[^A-Za-z0-9_])(xit|xtest)[[:space:]]*\( ]]; then
     violations+=("skipped tests are not allowed")
   fi

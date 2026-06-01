@@ -1,16 +1,18 @@
 #!/usr/bin/env node
 import { readFileSync } from 'node:fs';
+import { validateDeepStackPlanText } from './lib/deep-stack-artifacts.mjs';
 import { REQUIRED_PLAN_HEADINGS } from './lib/plan-headings.mjs';
 
 const args = process.argv.slice(2);
 const allowDraft = args.includes('--allow-draft');
+const allowTransitionalDeepStack = args.includes('--allow-transitional-deep-stack');
 const json = args.includes('--json');
 const explain = args.includes('--explain');
 const nonFlagArgs = args.filter((arg) => !arg.startsWith('--'));
 const planPath = nonFlagArgs[0];
 
 if (!planPath) {
-  console.error('usage: plan-readiness-check.mjs <single-plan.md> [--allow-draft] [--json]');
+  console.error('usage: plan-readiness-check.mjs <single-plan.md> [--allow-draft] [--allow-transitional-deep-stack] [--json]');
   process.exit(2);
 }
 if (nonFlagArgs.length > 1) {
@@ -194,6 +196,7 @@ const optionalMetadata = {
   phase: /^Phase:\s*\S/im.test(text) || /^##\s+Phase\b/im.test(text),
   workstream: /^Workstream:\s*\S/im.test(text) || /^##\s+Workstream\b/im.test(text),
   uatGate: /^UAT Gate:\s*\S/im.test(text) || /^##\s+UAT Gate\b/im.test(text),
+  deepStackArtifacts: /^Deep stack artifacts:\s*\S/im.test(text),
 };
 
 forbidPattern('tbd', /\bTBD\b/i, 'plan still contains TBD');
@@ -203,14 +206,31 @@ forbidPattern('handle_edge_cases', /handle edge cases/i, 'replace vague "handle 
 forbidPattern('wire_it_up', /wire it up/i, 'replace vague "wire it up" with concrete integration steps');
 forbidPattern('similar_to_above', /similar to above/i, 'replace "similar to above" with explicit steps');
 
+let deepStackResult;
+try {
+  deepStackResult = validateDeepStackPlanText(text, {
+    planPath,
+    requireDeepStack: isFinal && !allowDraft && !allowTransitionalDeepStack,
+  });
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(`failed to validate deep-stack artifacts: ${message}`);
+  process.exit(2);
+}
+if (!deepStackResult.ok) {
+  for (const deepStackError of deepStackResult.errors) {
+    addFailure(deepStackError.code, `${deepStackError.whyItMatters} ${deepStackError.exactFix}`);
+  }
+}
+
 if (json) {
-  console.log(JSON.stringify({ ok: failures.length === 0, executionScope, failures, repairHints, optionalMetadata }, null, 2));
+  console.log(JSON.stringify({ ok: failures.length === 0, executionScope, failures, repairHints, optionalMetadata, deepStack: deepStackResult }, null, 2));
 } else if (failures.length === 0) {
   console.log(`ok: plan readiness passed for ${planPath}`);
 } else {
   console.error(`fail: plan readiness failed for ${planPath}`);
   for (const failure of failures) {
-    console.error(`- ${failure.message}`);
+    console.error(`- ${failure.name}: ${failure.message}`);
   }
   if (explain && repairHints.length > 0) {
     console.error('Repair hints:');

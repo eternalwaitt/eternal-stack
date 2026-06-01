@@ -256,9 +256,35 @@ cc_code_health_requested() {
   ' <<<"$state" >/dev/null
 }
 
+cc_advice_or_search_requested() {
+  local prompt lower pattern
+  prompt="$(jq -r '.lastPrompt // ""' <<<"$state")"
+  prompt="${prompt:0:500}"
+  lower="$(printf '%s' "$prompt" | tr '[:upper:]' '[:lower:]')"
+  pattern='(^|[^a-z0-9_])(which [^[:cntrl:]]{0,80} should i|what [^[:cntrl:]]{0,80} should i buy|what [^[:cntrl:]]{0,80} should i choose|where can i find|best [^[:cntrl:]]{0,80} for|look up [^[:cntrl:]]{0,80}(price|pricing|availability|review|news)|compare [^[:cntrl:]]{0,80}(prices|pricing|models|plans|options)|recommend [^[:cntrl:]]{0,80}(buy|purchase|choose|for)|(shopping|buying|purchase)[^[:cntrl:]]{0,80}(iphone|airpods|apple watch|travel|restaurant|price|store|retail)|iphone|airpods|apple watch|travel|restaurant)([^a-z0-9_]|$)'
+  [[ "$lower" =~ $pattern ]]
+}
+
+cc_state_has_edits() {
+  jq -e '(((.edits // {}) | length) > 0) or (((.newSourceFiles // {}) | length) > 0)' <<<"$state" >/dev/null
+}
+
+cc_advice_message_has_source_evidence() {
+  local lower_message
+  lower_message="$(printf '%s' "$message" | tr '[:upper:]' '[:lower:]')"
+  [[ "$lower_message" =~ https?:// ]] \
+    && [[ "$lower_message" =~ (^|[^[:alnum:]])(as[[:space:]]+of|accessed|published|updated|today|yesterday|202[0-9]|january|february|march|april|may|june|july|august|september|october|november|december)([^[:alnum:]]|$) ]]
+}
+
+EMAIL_TRIAGE_COMPLETION_RE='(email[[:space:]]+triage[[:space:]]+report|#[[:space:]]*email[[:space:]]+triage[[:space:]]+report|run:[[:space:]]+triage_|inbox[[:space:]-]*zero|triage[[:space:]-]*verified|verify[[:space:]]+reports|inbox_count|gmail_mutated|queue_ready_without_mutation|inbox[[:space:]]+candidates|action[[:space:]]+backlog|archive[[:space:]]+plan)'
+
+cc_email_triage_completion_message() {
+  [[ "$message_lower" =~ $EMAIL_TRIAGE_COMPLETION_RE ]]
+}
+
 if [[ "$claims_done" != "true" ]] \
   && cc_email_triage_requested \
-  && [[ "$message_lower" =~ (email[[:space:]]+triage[[:space:]]+report|#[[:space:]]*email[[:space:]]+triage[[:space:]]+report|run:[[:space:]]+triage_|inbox[[:space:]-]*zero|verified|inbox[[:space:]]+candidates|action[[:space:]]+backlog|archive[[:space:]]+plan) ]]; then
+  && cc_email_triage_completion_message; then
   claims_done=true
 fi
 
@@ -275,6 +301,13 @@ if [[ "$claims_done" == "true" ]]; then
   fi
   if ! ledger_status="$(node "$SCRIPT_DIR/../scripts/execution-ledger.mjs" "${ledger_args[@]}" 2>&1)"; then
     cc_json_block "$ledger_status"
+    exit 0
+  fi
+  if cc_advice_or_search_requested && ! cc_state_has_edits; then
+    if ! cc_advice_message_has_source_evidence; then
+      cc_json_block "Advice/search completion requires current source evidence, not repo preflight. Use web/current docs where needed, include dated source context, and cite URLs before answering."
+      exit 0
+    fi
     exit 0
   fi
   if cc_email_triage_requested; then

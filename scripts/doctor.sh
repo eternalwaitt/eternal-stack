@@ -209,7 +209,12 @@ else
 fi
 if [[ -f "$ROOT/scripts/code-health-inventory.mjs" ]]; then
   report_command "code-health inventory syntax valid" "code-health inventory syntax invalid" node --check "$ROOT/scripts/code-health-inventory.mjs"
-  report_command "code-health inventory runs" "code-health inventory failed" node "$ROOT/scripts/code-health-inventory.mjs" --json --quiet
+  # Installed doctor runs outside the source checkout; inventory requires git context.
+  if git -C "$ROOT" rev-parse --show-toplevel >/dev/null 2>&1; then
+    report_command "code-health inventory runs" "code-health inventory failed" node "$ROOT/scripts/code-health-inventory.mjs" --json --quiet
+  else
+    ok "code-health inventory run skipped outside source checkout"
+  fi
 else
   fail "code-health inventory script missing"
 fi
@@ -217,6 +222,16 @@ if [[ -f "$ROOT/scripts/plan-readiness-check.mjs" ]]; then
   report_command "plan readiness syntax valid" "plan readiness syntax invalid" node --check "$ROOT/scripts/plan-readiness-check.mjs"
 else
   fail "plan readiness script missing"
+fi
+if [[ -f "$ROOT/scripts/deep-stack-check.mjs" ]]; then
+  report_command "deep-stack check syntax valid" "deep-stack check syntax invalid" node --check "$ROOT/scripts/deep-stack-check.mjs"
+else
+  fail "deep-stack check script missing"
+fi
+if [[ -f "$ROOT/scripts/codex-rtk-pre-tool-use.sh" ]]; then
+  report_command "codex RTK hook syntax valid" "codex RTK hook syntax invalid" bash -n "$ROOT/scripts/codex-rtk-pre-tool-use.sh"
+else
+  fail "codex RTK hook script missing"
 fi
 for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger execute-evidence-check execution-wave-check code-health-ledger-check documentation-comment-health documentation-health-ledger-check review-log project-buglog browser-qa-report context-state workflow-health prompt-budget-check skill-contract-check skill-behavior-smoke changelog-release-check port-guard update-check research-competitor-intel settings-audit; do
   if [[ -f "$ROOT/scripts/$script.mjs" ]]; then
@@ -279,8 +294,8 @@ fi
 
 if [[ -f "$ROOT/templates/settings.json" && -f "$ROOT/templates/settings.strict.json" ]]; then
   report_command "settings templates valid" "settings template invalid" jq empty "$ROOT/templates/settings.json" "$ROOT/templates/settings.strict.json"
-  report_command "settings default audit clean" "settings default audit failed" node "$ROOT/scripts/settings-audit.mjs" "$ROOT/templates/settings.json"
-  report_command "settings strict audit clean" "settings strict audit failed" node "$ROOT/scripts/settings-audit.mjs" "$ROOT/templates/settings.strict.json"
+  report_command "settings default audit clean" "settings default audit failed" node "$ROOT/scripts/settings-audit.mjs" "$ROOT/templates/settings.json" --strict-conflicts
+  report_command "settings strict audit clean" "settings strict audit failed" node "$ROOT/scripts/settings-audit.mjs" "$ROOT/templates/settings.strict.json" --strict-conflicts
   if jq -e '.hooks.PreToolUse and .hooks.PostToolUse and .hooks.PostToolUseFailure and .hooks.Stop and .hooks.SubagentStop and .hooks.PreCompact and .hooks.PostCompact' "$ROOT/templates/settings.strict.json" >/dev/null; then
     ok "strict template registers blocker hooks"
   else
@@ -288,7 +303,7 @@ if [[ -f "$ROOT/templates/settings.json" && -f "$ROOT/templates/settings.strict.
   fi
 elif [[ -f "$ROOT/settings.json" ]]; then
   report_command "installed settings valid" "installed settings invalid" jq empty "$ROOT/settings.json"
-  report_command "installed settings audit clean" "installed settings audit failed" node "$ROOT/scripts/settings-audit.mjs" "$ROOT/settings.json"
+  report_command "installed settings audit clean" "installed settings audit failed" node "$ROOT/scripts/settings-audit.mjs" "$ROOT/settings.json" --strict-conflicts
 else
   ok "settings template check skipped outside source checkout"
 fi
