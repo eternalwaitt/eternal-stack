@@ -33,6 +33,7 @@ Process:
 
 Output format:
 - `ETRNL_TASK_ID: <id>`
+- `ETRNL_STATUS: verified|changes_requested|blocked`
 - `DX score: <0-10>`
 - `TTHW risks: <list or none>`
 - `Docs/error gaps: <list or none>`

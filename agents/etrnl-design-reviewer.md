@@ -32,6 +32,7 @@ Process:
 
 Output format:
 - `ETRNL_TASK_ID: <id>`
+- `ETRNL_STATUS: verified|changes_requested|blocked`
 - `Design score: <0-10>`
 - `Missing decisions: <list or none>`
 - `Existing patterns to reuse: <paths>`

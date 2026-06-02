@@ -30,10 +30,8 @@ record_skill() {
 mark_plan_execution_requested() {
   local now
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  cc_state_update --arg now "$now" '
-    .planExecutionRequested = true |
-    .planExecutionRequestedAt = $now
-  ' >/dev/null || true
+  cc_state_update --arg now "$now" \
+    ".planExecutionRequested = true | .planExecutionRequestedAt = \$now" >/dev/null || true
 }
 
 record_execute_skill() {
@@ -52,10 +50,8 @@ record_active_plan_path() {
   [[ -n "$plan_path" ]] || return 0
 
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  cc_state_update --arg plan "$plan_path" --arg now "$now" '
-    .activePlanPath = $plan |
-    .activePlanPathUpdatedAt = $now
-  ' >/dev/null || true
+  cc_state_update --arg plan "$plan_path" --arg now "$now" \
+    ".activePlanPath = \$plan | .activePlanPathUpdatedAt = \$now" >/dev/null || true
 }
 
 record_active_plan_path

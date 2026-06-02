@@ -86,6 +86,45 @@ CRITICAL_SCRIPTS=(
   codex-rtk-pre-tool-use.sh
 )
 
+# Scripts copied verbatim (same basename) into $TARGET/scripts during install.
+# Drives both the copy loop and the dry-run preflight so they cannot drift.
+# doctor.sh is copied under a different name and validated separately.
+INSTALL_SCRIPTS=(
+  code-health-inventory.mjs
+  code-health-ledger-check.mjs
+  documentation-comment-health.mjs
+  documentation-health-ledger-check.mjs
+  merge-settings.mjs
+  settings-audit.mjs
+  deep-stack-check.mjs
+  plan-readiness-check.mjs
+  agent-task-packet-check.mjs
+  guard-override-token.mjs
+  replay-hook-fixtures.mjs
+  execution-ledger.mjs
+  execute-evidence-check.mjs
+  execution-wave-check.mjs
+  review-log.mjs
+  project-buglog.mjs
+  browser-qa-report.mjs
+  context-state.mjs
+  workflow-health.mjs
+  prompt-budget-check.mjs
+  skill-contract-check.mjs
+  skill-behavior-smoke.mjs
+  changelog-release-check.mjs
+  port-guard.mjs
+  research-competitor-intel.mjs
+  update-check.mjs
+  codex-rtk-pre-tool-use.sh
+  update.sh
+  uninstall.sh
+  canary-websearch.sh
+  canary-hindsight.sh
+  post-upgrade-canary.sh
+  rollback-local.sh
+)
+
 LEGACY_SKILLS=(
   agent-file-doctor
   code-health
@@ -131,4 +170,4 @@ LEGACY_SKILLS=(
 DOMAIN_COMPANION_SKILL_PATTERN='^(eternal-best-practices|domain-[a-z0-9_-]+|better-auth|tenant-isolation(-patterns)?|money-vo-discipline|prisma-expert|i18n-localization|stripe-best-practices|abacatepay-integration)$'
 
 # Keep shellcheck aware these sourced constants are intentionally read by callers.
-: "${OWNED_SKILLS[*]}" "${OWNED_AGENTS[*]}" "${OWNED_COMMANDS[*]}" "${CRITICAL_HOOKS[*]}" "${CRITICAL_SCRIPTS[*]}" "${LEGACY_SKILLS[*]}" "$DOMAIN_COMPANION_SKILL_PATTERN"
+: "${OWNED_SKILLS[*]}" "${OWNED_AGENTS[*]}" "${OWNED_COMMANDS[*]}" "${CRITICAL_HOOKS[*]}" "${CRITICAL_SCRIPTS[*]}" "${INSTALL_SCRIPTS[*]}" "${LEGACY_SKILLS[*]}" "$DOMAIN_COMPANION_SKILL_PATTERN"

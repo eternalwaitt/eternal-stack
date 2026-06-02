@@ -8,6 +8,9 @@ const WRITE_MODE_RE = /mode=write/;
 const TASK_ID_RE = /taskid=[a-z0-9](?:[a-z0-9_.-]*[a-z0-9])?(?=\s|$)/;
 const LINEAGE_ID_RE = /lineageid=[a-z0-9](?:[a-z0-9_.-]*[a-z0-9])?(?=\s|$)/;
 const PACKET_HASH_RE = /packethash=[a-f0-9]{64}/;
+const TS_TRIGGER_PATH_RE = /\.(ts|tsx)$/i;
+const TS_TRIGGER_NAME_RE = /(^|\/)(types?|schemas?|dto|contract|api|state-machine|state|validators?|models?)\.(ts|tsx)$|\/(types?|schemas?|dto|contracts?|api|state-machines?|validators?|models?)\//i;
+const INSTALL_TRIGGER_RE = /(^|\/)(hooks|templates|skills|agents|scripts)\/|(^|\/)AGENTS\.md$|(^|\/)CLAUDE\.md$|settings.*\.json$/i;
 
 function readState() {
   const raw = readFileSync(0, "utf8").trim();
@@ -59,7 +62,7 @@ function sourceEditsAfter(state, timestamp) {
     .filter(([, value]) => editStamp(value) >= timestamp)
     .filter(([file]) => SOURCE_FILE_RE.test(file))
     .filter(([file]) => !EXEMPT_PATH_RE.test(file))
-    .length;
+    .map(([file]) => file);
 }
 
 function agentText(item) {
@@ -83,6 +86,40 @@ function bindingFromText(text) {
   return `${taskId}|${lineageId}|${packetHashValue}`;
 }
 
+function evidenceText(item) {
+  return String(item?.value || item?.command || item?.evidence || item?.summary || "").toLowerCase();
+}
+
+function anyEvidenceAfter(state, timestamp, keys, pattern) {
+  return keys.some((key) => (state[key] || [])
+    .filter((item) => String(item?.at || "") >= timestamp)
+    .some((item) => pattern.test(evidenceText(item))));
+}
+
+function newSourceFilesAfter(state, timestamp) {
+  const direct = Array.isArray(state.newSourceFiles) ? state.newSourceFiles : [];
+  const fromDirect = direct
+    .filter((item) => item && typeof item === "object" && !Array.isArray(item))
+    .filter((item) => typeof item.at === "string" && item.at >= timestamp)
+    .map((item) => (typeof item.path === "string" ? item.path : item.file))
+    .filter((file) => typeof file === "string" && SOURCE_FILE_RE.test(file) && !EXEMPT_PATH_RE.test(file));
+  const fromEdits = Object.entries(state.edits || {})
+    .filter(([, value]) => value && typeof value === "object" && value.created === true && editStamp(value) >= timestamp)
+    .map(([file]) => file)
+    .filter((file) => SOURCE_FILE_RE.test(file) && !EXEMPT_PATH_RE.test(file));
+  return [...new Set([...fromDirect, ...fromEdits])];
+}
+
+function needsTypeReview(state, sourceFiles) {
+  if (state.typeReviewRequired === true) return true;
+  return sourceFiles.some((file) => TS_TRIGGER_PATH_RE.test(file) && TS_TRIGGER_NAME_RE.test(file));
+}
+
+function needsInstallProof(state, sourceFiles) {
+  if (state.installProofRequired === true) return true;
+  return sourceFiles.some((file) => INSTALL_TRIGGER_RE.test(file));
+}
+
 function implementationAgentsAfter(state, timestamp) {
   return (state.agentCalls || [])
     .filter((item) => String(item?.at || "") >= timestamp)
@@ -97,10 +134,31 @@ function reviewerAgentsAfter(state, timestamp, reviewer) {
     .filter((item) => item.text.includes(`subagent=${reviewer}`) && hasBoundIdentity(item.text));
 }
 
+function editedFilesAfter(state, timestamp) {
+  const edits = state.edits && typeof state.edits === "object" ? state.edits : {};
+  return Object.entries(edits)
+    .filter(([, value]) => editStamp(value) >= timestamp)
+    .map(([file]) => file);
+}
+
+function installProofSatisfied(state, timestamp) {
+  return anyEvidenceAfter(state, timestamp, ["installProofRuns", "successfulCommands", "verificationRuns"], /\b(staged install|install proof|post-upgrade-canary|rollback-local|update-check|doctor\.sh)\b/);
+}
+
 function executeGateStatus(state) {
   const executeAt = latestExecuteRequest(state);
   if (!executeAt) return "";
-  if (sourceEditsAfter(state, executeAt) < 1) return "";
+  const sourceFiles = sourceEditsAfter(state, executeAt);
+  const editedFiles = editedFilesAfter(state, executeAt);
+  const installProofNeeded = needsInstallProof(state, editedFiles);
+  if (sourceFiles.length < 1) {
+    // Install-home edits (AGENTS.md/CLAUDE.md/settings*.json) skip the source-edit
+    // gauntlet, but they still require install proof and must not bypass the gate.
+    if (installProofNeeded && !installProofSatisfied(state, executeAt)) {
+      return "missing-install-proof";
+    }
+    return "";
+  }
   const implementations = implementationAgentsAfter(state, executeAt);
   if (implementations.length === 0) return "missing-agent";
   const specReviews = reviewerAgentsAfter(state, executeAt, "etrnl-spec-reviewer");
@@ -113,6 +171,21 @@ function executeGateStatus(state) {
     const specAt = specsByKey.get(key) || 0;
     const qualityAt = qualityByKey.get(key) || 0;
     if (specAt <= implementation.at || qualityAt <= implementation.at) return "missing-reviewers";
+  }
+  if (!anyEvidenceAfter(state, executeAt, ["tddEvidenceRuns", "verificationRuns", "successfulCommands"], /\b(tdd|red[_ -]?green|red_green_verified)\b/)) {
+    return "missing-tdd-evidence";
+  }
+  if (sourceFiles.length >= 2 && !anyEvidenceAfter(state, executeAt, ["simplifierRuns", "requestedSkills", "successfulCommands"], /\b(code-simplifier|simplifier)\b/)) {
+    return "missing-simplifier";
+  }
+  if (newSourceFilesAfter(state, executeAt).length > 0 && !anyEvidenceAfter(state, executeAt, ["reuseEvidenceRuns", "successfulCommands"], /\b(reuse binding|reusebinding|reuse[_ -]?artifact|reuse[_ -]?inventory)\b/)) {
+    return "missing-reuse-binding";
+  }
+  if (needsTypeReview(state, sourceFiles) && !anyEvidenceAfter(state, executeAt, ["typeReviewRuns", "requestedSkills", "successfulCommands"], /\b(typescript-advanced-types|advanced type|advanced types|type trigger)\b/)) {
+    return "missing-type-review";
+  }
+  if (installProofNeeded && !installProofSatisfied(state, executeAt)) {
+    return "missing-install-proof";
   }
   return "";
 }

@@ -30,7 +30,7 @@ Create a plan file, review it, improve it, then finalize it. Do not put the full
 7. Create or update the deep-stack artifact bundle before finalization:
    - Source checkout: `node scripts/deep-stack-check.mjs create --plan <plan-path> --out <artifact-dir>`
    - Installed Claude home: `node ~/.claude/scripts/deep-stack-check.mjs create --plan <plan-path> --out <artifact-dir>`
-   - Replace skeleton placeholders with real review, source, skill, reuse, findings, completion, risk-tier, and TypeScript evidence.
+   - Replace skeleton placeholders with real review phase records, source, skill, reuse, findings, TDD, completion reconciliation, risk-tier, TypeScript trigger, and install-proof evidence.
 8. Run the deterministic readiness gate when available:
    - Source checkout: `node scripts/plan-readiness-check.mjs <plan-path> --allow-draft`
    - Installed Claude home: `node ~/.claude/scripts/plan-readiness-check.mjs <plan-path> --allow-draft`
@@ -123,6 +123,12 @@ Before finalizing, review the draft for:
   - sanitized source manifest, no `/tmp`, home paths, transcripts, account material, or secrets
   - skill activation matrix, including ordinary TypeScript verification and conditional advanced TypeScript review
   - reuse inventory before any new helper, script, skill, or docs surface
+  - review phase records for CEO, engineering, DX, adversarial, specialist, reuse, and simplifier passes
+  - TDD evidence rows for source tasks, or explicit not-test-first rationale
+  - reuse binding rows for every new surface, with searched paths, analogs, decision, and justification
+  - TypeScript trigger evidence when exported/public contracts, schemas, state machines, DTO boundaries, or reusable type utilities are touched
+  - completion reconciliation rows mapping every requested outcome to `DONE`, `PARTIAL`, `NOT_DONE`, `CHANGED`, or `BLOCKED`
+  - install proof rows for source gate, staged install, staged doctor/canary, rollback verification, live-install decision, and post-upgrade canary when Tier 3 behavior is touched
   - findings ledger with high/blocker findings closed, disproven, or explicitly Victor-accepted
   - completion audit and Hybrid execution risk tier
   Deep-stack artifacts are required for every newly generated final plan; they are not opt-in metadata.

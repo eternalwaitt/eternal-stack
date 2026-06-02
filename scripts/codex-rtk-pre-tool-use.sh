@@ -74,7 +74,10 @@ is_direct_rg_command() {
 
 has_shell_control() {
   local command="$1"
-  [[ "$command" == *$'\n'* || "$command" == *";"* || "$command" == *"&&"* || "$command" == *"||"* || "$command" == *"|"* || "$command" == *"&"* || "$command" == *"<"* || "$command" == *">"* || "$command" == *"\`"* || "$command" == *'$('* || "$command" == *'${'* ]]
+  local subshell_start parameter_start
+  printf -v subshell_start '%s' "\$("
+  printf -v parameter_start '%s' "\${"
+  [[ "$command" == *$'\n'* || "$command" == *";"* || "$command" == *"&&"* || "$command" == *"||"* || "$command" == *"|"* || "$command" == *"&"* || "$command" == *"<"* || "$command" == *">"* || "$command" == *"\`"* || "$command" == *"$subshell_start"* || "$command" == *"$parameter_start"* ]]
 }
 
 rg_needs_proxy() {
@@ -89,10 +92,10 @@ rg_needs_proxy() {
   case "$trimmed" in
     rg\ --version*|rg\ --help*|rg\ -h*) return 0 ;;
     *" --version"*|*" --help"*) return 0 ;;
-    *" -l"*|*"--files-with-matches"*|*"--files-without-match"*) return 0 ;;
+    *" -l "|*" -l"|*"--files-with-matches"*|*"--files-without-match"*) return 0 ;;
     *" --json"*|*" --files"*|*" --count"*|*" -c"*) return 0 ;;
     *" -g "*|*" --glob "*|*" --iglob "*|*" --include "*|*" --include="*) return 0 ;;
-    *" -i "*|*" -li "*|*" -il "*) return 0 ;;
+    *" -i "*|*" -il "*|*" -li "*) return 0 ;;
   esac
 
   if [[ "$first_arg" == -* && "$first_arg" != "-n" && "$first_arg" != "--line-number" ]]; then

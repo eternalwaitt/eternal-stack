@@ -54,8 +54,14 @@ The artifact bundle records:
 - sanitized source manifest with source ids, versions/commits, hashes, required files, capture time, and refresh commands
 - skill activation matrix with required, conditional, not-applicable, missing, or blocker dispositions
 - reuse inventory with searched paths, existing analogs, candidate helpers/tests, reuse decisions, and new-surface rationale
+- review phase records with role, checked inputs, findings count, open high count, disposition, and completed time
+- TDD evidence for source tasks, or explicit not-test-first rationale with compensating verification
+- completion reconciliation for every requested outcome, including accepted risk owner for high-impact incomplete rows
+- reuse binding rows for new surfaces, including searched paths, analogs, decision, and new-surface justification
+- TypeScript trigger evidence when public/exported contracts, schemas, state machines, DTO boundaries, or reusable type utilities are touched
+- Tier 3 install proof covering source gate, staged install, staged doctor/canary, rollback verification, live-install decision, and post-upgrade canary
 - findings ledger with severity, confidence, owner, status, fingerprint, and fix evidence
-- completion audit with `DONE`, `PARTIAL`, `NOT_DONE`, or `CHANGED`
+- completion audit with `DONE`, `PARTIAL`, `NOT_DONE`, `CHANGED`, or `BLOCKED`
 - Hybrid execution risk tier, required artifacts, verification gate, and accepted risks
 
 Do not put private home paths, `/tmp` snapshots, transcripts, account material, or secrets in tracked artifacts.

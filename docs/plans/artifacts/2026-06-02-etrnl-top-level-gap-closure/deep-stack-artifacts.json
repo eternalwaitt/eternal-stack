@@ -1,0 +1,271 @@
+{
+  "schemaVersion": 1,
+  "artifactType": "deep-stack-plan",
+  "planPath": "docs/plans/2026-06-02-etrnl-top-level-gap-closure-plan.md",
+  "deepReview": {
+    "status": "passed",
+    "phases": [
+      "ceo",
+      "engineering",
+      "dx",
+      "adversarial",
+      "specialist",
+      "reuse",
+      "simplifier"
+    ],
+    "completedAt": "2026-06-02T12:00:00Z",
+    "summary": "Planning report compared current ETRNL behavior with GSD, Superpowers, GStack, and installed companion skills. Remaining implementation scope is limited to unimplemented deterministic evidence gaps."
+  },
+  "sourceManifest": {
+    "sources": [
+      {
+        "sourceId": "claude-control-plane-current-checkout",
+        "version": "current-working-tree",
+        "commit": "current",
+        "hash": "manual-evidence-pass-2026-06-02",
+        "capturedAt": "2026-06-02T12:00:00Z",
+        "refreshCommand": "fd -t f . && inspect listed repo files with line-numbered reads",
+        "requiredFiles": [
+          "skills/etrnl-plan/SKILL.md",
+          "skills/etrnl-autoplan/SKILL.md",
+          "skills/etrnl-review/SKILL.md",
+          "skills/etrnl-execute/SKILL.md",
+          "scripts/plan-readiness-check.mjs",
+          "scripts/lib/deep-stack-artifacts.mjs",
+          "scripts/agent-task-packet-check.mjs",
+          "scripts/execution-ledger.mjs",
+          "scripts/execute-evidence-check.mjs",
+          "hooks/cc-stop-verifier.sh",
+          "tests/test-workflow-tools.sh"
+        ]
+      },
+      {
+        "sourceId": "superpowers-sanitized-local-snapshot",
+        "version": "2026-05-07-research-snapshot",
+        "commit": "snapshot",
+        "hash": "manual-superpowers-evidence-pass-2026-06-02",
+        "capturedAt": "2026-06-02T12:00:00Z",
+        "refreshCommand": "inspect sanitized Superpowers snapshot skill files",
+        "requiredFiles": [
+          "skills/writing-plans/SKILL.md",
+          "skills/subagent-driven-development/SKILL.md",
+          "skills/test-driven-development/SKILL.md",
+          "skills/verification-before-completion/SKILL.md"
+        ]
+      },
+      {
+        "sourceId": "gsd-sanitized-local-snapshot",
+        "version": "2026-05-07-research-snapshot",
+        "commit": "snapshot",
+        "hash": "manual-gsd-evidence-pass-2026-06-02",
+        "capturedAt": "2026-06-02T12:00:00Z",
+        "refreshCommand": "inspect sanitized GSD snapshot workflow and reference files",
+        "requiredFiles": [
+          "get-shit-done/workflows/plan-phase.md",
+          "get-shit-done/workflows/execute-phase.md",
+          "get-shit-done/references/gates.md",
+          "get-shit-done/references/agent-contracts.md"
+        ]
+      },
+      {
+        "sourceId": "gstack-installed-skill-sources",
+        "version": "installed-local-skill-sources",
+        "commit": "installed",
+        "hash": "manual-gstack-evidence-pass-2026-06-02",
+        "capturedAt": "2026-06-02T12:00:00Z",
+        "refreshCommand": "inspect installed gstack skill files",
+        "requiredFiles": [
+          "gstack/autoplan/SKILL.md",
+          "gstack/plan-ceo-review/SKILL.md",
+          "gstack/plan-eng-review/SKILL.md",
+          "gstack/plan-devex-review/SKILL.md",
+          "gstack/review/SKILL.md"
+        ]
+      }
+    ]
+  },
+  "skillMatrix": [
+    {
+      "skill": "etrnl-plan",
+      "status": "required",
+      "trigger": "saved implementation plan requested",
+      "evidence": "Plan saved under docs/plans with required headings and deep-stack artifact."
+    },
+    {
+      "skill": "etrnl-review",
+      "status": "required",
+      "trigger": "findings report requested",
+      "evidence": "Findings report leads with current-state, comparison, gaps, and deterministic fix surfaces."
+    },
+    {
+      "skill": "code-simplifier",
+      "status": "required",
+      "trigger": "validator, ledger, packet, and stop-hook source implementation",
+      "evidence": "Bounded simplifier pass checked touched helper functions and left explicit validators unchanged because they remain under the repo function-size cap."
+    },
+    {
+      "skill": "finding-duplicate-functions",
+      "status": "required",
+      "trigger": "validator/helper duplication touched",
+      "evidence": "Duplicate-function pass found the shared recordTaskEvidence helper already covers the new ledger evidence commands; no additional duplicate helper extraction was justified."
+    },
+    {
+      "skill": "typescript-advanced-types",
+      "status": "not_applicable",
+      "trigger": "TypeScript policy discussed but no TypeScript source edited",
+      "evidence": "Plan requires future source/diff trigger checks.",
+      "notApplicableRationale": "No exported/public types, contracts, validation, generated types, state machines, branded IDs, reusable type utilities, or cross-layer DTO/domain boundaries are edited in this planning turn."
+    }
+  ],
+  "reuseInventory": {
+    "searchedPaths": [
+      "skills",
+      "scripts",
+      "hooks",
+      "tests",
+      "docs",
+      "agents"
+    ],
+    "existingAnalogs": [
+      "scripts/lib/deep-stack-artifacts.mjs",
+      "scripts/deep-stack-check.mjs",
+      "scripts/plan-readiness-check.mjs",
+      "scripts/agent-task-packet-check.mjs",
+      "scripts/execution-ledger.mjs",
+      "scripts/execute-evidence-check.mjs",
+      "hooks/cc-stop-verifier.sh",
+      "tests/test-workflow-tools.sh"
+    ],
+    "candidateHelpers": [
+      "extend existing deep-stack artifact validation",
+      "extend existing execution ledger",
+      "extend existing execute evidence checker"
+    ],
+    "candidateTests": [
+      "tests/test-workflow-tools.sh",
+      "tests/test-hooks.sh",
+      "tests/fixtures/deep-stack"
+    ],
+    "decisions": [
+      {
+        "decision": "extend-existing-hybrid-stack",
+        "newSurface": false,
+        "reason": "Current repo already has the artifact, ledger, packet, and hook enforcement surfaces needed for the remaining gaps."
+      }
+    ]
+  },
+  "findings": [],
+  "completionAudit": [
+    {
+      "planItem": "all_phases",
+      "classification": "DONE",
+      "evidence": "Implementation added artifact validators, packet fields, ledger commands, execute stop statuses, skill/agent docs, health docs, and workflow tests.",
+      "diffPaths": [
+        "scripts/lib/deep-stack-artifacts.mjs",
+        "scripts/deep-stack-check.mjs",
+        "scripts/execution-ledger.mjs",
+        "scripts/agent-task-packet-check.mjs",
+        "scripts/execute-evidence-check.mjs",
+        "hooks/cc-stop-verifier.sh",
+        "tests/test-workflow-tools.sh"
+      ],
+      "reason": "Implemented requested all-phases plan in source.",
+      "impact": "low"
+    }
+  ],
+  "reviewPhases": [
+    { "role": "ceo", "status": "passed", "checkedInputs": ["docs/plans/2026-06-02-etrnl-top-level-gap-closure-plan.md"], "findingsCount": 0, "openHighCount": 0, "disposition": "Scope remains bounded to deterministic source enforcement and staged proof; no live install side effect.", "completedAt": "2026-06-02T12:00:00Z" },
+    { "role": "engineering", "status": "passed", "checkedInputs": ["scripts/lib/deep-stack-artifacts.mjs", "scripts/execution-ledger.mjs", "scripts/execute-evidence-check.mjs"], "findingsCount": 0, "openHighCount": 0, "disposition": "Existing artifact, ledger, packet, and stop-hook surfaces were extended instead of adding a new state store.", "completedAt": "2026-06-02T12:00:00Z" },
+    { "role": "dx", "status": "passed", "checkedInputs": ["scripts/deep-stack-check.mjs", "docs/health-stack.md"], "findingsCount": 0, "openHighCount": 0, "disposition": "Section validators and repair commands are documented for operator use.", "completedAt": "2026-06-02T12:00:00Z" },
+    { "role": "adversarial", "status": "passed", "checkedInputs": ["hooks/cc-stop-verifier.sh", "scripts/execute-evidence-check.mjs"], "findingsCount": 0, "openHighCount": 0, "disposition": "Stop statuses fail closed for missing TDD, simplifier, reuse, type, and install evidence.", "completedAt": "2026-06-02T12:00:00Z" },
+    { "role": "specialist", "status": "passed", "checkedInputs": ["skills/etrnl-execute/SKILL.md", "agents/etrnl-*.md"], "findingsCount": 0, "openHighCount": 0, "disposition": "Skill and agent contracts name the deterministic fields and completion markers.", "completedAt": "2026-06-02T12:00:00Z" },
+    { "role": "reuse", "status": "passed", "checkedInputs": ["scripts/lib/deep-stack-artifacts.mjs", "scripts/execution-ledger.mjs"], "findingsCount": 0, "openHighCount": 0, "disposition": "Implementation reused existing validators and added one shared ledger evidence helper.", "completedAt": "2026-06-02T12:00:00Z" },
+    { "role": "simplifier", "status": "passed", "checkedInputs": ["scripts/lib/deep-stack-artifacts.mjs", "scripts/execution-ledger.mjs"], "findingsCount": 0, "openHighCount": 0, "disposition": "New validators stay under function-size caps; explicit row checks are clearer than a denser generic abstraction.", "completedAt": "2026-06-02T12:00:00Z" }
+  ],
+  "tddEvidence": [
+    {
+      "taskId": "T-artifact-ledger-hook",
+      "sourceFiles": [
+        "scripts/lib/deep-stack-artifacts.mjs",
+        "scripts/execution-ledger.mjs",
+        "scripts/execute-evidence-check.mjs",
+        "hooks/cc-stop-verifier.sh"
+      ],
+      "status": "red_green_verified",
+      "redCommand": "tests/test-workflow-tools.sh before implementation slices with missing fixtures",
+      "redStatus": "failed",
+      "redFailure": "Expected negative controls were added for missing TDD, reuse, TypeScript, and install evidence before implementation.",
+      "greenCommand": "tests/test-workflow-tools.sh",
+      "greenStatus": "passed"
+    }
+  ],
+  "completionReconciliation": [
+    { "planItemId": "phase-1", "requestedOutcome": "Deep-stack artifact schema validates review phases, TDD, completion reconciliation, reuse bindings, type triggers, and install proof.", "classification": "DONE", "evidence": "tests/test-workflow-tools.sh checks 242-260", "changedReason": "", "acceptedBy": "", "impact": "low" },
+    { "planItemId": "phase-2", "requestedOutcome": "Ledger and packet enforcement bind evidence to write tasks.", "classification": "DONE", "evidence": "tests/test-workflow-tools.sh checks 025-028 and 267-273", "changedReason": "", "acceptedBy": "", "impact": "low" },
+    { "planItemId": "phase-3-4", "requestedOutcome": "Execute stop checks detect missing TDD, simplifier, reuse, type review, and install proof.", "classification": "DONE", "evidence": "tests/test-workflow-tools.sh checks 274-277 plus hooks/cc-stop-verifier.sh statuses", "changedReason": "", "acceptedBy": "", "impact": "low" },
+    { "planItemId": "phase-5-6", "requestedOutcome": "Skills, agents, docs, coverage, and changelog align with deterministic evidence fields.", "classification": "DONE", "evidence": "skills/etrnl-*.md, agents/etrnl-*.md, docs/skills.md, docs/health-stack.md, docs/control-plane-coverage.md, CHANGELOG.md", "changedReason": "", "acceptedBy": "", "impact": "low" },
+    { "planItemId": "phase-7", "requestedOutcome": "Source and staged gates pass; live install remains explicitly gated.", "classification": "DONE", "evidence": "Final verification gate output and installProof rows in this artifact.", "changedReason": "", "acceptedBy": "", "impact": "low" }
+  ],
+  "reuseBindings": [
+    {
+      "taskId": "T-artifact-ledger-hook",
+      "createsNewSurface": false,
+      "searchedPaths": [
+        "scripts/lib/deep-stack-artifacts.mjs",
+        "scripts/deep-stack-check.mjs",
+        "scripts/execution-ledger.mjs",
+        "scripts/agent-task-packet-check.mjs",
+        "scripts/execute-evidence-check.mjs",
+        "hooks/cc-stop-verifier.sh"
+      ],
+      "analogs": [
+        "validateArtifactSection",
+        "boundEvidenceErrors",
+        "recordCheck",
+        "executeGateStatus"
+      ],
+      "decision": "Extend existing surfaces and add a shared recordTaskEvidence helper for ledger rows.",
+      "newSurfaceJustification": ""
+    }
+  ],
+  "typeTriggerEvidence": [],
+  "installProof": {
+    "sourceGate": { "status": "passed", "evidence": "tests/test-workflow-tools.sh passed 280 checks; tests/test-hooks.sh passed 331 checks; tests/test-install.sh passed 127 checks; shell syntax and ShellCheck passed; replay-hook-fixtures passed 8 fixtures; settings audits passed." },
+    "stagedInstall": { "status": "passed", "evidence": "scripts/install.sh --dry-run passed and reported planned install/backup actions without creating the target Claude home; tests/test-install.sh asserts dry-run non-mutation." },
+    "stagedDoctor": { "status": "passed", "evidence": "scripts/doctor.sh passed after install/rollback tests, syntax checks, prompt budget, skill contracts, settings audits, workflow health, and credential scan." },
+    "rollbackVerification": { "status": "passed", "evidence": "bash scripts/rollback-local.sh --dry-run passed and reported planned restore from backup id control-plane-install-20260602-183054 without mutating files; tests/test-install.sh asserts rollback dry-run keeps installed files in place." },
+    "liveInstallDecision": { "status": "not_applicable", "evidence": "live install remains a separate explicit user request; accidental pre-fix install invocation was rolled back with backup id control-plane-install-20260602-183054 before PR prep." },
+    "postUpgradeCanary": { "status": "passed", "evidence": "bash scripts/post-upgrade-canary.sh passed." }
+  },
+  "riskTier": {
+    "tier": 3,
+    "deepReviewPassed": true,
+    "reason": "Implementation touches hooks, scripts, skills, agents, and install-adjacent control-plane behavior; source gates plus staged install/canary/rollback proof are required before PR completion.",
+    "requiredArtifacts": [
+      "sourceManifest",
+      "skillMatrix",
+      "reuseInventory",
+      "findings",
+      "completionAudit",
+      "reviewPhases",
+      "tddEvidence",
+      "completionReconciliation",
+      "reuseBindings",
+      "typeTriggerEvidence",
+      "installProof"
+    ],
+    "verificationGate": "tests/test-workflow-tools.sh && tests/test-hooks.sh && tests/test-install.sh && scripts/doctor.sh",
+    "stagedInstall": { "status": "passed" },
+    "rollbackVerification": { "status": "passed" },
+    "acceptedRisks": []
+  },
+  "typescript": {
+    "ordinaryVerification": "not applicable for planning-only docs artifact",
+    "advancedTypes": {
+      "status": "not_applicable",
+      "triggerEvidence": [],
+      "applicableSurfaces": [],
+      "notApplicableRationale": "No TypeScript source is edited in this planning turn."
+    }
+  }
+}

@@ -2,8 +2,38 @@
 set -Eeuo pipefail
 
 ROOT="${CLAUDE_HOME:-$HOME/.claude}"
-BACKUP="${1:-}"
+BACKUP=""
+DRY_RUN=0
+
+usage() {
+  printf 'Usage: %s [--dry-run] [backup-dir]\n' "${0##*/}"
+}
+
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run)
+      DRY_RUN=1
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      if [[ -n "$BACKUP" ]]; then
+        printf 'rollback error: multiple backup directories provided\n' >&2
+        usage >&2
+        exit 2
+      fi
+      BACKUP="$arg"
+      ;;
+  esac
+done
+
 if [[ ! -f "$ROOT/scripts/lib/skill-lists.sh" ]]; then
+  if [[ "$DRY_RUN" == "1" ]]; then
+    printf 'Dry run: required skill list is missing at %s/scripts/lib/skill-lists.sh; rollback preview would require an installed control-plane root.\n' "$ROOT"
+    exit 0
+  fi
   printf 'Required skill list is missing: %s/scripts/lib/skill-lists.sh\n' "$ROOT" >&2
   exit 1
 fi
@@ -44,10 +74,15 @@ if [[ -z "$BACKUP" ]]; then
   BACKUP="$(latest_backup)"
 fi
 if [[ -z "$BACKUP" || ! -d "$BACKUP" ]]; then
+  if [[ "$DRY_RUN" == "1" ]]; then
+    printf 'Dry run: no backup directory found; rollback would require a backup path or an existing %s/backups entry.\n' "$ROOT"
+    printf 'Dry run: would remove repo-owned agents, skills, commands, and hooks before restoring backed-up copies.\n'
+    exit 0
+  fi
   printf 'No backup directory found. Set CLAUDE_GUARD_DISABLED=1 to bypass guards manually.\n' >&2
   exit 1
 fi
-if [[ ! -d "$ROOT" || ! -w "$ROOT" ]]; then
+if [[ "$DRY_RUN" != "1" && ( ! -d "$ROOT" || ! -w "$ROOT" ) ]]; then
   printf 'Claude home is not writable: %s\n' "$ROOT" >&2
   exit 1
 fi
@@ -74,6 +109,15 @@ for file in settings.json settings.local.json CLAUDE.md AGENTS.md; do
     restore_count=$((restore_count + 1))
   fi
 done
+
+if [[ "$DRY_RUN" == "1" ]]; then
+  printf 'Dry run: would restore Claude config backup from %s\n' "$BACKUP"
+  if (( restore_count > 0 )); then
+    printf 'Dry run: would restore files: %s\n' "${restore_files[*]}"
+  fi
+  printf 'Dry run: would remove repo-owned agents, skills, commands, and hooks before restoring backed-up copies.\n'
+  exit 0
+fi
 
 trap cleanup_restore_temps EXIT
 if (( restore_count > 0 )); then

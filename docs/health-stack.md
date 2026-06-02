@@ -68,6 +68,12 @@ node scripts/workflow-health.mjs doctor --json --all
 node scripts/workflow-health.mjs prune --older-than-days 30 --dry-run --all
 node scripts/deep-stack-check.mjs validate-plan --plan <plan-path>
 node scripts/deep-stack-check.mjs create --plan <plan-path> --out <artifact-dir>
+node scripts/deep-stack-check.mjs validate-review-phases --artifact <artifact-path>
+node scripts/deep-stack-check.mjs validate-tdd --artifact <artifact-path>
+node scripts/deep-stack-check.mjs validate-completion-reconciliation --artifact <artifact-path>
+node scripts/deep-stack-check.mjs validate-reuse-bindings --artifact <artifact-path>
+node scripts/deep-stack-check.mjs validate-type-triggers --artifact <artifact-path>
+node scripts/deep-stack-check.mjs validate-install-proof --artifact <artifact-path>
 node scripts/prompt-budget-check.mjs .
 node scripts/prompt-budget-check.mjs ~/.claude --owned-only
 node scripts/review-log.mjs summary
@@ -84,9 +90,9 @@ scripts/post-upgrade-canary.sh
 - `cc-postcompact-record.sh` records compact timestamp/count metadata, and `cc-sessionstart-restore.sh` includes compact recovery plus workflow status when unfinished/stale work or UAT findings exist.
 - `browser-qa-report.mjs` supports schema v1 plus schema v2 matrix reports; a completed v2 report must include route/viewport rows, numeric `consoleErrors` and `failedRequests`, fresh screenshot captures, matching `screenshotSha256`, and provenance with tool, target URL, command, and capture time.
 - `project-buglog.mjs suggest --json` emits redacted local suggestions with severity, fingerprint, last-seen, and suggested guard; `suggest-project --json` gives cross-session project hints without returning the raw cwd. Hooks debounce these hints and honor `CLAUDE_CONTROL_PLANE_LEARNING_HINTS=0`.
-- `agent-task-packet-check.mjs --template write` includes `taskId`, `lineageId`, reviewer contracts, and a stable packet hash; multi-file write scopes fail without spec and quality reviewer requirements.
-- `deep-stack-check.mjs` is the single operator-facing deep-stack artifact gate. Final plans require `Deep stack artifacts:` by default and fail closed on missing source manifests, skill matrices, reuse inventories, high/blocker findings, completion gaps, TypeScript trigger mistakes, or Hybrid execution risk-tier violations. Historical plans can use the explicit transition flag only when they are not newly generated final plans.
-- `execution-ledger.mjs` writes schema v2 ledgers with cwd/project id, events, phases, reviews, atomic updates, and bound write evidence checks (`record-agent`, `record-review`, `check-bound-execute`).
+- `agent-task-packet-check.mjs --template write` includes `taskId`, `lineageId`, reviewer contracts, reuse/TDD/simplifier fields, and a stable packet hash; multi-file write scopes fail without spec and quality reviewer requirements, and deep-stack/new-surface writes fail without their evidence fields.
+- `deep-stack-check.mjs` is the single operator-facing deep-stack artifact gate. Final plans require `Deep stack artifacts:` by default and fail closed on missing source manifests, skill matrices, review phase records, TDD evidence, reuse inventories/bindings, high/blocker findings, completion gaps/reconciliation, TypeScript trigger mistakes, install-proof gaps, or Hybrid execution risk-tier violations. Historical plans can use the explicit transition flag only when they are not newly generated final plans.
+- `execution-ledger.mjs` writes schema v2 ledgers with cwd/project id, events, phases, reviews, atomic updates, bound write evidence checks (`record-agent`, `record-review`, `check-bound-execute`), and task-bound `record-tdd`, `record-simplifier`, `record-specialist`, `record-completion-audit`, and `record-install-proof` rows.
 - `etrnl-documentation-health` is the documentation-specialist health workflow. Use it when docs, ADRs, runbooks, API/runtime docs, AI context, or TSDoc/JSDoc are the target; it still inherits this repo's contract gates after repo-owned skill or docs changes.
 - `etrnl-email-reply-quality` is the VIVAZ outgoing-reply quality workflow. It pairs the runtime `vivaz-email drafts check` gate with `humanizer-ptbr` cleanup for draft typography, Brazilian Portuguese, AI-tell issues, assistant meta text, stiff boilerplate, and fake deal commitments. Vale and LanguageTool are the next deterministic prose-lint layers to prototype before broadening runtime dependencies.
 - `etrnl-disk-cleanup` is the local storage-recovery workflow. It requires host/filesystem evidence, a dry-run manifest, approved transient path classes, `trash` deletion, and before/after free-space verification so cleanup requests do not fight the generic dangerous-filesystem guard.

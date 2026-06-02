@@ -129,7 +129,20 @@ if [[ "$email_queue_out" != *"queue is blocked until Inbox Zero verification"* ]
 fi
 
 canary_vivaz_email="$canary_tmp/vivaz-email"
-printf '%s\n' '#!/usr/bin/env bash' 'if [[ "$1 $2" == "triage verify" ]]; then' '  if [[ "${VIVAZ_EMAIL_VERIFY_NONZERO:-0}" == "1" ]]; then printf "{\"ok\":true,\"data\":{\"verified\":true,\"dry_run\":false,\"gmail_mutated\":true,\"inbox_zero_verified\":true,\"inbox_count\":1}}\n"; elif [[ "${VIVAZ_EMAIL_VERIFY_READY:-0}" == "1" ]]; then printf "{\"ok\":true,\"data\":{\"verified\":true,\"dry_run\":true,\"gmail_mutated\":false,\"inbox_zero_verified\":true,\"queue_ready_without_mutation\":true,\"inbox_count\":0,\"action_backlog_count\":31}}\n"; else printf "{\"ok\":true,\"data\":{\"verified\":true,\"dry_run\":false,\"gmail_mutated\":true,\"inbox_zero_verified\":true,\"inbox_count\":0}}\n"; fi' '  exit 0' 'fi' 'exit 0' >"$canary_vivaz_email"
+cat >"$canary_vivaz_email" <<'BASH'
+#!/usr/bin/env bash
+if [[ "$1 $2" == "triage verify" ]]; then
+  if [[ "${VIVAZ_EMAIL_VERIFY_NONZERO:-0}" == "1" ]]; then
+    printf '{"ok":true,"data":{"verified":true,"dry_run":false,"gmail_mutated":true,"inbox_zero_verified":true,"inbox_count":1}}\n'
+  elif [[ "${VIVAZ_EMAIL_VERIFY_READY:-0}" == "1" ]]; then
+    printf '{"ok":true,"data":{"verified":true,"dry_run":true,"gmail_mutated":false,"inbox_zero_verified":true,"queue_ready_without_mutation":true,"inbox_count":0,"action_backlog_count":31}}\n'
+  else
+    printf '{"ok":true,"data":{"verified":true,"dry_run":false,"gmail_mutated":true,"inbox_zero_verified":true,"inbox_count":0}}\n'
+  fi
+  exit 0
+fi
+exit 0
+BASH
 chmod +x "$canary_vivaz_email"
 jq '.successfulCommands = [
   {command:"vivaz-email triage guarded-run --account agencia --max-inbox 500 --apply --require-insights", at:"2026-01-01T00:00:01Z"},

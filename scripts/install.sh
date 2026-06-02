@@ -14,6 +14,28 @@ STAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP="$TARGET/backups/control-plane-install-$STAMP"
 SETTINGS_TEMPLATE="$ROOT/templates/settings.json"
 legacy_rules_present=0
+DRY_RUN=0
+
+usage() {
+  printf 'Usage: %s [--dry-run|-h|--help]\n' "${0##*/}"
+}
+
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run)
+      DRY_RUN=1
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      printf 'install error: unknown argument: %s\n' "$arg" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+done
 
 if [[ "${CLAUDE_CONTROL_PLANE_ENABLE_STRICT:-0}" == "1" ]]; then
   SETTINGS_TEMPLATE="$ROOT/templates/settings.strict.json"
@@ -51,6 +73,58 @@ copy_dir_contents() {
     cp -R -- "${filtered[@]}" "$target_dir/"
   fi
 }
+
+validate_source_install_inputs() {
+  local missing=() file agent command_name skill
+  for file in \
+    "$SETTINGS_TEMPLATE" \
+    "$ROOT/templates/AGENTS.md" \
+    "$ROOT/templates/CLAUDE.md" \
+    "$ROOT/tests/test-hooks.sh" \
+    "$ROOT/tests/test-workflow-tools.sh" \
+    "$ROOT/tests/lib/harness.sh" \
+    "$ROOT/tests/lib/busy-port-server.mjs"; do
+    [[ -f "$file" ]] || missing+=("$file")
+  done
+  for file in hooks skills docs rules/etrnl tests/fixtures scripts/lib; do
+    [[ -d "$ROOT/$file" ]] || missing+=("$ROOT/$file")
+  done
+  for file in "${CRITICAL_HOOKS[@]}"; do
+    [[ -f "$ROOT/hooks/$file" ]] || missing+=("$ROOT/hooks/$file")
+  done
+  for file in "${CRITICAL_SCRIPTS[@]}"; do
+    [[ -f "$ROOT/scripts/$file" ]] || missing+=("$ROOT/scripts/$file")
+  done
+  # Every script the install copies verbatim, plus doctor.sh (copied under a
+  # different name and executed post-install). Keeps dry-run honest: a missing
+  # source here must fail before the real install mutates $TARGET.
+  [[ -f "$ROOT/scripts/doctor.sh" ]] || missing+=("$ROOT/scripts/doctor.sh")
+  for file in "${INSTALL_SCRIPTS[@]}"; do
+    [[ -f "$ROOT/scripts/$file" ]] || missing+=("$ROOT/scripts/$file")
+  done
+  for agent in "${OWNED_AGENTS[@]}"; do
+    [[ -f "$ROOT/agents/$agent.md" ]] || missing+=("$ROOT/agents/$agent.md")
+  done
+  for command_name in "${OWNED_COMMANDS[@]}"; do
+    [[ -f "$ROOT/commands/$command_name.md" ]] || missing+=("$ROOT/commands/$command_name.md")
+  done
+  for skill in "${OWNED_SKILLS[@]}"; do
+    [[ -d "$ROOT/skills/$skill" ]] || missing+=("$ROOT/skills/$skill")
+  done
+  if (( ${#missing[@]} > 0 )); then
+    printf 'install dry-run failed; missing source files:\n' >&2
+    printf '  %s\n' "${missing[@]}" >&2
+    return 1
+  fi
+}
+
+if [[ "$DRY_RUN" == "1" ]]; then
+  validate_source_install_inputs
+  printf 'Dry run: would install Claude control plane files into %s\n' "$TARGET"
+  printf 'Dry run: would create backup at %s\n' "$BACKUP"
+  printf 'Dry run: registered hooks template would be %s\n' "$SETTINGS_TEMPLATE"
+  exit 0
+fi
 
 mkdir -p "$TARGET" "$BACKUP"
 for file in settings.json settings.local.json CLAUDE.md AGENTS.md; do

@@ -10,6 +10,7 @@ const STATUSES = new Set(["pending", "in_progress", "reviewing", "changes_reques
 const PHASE_STATUSES = new Set(["pending", "in_progress", "uat", "verified", "blocked", "skipped"]);
 const CHECK_STATUSES = new Set(["passed", "failed", "blocked", "skipped"]);
 const AGENT_DONE = new Set(["completed", "verified", "skipped"]);
+const EVIDENCE_DONE = new Set(["passed", "verified", "red_green_verified", "not_applicable", "skipped"]);
 // Defaults allow brief multi-agent contention; tune with env vars for unusually slow disks.
 const LOCK_TIMEOUT_MS = Number(process.env.ETRNL_LEDGER_LOCK_TIMEOUT_MS || 30000);
 const LOCK_STALE_MS = Number(process.env.ETRNL_LEDGER_LOCK_STALE_MS || 120000);
@@ -120,6 +121,11 @@ function validateLedger(ledger) {
   if (ledger.schemaVersion === 2 && !Array.isArray(ledger.events)) errors.push("events must be an array");
   if (ledger.reviews && !Array.isArray(ledger.reviews)) errors.push("reviews must be an array");
   if (ledger.phases && !Array.isArray(ledger.phases)) errors.push("phases must be an array");
+  if (ledger.tddEvidence && !Array.isArray(ledger.tddEvidence)) errors.push("tddEvidence must be an array");
+  if (ledger.simplifierEvidence && !Array.isArray(ledger.simplifierEvidence)) errors.push("simplifierEvidence must be an array");
+  if (ledger.specialistEvidence && !Array.isArray(ledger.specialistEvidence)) errors.push("specialistEvidence must be an array");
+  if (ledger.completionAudit && !Array.isArray(ledger.completionAudit)) errors.push("completionAudit must be an array");
+  if (ledger.installProof && !Array.isArray(ledger.installProof)) errors.push("installProof must be an array");
   if (ledger.phaseId !== undefined && typeof ledger.phaseId !== "string") errors.push("phaseId must be a string");
   if (ledger.workstreamId !== undefined && typeof ledger.workstreamId !== "string") errors.push("workstreamId must be a string");
   if (ledger.uatArtifact !== undefined && typeof ledger.uatArtifact !== "string") errors.push("uatArtifact must be a string");
@@ -150,6 +156,18 @@ function validateLedger(ledger) {
     if (!check.name) errors.push("check is missing name");
     if (!check.command) errors.push(`check ${check.name || "<unknown>"} is missing command`);
     if (!CHECK_STATUSES.has(check.status)) errors.push(`check ${check.name || "<unknown>"} has invalid status ${check.status}`);
+  }
+  for (const [field, label] of [
+    ["tddEvidence", "TDD evidence"],
+    ["simplifierEvidence", "simplifier evidence"],
+    ["specialistEvidence", "specialist evidence"],
+    ["completionAudit", "completion audit"],
+    ["installProof", "install proof"],
+  ]) {
+    for (const item of Array.isArray(ledger[field]) ? ledger[field] : []) {
+      if (!item.status) errors.push(`${label} row is missing status`);
+      if (item.taskId && !taskExists(ledger, item.taskId)) errors.push(`${label} references unknown task: ${item.taskId}`);
+    }
   }
   for (const artifact of Array.isArray(ledger.artifacts) ? ledger.artifacts : []) {
     if (!artifact.type) errors.push("artifact is missing type");
@@ -224,6 +242,39 @@ function boundEvidenceErrors(ledger) {
   return errors;
 }
 
+function taskBoundEvidenceRows(ledger, field, task) {
+  return (ledger[field] ?? []).filter((row) => {
+    if (row.taskId !== task.id) return false;
+    if (!EVIDENCE_DONE.has(row.status)) return false;
+    if (task.packetHash && row.packetHash !== task.packetHash) return false;
+    if (task.lineageId && !sameLineage(row, task)) return false;
+    return true;
+  });
+}
+
+function requiredEvidenceErrors(ledger) {
+  const errors = [];
+  for (const task of ledger.tasks ?? []) {
+    if (task.status === "skipped") continue;
+    if (task.tddRequired === true && taskBoundEvidenceRows(ledger, "tddEvidence", task).length === 0) {
+      errors.push(`task ${task.id} missing TDD evidence`);
+    }
+    if (task.simplifierReviewRequired === true && taskBoundEvidenceRows(ledger, "simplifierEvidence", task).length === 0) {
+      errors.push(`task ${task.id} missing simplifier evidence`);
+    }
+    if (task.domainReviewRequired === true && taskBoundEvidenceRows(ledger, "specialistEvidence", task).length === 0) {
+      errors.push(`task ${task.id} missing specialist evidence`);
+    }
+    if (task.completionAuditRequired === true && taskBoundEvidenceRows(ledger, "completionAudit", task).length === 0) {
+      errors.push(`task ${task.id} missing completion audit evidence`);
+    }
+    if (task.installProofRequired === true && taskBoundEvidenceRows(ledger, "installProof", task).length === 0) {
+      errors.push(`task ${task.id} missing install proof evidence`);
+    }
+  }
+  return errors;
+}
+
 function completionErrors(ledger, options = {}) {
   const errors = validateLedger(ledger);
   const tasks = ledger.tasks ?? [];
@@ -261,6 +312,7 @@ function completionErrors(ledger, options = {}) {
     }
   }
   errors.push(...boundEvidenceErrors(ledger));
+  errors.push(...requiredEvidenceErrors(ledger));
   return errors;
 }
 
@@ -283,6 +335,11 @@ function initLedger() {
     tasks: [],
     agents: [],
     reviews: [],
+    tddEvidence: [],
+    simplifierEvidence: [],
+    specialistEvidence: [],
+    completionAudit: [],
+    installProof: [],
     checks: [],
     artifacts: [],
     requiredArtifacts: [],
@@ -399,6 +456,11 @@ function setTask() {
       ["--requires-implementation-evidence", "requiresImplementationEvidence"],
       ["--spec-review-required", "specReviewRequired"],
       ["--quality-review-required", "qualityReviewRequired"],
+      ["--tdd-required", "tddRequired"],
+      ["--simplifier-review-required", "simplifierReviewRequired"],
+      ["--domain-review-required", "domainReviewRequired"],
+      ["--completion-audit-required", "completionAuditRequired"],
+      ["--install-proof-required", "installProofRequired"],
     ]) {
       if (args.includes(flag)) next[key] = true;
     }
@@ -409,6 +471,133 @@ function setTask() {
     appendEvent(ledger, "task.set", { taskId, status });
     return ledger;
   });
+}
+
+// Validate packet/lineage binding before acquiring the file lock. A task bound to
+// a packet/lineage must record matching evidence, otherwise stale generic rows could
+// satisfy the bound requirement after a reissue. Validating here (not inside the lock)
+// avoids leaking the lock when the process exits on a rejection.
+function requireBoundEvidenceArgs(file, taskId, commandName) {
+  const lineageId = argValue("--lineage", argValue("--lineage-id"));
+  const packetHash = argValue("--packet-hash");
+  if (taskId) {
+    const boundTask = (readJson(file).tasks ?? []).find((task) => task.id === taskId);
+    if (boundTask?.packetHash && !packetHash) {
+      console.error(`${commandName} requires --packet-hash for task ${taskId} bound to a packet.`);
+      process.exit(2);
+    }
+    if (boundTask?.lineageId && !lineageId) {
+      console.error(`${commandName} requires --lineage for task ${taskId} bound to a lineage.`);
+      process.exit(2);
+    }
+  }
+  return { lineageId, packetHash };
+}
+
+function recordTaskEvidence(field, eventType, commandName, rowBuilder) {
+  const taskId = argValue("--task");
+  const file = currentLedgerOrFail();
+  const { lineageId, packetHash } = requireBoundEvidenceArgs(file, taskId, commandName);
+  updateJson(file, (ledger) => {
+    requireTaskBinding(ledger, taskId, commandName);
+    const at = preciseNowIso();
+    ledger[field] = ledger[field] ?? [];
+    const row = {
+      taskId,
+      lineageId,
+      packetHash,
+      status: argValue("--status", "verified"),
+      evidence: argValue("--evidence"),
+      at,
+      ...rowBuilder(),
+    };
+    ledger[field].push(row);
+    ledger.updatedAt = nowIso();
+    appendEvent(ledger, eventType, { taskId, status: row.status });
+    return ledger;
+  });
+}
+
+function recordTdd() {
+  recordTaskEvidence("tddEvidence", "tdd.recorded", "record-tdd", () => ({
+    sourceFiles: argValue("--source-files"),
+    redCommand: argValue("--red-command"),
+    redStatus: argValue("--red-status"),
+    redFailure: argValue("--red-failure"),
+    greenCommand: argValue("--green-command"),
+    greenStatus: argValue("--green-status"),
+    rationaleWhenNotTestFirst: argValue("--rationale"),
+  }));
+}
+
+function recordSimplifier() {
+  recordTaskEvidence("simplifierEvidence", "simplifier.recorded", "record-simplifier", () => ({
+    reviewer: argValue("--reviewer", "code-simplifier"),
+  }));
+}
+
+function recordSpecialist() {
+  recordTaskEvidence("specialistEvidence", "specialist.recorded", "record-specialist", () => ({
+    skill: argValue("--skill", argValue("--reviewer", "specialist")),
+  }));
+}
+
+function recordCompletionAudit() {
+  const item = argValue("--item");
+  if (!item) {
+    console.error("record-completion-audit requires --item.");
+    process.exit(2);
+  }
+  const taskId = argValue("--task");
+  const lineageId = argValue("--lineage", argValue("--lineage-id"));
+  const packetHash = argValue("--packet-hash");
+  const file = currentLedgerOrFail();
+  // Validate binding before the lock (a rejection mid-lock would leak it), and match
+  // the bound-evidence matcher: a packet/lineage-bound task needs matching binding on
+  // its completion audit, or the requirement never clears.
+  if (taskId) {
+    const boundTask = (readJson(file).tasks ?? []).find((task) => task.id === taskId);
+    if (boundTask?.packetHash && !packetHash) {
+      console.error(`record-completion-audit requires --packet-hash for task ${taskId} bound to a packet.`);
+      process.exit(2);
+    }
+    if (boundTask?.lineageId && !lineageId) {
+      console.error(`record-completion-audit requires --lineage for task ${taskId} bound to a lineage.`);
+      process.exit(2);
+    }
+  }
+  updateJson(file, (ledger) => {
+    if (taskId) requireTaskBinding(ledger, taskId, "record-completion-audit");
+    const status = argValue("--status", "verified");
+    ledger.completionAudit = ledger.completionAudit ?? [];
+    ledger.completionAudit.push({
+      item,
+      taskId,
+      lineageId,
+      packetHash,
+      classification: argValue("--classification", "DONE"),
+      status,
+      impact: argValue("--impact", "low"),
+      evidence: argValue("--evidence"),
+      acceptedBy: argValue("--accepted-by"),
+      at: preciseNowIso(),
+    });
+    ledger.updatedAt = nowIso();
+    appendEvent(ledger, "completion-audit.recorded", { item, taskId, status });
+    return ledger;
+  });
+}
+
+function recordInstallProof() {
+  const stage = argValue("--stage");
+  if (!stage) {
+    console.error("record-install-proof requires --stage.");
+    process.exit(2);
+  }
+  recordTaskEvidence("installProof", "install-proof.recorded", "record-install-proof", () => ({
+    stage,
+    command: argValue("--command"),
+  }));
 }
 
 function recordCheck() {
@@ -688,9 +877,14 @@ else if (command === "require-artifact") requireArtifact();
 else if (command === "record-artifact") recordArtifact();
 else if (command === "record-agent") recordAgent();
 else if (command === "record-review") recordReview();
+else if (command === "record-tdd") recordTdd();
+else if (command === "record-simplifier") recordSimplifier();
+else if (command === "record-specialist") recordSpecialist();
+else if (command === "record-completion-audit") recordCompletionAudit();
+else if (command === "record-install-proof") recordInstallProof();
 else if (command === "record-subagent") recordSubagent();
 else if (command === "history") history();
 else {
-  console.error("usage: execution-ledger.mjs init|validate|check-stop [--require-ledger] [--require-tasks] [--require-plan-phases]|check-bound-execute|set-task|set-phase|record-uat|record-check|require-artifact|record-artifact|record-agent|record-review|record-subagent|history");
+  console.error("usage: execution-ledger.mjs init|validate|check-stop [--require-ledger] [--require-tasks] [--require-plan-phases]|check-bound-execute|set-task|set-phase|record-uat|record-check|require-artifact|record-artifact|record-agent|record-review|record-tdd|record-simplifier|record-specialist|record-completion-audit|record-install-proof|record-subagent|history");
   process.exit(2);
 }

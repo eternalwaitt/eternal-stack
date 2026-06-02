@@ -32,6 +32,7 @@ Process:
 
 Output format:
 - `ETRNL_TASK_ID: <id>`
+- `ETRNL_STATUS: completed|blocked`
 - `Root cause: <confirmed or not confirmed>`
 - `Evidence: <files, commands, or logs>`
 - `Recommended fix: <bounded next task>`

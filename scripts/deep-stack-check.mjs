@@ -8,12 +8,18 @@ import {
   readJsonFile,
   validateBundle,
   validateCompletion,
+  validateCompletionReconciliation,
   validateDeepStackPlanFile,
   validateFindings,
+  validateInstallProof,
   validateReuse,
+  validateReuseBindings,
+  validateReviewPhases,
   validateRiskTier,
   validateSkills,
   validateSources,
+  validateTddEvidence,
+  validateTypeTriggerEvidence,
 } from "./lib/deep-stack-artifacts.mjs";
 
 const args = process.argv.slice(2);
@@ -22,7 +28,7 @@ const json = args.includes("--json");
 const allowTransitional = args.includes("--allow-transitional");
 
 function usage() {
-  console.error("usage: deep-stack-check.mjs create|validate-plan|validate-sources|validate-skills|validate-reuse|validate-findings|validate-completion|validate-risk-tier|validate-artifact");
+  console.error("usage: deep-stack-check.mjs create|validate-plan|validate-sources|validate-skills|validate-reuse|validate-findings|validate-completion|validate-risk-tier|validate-review-phases|validate-tdd|validate-completion-reconciliation|validate-reuse-bindings|validate-type-triggers|validate-install-proof|validate-artifact");
   process.exit(2);
 }
 
@@ -90,6 +96,14 @@ function validateArtifactSection(sectionName, validator) {
   report({ ok: errors.length === 0, errors, artifactPath });
 }
 
+function validateArtifactSectionWithRisk(sectionName, validator) {
+  const artifactPath = artifactArg();
+  const artifact = loadArtifact(artifactPath);
+  const errors = [];
+  validator(artifact[sectionName], artifact.riskTier, { artifactPath }, errors);
+  report({ ok: errors.length === 0, errors, artifactPath });
+}
+
 if (command === "create") {
   const planPath = argValue(args, "--plan");
   const outDir = argValue(args, "--out");
@@ -122,6 +136,18 @@ if (command === "create") {
   validateArtifactSection("completionAudit", validateCompletion);
 } else if (command === "validate-risk-tier") {
   validateArtifactSection("riskTier", validateRiskTier);
+} else if (command === "validate-review-phases") {
+  validateArtifactSectionWithRisk("reviewPhases", validateReviewPhases);
+} else if (command === "validate-tdd") {
+  validateArtifactSectionWithRisk("tddEvidence", validateTddEvidence);
+} else if (command === "validate-completion-reconciliation") {
+  validateArtifactSectionWithRisk("completionReconciliation", validateCompletionReconciliation);
+} else if (command === "validate-reuse-bindings") {
+  validateArtifactSectionWithRisk("reuseBindings", validateReuseBindings);
+} else if (command === "validate-type-triggers") {
+  validateArtifactSectionWithRisk("typeTriggerEvidence", validateTypeTriggerEvidence);
+} else if (command === "validate-install-proof") {
+  validateArtifactSectionWithRisk("installProof", validateInstallProof);
 } else if (command === "validate-artifact") {
   const artifactPath = artifactArg();
   report(validateBundle(loadArtifact(artifactPath), { artifactPath }));

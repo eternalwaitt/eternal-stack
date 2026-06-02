@@ -89,7 +89,9 @@ should_warn() {
   local stamp="$root/${session_id}.${key}.stamp"
   local last=0
   if [[ -f "$stamp" ]]; then
-    last="$(<"$stamp" 2>/dev/null || printf '0')"
+    if ! read -r last <"$stamp"; then
+      last=0
+    fi
   fi
   [[ "$last" =~ ^[0-9]+$ ]] || last=0
   if (( now - last < WARN_INTERVAL )); then

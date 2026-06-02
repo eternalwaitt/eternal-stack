@@ -310,7 +310,7 @@ cc_email_triage_queue_verified() {
 
 command_writes_live_claude_hooks() {
   local cmd="$1"
-  local live_hook_write_re='(tee|cat|cp|mv|rsync|install|chmod|chown|rm|trash)[^;&|]*((\$HOME|~|/Users/[^[:space:]/]+)?/\.claude/hooks)'
+  local live_hook_write_re="(tee|cat|cp|mv|rsync|install|chmod|chown|rm|trash)[^;&|]*((\\\$HOME|~|/Users/[^[:space:]/]+)?/\\.claude/hooks)"
   [[ "$cmd" =~ $live_hook_write_re ]]
 }
 
@@ -359,7 +359,7 @@ dangerous_token_outside_path() {
   local home="${HOME:-}"
   case "$path" in
     "~") [[ -n "$home" ]] || return 0; path="$home" ;;
-    "~/"*) [[ -n "$home" ]] || return 0; path="$home/${path#~/}" ;;
+    \~/*) [[ -n "$home" ]] || return 0; path="$home/${path#\~/}" ;;
   esac
   [[ "$path" == /* ]] || return 1
   if ! path_is_allowed_for_dangerous_command "$path"; then
