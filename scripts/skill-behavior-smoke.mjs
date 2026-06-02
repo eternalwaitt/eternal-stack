@@ -140,6 +140,7 @@ function write(file, content) {
 }
 
 const goodPlan = path.join(root, "hooks/fixtures/plans/good-plan.md");
+const deepStackPlan = path.join(root, "tests/fixtures/deep-stack/plan.deep-stack.valid.md");
 const badPlan = path.join(tmp, "bad-plan.md");
 write(badPlan, "# Bad Plan\n\nStatus: Final\n\nGoal: too thin\n");
 const executeSkill = readFileSync(path.join(root, "skills/etrnl-execute/SKILL.md"), "utf8");
@@ -153,6 +154,11 @@ if (hasKeywords(executeSkill, ["sequential-degraded", "blocker", "editing"])) {
   ok("execute skill documents sequential-degraded fallback");
 } else {
   fail("execute skill documents sequential-degraded fallback", "missing sequential-degraded blocker/editing concept");
+}
+if (hasKeywords(executeSkill, ["TDD", "red", "green", "before changing production source"])) {
+  ok("execute skill requires TDD red-green source edits");
+} else {
+  fail("execute skill requires TDD red-green source edits", "missing TDD red/green before-source-edit requirement");
 }
 
 const skillListSource = readFileSync(path.join(root, "scripts/lib/skill-lists.sh"), "utf8");
@@ -172,7 +178,8 @@ try {
 }
 
 expectFail("plan readiness rejects thin plan", "node", [script("plan-readiness-check.mjs"), badPlan], { expectedText: "missing Evidence" });
-expectPass("plan readiness accepts fixture plan", "node", [script("plan-readiness-check.mjs"), goodPlan]);
+expectFail("plan readiness rejects final plan without deep artifacts", "node", [script("plan-readiness-check.mjs"), goodPlan], { expectedText: "DEEP_ARTIFACT_REQUIRED" });
+expectPass("plan readiness accepts deep-stack fixture plan", "node", [script("plan-readiness-check.mjs"), deepStackPlan]);
 
 const ledgerPath = expectPass("execution ledger init creates active run", "node", [
   script("execution-ledger.mjs"),

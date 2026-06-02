@@ -16,7 +16,9 @@ OWNED_SKILLS=(
   etrnl-context-restore
   etrnl-context-save
   etrnl-deps
+  etrnl-disk-cleanup
   etrnl-documentation-health
+  etrnl-email-reply-quality
   etrnl-execute
   etrnl-fix-issue
   etrnl-parallel
@@ -58,12 +60,15 @@ CRITICAL_SCRIPTS=(
   documentation-health-ledger-check.mjs
   execution-ledger.mjs
   execute-evidence-check.mjs
+  deep-stack-check.mjs
   plan-readiness-check.mjs
   agent-task-packet-check.mjs
   guard-override-token.mjs
   lib/audit-exclusions.mjs
   lib/bash-array-parser.mjs
   lib/cli-args.mjs
+  lib/codex-memory-scan.sh
+  lib/deep-stack-artifacts.mjs
   lib/evidence-trace.mjs
   lib/plan-headings.mjs
   lib/text-matchers.mjs
@@ -78,6 +83,7 @@ CRITICAL_SCRIPTS=(
   skill-contract-check.mjs
   skill-behavior-smoke.mjs
   update-check.mjs
+  codex-rtk-pre-tool-use.sh
 )
 
 LEGACY_SKILLS=(

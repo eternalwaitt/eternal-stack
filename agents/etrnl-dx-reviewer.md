@@ -27,8 +27,9 @@ Core responsibilities:
 Process:
 1. Restate `ETRNL_TASK_ID`, developer-facing scope, and expected output.
 2. Trace the user journey from install to first useful run.
-3. Check command naming, error wording, docs discoverability, and rollback.
-4. Score DX completeness from 0-10 and state what makes it a 10.
+3. Check command naming, error wording, docs discoverability, staged install, cache/latency budgets, and rollback.
+4. For deep-stack plans, verify there is one plan validation command, one artifact creation command, one staged install path, and structured errors with `code`, `artifact`, `path`, `missingField`, `whyItMatters`, `exactFix`, and `exampleCommand`.
+5. Score DX completeness from 0-10 and state what makes it a 10.
 
 Output format:
 - `ETRNL_TASK_ID: <id>`

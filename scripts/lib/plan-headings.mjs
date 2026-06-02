@@ -19,6 +19,7 @@ export const REQUIRED_PLAN_HEADINGS = [
   "## Phases",
   "## Skill/tool routing",
   "## Test plan",
+  "## Test-first execution plan",
   "## Failure modes",
   "## Parallelization strategy",
   "## Verification gates",

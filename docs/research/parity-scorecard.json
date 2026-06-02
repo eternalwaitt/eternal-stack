@@ -9,7 +9,7 @@
         "research_flow": 1,
         "subagent_orchestration": 2,
         "parallelism_safety": 1,
-        "verification_gates": 2,
+        "verification_gates": 1,
         "rollback_guardrails": 1,
         "telemetry_proactive": 0
       },
@@ -260,6 +260,67 @@
         }
       ],
       "priority": "P2",
+      "targetMilestone": "M2"
+    },
+    {
+      "etrnlSkill": "etrnl-disk-cleanup",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 1,
+        "research_flow": 1,
+        "subagent_orchestration": 1,
+        "parallelism_safety": 1,
+        "verification_gates": 2,
+        "rollback_guardrails": 2,
+        "telemetry_proactive": 1
+      },
+      "gaps": [
+        {
+          "capability": "verification_gates",
+          "target": "record before/after free-space evidence and dry-run manifest paths in cleanup reports",
+          "ownerSurface": "skill:etrnl-disk-cleanup",
+          "sourceRows": [
+            "get-shit-done:verification_gates",
+            "superpowers:rollback_guardrails"
+          ]
+        }
+      ],
+      "priority": "P1",
+      "targetMilestone": "M1"
+    },
+    {
+      "etrnlSkill": "etrnl-email-reply-quality",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 1,
+        "research_flow": 1,
+        "subagent_orchestration": 1,
+        "parallelism_safety": 1,
+        "verification_gates": 2,
+        "rollback_guardrails": 1,
+        "telemetry_proactive": 0
+      },
+      "gaps": [
+        {
+          "capability": "telemetry_proactive",
+          "target": "emit proactive draft-style drift notes when email runtime checks, command docs, or installed skill docs diverge",
+          "ownerSurface": "hook:cc-posttoolbatch-observer.sh",
+          "sourceRows": [
+            "gstack:telemetry_proactive",
+            "oh-my-claudecode:telemetry_proactive"
+          ]
+        },
+        {
+          "capability": "tdd_enforcement",
+          "target": "require red-green fixtures for each new outgoing-reply style rule",
+          "ownerSurface": "script:vivaz-email drafts check",
+          "sourceRows": [
+            "superpowers:tdd_enforcement",
+            "get-shit-done:tdd_enforcement"
+          ]
+        }
+      ],
+      "priority": "P1",
       "targetMilestone": "M2"
     },
     {

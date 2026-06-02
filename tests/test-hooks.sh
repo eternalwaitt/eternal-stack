@@ -106,12 +106,48 @@ out="$(run_hook cc-pretooluse-guard.sh "$dangerous_quoted")"
 assert_json_expr "dangerous quoted outside path denied" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
 assert_contains "dangerous quoted outside path named" "$out" "/etc/passwd"
 
+broad_codex_scan="$(jq '.tool_input.command = "rg -n rtk /Users/testuser/.codex"' <<<"$bash_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$broad_codex_scan")"
+assert_json_expr "broad codex memory scan denied" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+assert_contains "broad codex memory scan reason" "$out" "Broad ~/.codex scans are blocked"
+broad_codex_config_scan="$(jq '.tool_input.command = "rg -n token /Users/testuser/.codex/config.toml"' <<<"$bash_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$broad_codex_config_scan")"
+assert_json_expr "broad codex config scan denied" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+
+disk_cleanup_state="$TMPROOT/claude-guard-fixture-disk-cleanup.json"
+jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[{value:"etrnl-disk-cleanup",at:"2026-01-01T00:00:00Z"}],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"free SSD space",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$disk_cleanup_state"
+disk_cleanup_path="$HOME/Library/Caches/example-cache"
+disk_cleanup_trash="$(jq --arg path "$disk_cleanup_path" '.session_id = "fixture-disk-cleanup" | .tool_input.command = ("trash " + $path)' <<<"$bash_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$disk_cleanup_trash")"
+assert_json_expr "disk cleanup allows approved trash path" "$out" '.continue == true'
+disk_cleanup_rm="$(jq --arg path "$disk_cleanup_path" '.session_id = "fixture-disk-cleanup" | .tool_input.command = ("rm -rf " + $path)' <<<"$bash_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$disk_cleanup_rm")"
+assert_json_expr "disk cleanup blocks recursive rm" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+assert_contains "disk cleanup rm reason" "$out" "must use trash"
+disk_cleanup_upper_rm="$(jq --arg path "$disk_cleanup_path" '.session_id = "fixture-disk-cleanup" | .tool_input.command = ("/bin/rm -Rf " + $path)' <<<"$bash_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$disk_cleanup_upper_rm")"
+assert_json_expr "disk cleanup blocks uppercase recursive rm" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+disk_cleanup_tilde_trash="$(jq '.session_id = "fixture-disk-cleanup" | .tool_input.command = "trash ~/Documents"' <<<"$bash_json")"
+out="$(HOME="/Users/testuser" run_hook cc-pretooluse-guard.sh "$disk_cleanup_tilde_trash")"
+assert_json_expr "disk cleanup blocks unsafe tilde trash path" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+disk_cleanup_unsafe="$(jq '.session_id = "fixture-disk-cleanup" | .tool_input.command = "trash /etc/passwd"' <<<"$bash_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$disk_cleanup_unsafe")"
+assert_json_expr "disk cleanup blocks unapproved path" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+assert_contains "disk cleanup unsafe path named" "$out" "/etc/passwd"
+
 gws_help_state="$TMPROOT/claude-guard-fixture-gws-help.json"
 jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[{value:"gws gmail help",at:"2026-01-01T00:00:00Z"}],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:""}' >"$gws_help_state"
 gws_write_with_help="$(jq '.session_id = "fixture-gws-help" | .tool_input.command = "gws gmail users messages batchModify --params {} --json {}"' <<<"$bash_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$gws_write_with_help")"
 assert_json_expr "gws help does not satisfy write preflight" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
 assert_contains "gws help denial names account verification" "$out" "Help output is not account verification"
+gws_prefixed_write="$(jq '.session_id = "fixture-gws-help" | .tool_input.command = "/usr/local/bin/gws gmail users messages batchModify --params {} --json {}"' <<<"$bash_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$gws_prefixed_write")"
+assert_json_expr "gws prefixed write requires account verification" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+sqlite_rule_command="sqlite3 /tmp/runtime.sqlite \"INSERT INTO rules (email, updated_at) VALUES ('brand@gmail.com', datetime('now'))\""
+sqlite_rule_upsert="$(jq --arg command "$sqlite_rule_command" '.session_id = "fixture-gws-help" | .tool_input.command = $command' <<<"$bash_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$sqlite_rule_upsert")"
+assert_json_expr "gmail text inside sqlite rule is not gws write" "$out" '.continue == true'
 
 email_triage_raw_mutation_state="$TMPROOT/claude-guard-fixture-email-triage-raw-mutation.json"
 jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[{value:"email-triage",at:"2026-01-01T00:00:00Z"}],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[{value:"gws gmail account whoami",at:"2026-01-01T00:00:00Z"}],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"/email-triage agencia",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:""}' >"$email_triage_raw_mutation_state"
@@ -249,6 +285,9 @@ assert_contains "policy catches parameterized catch" "$out" "return null"
 test_skip_policy="$(jq '.tool_input.file_path = "src/app.test.ts" | .tool_input.old_string = "test(\"old\", () => { expect(value).toBe(1); });" | .tool_input.new_string = "test.skip(\"new\", () => { expect(value).toBe(1); });"' <<<"$edit_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$test_skip_policy")"
 assert_contains "test skip denied" "$out" "skipped tests"
+trivial_python_assert="$(jq '.tool_input.file_path = "tests/test_app.py" | .tool_input.old_string = "class TestApp:\n    pass" | .tool_input.new_string = "class TestApp:\n    def test_true(self):\n        self.assertTrue(True)"' <<<"$edit_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$trivial_python_assert")"
+assert_contains "python trivial self assert denied" "$out" "trivial always-true assertions"
 safety_removal="$(jq '.tool_input.old_string = "try { validate(input); } catch (error) { logger.error(error); throw error; }" | .tool_input.new_string = "validate(input);"' <<<"$edit_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$safety_removal")"
 assert_contains "safety removal denied" "$out" "Safety-removal"
@@ -296,7 +335,9 @@ for created in one two three; do
 done
 sprawl_fourth="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-sprawl",tool_name:"Write",cwd:$root,tool_input:{file_path:($root + "/src/four.ts"),content:"export const created = true;"}}')"
 out="$(run_hook cc-pretooluse-guard.sh "$sprawl_fourth")"
-assert_contains "file sprawl denied" "$out" "File-sprawl"
+assert_json_expr "file sprawl not denied by default (check is opt-in)" "$out" '.hookSpecificOutput.permissionDecision != "deny"'
+out="$(CLAUDE_GUARD_FILE_SPRAWL=1 run_hook cc-pretooluse-guard.sh "$sprawl_fourth")"
+assert_contains "file sprawl denied when opt-in flag set" "$out" "File-sprawl"
 planned_sprawl_search="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-planned-sprawl",tool_name:"Bash",status:"success",cwd:$root,tool_input:{command:"rg -n planned src"}}')"
 run_hook cc-posttoolbatch-observer.sh "$planned_sprawl_search" >/dev/null || true
 planned_sprawl_agent="$(jq -cn '{session_id:"fixture-planned-sprawl",tool_name:"Agent",status:"success",tool_input:{subagent_type:"etrnl-executor",description:"planned file split",packet:{mode:"write",goal:"planned split",writeScope:["src"]}}}')"
@@ -365,6 +406,18 @@ assert_contains "email prompt blocks queue before inbox zero" "$out" "Do not ope
 assert_contains "email prompt emits reply queue command" "$out" "vivaz-email triage queue --run-id <run-id> --mode reply --format markdown --next"
 email_prompt_state="$TMPROOT/claude-guard-fixture-email-prompt.json"
 assert_json_expr "email triage skill recorded" "$(jq -c . "$email_prompt_state")" 'any(.requestedSkills[]?.value; . == "email-triage")'
+disk_prompt="$(jq -cn '{session_id:"fixture-disk-prompt",prompt:"free SSD space with a disk cleanup pass"}')"
+out="$(run_hook cc-userprompt-router.sh "$disk_prompt")"
+assert_contains "disk cleanup prompt emits trash workflow" "$out" "Use etrnl-disk-cleanup"
+assert_contains "disk cleanup prompt blocks rm" "$out" "Do not use rm -r/rm -rf"
+disk_prompt_state="$TMPROOT/claude-guard-fixture-disk-prompt.json"
+assert_json_expr "disk cleanup skill recorded" "$(jq -c . "$disk_prompt_state")" 'any(.requestedSkills[]?.value; . == "etrnl-disk-cleanup")'
+advice_prompt="$(jq -cn '{session_id:"fixture-advice-prompt",prompt:"which iPhone should I buy today?"}')"
+out="$(run_hook cc-userprompt-router.sh "$advice_prompt")"
+assert_contains "advice prompt routes source evidence" "$out" "dated URLs/sources"
+agent_packet_prompt="$(jq -cn '{session_id:"fixture-agent-packet-prompt",prompt:"delegate this to a subagent with a task packet"}')"
+out="$(run_hook cc-userprompt-router.sh "$agent_packet_prompt")"
+assert_contains "agent packet prompt emits template command" "$out" "agent-task-packet-check.mjs --template"
 
 skill_trigger_cases="$ROOT/tests/fixtures/skill-triggering/cases.json"
 skill_trigger_count="$(jq 'length' "$skill_trigger_cases")"
@@ -421,6 +474,10 @@ assert_contains "repeated failure pivots" "$out" "repeated"
 large_failure_json="$(jq -cn '{session_id:"fixture-large-failure",tool_name:"Read",tool_input:{file_path:"/tmp/huge-output.txt"},error:"File content exceeds maximum allowed tokens"}')"
 out="$(run_hook cc-posttoolusefailure-diagnose.sh "$large_failure_json")"
 assert_contains "large-output failure gets targeted diagnostic" "$out" "targeted read/search"
+email_guard_failure_json="$(jq -cn '{session_id:"fixture-email-guard-failure",tool_name:"Bash",tool_input:{command:"vivaz-email triage guarded-run --account agencia --apply --require-insights"},error:"TRIAGE_GUARD_ML_DISAGREED: ML archive review found 1 disagreement"}')"
+out="$(run_hook cc-posttoolusefailure-diagnose.sh "$email_guard_failure_json")"
+assert_contains "email triage ML disagreement gets recovery diagnostic" "$out" "triage ml-reviews"
+assert_contains "email triage ML disagreement avoids asking Victor" "$out" "not a question for Victor"
 
 rate_event="$(jq -cn '{session_id:"fixture-rate",tool_name:"Bash",tool_input:{command:"rg -n value src"}}')"
 run_hook cc-rate-limiter.sh "$rate_event" >/dev/null || true
@@ -480,6 +537,24 @@ browser_outstanding_stop="$(jq -cn '{session_id:"fixture-browser-outstanding",la
 out="$(run_hook cc-stop-verifier.sh "$browser_outstanding_stop")"
 assert_contains "stop verifier blocks outstanding browser QA" "$out" "Outstanding browser QA"
 
+advice_state="$TMPROOT/claude-guard-fixture-advice.json"
+jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"which iPhone should I buy today?",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$advice_state"
+advice_missing_stop="$(jq -cn '{session_id:"fixture-advice",last_assistant_message:"Done, I recommend the Pro model.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$advice_missing_stop")"
+assert_contains "advice stop requires dated source evidence" "$out" "Advice/search completion requires current source evidence"
+advice_ok_stop="$(jq -cn '{session_id:"fixture-advice",last_assistant_message:"Done. As of May 26, 2026, Apple lists current iPhone models at https://www.apple.com/iphone/ and carrier pricing varies by plan.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$advice_ok_stop")"
+if [[ -z "$out" ]]; then ok "advice answer with dated URL satisfies stop"; else not_ok "advice answer with dated URL should pass: $out"; fi
+advice_far_source_stop="$(jq -cn '{session_id:"fixture-advice",last_assistant_message:"Done. As of May 26, 2026, Apple lists current iPhone models.\nhttps://www.apple.com/iphone/",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$advice_far_source_stop")"
+if [[ -z "$out" ]]; then ok "advice multiline dated URL satisfies stop"; else not_ok "advice multiline dated URL should pass: $out"; fi
+long_advice_state="$TMPROOT/claude-guard-fixture-long-advice.json"
+long_prompt="$(printf 'search database library %.0s' $(seq 1 80))"
+jq -nc --arg prompt "$long_prompt" '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:$prompt,lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$long_advice_state"
+long_advice_stop="$(jq -cn '{session_id:"fixture-long-advice",last_assistant_message:"Here is the technical context.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$long_advice_stop")"
+if [[ -z "$out" ]]; then ok "long technical prompt does not trigger advice source gate"; else not_ok "long technical prompt should not trigger advice source gate: $out"; fi
+
 mkdir -p "$TMPROOT/bin"
 printf '%s\n' '#!/usr/bin/env bash' 'if [[ "${VIVAZ_EMAIL_VERIFY_FAIL:-0}" == "1" ]]; then exit 1; fi' 'if [[ "$1 $2" == "triage verify" ]]; then' '  if [[ "${VIVAZ_EMAIL_VERIFY_DRY:-0}" == "1" ]]; then printf "{\"ok\":true,\"data\":{\"verified\":true,\"dry_run\":true,\"gmail_mutated\":false,\"inbox_zero_verified\":false,\"inbox_count\":5}}\n"; elif [[ "${VIVAZ_EMAIL_VERIFY_READY:-0}" == "1" ]]; then printf "{\"ok\":true,\"data\":{\"verified\":true,\"dry_run\":true,\"gmail_mutated\":false,\"inbox_zero_verified\":true,\"queue_ready_without_mutation\":true,\"inbox_count\":0,\"action_backlog_count\":31}}\n"; elif [[ "${VIVAZ_EMAIL_VERIFY_NONZERO:-0}" == "1" ]]; then printf "{\"ok\":true,\"data\":{\"verified\":true,\"dry_run\":false,\"gmail_mutated\":true,\"inbox_zero_verified\":true,\"inbox_count\":1}}\n"; else printf "{\"ok\":true,\"data\":{\"verified\":true,\"dry_run\":false,\"gmail_mutated\":true,\"inbox_zero_verified\":true,\"inbox_count\":0}}\n"; fi' '  exit 0' 'fi' 'exit 0' >"$TMPROOT/bin/vivaz-email"
 chmod +x "$TMPROOT/bin/vivaz-email"
@@ -505,6 +580,9 @@ assert_contains "email triage dry run does not satisfy inbox zero" "$out" "queue
 
 out="$(VIVAZ_EMAIL_VERIFY_READY=1 PATH="$TMPROOT/bin:$PATH" run_hook cc-stop-verifier.sh "$email_triage_ok_stop")"
 if [[ -z "$out" ]]; then ok "email triage no-mutation ready queue satisfies stop"; else not_ok "email triage no-mutation ready queue should pass: $out"; fi
+email_auth_explainer_stop="$(jq -cn '{session_id:"fixture-email-triage-missing",last_assistant_message:"What I verified: the Authentication-Results headers show SPF and DKIM pass for this sender domain. That answers the spoofing question; it is not a queue result.",stop_hook_active:false}')"
+out="$(PATH="$TMPROOT/bin:$PATH" run_hook cc-stop-verifier.sh "$email_auth_explainer_stop")"
+if [[ -z "$out" ]]; then ok "email authentication explanation does not trigger triage completion gate"; else not_ok "email auth explanation should pass: $out"; fi
 
 out="$(VIVAZ_EMAIL_VERIFY_NONZERO=1 PATH="$TMPROOT/bin:$PATH" run_hook cc-stop-verifier.sh "$email_triage_ok_stop")"
 assert_contains "email triage nonzero inbox does not satisfy inbox zero" "$out" "provider-verified INBOX zero"
@@ -749,6 +827,7 @@ bad_agent_prompt='{"packet":{"mode":"write"}} trailing prose'
 agent_packet_bad="$(jq -cn --arg root "$TMPROOT/example" --arg prompt "$bad_agent_prompt" '{session_id:"fixture-agent-packet-fallback",tool_name:"Agent",cwd:$root,tool_input:{subagent_type:"claude",description:"bad packet",prompt:$prompt}}')"
 out="$(run_hook cc-pretooluse-guard.sh "$agent_packet_bad")"
 assert_contains "malformed agent packet tells retry" "$out" "JSON-only task packet"
+assert_contains "malformed agent packet names template command" "$out" "agent-task-packet-check.mjs --template"
 fallback_edit="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-agent-packet-fallback",tool_name:"Edit",cwd:$root,tool_input:{file_path:($root + "/src/app.ts"),old_string:"export const value = 1;",new_string:"export const value = 2;"}}')"
 out="$(run_hook cc-pretooluse-guard.sh "$fallback_edit")"
 assert_contains "agent packet failure blocks direct source fallback" "$out" "malformed packet is not a sequential-degraded blocker"

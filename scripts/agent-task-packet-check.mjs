@@ -41,8 +41,13 @@ if (templateIndex !== -1) {
       reviewers: ["etrnl-spec-reviewer", "etrnl-quality-reviewer"],
       specReviewRequired: true,
       qualityReviewRequired: true,
+      simplifierReviewRequired: false,
       integrationOwner: "parent agent",
       expectedDiffShape: "Small patch within writeScope plus tests/docs needed for the change.",
+      deepStackExecution: false,
+      deepStackArtifacts: "path/to/deep-stack-artifacts.json",
+      riskTier: { tier: 1, reason: "Small source change after deep review.", verificationGate: "project-specific verification command" },
+      completionEvidence: "Plan item to diff/test evidence, or not applicable for Tier 0.",
     });
   }
   console.log(JSON.stringify({ packet }, null, 2));
@@ -78,8 +83,13 @@ const fieldAliases = new Map([
   ["lineage_id", "lineageId"],
   ["spec_review_required", "specReviewRequired"],
   ["quality_review_required", "qualityReviewRequired"],
+  ["simplifier_review_required", "simplifierReviewRequired"],
   ["integration_owner", "integrationOwner"],
   ["expected_diff_shape", "expectedDiffShape"],
+  ["deep_stack_execution", "deepStackExecution"],
+  ["deep_stack_artifacts", "deepStackArtifacts"],
+  ["risk_tier", "riskTier"],
+  ["completion_evidence", "completionEvidence"],
 ]);
 
 function normalizePacket(packet) {
@@ -210,7 +220,7 @@ if ("reviewers" in packet) {
   }
 }
 
-for (const key of ["specReviewRequired", "qualityReviewRequired"]) {
+for (const key of ["specReviewRequired", "qualityReviewRequired", "simplifierReviewRequired", "deepStackExecution"]) {
   if (key in packet && typeof packet[key] !== "boolean") {
     violations.push(`${key} must be a boolean`);
   }
@@ -307,6 +317,41 @@ if (mode === "write" && "writeScope" in packet && "forbiddenPaths" in packet) {
     if (packet.qualityReviewRequired === true && !reviewers.includes("etrnl-quality-reviewer")) {
       violations.push("reviewers must include etrnl-quality-reviewer when qualityReviewRequired is true");
     }
+  }
+}
+
+if (mode === "write" && packet.deepStackExecution === true) {
+  const reviewers = Array.isArray(packet.reviewers) ? packet.reviewers : [];
+  for (const key of ["deepStackArtifacts", "riskTier", "completionEvidence"]) {
+    if (!(key in packet)) missing.push(key);
+  }
+  if (packet.simplifierReviewRequired !== true) missing.push("simplifierReviewRequired");
+  if (packet.specReviewRequired !== true) missing.push("specReviewRequired");
+  if (packet.qualityReviewRequired !== true) missing.push("qualityReviewRequired");
+  if (packet.specReviewRequired === true && !reviewers.includes("etrnl-spec-reviewer")) {
+    violations.push("reviewers must include etrnl-spec-reviewer when deepStackExecution is true");
+  }
+  if (packet.qualityReviewRequired === true && !reviewers.includes("etrnl-quality-reviewer")) {
+    violations.push("reviewers must include etrnl-quality-reviewer when deepStackExecution is true");
+  }
+  if (typeof packet.deepStackArtifacts !== "string" || packet.deepStackArtifacts.trim().length === 0) {
+    violations.push("deepStackArtifacts must be a non-empty string when deepStackExecution is true");
+  }
+  if (!packet.riskTier || typeof packet.riskTier !== "object" || Array.isArray(packet.riskTier)) {
+    violations.push("riskTier must be an object when deepStackExecution is true");
+  } else {
+    if (!Number.isInteger(packet.riskTier.tier) || packet.riskTier.tier < 0 || packet.riskTier.tier > 3) {
+      violations.push("riskTier.tier must be 0, 1, 2, or 3");
+    }
+    if (typeof packet.riskTier.reason !== "string" || packet.riskTier.reason.trim().length === 0) {
+      violations.push("riskTier.reason must be a non-empty string");
+    }
+    if (typeof packet.riskTier.verificationGate !== "string" || packet.riskTier.verificationGate.trim().length === 0) {
+      violations.push("riskTier.verificationGate must be a non-empty string");
+    }
+  }
+  if (typeof packet.completionEvidence !== "string" || packet.completionEvidence.trim().length === 0) {
+    violations.push("completionEvidence must be a non-empty string when deepStackExecution is true");
   }
 }
 

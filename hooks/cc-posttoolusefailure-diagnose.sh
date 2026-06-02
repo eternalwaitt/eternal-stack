@@ -47,6 +47,10 @@ failure_hint() {
       printf 'pnpm outdated can exit non-zero when it has useful data; capture and inspect stdout/stderr before parsing JSON.'
       return 0
       ;;
+    *"triage_guard_ml_disagreed"*|*"ml archive review found"*disagreement*)
+      printf 'Email-triage ML disagreement is a recoverable guard path, not a question for Victor. Inspect the run with vivaz-email triage ml-reviews --latest --account <id> --limit 20, then patch deterministic rules/cache or rerun guarded-run with the exact run id from the runtime output.'
+      return 0
+      ;;
     *"veloz deploy"*|*"vercel deploy"*)
       printf 'Inspect the first build/deploy error and reproduce the matching local build gate before another deploy attempt.'
       return 0

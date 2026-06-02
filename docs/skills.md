@@ -7,17 +7,19 @@ Claude Code personal and project skills use hyphenated command names. If this co
 | Command | Invocation | Purpose |
 | --- | --- | --- |
 | `/etrnl-agent-files` | Model or user | Maintains AGENTS.md, CLAUDE.md, rules, and agent instruction files without bloat. |
-| `/etrnl-autoplan` | Model or user | Creates readiness-compatible execution plans with task groups, subagent candidates, verification gates, and question policy. |
+| `/etrnl-autoplan` | Model or user | Creates readiness-compatible execution plans with task groups, subagent candidates, verification gates, question policy, and mandatory deep-stack artifacts for final plans. |
 | `/etrnl-brainstorm` | Model or user | Turns ambiguous ideas into approved design/spec files before implementation planning. |
 | `/etrnl-code-health` | Model or user | Runs the canonical code-health router: inventory, Health Stack, deterministic gates, companion audits, ledger, and no-skips closure. |
 | `/etrnl-documentation-health` | Model or user | Runs documentation-health audits and fixes across READMEs, docs, ADRs, runbooks, API/runtime docs, AI context, and code comments with inventory, drift evidence, and parallel review lanes. |
 | `/etrnl-context-save` | User or model | Saves concise resumable workflow state without storing transcripts or credentials. |
 | `/etrnl-context-restore` | User or model | Restores a saved context summary and flags stale continuation state. |
+| `/etrnl-disk-cleanup` | User only | Reclaims local disk space with host/filesystem evidence, a dry-run manifest, approved transient path classes, `trash` deletion, and before/after free-space verification. |
 | `/etrnl-review` | Model or user | Reviews code, plans, risks, loose ends, and final pass readiness. |
 | `/etrnl-commit` | User only | Reviews, verifies, stages, and commits relevant work. |
 | `/etrnl-deps` | User only | Handles targeted dependency maintenance with migration checks. |
+| `/etrnl-email-reply-quality` | Model or user | Checks VIVAZ outgoing email replies for banned dash typography, natural Brazilian Portuguese, AI tells, and humanizer cleanup before approval or send. |
 | `/etrnl-stress-test` | Model or user | Stress-tests architecture, rollout, migration, automation, and safety assumptions. |
-| `/etrnl-execute` | User only | Executes an approved readiness-checked implementation plan end to end with run ledger, write-mode implementation subagents for parallel-safe multi-file work, reviews, and verification. |
+| `/etrnl-execute` | User only | Executes an approved readiness-checked implementation plan end to end with test-first source tasks, run ledger, write-mode implementation subagents for parallel-safe multi-file work, reviews, and verification. |
 | `/etrnl-fix-issue` | User only | Reproduces and fixes tracked issues with focused verification. |
 | `/etrnl-parallel` | User only | Thin explicit fanout helper; `/etrnl-execute` owns normal plan orchestration. |
 | `/etrnl-pr` | User only | Prepares or updates pull requests with verification evidence. |
@@ -29,7 +31,7 @@ Claude Code personal and project skills use hyphenated command names. If this co
 
 | Command | Invocation | Purpose |
 | --- | --- | --- |
-| `/email-triage <account>` | User only | Runs VIVAZ email triage in two phases: first archive/label every current INBOX item and provider-verify Inbox Zero with `vivaz-email triage guarded-run --account <account> --max-inbox 500 --apply --require-insights`, then render one action/reply queue item only after `triage verify` reports `inbox_zero_verified: true`, `inbox_count: 0`, and either `gmail_mutated: true` or `queue_ready_without_mutation: true`. |
+| `/email-triage <account>` | User only | Runs VIVAZ email triage in two phases: first archive/label every current INBOX item and provider-verify Inbox Zero with `vivaz-email triage guarded-run --account <account> --max-inbox 500 --apply --require-insights`, then render one action/reply queue item only after `triage verify` reports `inbox_zero_verified: true`, `inbox_count: 0`, and either `gmail_mutated: true` or `queue_ready_without_mutation: true`; visible reply drafts require `vivaz-email drafts check --draft-id <draft-id>` before approval. |
 
 ## Companion Skills
 
@@ -59,10 +61,13 @@ These skills are not owned by this repo, but the control plane knows about them 
 | `code-health-ledger-check.mjs` | `~/.claude/scripts/code-health-ledger-check.mjs` | Blocks code-health completion unless inventory, action-item counters, terminal findings, resolution plan, and final gate evidence are present. |
 | `documentation-comment-health.mjs` | `~/.claude/scripts/documentation-comment-health.mjs` | Inventories exported JS/TS targets and their leading TSDoc/JSDoc coverage so documentation-health runs cannot pass with comment sampling only. |
 | `merge-settings.mjs` | `~/.claude/scripts/merge-settings.mjs` | Merges control-plane hooks into existing Claude settings without replacing unrelated local configuration. |
-| `plan-readiness-check.mjs` | `~/.claude/scripts/plan-readiness-check.mjs` | Rejects thin plans before they are marked final or executed. |
+| `plan-readiness-check.mjs` | `~/.claude/scripts/plan-readiness-check.mjs` | Rejects thin plans before they are marked final or executed; final plans require a validated deep-stack artifact bundle unless a legacy transitional flag is explicitly used. |
+| `deep-stack-check.mjs` | `~/.claude/scripts/deep-stack-check.mjs` | Creates and validates the Hybrid Deep Stack artifact bundle for final plans: sanitized source manifest, skill matrix, reuse inventory, findings ledger, completion audit, risk tier, and advanced TypeScript trigger policy. |
+| `lib/deep-stack-artifacts.mjs` | `~/.claude/scripts/lib/deep-stack-artifacts.mjs` | Shared deep-stack artifact schema and validators used by readiness, packet, install, and operator-facing checks. |
 | `agent-task-packet-check.mjs` | `~/.claude/scripts/agent-task-packet-check.mjs` | Enforces structured subagent packet contracts with task identity, lineage identity, packet hashes, and explicit spec/quality reviewer contracts for multi-file writes. |
 | `guard-override-token.mjs` | `~/.claude/scripts/guard-override-token.mjs` | Issues and verifies one-time signed override tokens for safety-critical prod/secret commands. |
 | `settings-audit.mjs` | `~/.claude/scripts/settings-audit.mjs` | Audits and repairs duplicate hook commands, overlapping matcher groups, and legacy rate-limiter registrations in Claude settings. |
+| `codex-rtk-pre-tool-use.sh` | `~/.claude/scripts/codex-rtk-pre-tool-use.sh` | Source-controlled Codex RTK PreToolUse hook; syncs to `~/.codex/hooks/rtk-pre-tool-use.sh` to rewrite commands with `updatedInput`, proxy unsafe `rg` forms, and block broad `.codex` scans. |
 | `update-check.mjs` | `~/.claude/scripts/update-check.mjs` | Compares installed metadata with the recorded source checkout, reports local/remote drift, emits `--explain` diagnostics, and can run local auto-update when enabled. |
 | `replay-hook-fixtures.mjs` | `~/.claude/scripts/replay-hook-fixtures.mjs` | Replays scrubbed regression fixtures through live hooks and asserts allow/deny/block outcomes. |
 | `execution-ledger.mjs` | `~/.claude/scripts/execution-ledger.mjs` | Creates, validates, and checks local ETRNL run ledgers, including task lineage, packet-bound write evidence, reviews, mandatory phase recording during plan execution, conditional workstream metadata, and UAT completion gates. |

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Fail closed on final planning artifacts without `Deep stack artifacts:` by default, add an explicit legacy transition flag, require a `## Test-first execution plan`, and make `/etrnl-execute` source edits TDD-first with red/green evidence before phase gates.
+- Add the Hybrid Deep Stack plan/review/execute contract: final plans validate `Deep stack artifacts:` through one consolidated `deep-stack-check.mjs`, with sanitized source manifests, skill matrices, reuse inventories, findings ledgers, completion audits, Hybrid risk tiers, conditional advanced TypeScript review, staged-install requirements, install parity, and structured repair errors.
+- Harden the Claude/Codex session-friction loop: Codex RTK rewrites now use `updatedInput`, unsafe `rg` forms proxy through RTK before execution, broad `.codex` memory scans are blocked, `/etrnl-disk-cleanup` uses a trash-only workflow, and advice/search completions use dated source evidence instead of repo preflight language.
+- Document the default-off file-sprawl guard: set `CLAUDE_GUARD_FILE_SPRAWL=1` for CI, refactors, or broad feature work when 3+ new source files should require planned write-scope coverage.
+- Add `/etrnl-email-reply-quality` and route `/email-triage` visible replies through `vivaz-email drafts check`, so VIVAZ outgoing replies are blocked for em/en dashes, bad Brazilian Portuguese, AI-tell phrasing, stiff boilerplate, assistant meta text, and fake deal commitments before approval.
+
 ## v0.1.21 - 2026-05-19
 
 - Allow `/email-triage` queue and stop gates to accept provider-verified Inbox Zero runs with `queue_ready_without_mutation: true`, so already-clean inboxes with an existing action backlog can open the runtime queue without requiring an impossible Gmail mutation.

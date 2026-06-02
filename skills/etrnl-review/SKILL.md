@@ -24,6 +24,7 @@ Lead with findings. Treat the original request, written plan, actual diff, insta
    - `code-simplifier` for clarity and avoidable complexity.
    - `finding-duplicate-functions` for duplicate logic.
    - `brooks-audit` for health/quality mode expectations.
+   - `typescript-advanced-types` when TypeScript changes touch exported/public types, API contracts, runtime validation, schema/generated types, state machines, discriminated unions, branded/domain IDs, reusable type utilities, or cross-layer DTO/domain boundaries.
 5. Apply the engineering review frame:
    - Scope: existing code reused, minimal change set, explicit NOT in scope, distribution/install coverage.
    - Architecture: boundaries, dependency graph, data flow, scaling, auth/data access, rollback, and one failure scenario per new integration.
@@ -34,7 +35,18 @@ Lead with findings. Treat the original request, written plan, actual diff, insta
 6. Point to exact files, commands, or plan sections.
 7. Apply the smallest fix that closes the risk when in fix/remediation mode; otherwise record the smallest fix that closes the risk.
 8. When findings are durable, record them with `node ~/.claude/scripts/review-log.mjs add --finding "<finding>" --severity <severity> --status open`.
-9. Say clearly when no blocking findings remain, and name any live-gated follow-up.
+9. For deep-stack plans, validate `Deep stack artifacts:` with `node scripts/deep-stack-check.mjs validate-plan --plan <plan-path>` or the installed `~/.claude/scripts/deep-stack-check.mjs` equivalent.
+10. Say clearly when no blocking findings remain, and name any live-gated follow-up.
+
+## Hybrid Deep Stack Review Contract
+
+For non-trivial plan, autoplan, or review work:
+
+- Run CEO, engineering, DX, adversarial, specialist, reuse, simplifier, and findings convergence.
+- Keep execution risk tiers out of planning shortcuts. Tiers apply only after deep review passes.
+- Block completion while any high/blocker finding is open, unless Victor explicitly accepts the risk.
+- Review completion with a `DONE`, `PARTIAL`, `NOT_DONE`, or `CHANGED` audit when an implementation plan exists.
+- Verify that source manifests are sanitized and do not include `/tmp`, home paths, transcripts, account material, or secrets.
 
 ## Research Flow (required_process)
 

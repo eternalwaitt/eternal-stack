@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "artifactType": "deep-stack-plan",
+  "planPath": "tests/fixtures/deep-stack/plan.deep-stack.valid.md",
+  "deepReview": {
+    "status": "passed",
+    "phases": ["ceo", "engineering", "dx", "adversarial", "specialist", "reuse", "simplifier"],
+    "completedAt": "2026-06-01T12:00:00Z"
+  },
+  "sourceManifest": {
+    "sources": [
+      {
+        "sourceId": "repo-control-plane",
+        "version": "current",
+        "commit": "0000000000000000000000000000000000000000",
+        "hash": "sha256:fixture",
+        "capturedAt": "2026-06-01T12:00:00Z",
+        "refreshCommand": "node scripts/deep-stack-check.mjs create --plan tests/fixtures/deep-stack/plan.deep-stack.valid.md --out tests/fixtures/deep-stack",
+        "requiredFiles": ["scripts/plan-readiness-check.mjs", "scripts/deep-stack-check.mjs"]
+      }
+    ]
+  },
+  "skillMatrix": [
+    {
+      "skill": "code-simplifier",
+      "status": "required",
+      "trigger": "source changes",
+      "evidence": "source review lane required"
+    },
+    {
+      "skill": "typescript-advanced-types",
+      "status": "not_applicable",
+      "trigger": "plain TypeScript implementation",
+      "evidence": "ordinary TypeScript verification is enough",
+      "notApplicableRationale": "No public types, API contracts, runtime validation, generated types, state machines, branded IDs, reusable type utilities, or cross-layer DTO/domain boundaries are touched."
+    }
+  ],
+  "reuseInventory": {
+    "searchedPaths": ["scripts", "skills", "tests"],
+    "existingAnalogs": ["scripts/plan-readiness-check.mjs"],
+    "candidateHelpers": ["scripts/lib/cli-args.mjs"],
+    "candidateTests": ["tests/test-workflow-tools.sh"],
+    "decisions": [
+      {
+        "surface": "deep-stack-check.mjs",
+        "newSurface": true,
+        "reuseDecision": "reuse existing readiness owner and add one consolidated CLI",
+        "newSurfaceJustification": "A single operator command avoids seven validator entrypoints while preserving existing gate ownership."
+      }
+    ]
+  },
+  "findings": [
+    {
+      "severity": "high",
+      "status": "fixed",
+      "path": "docs/plans/2026-06-01-etrnl-deep-stack-top-level-plan.md",
+      "category": "hybrid-routing",
+      "fix": "Encoded risk tier contract.",
+      "owner": "parent",
+      "fingerprint": "fixture-fixed"
+    }
+  ],
+  "completionAudit": [
+    {
+      "planItem": "bootstrap contract",
+      "classification": "DONE",
+      "evidence": "fixture",
+      "diffPaths": ["scripts/deep-stack-check.mjs"],
+      "reason": "implemented",
+      "impact": "low"
+    }
+  ],
+  "riskTier": {
+    "tier": 2,
+    "deepReviewPassed": true,
+    "reason": "Multi-file source workflow after deep review.",
+    "requiredArtifacts": ["findings", "completionAudit"],
+    "verificationGate": "tests/test-workflow-tools.sh",
+    "acceptedRisks": []
+  },
+  "typescript": {
+    "ordinaryVerification": "tsc --noEmit or project-equivalent check",
+    "advancedTypes": {
+      "status": "not_applicable",
+      "triggerEvidence": [],
+      "applicableSurfaces": [],
+      "notApplicableRationale": "Plain implementation does not touch advanced TypeScript surfaces."
+    }
+  }
+}
