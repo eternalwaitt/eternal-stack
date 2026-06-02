@@ -988,7 +988,49 @@ assert_json_expr "plan readiness recognizes optional phase metadata" "$phase_pla
 agent_template="$(node "$ROOT/scripts/agent-task-packet-check.mjs" --template write)"
 assert_json_expr "agent packet template includes write scope" "$agent_template" '.packet.writeScope[0] | length > 0'
 assert_json_expr "agent packet template includes reviewer contract" "$agent_template" '(.packet.reviewers | index("etrnl-spec-reviewer")) != null and .packet.specReviewRequired == true and .packet.qualityReviewRequired == true'
-deep_packet="$(jq -cn '{packet:{mode:"write",goal:"Implement deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T1",lineageId:"wave-1.T1",writeScope:["scripts/deep-stack-check.mjs"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"tests/test-workflow-tools.sh",modelTier:"sonnet",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,deepStackArtifacts:"tests/fixtures/deep-stack/deep-stack.valid.json",riskTier:{tier:2,reason:"multi-file after review",verificationGate:"tests/test-workflow-tools.sh"},completionEvidence:"completion audit row",tddRequired:true,tddEvidence:"red/green evidence",reuseArtifact:"reuse binding row",simplifierEvidence:"code-simplifier evidence",specReviewRequired:true,qualityReviewRequired:true,simplifierReviewRequired:true,reviewers:["etrnl-spec-reviewer","etrnl-quality-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
+deep_packet="$(
+  jq -cn '
+    {
+      packet: {
+        mode: "write",
+        goal: "Implement deep stack",
+        contextSummary: "ctx",
+        cwd: "/repo",
+        scope: "scope",
+        readSet: ["README.md"],
+        expectedOutput: "done",
+        noRevert: true,
+        taskId: "T1",
+        lineageId: "wave-1.T1",
+        writeScope: ["scripts/deep-stack-check.mjs"],
+        forbiddenPaths: ["docs/owned-by-other.md"],
+        verificationCommand: "tests/test-workflow-tools.sh",
+        modelTier: "sonnet",
+        timeoutSec: 1800,
+        retryPolicy: "stop on blocker",
+        webSearchGuidance: "none",
+        deepStackExecution: true,
+        deepStackArtifacts: "tests/fixtures/deep-stack/deep-stack.valid.json",
+        riskTier: {
+          tier: 2,
+          reason: "multi-file after review",
+          verificationGate: "tests/test-workflow-tools.sh"
+        },
+        completionEvidence: "completion audit row",
+        tddRequired: true,
+        tddEvidence: "red/green evidence",
+        reuseArtifact: "reuse binding row",
+        simplifierEvidence: "code-simplifier evidence",
+        specReviewRequired: true,
+        qualityReviewRequired: true,
+        simplifierReviewRequired: true,
+        reviewers: ["etrnl-spec-reviewer", "etrnl-quality-reviewer"],
+        integrationOwner: "parent",
+        expectedDiffShape: "bounded patch"
+      }
+    }
+  '
+)"
 assert_command "agent packet accepts deep-stack execution contract" node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$deep_packet"
 bad_deep_packet="$(jq -cn '{packet:{mode:"write",goal:"Implement deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T1",lineageId:"wave-1.T1",writeScope:["scripts/deep-stack-check.mjs"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"tests/test-workflow-tools.sh",modelTier:"sonnet",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,specReviewRequired:true,qualityReviewRequired:true,reviewers:["etrnl-spec-reviewer","etrnl-quality-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
 if bad_deep_packet_out="$(node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$bad_deep_packet" 2>&1)"; then

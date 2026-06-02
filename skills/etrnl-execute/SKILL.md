@@ -80,7 +80,7 @@ When the user asks to execute or implement a plan, completion means every item i
    - for multi-file write scopes: `reviewers`, `specReviewRequired`, `qualityReviewRequired`, `integrationOwner`, and `expectedDiffShape`
    - for new surfaces: `createsNewSurface`, `reuseArtifact`, and `newSurfaceJustification`
    - for TDD-required source work: `tddRequired` and `tddEvidence`
-   - for deep-stack execution: `deepStackExecution`, `deepStackArtifacts`, `riskTier`, `completionEvidence`, `tddRequired`, `tddEvidence`, `reuseArtifact`, `simplifierEvidence`, and `simplifierReviewRequired`
+   - for deep-stack execution: `deepStackExecution`, `deepStackArtifacts`, `riskTier`, `completionEvidence`, `simplifierEvidence`, and `simplifierReviewRequired` (plus the TDD and new-surface fields above when those conditions apply)
    - Run `node ~/.claude/scripts/agent-task-packet-check.mjs --hash` on the final packet JSON and keep the packet hash with task notes.
    - If a plan or task handoff is too large to read cleanly in one tool call, create a short `## Execution Digest` or `## Plan Index` and dispatch bounded chunks by task id instead of pasting the full artifact into one worker prompt.
 5. Use repo-owned agents by role: `etrnl-scout`, `etrnl-executor`, `etrnl-spec-reviewer`, `etrnl-quality-reviewer`, `etrnl-investigator`, `etrnl-adversary`, `etrnl-design-reviewer`, `etrnl-dx-reviewer`, and `etrnl-browser-qa`.
@@ -88,7 +88,7 @@ When the user asks to execute or implement a plan, completion means every item i
 7. Use TDD for source changes:
    - Before changing production source for a task, run the existing targeted test or add the smallest failing test/bug probe that proves the planned behavior gap.
    - Record the red result in the ledger with `record-check --status failed` or in working notes when the ledger is unavailable.
-   - Record task TDD evidence with `execution-ledger.mjs record-tdd --task <id> --lineage <lineage-id> --packet-hash <hash> --status red_green_verified --red-command "<cmd>" --red-status failed --red-failure "<expected failure>" --green-command "<cmd>" --green-status passed`.
+   - Record task TDD evidence with `node ~/.claude/scripts/execution-ledger.mjs record-tdd --task <id> --lineage <lineage-id> --packet-hash <hash> --status red_green_verified --red-command "<cmd>" --red-status failed --red-failure "<expected failure>" --green-command "<cmd>" --green-status passed`.
    - Implement only enough to turn that test/probe green, then run the phase gate.
    - If a task genuinely cannot be tested first, record the exact reason and compensating verification command before editing. "Too much work" is not a valid reason.
 8. Update plan checkboxes when the plan is the source of truth.
@@ -108,15 +108,15 @@ After each phase:
 - If the plan omits verification, derive the smallest project preflight that proves the changed behavior.
 - If the plan calls for browser/manual QA and browser tooling is available, run it before final completion; a pending browser pass is a blocker, not a residual risk.
 - If the plan has a UAT gate, record `record-uat`; do not mark a phase complete while `uatOpenFindings` is greater than zero.
-- Record command/live-check evidence before moving on with `execution-ledger.mjs record-check --name <phase> --command "<command>" --status passed`.
+- Record command/live-check evidence before moving on with `node ~/.claude/scripts/execution-ledger.mjs record-check --name <phase> --command "<command>" --status passed`.
 - Record bound write evidence for implementation and reviews when write packets are used:
-  - `set-task --task <id> --status verified --mode write --lineage <lineage-id> --packet-hash <hash> --requires-implementation-evidence --spec-review-required --quality-review-required --tdd-required --simplifier-review-required`
-  - `record-agent --role etrnl-executor --mode write --task <id> --lineage <lineage-id> --packet-hash <hash> --status completed`
-  - `record-review --reviewer etrnl-spec-reviewer|etrnl-quality-reviewer --task <id> --lineage <lineage-id> --packet-hash <hash> --status verified`
-  - `record-simplifier --task <id> --lineage <lineage-id> --packet-hash <hash> --status verified --evidence "<code-simplifier evidence>"`
-  - `record-specialist --task <id> --lineage <lineage-id> --packet-hash <hash> --skill <skill-name> --status verified --evidence "<specialist evidence>"` when triggered.
-  - `record-completion-audit --item <plan-item> --task <id> --classification DONE --evidence "<diff/test evidence>"`
-  - `record-install-proof --task <id> --lineage <lineage-id> --packet-hash <hash> --stage <sourceGate|stagedInstall|stagedDoctor|rollbackVerification|liveInstallDecision|postUpgradeCanary> --status passed --evidence "<command evidence>"` for Tier 3 behavior.
+  - `node ~/.claude/scripts/execution-ledger.mjs set-task --task <id> --status verified --mode write --lineage <lineage-id> --packet-hash <hash> --requires-implementation-evidence --spec-review-required --quality-review-required --tdd-required --simplifier-review-required`
+  - `node ~/.claude/scripts/execution-ledger.mjs record-agent --role etrnl-executor --mode write --task <id> --lineage <lineage-id> --packet-hash <hash> --status completed`
+  - `node ~/.claude/scripts/execution-ledger.mjs record-review --reviewer etrnl-spec-reviewer|etrnl-quality-reviewer --task <id> --lineage <lineage-id> --packet-hash <hash> --status verified`
+  - `node ~/.claude/scripts/execution-ledger.mjs record-simplifier --task <id> --lineage <lineage-id> --packet-hash <hash> --status verified --evidence "<code-simplifier evidence>"`
+  - `node ~/.claude/scripts/execution-ledger.mjs record-specialist --task <id> --lineage <lineage-id> --packet-hash <hash> --skill <skill-name> --status verified --evidence "<specialist evidence>"` when triggered.
+  - `node ~/.claude/scripts/execution-ledger.mjs record-completion-audit --item <plan-item> --task <id> --classification DONE --evidence "<diff/test evidence>"`
+  - `node ~/.claude/scripts/execution-ledger.mjs record-install-proof --task <id> --lineage <lineage-id> --packet-hash <hash> --stage <sourceGate|stagedInstall|stagedDoctor|rollbackVerification|liveInstallDecision|postUpgradeCanary> --status passed --evidence "<command evidence>"` for Tier 3 behavior.
 - Record artifact evidence when created:
   - `node ~/.claude/scripts/execution-ledger.mjs record-artifact --type deep-stack-artifacts --path <path> --session "$CLAUDE_SESSION_ID"`
   - `node ~/.claude/scripts/execution-ledger.mjs record-artifact --type completion-audit --path <path> --session "$CLAUDE_SESSION_ID"`

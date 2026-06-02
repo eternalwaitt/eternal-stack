@@ -17,7 +17,7 @@ legacy_rules_present=0
 DRY_RUN=0
 
 usage() {
-  printf 'Usage: %s [--dry-run]\n' "${0##*/}"
+  printf 'Usage: %s [--dry-run|-h|--help]\n' "${0##*/}"
 }
 
 for arg in "$@"; do
@@ -95,6 +95,13 @@ validate_source_install_inputs() {
   for file in "${CRITICAL_SCRIPTS[@]}"; do
     [[ -f "$ROOT/scripts/$file" ]] || missing+=("$ROOT/scripts/$file")
   done
+  # Every script the install copies verbatim, plus doctor.sh (copied under a
+  # different name and executed post-install). Keeps dry-run honest: a missing
+  # source here must fail before the real install mutates $TARGET.
+  [[ -f "$ROOT/scripts/doctor.sh" ]] || missing+=("$ROOT/scripts/doctor.sh")
+  for file in "${INSTALL_SCRIPTS[@]}"; do
+    [[ -f "$ROOT/scripts/$file" ]] || missing+=("$ROOT/scripts/$file")
+  done
   for agent in "${OWNED_AGENTS[@]}"; do
     [[ -f "$ROOT/agents/$agent.md" ]] || missing+=("$ROOT/agents/$agent.md")
   done
@@ -113,8 +120,6 @@ validate_source_install_inputs() {
 
 if [[ "$DRY_RUN" == "1" ]]; then
   validate_source_install_inputs
-  "$ROOT/tests/test-hooks.sh" >/dev/null
-  "$ROOT/tests/test-workflow-tools.sh" >/dev/null
   printf 'Dry run: would install Claude control plane files into %s\n' "$TARGET"
   printf 'Dry run: would create backup at %s\n' "$BACKUP"
   printf 'Dry run: registered hooks template would be %s\n' "$SETTINGS_TEMPLATE"

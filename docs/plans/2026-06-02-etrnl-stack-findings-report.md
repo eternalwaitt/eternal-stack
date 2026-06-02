@@ -157,28 +157,28 @@ Where the stack still depends on model discipline:
 
 ### P1 gaps
 
-4. Deep review phase quality is not machine-auditable enough.
+1. Deep review phase quality is not machine-auditable enough.
    - Evidence: artifact validation checks only `deepReview.status` and required phase names (`scripts/lib/deep-stack-artifacts.mjs:314-320`), while `etrnl-autoplan` lists CEO/eng/DX/adversarial/specialist phases in prose (`skills/etrnl-autoplan/SKILL.md:15-38`).
    - Why it matters: low/mid-intelligence agents can mark phases passed without producing review conclusions.
    - Failure permitted: shallow review gauntlets that look complete.
    - Prevent with: per-phase review records requiring reviewer role, inputs checked, findings count, open high count, and disposition.
    - Fix surface: artifact schema, tests, plan/autoplan/review text.
 
-5. Reuse-before-create enforcement does not yet bind every new surface to searched paths and analogs.
+2. Reuse-before-create enforcement does not yet bind every new surface to searched paths and analogs.
    - Evidence: reuse inventory validates required fields and new-surface justifications inside the artifact (`scripts/lib/deep-stack-artifacts.mjs:225-249`), but task packets only require reuse fields indirectly through plan/artifact instructions.
    - Why it matters: helpers/scripts/docs can be created without proving existing components were searched.
    - Failure permitted: duplicated validators, overlapping hooks, docs drift.
    - Prevent with: packet validator fields for `createsNewSurface`, `reuseArtifact`, and `newSurfaceJustification`; stop-hook check against new source files after plan execution.
    - Fix surface: task packet checker, execute evidence checker, fixtures.
 
-6. Advanced TypeScript trigger detection is artifact-driven, not source/diff-driven.
+3. Advanced TypeScript trigger detection is artifact-driven, not source/diff-driven.
    - Evidence: advanced TypeScript policy validates rows if present (`scripts/lib/deep-stack-artifacts.mjs:324-343`), and `etrnl-plan` names triggers (`skills/etrnl-plan/SKILL.md:132-135`), but no source analyzer detects exported/public contracts from planned or changed files.
    - Why it matters: agents can set `not_applicable` incorrectly.
    - Failure permitted: public type/API/runtime-validation changes without type architecture review.
    - Prevent with: source/diff scanner for exported types, schemas, generated type paths, DTO/domain boundaries, state machines, discriminated unions, and branded IDs.
    - Fix surface: helper script, artifact validator, tests.
 
-7. Source/staged/live install gates are Tier 3 artifact fields, but not a full install workflow proof.
+4. Source/staged/live install gates are Tier 3 artifact fields, but not a full install workflow proof.
    - Evidence: Tier 3 requires `stagedInstall.status === passed` and `rollbackVerification.status === passed` (`scripts/lib/deep-stack-artifacts.mjs:304-309`), while project docs require `tests/test-hooks.sh` and `scripts/doctor.sh` before health claims.
    - Why it matters: control-plane changes can pass source tests but drift in installed home.
    - Failure permitted: broken live hooks, stale installed scripts, missing rollback proof.
@@ -187,21 +187,21 @@ Where the stack still depends on model discipline:
 
 ### P2 gaps
 
-8. Token strategy exists as checks, but artifacts need a stable compact digest convention.
+1. Token strategy exists as checks, but artifacts need a stable compact digest convention.
    - Evidence: `plan-readiness-check.mjs` rejects very large final plans without `Execution Digest` or `Plan Index` (`scripts/plan-readiness-check.mjs:162-176`), and GSD thins prompts by context window while preserving core logic (`execute-phase.md:108-117`).
    - Why it matters: adding deeper review can bloat default context.
    - Failure permitted: oversized plans and prompts that reduce agent reliability.
    - Prevent with: standard `Execution Digest`, `Evidence Index`, and `Review Artifact Index` sections.
    - Fix surface: skills, docs, plan-readiness fixtures.
 
-9. GSD-style gate taxonomy is not named consistently in ETRNL artifacts.
+2. GSD-style gate taxonomy is not named consistently in ETRNL artifacts.
    - Evidence: GSD defines pre-flight, revision, escalation, and abort gates with behavior and recovery (`references/gates.md:7-70`). ETRNL has gate behavior but not the same typed taxonomy in plans/artifacts.
    - Why it matters: failure recovery is less explicit for low/mid-intelligence agents.
    - Failure permitted: retry loops without caps, human-gate confusion, continuing through abort conditions.
    - Prevent with: `gateType` and `failureBehavior` fields in verification/risk/completion artifacts.
    - Fix surface: plan template, artifact schema, docs.
 
-10. Agent completion contracts are less explicit than GSD marker contracts.
+3. Agent completion contracts are less explicit than GSD marker contracts.
    - Evidence: GSD documents agent markers and handoff fields (`references/agent-contracts.md:9-79`). ETRNL binds packet hashes and ledger rows but agent final-output marker expectations are mostly role prose.
    - Why it matters: task result parsing can degrade when agents return vague output.
    - Failure permitted: coordinator trusts ambiguous worker summaries.

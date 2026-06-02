@@ -6,7 +6,7 @@ Execution scope: all_phases
 Goal: Make ETRNL's remaining planning, review, TDD, subagent, simplifier, TypeScript, install, and completion-audit promises deterministic enough for low/mid-intelligence agents to follow reliably.
 Evidence: AGENTS.md; skills/etrnl-plan/SKILL.md; skills/etrnl-autoplan/SKILL.md; skills/etrnl-review/SKILL.md; skills/etrnl-execute/SKILL.md; scripts/plan-readiness-check.mjs; scripts/deep-stack-check.mjs; scripts/lib/deep-stack-artifacts.mjs; scripts/agent-task-packet-check.mjs; scripts/execution-ledger.mjs; scripts/execute-evidence-check.mjs; hooks/cc-stop-verifier.sh; hooks/cc-pretooluse-guard.sh; tests/test-workflow-tools.sh; docs/health-stack.md; docs/plans/2026-06-02-etrnl-stack-findings-report.md; sanitized Superpowers/GSD/GStack source snapshots.
 Non-goals: Do not vendor GSD, Superpowers, or GStack; do not mutate live ~/.claude or ~/.codex during source implementation; do not add network dependencies for ordinary planning/review/execution; do not weaken existing hooks, tests, or quality gates.
-Deep stack artifacts: artifacts/2026-06-02-etrnl-top-level-gap-closure/deep-stack-artifacts.json
+Deep stack artifacts: docs/plans/artifacts/2026-06-02-etrnl-top-level-gap-closure/deep-stack-artifacts.json
 
 ## What already exists
 

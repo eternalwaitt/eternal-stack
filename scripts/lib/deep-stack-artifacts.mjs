@@ -166,7 +166,10 @@ export function validateDeepStackPlanText(planText, options = {}) {
       errors: [error("DEEP_ARTIFACT_PATH_EMPTY", "<artifact>", "Deep stack artifacts", "Deep stack artifacts metadata is present but empty.", "Set Deep stack artifacts: to a non-empty relative artifact path.")],
     };
   }
-  const artifactPath = path.resolve(path.dirname(planPath), metadata);
+  const artifactCandidates = path.isAbsolute(metadata)
+    ? [metadata]
+    : [path.resolve(path.dirname(planPath), metadata), path.resolve(metadata)];
+  const artifactPath = artifactCandidates.find((candidate) => existsSync(candidate)) || artifactCandidates[0];
   if (!existsSync(artifactPath)) {
     return {
       ok: false,
@@ -206,7 +209,7 @@ export function validateBundle(artifact, options = {}) {
   validateReuse(artifact.reuseInventory, context, errors);
   validateFindings(artifact.findings, context, errors);
   validateCompletion(artifact.completionAudit, context, errors);
-  validateRiskTier(artifact.riskTier, context, errors);
+  validateRiskTier(artifact.riskTier, { ...context, installProof: artifact.installProof }, errors);
   validateReviewPhases(artifact.reviewPhases, artifact.riskTier, context, errors);
   validateTddEvidence(artifact.tddEvidence, artifact.riskTier, context, errors);
   validateCompletionReconciliation(artifact.completionReconciliation, artifact.riskTier, context, errors);
@@ -335,7 +338,7 @@ export function validateRiskTier(riskTier, context = {}, errors = []) {
   requireString(riskTier.verificationGate, "riskTier.verificationGate", "RISK_TIER_VERIFICATION", context, errors);
   if (riskTier.tier === 3) {
     for (const [field, code] of [["stagedInstall", "RISK_TIER3_STAGED_INSTALL"], ["rollbackVerification", "RISK_TIER3_ROLLBACK"]]) {
-      if (riskTier?.[field]?.status !== "passed" && riskTier?.installProof?.[field]?.status !== "passed") {
+      if (riskTier?.[field]?.status !== "passed" && context.installProof?.[field]?.status !== "passed") {
         errors.push(error(code, context.artifactPath, `riskTier.${field}.status`, "Tier 3 requires staged install and rollback verification.", "Run staged install, staged doctor/canary, and rollback verification before live install."));
       }
     }

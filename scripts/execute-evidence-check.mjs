@@ -99,9 +99,10 @@ function anyEvidenceAfter(state, timestamp, keys, pattern) {
 function newSourceFilesAfter(state, timestamp) {
   const direct = Array.isArray(state.newSourceFiles) ? state.newSourceFiles : [];
   const fromDirect = direct
-    .filter((item) => typeof item === "string" || String(item?.at || "") >= timestamp)
-    .map((item) => typeof item === "string" ? item : String(item?.path || item?.file || ""))
-    .filter((file) => SOURCE_FILE_RE.test(file) && !EXEMPT_PATH_RE.test(file));
+    .filter((item) => item && typeof item === "object" && !Array.isArray(item))
+    .filter((item) => typeof item.at === "string" && item.at >= timestamp)
+    .map((item) => (typeof item.path === "string" ? item.path : item.file))
+    .filter((file) => typeof file === "string" && SOURCE_FILE_RE.test(file) && !EXEMPT_PATH_RE.test(file));
   const fromEdits = Object.entries(state.edits || {})
     .filter(([, value]) => value && typeof value === "object" && value.created === true && editStamp(value) >= timestamp)
     .map(([file]) => file)

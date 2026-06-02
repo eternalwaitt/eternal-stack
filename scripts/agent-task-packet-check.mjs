@@ -238,10 +238,19 @@ for (const key of ["specReviewRequired", "qualityReviewRequired", "simplifierRev
   }
 }
 
-for (const key of ["integrationOwner", "expectedDiffShape", "tddEvidence", "reuseArtifact", "newSurfaceJustification", "simplifierEvidence"]) {
+const nonEmptyStringFields = ["integrationOwner", "expectedDiffShape", "tddEvidence", "reuseArtifact", "simplifierEvidence"];
+for (const key of nonEmptyStringFields) {
   if (key in packet && (typeof packet[key] !== "string" || packet[key].trim().length === 0)) {
     violations.push(`${key} must be a non-empty string`);
   }
+}
+
+// newSurfaceJustification is only required when a new surface is actually created;
+// it is intentionally empty when createsNewSurface is false.
+if ("newSurfaceJustification" in packet
+  && packet.createsNewSurface === true
+  && (typeof packet.newSurfaceJustification !== "string" || packet.newSurfaceJustification.trim().length === 0)) {
+  violations.push("newSurfaceJustification must be a non-empty string when createsNewSurface is true");
 }
 
 // Dots are intentional for hierarchical ids such as `wave-1.T1`.

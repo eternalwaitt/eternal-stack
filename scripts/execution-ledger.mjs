@@ -246,8 +246,8 @@ function taskBoundEvidenceRows(ledger, field, task) {
   return (ledger[field] ?? []).filter((row) => {
     if (row.taskId !== task.id) return false;
     if (!EVIDENCE_DONE.has(row.status)) return false;
-    if (task.packetHash && row.packetHash && row.packetHash !== task.packetHash) return false;
-    if (task.lineageId && row.lineageId && !sameLineage(row, task)) return false;
+    if (task.packetHash && row.packetHash !== task.packetHash) return false;
+    if (task.lineageId && !sameLineage(row, task)) return false;
     return true;
   });
 }
@@ -255,6 +255,7 @@ function taskBoundEvidenceRows(ledger, field, task) {
 function requiredEvidenceErrors(ledger) {
   const errors = [];
   for (const task of ledger.tasks ?? []) {
+    if (task.status === "skipped") continue;
     if (task.tddRequired === true && taskBoundEvidenceRows(ledger, "tddEvidence", task).length === 0) {
       errors.push(`task ${task.id} missing TDD evidence`);
     }
@@ -477,12 +478,25 @@ function recordTaskEvidence(field, eventType, commandName, rowBuilder) {
   const file = currentLedgerOrFail();
   updateJson(file, (ledger) => {
     requireTaskBinding(ledger, taskId, commandName);
+    const boundTask = (ledger.tasks ?? []).find((task) => task.id === taskId);
+    const lineageId = argValue("--lineage", argValue("--lineage-id"));
+    const packetHash = argValue("--packet-hash");
+    // A task bound to a packet/lineage must record matching evidence; otherwise
+    // stale generic rows could satisfy the bound requirement after a reissue.
+    if (boundTask?.packetHash && !packetHash) {
+      console.error(`${commandName} requires --packet-hash for task ${taskId} bound to a packet.`);
+      process.exit(2);
+    }
+    if (boundTask?.lineageId && !lineageId) {
+      console.error(`${commandName} requires --lineage for task ${taskId} bound to a lineage.`);
+      process.exit(2);
+    }
     const at = preciseNowIso();
     ledger[field] = ledger[field] ?? [];
     const row = {
       taskId,
-      lineageId: argValue("--lineage", argValue("--lineage-id")),
-      packetHash: argValue("--packet-hash"),
+      lineageId,
+      packetHash,
       status: argValue("--status", "verified"),
       evidence: argValue("--evidence"),
       at,
