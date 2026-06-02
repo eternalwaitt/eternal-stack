@@ -122,7 +122,7 @@ node "$ROOT/scripts/execution-ledger.mjs" record-review --session fixture-bound 
 assert_command "execution ledger accepts bound write evidence" node "$ROOT/scripts/execution-ledger.mjs" check-bound-execute --session fixture-bound --task T-write
 evidence_ledger_path="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-evidence --plan "$ROOT/hooks/fixtures/plans/good-plan.md" --cwd "$ROOT")"
 assert_file "execution ledger evidence init creates file" "$evidence_ledger_path"
-node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-evidence --task T-write --title "Write task" --status verified --mode write --lineage wave-1.T-write --packet-hash abc123 --requires-implementation-evidence --spec-review-required --quality-review-required --tdd-required --simplifier-review-required
+node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-evidence --task T-write --title "Write task" --status verified --mode write --lineage wave-1.T-write --packet-hash abc123 --requires-implementation-evidence --spec-review-required --quality-review-required --tdd-required --simplifier-review-required --completion-audit-required
 node "$ROOT/scripts/execution-ledger.mjs" record-check --session fixture-evidence --name final --command "pnpm test" --status passed
 node "$ROOT/scripts/execution-ledger.mjs" record-agent --session fixture-evidence --id worker-1 --role etrnl-executor --mode write --task T-write --lineage wave-1.T-write --packet-hash abc123 --status completed
 node "$ROOT/scripts/execution-ledger.mjs" record-review --session fixture-evidence --reviewer etrnl-spec-reviewer --task T-write --lineage wave-1.T-write --packet-hash abc123 --status verified
@@ -135,7 +135,15 @@ else
 fi
 node "$ROOT/scripts/execution-ledger.mjs" record-tdd --session fixture-evidence --task T-write --lineage wave-1.T-write --packet-hash abc123 --status red_green_verified --source-files scripts/deep-stack-check.mjs --red-command "tests/test-workflow-tools.sh" --red-status failed --red-failure "expected fixture failure" --green-command "tests/test-workflow-tools.sh" --green-status passed
 node "$ROOT/scripts/execution-ledger.mjs" record-simplifier --session fixture-evidence --task T-write --lineage wave-1.T-write --packet-hash abc123 --status verified --evidence "code-simplifier reviewed diff"
-assert_command "execution ledger accepts task-bound TDD and simplifier evidence" node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-evidence
+# Regression guard (CodeRabbit PR #4): a bound task's completion audit must carry
+# matching binding, or the bound-evidence matcher can never clear the requirement.
+if node "$ROOT/scripts/execution-ledger.mjs" record-completion-audit --session fixture-evidence --item P1 --task T-write --classification DONE --evidence "diff" >/dev/null 2>&1; then
+  not_ok "record-completion-audit rejects unbound row for bound task"
+else
+  ok "record-completion-audit rejects unbound row for bound task"
+fi
+node "$ROOT/scripts/execution-ledger.mjs" record-completion-audit --session fixture-evidence --item P1 --task T-write --lineage wave-1.T-write --packet-hash abc123 --classification DONE --evidence "diff/test evidence"
+assert_command "execution ledger accepts task-bound TDD, simplifier, and completion-audit evidence" node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-evidence
 review_order_ledger_path="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-review-order --plan "$ROOT/hooks/fixtures/plans/good-plan.md" --cwd "$ROOT")"
 assert_file "execution ledger review order init creates file" "$review_order_ledger_path"
 node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-review-order --task T-write --title "Write task" --status verified --mode write --lineage wave-1.T-write --packet-hash abc123 --requires-implementation-evidence --spec-review-required
@@ -1044,6 +1052,8 @@ if bad_deep_packet_reviewers_out="$(node "$ROOT/scripts/agent-task-packet-check.
 else
   assert_contains "agent packet rejects missing deep-stack reviewer" "$bad_deep_packet_reviewers_out" "etrnl-quality-reviewer"
 fi
+deep_packet_no_tdd="$(jq -cn '{packet:{mode:"write",goal:"Install-only deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T3",lineageId:"wave-1.T3",writeScope:["docs/runbook.md"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"tests/test-workflow-tools.sh",modelTier:"sonnet",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,deepStackArtifacts:"tests/fixtures/deep-stack/deep-stack.valid.json",riskTier:{tier:2,reason:"docs-only after review",verificationGate:"tests/test-workflow-tools.sh"},completionEvidence:"completion audit row",tddRequired:false,reuseArtifact:"reuse binding row",simplifierEvidence:"code-simplifier evidence",specReviewRequired:true,qualityReviewRequired:true,simplifierReviewRequired:true,reviewers:["etrnl-spec-reviewer","etrnl-quality-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
+assert_command "agent packet accepts deep-stack without TDD when tddRequired is false" node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$deep_packet_no_tdd"
 new_surface_packet="$(jq -cn '{packet:{mode:"write",goal:"Add helper",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T2",lineageId:"wave-1.T2",writeScope:["scripts/new-helper.mjs"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"node --check scripts/new-helper.mjs",modelTier:"sonnet",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",createsNewSurface:true}}')"
 if new_surface_packet_out="$(node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$new_surface_packet" 2>&1)"; then
   not_ok "agent packet rejects new surface without reuse binding"
@@ -1066,6 +1076,12 @@ if [[ "$execute_missing_type_status" == "missing-type-review" ]]; then ok "execu
 execute_missing_install_state="$(jq -cn --arg hash "$packet_hash_64" '{requestedSkills:[{value:"etrnl-execute",at:"2026-01-01T00:00:00Z"}],edits:{"hooks/cc-stop-verifier.sh":"2026-01-01T00:00:01Z"},agentCalls:[{value:("subagent=etrnl-executor mode=write taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:02Z"}],reviewerAgentCalls:[{value:("subagent=etrnl-spec-reviewer taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:03Z"},{value:("subagent=etrnl-quality-reviewer taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:04Z"}],tddEvidenceRuns:[{value:"red_green_verified",at:"2026-01-01T00:00:05Z"}]}')"
 execute_missing_install_status="$(node "$ROOT/scripts/execute-evidence-check.mjs" <<<"$execute_missing_install_state")"
 if [[ "$execute_missing_install_status" == "missing-install-proof" ]]; then ok "execute evidence checker blocks missing install proof"; else not_ok "execute evidence checker blocks missing install proof: $execute_missing_install_status"; fi
+execute_docs_install_state="$(jq -cn '{requestedSkills:[{value:"etrnl-execute",at:"2026-01-01T00:00:00Z"}],edits:{"AGENTS.md":"2026-01-01T00:00:01Z"}}')"
+execute_docs_install_status="$(node "$ROOT/scripts/execute-evidence-check.mjs" <<<"$execute_docs_install_state")"
+if [[ "$execute_docs_install_status" == "missing-install-proof" ]]; then ok "execute evidence checker blocks install-home edits without source files"; else not_ok "execute evidence checker blocks install-home edits without source files: $execute_docs_install_status"; fi
+execute_docs_install_ok_state="$(jq -cn '{requestedSkills:[{value:"etrnl-execute",at:"2026-01-01T00:00:00Z"}],edits:{"AGENTS.md":"2026-01-01T00:00:01Z"},installProofRuns:[{value:"staged install passed",at:"2026-01-01T00:00:05Z"}]}')"
+execute_docs_install_ok_status="$(node "$ROOT/scripts/execute-evidence-check.mjs" <<<"$execute_docs_install_ok_state")"
+if [[ -z "$execute_docs_install_ok_status" ]]; then ok "execute evidence checker accepts install proof for install-home edits"; else not_ok "execute evidence checker accepts install proof for install-home edits: $execute_docs_install_ok_status"; fi
 execute_full_state="$(jq -cn --arg hash "$packet_hash_64" '{requestedSkills:[{value:"etrnl-execute",at:"2026-01-01T00:00:00Z"},{value:"typescript-advanced-types",at:"2026-01-01T00:00:05Z"}],edits:{"src/api/types.ts":"2026-01-01T00:00:01Z","src/app.ts":"2026-01-01T00:00:01Z"},agentCalls:[{value:("subagent=etrnl-executor mode=write taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:02Z"}],reviewerAgentCalls:[{value:("subagent=etrnl-spec-reviewer taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:03Z"},{value:("subagent=etrnl-quality-reviewer taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:04Z"}],tddEvidenceRuns:[{value:"red_green_verified",at:"2026-01-01T00:00:05Z"}],simplifierRuns:[{value:"code-simplifier reviewed",at:"2026-01-01T00:00:06Z"}],typeReviewRuns:[{value:"advanced types reviewed",at:"2026-01-01T00:00:07Z"}]}')"
 execute_full_status="$(node "$ROOT/scripts/execute-evidence-check.mjs" <<<"$execute_full_state")"
 if [[ -z "$execute_full_status" ]]; then ok "execute evidence checker accepts complete evidence"; else not_ok "execute evidence checker accepts complete evidence: $execute_full_status"; fi

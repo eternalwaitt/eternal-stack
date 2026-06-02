@@ -134,11 +134,31 @@ function reviewerAgentsAfter(state, timestamp, reviewer) {
     .filter((item) => item.text.includes(`subagent=${reviewer}`) && hasBoundIdentity(item.text));
 }
 
+function editedFilesAfter(state, timestamp) {
+  const edits = state.edits && typeof state.edits === "object" ? state.edits : {};
+  return Object.entries(edits)
+    .filter(([, value]) => editStamp(value) >= timestamp)
+    .map(([file]) => file);
+}
+
+function installProofSatisfied(state, timestamp) {
+  return anyEvidenceAfter(state, timestamp, ["installProofRuns", "successfulCommands", "verificationRuns"], /\b(staged install|install proof|post-upgrade-canary|rollback-local|update-check|doctor\.sh)\b/);
+}
+
 function executeGateStatus(state) {
   const executeAt = latestExecuteRequest(state);
   if (!executeAt) return "";
   const sourceFiles = sourceEditsAfter(state, executeAt);
-  if (sourceFiles.length < 1) return "";
+  const editedFiles = editedFilesAfter(state, executeAt);
+  const installProofNeeded = needsInstallProof(state, editedFiles);
+  if (sourceFiles.length < 1) {
+    // Install-home edits (AGENTS.md/CLAUDE.md/settings*.json) skip the source-edit
+    // gauntlet, but they still require install proof and must not bypass the gate.
+    if (installProofNeeded && !installProofSatisfied(state, executeAt)) {
+      return "missing-install-proof";
+    }
+    return "";
+  }
   const implementations = implementationAgentsAfter(state, executeAt);
   if (implementations.length === 0) return "missing-agent";
   const specReviews = reviewerAgentsAfter(state, executeAt, "etrnl-spec-reviewer");
@@ -164,7 +184,7 @@ function executeGateStatus(state) {
   if (needsTypeReview(state, sourceFiles) && !anyEvidenceAfter(state, executeAt, ["typeReviewRuns", "requestedSkills", "successfulCommands"], /\b(typescript-advanced-types|advanced type|advanced types|type trigger)\b/)) {
     return "missing-type-review";
   }
-  if (needsInstallProof(state, sourceFiles) && !anyEvidenceAfter(state, executeAt, ["installProofRuns", "successfulCommands", "verificationRuns"], /\b(staged install|install proof|post-upgrade-canary|rollback-local|update-check|doctor\.sh)\b/)) {
+  if (installProofNeeded && !installProofSatisfied(state, executeAt)) {
     return "missing-install-proof";
   }
   return "";

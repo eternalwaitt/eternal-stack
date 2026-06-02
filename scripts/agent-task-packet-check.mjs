@@ -352,11 +352,13 @@ if (mode === "write" && packet.tddRequired === true && !("tddEvidence" in packet
 
 if (mode === "write" && packet.deepStackExecution === true) {
   const reviewers = Array.isArray(packet.reviewers) ? packet.reviewers : [];
-  for (const key of ["deepStackArtifacts", "riskTier", "completionEvidence", "tddEvidence", "reuseArtifact", "simplifierEvidence"]) {
+  // TDD fields are conditional (enforced above when tddRequired === true), matching
+  // the etrnl-execute contract; deep-stack covers install/review/docs-only tasks too.
+  const requiredDeepStackKeys = ["deepStackArtifacts", "riskTier", "completionEvidence", "reuseArtifact", "simplifierEvidence"];
+  for (const key of requiredDeepStackKeys) {
     if (!(key in packet)) missing.push(key);
   }
   if (packet.simplifierReviewRequired !== true) missing.push("simplifierReviewRequired");
-  if (packet.tddRequired !== true) missing.push("tddRequired");
   if (packet.specReviewRequired !== true) missing.push("specReviewRequired");
   if (packet.qualityReviewRequired !== true) missing.push("qualityReviewRequired");
   if (packet.specReviewRequired === true && !reviewers.includes("etrnl-spec-reviewer")) {
@@ -384,8 +386,8 @@ if (mode === "write" && packet.deepStackExecution === true) {
   if (typeof packet.completionEvidence !== "string" || packet.completionEvidence.trim().length === 0) {
     violations.push("completionEvidence must be a non-empty string when deepStackExecution is true");
   }
-  if (typeof packet.tddEvidence !== "string" || packet.tddEvidence.trim().length === 0) {
-    violations.push("tddEvidence must be a non-empty string when deepStackExecution is true");
+  if (packet.tddRequired === true && (typeof packet.tddEvidence !== "string" || packet.tddEvidence.trim().length === 0)) {
+    violations.push("tddEvidence must be a non-empty string when tddRequired is true");
   }
   if (typeof packet.reuseArtifact !== "string" || packet.reuseArtifact.trim().length === 0) {
     violations.push("reuseArtifact must be a non-empty string when deepStackExecution is true");

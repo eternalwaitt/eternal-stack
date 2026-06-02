@@ -115,7 +115,7 @@ After each phase:
   - `node ~/.claude/scripts/execution-ledger.mjs record-review --reviewer etrnl-spec-reviewer|etrnl-quality-reviewer --task <id> --lineage <lineage-id> --packet-hash <hash> --status verified`
   - `node ~/.claude/scripts/execution-ledger.mjs record-simplifier --task <id> --lineage <lineage-id> --packet-hash <hash> --status verified --evidence "<code-simplifier evidence>"`
   - `node ~/.claude/scripts/execution-ledger.mjs record-specialist --task <id> --lineage <lineage-id> --packet-hash <hash> --skill <skill-name> --status verified --evidence "<specialist evidence>"` when triggered.
-  - `node ~/.claude/scripts/execution-ledger.mjs record-completion-audit --item <plan-item> --task <id> --classification DONE --evidence "<diff/test evidence>"`
+  - `node ~/.claude/scripts/execution-ledger.mjs record-completion-audit --item <plan-item> --task <id> --lineage <lineage-id> --packet-hash <hash> --classification DONE --evidence "<diff/test evidence>"`
   - `node ~/.claude/scripts/execution-ledger.mjs record-install-proof --task <id> --lineage <lineage-id> --packet-hash <hash> --stage <sourceGate|stagedInstall|stagedDoctor|rollbackVerification|liveInstallDecision|postUpgradeCanary> --status passed --evidence "<command evidence>"` for Tier 3 behavior.
 - Record artifact evidence when created:
   - `node ~/.claude/scripts/execution-ledger.mjs record-artifact --type deep-stack-artifacts --path <path> --session "$CLAUDE_SESSION_ID"`

@@ -473,16 +473,15 @@ function setTask() {
   });
 }
 
-function recordTaskEvidence(field, eventType, commandName, rowBuilder) {
-  const taskId = argValue("--task");
-  const file = currentLedgerOrFail();
-  updateJson(file, (ledger) => {
-    requireTaskBinding(ledger, taskId, commandName);
-    const boundTask = (ledger.tasks ?? []).find((task) => task.id === taskId);
-    const lineageId = argValue("--lineage", argValue("--lineage-id"));
-    const packetHash = argValue("--packet-hash");
-    // A task bound to a packet/lineage must record matching evidence; otherwise
-    // stale generic rows could satisfy the bound requirement after a reissue.
+// Validate packet/lineage binding before acquiring the file lock. A task bound to
+// a packet/lineage must record matching evidence, otherwise stale generic rows could
+// satisfy the bound requirement after a reissue. Validating here (not inside the lock)
+// avoids leaking the lock when the process exits on a rejection.
+function requireBoundEvidenceArgs(file, taskId, commandName) {
+  const lineageId = argValue("--lineage", argValue("--lineage-id"));
+  const packetHash = argValue("--packet-hash");
+  if (taskId) {
+    const boundTask = (readJson(file).tasks ?? []).find((task) => task.id === taskId);
     if (boundTask?.packetHash && !packetHash) {
       console.error(`${commandName} requires --packet-hash for task ${taskId} bound to a packet.`);
       process.exit(2);
@@ -491,6 +490,16 @@ function recordTaskEvidence(field, eventType, commandName, rowBuilder) {
       console.error(`${commandName} requires --lineage for task ${taskId} bound to a lineage.`);
       process.exit(2);
     }
+  }
+  return { lineageId, packetHash };
+}
+
+function recordTaskEvidence(field, eventType, commandName, rowBuilder) {
+  const taskId = argValue("--task");
+  const file = currentLedgerOrFail();
+  const { lineageId, packetHash } = requireBoundEvidenceArgs(file, taskId, commandName);
+  updateJson(file, (ledger) => {
+    requireTaskBinding(ledger, taskId, commandName);
     const at = preciseNowIso();
     ledger[field] = ledger[field] ?? [];
     const row = {
@@ -540,7 +549,23 @@ function recordCompletionAudit() {
     process.exit(2);
   }
   const taskId = argValue("--task");
+  const lineageId = argValue("--lineage", argValue("--lineage-id"));
+  const packetHash = argValue("--packet-hash");
   const file = currentLedgerOrFail();
+  // Validate binding before the lock (a rejection mid-lock would leak it), and match
+  // the bound-evidence matcher: a packet/lineage-bound task needs matching binding on
+  // its completion audit, or the requirement never clears.
+  if (taskId) {
+    const boundTask = (readJson(file).tasks ?? []).find((task) => task.id === taskId);
+    if (boundTask?.packetHash && !packetHash) {
+      console.error(`record-completion-audit requires --packet-hash for task ${taskId} bound to a packet.`);
+      process.exit(2);
+    }
+    if (boundTask?.lineageId && !lineageId) {
+      console.error(`record-completion-audit requires --lineage for task ${taskId} bound to a lineage.`);
+      process.exit(2);
+    }
+  }
   updateJson(file, (ledger) => {
     if (taskId) requireTaskBinding(ledger, taskId, "record-completion-audit");
     const status = argValue("--status", "verified");
@@ -548,6 +573,8 @@ function recordCompletionAudit() {
     ledger.completionAudit.push({
       item,
       taskId,
+      lineageId,
+      packetHash,
       classification: argValue("--classification", "DONE"),
       status,
       impact: argValue("--impact", "low"),
