@@ -32,6 +32,7 @@ Process:
 
 Output format:
 - `ETRNL_TASK_ID: <id>`
+- `ETRNL_STATUS: verified|changes_requested|blocked`
 - `Blocking findings: <list or none>`
 - `Completeness gaps: <list or none>`
 - `Taste/user gates: <list or none>`

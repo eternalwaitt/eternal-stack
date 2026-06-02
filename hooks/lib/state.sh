@@ -364,9 +364,9 @@ cc_state_record_command_success() {
   max_items="$(cc_state_max_items)"
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   cc_state_update --arg cmd "$cmd" --arg now "$now" --argjson max_items "$max_items" \
-    '.successfulCommands += [{command: $cmd, at: $now}] |
-     .successfulCommands = (.successfulCommands[-$max_items:] // []) |
-     .commandLastEditGeneration[$cmd] = (.editGeneration // 0)'
+    ".successfulCommands += [{command: \$cmd, at: \$now}] |
+     .successfulCommands = (.successfulCommands[-\$max_items:] // []) |
+     .commandLastEditGeneration[\$cmd] = (.editGeneration // 0)"
 }
 
 cc_state_record_command_blocked() {
@@ -377,9 +377,9 @@ cc_state_record_command_blocked() {
   max_items="$(cc_state_max_items)"
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   cc_state_update --arg cmd "$cmd" --arg reason "$reason" --arg now "$now" --argjson max_items "$max_items" \
-    '.blockedCommands += [{command: $cmd, reason: $reason, at: $now}] |
-     .blockedCommands = (.blockedCommands[-$max_items:] // []) |
-     .commandLastEditGeneration[$cmd] = (.editGeneration // 0)'
+    ".blockedCommands += [{command: \$cmd, reason: \$reason, at: \$now}] |
+     .blockedCommands = (.blockedCommands[-\$max_items:] // []) |
+     .commandLastEditGeneration[\$cmd] = (.editGeneration // 0)"
 }
 
 cc_state_count_successful_command() {
@@ -414,7 +414,7 @@ cc_state_record_evidence_fingerprint() {
   local fingerprint="$1"
   local now
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  cc_state_update --critical --arg fp "$fingerprint" --arg now "$now" '.evidenceViolationFingerprints[$fp] = $now'
+  cc_state_update --critical --arg fp "$fingerprint" --arg now "$now" ".evidenceViolationFingerprints[\$fp] = \$now"
 }
 
 cc_state_has_evidence_fingerprint() {
@@ -426,7 +426,7 @@ cc_state_record_warning_fingerprint() {
   local fingerprint="$1"
   local now
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  cc_state_update --skip-edit-generation-bump --arg fp "$fingerprint" --arg now "$now" '.warningFingerprints[$fp] = $now'
+  cc_state_update --skip-edit-generation-bump --arg fp "$fingerprint" --arg now "$now" ".warningFingerprints[\$fp] = \$now"
 }
 
 cc_state_has_warning_fingerprint() {
@@ -441,7 +441,7 @@ cc_state_record_prod_approval_marker() {
   max_items="$(cc_state_max_items)"
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   cc_state_update --critical --arg marker "$marker" --arg now "$now" --argjson max_items "$max_items" \
-    '.prodApprovalMarkers += [{value: $marker, at: $now}] | .prodApprovalMarkers = (.prodApprovalMarkers[-$max_items:] // [])'
+    ".prodApprovalMarkers += [{value: \$marker, at: \$now}] | .prodApprovalMarkers = (.prodApprovalMarkers[-\$max_items:] // [])"
 }
 
 cc_state_begin_batch() {

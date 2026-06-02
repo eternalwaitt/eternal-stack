@@ -33,6 +33,8 @@ Process:
 
 Output format:
 - `ETRNL_TASK_ID: <id>`
+- `ETRNL_STATUS: verified|changes_requested|blocked`
 - `Findings: <severity-tagged list or none>`
+- `Evidence rows checked: <TDD, simplifier, reuse, TypeScript, install, completion, or none>`
 - `Verification gaps: <list or none>`
 - `Ready for final gate: yes/no`

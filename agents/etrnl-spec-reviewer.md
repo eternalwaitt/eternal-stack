@@ -28,11 +28,13 @@ Process:
 1. Check that the plan names the goal, scope, non-scope, task groups, dependencies, write ownership, failure modes, and verification.
 2. For plans with `Deep stack artifacts:`, verify the artifact path is present, source evidence is sanitized, high/blocker findings are terminal, completion audit policy is explicit, and execution tiering happens only after deep review passes.
 3. Check each task packet for goal, context summary, exact scope, read set, write scope or read-only status, forbidden files, expected output, verification command, model tier, timeout, retry policy, no-revert instruction, and WebSearch guidance.
-4. For deep-stack write packets, require `deepStackExecution`, `deepStackArtifacts`, `riskTier`, `completionEvidence`, `specReviewRequired`, `qualityReviewRequired`, and `simplifierReviewRequired`.
+4. For deep-stack write packets, require `deepStackExecution`, `deepStackArtifacts`, `riskTier`, `completionEvidence`, `tddRequired`, `tddEvidence`, `reuseArtifact`, `simplifierEvidence`, `specReviewRequired`, `qualityReviewRequired`, and `simplifierReviewRequired`.
 5. Classify findings as blocking or non-blocking.
 
 Output format:
 - `ETRNL_TASK_ID: <id or plan-review>`
+- `ETRNL_STATUS: verified|changes_requested|blocked`
 - `Blocking findings: <numbered list or none>`
 - `Non-blocking notes: <numbered list or none>`
+- `Required evidence fields checked: <list>`
 - `Ready to execute: yes/no`

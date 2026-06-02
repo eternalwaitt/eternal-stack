@@ -4,7 +4,12 @@ import path from "node:path";
 const HIGH_SEVERITIES = new Set(["blocker", "critical", "high", "p0", "p1"]);
 const TERMINAL_FINDING_STATUSES = new Set(["fixed", "closed", "resolved", "disproven", "false-positive", "false_positive", "accepted"]);
 const VALID_SKILL_STATUSES = new Set(["required", "optional", "not_applicable", "missing", "blocker"]);
-const VALID_COMPLETION = new Set(["DONE", "PARTIAL", "NOT_DONE", "CHANGED"]);
+const VALID_COMPLETION = new Set(["DONE", "PARTIAL", "NOT_DONE", "CHANGED", "BLOCKED"]);
+const REVIEW_PHASES = ["ceo", "engineering", "dx", "adversarial", "specialist", "reuse", "simplifier"];
+const VALID_REVIEW_PHASE_STATUSES = new Set(["passed", "not_applicable", "blocked"]);
+const VALID_TDD_STATUSES = new Set(["red_green_verified", "not_test_first_possible_with_reason", "not_applicable"]);
+const VALID_INSTALL_STAGE_STATUSES = new Set(["passed", "not_applicable", "blocked"]);
+const INSTALL_PROOF_STAGES = ["sourceGate", "stagedInstall", "stagedDoctor", "rollbackVerification", "liveInstallDecision", "postUpgradeCanary"];
 const ADVANCED_TS_SURFACES = new Set([
   "exported-types",
   "public-types",
@@ -47,9 +52,18 @@ export function createSkeleton(planPath, outDir) {
     planPath,
     deepReview: {
       status: "pending",
-      phases: ["ceo", "engineering", "dx", "adversarial", "specialist", "reuse", "simplifier"],
+      phases: REVIEW_PHASES,
       completedAt: new Date().toISOString(),
     },
+    reviewPhases: REVIEW_PHASES.map((role) => ({
+      role,
+      status: "blocked",
+      checkedInputs: [],
+      findingsCount: 0,
+      openHighCount: 0,
+      disposition: "pending review",
+      completedAt: new Date().toISOString(),
+    })),
     sourceManifest: {
       sources: [{
         sourceId: "repo",
@@ -85,11 +99,23 @@ export function createSkeleton(planPath, outDir) {
     },
     findings: [],
     completionAudit: [],
+    tddEvidence: [],
+    completionReconciliation: [],
+    reuseBindings: [],
+    typeTriggerEvidence: [],
+    installProof: {
+      sourceGate: { status: "not_applicable", evidence: "source-only planning artifact" },
+      stagedInstall: { status: "not_applicable", evidence: "staged install not requested yet" },
+      stagedDoctor: { status: "not_applicable", evidence: "staged doctor not requested yet" },
+      rollbackVerification: { status: "not_applicable", evidence: "rollback proof not requested yet" },
+      liveInstallDecision: { status: "not_applicable", evidence: "live install requires explicit Victor request" },
+      postUpgradeCanary: { status: "not_applicable", evidence: "canary not requested yet" },
+    },
     riskTier: {
       tier: 2,
       deepReviewPassed: false,
       reason: "Default for multi-file source workflow after deep review.",
-      requiredArtifacts: ["sourceManifest", "skillMatrix", "reuseInventory", "findings", "completionAudit"],
+      requiredArtifacts: ["sourceManifest", "skillMatrix", "reuseInventory", "findings", "completionAudit", "reviewPhases", "tddEvidence", "completionReconciliation", "reuseBindings", "typeTriggerEvidence", "installProof"],
       verificationGate: "tests/test-workflow-tools.sh",
       acceptedRisks: [],
     },
@@ -181,6 +207,12 @@ export function validateBundle(artifact, options = {}) {
   validateFindings(artifact.findings, context, errors);
   validateCompletion(artifact.completionAudit, context, errors);
   validateRiskTier(artifact.riskTier, context, errors);
+  validateReviewPhases(artifact.reviewPhases, artifact.riskTier, context, errors);
+  validateTddEvidence(artifact.tddEvidence, artifact.riskTier, context, errors);
+  validateCompletionReconciliation(artifact.completionReconciliation, artifact.riskTier, context, errors);
+  validateReuseBindings(artifact.reuseBindings, artifact.riskTier, context, errors);
+  validateTypeTriggerEvidence(artifact.typeTriggerEvidence, artifact.riskTier, context, errors);
+  validateInstallProof(artifact.installProof, artifact.riskTier, context, errors);
   return { ok: errors.length === 0, errors, artifactPath: context.artifactPath };
 }
 export function validateSources(sourceManifest, context = {}, errors = []) {
@@ -303,7 +335,7 @@ export function validateRiskTier(riskTier, context = {}, errors = []) {
   requireString(riskTier.verificationGate, "riskTier.verificationGate", "RISK_TIER_VERIFICATION", context, errors);
   if (riskTier.tier === 3) {
     for (const [field, code] of [["stagedInstall", "RISK_TIER3_STAGED_INSTALL"], ["rollbackVerification", "RISK_TIER3_ROLLBACK"]]) {
-      if (riskTier?.[field]?.status !== "passed") {
+      if (riskTier?.[field]?.status !== "passed" && riskTier?.installProof?.[field]?.status !== "passed") {
         errors.push(error(code, context.artifactPath, `riskTier.${field}.status`, "Tier 3 requires staged install and rollback verification.", "Run staged install, staged doctor/canary, and rollback verification before live install."));
       }
     }
@@ -314,11 +346,181 @@ export function validateRiskTier(riskTier, context = {}, errors = []) {
 function validateDeepReview(deepReview, context, errors) {
   const phases = deepReview?.phases;
   if (deepReview?.status !== "passed") errors.push(error("DEEP_REVIEW_NOT_PASSED", context.artifactPath, "deepReview.status", "Deep review must pass before execution tiers apply.", "Run CEO, engineering, DX, adversarial, specialist, reuse, simplifier, and findings convergence."));
-  for (const phase of ["ceo", "engineering", "dx", "adversarial", "specialist", "reuse", "simplifier"]) {
+  for (const phase of REVIEW_PHASES) {
     if (!Array.isArray(phases) || !phases.includes(phase)) {
       errors.push(error("DEEP_REVIEW_PHASE_MISSING", context.artifactPath, "deepReview.phases", `Missing deep review phase: ${phase}.`, `Add ${phase} review evidence or mark the plan blocked.`));
     }
   }
+}
+
+function sectionRequired(riskTier, artifactName) {
+  return Array.isArray(riskTier?.requiredArtifacts) && riskTier.requiredArtifacts.includes(artifactName);
+}
+
+export function validateReviewPhases(reviewPhases, riskTier = {}, context = {}, errors = []) {
+  if (reviewPhases === undefined && !sectionRequired(riskTier, "reviewPhases")) return errors;
+  if (!Array.isArray(reviewPhases) || reviewPhases.length === 0) {
+    errors.push(error("REVIEW_PHASES_REQUIRED", context.artifactPath, "reviewPhases", "Deep review phase records are required.", "Add reviewPhases[] rows with role, status, checkedInputs, findingsCount, openHighCount, disposition, and completedAt."));
+    return errors;
+  }
+  const byRole = new Set(reviewPhases.map((row) => row?.role));
+  for (const role of REVIEW_PHASES) {
+    if (!byRole.has(role)) {
+      errors.push(error("REVIEW_PHASE_MISSING", context.artifactPath, "reviewPhases", `Missing review phase record: ${role}.`, `Add a reviewPhases[] row for ${role} with disposition and checked inputs.`));
+    }
+  }
+  reviewPhases.forEach((row, index) => {
+    requireString(row?.role, `reviewPhases[${index}].role`, "REVIEW_PHASE_FIELD_MISSING", context, errors);
+    if (!VALID_REVIEW_PHASE_STATUSES.has(row?.status)) {
+      errors.push(error("REVIEW_PHASE_STATUS", context.artifactPath, `reviewPhases[${index}].status`, "Review phase status is invalid.", "Use passed, not_applicable, or blocked."));
+    }
+    if (!Array.isArray(row?.checkedInputs) || row.checkedInputs.length === 0) {
+      errors.push(error("REVIEW_PHASE_INPUTS", context.artifactPath, `reviewPhases[${index}].checkedInputs`, "Review phase records must list checked inputs.", "Add checkedInputs with the plan, artifact, diff, or source files reviewed."));
+    }
+    if (!Number.isInteger(row?.findingsCount) || row.findingsCount < 0) {
+      errors.push(error("REVIEW_PHASE_FINDINGS_COUNT", context.artifactPath, `reviewPhases[${index}].findingsCount`, "findingsCount must be a non-negative integer.", "Set findingsCount to the number of findings from this phase."));
+    }
+    if (!Number.isInteger(row?.openHighCount) || row.openHighCount < 0) {
+      errors.push(error("REVIEW_PHASE_OPEN_HIGH_COUNT", context.artifactPath, `reviewPhases[${index}].openHighCount`, "openHighCount must be a non-negative integer.", "Set openHighCount to 0 before execution or mark the plan blocked."));
+    } else if (row.openHighCount > 0 && row.status !== "blocked") {
+      errors.push(error("REVIEW_PHASE_OPEN_HIGH", context.artifactPath, `reviewPhases[${index}]`, "Open high/blocker review findings cannot be marked executable.", "Resolve high findings or set this review phase status to blocked."));
+    }
+    requireString(row?.disposition, `reviewPhases[${index}].disposition`, "REVIEW_PHASE_DISPOSITION", context, errors);
+    requireString(row?.completedAt, `reviewPhases[${index}].completedAt`, "REVIEW_PHASE_COMPLETED_AT", context, errors);
+    rejectPrivateStrings(row, `reviewPhases[${index}]`, context, errors);
+  });
+  return errors;
+}
+
+export function validateTddEvidence(tddEvidence, riskTier = {}, context = {}, errors = []) {
+  if (tddEvidence === undefined && !sectionRequired(riskTier, "tddEvidence")) return errors;
+  if (!Array.isArray(tddEvidence) || tddEvidence.length === 0) {
+    errors.push(error("TDD_EVIDENCE_REQUIRED", context.artifactPath, "tddEvidence", "Source execution needs TDD evidence or an explicit not-applicable rationale.", "Add tddEvidence[] rows with taskId, sourceFiles, red/green command evidence, and rationale when test-first is impossible."));
+    return errors;
+  }
+  tddEvidence.forEach((row, index) => {
+    requireString(row?.taskId, `tddEvidence[${index}].taskId`, "TDD_TASK_ID", context, errors);
+    if (!Array.isArray(row?.sourceFiles) || row.sourceFiles.length === 0) {
+      errors.push(error("TDD_SOURCE_FILES", context.artifactPath, `tddEvidence[${index}].sourceFiles`, "TDD evidence must list source files.", "Add sourceFiles with the implementation files covered by this row."));
+    }
+    if (!VALID_TDD_STATUSES.has(row?.status)) {
+      errors.push(error("TDD_STATUS", context.artifactPath, `tddEvidence[${index}].status`, "TDD evidence status is invalid.", "Use red_green_verified, not_test_first_possible_with_reason, or not_applicable."));
+    }
+    if (row?.status === "red_green_verified") {
+      requireString(row?.redCommand, `tddEvidence[${index}].redCommand`, "TDD_RED_COMMAND", context, errors);
+      requireString(row?.redFailure, `tddEvidence[${index}].redFailure`, "TDD_RED_FAILURE", context, errors);
+      requireString(row?.greenCommand, `tddEvidence[${index}].greenCommand`, "TDD_GREEN_COMMAND", context, errors);
+      if (row?.redStatus !== "failed") {
+        errors.push(error("TDD_RED_STATUS", context.artifactPath, `tddEvidence[${index}].redStatus`, "Red test status must show an expected failure.", "Set redStatus to failed and record the expected failure text."));
+      }
+      if (row?.greenStatus !== "passed") {
+        errors.push(error("TDD_GREEN_STATUS", context.artifactPath, `tddEvidence[${index}].greenStatus`, "Green test status must show the passing verification.", "Set greenStatus to passed after the implementation is verified."));
+      }
+    } else {
+      requireString(row?.rationaleWhenNotTestFirst, `tddEvidence[${index}].rationaleWhenNotTestFirst`, "TDD_RATIONALE_REQUIRED", context, errors);
+    }
+    rejectPrivateStrings(row, `tddEvidence[${index}]`, context, errors);
+  });
+  return errors;
+}
+
+export function validateCompletionReconciliation(completionReconciliation, riskTier = {}, context = {}, errors = []) {
+  if (completionReconciliation === undefined && !sectionRequired(riskTier, "completionReconciliation")) return errors;
+  if (!Array.isArray(completionReconciliation) || completionReconciliation.length === 0) {
+    errors.push(error("COMPLETION_RECONCILIATION_REQUIRED", context.artifactPath, "completionReconciliation", "No-loose-ends plans need item-by-item reconciliation.", "Add completionReconciliation[] rows for every requested plan item."));
+    return errors;
+  }
+  completionReconciliation.forEach((row, index) => {
+    requireString(row?.planItemId, `completionReconciliation[${index}].planItemId`, "COMPLETION_RECONCILIATION_ITEM", context, errors);
+    requireString(row?.requestedOutcome, `completionReconciliation[${index}].requestedOutcome`, "COMPLETION_RECONCILIATION_OUTCOME", context, errors);
+    if (!VALID_COMPLETION.has(row?.classification)) {
+      errors.push(error("COMPLETION_RECONCILIATION_CLASSIFICATION", context.artifactPath, `completionReconciliation[${index}].classification`, "Completion reconciliation classification is invalid.", "Use DONE, PARTIAL, NOT_DONE, CHANGED, or BLOCKED."));
+    }
+    requireString(row?.evidence, `completionReconciliation[${index}].evidence`, "COMPLETION_RECONCILIATION_EVIDENCE", context, errors);
+    const highImpact = String(row?.impact || "").toLowerCase() === "high";
+    if (highImpact && ["PARTIAL", "NOT_DONE", "BLOCKED"].includes(row?.classification)) {
+      const acceptedBy = String(row?.acceptedBy || "").toLowerCase();
+      const requiredAcceptor = context.requiredAcceptor || "Victor";
+      if (!acceptedBy.includes(requiredAcceptor.toLowerCase())) {
+        errors.push(error("COMPLETION_RECONCILIATION_HIGH_IMPACT_OPEN", context.artifactPath, `completionReconciliation[${index}]`, `High-impact incomplete reconciliation rows require ${requiredAcceptor} acceptance.`, `Complete the item or record acceptedBy: ${requiredAcceptor} with explicit risk acceptance.`));
+      }
+    }
+    rejectPrivateStrings(row, `completionReconciliation[${index}]`, context, errors);
+  });
+  return errors;
+}
+
+export function validateReuseBindings(reuseBindings, riskTier = {}, context = {}, errors = []) {
+  if (reuseBindings === undefined && !sectionRequired(riskTier, "reuseBindings")) return errors;
+  if (!Array.isArray(reuseBindings) || reuseBindings.length === 0) {
+    errors.push(error("REUSE_BINDING_REQUIRED", context.artifactPath, "reuseBindings", "Write tasks need bounded reuse binding records.", "Add reuseBindings[] rows with taskId, searchedPaths, analogs, decision, and newSurfaceJustification when creating a new surface."));
+    return errors;
+  }
+  reuseBindings.forEach((row, index) => {
+    requireString(row?.taskId, `reuseBindings[${index}].taskId`, "REUSE_BINDING_TASK", context, errors);
+    if (typeof row?.createsNewSurface !== "boolean") {
+      errors.push(error("REUSE_BINDING_SURFACE_FLAG", context.artifactPath, `reuseBindings[${index}].createsNewSurface`, "createsNewSurface must be a boolean.", "Set createsNewSurface true or false for this task."));
+    }
+    if (!Array.isArray(row?.searchedPaths) || row.searchedPaths.length === 0) {
+      errors.push(error("REUSE_BINDING_SEARCHED_PATHS", context.artifactPath, `reuseBindings[${index}].searchedPaths`, "Reuse binding must list searched paths.", "Record the existing components, helpers, scripts, docs, or tests searched."));
+    }
+    if (!Array.isArray(row?.analogs)) {
+      errors.push(error("REUSE_BINDING_ANALOGS", context.artifactPath, `reuseBindings[${index}].analogs`, "Reuse binding must include analogs as an array.", "Use [] only after recording searched paths and decision evidence."));
+    }
+    requireString(row?.decision, `reuseBindings[${index}].decision`, "REUSE_BINDING_DECISION", context, errors);
+    if (row?.createsNewSurface === true) {
+      requireString(row?.newSurfaceJustification, `reuseBindings[${index}].newSurfaceJustification`, "REUSE_BINDING_JUSTIFICATION", context, errors);
+    }
+    rejectPrivateStrings(row, `reuseBindings[${index}]`, context, errors);
+  });
+  return errors;
+}
+
+export function validateTypeTriggerEvidence(typeTriggerEvidence, riskTier = {}, context = {}, errors = []) {
+  if (typeTriggerEvidence === undefined && !sectionRequired(riskTier, "typeTriggerEvidence")) return errors;
+  if (!Array.isArray(typeTriggerEvidence)) {
+    errors.push(error("TS_TRIGGER_EVIDENCE_INVALID", context.artifactPath, "typeTriggerEvidence", "Type trigger evidence must be an array.", "Use [] only when no TypeScript trigger surfaces were touched."));
+    return errors;
+  }
+  typeTriggerEvidence.forEach((row, index) => {
+    requireString(row?.file, `typeTriggerEvidence[${index}].file`, "TS_TRIGGER_FILE", context, errors);
+    requireString(row?.triggerSurface, `typeTriggerEvidence[${index}].triggerSurface`, "TS_TRIGGER_SURFACE", context, errors);
+    requireString(row?.ordinaryVerification, `typeTriggerEvidence[${index}].ordinaryVerification`, "TS_TRIGGER_ORDINARY_VERIFICATION", context, errors);
+    requireString(row?.advancedReviewStatus, `typeTriggerEvidence[${index}].advancedReviewStatus`, "TS_TRIGGER_ADVANCED_STATUS", context, errors);
+    if (row?.advancedReviewStatus === "required" || row?.advancedReviewStatus === "blocked") {
+      requireString(row?.advancedReviewEvidence, `typeTriggerEvidence[${index}].advancedReviewEvidence`, "TS_TRIGGER_ADVANCED_REQUIRED", context, errors);
+    }
+    rejectPrivateStrings(row, `typeTriggerEvidence[${index}]`, context, errors);
+  });
+  return errors;
+}
+
+export function validateInstallProof(installProof, riskTier = {}, context = {}, errors = []) {
+  if (installProof === undefined && !sectionRequired(riskTier, "installProof") && riskTier?.tier !== 3) return errors;
+  if (!installProof || typeof installProof !== "object" || Array.isArray(installProof)) {
+    errors.push(error("INSTALL_PROOF_REQUIRED", context.artifactPath, "installProof", "Control-plane changes need source/staged/live install proof records.", "Add installProof with sourceGate, stagedInstall, stagedDoctor, rollbackVerification, liveInstallDecision, and postUpgradeCanary."));
+    return errors;
+  }
+  for (const stage of INSTALL_PROOF_STAGES) {
+    const row = installProof[stage];
+    if (!row || typeof row !== "object" || Array.isArray(row)) {
+      errors.push(error("INSTALL_PROOF_STAGE_REQUIRED", context.artifactPath, `installProof.${stage}`, `Install proof stage ${stage} is missing.`, `Add installProof.${stage} with status and evidence.`));
+      continue;
+    }
+    if (!VALID_INSTALL_STAGE_STATUSES.has(row.status)) {
+      errors.push(error("INSTALL_PROOF_STAGE_STATUS", context.artifactPath, `installProof.${stage}.status`, "Install proof stage status is invalid.", "Use passed, not_applicable, or blocked."));
+    }
+    requireString(row.evidence, `installProof.${stage}.evidence`, "INSTALL_PROOF_STAGE_EVIDENCE", context, errors);
+    rejectPrivateStrings(row, `installProof.${stage}`, context, errors);
+  }
+  if (riskTier?.tier === 3) {
+    for (const stage of ["sourceGate", "stagedInstall", "stagedDoctor", "rollbackVerification"]) {
+      if (installProof?.[stage]?.status !== "passed") {
+        errors.push(error("INSTALL_PROOF_TIER3_STAGE", context.artifactPath, `installProof.${stage}.status`, "Tier 3 changes require passed source, staged, doctor, and rollback proof.", "Run the staged install, doctor/canary, and rollback gates before marking Tier 3 executable."));
+      }
+    }
+  }
+  return errors;
 }
 
 function validateTypescriptPolicy(advancedRow, typescript, context, errors) {
@@ -348,7 +550,7 @@ function rejectPrivateStrings(value, fieldPath, context, errors, depth = 0) {
     return;
   }
   // Matches temp/home paths plus common token/key shapes: sk-, ghp_, AKIA, and PEM private-key headers.
-  const privatePattern = /(?:\/tmp\/|\/var\/folders\/|\/Users\/[^/\s]+\/|~\/|sk-[A-Za-z0-9_-]{12,}|ghp_[A-Za-z0-9_]{12,}|AKIA[A-Z0-9]{16}|BEGIN (?:RSA |OPENSSH )?PRIVATE KEY)/;
+  const privatePattern = /(?:\/tmp\/|\/var\/folders\/|\/Users\/[^/\s]+\/|~\/|(?:^|[^A-Za-z0-9])sk-[A-Za-z0-9_-]{12,}|(?:^|[^A-Za-z0-9])ghp_[A-Za-z0-9_]{12,}|AKIA[A-Z0-9]{16}|BEGIN (?:RSA |OPENSSH )?PRIVATE KEY)/;
   if (typeof value === "string" && privatePattern.test(value)) {
     errors.push(error("SOURCE_PRIVATE_VALUE", context.artifactPath, fieldPath, "Tracked source manifest contains private, ephemeral, or secret-looking material.", "Replace with sanitized source IDs, versions, hashes, and refresh commands."));
   } else if (Array.isArray(value)) {
@@ -382,7 +584,12 @@ function exampleCommandFor(code) {
   if (code.startsWith("SKILL_") || code.startsWith("TS_")) return "node scripts/deep-stack-check.mjs validate-skills --artifact <artifact-path>";
   if (code.startsWith("REUSE_")) return "node scripts/deep-stack-check.mjs validate-reuse --artifact <artifact-path>";
   if (code.startsWith("FINDING_") || code.startsWith("FINDINGS_")) return "node scripts/deep-stack-check.mjs validate-findings --artifact <artifact-path>";
+  if (code.startsWith("COMPLETION_RECONCILIATION_")) return "node scripts/deep-stack-check.mjs validate-completion-reconciliation --artifact <artifact-path>";
   if (code.startsWith("COMPLETION_")) return "node scripts/deep-stack-check.mjs validate-completion --artifact <artifact-path>";
+  if (code.startsWith("REVIEW_PHASE_") || code.startsWith("REVIEW_PHASES_")) return "node scripts/deep-stack-check.mjs validate-review-phases --artifact <artifact-path>";
+  if (code.startsWith("TDD_")) return "node scripts/deep-stack-check.mjs validate-tdd --artifact <artifact-path>";
+  if (code.startsWith("TS_TRIGGER_")) return "node scripts/deep-stack-check.mjs validate-type-triggers --artifact <artifact-path>";
+  if (code.startsWith("INSTALL_PROOF_") || code.startsWith("INSTALL_")) return "node scripts/deep-stack-check.mjs validate-install-proof --artifact <artifact-path>";
   if (code.startsWith("RISK_")) return "node scripts/deep-stack-check.mjs validate-risk-tier --artifact <artifact-path>";
   if (code.startsWith("DEEP_")) return "node scripts/deep-stack-check.mjs validate-artifact --artifact <artifact-path>";
   return "";

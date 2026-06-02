@@ -35,6 +35,7 @@ Process:
 
 Output format:
 - `ETRNL_TASK_ID: <id>`
+- `ETRNL_STATUS: verified|changes_requested|blocked`
 - `Routes checked: <list>`
 - `Viewports checked: <list>`
 - `Report: <path or none>`

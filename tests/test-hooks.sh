@@ -168,7 +168,22 @@ out="$(run_hook cc-pretooluse-guard.sh "$email_triage_debug_dry_command")"
 assert_json_expr "email triage allows maintainer debug dry run" "$out" '.continue == true'
 
 email_triage_verify_cli="$TMPROOT/bin/vivaz-email"
-printf '%s\n' '#!/usr/bin/env bash' 'if [[ "$1 $2" == "triage verify" ]]; then' '  if [[ "${VIVAZ_EMAIL_VERIFY_DRY:-0}" == "1" ]]; then printf "{\"ok\":true,\"data\":{\"verified\":true,\"dry_run\":true,\"gmail_mutated\":false,\"inbox_zero_verified\":false,\"inbox_count\":5}}\n"; elif [[ "${VIVAZ_EMAIL_VERIFY_READY:-0}" == "1" ]]; then printf "{\"ok\":true,\"data\":{\"verified\":true,\"dry_run\":true,\"gmail_mutated\":false,\"inbox_zero_verified\":true,\"queue_ready_without_mutation\":true,\"inbox_count\":0,\"action_backlog_count\":31}}\n"; elif [[ "${VIVAZ_EMAIL_VERIFY_NONZERO:-0}" == "1" ]]; then printf "{\"ok\":true,\"data\":{\"verified\":true,\"dry_run\":false,\"gmail_mutated\":true,\"inbox_zero_verified\":true,\"inbox_count\":1}}\n"; else printf "{\"ok\":true,\"data\":{\"verified\":true,\"dry_run\":false,\"gmail_mutated\":true,\"inbox_zero_verified\":true,\"inbox_count\":0}}\n"; fi' '  exit 0' 'fi' 'exit 0' >"$email_triage_verify_cli"
+cat >"$email_triage_verify_cli" <<'BASH'
+#!/usr/bin/env bash
+if [[ "$1 $2" == "triage verify" ]]; then
+  if [[ "${VIVAZ_EMAIL_VERIFY_DRY:-0}" == "1" ]]; then
+    printf '{"ok":true,"data":{"verified":true,"dry_run":true,"gmail_mutated":false,"inbox_zero_verified":false,"inbox_count":5}}\n'
+  elif [[ "${VIVAZ_EMAIL_VERIFY_READY:-0}" == "1" ]]; then
+    printf '{"ok":true,"data":{"verified":true,"dry_run":true,"gmail_mutated":false,"inbox_zero_verified":true,"queue_ready_without_mutation":true,"inbox_count":0,"action_backlog_count":31}}\n'
+  elif [[ "${VIVAZ_EMAIL_VERIFY_NONZERO:-0}" == "1" ]]; then
+    printf '{"ok":true,"data":{"verified":true,"dry_run":false,"gmail_mutated":true,"inbox_zero_verified":true,"inbox_count":1}}\n'
+  else
+    printf '{"ok":true,"data":{"verified":true,"dry_run":false,"gmail_mutated":true,"inbox_zero_verified":true,"inbox_count":0}}\n'
+  fi
+  exit 0
+fi
+exit 0
+BASH
 chmod +x "$email_triage_verify_cli"
 
 email_triage_queue_before_verify_state="$TMPROOT/claude-guard-fixture-email-triage-queue-before-verify.json"
@@ -556,7 +571,23 @@ out="$(run_hook cc-stop-verifier.sh "$long_advice_stop")"
 if [[ -z "$out" ]]; then ok "long technical prompt does not trigger advice source gate"; else not_ok "long technical prompt should not trigger advice source gate: $out"; fi
 
 mkdir -p "$TMPROOT/bin"
-printf '%s\n' '#!/usr/bin/env bash' 'if [[ "${VIVAZ_EMAIL_VERIFY_FAIL:-0}" == "1" ]]; then exit 1; fi' 'if [[ "$1 $2" == "triage verify" ]]; then' '  if [[ "${VIVAZ_EMAIL_VERIFY_DRY:-0}" == "1" ]]; then printf "{\"ok\":true,\"data\":{\"verified\":true,\"dry_run\":true,\"gmail_mutated\":false,\"inbox_zero_verified\":false,\"inbox_count\":5}}\n"; elif [[ "${VIVAZ_EMAIL_VERIFY_READY:-0}" == "1" ]]; then printf "{\"ok\":true,\"data\":{\"verified\":true,\"dry_run\":true,\"gmail_mutated\":false,\"inbox_zero_verified\":true,\"queue_ready_without_mutation\":true,\"inbox_count\":0,\"action_backlog_count\":31}}\n"; elif [[ "${VIVAZ_EMAIL_VERIFY_NONZERO:-0}" == "1" ]]; then printf "{\"ok\":true,\"data\":{\"verified\":true,\"dry_run\":false,\"gmail_mutated\":true,\"inbox_zero_verified\":true,\"inbox_count\":1}}\n"; else printf "{\"ok\":true,\"data\":{\"verified\":true,\"dry_run\":false,\"gmail_mutated\":true,\"inbox_zero_verified\":true,\"inbox_count\":0}}\n"; fi' '  exit 0' 'fi' 'exit 0' >"$TMPROOT/bin/vivaz-email"
+cat >"$TMPROOT/bin/vivaz-email" <<'BASH'
+#!/usr/bin/env bash
+if [[ "${VIVAZ_EMAIL_VERIFY_FAIL:-0}" == "1" ]]; then exit 1; fi
+if [[ "$1 $2" == "triage verify" ]]; then
+  if [[ "${VIVAZ_EMAIL_VERIFY_DRY:-0}" == "1" ]]; then
+    printf '{"ok":true,"data":{"verified":true,"dry_run":true,"gmail_mutated":false,"inbox_zero_verified":false,"inbox_count":5}}\n'
+  elif [[ "${VIVAZ_EMAIL_VERIFY_READY:-0}" == "1" ]]; then
+    printf '{"ok":true,"data":{"verified":true,"dry_run":true,"gmail_mutated":false,"inbox_zero_verified":true,"queue_ready_without_mutation":true,"inbox_count":0,"action_backlog_count":31}}\n'
+  elif [[ "${VIVAZ_EMAIL_VERIFY_NONZERO:-0}" == "1" ]]; then
+    printf '{"ok":true,"data":{"verified":true,"dry_run":false,"gmail_mutated":true,"inbox_zero_verified":true,"inbox_count":1}}\n'
+  else
+    printf '{"ok":true,"data":{"verified":true,"dry_run":false,"gmail_mutated":true,"inbox_zero_verified":true,"inbox_count":0}}\n'
+  fi
+  exit 0
+fi
+exit 0
+BASH
 chmod +x "$TMPROOT/bin/vivaz-email"
 
 email_triage_missing_state="$TMPROOT/claude-guard-fixture-email-triage-missing.json"
@@ -760,6 +791,7 @@ jq '.reviewerAgentCalls = [{value:"subagent=etrnl-spec-reviewer mode=read-only t
 out="$(run_hook cc-stop-verifier.sh "$execute_no_agent_stop")"
 assert_contains "etrnl-execute missing quality reviewer blocks" "$out" "reviewer subagent"
 jq '.reviewerAgentCalls = [{value:"subagent=etrnl-spec-reviewer mode=read-only taskId=T1 lineageId=wave-1.T1 goal=spec review packetHash=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", at:"2026-01-01T00:00:02Z"},{value:"subagent=etrnl-quality-reviewer mode=read-only taskId=T1 lineageId=wave-1.T1 goal=quality review packetHash=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", at:"2026-01-01T00:00:03Z"}]' "$execute_no_agent_state" >"$execute_no_agent_state.tmp" && mv "$execute_no_agent_state.tmp" "$execute_no_agent_state"
+jq '.verificationRuns += [{value:"red_green_verified", at:"2026-01-01T00:00:04Z"}] | .successfulCommands += [{command:"code-simplifier reviewed", at:"2026-01-01T00:00:05Z"}]' "$execute_no_agent_state" >"$execute_no_agent_state.tmp" && mv "$execute_no_agent_state.tmp" "$execute_no_agent_state"
 out="$(run_hook cc-stop-verifier.sh "$execute_no_agent_stop")"
 if [[ -z "$out" ]]; then ok "etrnl-execute implementation plus reviewer agents satisfies stop gate"; else not_ok "etrnl-execute implementation plus reviewer agents should satisfy stop gate: $out"; fi
 

@@ -120,6 +120,22 @@ else
 fi
 node "$ROOT/scripts/execution-ledger.mjs" record-review --session fixture-bound --reviewer etrnl-quality-reviewer --task T-write --lineage wave-1.T-write --packet-hash abc123 --status verified
 assert_command "execution ledger accepts bound write evidence" node "$ROOT/scripts/execution-ledger.mjs" check-bound-execute --session fixture-bound --task T-write
+evidence_ledger_path="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-evidence --plan "$ROOT/hooks/fixtures/plans/good-plan.md" --cwd "$ROOT")"
+assert_file "execution ledger evidence init creates file" "$evidence_ledger_path"
+node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-evidence --task T-write --title "Write task" --status verified --mode write --lineage wave-1.T-write --packet-hash abc123 --requires-implementation-evidence --spec-review-required --quality-review-required --tdd-required --simplifier-review-required
+node "$ROOT/scripts/execution-ledger.mjs" record-check --session fixture-evidence --name final --command "pnpm test" --status passed
+node "$ROOT/scripts/execution-ledger.mjs" record-agent --session fixture-evidence --id worker-1 --role etrnl-executor --mode write --task T-write --lineage wave-1.T-write --packet-hash abc123 --status completed
+node "$ROOT/scripts/execution-ledger.mjs" record-review --session fixture-evidence --reviewer etrnl-spec-reviewer --task T-write --lineage wave-1.T-write --packet-hash abc123 --status verified
+node "$ROOT/scripts/execution-ledger.mjs" record-review --session fixture-evidence --reviewer etrnl-quality-reviewer --task T-write --lineage wave-1.T-write --packet-hash abc123 --status verified
+if evidence_stop_out="$(node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-evidence 2>&1)"; then
+  not_ok "execution ledger blocks missing TDD and simplifier evidence"
+else
+  assert_contains "execution ledger blocks missing TDD evidence" "$evidence_stop_out" "missing TDD evidence"
+  assert_contains "execution ledger blocks missing simplifier evidence" "$evidence_stop_out" "missing simplifier evidence"
+fi
+node "$ROOT/scripts/execution-ledger.mjs" record-tdd --session fixture-evidence --task T-write --lineage wave-1.T-write --packet-hash abc123 --status red_green_verified --source-files scripts/deep-stack-check.mjs --red-command "tests/test-workflow-tools.sh" --red-status failed --red-failure "expected fixture failure" --green-command "tests/test-workflow-tools.sh" --green-status passed
+node "$ROOT/scripts/execution-ledger.mjs" record-simplifier --session fixture-evidence --task T-write --lineage wave-1.T-write --packet-hash abc123 --status verified --evidence "code-simplifier reviewed diff"
+assert_command "execution ledger accepts task-bound TDD and simplifier evidence" node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-evidence
 review_order_ledger_path="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-review-order --plan "$ROOT/hooks/fixtures/plans/good-plan.md" --cwd "$ROOT")"
 assert_file "execution ledger review order init creates file" "$review_order_ledger_path"
 node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-review-order --task T-write --title "Write task" --status verified --mode write --lineage wave-1.T-write --packet-hash abc123 --requires-implementation-evidence --spec-review-required
@@ -331,7 +347,7 @@ assert_json_expr "code-health inventory lists obvious folders without auditing t
 assert_command "plan readiness syntax" node --check "$ROOT/scripts/plan-readiness-check.mjs"
 assert_command "deep-stack check syntax" node --check "$ROOT/scripts/deep-stack-check.mjs"
 assert_command "deep-stack artifact library syntax" node --check "$ROOT/scripts/lib/deep-stack-artifacts.mjs"
-assert_command "cli arg parser edge cases" node --input-type=module -e '
+assert_command "cli arg parser edge cases" node --input-type=module <<'JS'
 import { argValue } from "./scripts/lib/cli-args.mjs";
 const expect = (actual, expected, label) => {
   if (actual !== expected) {
@@ -344,8 +360,8 @@ expect(argValue(["--flag="], "--flag", "fallback"), "fallback", "empty equals fa
 expect(argValue(["--flag", "--other"], "--flag", "fallback"), "fallback", "next flag fallback");
 expect(argValue(["--flag", "first", "--flag", "second"], "--flag", "fallback"), "first", "first duplicate wins");
 expect(argValue(["--flag", 10, "--other"], "--flag", "fallback"), "fallback", "non-string value ignored");
-'
-assert_command "bash array parser token branches" node --input-type=module -e '
+JS
+assert_command "bash array parser token branches" node --input-type=module <<'JS'
 import { parseBashArray } from "./scripts/lib/bash-array-parser.mjs";
 const expect = (actual, expected, label) => {
   if (actual !== expected) {
@@ -358,7 +374,7 @@ const source = `ARR=(
   "tab\\tvalue"
   "hex\\x41value"
   "octal\\101value"
-  '"'"'single quoted value'"'"'
+  'single quoted value'
   plain\\ token
   escaped\\ space\\ token
 )`;
@@ -372,7 +388,7 @@ expect(parsed[4], "octalAvalue", "double-quoted octal escape");
 expect(parsed[5], "single quoted value", "single-quoted branch");
 expect(parsed[6], "plain token", "unquoted escaped space branch");
 expect(parsed[7], "escaped space token", "unquoted multi-escape branch");
-'
+JS
 for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger execute-evidence-check execution-wave-check code-health-ledger-check documentation-comment-health documentation-health-ledger-check review-log project-buglog browser-qa-report context-state workflow-health prompt-budget-check changelog-release-check port-guard update-check settings-audit deep-stack-check; do
   assert_command "$script syntax" node --check "$ROOT/scripts/$script.mjs"
 done
@@ -479,7 +495,7 @@ assert_command "research fixture strings align with CAPABILITY_DEFS" env \
   HOOK_LINE_GATE="$HOOK_LINE_GATE" \
   SCRIPT_LINE_TELEMETRY="$SCRIPT_LINE_TELEMETRY" \
   TEST_LINE_TDD="$TEST_LINE_TDD" \
-  node --input-type=module -e '
+  node --input-type=module <<'JS'
 import { CAPABILITY_DEFS } from "./scripts/lib/research-intel-core.mjs";
 
 const byId = new Map(CAPABILITY_DEFS.map((item) => [item.id, item.patterns]));
@@ -504,7 +520,7 @@ for (const [capability, value] of checks) {
     throw new Error(`fixture string does not match ${capability} patterns: ${value}`);
   }
 }
-'
+JS
 while IFS=$'\t' read -r fixture_id fixture_path; do
   if [[ -z "$fixture_id" || -z "$fixture_path" ]]; then
     not_ok "research fixture manifest row missing id/path"
@@ -860,6 +876,12 @@ perl -0pi -e 's/^Deep stack artifacts:.*$/Deep stack artifacts:   /m' "$empty_de
 empty_deep_plan_json="$(node "$ROOT/scripts/plan-readiness-check.mjs" "$empty_deep_plan" --json 2>/dev/null || true)"
 assert_json_expr "deep-stack readiness blocks empty artifact metadata" "$empty_deep_plan_json" '.ok == false and ([.failures[].name] | index("DEEP_ARTIFACT_PATH_EMPTY") != null)'
 assert_command "deep-stack source manifest validates" node "$ROOT/scripts/deep-stack-check.mjs" validate-sources --artifact "$deep_stack_fixture"
+assert_command "deep-stack review phase records validate" node "$ROOT/scripts/deep-stack-check.mjs" validate-review-phases --artifact "$deep_stack_fixture"
+assert_command "deep-stack TDD evidence validates" node "$ROOT/scripts/deep-stack-check.mjs" validate-tdd --artifact "$deep_stack_fixture"
+assert_command "deep-stack completion reconciliation validates" node "$ROOT/scripts/deep-stack-check.mjs" validate-completion-reconciliation --artifact "$deep_stack_fixture"
+assert_command "deep-stack reuse bindings validate" node "$ROOT/scripts/deep-stack-check.mjs" validate-reuse-bindings --artifact "$deep_stack_fixture"
+assert_command "deep-stack TypeScript trigger evidence validates" node "$ROOT/scripts/deep-stack-check.mjs" validate-type-triggers --artifact "$deep_stack_fixture"
+assert_command "deep-stack install proof validates" node "$ROOT/scripts/deep-stack-check.mjs" validate-install-proof --artifact "$deep_stack_fixture"
 missing_commit_artifact="$TMPROOT/deep-stack-missing-commit.json"
 jq 'del(.sourceManifest.sources[0].commit)' "$deep_stack_fixture" >"$missing_commit_artifact"
 if missing_commit_out="$(node "$ROOT/scripts/deep-stack-check.mjs" validate-sources --artifact "$missing_commit_artifact" 2>&1)"; then
@@ -888,6 +910,41 @@ if completion_out="$(node "$ROOT/scripts/deep-stack-check.mjs" validate-completi
   not_ok "deep-stack completion blocks high-impact not done"
 else
   assert_contains "deep-stack completion blocks high-impact not done" "$completion_out" "COMPLETION_HIGH_IMPACT_OPEN"
+fi
+missing_tdd_artifact="$TMPROOT/deep-stack-missing-tdd.json"
+jq 'del(.tddEvidence)' "$deep_stack_fixture" >"$missing_tdd_artifact"
+if missing_tdd_out="$(node "$ROOT/scripts/deep-stack-check.mjs" validate-artifact --artifact "$missing_tdd_artifact" 2>&1)"; then
+  not_ok "deep-stack artifact requires TDD evidence when declared"
+else
+  assert_contains "deep-stack artifact requires TDD evidence when declared" "$missing_tdd_out" "TDD_EVIDENCE_REQUIRED"
+fi
+open_review_artifact="$TMPROOT/deep-stack-open-review.json"
+jq '(.reviewPhases[0].openHighCount = 1)' "$deep_stack_fixture" >"$open_review_artifact"
+if open_review_out="$(node "$ROOT/scripts/deep-stack-check.mjs" validate-review-phases --artifact "$open_review_artifact" 2>&1)"; then
+  not_ok "deep-stack review phases block open high findings"
+else
+  assert_contains "deep-stack review phases block open high findings" "$open_review_out" "REVIEW_PHASE_OPEN_HIGH"
+fi
+bad_reuse_binding_artifact="$TMPROOT/deep-stack-bad-reuse-binding.json"
+jq 'del(.reuseBindings[0].newSurfaceJustification)' "$deep_stack_fixture" >"$bad_reuse_binding_artifact"
+if bad_reuse_binding_out="$(node "$ROOT/scripts/deep-stack-check.mjs" validate-reuse-bindings --artifact "$bad_reuse_binding_artifact" 2>&1)"; then
+  not_ok "deep-stack reuse bindings require new-surface justification"
+else
+  assert_contains "deep-stack reuse bindings require new-surface justification" "$bad_reuse_binding_out" "REUSE_BINDING_JUSTIFICATION"
+fi
+bad_type_trigger_artifact="$TMPROOT/deep-stack-bad-type-trigger.json"
+jq '(.typeTriggerEvidence[0].advancedReviewStatus = "required") | del(.typeTriggerEvidence[0].advancedReviewEvidence)' "$deep_stack_fixture" >"$bad_type_trigger_artifact"
+if bad_type_trigger_out="$(node "$ROOT/scripts/deep-stack-check.mjs" validate-type-triggers --artifact "$bad_type_trigger_artifact" 2>&1)"; then
+  not_ok "deep-stack type triggers require advanced review evidence"
+else
+  assert_contains "deep-stack type triggers require advanced review evidence" "$bad_type_trigger_out" "TS_TRIGGER_ADVANCED_REQUIRED"
+fi
+bad_install_proof_artifact="$TMPROOT/deep-stack-bad-install-proof.json"
+jq '(.riskTier.tier = 3) | (.installProof.stagedInstall.status = "not_applicable") | (.installProof.stagedDoctor.status = "not_applicable") | (.installProof.rollbackVerification.status = "not_applicable")' "$deep_stack_fixture" >"$bad_install_proof_artifact"
+if bad_install_proof_out="$(node "$ROOT/scripts/deep-stack-check.mjs" validate-install-proof --artifact "$bad_install_proof_artifact" 2>&1)"; then
+  not_ok "deep-stack Tier 3 install proof requires staged proof"
+else
+  assert_contains "deep-stack Tier 3 install proof requires staged proof" "$bad_install_proof_out" "INSTALL_PROOF_TIER3_STAGE"
 fi
 if risk_before_review_out="$(node "$ROOT/scripts/deep-stack-check.mjs" validate-risk-tier --artifact "$ROOT/tests/fixtures/deep-stack/risk-tier.before-review.json" 2>&1)"; then
   not_ok "deep-stack risk tier requires passed deep review"
@@ -931,7 +988,7 @@ assert_json_expr "plan readiness recognizes optional phase metadata" "$phase_pla
 agent_template="$(node "$ROOT/scripts/agent-task-packet-check.mjs" --template write)"
 assert_json_expr "agent packet template includes write scope" "$agent_template" '.packet.writeScope[0] | length > 0'
 assert_json_expr "agent packet template includes reviewer contract" "$agent_template" '(.packet.reviewers | index("etrnl-spec-reviewer")) != null and .packet.specReviewRequired == true and .packet.qualityReviewRequired == true'
-deep_packet="$(jq -cn '{packet:{mode:"write",goal:"Implement deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T1",lineageId:"wave-1.T1",writeScope:["scripts/deep-stack-check.mjs"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"tests/test-workflow-tools.sh",modelTier:"sonnet",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,deepStackArtifacts:"tests/fixtures/deep-stack/deep-stack.valid.json",riskTier:{tier:2,reason:"multi-file after review",verificationGate:"tests/test-workflow-tools.sh"},completionEvidence:"completion audit row",specReviewRequired:true,qualityReviewRequired:true,simplifierReviewRequired:true,reviewers:["etrnl-spec-reviewer","etrnl-quality-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
+deep_packet="$(jq -cn '{packet:{mode:"write",goal:"Implement deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T1",lineageId:"wave-1.T1",writeScope:["scripts/deep-stack-check.mjs"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"tests/test-workflow-tools.sh",modelTier:"sonnet",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,deepStackArtifacts:"tests/fixtures/deep-stack/deep-stack.valid.json",riskTier:{tier:2,reason:"multi-file after review",verificationGate:"tests/test-workflow-tools.sh"},completionEvidence:"completion audit row",tddRequired:true,tddEvidence:"red/green evidence",reuseArtifact:"reuse binding row",simplifierEvidence:"code-simplifier evidence",specReviewRequired:true,qualityReviewRequired:true,simplifierReviewRequired:true,reviewers:["etrnl-spec-reviewer","etrnl-quality-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
 assert_command "agent packet accepts deep-stack execution contract" node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$deep_packet"
 bad_deep_packet="$(jq -cn '{packet:{mode:"write",goal:"Implement deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T1",lineageId:"wave-1.T1",writeScope:["scripts/deep-stack-check.mjs"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"tests/test-workflow-tools.sh",modelTier:"sonnet",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,specReviewRequired:true,qualityReviewRequired:true,reviewers:["etrnl-spec-reviewer","etrnl-quality-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
 if bad_deep_packet_out="$(node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$bad_deep_packet" 2>&1)"; then
@@ -939,11 +996,17 @@ if bad_deep_packet_out="$(node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$
 else
   assert_contains "agent packet rejects missing deep-stack contract" "$bad_deep_packet_out" "deepStackArtifacts"
 fi
-bad_deep_packet_reviewers="$(jq -cn '{packet:{mode:"write",goal:"Implement deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T1",lineageId:"wave-1.T1",writeScope:["scripts/deep-stack-check.mjs"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"tests/test-workflow-tools.sh",modelTier:"sonnet",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,deepStackArtifacts:"tests/fixtures/deep-stack/deep-stack.valid.json",riskTier:{tier:2,reason:"multi-file after review",verificationGate:"tests/test-workflow-tools.sh"},completionEvidence:"completion audit row",specReviewRequired:true,qualityReviewRequired:true,simplifierReviewRequired:true,reviewers:["etrnl-spec-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
+bad_deep_packet_reviewers="$(jq -cn '{packet:{mode:"write",goal:"Implement deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T1",lineageId:"wave-1.T1",writeScope:["scripts/deep-stack-check.mjs"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"tests/test-workflow-tools.sh",modelTier:"sonnet",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,deepStackArtifacts:"tests/fixtures/deep-stack/deep-stack.valid.json",riskTier:{tier:2,reason:"multi-file after review",verificationGate:"tests/test-workflow-tools.sh"},completionEvidence:"completion audit row",tddRequired:true,tddEvidence:"red/green evidence",reuseArtifact:"reuse binding row",simplifierEvidence:"code-simplifier evidence",specReviewRequired:true,qualityReviewRequired:true,simplifierReviewRequired:true,reviewers:["etrnl-spec-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
 if bad_deep_packet_reviewers_out="$(node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$bad_deep_packet_reviewers" 2>&1)"; then
   not_ok "agent packet rejects missing deep-stack reviewer"
 else
   assert_contains "agent packet rejects missing deep-stack reviewer" "$bad_deep_packet_reviewers_out" "etrnl-quality-reviewer"
+fi
+new_surface_packet="$(jq -cn '{packet:{mode:"write",goal:"Add helper",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T2",lineageId:"wave-1.T2",writeScope:["scripts/new-helper.mjs"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"node --check scripts/new-helper.mjs",modelTier:"sonnet",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",createsNewSurface:true}}')"
+if new_surface_packet_out="$(node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$new_surface_packet" 2>&1)"; then
+  not_ok "agent packet rejects new surface without reuse binding"
+else
+  assert_contains "agent packet rejects new surface without reuse binding" "$new_surface_packet_out" "reuseArtifact"
 fi
 bad_deep_packet_no_scope="$(jq -cn '{packet:{mode:"write",goal:"Implement deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T1",lineageId:"wave-1.T1",verificationCommand:"tests/test-workflow-tools.sh",modelTier:"sonnet",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,specReviewRequired:true,qualityReviewRequired:true,reviewers:["etrnl-spec-reviewer","etrnl-quality-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
 if bad_deep_packet_no_scope_out="$(node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$bad_deep_packet_no_scope" 2>&1)"; then
@@ -951,6 +1014,19 @@ if bad_deep_packet_no_scope_out="$(node "$ROOT/scripts/agent-task-packet-check.m
 else
   assert_contains "agent packet rejects deep-stack contract without write scope" "$bad_deep_packet_no_scope_out" "deepStackArtifacts"
 fi
+packet_hash_64="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+execute_missing_tdd_state="$(jq -cn --arg hash "$packet_hash_64" '{requestedSkills:[{value:"etrnl-execute",at:"2026-01-01T00:00:00Z"}],edits:{"src/app.ts":"2026-01-01T00:00:01Z"},agentCalls:[{value:("subagent=etrnl-executor mode=write taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:02Z"}],reviewerAgentCalls:[{value:("subagent=etrnl-spec-reviewer taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:03Z"},{value:("subagent=etrnl-quality-reviewer taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:04Z"}]}')"
+execute_missing_tdd_status="$(node "$ROOT/scripts/execute-evidence-check.mjs" <<<"$execute_missing_tdd_state")"
+if [[ "$execute_missing_tdd_status" == "missing-tdd-evidence" ]]; then ok "execute evidence checker blocks missing TDD"; else not_ok "execute evidence checker blocks missing TDD: $execute_missing_tdd_status"; fi
+execute_missing_type_state="$(jq -cn --arg hash "$packet_hash_64" '{requestedSkills:[{value:"etrnl-execute",at:"2026-01-01T00:00:00Z"}],edits:{"src/api/types.ts":"2026-01-01T00:00:01Z"},agentCalls:[{value:("subagent=etrnl-executor mode=write taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:02Z"}],reviewerAgentCalls:[{value:("subagent=etrnl-spec-reviewer taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:03Z"},{value:("subagent=etrnl-quality-reviewer taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:04Z"}],tddEvidenceRuns:[{value:"red_green_verified",at:"2026-01-01T00:00:05Z"}]}')"
+execute_missing_type_status="$(node "$ROOT/scripts/execute-evidence-check.mjs" <<<"$execute_missing_type_state")"
+if [[ "$execute_missing_type_status" == "missing-type-review" ]]; then ok "execute evidence checker blocks missing TypeScript review"; else not_ok "execute evidence checker blocks missing TypeScript review: $execute_missing_type_status"; fi
+execute_missing_install_state="$(jq -cn --arg hash "$packet_hash_64" '{requestedSkills:[{value:"etrnl-execute",at:"2026-01-01T00:00:00Z"}],edits:{"hooks/cc-stop-verifier.sh":"2026-01-01T00:00:01Z"},agentCalls:[{value:("subagent=etrnl-executor mode=write taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:02Z"}],reviewerAgentCalls:[{value:("subagent=etrnl-spec-reviewer taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:03Z"},{value:("subagent=etrnl-quality-reviewer taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:04Z"}],tddEvidenceRuns:[{value:"red_green_verified",at:"2026-01-01T00:00:05Z"}]}')"
+execute_missing_install_status="$(node "$ROOT/scripts/execute-evidence-check.mjs" <<<"$execute_missing_install_state")"
+if [[ "$execute_missing_install_status" == "missing-install-proof" ]]; then ok "execute evidence checker blocks missing install proof"; else not_ok "execute evidence checker blocks missing install proof: $execute_missing_install_status"; fi
+execute_full_state="$(jq -cn --arg hash "$packet_hash_64" '{requestedSkills:[{value:"etrnl-execute",at:"2026-01-01T00:00:00Z"},{value:"typescript-advanced-types",at:"2026-01-01T00:00:05Z"}],edits:{"src/api/types.ts":"2026-01-01T00:00:01Z","src/app.ts":"2026-01-01T00:00:01Z"},agentCalls:[{value:("subagent=etrnl-executor mode=write taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:02Z"}],reviewerAgentCalls:[{value:("subagent=etrnl-spec-reviewer taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:03Z"},{value:("subagent=etrnl-quality-reviewer taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:04Z"}],tddEvidenceRuns:[{value:"red_green_verified",at:"2026-01-01T00:00:05Z"}],simplifierRuns:[{value:"code-simplifier reviewed",at:"2026-01-01T00:00:06Z"}],typeReviewRuns:[{value:"advanced types reviewed",at:"2026-01-01T00:00:07Z"}]}')"
+execute_full_status="$(node "$ROOT/scripts/execute-evidence-check.mjs" <<<"$execute_full_state")"
+if [[ -z "$execute_full_status" ]]; then ok "execute evidence checker accepts complete evidence"; else not_ok "execute evidence checker accepts complete evidence: $execute_full_status"; fi
 if node "$ROOT/scripts/agent-task-packet-check.mjs" --template >/dev/null 2>&1; then
   not_ok "agent packet template requires explicit mode"
 else

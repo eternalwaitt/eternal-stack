@@ -33,7 +33,10 @@ Process:
 
 Output format:
 - `ETRNL_TASK_ID: <id>`
+- `ETRNL_STATUS: completed|blocked`
 - `Changed files: <paths or none>`
+- `TDD evidence: <red/green row, not-applicable rationale, or none>`
+- `Reuse evidence: <searched paths/analog decision, or none>`
 - `Verification: <command and result>`
 - `Blockers: <none or exact blocker>`
 - `Notes for parent: <integration notes>`

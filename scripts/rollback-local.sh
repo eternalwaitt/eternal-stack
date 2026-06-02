@@ -2,7 +2,33 @@
 set -Eeuo pipefail
 
 ROOT="${CLAUDE_HOME:-$HOME/.claude}"
-BACKUP="${1:-}"
+BACKUP=""
+DRY_RUN=0
+
+usage() {
+  printf 'Usage: %s [--dry-run] [backup-dir]\n' "${0##*/}"
+}
+
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run)
+      DRY_RUN=1
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      if [[ -n "$BACKUP" ]]; then
+        printf 'rollback error: multiple backup directories provided\n' >&2
+        usage >&2
+        exit 2
+      fi
+      BACKUP="$arg"
+      ;;
+  esac
+done
+
 if [[ ! -f "$ROOT/scripts/lib/skill-lists.sh" ]]; then
   printf 'Required skill list is missing: %s/scripts/lib/skill-lists.sh\n' "$ROOT" >&2
   exit 1
@@ -74,6 +100,15 @@ for file in settings.json settings.local.json CLAUDE.md AGENTS.md; do
     restore_count=$((restore_count + 1))
   fi
 done
+
+if [[ "$DRY_RUN" == "1" ]]; then
+  printf 'Dry run: would restore Claude config backup from %s\n' "$BACKUP"
+  if (( restore_count > 0 )); then
+    printf 'Dry run: would restore files: %s\n' "${restore_files[*]}"
+  fi
+  printf 'Dry run: would remove repo-owned agents, skills, commands, and hooks before restoring backed-up copies.\n'
+  exit 0
+fi
 
 trap cleanup_restore_temps EXIT
 if (( restore_count > 0 )); then

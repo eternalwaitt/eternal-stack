@@ -11,6 +11,14 @@ cc_test_init
 export CLAUDE_HOME="$TMPROOT/claude"
 export CLAUDE_GUARD_STATE_DIR="$TMPROOT/state"
 
+dry_run_home="$TMPROOT/dry-run-claude"
+if CLAUDE_HOME="$dry_run_home" "$ROOT/scripts/install.sh" --dry-run >/dev/null; then
+  ok "install dry-run succeeds"
+else
+  not_ok "install dry-run succeeds"
+fi
+assert_no_directory "install dry-run does not create Claude home" "$dry_run_home"
+
 "$ROOT/scripts/install.sh" >/dev/null
 
 for agent in etrnl-adversary etrnl-browser-qa etrnl-design-reviewer etrnl-dx-reviewer etrnl-executor etrnl-investigator etrnl-quality-reviewer etrnl-scout etrnl-spec-reviewer; do
@@ -106,6 +114,20 @@ if ! stale_update_json="$(node "$CLAUDE_HOME/scripts/update-check.mjs" --json 2>
   exit 1
 fi
 assert_json_expr "post-install: stale metadata detects update" "$stale_update_json" '.ok == true and .localUpdateAvailable == true'
+
+pre_rollback_settings="$(cksum "$CLAUDE_HOME/settings.json")"
+if "$CLAUDE_HOME/scripts/rollback-local.sh" --dry-run >/dev/null; then
+  ok "rollback dry-run succeeds"
+else
+  not_ok "rollback dry-run succeeds"
+fi
+post_rollback_settings="$(cksum "$CLAUDE_HOME/settings.json")"
+if [[ "$pre_rollback_settings" == "$post_rollback_settings" ]]; then
+  ok "rollback dry-run leaves settings unchanged"
+else
+  not_ok "rollback dry-run leaves settings unchanged"
+fi
+assert_file "rollback dry-run leaves installed agent in place" "$CLAUDE_HOME/agents/etrnl-executor.md"
 
 "$CLAUDE_HOME/scripts/rollback-local.sh" >/dev/null
 for agent in etrnl-adversary etrnl-browser-qa etrnl-design-reviewer etrnl-dx-reviewer etrnl-executor etrnl-investigator etrnl-quality-reviewer etrnl-scout etrnl-spec-reviewer; do

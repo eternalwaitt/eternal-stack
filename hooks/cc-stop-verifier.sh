@@ -565,6 +565,26 @@ else:
       cc_json_block "etrnl-execute multi-file source completion needs reviewer subagent evidence. Run etrnl-spec-reviewer and etrnl-quality-reviewer after implementation, then include the review evidence before claiming completion."
       exit 0
       ;;
+    missing-tdd-evidence)
+      cc_json_block "etrnl-execute source completion needs TDD evidence. Record a red/green verification row, or an explicit not-test-first rationale, before claiming completion."
+      exit 0
+      ;;
+    missing-simplifier)
+      cc_json_block "etrnl-execute non-trivial source completion needs code-simplifier evidence. Run or record the simplifier pass after implementation before claiming completion."
+      exit 0
+      ;;
+    missing-reuse-binding)
+      cc_json_block "etrnl-execute created new source files without reuse binding evidence. Record searched paths, existing analogs, the reuse decision, and new-surface justification before claiming completion."
+      exit 0
+      ;;
+    missing-type-review)
+      cc_json_block "etrnl-execute touched a TypeScript contract/schema/state boundary without advanced TypeScript disposition. Run or record typescript-advanced-types evidence before claiming completion."
+      exit 0
+      ;;
+    missing-install-proof)
+      cc_json_block "etrnl-execute touched control-plane install surfaces without install proof. Record source gate, staged install/doctor/canary, and rollback evidence, or state the explicit blocker."
+      exit 0
+      ;;
   esac
   if jq -e '
     def source_edit_count:

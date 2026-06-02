@@ -43,9 +43,10 @@ Lead with findings. Treat the original request, written plan, actual diff, insta
 For non-trivial plan, autoplan, or review work:
 
 - Run CEO, engineering, DX, adversarial, specialist, reuse, simplifier, and findings convergence.
+- Verify `reviewPhases[]`, `tddEvidence[]`, `completionReconciliation[]`, `reuseBindings[]`, `typeTriggerEvidence[]`, and `installProof` when the artifact declares them required.
 - Keep execution risk tiers out of planning shortcuts. Tiers apply only after deep review passes.
 - Block completion while any high/blocker finding is open, unless Victor explicitly accepts the risk.
-- Review completion with a `DONE`, `PARTIAL`, `NOT_DONE`, or `CHANGED` audit when an implementation plan exists.
+- Review completion with a `DONE`, `PARTIAL`, `NOT_DONE`, `CHANGED`, or `BLOCKED` audit when an implementation plan exists.
 - Verify that source manifests are sanitized and do not include `/tmp`, home paths, transcripts, account material, or secrets.
 
 ## Research Flow (required_process)
@@ -64,11 +65,12 @@ When reviewing strategy decisions, new skill designs, or hook behavior changes:
 When reviewing implementation work:
 
 1. Confirm that failing tests were recorded before fixes were applied. If test evidence is missing, flag as a process gap.
-2. For any new code path that lacks tests: flag as a missing coverage finding with the specific file and behavior that must be tested.
+2. Confirm `tddEvidence[]` or ledger `record-tdd` rows include red command/status/failure and green command/status, or a specific not-test-first rationale.
+3. For any new code path that lacks tests: flag as a missing coverage finding with the specific file and behavior that must be tested.
 
 ## Verification Gate (hook_enforced)
 
-`hooks/cc-stop-verifier.sh` enforces completion-time evidence only: it blocks completion if edits exist but no verification/test run is recorded in guard state. It does not prove red-before-green ordering; reviewers still enforce that via the TDD Review Protocol above.
+`hooks/cc-stop-verifier.sh` enforces completion-time evidence only: it blocks completion if edits exist but no verification/test run is recorded in guard state, and `/etrnl-execute` source edits now require task-bound agent/reviewer, TDD, simplifier, reuse, TypeScript trigger, and install-proof evidence where triggered. It does not prove semantic red-before-green correctness; reviewers still enforce that via the TDD Review Protocol above.
 
 ## Finding Format
 

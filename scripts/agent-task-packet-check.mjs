@@ -42,6 +42,12 @@ if (templateIndex !== -1) {
       specReviewRequired: true,
       qualityReviewRequired: true,
       simplifierReviewRequired: false,
+      tddRequired: false,
+      tddEvidence: "red/green evidence row or not-applicable rationale",
+      reuseArtifact: "reuse binding artifact path or existing analog decision",
+      createsNewSurface: false,
+      newSurfaceJustification: "",
+      simplifierEvidence: "code-simplifier evidence row or not applicable for tiny/no-source work",
       integrationOwner: "parent agent",
       expectedDiffShape: "Small patch within writeScope plus tests/docs needed for the change.",
       deepStackExecution: false,
@@ -84,6 +90,12 @@ const fieldAliases = new Map([
   ["spec_review_required", "specReviewRequired"],
   ["quality_review_required", "qualityReviewRequired"],
   ["simplifier_review_required", "simplifierReviewRequired"],
+  ["tdd_required", "tddRequired"],
+  ["tdd_evidence", "tddEvidence"],
+  ["reuse_artifact", "reuseArtifact"],
+  ["creates_new_surface", "createsNewSurface"],
+  ["new_surface_justification", "newSurfaceJustification"],
+  ["simplifier_evidence", "simplifierEvidence"],
   ["integration_owner", "integrationOwner"],
   ["expected_diff_shape", "expectedDiffShape"],
   ["deep_stack_execution", "deepStackExecution"],
@@ -220,13 +232,13 @@ if ("reviewers" in packet) {
   }
 }
 
-for (const key of ["specReviewRequired", "qualityReviewRequired", "simplifierReviewRequired", "deepStackExecution"]) {
+for (const key of ["specReviewRequired", "qualityReviewRequired", "simplifierReviewRequired", "deepStackExecution", "tddRequired", "createsNewSurface"]) {
   if (key in packet && typeof packet[key] !== "boolean") {
     violations.push(`${key} must be a boolean`);
   }
 }
 
-for (const key of ["integrationOwner", "expectedDiffShape"]) {
+for (const key of ["integrationOwner", "expectedDiffShape", "tddEvidence", "reuseArtifact", "newSurfaceJustification", "simplifierEvidence"]) {
   if (key in packet && (typeof packet[key] !== "string" || packet[key].trim().length === 0)) {
     violations.push(`${key} must be a non-empty string`);
   }
@@ -320,12 +332,22 @@ if (mode === "write" && "writeScope" in packet && "forbiddenPaths" in packet) {
   }
 }
 
+if (mode === "write" && packet.createsNewSurface === true) {
+  if (!("reuseArtifact" in packet)) missing.push("reuseArtifact");
+  if (!("newSurfaceJustification" in packet)) missing.push("newSurfaceJustification");
+}
+
+if (mode === "write" && packet.tddRequired === true && !("tddEvidence" in packet)) {
+  missing.push("tddEvidence");
+}
+
 if (mode === "write" && packet.deepStackExecution === true) {
   const reviewers = Array.isArray(packet.reviewers) ? packet.reviewers : [];
-  for (const key of ["deepStackArtifacts", "riskTier", "completionEvidence"]) {
+  for (const key of ["deepStackArtifacts", "riskTier", "completionEvidence", "tddEvidence", "reuseArtifact", "simplifierEvidence"]) {
     if (!(key in packet)) missing.push(key);
   }
   if (packet.simplifierReviewRequired !== true) missing.push("simplifierReviewRequired");
+  if (packet.tddRequired !== true) missing.push("tddRequired");
   if (packet.specReviewRequired !== true) missing.push("specReviewRequired");
   if (packet.qualityReviewRequired !== true) missing.push("qualityReviewRequired");
   if (packet.specReviewRequired === true && !reviewers.includes("etrnl-spec-reviewer")) {
@@ -352,6 +374,15 @@ if (mode === "write" && packet.deepStackExecution === true) {
   }
   if (typeof packet.completionEvidence !== "string" || packet.completionEvidence.trim().length === 0) {
     violations.push("completionEvidence must be a non-empty string when deepStackExecution is true");
+  }
+  if (typeof packet.tddEvidence !== "string" || packet.tddEvidence.trim().length === 0) {
+    violations.push("tddEvidence must be a non-empty string when deepStackExecution is true");
+  }
+  if (typeof packet.reuseArtifact !== "string" || packet.reuseArtifact.trim().length === 0) {
+    violations.push("reuseArtifact must be a non-empty string when deepStackExecution is true");
+  }
+  if (typeof packet.simplifierEvidence !== "string" || packet.simplifierEvidence.trim().length === 0) {
+    violations.push("simplifierEvidence must be a non-empty string when deepStackExecution is true");
   }
 }
 

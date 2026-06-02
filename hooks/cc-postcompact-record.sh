@@ -17,5 +17,5 @@ if [[ -n "$summary" ]]; then
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   # Escape the jq variable so the shell leaves the literal $summary for jq.
   cc_state_update --arg summary "$summary" --arg now "$now" \
-    '.lastCompactSummary = $summary | .lastCompactAt = $now | .compactCount = ((.compactCount // 0) + 1)'
+    ".lastCompactSummary = \$summary | .lastCompactAt = \$now | .compactCount = ((.compactCount // 0) + 1)"
 fi

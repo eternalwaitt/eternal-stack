@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.1.22 - 2026-06-02
+
+- Add the ETRNL stack findings report and all-phases gap-closure implementation plan for binding remaining planning/review/TDD/subagent/simplifier/TypeScript/install/completion-audit promises to deterministic evidence.
+- Implement the gap-closure enforcement: deep-stack artifacts now validate review phase records, TDD evidence, completion reconciliation, reuse bindings, TypeScript trigger evidence, and install proof; task packets and ledgers require reuse/TDD/simplifier/completion/install rows for triggered write work; `/etrnl-execute` stop checks block missing TDD, simplifier, reuse, advanced TypeScript, and install evidence.
 - Fail closed on final planning artifacts without `Deep stack artifacts:` by default, add an explicit legacy transition flag, require a `## Test-first execution plan`, and make `/etrnl-execute` source edits TDD-first with red/green evidence before phase gates.
 - Add the Hybrid Deep Stack plan/review/execute contract: final plans validate `Deep stack artifacts:` through one consolidated `deep-stack-check.mjs`, with sanitized source manifests, skill matrices, reuse inventories, findings ledgers, completion audits, Hybrid risk tiers, conditional advanced TypeScript review, staged-install requirements, install parity, and structured repair errors.
 - Harden the Claude/Codex session-friction loop: Codex RTK rewrites now use `updatedInput`, unsafe `rg` forms proxy through RTK before execution, broad `.codex` memory scans are blocked, `/etrnl-disk-cleanup` uses a trash-only workflow, and advice/search completions use dated source evidence instead of repo preflight language.

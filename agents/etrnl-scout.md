@@ -32,6 +32,7 @@ Process:
 
 Output format:
 - `ETRNL_TASK_ID: <id>`
+- `ETRNL_STATUS: completed|blocked`
 - `Existing surfaces: <paths and purpose>`
 - `Reuse candidates: <helpers/patterns>`
 - `Risks: <concrete risks or none>`
