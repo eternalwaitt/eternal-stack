@@ -1,6 +1,6 @@
 /**
  * Parses a strictly positive decimal integer from an environment value.
- * Rejects null, undefined, whitespace, non-decimal formats, and non-positive values.
+ * Rejects null, undefined, whitespace, non-decimal formats, unsafe integers, and non-positive values.
  * Example: positiveEnvInt("10", 1) returns 10; positiveEnvInt("1e3", 1) returns 1.
  * @param {string|number|null|undefined} raw - Raw environment value to parse.
  * @param {number|undefined} fallback - Value returned when raw is invalid.
@@ -9,7 +9,7 @@
 export function positiveEnvInt(raw, fallback) {
   if (!/^\d+$/.test(String(raw ?? ""))) return fallback;
   const value = Number(raw);
-  return Number.isInteger(value) && value > 0 ? value : fallback;
+  return Number.isSafeInteger(value) && value > 0 ? value : fallback;
 }
 
 /**

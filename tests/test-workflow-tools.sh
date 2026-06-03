@@ -333,6 +333,14 @@ assert_command "env utils rejects non-decimal integers" env \
   node --input-type=module -e 'import { gitSubprocessLimits } from "./scripts/lib/env-utils.mjs";
 const limits = gitSubprocessLimits({ timeoutMs: 1, maxBufferBytes: 2 });
 if (limits.timeout !== 456 || limits.maxBuffer !== 111) process.exit(1);'
+assert_command "env utils rejects unsafe integers" env \
+  CLAUDE_CONTROL_PLANE_GIT_TIMEOUT_MS=9007199254740993 \
+  GIT_TIMEOUT_MS=456 \
+  CLAUDE_CONTROL_PLANE_GIT_MAX_BUFFER_BYTES=9007199254740993 \
+  GIT_MAX_BUFFER_BYTES=111 \
+  node --input-type=module -e 'import { gitSubprocessLimits } from "./scripts/lib/env-utils.mjs";
+const limits = gitSubprocessLimits({ timeoutMs: 1, maxBufferBytes: 2 });
+if (limits.timeout !== 456 || limits.maxBuffer !== 111) process.exit(1);'
 assert_command "code-health inventory syntax" node --check "$ROOT/scripts/code-health-inventory.mjs"
 if git -C "$ROOT" rev-parse --show-toplevel >/dev/null 2>&1; then
   assert_command "code-health inventory runs" node "$ROOT/scripts/code-health-inventory.mjs" --json
