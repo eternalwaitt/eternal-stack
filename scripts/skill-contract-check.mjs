@@ -153,13 +153,13 @@ function assertDirectiveLanguage(file, text) {
 function assertMandatoryRulesNameEnforcement(file, text) {
   const relPath = path.relative(root, file) || file;
   const lines = text.split(/\r?\n/);
-  const enforcementPattern =
-    /\b(hook|script|validator|ledger(?:\s+command)?|command|mechanical\s+gate|[A-Za-z0-9_.-]+\.mjs|[A-Za-z0-9_.-]+\.sh)\b/i;
+  const namedMechanismPattern =
+    /\b([A-Za-z0-9_.-]+\.mjs|[A-Za-z0-9_.-]+\.sh|mechanical\s+gate|ledger\s+command\s+[A-Za-z0-9_.:-]+|hook\s+[A-Za-z0-9_.:-]+|validator\s+[A-Za-z0-9_.:-]+)\b/i;
   for (let index = 0; index < lines.length; index += 1) {
     if (!/\bmandatory rules?\b/i.test(lines[index])) continue;
     const nearby = lines.slice(Math.max(0, index - 1), Math.min(lines.length, index + 2)).join("\n");
-    if (!enforcementPattern.test(nearby)) {
-      fail(`${relPath}:${index + 1}: mandatory rules must name a hook, script, validator, ledger, command, or mechanical gate`);
+    if (!namedMechanismPattern.test(nearby)) {
+      fail(`${relPath}:${index + 1}: mandatory rules must name a concrete hook, script, validator, ledger command, or mechanical gate`);
     }
   }
 }
@@ -237,10 +237,18 @@ for (const heading of REQUIRED_PLAN_HEADINGS) {
   if (planContent && !planContent.includes(heading.replace("Status: Final", "Status: Draft"))) fail(`etrnl-plan missing required readiness concept: ${heading}`);
 }
 if (planContent) {
-  const hasMandatoryBehavior = hasKeywords(planContent, ["mandatory behavior"]);
-  const hasAnyMechanism =
-    /\b(hook|script|validator|ledger(?:\s+command)?|command|mechanical\s+gate|[A-Za-z0-9_.-]+\.mjs|[A-Za-z0-9_.-]+\.sh)\b/i.test(planContent);
-  if (!hasMandatoryBehavior || !hasAnyMechanism) {
+  const lines = planContent.split(/\r?\n/);
+  const namedMechanismPattern =
+    /\b([A-Za-z0-9_.-]+\.mjs|[A-Za-z0-9_.-]+\.sh|mechanical\s+gate|ledger\s+command\s+[A-Za-z0-9_.:-]+|hook\s+[A-Za-z0-9_.:-]+|validator\s+[A-Za-z0-9_.:-]+)\b/i;
+  let hasMandatoryBehavior = false;
+  let hasLinkedMechanism = false;
+  for (let index = 0; index < lines.length; index += 1) {
+    if (!/\bmandatory behavior\b/i.test(lines[index])) continue;
+    hasMandatoryBehavior = true;
+    const nearby = lines.slice(Math.max(0, index - 1), Math.min(lines.length, index + 2)).join("\n");
+    if (namedMechanismPattern.test(nearby)) hasLinkedMechanism = true;
+  }
+  if (!hasMandatoryBehavior || !hasLinkedMechanism) {
     fail("etrnl-plan missing mandatory-behavior mechanical enforcement contract");
   }
 }

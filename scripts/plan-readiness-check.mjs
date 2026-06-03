@@ -105,9 +105,8 @@ function requireSectionPattern(sectionName, failureName, pattern, message) {
 function taskGroupBodies() {
   const body = sectionBody('Task groups').trim();
   if (!body) return [];
-  const groups = body
-    .split(/(?=^###\s+)/m)
-    .map((group) => group.trim())
+  const groups = [...body.matchAll(/^###\s+[\s\S]*?(?=^###\s+|(?![\s\S]))/gm)]
+    .map((match) => match[0].trim())
     .filter(Boolean);
   return groups.length > 0 ? groups : [body];
 }
@@ -127,7 +126,7 @@ function requireExecutableTaskGroups() {
 function requireTestFirstPlan() {
   const body = sectionBody('Test-first execution plan');
   const hasRedGreen = /\bRed:\s*\S[\s\S]*\bGreen:\s*\S/i.test(body);
-  const hasRationale = /\b(Not[- ]applicable|Rationale):?\s*\S/i.test(body);
+  const hasRationale = /\b(Not[- ]applicable|Rationale|Because|Cannot|Docs[- ]only|Fixture[- ]only|No source):?\s+\S/i.test(body);
   if (!hasRedGreen && !hasRationale) {
     addFailure(
       'test_first_red_green',
