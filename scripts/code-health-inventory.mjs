@@ -51,7 +51,7 @@ function checkGit() {
   const result = spawnSync("git", ["--version"], {
     encoding: "utf8",
     timeout: GIT_TIMEOUT_MS,
-    maxBuffer: 1024 * 1024,
+    maxBuffer: GIT_MAX_BUFFER,
   });
   if (result.status !== 0 || result.error) {
     fail("git is not available in PATH");

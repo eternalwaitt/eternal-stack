@@ -726,6 +726,7 @@ assert_json_expr "project buglog suggest includes guard recommendation" "$buglog
 buglog_project_json="$(CLAUDE_CONTROL_PLANE_BUGLOG="$buglog_path" node "$ROOT/scripts/project-buglog.mjs" suggest-project --cwd "$TMPROOT/project" --json)"
 assert_json_expr "project buglog project hints omit raw cwd" "$buglog_project_json" '.project == "project" and (.cwd | not) and (.suggestions | length) == 1'
 assert_json_expr "project buglog aggregates repeated lessons" "$buglog_project_json" '.suggestions[0].kind == "aggregate" and .suggestions[0].affectedFilesCount == 3 and (.suggestions[0].recentFiles | length) == 3'
+assert_json_expr "project buglog aggregate carries display file" "$buglog_project_json" '(.suggestions[0].file | type == "string" and length > 0)'
 if rg -F "$BUGLOG_TOKEN" "$buglog_path" >/dev/null || rg -F "$aws_secret_value" "$buglog_path" >/dev/null || printf '%s' "$buglog_json" | rg -F "$aws_secret_value" >/dev/null; then
   not_ok "project buglog redacts token-like values"
 else

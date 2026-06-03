@@ -125,6 +125,7 @@ function aggregateSuggestionFor(cwd, entries) {
   const recentFiles = [...new Set(sorted.slice().reverse().map((entry) => entry.file))].slice(0, 5);
   return {
     kind: "aggregate",
+    file: latest.file || "",
     category: latest.category,
     summary: redactText(latest.summary),
     severity: severityFor(latest),
