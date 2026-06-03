@@ -241,14 +241,15 @@ if (planContent) {
   const namedMechanismPattern =
     /\b([A-Za-z0-9_.-]+\.mjs|[A-Za-z0-9_.-]+\.sh|mechanical\s+gate|ledger\s+command\s+[A-Za-z0-9_.:-]+|hook\s+[A-Za-z0-9_.:-]+|validator\s+[A-Za-z0-9_.:-]+)\b/i;
   let hasMandatoryBehavior = false;
-  let hasLinkedMechanism = false;
   for (let index = 0; index < lines.length; index += 1) {
     if (!/\bmandatory behavior\b/i.test(lines[index])) continue;
     hasMandatoryBehavior = true;
     const nearby = lines.slice(Math.max(0, index - 1), Math.min(lines.length, index + 2)).join("\n");
-    if (namedMechanismPattern.test(nearby)) hasLinkedMechanism = true;
+    if (!namedMechanismPattern.test(nearby)) {
+      fail("etrnl-plan missing mandatory-behavior mechanical enforcement contract");
+    }
   }
-  if (!hasMandatoryBehavior || !hasLinkedMechanism) {
+  if (!hasMandatoryBehavior) {
     fail("etrnl-plan missing mandatory-behavior mechanical enforcement contract");
   }
 }
