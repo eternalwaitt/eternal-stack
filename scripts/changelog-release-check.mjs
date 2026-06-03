@@ -7,7 +7,11 @@ import { fileURLToPath } from "node:url";
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
 const GIT_TIMEOUT_MS = 10_000;
-const GIT_MAX_BUFFER = 1024 * 1024;
+const DEFAULT_GIT_MAX_BUFFER = 1024 * 1024;
+const configuredGitMaxBuffer = Number.parseInt(process.env.GIT_MAX_BUFFER_BYTES || process.env.GIT_MAX_BUFFER || "", 10);
+const GIT_MAX_BUFFER = Number.isFinite(configuredGitMaxBuffer) && configuredGitMaxBuffer > 0
+  ? configuredGitMaxBuffer
+  : DEFAULT_GIT_MAX_BUFFER;
 
 function argValue(flag, fallback = "") {
   const index = args.indexOf(flag);

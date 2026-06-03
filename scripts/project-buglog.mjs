@@ -146,12 +146,9 @@ function aggregateSuggestionFor(cwd, entries) {
   };
 }
 
-function projectSuggestions(cwd, entries, limit) {
+function projectSuggestions(cwd, entries, limit, threshold) {
   const normalizedLimit = Math.max(1, Number.isFinite(limit) ? limit : 5);
-  const aggregateThreshold = Math.max(
-    2,
-    Number.parseInt(argValue(args, "--aggregate-threshold", "3"), 10) || 3,
-  );
+  const aggregateThreshold = Math.max(2, Number.isFinite(threshold) ? threshold : 3);
   const groups = new Map();
   for (const entry of entries) {
     const key = [entry.category, normalizeSummary(entry.summary)].join("\0");
@@ -266,12 +263,13 @@ function latestUnique(entries) {
 function suggestProject() {
   const cwd = path.resolve(argValue(args, "--cwd", process.cwd()));
   const limit = Number.parseInt(argValue(args, "--limit", "5"), 10);
+  const aggregateThreshold = Number.parseInt(argValue(args, "--aggregate-threshold", "3"), 10) || 3;
   const entries = latestUnique(
     readEntries(buglogPath())
       .filter((entry) => entry.cwd === cwd)
       .filter(freshEnough),
   );
-  const suggestions = projectSuggestions(cwd, entries, limit);
+  const suggestions = projectSuggestions(cwd, entries, limit, aggregateThreshold);
   if (jsonMode) {
     console.log(JSON.stringify({
       schemaVersion: 1,

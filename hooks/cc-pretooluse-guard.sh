@@ -860,7 +860,7 @@ handle_serena_search_for_pattern() {
   if [[ -z "$rel_path" || "$rel_path" == "." ]] && [[ -z "$include_glob" ]]; then
     deny "Serena search_for_pattern must be scoped before execution. Set relative_path to a specific subdirectory/file or provide paths_include_glob."
   fi
-  if [[ -z "$max_chars" || ! "$max_chars" =~ ^[0-9]+$ || "$max_chars" -gt 20000 ]]; then
+  if [[ -z "$max_chars" || ! "$max_chars" =~ ^[0-9]+$ || "$max_chars" -lt 1 || "$max_chars" -gt 20000 ]]; then
     deny "Serena search_for_pattern must set max_answer_chars to a positive value no greater than 20000."
   fi
   if [[ -n "$before_lines" && "$before_lines" =~ ^[0-9]+$ && "$before_lines" -gt 5 ]]; then

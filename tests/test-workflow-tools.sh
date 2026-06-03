@@ -422,6 +422,15 @@ settings_audit_home="$TMPROOT/settings-audit-home"
 settings_audit_project="$TMPROOT/settings-audit-project"
 mkdir -p "$settings_audit_home/.claude/hooks" "$settings_audit_project/.claude/hooks"
 printf '%s\n' '#!/usr/bin/env bash' '# rtk-hook-version: 3' >"$settings_audit_home/.claude/hooks/rtk-rewrite.sh"
+cat >"$settings_audit_project/.claude/hooks/check-context-and-handoff.sh" <<'BASH'
+#!/usr/bin/env bash
+jq -cn --arg text "context" '{
+  hookSpecificOutput: {
+    hookEventName: "Stop",
+    additionalContext: $text
+  }
+}'
+BASH
 printf '%s\n' "{\"hooks\":{\"PostToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"bash $settings_audit_home/.claude/hooks/rate-limiter.sh\"}]},{\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/rate-limiter.sh.backup\"}]},{\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/cc-rate-limiter.sh\",\"timeout\":5}]}],\"PreToolUse\":[{\"matcher\":\"Bash\",\"hooks\":[{\"type\":\"command\",\"command\":\"~/.claude/hooks/rtk-rewrite.sh\"}]},{\"matcher\":\"Bash\",\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/enforce-cli-toolkit.sh\"}]},{\"matcher\":\"Bash\",\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/custom-local-guard.sh\"}]},{\"matcher\":\"Task|Agent\",\"hooks\":[{\"type\":\"command\",\"command\":\"bash $settings_audit_home/.claude/hooks/cc-pretooluse-guard.sh\",\"timeout\":5}]},{\"matcher\":\"Task|TaskCreate|Agent\",\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/cc-pretooluse-guard.sh\",\"timeout\":10}]}],\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"bash $settings_audit_project/.claude/hooks/check-context-and-handoff.sh\"}]}]}}" >"$settings_audit_target"
 HOME="$settings_audit_home" node "$ROOT/scripts/settings-audit.mjs" "$settings_audit_target" --fix
 assert_json_expr "settings-audit rewrites legacy rate limiter" "$(jq -c . "$settings_audit_target")" '([.hooks.PostToolUse[].hooks[].command] | map(select(test("/rate-limiter\\.sh$"))) | length) == 0'
