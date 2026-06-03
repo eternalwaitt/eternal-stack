@@ -2,6 +2,7 @@
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { classifyAuditPathExclusion } from "./lib/audit-exclusions.mjs";
+import { positiveEnvInt } from "./lib/env-utils.mjs";
 
 const args = process.argv.slice(2);
 let json = false;
@@ -14,11 +15,6 @@ const DEFAULT_GIT_MAX_BUFFER = 20 * 1024 * 1024;
 // Preferred env names are GIT_TIMEOUT_MS and GIT_MAX_BUFFER_BYTES.
 const GIT_TIMEOUT_MS = positiveEnvInt(process.env.GIT_TIMEOUT_MS, DEFAULT_GIT_TIMEOUT_MS);
 const GIT_MAX_BUFFER = positiveEnvInt(process.env.GIT_MAX_BUFFER_BYTES || process.env.GIT_MAX_BUFFER, DEFAULT_GIT_MAX_BUFFER);
-
-function positiveEnvInt(raw, fallback) {
-  const value = Number.parseInt(raw || "", 10);
-  return Number.isFinite(value) && value > 0 ? value : fallback;
-}
 
 for (const arg of args) {
   if (arg === "--json") json = true;

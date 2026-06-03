@@ -3,17 +3,16 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { positiveEnvInt } from "./lib/env-utils.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
-const GIT_TIMEOUT_MS = 10_000;
+const DEFAULT_GIT_TIMEOUT_MS = 10_000;
 const DEFAULT_GIT_MAX_BUFFER = 1024 * 1024;
+const GIT_TIMEOUT_MS = positiveEnvInt(process.env.GIT_TIMEOUT_MS, DEFAULT_GIT_TIMEOUT_MS);
 // Prefer GIT_MAX_BUFFER_BYTES; GIT_MAX_BUFFER is a legacy fallback.
 const rawGitMaxBuffer = process.env.GIT_MAX_BUFFER_BYTES || process.env.GIT_MAX_BUFFER || "";
-const configuredGitMaxBuffer = Number.parseInt(rawGitMaxBuffer, 10);
-const GIT_MAX_BUFFER = Number.isFinite(configuredGitMaxBuffer) && configuredGitMaxBuffer > 0
-  ? configuredGitMaxBuffer
-  : DEFAULT_GIT_MAX_BUFFER;
+const GIT_MAX_BUFFER = positiveEnvInt(rawGitMaxBuffer, DEFAULT_GIT_MAX_BUFFER);
 
 function argValue(flag, fallback = "") {
   const index = args.indexOf(flag);

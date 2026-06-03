@@ -69,6 +69,7 @@ CRITICAL_SCRIPTS=(
   lib/cli-args.mjs
   lib/codex-memory-scan.sh
   lib/deep-stack-artifacts.mjs
+  lib/env-utils.mjs
   lib/evidence-trace.mjs
   lib/plan-headings.mjs
   lib/text-matchers.mjs

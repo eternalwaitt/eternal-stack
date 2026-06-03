@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
+import { positiveEnvInt } from "./lib/env-utils.mjs";
 
 const args = process.argv.slice(2);
 const command = args[0] ?? "help";
@@ -11,11 +12,6 @@ const DEFAULT_GIT_TIMEOUT_MS = 5_000;
 const DEFAULT_GIT_MAX_BUFFER = 5 * 1024 * 1024;
 const GIT_TIMEOUT_MS = positiveEnvInt(process.env.GIT_TIMEOUT_MS, DEFAULT_GIT_TIMEOUT_MS);
 const GIT_MAX_BUFFER = positiveEnvInt(process.env.GIT_MAX_BUFFER_BYTES || process.env.GIT_MAX_BUFFER, DEFAULT_GIT_MAX_BUFFER);
-
-function positiveEnvInt(raw, fallback) {
-  const value = Number.parseInt(raw || "", 10);
-  return Number.isFinite(value) && value > 0 ? value : fallback;
-}
 
 function argValue(flag, fallback = "") {
   const index = args.indexOf(flag);
