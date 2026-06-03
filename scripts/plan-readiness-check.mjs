@@ -86,8 +86,20 @@ function repairHintFor(name, message) {
       'Rename "Immediate First Patch" to an explicit phase, or set Execution scope: first_patch_only if the plan is intentionally partial.',
     plan_too_large:
       'Add ## Execution Digest or ## Plan Index with chunk/subplan boundaries, then move oversized detail into referenced artifacts.',
+    task_groups_executable:
+      'In ## Task groups, add owner, dependencies, acceptance criteria, and verification fields for executable handoff.',
+    test_first_red_green:
+      'In ## Test-first execution plan, add Red and Green rows or a concrete not-applicable rationale.',
+    verification_commands:
+      'In ## Verification gates, add exact commands or live checks with expected results.',
   };
   return hintMap[name] ?? `Fix: ${message}`;
+}
+
+function requireSectionPattern(sectionName, failureName, pattern, message) {
+  if (!pattern.test(sectionBody(sectionName))) {
+    addFailure(failureName, message);
+  }
 }
 
 function requireStatusHeading(allowDraftMode) {
@@ -190,6 +202,27 @@ for (const [name, pattern, message] of readinessChecks) {
   if (!pattern.test(readinessReport)) {
     addFailure(name, message);
   }
+}
+
+if (isFinal) {
+  requireSectionPattern(
+    'Task groups',
+    'task_groups_executable',
+    /\bOwner:\s*\S[\s\S]*\bDependencies:\s*\S[\s\S]*\bAcceptance(?: criteria)?:\s*\S[\s\S]*\bVerification:\s*\S/i,
+    'Task groups must include owner, dependencies, acceptance criteria, and verification fields.',
+  );
+  requireSectionPattern(
+    'Test-first execution plan',
+    'test_first_red_green',
+    /(\bRed:\s*\S[\s\S]*\bGreen:\s*\S|\bNot[- ]applicable:\s*\S)/i,
+    'Test-first execution plan must include Red and Green rows or a concrete not-applicable rationale.',
+  );
+  requireSectionPattern(
+    'Verification gates',
+    'verification_commands',
+    /(`[^`]+`|^\s*-\s*(?:node|npm|pnpm|yarn|bun|bash|sh|scripts\/|\.\/scripts\/|curl|gh|git)\b)/im,
+    'Verification gates must include exact commands or live checks.',
+  );
 }
 
 const optionalMetadata = {

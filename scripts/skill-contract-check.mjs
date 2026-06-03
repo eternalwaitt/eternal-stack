@@ -150,6 +150,19 @@ function assertDirectiveLanguage(file, text) {
   }
 }
 
+function assertMandatoryRulesNameEnforcement(file, text) {
+  const relPath = path.relative(root, file) || file;
+  const lines = text.split(/\r?\n/);
+  const enforcementPattern = /\b(hook|script|validator|check|gate|ledger|command|\.mjs|\.sh|mechanical|enforcement)\b/i;
+  for (let index = 0; index < lines.length; index += 1) {
+    if (!/\bmandatory rules?\b/i.test(lines[index])) continue;
+    const nearby = lines.slice(Math.max(0, index - 1), Math.min(lines.length, index + 2)).join("\n");
+    if (!enforcementPattern.test(nearby)) {
+      fail(`${relPath}:${index + 1}: mandatory rules must name a hook, script, validator, ledger, command, or mechanical gate`);
+    }
+  }
+}
+
 const skillListsPath = path.join(root, "scripts/lib/skill-lists.sh");
 assertFile(skillListsPath, "skill list");
 const skillLists = read(skillListsPath);
@@ -182,8 +195,11 @@ for (const skill of ownedSkills) {
   const relSkillPath = path.relative(root, skillPath) || `skills/${skill}/SKILL.md`;
   const text = read(skillPath);
   assertDirectiveLanguage(skillPath, text);
+  assertMandatoryRulesNameEnforcement(skillPath, text);
   for (const referencePath of markdownFilesUnder(path.join(skillsDir, skill, "references"))) {
-    assertDirectiveLanguage(referencePath, read(referencePath));
+    const referenceText = read(referencePath);
+    assertDirectiveLanguage(referencePath, referenceText);
+    assertMandatoryRulesNameEnforcement(referencePath, referenceText);
   }
   const frontmatterName = skillFrontmatterName(text, relSkillPath);
   if (frontmatterName !== skill) fail(`${relSkillPath}: frontmatter name is ${frontmatterName || "<missing>"}, expected ${skill}`);
@@ -218,6 +234,9 @@ const planContent = existsSync(plan) ? read(plan) : "";
 for (const heading of REQUIRED_PLAN_HEADINGS) {
   if (autoplanContent && !autoplanContent.includes(heading)) fail(`etrnl-autoplan missing required readiness heading: ${heading}`);
   if (planContent && !planContent.includes(heading.replace("Status: Final", "Status: Draft"))) fail(`etrnl-plan missing required readiness concept: ${heading}`);
+}
+if (planContent && !hasKeywords(planContent, ["mandatory behavior", "mechanical", "hook", "script", "validator", "ledger"])) {
+  fail("etrnl-plan missing mandatory-behavior mechanical enforcement contract");
 }
 
 const executePath = path.join(skillsDir, "etrnl-execute", "SKILL.md");

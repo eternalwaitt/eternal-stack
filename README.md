@@ -71,6 +71,7 @@ node scripts/replay-hook-fixtures.mjs
 `port-guard.mjs pick` scans the `--start` to `--end` range, defaulting from `CLAUDE_GUARD_PORT_START` and `CLAUDE_GUARD_PORT_END`. Keep ranges narrow because `pickPort` calls `portIsFree` for each candidate; if hundreds of ports are occupied, narrow the range before considering a shorter timeout or parallel probing.
 
 Use `docs/control-plane-coverage.md` to compare the repo against the original implementation plan and identify live-gated operations.
+Use `docs/adr/README.md` for durable architecture and documentation-system decisions; `docs/plans/` remains historical implementation evidence.
 
 ## Safety
 

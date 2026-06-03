@@ -355,6 +355,45 @@ if (
   fail("task packet checker reports missing required fields", incompletePacketOutput);
 }
 
+const parallelTaskPacket = {
+  tool_input: {
+    packet: {
+      ...validTaskPacket.tool_input.packet,
+      writeScope: ["scripts/a.mjs", "scripts/b.mjs"],
+      reviewers: ["etrnl-spec-reviewer", "etrnl-quality-reviewer"],
+      specReviewRequired: true,
+      qualityReviewRequired: true,
+      integrationOwner: "parent agent",
+      expectedDiffShape: "Two bounded script updates plus focused tests.",
+      waveId: "wave-1",
+      waveSize: 2,
+      parallelSafe: true,
+    },
+  },
+};
+const parallelLifecycleOutput = expectFail(
+  "task packet checker rejects parallel packet without lifecycle receipt",
+  "node",
+  [script("agent-task-packet-check.mjs")],
+  { input: JSON.stringify(parallelTaskPacket) },
+);
+if (
+  parallelLifecycleOutput.includes("maxConcurrentLanes")
+  && parallelLifecycleOutput.includes("nativeChildAgents")
+  && parallelLifecycleOutput.includes("completionReceipt")
+) {
+  ok("task packet checker reports missing lifecycle receipt fields");
+} else {
+  fail("task packet checker reports missing lifecycle receipt fields", parallelLifecycleOutput);
+}
+parallelTaskPacket.tool_input.packet.maxConcurrentLanes = 2;
+parallelTaskPacket.tool_input.packet.nativeChildAgents = "forbidden";
+parallelTaskPacket.tool_input.packet.completionReceiptRequired = true;
+parallelTaskPacket.tool_input.packet.completionReceipt = "changed files, verification commands, result status, blockers, and follow-up ownership";
+expectPass("task packet checker accepts parallel lifecycle contract", "node", [script("agent-task-packet-check.mjs")], {
+  input: JSON.stringify(parallelTaskPacket),
+});
+
 const waveInput = JSON.stringify({
   useWorktrees: true,
   submodules: ["vendor/lib"],

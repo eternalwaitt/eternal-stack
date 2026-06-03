@@ -28,7 +28,14 @@
       "specReviewRequired": true,
       "qualityReviewRequired": true,
       "integrationOwner": "parent agent",
-      "expectedDiffShape": "two-script patch plus focused workflow tests"
+      "expectedDiffShape": "two-script patch plus focused workflow tests",
+      "waveId": "wave-1",
+      "waveSize": 2,
+      "parallelSafe": true,
+      "maxConcurrentLanes": 2,
+      "nativeChildAgents": "forbidden",
+      "completionReceiptRequired": true,
+      "completionReceipt": "changed files, verification commands, result status, blockers, and follow-up ownership"
     }
   }
 }

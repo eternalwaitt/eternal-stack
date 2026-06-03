@@ -22,7 +22,10 @@ Evidence: scripts/plan-readiness-check.mjs and scripts/deep-stack-check.mjs.
 
 ## Task groups
 
-- One validator integration group.
+- Owner: parent agent.
+- Dependencies: existing readiness checker and deep-stack validator.
+- Acceptance criteria: the deep-stack plan fixture passes readiness with its artifact bundle.
+- Verification: `node scripts/plan-readiness-check.mjs tests/fixtures/deep-stack/plan.deep-stack.valid.md`.
 
 ## Phases
 

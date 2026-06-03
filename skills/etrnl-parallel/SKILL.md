@@ -9,6 +9,11 @@ Use this only as an explicit fanout helper. `/etrnl-execute` is the main orchest
 
 1. Split work by disjoint file ownership.
 2. Assign the full ETRNL task packet: goal, context summary, exact scope, cwd/project context, read set, write scope or read-only, forbidden files, expected output, verification command, model tier, timeout, retry policy, no-revert instruction, and WebSearch policy.
+   - Parallel or multi-file write packets include `waveId`, `waveSize`, `maxConcurrentLanes`, `nativeChildAgents`, `completionReceiptRequired`, and `completionReceipt`.
+   - `maxConcurrentLanes` is capped at `6`; `waveSize` cannot exceed it.
+   - `nativeChildAgents` is `forbidden`, `modeled`, or `not_applicable`. `modeled` requires `parentChildDrain`.
+   - Completion receipts name changed files, verification commands, result status, blockers, and follow-up ownership.
+   - Validate every packet with `node ~/.claude/scripts/agent-task-packet-check.mjs` before dispatch.
 3. Use `etrnl-executor`, `etrnl-spec-reviewer`, `etrnl-quality-reviewer`, and `etrnl-investigator` by role.
 4. Integrate changes sequentially; if conflicts appear:
    - do not revert user changes
