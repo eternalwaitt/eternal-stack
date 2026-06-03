@@ -73,11 +73,11 @@ export function packetHash(packet) {
 /**
  * Checks whether an ISO timestamp is recent enough for quality gates while
  * rejecting unparsable values and allowing up to one minute of future clock skew.
- * @throws {TypeError} When maxAgeMs is not finite.
  */
 export function isFreshIso(value, maxAgeMs, nowMs = Date.now()) {
   if (!Number.isFinite(maxAgeMs)) {
-    throw new TypeError("isFreshIso requires a finite maxAgeMs");
+    // Invalid freshness windows are treated as stale evidence for compatibility.
+    return false;
   }
   const parsed = Date.parse(String(value || ""));
   if (!Number.isFinite(parsed)) return false;

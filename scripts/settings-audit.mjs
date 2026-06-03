@@ -29,7 +29,11 @@ const readJson = (path) => {
 
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const homeDirPattern = new RegExp(`(^|[\\s"'=:])${escapeRegex(homeDir)}(?=$|[\\s/"'=:])`, "g");
-const canonicalCommand = (command) => String(command ?? "").trim().replace(homeDirPattern, "$1~");
+const canonicalCommand = (command) =>
+  String(command ?? "")
+    .trim()
+    .replace(/\$\{HOME\}|\$HOME/g, homeDir)
+    .replace(homeDirPattern, "$1~");
 const matcherTokens = (matcher) => {
   if (matcher === undefined || matcher === null || String(matcher).trim() === "") return null;
   return String(matcher)
@@ -99,7 +103,7 @@ const rewriteKnownHookCommand = (command, eventName = "") => {
 };
 
 const hookCommandMatch = (command) => {
-  const canonical = canonicalCommand(command).replace(/\$\{HOME\}|\$HOME/g, homeDir);
+  const canonical = canonicalCommand(command);
   return canonical.match(/(?:^|\s)(?:bash\s+)?["']?(~|[^\s"';&|]+)\/\.claude\/hooks\/([^ "';&|]+)["']?/);
 };
 

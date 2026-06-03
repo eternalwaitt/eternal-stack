@@ -1,5 +1,5 @@
 {
-  "rowType": "route_matrix",
+  "rowType": "ROUTE_MATRIX",
   "routes": [
     {
       "route": "/dashboard",

@@ -1,5 +1,5 @@
 {
-  "rowType": "direct_category_report",
+  "rowType": "DIRECT_CATEGORY_REPORT",
   "requestedCategoriesExamples": [
     ["production-readiness"],
     ["performance"],

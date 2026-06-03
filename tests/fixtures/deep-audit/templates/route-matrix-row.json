@@ -1,5 +1,5 @@
 {
-  "rowType": "route_matrix",
+  "rowType": "ROUTE_MATRIX",
   "route": "/example",
   "status": 200,
   "coldMs": 150,

@@ -66,7 +66,15 @@ const VALID_CHECK_STATUSES = new Set(["finding", "confirmed_clean", "skipped", "
 const VALID_LANE_STATUSES = new Set(["completed", "source_limited", "blocked"]);
 
 function usage() {
-  console.error("usage: deep-audit-artifact-check.mjs validate --artifact <file> [--json] | validate-fixtures [--json] | validate-registry --root <repo> [--json] | validate-synthetic-fixtures --fixture <dir> --templates <dir> [--json]");
+  console.error([
+    "usage: deep-audit-artifact-check.mjs <command> [options]",
+    "",
+    "commands:",
+    "  validate --artifact <file> [--json]",
+    "  validate-fixtures [--json]",
+    "  validate-registry --root <repo> [--json]",
+    "  validate-synthetic-fixtures --fixture <dir> --templates <dir> [--json]",
+  ].join("\n"));
   process.exit(2);
 }
 
@@ -527,7 +535,7 @@ function runValidateSyntheticFixtures() {
       errors.push(diagnostic("SYNTHETIC_TEMPLATE_MISSING", path.join(templatesDir, file), `Synthetic template is missing ${file}.`, "The fixture cannot teach the expected report row shape.", `Add ${file}.`));
     }
   }
-  const labels = ["route_matrix", "auth_blocker", "not_applicable", "CONFIRMED_CLEAN", "CHECKS_SKIPPED"];
+  const labels = ["ROUTE_MATRIX", "AUTH_BLOCKER", "NOT_APPLICABLE", "CONFIRMED_CLEAN", "CHECKS_SKIPPED"];
   const combined = [...requiredFixtureFiles.map((file) => path.join(fixtureDir, file)), ...requiredTemplates.map((file) => path.join(templatesDir, file))]
     .filter((file) => fs.existsSync(file))
     .map((file) => fs.readFileSync(file, "utf8"))

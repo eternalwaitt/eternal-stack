@@ -488,6 +488,9 @@ printf '%s\n' "{\"hooks\":{\"PostToolUse\":[{\"hooks\":[{\"type\":\"command\",\"
 settings_audit_target_next="$settings_audit_target.tmp"
 jq --arg command "bash \"$settings_audit_project/.claude/hooks/check-context-and-handoff.sh\"" '.hooks.Stop[0].hooks[0].command = $command' "$settings_audit_target" >"$settings_audit_target_next"
 mv "$settings_audit_target_next" "$settings_audit_target"
+settings_audit_target_next="$settings_audit_target.home.tmp"
+jq '.hooks.PreToolUse += [{"matcher":"Task","hooks":[{"type":"command","command":"bash $HOME/.claude/hooks/cc-pretooluse-guard.sh","timeout":15}]}]' "$settings_audit_target" >"$settings_audit_target_next"
+mv "$settings_audit_target_next" "$settings_audit_target"
 HOME="$settings_audit_home" node "$ROOT/scripts/settings-audit.mjs" "$settings_audit_target" --fix
 assert_json_expr "settings-audit rewrites legacy rate limiter" "$(jq -c . "$settings_audit_target")" '([.hooks.PostToolUse[].hooks[].command] | map(select(test("/rate-limiter\\.sh$"))) | length) == 0'
 assert_json_expr "settings-audit ignores backup rate limiter names" "$(jq -c . "$settings_audit_target")" '([.hooks.PostToolUse[].hooks[].command] | any(endswith("rate-limiter.sh.backup")))'

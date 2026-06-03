@@ -22,7 +22,7 @@
   "requestedCategories": [
     "production-readiness"
   ],
-  "runArtifactLabel": "deep-audit-production-valid-run",
+  "runArtifactLabel": "registry-snapshot-drift-run",
   "worklists": {
     "prod_pages": {
       "count": 2,

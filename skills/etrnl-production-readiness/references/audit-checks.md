@@ -61,7 +61,7 @@ Use these ids and generated files in the shared artifact directory:
 | `prod_schema` | ORM schema files | ORM-specific schema glob, such as `schema.prisma` |
 | `prod_client` | client components | `rg "'use client'" -g '*.tsx' -l` |
 | `prod_mutations` | mutation surfaces | `rg "useMutation\|useActionState\|startTransition\|\\.mutate\\(" --type ts -g '!**/generated/**' -l` |
-| `prod_tenant` | tenant and location scoping surfaces | `rg "tenantId\|organizationId\|orgId\|locationId" --type ts -g '!**/generated/**' -l` |
+| `prod_tenant` | tenant and location scoping surfaces | `rg "\\b(tenantId|organizationId|orgId|locationId)\\b" --type ts -g '!**/generated/**' -l` |
 | `prod_dates` | date, locale, and formatting surfaces | `rg "new Date\|Date\\.now\|toISOString\|dayjs\|date-fns\|format.*date" --type ts -g '!**/generated/**' -g '!**/*.test.*' -l` |
 | `prod_raw_env_files` | raw env access files | `rg "process\\.env\\." --type ts -g '!**/generated/**' -g '!**/*.test.*' -l` |
 | `prod_error_boundaries` | App Router error boundaries | `fd -g 'error.tsx' --exclude node_modules --exclude .next` |

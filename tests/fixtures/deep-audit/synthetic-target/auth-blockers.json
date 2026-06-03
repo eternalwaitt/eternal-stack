@@ -1,5 +1,5 @@
 {
-  "rowType": "auth_blocker",
+  "rowType": "AUTH_BLOCKER",
   "blockers": [
     {
       "route": "/admin",
