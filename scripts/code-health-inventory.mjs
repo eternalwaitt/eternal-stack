@@ -9,6 +9,8 @@ let includeUntracked = false;
 let quiet = false;
 let root = process.cwd();
 let rootProvided = false;
+const GIT_TIMEOUT_MS = 15_000;
+const GIT_MAX_BUFFER = 20 * 1024 * 1024;
 
 for (const arg of args) {
   if (arg === "--json") json = true;
@@ -27,10 +29,15 @@ for (const arg of args) {
 }
 
 function git(gitArgs, options = {}) {
-  const result = spawnSync("git", gitArgs, { cwd: root, encoding: "utf8" });
-  if (result.status === 0) return result.stdout;
+  const result = spawnSync("git", gitArgs, {
+    cwd: root,
+    encoding: "utf8",
+    timeout: GIT_TIMEOUT_MS,
+    maxBuffer: GIT_MAX_BUFFER,
+  });
+  if (result.status === 0 && !result.error) return result.stdout;
   if (options.allowFailure === true) return "";
-  const stderr = result.stderr.trim();
+  const stderr = String(result.stderr || result.error?.message || "").trim();
   const detail = stderr ? `: ${stderr}` : "";
   throw new Error(`git ${gitArgs.join(" ")} failed${detail}`);
 }
@@ -41,8 +48,12 @@ function fail(message) {
 }
 
 function checkGit() {
-  const result = spawnSync("git", ["--version"], { encoding: "utf8" });
-  if (result.status !== 0) {
+  const result = spawnSync("git", ["--version"], {
+    encoding: "utf8",
+    timeout: GIT_TIMEOUT_MS,
+    maxBuffer: 1024 * 1024,
+  });
+  if (result.status !== 0 || result.error) {
     fail("git is not available in PATH");
   }
 }

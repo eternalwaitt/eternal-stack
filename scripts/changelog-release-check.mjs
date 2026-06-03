@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
+const GIT_TIMEOUT_MS = 10_000;
+const GIT_MAX_BUFFER = 1024 * 1024;
 
 function argValue(flag, fallback = "") {
   const index = args.indexOf(flag);
@@ -23,11 +25,15 @@ function fail(errors) {
 }
 
 function git(argsForGit, root) {
-  const result = spawnSync("git", ["-C", root, ...argsForGit], { encoding: "utf8" });
+  const result = spawnSync("git", ["-C", root, ...argsForGit], {
+    encoding: "utf8",
+    timeout: GIT_TIMEOUT_MS,
+    maxBuffer: GIT_MAX_BUFFER,
+  });
   return {
-    ok: result.status === 0,
+    ok: result.status === 0 && !result.error,
     stdout: String(result.stdout || "").trim(),
-    stderr: String(result.stderr || "").trim(),
+    stderr: String(result.stderr || result.error?.message || "").trim(),
   };
 }
 

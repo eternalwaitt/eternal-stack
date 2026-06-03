@@ -81,6 +81,19 @@ assert_contains "output limiter reason" "$out" "output-limiter"
 diagnostic_tail_bash="$(jq '.tool_input.command = "pnpm test 2>&1 | tail -80"' <<<"$bash_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$diagnostic_tail_bash")"
 assert_json_expr "diagnostic verification tail allowed" "$out" '.continue == true'
+unbounded_inventory_bash="$(jq '.tool_input.command = "node scripts/code-health-inventory.mjs --json --include-untracked"' <<<"$bash_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$unbounded_inventory_bash")"
+assert_json_expr "unbounded inventory JSON dump denied" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+assert_contains "unbounded inventory JSON reason" "$out" "Unbounded JSON dump"
+bounded_inventory_bash="$(jq '.tool_input.command = "node scripts/code-health-inventory.mjs --json --quiet --include-untracked"' <<<"$bash_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$bounded_inventory_bash")"
+assert_json_expr "bounded inventory JSON allowed" "$out" '.continue == true'
+unbounded_workflow_bash="$(jq '.tool_input.command = "node scripts/workflow-health.mjs --json"' <<<"$bash_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$unbounded_workflow_bash")"
+assert_json_expr "unbounded workflow JSON dump denied" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+bounded_workflow_bash="$(jq '.tool_input.command = "node scripts/workflow-health.mjs status --json"' <<<"$bash_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$bounded_workflow_bash")"
+assert_json_expr "bounded workflow status JSON allowed" "$out" '.continue == true'
 rtk_filtered_check_types="$(bash -c 'source "$1"; cc_command_is_quality_verification "$2"; echo $?' _ "$ROOT/hooks/lib/command-classifiers.sh" "rtk pnpm --filter @tcg-collector/api check-types 2>&1 | tail -20")"
 if [[ "$rtk_filtered_check_types" == "0" ]]; then ok "rtk pnpm filtered check-types counts as quality verification"; else not_ok "rtk pnpm filtered check-types should count as quality verification: got '$rtk_filtered_check_types'"; fi
 readiness_help_bash="$(jq '.tool_input.command = "node ~/.claude/scripts/plan-readiness-check.mjs --help 2>&1 || bat ~/.claude/scripts/plan-readiness-check.mjs"' <<<"$bash_json")"
@@ -392,6 +405,14 @@ if [[ "$out" == *"Outside secret should not be injected"* ]]; then
 else
   ok "prompt router skips out-of-root CLAUDE.md references"
 fi
+out="$(HOME="$TMPROOT/home" run_hook cc-userprompt-router.sh "$prompt")"
+if [[ "$out" == *"Project-specific gotcha from injected CLAUDE.md"* ]]; then
+  not_ok "prompt router reinjects CLAUDE.md only once per session"
+else
+  ok "prompt router reinjects CLAUDE.md only once per session"
+fi
+out="$(HOME="$TMPROOT/home" CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD=always run_hook cc-userprompt-router.sh "$prompt")"
+assert_contains "prompt router always mode repeats CLAUDE.md reinjection" "$out" "Project-specific gotcha from injected CLAUDE.md"
 out="$(HOME="$TMPROOT/home" CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD=0 run_hook cc-userprompt-router.sh "$prompt")"
 if [[ "$out" == *"Project-specific gotcha from injected CLAUDE.md"* ]]; then
   not_ok "prompt router disables CLAUDE.md reinjection"
@@ -489,6 +510,20 @@ assert_contains "repeated failure pivots" "$out" "repeated"
 large_failure_json="$(jq -cn '{session_id:"fixture-large-failure",tool_name:"Read",tool_input:{file_path:"/tmp/huge-output.txt"},error:"File content exceeds maximum allowed tokens"}')"
 out="$(run_hook cc-posttoolusefailure-diagnose.sh "$large_failure_json")"
 assert_contains "large-output failure gets targeted diagnostic" "$out" "targeted read/search"
+serena_large_failure_json="$(jq -cn '{session_id:"fixture-serena-large-failure",tool_name:"mcp__serena__search_for_pattern",tool_input:{substring_pattern:"needle"},error:"Error: result (43,867 characters) exceeds maximum allowed tokens. Output has been saved to /tmp/mcp-plugin_serena_serena-search_for_pattern.txt"}')"
+out="$(run_hook cc-posttoolusefailure-diagnose.sh "$serena_large_failure_json")"
+assert_contains "serena large-output failure gets scoped diagnostic" "$out" "narrower relative_path"
+serena_unscoped_json="$(jq -cn '{session_id:"fixture-serena-preflight",tool_name:"mcp__serena__search_for_pattern",tool_input:{substring_pattern:"needle",max_answer_chars:12000}}')"
+out="$(run_hook cc-pretooluse-guard.sh "$serena_unscoped_json")"
+assert_json_expr "serena unscoped search denied before output blowup" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+assert_contains "serena unscoped search reason" "$out" "must be scoped"
+serena_uncapped_json="$(jq -cn '{session_id:"fixture-serena-preflight",tool_name:"mcp__serena__search_for_pattern",tool_input:{substring_pattern:"needle",relative_path:"src"}}')"
+out="$(run_hook cc-pretooluse-guard.sh "$serena_uncapped_json")"
+assert_json_expr "serena uncapped search denied before output blowup" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+assert_contains "serena uncapped search reason" "$out" "max_answer_chars"
+serena_scoped_json="$(jq -cn '{session_id:"fixture-serena-preflight",tool_name:"mcp__serena__search_for_pattern",tool_input:{substring_pattern:"needle",relative_path:"src",max_answer_chars:12000,context_lines_before:2,context_lines_after:2}}')"
+out="$(run_hook cc-pretooluse-guard.sh "$serena_scoped_json")"
+assert_json_expr "serena scoped bounded search allowed" "$out" '.continue == true'
 email_guard_failure_json="$(jq -cn '{session_id:"fixture-email-guard-failure",tool_name:"Bash",tool_input:{command:"vivaz-email triage guarded-run --account agencia --apply --require-insights"},error:"TRIAGE_GUARD_ML_DISAGREED: ML archive review found 1 disagreement"}')"
 out="$(run_hook cc-posttoolusefailure-diagnose.sh "$email_guard_failure_json")"
 assert_contains "email triage ML disagreement gets recovery diagnostic" "$out" "triage ml-reviews"
@@ -551,6 +586,13 @@ assert_json_expr "stop verifier blocks unverified completion" "$out" '.decision 
 browser_outstanding_stop="$(jq -cn '{session_id:"fixture-browser-outstanding",last_assistant_message:"Phases 0-10 complete. Only the manual browser pass is still outstanding - needs pnpm dev:web and a real browser.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$browser_outstanding_stop")"
 assert_contains "stop verifier blocks outstanding browser QA" "$out" "Outstanding browser QA"
+
+paused_prod_state="$TMPROOT/claude-guard-fixture-paused-prod-status.json"
+jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:false,planExecutionRequestedAt:"",lastPrompt:"did u read the handoff file?",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$paused_prod_state"
+paused_prod_message=$'Yes. It was injected as the restored handoff.\n\n1. Check PR #53 CI - green\n2. Merge - done\n3. Deploy to prod metacards-painel - was watching GHCR build-and-push, in_progress\n4. Set bruno to master in prod DB - only AFTER deploy\n\nBefore I SSH into prod: do you want me to proceed with the deploy once the GHCR build is green?\nNothing is live yet. Awaiting your answer before I SSH to prod.'
+paused_prod_stop="$(jq -cn --arg message "$paused_prod_message" '{session_id:"fixture-paused-prod-status",last_assistant_message:$message,stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$paused_prod_stop")"
+if [[ -z "$out" ]]; then ok "stop verifier allows paused production status"; else not_ok "paused production status should not claim completion: $out"; fi
 
 advice_state="$TMPROOT/claude-guard-fixture-advice.json"
 jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"which iPhone should I buy today?",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$advice_state"

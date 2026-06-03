@@ -718,11 +718,14 @@ if [[ "$buglog_fp_session2" == "$buglog_fp" ]]; then
 else
   not_ok "project buglog fingerprint is cross-session stable"
 fi
+CLAUDE_CONTROL_PLANE_BUGLOG="$buglog_path" node "$ROOT/scripts/project-buglog.mjs" record --cwd "$TMPROOT/project" --file src/other.ts --category repeated-edit --summary "repeat failure leaked $BUGLOG_TOKEN and $BUGLOG_SECRET" >/dev/null
+CLAUDE_CONTROL_PLANE_BUGLOG="$buglog_path" node "$ROOT/scripts/project-buglog.mjs" record --cwd "$TMPROOT/project" --file src/third.ts --category repeated-edit --summary "repeat failure leaked $BUGLOG_TOKEN and $BUGLOG_SECRET" >/dev/null
 buglog_json="$(CLAUDE_CONTROL_PLANE_BUGLOG="$buglog_path" node "$ROOT/scripts/project-buglog.mjs" suggest --cwd "$TMPROOT/project" --file src/app.ts --json)"
 assert_json_expr "project buglog suggest emits JSON" "$buglog_json" '.schemaVersion == 1 and (.suggestions | length) == 1'
 assert_json_expr "project buglog suggest includes guard recommendation" "$buglog_json" '(.suggestions[0].suggestedGuard | length) > 0'
 buglog_project_json="$(CLAUDE_CONTROL_PLANE_BUGLOG="$buglog_path" node "$ROOT/scripts/project-buglog.mjs" suggest-project --cwd "$TMPROOT/project" --json)"
 assert_json_expr "project buglog project hints omit raw cwd" "$buglog_project_json" '.project == "project" and (.cwd | not) and (.suggestions | length) == 1'
+assert_json_expr "project buglog aggregates repeated lessons" "$buglog_project_json" '.suggestions[0].kind == "aggregate" and .suggestions[0].affectedFilesCount == 3 and (.suggestions[0].recentFiles | length) == 3'
 if rg -F "$BUGLOG_TOKEN" "$buglog_path" >/dev/null || rg -F "$aws_secret_value" "$buglog_path" >/dev/null || printf '%s' "$buglog_json" | rg -F "$aws_secret_value" >/dev/null; then
   not_ok "project buglog redacts token-like values"
 else

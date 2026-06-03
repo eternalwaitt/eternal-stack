@@ -7,6 +7,8 @@ import path from "node:path";
 const args = process.argv.slice(2);
 const command = args[0] ?? "help";
 const staleHours = Number(argValue("--stale-hours", process.env.ETRNL_CONTEXT_STALE_HOURS || "24"));
+const GIT_TIMEOUT_MS = 5_000;
+const GIT_MAX_BUFFER = 5 * 1024 * 1024;
 
 function argValue(flag, fallback = "") {
   const index = args.indexOf(flag);
@@ -38,7 +40,12 @@ function isStale(context) {
 
 function gitOutput(argsForGit) {
   try {
-    return execFileSync("git", argsForGit, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    return execFileSync("git", argsForGit, {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+      timeout: GIT_TIMEOUT_MS,
+      maxBuffer: GIT_MAX_BUFFER,
+    }).trim();
   } catch (error) {
     const message = error instanceof Error ? error.message.split("\n")[0] : String(error);
     return `unavailable: ${message}`;

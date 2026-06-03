@@ -205,6 +205,21 @@ cc_command_is_review_verification() {
   [[ "$cmd" =~ (etrnl-review|code[[:space:]-]?review|review-log|coderabbit|adversarial|redline|second[[:space:]-]?pass) ]]
 }
 
+cc_command_is_unbounded_json_dump() {
+  local cmd
+  cmd="$(cc_command_normalize "$1")"
+  [[ "$cmd" =~ --json ]] || return 1
+  if [[ "$cmd" =~ (^|[[:space:];&|])node[[:space:]]+([^[:space:];&|]+/)?code-health-inventory\.mjs([[:space:];&|]|$) ]]; then
+    [[ "$cmd" =~ (^|[[:space:]])--quiet([[:space:];&|]|$) ]] && return 1
+    return 0
+  fi
+  if [[ "$cmd" =~ (^|[[:space:];&|])node[[:space:]]+([^[:space:];&|]+/)?workflow-health\.mjs([[:space:];&|]|$) ]]; then
+    [[ "$cmd" =~ (^|[[:space:]])status([[:space:];&|]|$) ]] && return 1
+    return 0
+  fi
+  return 1
+}
+
 cc_command_is_dev_server_start() {
   local cmd token
   cmd="$(cc_command_normalize "$1")"

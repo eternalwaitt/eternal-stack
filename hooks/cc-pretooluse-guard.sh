@@ -603,6 +603,9 @@ handle_bash() {
   if cc_command_has_output_limiter "$cmd" && ! cc_command_output_limiter_is_diagnostic "$cmd"; then
     deny "Avoid shell output-limiter pipes such as head, tail, or sed -n after another command. Use native limits instead, for example rg -m/--max-count, fd --max-results, bat --line-range, jq filters, or write a bounded report file."
   fi
+  if cc_command_is_unbounded_json_dump "$cmd"; then
+    deny "Unbounded JSON dump blocked. Use a bounded mode such as code-health-inventory.mjs --json --quiet or workflow-health.mjs status --json, or write the full JSON to an artifact file and inspect a compact summary."
+  fi
   if command_is_broad_codex_memory_scan "$cmd"; then
     deny "Broad ~/.codex scans are blocked to prevent runaway session/memory output. Search ~/.codex/memories/MEMORY.md first, then one specific rollout_summaries file with a bounded query."
   fi
@@ -688,7 +691,7 @@ handle_bash() {
 }
 
 handle_edit() {
-  local file_path abs text old_text violation tmp context is_new_source new_count bug_context old_text_status
+  local file_path abs text old_text violation tmp complexity_err context is_new_source new_count bug_context old_text_status
   file_path="$(cc_json_get '.tool_input.file_path')"
   abs="$(cc_abs_path "$file_path" "$cwd")"
   text="$(cc_extract_edit_text)"
@@ -786,11 +789,24 @@ handle_edit() {
   fi
 
   if [[ -n "$text" && "$abs" =~ \.[cm]?[jt]sx?$ ]] && command -v node >/dev/null 2>&1; then
-    tmp="$(mktemp "${TMPDIR:-/tmp}/claude-guard-edit.XXXXXX")"
-    printf '%s\n' "$text" >"$tmp"
-    if ! node "$SCRIPT_DIR/lib/complexity-check.mjs" "$tmp" >/tmp/claude-guard-complexity.err 2>&1; then
-      deny "$(tr '\n' ' ' </tmp/claude-guard-complexity.err)"
+    if ! tmp="$(mktemp "${TMPDIR:-/tmp}/claude-guard-edit.XXXXXX")"; then
+      deny "Failed to create temporary file for complexity check."
     fi
+    if ! complexity_err="$(mktemp "${TMPDIR:-/tmp}/claude-guard-complexity.XXXXXX")"; then
+      rm -f -- "$tmp"
+      deny "Failed to create temporary error file for complexity check."
+    fi
+    if ! printf '%s\n' "$text" >"$tmp"; then
+      rm -f -- "$tmp" "$complexity_err"
+      deny "Failed to write temporary file for complexity check."
+    fi
+    if ! node "$SCRIPT_DIR/lib/complexity-check.mjs" "$tmp" >"$complexity_err" 2>&1; then
+      local complexity_message
+      complexity_message="$(tr '\n' ' ' <"$complexity_err")"
+      rm -f -- "$tmp" "$complexity_err"
+      deny "$complexity_message"
+    fi
+    rm -f -- "$tmp" "$complexity_err"
   fi
 
   if [[ "$is_new_source" == "true" ]]; then
@@ -811,6 +827,32 @@ handle_websearch() {
   fi
   if [[ -f "$canary" ]] && jq -e '(.status == "failed") and ((now - (.checkedAtEpoch // 0)) < 86400)' "$canary" >/dev/null 2>&1; then
     deny "WebSearch canary failed in the last 24h. Use rtk proxy curl or official docs directly."
+  fi
+  cc_json_allow
+}
+
+handle_serena_search_for_pattern() {
+  local rel_path include_glob max_chars before_lines after_lines
+  if [[ "${CLAUDE_CONTROL_PLANE_SERENA_SCOPE_GUARD:-1}" == "0" ]]; then
+    cc_json_allow
+    return 0
+  fi
+  rel_path="$(cc_json_get '.tool_input.relative_path // .input.relative_path // .relative_path')"
+  include_glob="$(cc_json_get '.tool_input.paths_include_glob // .input.paths_include_glob // .paths_include_glob')"
+  max_chars="$(cc_json_get '.tool_input.max_answer_chars // .input.max_answer_chars // .max_answer_chars')"
+  before_lines="$(cc_json_get '.tool_input.context_lines_before // .input.context_lines_before // .context_lines_before')"
+  after_lines="$(cc_json_get '.tool_input.context_lines_after // .input.context_lines_after // .context_lines_after')"
+  if [[ -z "$rel_path" || "$rel_path" == "." ]] && [[ -z "$include_glob" ]]; then
+    deny "Serena search_for_pattern must be scoped before execution. Set relative_path to a specific subdirectory/file or provide paths_include_glob."
+  fi
+  if [[ -z "$max_chars" || "$max_chars" == "-1" || ! "$max_chars" =~ ^[0-9]+$ || "$max_chars" -gt 20000 ]]; then
+    deny "Serena search_for_pattern must set max_answer_chars to a positive value no greater than 20000."
+  fi
+  if [[ -n "$before_lines" && "$before_lines" =~ ^[0-9]+$ && "$before_lines" -gt 5 ]]; then
+    deny "Serena search_for_pattern context_lines_before must stay at 5 or fewer for bounded output."
+  fi
+  if [[ -n "$after_lines" && "$after_lines" =~ ^[0-9]+$ && "$after_lines" -gt 5 ]]; then
+    deny "Serena search_for_pattern context_lines_after must stay at 5 or fewer for bounded output."
   fi
   cc_json_allow
 }
@@ -839,6 +881,10 @@ case "$current_tool" in
   WebSearch)
     block_evidence_discipline_before_tool
     handle_websearch
+    ;;
+  mcp__serena__search_for_pattern)
+    block_evidence_discipline_before_tool
+    handle_serena_search_for_pattern
     ;;
   Agent|Task|TaskCreate)
     block_evidence_discipline_before_tool

@@ -26,7 +26,9 @@ Updater:
 
 Prompt context:
 
+- UserPromptSubmit reinjects global/project `CLAUDE.md` context once per session by default.
 - `CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD=0` disables UserPromptSubmit reinjection of global/project `CLAUDE.md` context.
+- `CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD=always` restores per-prompt reinjection for debugging startup hierarchy drift.
 - `CLAUDE_CONTROL_PLANE_CLAUDE_MD_MAX_CHARS` caps the injected `CLAUDE.md` block; default is `20000` characters.
 - `CLAUDE_CONTROL_PLANE_USERPROMPT_CONTEXT_MAX_CHARS` caps the full UserPromptSubmit context; default is `20000` characters.
 - Global context is read from `~/.claude/CLAUDE.md`.
@@ -52,6 +54,7 @@ Workflow state:
 - `CLAUDE_CONTROL_PLANE_LEARNING_HINT_MAX_CHARS` caps SessionStart learning hints; default is `500` characters.
 - `CLAUDE_CONTROL_PLANE_LEARNING_HINT_MAX_AGE_DAYS` caps stale bug-memory suggestions; default is `90` days.
 - `ETRNL_STALE_RUN_HOURS`, `ETRNL_CONTEXT_STALE_HOURS`, and `ETRNL_LEDGER_READ_CONCURRENCY` tune workflow-health and context staleness checks.
+- `CLAUDE_CONTROL_PLANE_SERENA_SCOPE_GUARD=0` disables the strict preflight that requires `mcp__serena__search_for_pattern` calls to include a narrow path/glob and bounded `max_answer_chars`.
 
 Guard state and break-glass:
 

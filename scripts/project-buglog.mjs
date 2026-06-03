@@ -112,6 +112,63 @@ function suggestionFor(entry) {
   };
 }
 
+function aggregateFingerprint(cwd, category, summary) {
+  return createHash("sha256")
+    .update(["project-aggregate", cwd, category, normalizeSummary(summary)].join(":"))
+    .digest("hex")
+    .slice(0, 16);
+}
+
+function aggregateSuggestionFor(cwd, entries) {
+  const sorted = [...entries].sort((left, right) => String(left.at || "").localeCompare(String(right.at || "")));
+  const latest = sorted[sorted.length - 1];
+  const recentFiles = [...new Set(sorted.slice().reverse().map((entry) => entry.file))].slice(0, 5);
+  return {
+    kind: "aggregate",
+    category: latest.category,
+    summary: redactText(latest.summary),
+    severity: severityFor(latest),
+    fingerprint: aggregateFingerprint(cwd, latest.category, latest.summary),
+    firstSeen: sorted[0]?.at || "",
+    lastSeen: latest.at || "",
+    affectedFilesCount: new Set(sorted.map((entry) => entry.file)).size,
+    occurrenceCount: sorted.length,
+    recentFiles,
+    suggestedGuard: suggestedGuard(latest.category),
+  };
+}
+
+function projectSuggestions(cwd, entries, limit) {
+  const normalizedLimit = Math.max(1, Number.isFinite(limit) ? limit : 5);
+  const aggregateThreshold = Math.max(
+    2,
+    Number.parseInt(argValue(args, "--aggregate-threshold", "3"), 10) || 3,
+  );
+  const groups = new Map();
+  for (const entry of entries) {
+    const key = [entry.category, normalizeSummary(entry.summary)].join("\0");
+    const group = groups.get(key) || [];
+    group.push(entry);
+    groups.set(key, group);
+  }
+  const suggestions = [];
+  const groupedEntries = [...groups.values()].sort((left, right) => {
+    const leftLast = left.map((entry) => entry.at || "").sort().at(-1) || "";
+    const rightLast = right.map((entry) => entry.at || "").sort().at(-1) || "";
+    return rightLast.localeCompare(leftLast);
+  });
+  for (const group of groupedEntries) {
+    const sorted = [...group].sort((left, right) => String(left.at || "").localeCompare(String(right.at || "")));
+    if (sorted.length >= aggregateThreshold) {
+      suggestions.push(aggregateSuggestionFor(cwd, sorted));
+    } else {
+      suggestions.push(...sorted.reverse().map(suggestionFor));
+    }
+    if (suggestions.length >= normalizedLimit) break;
+  }
+  return suggestions.slice(0, normalizedLimit);
+}
+
 function maxAgeMs() {
   const raw = argValue(args, "--max-age-days", process.env.CLAUDE_CONTROL_PLANE_LEARNING_HINT_MAX_AGE_DAYS || "90");
   const days = Number(raw);
@@ -204,8 +261,8 @@ function suggestProject() {
     readEntries(buglogPath())
       .filter((entry) => entry.cwd === cwd)
       .filter(freshEnough),
-  ).slice(-Math.max(1, Number.isFinite(limit) ? limit : 5)).reverse();
-  const suggestions = entries.map(suggestionFor);
+  );
+  const suggestions = projectSuggestions(cwd, entries, limit);
   if (jsonMode) {
     console.log(JSON.stringify({
       schemaVersion: 1,

@@ -58,6 +58,17 @@ if [[ "$message_lower" =~ (outstanding|still[[:space:]]+pending|still[[:space:]]
   browser_qa_outstanding=true
 fi
 
+cc_deferred_status_update() {
+  local nonfinal_re work_state_re
+  nonfinal_re='(not[[:space:]-]+(claiming[[:space:]-]+)?completion|not[[:space:]-]+done|not[[:space:]-]+complete|nothing[[:space:]]+is[[:space:]]+live[[:space:]]+yet|work[[:space:]]+is[[:space:]]+paused|paused[[:space:]]+(mid|until|awaiting|while)|awaiting[[:space:]]+(your[[:space:]]+)?(answer|approval|confirmation|go/no-go|go[[:space:]-]*no[[:space:]-]*go)|waiting[[:space:]]+for[[:space:]]+(your[[:space:]]+)?(answer|approval|confirmation|go/no-go|go[[:space:]-]*no[[:space:]-]*go)|before[[:space:]]+i[[:space:]]+(ssh|deploy|proceed)|do[[:space:]]+you[[:space:]]+want[[:space:]]+me[[:space:]]+to[[:space:]]+proceed|no[[:space:]]+live[[:space:]]+change|not[[:space:]]+live[[:space:]]+yet)'
+  work_state_re='(awaiting|waiting|approval|confirmation|go/no-go|go[[:space:]-]*no[[:space:]-]*go|in_progress|in[[:space:]-]+progress|pending|paused|blocked|nothing[[:space:]]+is[[:space:]]+live[[:space:]]+yet|before[[:space:]]+i[[:space:]]+(ssh|deploy|proceed)|do[[:space:]]+you[[:space:]]+want[[:space:]]+me[[:space:]]+to[[:space:]]+proceed)'
+  [[ "$message_lower" =~ $nonfinal_re ]] && [[ "$message_lower" =~ $work_state_re ]]
+}
+
+if [[ "$claims_done" == "true" && "$browser_qa_outstanding" != "true" ]] && cc_deferred_status_update; then
+  claims_done=false
+fi
+
 NORM_JQ='
 def norm:
   ascii_downcase

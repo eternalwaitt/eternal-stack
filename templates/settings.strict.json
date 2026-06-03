@@ -45,7 +45,7 @@
         ]
       },
       {
-        "matcher": "Bash|Read|Edit|Write|MultiEdit|WebSearch|Task|TaskCreate|Agent",
+        "matcher": "Bash|Read|Edit|Write|MultiEdit|WebSearch|Task|TaskCreate|Agent|mcp__serena__search_for_pattern",
         "hooks": [
           {
             "type": "command",

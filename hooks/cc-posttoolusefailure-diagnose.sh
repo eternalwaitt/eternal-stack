@@ -26,6 +26,11 @@ cc_state_append_value failures "$key"
 failure_hint() {
   local combined
   combined="$(printf '%s %s' "$command" "$error_text" | tr '[:upper:]' '[:lower:]')"
+  if [[ "$combined" == *serena*search_for_pattern* ]] \
+    && [[ "$combined" == *"exceeds maximum"* || "$combined" == *"maximum allowed"* ]]; then
+    printf 'Serena search output exceeded context. Retry with narrower relative_path or paths_include_glob, lower max_answer_chars, fewer context lines, or switch to rg/fd and then read specific symbols.'
+    return 0
+  fi
   case "$combined" in
     *"exceeds maximum"*|*"maximum allowed"*|*"too many tokens"*|*"output too large"*)
       printf 'Use a targeted read/search, offsets, or a bounded artifact summary before retrying the large-output command.'
