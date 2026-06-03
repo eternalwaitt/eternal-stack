@@ -309,6 +309,14 @@ done
 
 assert_command "complexity syntax" node --check "$ROOT/hooks/lib/complexity-check.mjs"
 assert_command "audit exclusions syntax" node --check "$ROOT/scripts/lib/audit-exclusions.mjs"
+assert_command "env utils namespaced git limits" env \
+  CLAUDE_CONTROL_PLANE_GIT_TIMEOUT_MS=123 \
+  GIT_TIMEOUT_MS=456 \
+  CLAUDE_CONTROL_PLANE_GIT_MAX_BUFFER_BYTES=789 \
+  GIT_MAX_BUFFER_BYTES=111 \
+  node --input-type=module -e 'import { gitSubprocessLimits } from "./scripts/lib/env-utils.mjs";
+const limits = gitSubprocessLimits({ timeoutMs: 1, maxBufferBytes: 2 });
+if (limits.timeout !== 123 || limits.maxBuffer !== 789) process.exit(1);'
 assert_command "code-health inventory syntax" node --check "$ROOT/scripts/code-health-inventory.mjs"
 if git -C "$ROOT" rev-parse --show-toplevel >/dev/null 2>&1; then
   assert_command "code-health inventory runs" node "$ROOT/scripts/code-health-inventory.mjs" --json

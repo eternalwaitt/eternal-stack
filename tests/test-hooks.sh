@@ -91,6 +91,9 @@ assert_json_expr "bounded inventory JSON allowed" "$out" '.continue == true'
 redirected_inventory_bash="$(jq '.tool_input.command = "node scripts/code-health-inventory.mjs --json --include-untracked > artifacts/code-health.json"' <<<"$bash_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$redirected_inventory_bash")"
 assert_json_expr "redirected inventory JSON artifact allowed" "$out" '.continue == true'
+compact_redirected_inventory_bash="$(jq '.tool_input.command = "node scripts/code-health-inventory.mjs --json>artifacts/code-health.json"' <<<"$bash_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$compact_redirected_inventory_bash")"
+assert_json_expr "compact redirected inventory JSON artifact allowed" "$out" '.continue == true'
 unbounded_workflow_bash="$(jq '.tool_input.command = "node scripts/workflow-health.mjs --json"' <<<"$bash_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$unbounded_workflow_bash")"
 assert_json_expr "unbounded workflow JSON dump denied" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
@@ -100,6 +103,9 @@ assert_json_expr "bounded workflow status JSON allowed" "$out" '.continue == tru
 redirected_workflow_bash="$(jq '.tool_input.command = "node scripts/workflow-health.mjs --json >> artifacts/workflow-health.jsonl"' <<<"$bash_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$redirected_workflow_bash")"
 assert_json_expr "redirected workflow JSON artifact allowed" "$out" '.continue == true'
+fd_redirected_workflow_bash="$(jq '.tool_input.command = "node scripts/workflow-health.mjs --json 1>artifacts/workflow-health.json"' <<<"$bash_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$fd_redirected_workflow_bash")"
+assert_json_expr "fd redirected workflow JSON artifact allowed" "$out" '.continue == true'
 rtk_filtered_check_types="$(bash -c 'source "$1"; cc_command_is_quality_verification "$2"; echo $?' _ "$ROOT/hooks/lib/command-classifiers.sh" "rtk pnpm --filter @tcg-collector/api check-types 2>&1 | tail -20")"
 if [[ "$rtk_filtered_check_types" == "0" ]]; then ok "rtk pnpm filtered check-types counts as quality verification"; else not_ok "rtk pnpm filtered check-types should count as quality verification: got '$rtk_filtered_check_types'"; fi
 readiness_help_bash="$(jq '.tool_input.command = "node ~/.claude/scripts/plan-readiness-check.mjs --help 2>&1 || bat ~/.claude/scripts/plan-readiness-check.mjs"' <<<"$bash_json")"
@@ -361,6 +367,11 @@ jq -nc --arg plans "$TMPROOT/example/.rulebook/PLANS.md" --arg src "$planned_lar
 planned_large_edit="$(jq --arg text "$large_new_string" '.session_id = "fixture-planned-large" | .tool_input.old_string = "export const oldValue = 1;" | .tool_input.new_string = $text' <<<"$edit_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$planned_large_edit")"
 assert_json_expr "plan artifact allows large edit path" "$out" '.continue == true'
+planned_large_command_state="$TMPROOT/claude-guard-fixture-planned-large-command.json"
+jq -nc --arg src "$planned_large_src" '{schemaVersion:4,reads:{($src):"2026-01-01T00:00:00Z"},searches:{($src):"2026-01-01T00:00:00Z"},edits:{},commands:[],blockedCommands:[],successfulCommands:[{command:"node scripts/context-state.mjs save --reason refactor-plan",at:"2026-01-01T00:00:01Z"}],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:1,commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$planned_large_command_state"
+planned_large_command_edit="$(jq --arg text "$large_new_string" '.session_id = "fixture-planned-large-command" | .tool_input.old_string = "export const oldValue = 1;" | .tool_input.new_string = $text' <<<"$edit_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$planned_large_command_edit")"
+assert_json_expr "plan command artifact allows large edit path" "$out" '.continue == true'
 
 write_json="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-session-2",tool_name:"Write",cwd:$root,tool_input:{file_path:($root + "/src/new.ts"),content:"export const created = true;"}}')"
 out="$(run_hook cc-pretooluse-guard.sh "$write_json")"

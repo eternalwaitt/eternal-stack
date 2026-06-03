@@ -94,7 +94,7 @@ cc_large_change_has_plan_artifact() {
         | map(ascii_downcase)
         | any(test("^(etrnl-plan|etrnl-review|writing-plans|code-review|execute-plan|plan|review)$")))
       or ([.edits // {} | keys[] | select(plan_file)] | length > 0)
-      or ([.successfulCommands[]?.value // empty, .commands[]?.value // empty]
+      or ([.successfulCommands[]?.command // empty, .commands[]?.value // empty]
         | map(ascii_downcase)
         | any(test("review-log|context-state\\.mjs save|/handoff|\\.rulebook/PLANS\\.md|docs/plans/")))
   ' "$(cc_state_file)" >/dev/null 2>&1

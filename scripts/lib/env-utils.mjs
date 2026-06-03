@@ -5,8 +5,12 @@ export function positiveEnvInt(raw, fallback) {
 
 export function gitSubprocessLimits({ timeoutMs, maxBufferBytes } = {}) {
   return {
-    timeout: positiveEnvInt(process.env.GIT_TIMEOUT_MS, timeoutMs),
-    // Prefer GIT_MAX_BUFFER_BYTES; GIT_MAX_BUFFER is a legacy fallback.
-    maxBuffer: positiveEnvInt(process.env.GIT_MAX_BUFFER_BYTES || process.env.GIT_MAX_BUFFER, maxBufferBytes),
+    timeout: positiveEnvInt(process.env.CLAUDE_CONTROL_PLANE_GIT_TIMEOUT_MS || process.env.GIT_TIMEOUT_MS, timeoutMs),
+    maxBuffer: positiveEnvInt(
+      process.env.CLAUDE_CONTROL_PLANE_GIT_MAX_BUFFER_BYTES
+        || process.env.GIT_MAX_BUFFER_BYTES
+        || process.env.GIT_MAX_BUFFER,
+      maxBufferBytes,
+    ),
   };
 }
