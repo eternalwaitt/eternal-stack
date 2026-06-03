@@ -2,137 +2,17 @@
 
 ## Unreleased
 
-## v0.1.22 - 2026-06-02
+## v0.1.7 - 2026-06-03
 
-- Add the ETRNL stack findings report and all-phases gap-closure implementation plan for binding remaining planning/review/TDD/subagent/simplifier/TypeScript/install/completion-audit promises to deterministic evidence.
-- Implement the gap-closure enforcement: deep-stack artifacts now validate review phase records, TDD evidence, completion reconciliation, reuse bindings, TypeScript trigger evidence, and install proof; task packets and ledgers require reuse/TDD/simplifier/completion/install rows for triggered write work; `/etrnl-execute` stop checks block missing TDD, simplifier, reuse, advanced TypeScript, and install evidence.
-- Fail closed on final planning artifacts without `Deep stack artifacts:` by default, add an explicit legacy transition flag, require a `## Test-first execution plan`, and make `/etrnl-execute` source edits TDD-first with red/green evidence before phase gates.
-- Add the Hybrid Deep Stack plan/review/execute contract: final plans validate `Deep stack artifacts:` through one consolidated `deep-stack-check.mjs`, with sanitized source manifests, skill matrices, reuse inventories, findings ledgers, completion audits, Hybrid risk tiers, conditional advanced TypeScript review, staged-install requirements, install parity, and structured repair errors.
-- Harden the Claude/Codex session-friction loop: Codex RTK rewrites now use `updatedInput`, unsafe `rg` forms proxy through RTK before execution, broad `.codex` memory scans are blocked, `/etrnl-disk-cleanup` uses a trash-only workflow, and advice/search completions use dated source evidence instead of repo preflight language.
-- Document the default-off file-sprawl guard: set `CLAUDE_GUARD_FILE_SPRAWL=1` for CI, refactors, or broad feature work when 3+ new source files should require planned write-scope coverage.
-- Add `/etrnl-email-reply-quality` and route `/email-triage` visible replies through `vivaz-email drafts check`, so VIVAZ outgoing replies are blocked for em/en dashes, bad Brazilian Portuguese, AI-tell phrasing, stiff boilerplate, assistant meta text, and fake deal commitments before approval.
-
-## v0.1.21 - 2026-05-19
-
-- Allow `/email-triage` queue and stop gates to accept provider-verified Inbox Zero runs with `queue_ready_without_mutation: true`, so already-clean inboxes with an existing action backlog can open the runtime queue without requiring an impossible Gmail mutation.
-
-## v0.1.20 - 2026-05-18
-
-- Add `/email-triage <account>` as an installed Claude custom command that runs the guarded VIVAZ email runtime flow and renders the next reply queue item, so operators no longer need to remember the long CLI command.
-- Split `/email-triage <account>` guidance into explicit Inbox Zero then action-queue phases, with provider verification required before queue items are shown.
-- Require email-triage completion to prove an applied `vivaz-email triage guarded-run --apply` Inbox Zero run before showing the reply queue, so dry runs cannot satisfy the stop gate.
-- Block `vivaz-email triage queue` during `/email-triage` until provider verification proves an applied Gmail mutation and Inbox Zero, preventing stale dry-run skill flows from opening the action queue before Inbox Zero verification.
-- Block normal `vivaz-email triage run` during `/email-triage`, while preserving the explicit `--no-sync` maintainer debug path, and add a post-upgrade canary for stale dry-run and queue-before-verify flows.
-- Route email-triage runs through required ML insights/draft QA before a queue item is shown, so generated replies are not accepted on deterministic bucket labels alone.
-
-## v0.1.19 - 2026-05-17
-
-- Route email-triage completion through the new reply-queue flow: `vivaz-email triage run` plus a single rendered queue item now satisfies the stop gate, while claiming triage complete with an active queue item is blocked.
-- Block `etrnl-documentation-health` completion when a run writes or refreshes documentation/comment baselines as a substitute for remediation, unless baseline work was explicitly requested and recorded as blocked or accepted risk with an owner.
-- Tighten the documentation-health skill contract so audit mode must return an actionable remediation ledger, while fix/execute mode must remediate or terminally dispose every finding instead of stopping at a debt ratchet.
-
-## v0.1.18 - 2026-05-17
-
-- Harden `etrnl-code-health` and `etrnl-documentation-health` completion gates so shallow reports, open action items, non-terminal findings, missing comment-health counters, and missing resolution plans block completion instead of passing as advisory summaries.
-- Add a shared audit exclusion policy for code-health inventory, documentation comment health, research evidence extraction, and credential scans so dependency folders, build output, caches, generated files, worktrees, local agent state, logs, and `.audit` artifacts are listed or skipped with reasons instead of audited as source/docs findings.
-- Tighten execute/parallel orchestration checks with stricter packet overlap detection, bound implementation/reviewer evidence, failed-check rejection, existing-artifact validation, and direct parent source-edit blocking unless the run is explicitly recorded as sequential degraded.
-
-## v0.1.17 - 2026-05-16
-
-- Add a deterministic `documentation-comment-health.mjs` scanner and require documentation-health reports to include TSDoc/JSDoc comment-health counters, blocking sampled-only comment-health claims unless the repo is explicitly not applicable.
-
-## v0.1.16 - 2026-05-16
-
-- Harden repo-owned ETRNL skills and reference docs from advisory phrasing into directive workflow contracts, and make `skill-contract-check.mjs` fail on soft directive language unless the text states an unavailable, not-applicable, or blocker path.
-
-## v0.1.15 - 2026-05-16
-
-- Add a machine-checkable `/etrnl-documentation-health` completion gate so shallow docs-health summaries are blocked unless they include inventory evidence, source-of-truth mapping, classifications, findings ledger dispositions, skipped-check reasons, scorecard, and validation.
-
-## v0.1.14 - 2026-05-16
-
-- Block `/etrnl-execute` source edits after malformed Agent/Task packets until a valid JSON-only implementation subagent packet succeeds, and recognize RTK-wrapped filtered `check-types` commands as quality evidence.
-
-## v0.1.13 - 2026-05-16
-
-- Add `/etrnl-documentation-health` as the documentation-health specialist for docs drift, ADR/runbook/API/runtime docs, AI context, and TSDoc/JSDoc audits with progressive-disclosure references and parallel review lanes.
-
-## v0.1.12 - 2026-05-15
-
-- Fix Claude Code session-friction found in the May 13-15 transcript audit: existing-file `Write` calls now read disk content before safety checks, prompt-wrapped task packets are accepted and recorded, planned write scopes can justify file-split sprawl, diagnostic verification tails are allowed for long logs, and large final plans require an execution digest or plan index.
-- Harden completion/failure guidance with targeted `PostToolUseFailure` diagnostics and stricter email-triage stop checks for latest-thread state plus pre-existing action backlog evidence.
-
-## v0.1.11 - 2026-05-14
-
-- Enforce plan-execution completeness by requiring `Execution scope` in readiness checks, rejecting ambiguous final `Immediate First Patch` plans, routing active-plan shorthand into `/etrnl-execute`, and blocking completion without a task/phase ledger for requested plan execution.
-- Fix PostToolBatch success detection for Claude Code payloads that omit top-level status fields, add an RTK `rg` compatibility prehook so unsafe `rg` forms route through `rtk proxy --ultra-compact rg` instead of broken `rtk grep` rewrites, and surface stale external hook conflicts such as pre-v4 `rtk-rewrite.sh` in settings audit output.
-
-## v0.1.10 - 2026-05-13
-
-- Add best-of-all-worlds quick wins from the GStack/GSD/Superpowers gap-closure plan: skill-trigger fixtures for every owned `etrnl-*` skill, `workflow-health status`/`status --json`, SessionStart workflow hints, compact timestamp/count recovery metadata, redacted `project-buglog suggest --json`, browser QA v2 matrix validation/migration, and installed browser-QA rejection canary coverage.
-- Harden the next control-plane evidence path with screenshot-hash/provenance checks for complete browser QA v2 reports, task packet `taskId`/`lineageId` plus packet hashes, schema v2 execution ledger events/reviews, packet-bound write evidence checks, cwd-filtered workflow health, and cross-session project buglog hints.
-- Add optional phase/workstream/UAT ledger metadata with `execution-ledger.mjs set-phase` and `record-uat`; open UAT findings now block ledger completion and appear in workflow-health status.
-- Harden subagent orchestration so multi-file write task packets require spec/quality reviewer contracts, reviewer subagent calls are recorded separately, and `etrnl-execute` multi-file completion requires implementation plus spec and quality reviewer evidence.
-- Expand install/update/rollback drift UX with settings-mode metadata, `update-check.mjs --explain`, installed skill/agent/stale-script drift counts, `uninstall.sh` installation, rollback removal/restoration of repo-owned skills/hooks/agents, and settings validation after rollback.
-- Block `etrnl-execute` completion when a run changes multiple source files after the execute request without write-mode implementation subagent evidence, and harden the skill contract so parallel-safe waves require `etrnl-executor`/write-task workers or an explicit sequential-degraded blocker.
-- Deny `plan-readiness-check.mjs --help` probes during execute startup so `/etrnl-execute` runs the readiness checker directly against the plan path.
-- Reject completed browser QA reports unless they include real console and network summaries, so `etrnl-qa-browser` cannot validate unchecked UI evidence.
-- Add a canonical best-of-all-worlds gap-closure plan for the larger GStack/GSD/Superpowers-inspired workflow upgrades that are too broad for a drive-by patch.
-- Reinject global and project `CLAUDE.md`, `.claude/CLAUDE.md`, and `CLAUDE.local.md` context in Claude startup order on every `UserPromptSubmit` so Claude Code sessions keep active guidance even when the host does not reliably include it.
-- Add `CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD=0`, `CLAUDE_CONTROL_PLANE_CLAUDE_MD_MAX_CHARS`, and `CLAUDE_CONTROL_PLANE_USERPROMPT_CONTEXT_MAX_CHARS` controls for prompt reinjection and context caps.
-- Expand in-root markdown `@*.md` references from global/project startup files recursively up to five hops while skipping references outside the allowed global or project roots.
-- Add doctor checks that keep control-plane startup files under 200 lines and ensure Claude wrappers import `AGENTS.md`.
-- Canonicalize installed hook commands during settings merge so `~/.claude` and absolute-home variants dedupe.
-- Add `settings-audit.mjs --fix` with matcher-set compaction, duplicate hook cleanup, legacy rate-limiter migration, and collision-safe temp writes.
-- Replace the legacy race-prone `rate-limiter.sh` with locked repo-owned `cc-rate-limiter.sh`, bounded state rotation, warning debounce, and install-time migration.
-- Add `PreToolUse` denial for directory `Read` calls so agents use inventory/search tools before bulk-reading directories.
-- Add `PreToolUse` denial for shell output-limiter pipes so agents do not hide command output that hooks need to classify.
-- Make local dev-server port guarding fail closed when the helper or Node runtime is unavailable instead of silently skipping the check.
-- Add first-failure context and repeated-identical-failure blocking in `PostToolUseFailure` so agents pivot after the first diagnostic hint.
-- Debounce `PostToolBatch` warning fingerprints so repeated observer guidance does not flood the session.
-- Require `agent-task-packet-check.mjs --template read-only|write` to choose an explicit subagent mode before delegation.
-- Add `plan-readiness-check.mjs --json` repair hints and `--explain` output for deterministic plan repair.
-- Add installed `update-check.mjs` metadata and source-fingerprint drift detection for startup and manual update checks.
-- Expand install verification around strict mode, installed-home doctor, installed update metadata, post-upgrade canary, and settings audit repair.
-- Harden prompt-reference containment, AWS-secret redaction, browser-QA strict summaries, research refresh cadence, and shell command canonicalization from the CodeRabbit follow-up.
-- Expand regression coverage to 181 hook checks and 149 workflow-tool checks for the current release.
-
-## v0.1.9 - 2026-05-12
-
-- Add install-aware update metadata, startup drift checks, and Gstack-style local auto-update support for the Claude control plane.
-
-## v0.1.8 - 2026-05-11
-
-- Harden hook storm control-plane behavior with a shared command-classifier layer, state schema v2 auto-migration, command outcome tracking, and per-event batched state writes.
-- Add one-time signed override tokens for safety-critical prod schema and secret-disclosure commands, including replay/fingerprint/expiry abuse protections.
-- Switch subagent packet validation to structured JSON contracts with explicit `read-only` and `write` modes.
-- Scope port checks to dev-server commands only, require review evidence before risky completion commands, and require migration evidence for schema-related completion claims.
-- Add scrubbed replay fixtures plus `replay-hook-fixtures.mjs`, and expand hook tests with migration, override-token, degraded-mode, and structured-packet matrices.
-- Add a top-10 competitor code-intelligence pipeline with pinned manifests, non-README evidence contracts, and parity scorecard/backlog generation for all `etrnl-*` skills.
-- Require readiness-plan sections to include explicit verification gates and a standalone final `## Verdict` handoff.
-- Require planning flows to document research-gating for new capability claims and keep `CHANGELOG.md`, `docs/skills.md`, and `docs/health-stack.md` synchronized for repo-owned workflow changes.
-
-## v0.1.7 - 2026-05-10
-
-- Add strict quality gates for real post-edit verification, test weakening, safety-removal edits, full-file complexity, file sprawl, repeated-edit bug memory, and second-pass review triggers.
-- Block ownership-deflection language such as "pre-existing issue", "not from my changes", and "out of scope" when agents should fix or precisely block issues found during the work.
-- Make `/etrnl-autoplan` emit plans that match `plan-readiness-check.mjs`, and make `/etrnl-execute` run that checker directly before edits.
-- Add a skill-contract doctor gate and generated SessionStart skill hints so every repo-owned `/etrnl-*` skill stays documented, helper-backed, and installed consistently.
-- Add skill behavior smoke coverage for readiness, ledger, browser QA, review log, context save/restore, task packet, wave, code-health, and prompt-budget helpers.
-- Add Agent-OS execution support: local run ledger helpers, workflow health summaries, structured subagent task-packet validation, and `SubagentStop` recording.
-- Install repo-owned `etrnl-*` agents by default and include rollback/doctor coverage for them.
-- Add `/etrnl-autoplan` and upgrade `/etrnl-execute` with no-pause execution, task-packet fanout, reviewer roles, and ledger checks.
-- Aggregate policy and complexity hook failures so agents can fix all detected issues in one pass.
-- Add installer, ledger, task-packet, and aggregate-complexity test coverage.
-- Upgrade ETRNL to completeness 10/10 defaults with autoplan gauntlet-lite review, wave execution, overlap checks, durable review/browser/context artifacts, and workflow-health artifact summaries.
-- Add repo-owned scout, adversary, design, DX, and browser-QA agent templates plus `/etrnl-qa-browser`, `/etrnl-context-save`, and `/etrnl-context-restore`.
-- Block completion claims when a planned browser/manual QA pass is still outstanding.
-- Add deterministic changelog release hygiene checks to prevent release-branch work from lingering under `Unreleased`.
-- Add port-guard: force local dev servers onto explicit checked ports so agents do not collide with occupied/default ports.
-- Harden script guards for large hook payloads, state-file locking, parameterized silent catches, and dangerous filesystem paths outside the current project or temp dirs.
-- Split workflow-tool coverage out of the hook harness, install source-style tests, exclude Python bytecode from installs, and add source-followed ShellCheck cleanup.
-- Address CodeRabbit follow-up by symlinking installed legacy test entrypoints, guarding harness path helpers, and making changelog validation fail clearly for missing files or malformed semver tags.
-- Finish CodeRabbit hardening for portable hook-input reads, `--json --quiet` inventory output, atomic rule installs, stable skill metadata assertions, and port-guard scan guidance.
+- Add the latest starred-agent stack research map and convert the highest-value findings into enforcement: parallel subagent lifecycle fields, executable task-group readiness checks, mandatory-rule mechanical gate validation, and optional CodeGraph/React Doctor/Brooks-Lint health-stack mappings.
+- Add the Hybrid Deep Stack plan/review/execute contract: final plans validate `Deep stack artifacts:` through `deep-stack-check.mjs`, with source manifests, skill matrices, reuse inventories, review phase records, findings ledgers, completion audits, risk tiers, TypeScript trigger evidence, staged-install proof, and structured repair errors.
+- Harden task packets, ledgers, and stop checks so multi-file source work is bound to implementation agents, spec/quality reviewers, reuse/TDD/simplifier/completion/install evidence, no-revert acknowledgement, overlap checks, packet hashes, and direct-parent-edit blocking unless a sequential-degraded blocker is recorded.
+- Make planning and execution gates stricter: final plans require execution scope, test-first red/green plans, verification gates, verdict handoff, execution digest for oversized plans, explicit transitional deep-stack flags, UAT gates, and no ambiguous first-patch execution.
+- Harden Claude/Codex session reliability: Codex RTK rewrites use `updatedInput`, unsafe `rg` forms proxy through RTK before execution, broad `.codex` scans are blocked, startup context reinjection is bounded, compact recovery records workflow breadcrumbs, and workflow-health reports stale runs, artifacts, UAT state, and next action.
+- Add and harden VIVAZ email-triage workflows: `/email-triage`, `/etrnl-email-reply-quality`, provider-verified Inbox Zero gates, queue-ready-without-mutation support, reply queue completion checks, ML insight routing, draft quality gates, and dry-run/queue-before-verify blockers.
+- Add documentation and code-health gates: `/etrnl-documentation-health`, deterministic comment-health counters, code-health inventory and ledger checks, shared audit exclusions, baseline-only completion blockers, and terminal findings requirements.
+- Expand installed control-plane operations: rollback/update metadata, settings audit repair, strict hook templates, install-home doctor coverage, repo-owned agents, skill behavior smoke checks, replay fixtures, browser QA v2 matrix/hash validation, prompt-budget checks, changelog release hygiene, and post-upgrade canaries.
+- Add safety and quality guards for sycophancy, ownership deflection, dangerous filesystem paths, secret/prod commands with signed override tokens, schema migration evidence, output-limiter pipes, large edits, file sprawl, stale verification, repeated failures, and dev-server port collisions.
 
 ## v0.1.6 - 2026-05-10
 

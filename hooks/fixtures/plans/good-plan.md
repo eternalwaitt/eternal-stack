@@ -22,7 +22,10 @@ Assumptions: None.
 
 ## Task groups
 
-- Planning gate updates.
+- Owner: parent agent.
+- Dependencies: existing plan and execute skills.
+- Acceptance criteria: readiness accepts the complete plan fixture and rejects thin plans.
+- Verification: `tests/test-hooks.sh` passes.
 
 ## Phases
 

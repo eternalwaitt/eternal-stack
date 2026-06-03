@@ -86,8 +86,53 @@ function repairHintFor(name, message) {
       'Rename "Immediate First Patch" to an explicit phase, or set Execution scope: first_patch_only if the plan is intentionally partial.',
     plan_too_large:
       'Add ## Execution Digest or ## Plan Index with chunk/subplan boundaries, then move oversized detail into referenced artifacts.',
+    task_groups_executable:
+      'In ## Task groups, add owner, dependencies, acceptance criteria, and verification fields for executable handoff.',
+    test_first_red_green:
+      'In ## Test-first execution plan, add Red and Green rows or a concrete not-applicable rationale.',
+    verification_commands:
+      'In ## Verification gates, add exact commands or live checks with expected results.',
   };
   return hintMap[name] ?? `Fix: ${message}`;
+}
+
+function requireSectionPattern(sectionName, failureName, pattern, message) {
+  if (!pattern.test(sectionBody(sectionName))) {
+    addFailure(failureName, message);
+  }
+}
+
+function taskGroupBodies() {
+  const body = sectionBody('Task groups').trim();
+  if (!body) return [];
+  const groups = [...body.matchAll(/^###\s+[\s\S]*?(?=^###\s+|(?![\s\S]))/gm)]
+    .map((match) => match[0].trim())
+    .filter(Boolean);
+  return groups.length > 0 ? groups : [body];
+}
+
+function requireExecutableTaskGroups() {
+  const executableTaskGroupPattern =
+    /\bOwner:\s*\S[\s\S]*\bDependencies:\s*\S[\s\S]*\bAcceptance(?: criteria)?:\s*\S[\s\S]*\bVerification:\s*\S/i;
+  const groups = taskGroupBodies();
+  if (groups.length === 0 || groups.some((group) => !executableTaskGroupPattern.test(group))) {
+    addFailure(
+      'task_groups_executable',
+      'Task groups must include owner, dependencies, acceptance criteria, and verification fields.',
+    );
+  }
+}
+
+function requireTestFirstPlan() {
+  const body = sectionBody('Test-first execution plan');
+  const hasRedGreen = /\bRed:\s*\S[\s\S]*\bGreen:\s*\S/i.test(body);
+  const hasRationale = /\b(Not[- ]applicable|Rationale|Because|Cannot|Docs[- ]only|Fixture[- ]only|No source):?\s+\S/i.test(body);
+  if (!hasRedGreen && !hasRationale) {
+    addFailure(
+      'test_first_red_green',
+      'Test-first execution plan must include Red and Green rows or a concrete not-applicable rationale.',
+    );
+  }
 }
 
 function requireStatusHeading(allowDraftMode) {
@@ -190,6 +235,17 @@ for (const [name, pattern, message] of readinessChecks) {
   if (!pattern.test(readinessReport)) {
     addFailure(name, message);
   }
+}
+
+if (isFinal) {
+  requireExecutableTaskGroups();
+  requireTestFirstPlan();
+  requireSectionPattern(
+    'Verification gates',
+    'verification_commands',
+    /(`[^`]+`|^\s*-\s*(?:node|npm|pnpm|yarn|bun|bash|sh|scripts\/|\.\/scripts\/|curl|gh|git)\b)/im,
+    'Verification gates must include exact commands or live checks.',
+  );
 }
 
 const optionalMetadata = {

@@ -50,6 +50,11 @@ if (templateIndex !== -1) {
       simplifierEvidence: "code-simplifier evidence row or not applicable for tiny/no-source work",
       integrationOwner: "parent agent",
       expectedDiffShape: "Small patch within writeScope plus tests/docs needed for the change.",
+      maxConcurrentLanes: 1,
+      nativeChildAgents: "forbidden",
+      parentChildDrain: "No child agents spawned by worker.",
+      completionReceiptRequired: true,
+      completionReceipt: "changed files, verification commands, result status, blockers, and follow-up ownership",
       deepStackExecution: false,
       deepStackArtifacts: "path/to/deep-stack-artifacts.json",
       riskTier: { tier: 1, reason: "Small source change after deep review.", verificationGate: "project-specific verification command" },
@@ -98,6 +103,11 @@ const fieldAliases = new Map([
   ["simplifier_evidence", "simplifierEvidence"],
   ["integration_owner", "integrationOwner"],
   ["expected_diff_shape", "expectedDiffShape"],
+  ["max_concurrent_lanes", "maxConcurrentLanes"],
+  ["native_child_agents", "nativeChildAgents"],
+  ["parent_child_drain", "parentChildDrain"],
+  ["completion_receipt_required", "completionReceiptRequired"],
+  ["completion_receipt", "completionReceipt"],
   ["deep_stack_execution", "deepStackExecution"],
   ["deep_stack_artifacts", "deepStackArtifacts"],
   ["risk_tier", "riskTier"],
@@ -232,13 +242,13 @@ if ("reviewers" in packet) {
   }
 }
 
-for (const key of ["specReviewRequired", "qualityReviewRequired", "simplifierReviewRequired", "deepStackExecution", "tddRequired", "createsNewSurface"]) {
+for (const key of ["specReviewRequired", "qualityReviewRequired", "simplifierReviewRequired", "deepStackExecution", "tddRequired", "createsNewSurface", "completionReceiptRequired"]) {
   if (key in packet && typeof packet[key] !== "boolean") {
     violations.push(`${key} must be a boolean`);
   }
 }
 
-const nonEmptyStringFields = ["integrationOwner", "expectedDiffShape", "tddEvidence", "reuseArtifact", "simplifierEvidence"];
+const nonEmptyStringFields = ["integrationOwner", "expectedDiffShape", "tddEvidence", "reuseArtifact", "simplifierEvidence", "completionReceipt", "parentChildDrain"];
 for (const key of nonEmptyStringFields) {
   if (key in packet && (typeof packet[key] !== "string" || packet[key].trim().length === 0)) {
     violations.push(`${key} must be a non-empty string`);
@@ -292,6 +302,35 @@ function pathsOverlap(left, right) {
   return left.startsWith(`${right}/`) || right.startsWith(`${left}/`);
 }
 
+function validateMaxConcurrentLanes(packet, waveSize, missing, violations) {
+  if (!("maxConcurrentLanes" in packet)) {
+    missing.push("maxConcurrentLanes");
+    return;
+  }
+  const maxConcurrentLanes = packet.maxConcurrentLanes;
+  if (typeof maxConcurrentLanes !== "number" || !Number.isInteger(maxConcurrentLanes) || maxConcurrentLanes <= 0 || maxConcurrentLanes > 6) {
+    violations.push("maxConcurrentLanes must be an integer from 1 to 6");
+    return;
+  }
+  if (waveSize > maxConcurrentLanes) {
+    violations.push("waveSize must not exceed maxConcurrentLanes");
+  }
+}
+
+function validateNativeChildAgentPolicy(packet, missing, violations) {
+  if (!("nativeChildAgents" in packet)) {
+    missing.push("nativeChildAgents");
+    return;
+  }
+  const allowedPolicies = new Set(["forbidden", "modeled", "not_applicable"]);
+  if (typeof packet.nativeChildAgents !== "string" || !allowedPolicies.has(packet.nativeChildAgents)) {
+    violations.push('nativeChildAgents must be "forbidden", "modeled", or "not_applicable"');
+  }
+  if (packet.nativeChildAgents === "modeled" && !("parentChildDrain" in packet)) {
+    missing.push("parentChildDrain");
+  }
+}
+
 // noRevert must be explicitly boolean true so workers acknowledge they cannot auto-revert.
 // String "true", number 1, and other truthy values are rejected to prevent accidental acknowledgment.
 if ("noRevert" in packet) {
@@ -317,21 +356,27 @@ if (mode === "write" && "writeScope" in packet && "forbiddenPaths" in packet) {
   if (overlap.length > 0) {
     violations.push(`writeScope and forbiddenPaths overlap (disjoint-ownership violation): ${overlap.join(", ")}`);
   }
-  const waveSize = "waveSize" in packet ? Number(packet.waveSize) : 1;
-  if ("waveSize" in packet && (!Number.isInteger(waveSize) || waveSize <= 0)) {
+  const waveSize = "waveSize" in packet ? packet.waveSize : 1;
+  if ("waveSize" in packet && (typeof waveSize !== "number" || !Number.isInteger(waveSize) || waveSize <= 0)) {
     violations.push("waveSize must be a positive integer when provided");
   }
   if ("parallelSafe" in packet && typeof packet.parallelSafe !== "boolean") {
     violations.push("parallelSafe must be a boolean when provided");
   }
-  const parallelWritePacket = writeScope.length >= 2 || waveSize >= 2 || packet.parallelSafe === true;
-  if (mode === "write" && waveSize >= 2 && !("waveId" in packet)) missing.push("waveId");
+  const comparableWaveSize = typeof waveSize === "number" ? waveSize : 1;
+  const parallelWritePacket = writeScope.length >= 2 || comparableWaveSize >= 2 || packet.parallelSafe === true;
   if (parallelWritePacket) {
     const reviewers = Array.isArray(packet.reviewers) ? packet.reviewers : [];
+    if (!("waveId" in packet)) missing.push("waveId");
+    if (!("waveSize" in packet)) missing.push("waveSize");
     if (packet.specReviewRequired !== true) missing.push("specReviewRequired");
     if (packet.qualityReviewRequired !== true) missing.push("qualityReviewRequired");
     if (!("integrationOwner" in packet)) missing.push("integrationOwner");
     if (!("expectedDiffShape" in packet)) missing.push("expectedDiffShape");
+    validateMaxConcurrentLanes(packet, waveSize, missing, violations);
+    validateNativeChildAgentPolicy(packet, missing, violations);
+    if (packet.completionReceiptRequired !== true) missing.push("completionReceiptRequired");
+    if (!("completionReceipt" in packet)) missing.push("completionReceipt");
     if (packet.specReviewRequired === true && !reviewers.includes("etrnl-spec-reviewer")) {
       violations.push("reviewers must include etrnl-spec-reviewer when specReviewRequired is true");
     }

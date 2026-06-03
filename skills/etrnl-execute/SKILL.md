@@ -77,7 +77,8 @@ When the user asks to execute or implement a plan, completion means every item i
    - retry policy
    - do-not-revert instruction
    - WebSearch policy
-   - for multi-file write scopes: `reviewers`, `specReviewRequired`, `qualityReviewRequired`, `integrationOwner`, and `expectedDiffShape`
+   - for parallel or multi-file write scopes: `reviewers`, `specReviewRequired`, `qualityReviewRequired`, `integrationOwner`, `expectedDiffShape`, `waveId`, `waveSize`, `maxConcurrentLanes`, `nativeChildAgents`, `completionReceiptRequired`, and `completionReceipt`
+   - set `nativeChildAgents` to `forbidden`, `modeled`, or `not_applicable`; if set to `modeled`, add `parentChildDrain` with the child-agent drain and merge protocol
    - for new surfaces: `createsNewSurface`, `reuseArtifact`, and `newSurfaceJustification`
    - for TDD-required source work: `tddRequired` and `tddEvidence`
    - for deep-stack execution: `deepStackExecution`, `deepStackArtifacts`, `riskTier`, `completionEvidence`, `simplifierEvidence`, and `simplifierReviewRequired` (plus the TDD and new-surface fields above when those conditions apply)

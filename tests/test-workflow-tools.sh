@@ -655,6 +655,19 @@ else
 fi
 printf '%s\n' '# Changelog' '' '## Unreleased' '' '## v0.1.1 - 2026-01-01' '' '- Workflow change.' '' '## v0.1.0 - 2026-01-01' '' '- Initial release.' >"$changelog_repo/CHANGELOG.md"
 assert_command "changelog check accepts release after tag" node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_repo"
+printf '%s\n' '# Changelog' '' '## Unreleased' '' '## v0.1.2 - 2026-01-02' '' '- Current pending release.' '' '## v0.1.1 - 2026-01-01' '' '- Untagged older release.' '' '## v0.1.0 - 2026-01-01' '' '- Initial release.' >"$changelog_repo/CHANGELOG.md"
+if drift_out="$(node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_repo" 2>&1)"; then
+  not_ok "changelog check rejects untagged older release sections"
+else
+  assert_contains "changelog check rejects untagged older release sections" "$drift_out" "untagged release sections below the top pending release"
+fi
+git -C "$changelog_repo" tag v0.1.2
+printf '%s\n' '# Changelog' '' '## Unreleased' '' '## v0.1.3 - 2026-01-03' '' '- Current pending release.' '' '## v0.1.2 - 2026-01-02' '' '- Tagged release.' '' '## v0.1.1 - 2026-01-01' '' '- Older untagged release.' '' '## v0.1.0 - 2026-01-01' '' '- Initial release.' >"$changelog_repo/CHANGELOG.md"
+if drift_out="$(node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_repo" 2>&1)"; then
+  not_ok "changelog check rejects older untagged sections below a tagged release"
+else
+  assert_contains "changelog check rejects older untagged sections below a tagged release" "$drift_out" "untagged release sections below the top pending release"
+fi
 
 changelog_malformed_tag="$TMPROOT/changelog-malformed-tag"
 mkdir -p "$changelog_malformed_tag"
