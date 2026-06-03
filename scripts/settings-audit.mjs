@@ -127,7 +127,7 @@ function invalidStopContextHandoff(command) {
   if (!filePath) return false;
   try {
     const body = fs.readFileSync(filePath, "utf8");
-    return /hookSpecificOutput[^]*hookEventName[^]*Stop[^]*additionalContext/.test(body);
+    return /hookSpecificOutput.*hookEventName.*Stop.*additionalContext/s.test(body);
   } catch {
     return false;
   }
