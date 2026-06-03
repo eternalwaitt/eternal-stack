@@ -150,12 +150,14 @@ cc_prompt_claude_context() {
     0|false|FALSE|no|NO|off|OFF) return 0 ;;
   esac
 
-  local inject_mode force_always global_claude project_file cc_prompt_context cc_prompt_seen_files cc_prompt_remaining_chars
+  local inject_mode force_always global_claude project_file project_context fingerprint cc_prompt_context cc_prompt_seen_files cc_prompt_remaining_chars
   inject_mode="$(printf '%s' "${CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD:-once}" | tr '[:upper:]' '[:lower:]')"
   force_always=false
   [[ "$inject_mode" == "always" ]] && force_always=true
+  project_context="$(cd -- "$cwd" 2>/dev/null && pwd -P || printf '%s' "$cwd")"
+  fingerprint="claude-md-context-injected:$project_context"
   if [[ "$force_always" != "true" ]] \
-    && cc_state_has_warning_fingerprint "claude-md-context-injected"; then
+    && cc_state_has_warning_fingerprint "$fingerprint"; then
     return 0
   fi
 
@@ -175,7 +177,7 @@ cc_prompt_claude_context() {
 
   [[ -n "$cc_prompt_seen_files" ]] || return 0
   if [[ "$force_always" != "true" ]]; then
-    cc_state_record_warning_fingerprint "claude-md-context-injected" || true
+    cc_state_record_warning_fingerprint "$fingerprint" || true
   fi
   printf '%s\n' "$cc_prompt_context"
 }

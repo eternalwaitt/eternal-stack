@@ -706,7 +706,7 @@ handle_bash() {
 }
 
 handle_edit() {
-  local file_path abs text old_text violation tmp complexity_err context is_new_source new_count bug_context old_text_status
+  local file_path abs text old_text violation tmp complexity_err complexity_message context is_new_source new_count bug_context old_text_status
   file_path="$(cc_json_get '.tool_input.file_path')"
   abs="$(cc_abs_path "$file_path" "$cwd")"
   text="$(cc_extract_edit_text)"
@@ -816,7 +816,6 @@ handle_edit() {
       deny "Failed to write temporary file for complexity check."
     fi
     if ! node "$SCRIPT_DIR/lib/complexity-check.mjs" "$tmp" >"$complexity_err" 2>&1; then
-      local complexity_message
       complexity_message="$(tr '\n' ' ' <"$complexity_err")"
       rm -f -- "$tmp" "$complexity_err"
       deny "$complexity_message"

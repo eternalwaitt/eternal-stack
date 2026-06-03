@@ -3,15 +3,17 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
-import { positiveEnvInt } from "./lib/env-utils.mjs";
+import { gitSubprocessLimits } from "./lib/env-utils.mjs";
 
 const args = process.argv.slice(2);
 const command = args[0] ?? "help";
 const staleHours = Number(argValue("--stale-hours", process.env.ETRNL_CONTEXT_STALE_HOURS || "24"));
 const DEFAULT_GIT_TIMEOUT_MS = 5_000;
 const DEFAULT_GIT_MAX_BUFFER = 5 * 1024 * 1024;
-const GIT_TIMEOUT_MS = positiveEnvInt(process.env.GIT_TIMEOUT_MS, DEFAULT_GIT_TIMEOUT_MS);
-const GIT_MAX_BUFFER = positiveEnvInt(process.env.GIT_MAX_BUFFER_BYTES || process.env.GIT_MAX_BUFFER, DEFAULT_GIT_MAX_BUFFER);
+const GIT_LIMITS = gitSubprocessLimits({
+  timeoutMs: DEFAULT_GIT_TIMEOUT_MS,
+  maxBufferBytes: DEFAULT_GIT_MAX_BUFFER,
+});
 
 function argValue(flag, fallback = "") {
   const index = args.indexOf(flag);
@@ -46,8 +48,8 @@ function gitOutput(argsForGit) {
     return execFileSync("git", argsForGit, {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
-      timeout: GIT_TIMEOUT_MS,
-      maxBuffer: GIT_MAX_BUFFER,
+      timeout: GIT_LIMITS.timeout,
+      maxBuffer: GIT_LIMITS.maxBuffer,
     }).trim();
   } catch (error) {
     const message = error instanceof Error ? error.message.split("\n")[0] : String(error);

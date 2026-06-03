@@ -139,7 +139,7 @@ function aggregateSuggestionFor(cwd, entries) {
     fingerprint: aggregateFingerprint(cwd, latest.category, latest.summary),
     firstSeen: sorted[0]?.at || "",
     lastSeen: latest.at || "",
-    affectedFilesCount: new Set(sorted.map((entry) => entry.file)).size,
+    affectedFilesCount: new Set(sorted.map((entry) => entry.file).filter((file) => String(file || "").trim())).size,
     occurrenceCount: sorted.length,
     recentFiles,
     suggestedGuard: suggestedGuard(latest.category),
@@ -158,10 +158,13 @@ function projectSuggestions(cwd, entries, limit, threshold) {
   }
   const suggestions = [];
   const groupedEntries = [...groups.values()]
-    .map((group) => ({
-      entries: group,
-      latest: group.reduce((latest, entry) => String(entry.at || "").localeCompare(latest) > 0 ? String(entry.at || "") : latest, ""),
-    }))
+    .map((group) => {
+      const sortedGroup = [...group].sort((left, right) => String(left.at || "").localeCompare(String(right.at || "")));
+      return {
+        entries: sortedGroup,
+        latest: String(sortedGroup.at(-1)?.at || ""),
+      };
+    })
     .sort((left, right) => right.latest.localeCompare(left.latest));
   for (const { entries: group } of groupedEntries) {
     const sorted = [...group].sort((left, right) => String(left.at || "").localeCompare(String(right.at || "")));

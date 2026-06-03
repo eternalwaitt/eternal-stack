@@ -92,9 +92,9 @@ const knownCompanionHooks = new Set([
   "terminal-title.sh",
   "verification-gate.sh",
 ]);
-const rewriteKnownHookCommand = (command) => {
+const rewriteKnownHookCommand = (command, eventName = "") => {
   if (isLegacyRateLimiter(command)) return "bash ~/.claude/hooks/cc-rate-limiter.sh";
-  if (invalidStopContextHandoff(command)) return "";
+  if (eventName === "Stop" && invalidStopContextHandoff(command)) return "";
   return command;
 };
 
@@ -214,10 +214,10 @@ function collectIssues(settings) {
 }
 
 function rewriteKnownHooks(settings) {
-  for (const groups of Object.values(settings.hooks ?? {})) {
+  for (const [eventName, groups] of Object.entries(settings.hooks ?? {})) {
     for (const group of groups ?? []) {
       for (const hook of group.hooks ?? []) {
-        hook.command = rewriteKnownHookCommand(hook.command);
+        hook.command = rewriteKnownHookCommand(hook.command, eventName);
       }
     }
   }
