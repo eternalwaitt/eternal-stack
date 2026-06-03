@@ -7,8 +7,15 @@ import path from "node:path";
 const args = process.argv.slice(2);
 const command = args[0] ?? "help";
 const staleHours = Number(argValue("--stale-hours", process.env.ETRNL_CONTEXT_STALE_HOURS || "24"));
-const GIT_TIMEOUT_MS = 5_000;
-const GIT_MAX_BUFFER = 5 * 1024 * 1024;
+const DEFAULT_GIT_TIMEOUT_MS = 5_000;
+const DEFAULT_GIT_MAX_BUFFER = 5 * 1024 * 1024;
+const GIT_TIMEOUT_MS = positiveEnvInt(process.env.GIT_TIMEOUT_MS, DEFAULT_GIT_TIMEOUT_MS);
+const GIT_MAX_BUFFER = positiveEnvInt(process.env.GIT_MAX_BUFFER_BYTES || process.env.GIT_MAX_BUFFER, DEFAULT_GIT_MAX_BUFFER);
+
+function positiveEnvInt(raw, fallback) {
+  const value = Number.parseInt(raw || "", 10);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
 
 function argValue(flag, fallback = "") {
   const index = args.indexOf(flag);

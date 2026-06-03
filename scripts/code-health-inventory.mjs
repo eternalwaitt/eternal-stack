@@ -9,8 +9,16 @@ let includeUntracked = false;
 let quiet = false;
 let root = process.cwd();
 let rootProvided = false;
-const GIT_TIMEOUT_MS = 15_000;
-const GIT_MAX_BUFFER = 20 * 1024 * 1024;
+const DEFAULT_GIT_TIMEOUT_MS = 15_000;
+const DEFAULT_GIT_MAX_BUFFER = 20 * 1024 * 1024;
+// Preferred env names are GIT_TIMEOUT_MS and GIT_MAX_BUFFER_BYTES.
+const GIT_TIMEOUT_MS = positiveEnvInt(process.env.GIT_TIMEOUT_MS, DEFAULT_GIT_TIMEOUT_MS);
+const GIT_MAX_BUFFER = positiveEnvInt(process.env.GIT_MAX_BUFFER_BYTES || process.env.GIT_MAX_BUFFER, DEFAULT_GIT_MAX_BUFFER);
+
+function positiveEnvInt(raw, fallback) {
+  const value = Number.parseInt(raw || "", 10);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
 
 for (const arg of args) {
   if (arg === "--json") json = true;

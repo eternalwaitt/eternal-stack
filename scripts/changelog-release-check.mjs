@@ -8,7 +8,9 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
 const GIT_TIMEOUT_MS = 10_000;
 const DEFAULT_GIT_MAX_BUFFER = 1024 * 1024;
-const configuredGitMaxBuffer = Number.parseInt(process.env.GIT_MAX_BUFFER_BYTES || process.env.GIT_MAX_BUFFER || "", 10);
+// Prefer GIT_MAX_BUFFER_BYTES; GIT_MAX_BUFFER is a legacy fallback.
+const rawGitMaxBuffer = process.env.GIT_MAX_BUFFER_BYTES || process.env.GIT_MAX_BUFFER || "";
+const configuredGitMaxBuffer = Number.parseInt(rawGitMaxBuffer, 10);
 const GIT_MAX_BUFFER = Number.isFinite(configuredGitMaxBuffer) && configuredGitMaxBuffer > 0
   ? configuredGitMaxBuffer
   : DEFAULT_GIT_MAX_BUFFER;

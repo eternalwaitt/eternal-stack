@@ -124,13 +124,12 @@ const hookOwner = (basename) => {
 function invalidStopContextHandoff(command) {
   if (hookBasename(command) !== "check-context-and-handoff.sh") return false;
   const filePath = hookPath(command);
-  if (!filePath) return true;
+  if (!filePath) return false;
   try {
     const body = fs.readFileSync(filePath, "utf8");
-    return /hookSpecificOutput[^]*hookEventName:\s*"Stop"[^]*additionalContext/.test(body)
-      || /hookSpecificOutput[^]*hookEventName[^]*Stop[^]*additionalContext/.test(body);
+    return /hookSpecificOutput[^]*hookEventName[^]*Stop[^]*additionalContext/.test(body);
   } catch {
-    return true;
+    return false;
   }
 }
 
