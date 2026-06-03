@@ -1,4 +1,5 @@
 export function positiveEnvInt(raw, fallback) {
+  if (!/^\d+$/.test(String(raw ?? ""))) return fallback;
   const value = Number(raw);
   return Number.isInteger(value) && value > 0 ? value : fallback;
 }

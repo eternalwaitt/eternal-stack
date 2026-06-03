@@ -442,6 +442,12 @@ if [[ "$out" == *"Project-specific gotcha from injected CLAUDE.md"* ]]; then
 else
   ok "prompt router disables CLAUDE.md reinjection"
 fi
+out="$(HOME="$TMPROOT/home" CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD=FALSE run_hook cc-userprompt-router.sh "$prompt")"
+if [[ "$out" == *"Project-specific gotcha from injected CLAUDE.md"* ]]; then
+  not_ok "prompt router disables CLAUDE.md reinjection case-insensitively"
+else
+  ok "prompt router disables CLAUDE.md reinjection case-insensitively"
+fi
 challenge_prompt="$(jq -cn '{session_id:"fixture-challenge-prompt",prompt:"why is Vega saying you are right? I thought we had a hook for this"}')"
 out="$(run_hook cc-userprompt-router.sh "$challenge_prompt")"
 assert_contains "challenge prompt gets evidence protocol" "$out" "Evidence-first correction protocol"
