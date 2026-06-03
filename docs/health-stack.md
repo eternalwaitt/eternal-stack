@@ -12,6 +12,9 @@ node scripts/documentation-comment-health.mjs --root . --json --include-untracke
 node scripts/research-competitor-intel.mjs validate-manifest --manifest docs/research/top10-lock.json
 node scripts/research-competitor-intel.mjs validate-evidence --evidence docs/research/capability-evidence.json
 node scripts/research-competitor-intel.mjs validate-scorecard --scorecard docs/research/parity-scorecard.json --skills-file scripts/lib/skill-lists.sh --evidence docs/research/capability-evidence.json
+node scripts/deep-audit-artifact-check.mjs validate-fixtures
+node scripts/deep-audit-artifact-check.mjs validate-registry --root .
+node scripts/deep-audit-artifact-check.mjs validate-synthetic-fixtures --fixture tests/fixtures/deep-audit/synthetic-target --templates tests/fixtures/deep-audit/templates
 tests/test-hooks.sh
 tests/test-workflow-tools.sh
 tests/test-install.sh
@@ -32,7 +35,9 @@ node --check \
   scripts/documentation-health-ledger-check.mjs \
   scripts/lib/audit-exclusions.mjs \
   scripts/research-competitor-intel.mjs \
+  scripts/deep-audit-artifact-check.mjs \
   scripts/deep-stack-check.mjs \
+  scripts/lib/deep-audit-categories.mjs \
   scripts/lib/deep-stack-artifacts.mjs \
   scripts/lib/research-intel-core.mjs \
   scripts/lib/research-intel-render.mjs \
@@ -92,6 +97,7 @@ scripts/post-upgrade-canary.sh
 - `project-buglog.mjs suggest --json` emits redacted local suggestions with severity, fingerprint, last-seen, and suggested guard; `suggest-project --json` aggregates repeated lessons across files, gives cross-session project hints without returning the raw cwd, and includes up to 5 most recent affected files for generic repeat-edit patterns. Hooks debounce these hints and honor `CLAUDE_CONTROL_PLANE_LEARNING_HINTS=0`.
 - `agent-task-packet-check.mjs --template write` includes `taskId`, `lineageId`, reviewer contracts, reuse/TDD/simplifier fields, lifecycle receipt fields, and a stable packet hash; parallel or multi-file write scopes fail without lane limits, child-agent policy, completion receipt, spec reviewer, and quality reviewer requirements, and deep-stack/new-surface writes fail without their evidence fields.
 - `deep-stack-check.mjs` is the single operator-facing deep-stack artifact gate. Final plans require `Deep stack artifacts:` by default and fail closed on missing source manifests, skill matrices, review phase records, TDD evidence, reuse inventories/bindings, high/blocker findings, completion gaps/reconciliation, TypeScript trigger mistakes, install-proof gaps, or Hybrid execution risk-tier violations. Historical plans can use the explicit transition flag only when they are not newly generated final plans.
+- `deep-audit-artifact-check.mjs` is the source gate for registered deep-audit category artifacts. It validates category registry alignment, all registered check ids, lane receipts, consumed worklist hashes, private-string redaction, coverage statements, and problem/cause/fix diagnostics before any deep-audit result is treated as complete.
 - `execution-ledger.mjs` writes schema v2 ledgers with cwd/project id, events, phases, reviews, atomic updates, bound write evidence checks (`record-agent`, `record-review`, `check-bound-execute`), and task-bound `record-tdd`, `record-simplifier`, `record-specialist`, `record-completion-audit`, and `record-install-proof` rows.
 - `etrnl-documentation-health` is the documentation-specialist health workflow. Use it when docs, ADRs, runbooks, API/runtime docs, AI context, or TSDoc/JSDoc are the target; it still inherits this repo's contract gates after repo-owned skill or docs changes.
 - `docs/adr/` is the durable decision log. Keep implementation plans in `docs/plans/`; use ADRs for architecture, install topology, hook model, documentation-system, workflow-contract, or security-boundary decisions that future changes must preserve.

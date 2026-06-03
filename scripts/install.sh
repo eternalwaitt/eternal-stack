@@ -233,6 +233,7 @@ cp -- "$ROOT/scripts/documentation-health-ledger-check.mjs" "$TARGET/scripts/doc
 cp -- "$ROOT/scripts/merge-settings.mjs" "$TARGET/scripts/merge-settings.mjs"
 cp -- "$ROOT/scripts/settings-audit.mjs" "$TARGET/scripts/settings-audit.mjs"
 cp -- "$ROOT/scripts/deep-stack-check.mjs" "$TARGET/scripts/deep-stack-check.mjs"
+cp -- "$ROOT/scripts/deep-audit-artifact-check.mjs" "$TARGET/scripts/deep-audit-artifact-check.mjs"
 cp -- "$ROOT/scripts/plan-readiness-check.mjs" "$TARGET/scripts/plan-readiness-check.mjs"
 cp -- "$ROOT/scripts/agent-task-packet-check.mjs" "$TARGET/scripts/agent-task-packet-check.mjs"
 cp -- "$ROOT/scripts/guard-override-token.mjs" "$TARGET/scripts/guard-override-token.mjs"

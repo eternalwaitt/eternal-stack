@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "auditId": "missing-coverage-statement",
+  "categoryRegistryVersion": "2026-06-03.1",
+  "registeredCategories": ["production-readiness", "performance"],
+  "knownUnimplementedCategories": ["security", "ux-accessibility", "api-data", "docs", "payments", "privacy-compliance"],
+  "coverageStatement": "Coverage: production-readiness.",
+  "targetLabel": "synthetic-app",
+  "targetFingerprint": "repo:synthetic-app@missing-coverage",
+  "requestedCategories": ["production-readiness"],
+  "runArtifactLabel": "missing-coverage-run",
+  "worklists": {},
+  "categoryReports": [],
+  "laneReceipts": [],
+  "confirmedClean": [],
+  "checksSkipped": [],
+  "findings": [],
+  "sourceLimitedBlockers": [],
+  "synthesis": {"status": "source_limited"},
+  "verification": []
+}

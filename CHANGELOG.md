@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add `/etrnl-deep-audit`, `/etrnl-production-readiness`, and `/etrnl-performance-audit` as registered deep-audit skills with a shared category registry, artifact validator, fixture suite, and install/test coverage.
+
 ## v0.1.7 - 2026-06-03
 
 - Improve stop-hook completion classification so paused production handoffs and other explicit non-final status updates do not get blocked as unverified completion claims.

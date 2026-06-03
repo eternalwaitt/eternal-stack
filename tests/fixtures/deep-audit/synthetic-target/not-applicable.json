@@ -1,0 +1,9 @@
+{
+  "rowType": "not_applicable",
+  "checks": [
+    {
+      "checkId": "prod-07-webhook-safety",
+      "notApplicableReason": "target has no webhook handlers"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "auditId": "omitted-check",
+  "categoryRegistryVersion": "2026-06-03.1",
+  "registeredCategories": ["production-readiness", "performance"],
+  "knownUnimplementedCategories": ["security", "ux-accessibility", "api-data", "docs", "payments", "privacy-compliance"],
+  "coverageStatement": "Coverage: production-readiness. Known not-yet-registered audit domains: security, ux-accessibility, api-data, docs, payments, privacy-compliance.",
+  "targetLabel": "synthetic-app",
+  "targetFingerprint": "repo:synthetic-app@omitted-check",
+  "requestedCategories": ["production-readiness"],
+  "runArtifactLabel": "omitted-check-run",
+  "worklists": {"prod_pages": {"count": 1, "sha256": "sha256:prod_pages", "artifactLabel": "prod-pages"}},
+  "categoryReports": [{
+    "categoryId": "production-readiness",
+    "status": "clean",
+    "consumedWorklistHashes": {"prod_pages": "sha256:prod_pages"},
+    "checks": [{"checkId": "prod-01-state-coverage", "status": "confirmed_clean", "confirmedClean": "CONFIRMED_CLEAN: state - 0 findings"}]
+  }],
+  "laneReceipts": [],
+  "confirmedClean": ["prod-01-state-coverage"],
+  "checksSkipped": [],
+  "findings": [],
+  "sourceLimitedBlockers": [],
+  "synthesis": {"status": "clean"},
+  "verification": []
+}

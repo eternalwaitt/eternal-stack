@@ -10,6 +10,7 @@ Claude Code personal and project skills use hyphenated command names. If this co
 | `/etrnl-autoplan` | Model or user | Creates readiness-compatible execution plans with task groups, subagent candidates, verification gates, question policy, and mandatory deep-stack artifacts for final plans. |
 | `/etrnl-brainstorm` | Model or user | Turns ambiguous ideas into approved design/spec files before implementation planning. |
 | `/etrnl-code-health` | Model or user | Runs the canonical code-health router: inventory, Health Stack, deterministic gates, companion audits, ledger, and no-skips closure. |
+| `/etrnl-deep-audit` | Model or user | Runs registered application deep-audit categories through a shared artifact envelope, shared worklists, category reports, lane receipts, and `all_registered` coverage statements. |
 | `/etrnl-documentation-health` | Model or user | Runs documentation-health audits and fixes across READMEs, docs, ADRs, runbooks, API/runtime docs, AI context, and code comments with inventory, drift evidence, and parallel review lanes. |
 | `/etrnl-context-save` | User or model | Saves concise resumable workflow state without storing transcripts or credentials. |
 | `/etrnl-context-restore` | User or model | Restores a saved context summary and flags stale continuation state. |
@@ -22,7 +23,9 @@ Claude Code personal and project skills use hyphenated command names. If this co
 | `/etrnl-execute` | User only | Executes an approved readiness-checked implementation plan end to end with test-first source tasks, run ledger, write-mode implementation subagents for parallel-safe multi-file work, reviews, and verification. |
 | `/etrnl-fix-issue` | User only | Reproduces and fixes tracked issues with focused verification. |
 | `/etrnl-parallel` | User only | Thin explicit fanout helper; `/etrnl-execute` owns normal plan orchestration. |
+| `/etrnl-performance-audit` | Model or user | Runs the registered performance deep-audit category with route matrix evidence, cold and warm measurements, response bytes, shared worklist hashes, and six lane receipts. |
 | `/etrnl-pr` | User only | Prepares or updates pull requests with verification evidence. |
+| `/etrnl-production-readiness` | Model or user | Runs the registered production-readiness deep-audit category with no-sampling checks, applicability gates, `CONFIRMED_CLEAN`, skipped-check reasons, and source-limited blockers. |
 | `/etrnl-qa-browser` | User only | Produces browser QA reports with route, viewport, screenshot, console, network, accessibility, and responsive evidence. |
 | `/etrnl-test` | User only | Runs project preflight and reports or fixes failures. |
 | `/etrnl-plan` | Model or user | Creates a plan file, reviews it, improves it, then finalizes it. |
@@ -32,6 +35,25 @@ Claude Code personal and project skills use hyphenated command names. If this co
 | Command | Invocation | Purpose |
 | --- | --- | --- |
 | `/email-triage <account>` | User only | Runs VIVAZ email triage in two phases: first archive/label every current INBOX item and provider-verify Inbox Zero with `vivaz-email triage guarded-run --account <account> --max-inbox 500 --apply --require-insights`, then render one action/reply queue item only after `triage verify` reports `inbox_zero_verified: true`, `inbox_count: 0`, and either `gmail_mutated: true` or `queue_ready_without_mutation: true`; visible reply drafts require `vivaz-email drafts check --draft-id <draft-id>` before approval. |
+
+## Deep Audit Skills
+
+`/etrnl-deep-audit` is the thin orchestrator. `all_registered` means every category exported by `scripts/lib/deep-audit-categories.mjs`, currently `production-readiness` and `performance`; it is not a claim that security, UX/accessibility, API/data, docs, payments, or privacy/compliance ran.
+
+Quick validator path:
+
+```bash
+node scripts/deep-audit-artifact-check.mjs validate-fixtures
+node scripts/deep-audit-artifact-check.mjs validate-registry --root .
+node scripts/deep-audit-artifact-check.mjs validate --artifact tests/fixtures/deep-audit/report.valid.json
+```
+
+Direct category examples:
+
+```bash
+/etrnl-production-readiness --category production-readiness
+/etrnl-performance-audit --category performance
+```
 
 ## Companion Skills
 
@@ -63,6 +85,8 @@ These skills are not owned by this repo, but the control plane knows about them 
 | `merge-settings.mjs` | `~/.claude/scripts/merge-settings.mjs` | Merges control-plane hooks into existing Claude settings without replacing unrelated local configuration. |
 | `plan-readiness-check.mjs` | `~/.claude/scripts/plan-readiness-check.mjs` | Rejects thin plans before they are marked final or executed; final plans require a validated deep-stack artifact bundle unless a legacy transitional flag is explicitly used. |
 | `deep-stack-check.mjs` | `~/.claude/scripts/deep-stack-check.mjs` | Creates and validates the Hybrid Deep Stack artifact bundle for final plans: sanitized source manifest, skill matrix, review phase records, TDD evidence, reuse inventory/bindings, findings ledger, completion audit/reconciliation, risk tier, TypeScript trigger evidence, and install proof. |
+| `deep-audit-artifact-check.mjs` | `~/.claude/scripts/deep-audit-artifact-check.mjs` | Validates deep-audit category artifacts, registry/docs/install alignment, registered check coverage, lane receipts, consumed worklist hashes, redaction, and stable problem/cause/fix diagnostics. |
+| `lib/deep-audit-categories.mjs` | `~/.claude/scripts/lib/deep-audit-categories.mjs` | Defines registered deep-audit categories, known unimplemented domains, check ids, lane ids, required worklists, and reference paths. |
 | `lib/deep-stack-artifacts.mjs` | `~/.claude/scripts/lib/deep-stack-artifacts.mjs` | Shared deep-stack artifact schema and validators used by readiness, packet, install, and operator-facing section checks. |
 | `agent-task-packet-check.mjs` | `~/.claude/scripts/agent-task-packet-check.mjs` | Enforces structured subagent packet contracts with task identity, lineage identity, packet hashes, lane limits, child-agent policy, completion receipts, spec/quality reviewer contracts, and reuse/TDD/simplifier fields for new-surface or deep-stack writes. |
 | `guard-override-token.mjs` | `~/.claude/scripts/guard-override-token.mjs` | Issues and verifies one-time signed override tokens for safety-critical prod/secret commands. |

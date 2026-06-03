@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "auditId": "missing-lane-receipt",
+  "categoryRegistryVersion": "2026-06-03.1",
+  "registeredCategories": ["production-readiness", "performance"],
+  "knownUnimplementedCategories": ["security", "ux-accessibility", "api-data", "docs", "payments", "privacy-compliance"],
+  "coverageStatement": "Coverage: performance. Known not-yet-registered audit domains: security, ux-accessibility, api-data, docs, payments, privacy-compliance.",
+  "targetLabel": "synthetic-app",
+  "targetFingerprint": "repo:synthetic-app@missing-lane-receipt",
+  "requestedCategories": ["performance"],
+  "runArtifactLabel": "missing-lane-receipt-run",
+  "worklists": {
+    "perf_queries": {"count": 1, "sha256": "sha256:perf_queries", "artifactLabel": "perf-queries"},
+    "perf_pages": {"count": 1, "sha256": "sha256:perf_pages", "artifactLabel": "perf-pages"}
+  },
+  "categoryReports": [{
+    "categoryId": "performance",
+    "status": "clean",
+    "consumedWorklistHashes": {"perf_queries": "sha256:perf_queries", "perf_pages": "sha256:perf_pages"},
+    "checks": [
+      {"checkId": "perf-01-database-query-performance", "status": "confirmed_clean", "confirmedClean": "CONFIRMED_CLEAN: database lane - 0 findings"},
+      {"checkId": "perf-02-server-response-caching", "status": "confirmed_clean", "confirmedClean": "CONFIRMED_CLEAN: server lane - 0 findings"},
+      {"checkId": "perf-03-bundle-code-splitting", "status": "confirmed_clean", "confirmedClean": "CONFIRMED_CLEAN: bundle lane - 0 findings"},
+      {"checkId": "perf-04-react-rendering", "status": "confirmed_clean", "confirmedClean": "CONFIRMED_CLEAN: react lane - 0 findings"},
+      {"checkId": "perf-05-perceived-performance", "status": "confirmed_clean", "confirmedClean": "CONFIRMED_CLEAN: perceived lane - 0 findings"},
+      {"checkId": "perf-06-infrastructure-network", "status": "confirmed_clean", "confirmedClean": "CONFIRMED_CLEAN: infra lane - 0 findings"}
+    ]
+  }],
+  "laneReceipts": [],
+  "confirmedClean": ["performance"],
+  "checksSkipped": [],
+  "findings": [],
+  "sourceLimitedBlockers": [],
+  "synthesis": {"status": "clean"},
+  "verification": []
+}

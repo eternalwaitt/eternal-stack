@@ -1,0 +1,9 @@
+{
+  "rowType": "auth_blocker",
+  "sourceLimitedBlockers": [
+    {
+      "checkId": "perf-02-server-response-caching",
+      "reason": "auth_blocker: fixture unavailable"
+    }
+  ]
+}

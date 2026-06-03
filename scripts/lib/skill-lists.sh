@@ -15,6 +15,7 @@ OWNED_SKILLS=(
   etrnl-commit
   etrnl-context-restore
   etrnl-context-save
+  etrnl-deep-audit
   etrnl-deps
   etrnl-disk-cleanup
   etrnl-documentation-health
@@ -22,7 +23,9 @@ OWNED_SKILLS=(
   etrnl-execute
   etrnl-fix-issue
   etrnl-parallel
+  etrnl-performance-audit
   etrnl-plan
+  etrnl-production-readiness
   etrnl-pr
   etrnl-qa-browser
   etrnl-review
@@ -61,6 +64,7 @@ CRITICAL_SCRIPTS=(
   execution-ledger.mjs
   execute-evidence-check.mjs
   deep-stack-check.mjs
+  deep-audit-artifact-check.mjs
   plan-readiness-check.mjs
   agent-task-packet-check.mjs
   guard-override-token.mjs
@@ -68,6 +72,7 @@ CRITICAL_SCRIPTS=(
   lib/bash-array-parser.mjs
   lib/cli-args.mjs
   lib/codex-memory-scan.sh
+  lib/deep-audit-categories.mjs
   lib/deep-stack-artifacts.mjs
   lib/env-utils.mjs
   lib/evidence-trace.mjs
@@ -98,6 +103,7 @@ INSTALL_SCRIPTS=(
   merge-settings.mjs
   settings-audit.mjs
   deep-stack-check.mjs
+  deep-audit-artifact-check.mjs
   plan-readiness-check.mjs
   agent-task-packet-check.mjs
   guard-override-token.mjs

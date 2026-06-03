@@ -281,6 +281,18 @@ if [[ "$prompt_lower" =~ $documentation_health_pattern ]]; then
   record_skill "etrnl-documentation-health"
   notes+=("Use etrnl-documentation-health: inventory docs first, verify claims against source/runtime truth, fan out read-only documentation lanes when broad, and close every finding with evidence.")
 fi
+if [[ "$prompt_lower" =~ deep[[:space:]-]+audit|full[[:space:]]+registered[[:space:]]+audit|full[[:space:]]+registered[[:space:]]+deep[[:space:]]+audit|all_registered ]]; then
+  record_skill "etrnl-deep-audit"
+  notes+=("Use etrnl-deep-audit: create shared worklists, run registered deep-audit categories, require lane receipts where applicable, and validate the final artifact.")
+fi
+if [[ "$prompt_lower" =~ production[[:space:]-]+readiness|auth[[:space:]]+edge[[:space:]]+cases|webhook[[:space:]-]+reliability|webhook[[:space:]-]+safety|webhook.*tenan|tenan.*migration|error[[:space:]]+boundar ]]; then
+  record_skill "etrnl-production-readiness"
+  notes+=("Use etrnl-production-readiness: audit validation, auth, webhooks, tenancy, migrations, env access, route states, and error boundaries using shared deep-audit worklists.")
+fi
+if [[ "$prompt_lower" =~ performance[[:space:]-]+audit|speed[[:space:]-]+audit|latency[[:space:]-]+audit|route[[:space:]]+latency|bundle[[:space:]]+size|react[[:space:]]+rendering|infrastructure[[:space:]]+speed|cold[[:space:]]+and[[:space:]]+warm[[:space:]]+performance ]]; then
+  record_skill "etrnl-performance-audit"
+  notes+=("Use etrnl-performance-audit: fan out database, API, bundle, React rendering, background work, and infrastructure lanes after shared worklists exist.")
+fi
 if [[ "$prompt_lower" =~ browser[[:space:]]+qa|browser[[:space:]]+test|route.*viewport|screenshot|console.*network|ui[[:space:]]+verification ]]; then
   record_skill "etrnl-qa-browser"
   notes+=("Use etrnl-qa-browser for route, viewport, console, network, accessibility, and screenshot evidence.")

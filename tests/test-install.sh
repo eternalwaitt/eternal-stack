@@ -29,6 +29,8 @@ for command_name in "${OWNED_COMMANDS[@]}"; do
 done
 assert_executable "installed execution ledger helper" "$CLAUDE_HOME/scripts/execution-ledger.mjs"
 assert_executable "installed deep-stack helper" "$CLAUDE_HOME/scripts/deep-stack-check.mjs"
+assert_executable "installed deep-audit artifact helper" "$CLAUDE_HOME/scripts/deep-audit-artifact-check.mjs"
+assert_file "installed deep-audit category registry" "$CLAUDE_HOME/scripts/lib/deep-audit-categories.mjs"
 assert_file "installed deep-stack artifact library" "$CLAUDE_HOME/scripts/lib/deep-stack-artifacts.mjs"
 assert_executable "installed review log helper" "$CLAUDE_HOME/scripts/review-log.mjs"
 assert_executable "installed project buglog helper" "$CLAUDE_HOME/scripts/project-buglog.mjs"

@@ -1,0 +1,10 @@
+{
+  "rowType": "route_matrix",
+  "route": "/example",
+  "status": 200,
+  "coldMs": 150,
+  "warmMs": 40,
+  "bytes": 2048,
+  "authFixture": "public",
+  "dynamicFixture": "not_required"
+}

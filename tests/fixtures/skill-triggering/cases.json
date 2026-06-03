@@ -24,6 +24,12 @@
     "unexpectedSkills": ["etrnl-commit"]
   },
   {
+    "name": "deep audit prompt routes etrnl-deep-audit",
+    "prompt": "run the full registered deep audit with production readiness and performance categories",
+    "expectedSkills": ["etrnl-deep-audit"],
+    "unexpectedSkills": ["etrnl-code-health"]
+  },
+  {
     "name": "documentation health prompt routes etrnl-documentation-health",
     "prompt": "run a documentation health audit for docs drift, stale READMEs, ADR health, and TSDoc coverage",
     "expectedSkills": ["etrnl-documentation-health"],
@@ -84,10 +90,34 @@
     "unexpectedSkills": ["etrnl-commit"]
   },
   {
+    "name": "performance audit prompt routes etrnl-performance-audit",
+    "prompt": "audit route latency, cold and warm performance, bundle size, React rendering, and infrastructure speed",
+    "expectedSkills": ["etrnl-performance-audit"],
+    "unexpectedSkills": ["etrnl-production-readiness"]
+  },
+  {
+    "name": "speed audit prompt routes etrnl-performance-audit",
+    "prompt": "run a speed audit and latency audit for this app",
+    "expectedSkills": ["etrnl-performance-audit"],
+    "unexpectedSkills": ["etrnl-production-readiness"]
+  },
+  {
     "name": "plan prompt routes etrnl-plan",
     "prompt": "write a detailed implementation plan for this repo",
     "expectedSkills": ["etrnl-plan"],
     "unexpectedSkills": ["etrnl-execute"]
+  },
+  {
+    "name": "production readiness prompt routes etrnl-production-readiness",
+    "prompt": "audit production readiness for validation, auth edge cases, webhooks, tenancy, migrations, env, and error boundaries",
+    "expectedSkills": ["etrnl-production-readiness"],
+    "unexpectedSkills": ["etrnl-performance-audit"]
+  },
+  {
+    "name": "webhook reliability prompt routes etrnl-production-readiness",
+    "prompt": "audit webhook reliability and webhook safety for duplicate delivery",
+    "expectedSkills": ["etrnl-production-readiness"],
+    "unexpectedSkills": ["etrnl-performance-audit"]
   },
   {
     "name": "pr prompt routes etrnl-pr",

@@ -387,6 +387,27 @@ assert_json_expr "code-health inventory lists obvious folders without auditing t
 assert_command "plan readiness syntax" node --check "$ROOT/scripts/plan-readiness-check.mjs"
 assert_command "deep-stack check syntax" node --check "$ROOT/scripts/deep-stack-check.mjs"
 assert_command "deep-stack artifact library syntax" node --check "$ROOT/scripts/lib/deep-stack-artifacts.mjs"
+assert_command "deep-audit artifact check syntax" node --check "$ROOT/scripts/deep-audit-artifact-check.mjs"
+assert_command "deep-audit category registry syntax" node --check "$ROOT/scripts/lib/deep-audit-categories.mjs"
+assert_command "deep-audit valid artifact passes" node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$ROOT/tests/fixtures/deep-audit/report.valid.json"
+assert_command "deep-audit production direct artifact passes" node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$ROOT/tests/fixtures/deep-audit/report.production-valid.json"
+assert_command "deep-audit performance direct artifact passes" node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$ROOT/tests/fixtures/deep-audit/report.performance-valid.json"
+assert_command "deep-audit source-limited artifact passes" node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$ROOT/tests/fixtures/deep-audit/report.source-limited.json"
+assert_command "deep-audit fixture suite passes" node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate-fixtures
+assert_command "deep-audit registry validates" node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate-registry --root "$ROOT"
+assert_command "deep-audit synthetic fixtures validate" node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate-synthetic-fixtures --fixture "$ROOT/tests/fixtures/deep-audit/synthetic-target" --templates "$ROOT/tests/fixtures/deep-audit/templates"
+deep_audit_diag_json="$(node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$ROOT/tests/fixtures/deep-audit/report.missing-confirmed-clean.json" --json 2>/dev/null || true)"
+assert_json_expr "deep-audit diagnostics include problem cause fix" "$deep_audit_diag_json" 'any(.errors[]; .errorCode == "CHECK_WITHOUT_EVIDENCE" and (.problem | length > 0) and (.cause | length > 0) and (.fix | length > 0))'
+deep_audit_hidden_finding_json="$(node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$ROOT/tests/fixtures/deep-audit/report.hidden-finding-clean-synthesis.json" --json 2>/dev/null || true)"
+assert_json_expr "deep-audit findings cannot hide under clean synthesis" "$deep_audit_hidden_finding_json" 'any(.errors[]; .errorCode == "FINDING_HIDDEN_UNDER_CLEAN")'
+deep_audit_missing_worklist_json="$(node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$ROOT/tests/fixtures/deep-audit/report.required-worklist-missing.json" --json 2>/dev/null || true)"
+assert_json_expr "deep-audit required worklists are mandatory" "$deep_audit_missing_worklist_json" 'any(.errors[]; .errorCode == "REQUIRED_WORKLIST_MISSING")'
+deep_audit_private_token_fixture="$TMPROOT/deep-audit-private-token.json"
+deep_audit_token_prefix="sk-proj-"
+deep_audit_token_body="abcdefghijklmnopqrstuvwxyz123456"
+jq --arg token "$deep_audit_token_prefix$deep_audit_token_body" '.findings = [{"evidence": ("redaction fixture " + $token)}]' "$ROOT/tests/fixtures/deep-audit/report.production-valid.json" >"$deep_audit_private_token_fixture"
+deep_audit_private_token_json="$(node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$deep_audit_private_token_fixture" --json 2>/dev/null || true)"
+assert_json_expr "deep-audit private token redaction catches sk-proj" "$deep_audit_private_token_json" 'any(.errors[]; .errorCode == "PRIVATE_STRING")'
 assert_command "cli arg parser edge cases" node --input-type=module <<'JS'
 import { argValue } from "./scripts/lib/cli-args.mjs";
 const expect = (actual, expected, label) => {
