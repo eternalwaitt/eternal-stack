@@ -307,8 +307,8 @@ function validateMaxConcurrentLanes(packet, waveSize, missing, violations) {
     missing.push("maxConcurrentLanes");
     return;
   }
-  const maxConcurrentLanes = Number(packet.maxConcurrentLanes);
-  if (!Number.isInteger(maxConcurrentLanes) || maxConcurrentLanes <= 0 || maxConcurrentLanes > 6) {
+  const maxConcurrentLanes = packet.maxConcurrentLanes;
+  if (typeof maxConcurrentLanes !== "number" || !Number.isInteger(maxConcurrentLanes) || maxConcurrentLanes <= 0 || maxConcurrentLanes > 6) {
     violations.push("maxConcurrentLanes must be an integer from 1 to 6");
     return;
   }
@@ -356,17 +356,19 @@ if (mode === "write" && "writeScope" in packet && "forbiddenPaths" in packet) {
   if (overlap.length > 0) {
     violations.push(`writeScope and forbiddenPaths overlap (disjoint-ownership violation): ${overlap.join(", ")}`);
   }
-  const waveSize = "waveSize" in packet ? Number(packet.waveSize) : 1;
-  if ("waveSize" in packet && (!Number.isInteger(waveSize) || waveSize <= 0)) {
+  const waveSize = "waveSize" in packet ? packet.waveSize : 1;
+  if ("waveSize" in packet && (typeof waveSize !== "number" || !Number.isInteger(waveSize) || waveSize <= 0)) {
     violations.push("waveSize must be a positive integer when provided");
   }
   if ("parallelSafe" in packet && typeof packet.parallelSafe !== "boolean") {
     violations.push("parallelSafe must be a boolean when provided");
   }
-  const parallelWritePacket = writeScope.length >= 2 || waveSize >= 2 || packet.parallelSafe === true;
-  if (mode === "write" && waveSize >= 2 && !("waveId" in packet)) missing.push("waveId");
+  const comparableWaveSize = typeof waveSize === "number" ? waveSize : 1;
+  const parallelWritePacket = writeScope.length >= 2 || comparableWaveSize >= 2 || packet.parallelSafe === true;
   if (parallelWritePacket) {
     const reviewers = Array.isArray(packet.reviewers) ? packet.reviewers : [];
+    if (!("waveId" in packet)) missing.push("waveId");
+    if (!("waveSize" in packet)) missing.push("waveSize");
     if (packet.specReviewRequired !== true) missing.push("specReviewRequired");
     if (packet.qualityReviewRequired !== true) missing.push("qualityReviewRequired");
     if (!("integrationOwner" in packet)) missing.push("integrationOwner");

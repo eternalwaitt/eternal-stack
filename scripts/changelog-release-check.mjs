@@ -162,15 +162,7 @@ function validateUntaggedReleaseDrift(root, releaseSections) {
   if (!latestTag) return errors;
   const untaggedOlderSections = releaseSections
     .slice(1)
-    .filter((release) => {
-      try {
-        return compareSemver(release.version, latestTag) > 0 && !tags.has(release.version);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        errors.push(message);
-        return false;
-      }
-    })
+    .filter((release) => !tags.has(release.version))
     .map((release) => release.version);
   if (untaggedOlderSections.length > 0) {
     errors.push(

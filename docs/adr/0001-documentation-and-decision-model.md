@@ -1,12 +1,9 @@
+---
+status: accepted
+date: 2026-06-03
+---
+
 # ADR 0001: Documentation And Decision Model
-
-## Status
-
-Accepted.
-
-## Date
-
-2026-06-03.
 
 ## Context
 
@@ -41,3 +38,8 @@ Use this documentation model:
 - Future contributors can tell whether a statement is current policy, operational documentation, a workflow contract, or historical plan evidence.
 - Documentation-health audits have a canonical ADR surface to inspect instead of treating missing ADRs as an accepted risk.
 - Historical plans remain useful evidence but do not compete with current docs.
+
+## Implementation Notes
+
+- Link durable decisions from `docs/adr/README.md`.
+- Keep release notes and health-stack docs synchronized when ADR policy changes.

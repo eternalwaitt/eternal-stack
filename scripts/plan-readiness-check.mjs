@@ -102,6 +102,40 @@ function requireSectionPattern(sectionName, failureName, pattern, message) {
   }
 }
 
+function taskGroupBodies() {
+  const body = sectionBody('Task groups').trim();
+  if (!body) return [];
+  const groups = body
+    .split(/(?=^###\s+)/m)
+    .map((group) => group.trim())
+    .filter(Boolean);
+  return groups.length > 0 ? groups : [body];
+}
+
+function requireExecutableTaskGroups() {
+  const executableTaskGroupPattern =
+    /\bOwner:\s*\S[\s\S]*\bDependencies:\s*\S[\s\S]*\bAcceptance(?: criteria)?:\s*\S[\s\S]*\bVerification:\s*\S/i;
+  const groups = taskGroupBodies();
+  if (groups.length === 0 || groups.some((group) => !executableTaskGroupPattern.test(group))) {
+    addFailure(
+      'task_groups_executable',
+      'Task groups must include owner, dependencies, acceptance criteria, and verification fields.',
+    );
+  }
+}
+
+function requireTestFirstPlan() {
+  const body = sectionBody('Test-first execution plan');
+  const hasRedGreen = /\bRed:\s*\S[\s\S]*\bGreen:\s*\S/i.test(body);
+  const hasRationale = /\b(Not[- ]applicable|Rationale):?\s*\S/i.test(body);
+  if (!hasRedGreen && !hasRationale) {
+    addFailure(
+      'test_first_red_green',
+      'Test-first execution plan must include Red and Green rows or a concrete not-applicable rationale.',
+    );
+  }
+}
+
 function requireStatusHeading(allowDraftMode) {
   if (allowDraftMode) {
     requirePattern('status', /^Status:\s*(Draft|Final)\b/im, 'plan must declare Status: Draft or Status: Final');
@@ -205,18 +239,8 @@ for (const [name, pattern, message] of readinessChecks) {
 }
 
 if (isFinal) {
-  requireSectionPattern(
-    'Task groups',
-    'task_groups_executable',
-    /\bOwner:\s*\S[\s\S]*\bDependencies:\s*\S[\s\S]*\bAcceptance(?: criteria)?:\s*\S[\s\S]*\bVerification:\s*\S/i,
-    'Task groups must include owner, dependencies, acceptance criteria, and verification fields.',
-  );
-  requireSectionPattern(
-    'Test-first execution plan',
-    'test_first_red_green',
-    /(\bRed:\s*\S[\s\S]*\bGreen:\s*\S|\bNot[- ]applicable:\s*\S)/i,
-    'Test-first execution plan must include Red and Green rows or a concrete not-applicable rationale.',
-  );
+  requireExecutableTaskGroups();
+  requireTestFirstPlan();
   requireSectionPattern(
     'Verification gates',
     'verification_commands',

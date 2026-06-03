@@ -153,7 +153,8 @@ function assertDirectiveLanguage(file, text) {
 function assertMandatoryRulesNameEnforcement(file, text) {
   const relPath = path.relative(root, file) || file;
   const lines = text.split(/\r?\n/);
-  const enforcementPattern = /\b(hook|script|validator|check|gate|ledger|command|\.mjs|\.sh|mechanical|enforcement)\b/i;
+  const enforcementPattern =
+    /\b(hook|script|validator|ledger(?:\s+command)?|command|mechanical\s+gate|[A-Za-z0-9_.-]+\.mjs|[A-Za-z0-9_.-]+\.sh)\b/i;
   for (let index = 0; index < lines.length; index += 1) {
     if (!/\bmandatory rules?\b/i.test(lines[index])) continue;
     const nearby = lines.slice(Math.max(0, index - 1), Math.min(lines.length, index + 2)).join("\n");
@@ -235,8 +236,13 @@ for (const heading of REQUIRED_PLAN_HEADINGS) {
   if (autoplanContent && !autoplanContent.includes(heading)) fail(`etrnl-autoplan missing required readiness heading: ${heading}`);
   if (planContent && !planContent.includes(heading.replace("Status: Final", "Status: Draft"))) fail(`etrnl-plan missing required readiness concept: ${heading}`);
 }
-if (planContent && !hasKeywords(planContent, ["mandatory behavior", "mechanical", "hook", "script", "validator", "ledger"])) {
-  fail("etrnl-plan missing mandatory-behavior mechanical enforcement contract");
+if (planContent) {
+  const hasMandatoryBehavior = hasKeywords(planContent, ["mandatory behavior"]);
+  const hasAnyMechanism =
+    /\b(hook|script|validator|ledger(?:\s+command)?|command|mechanical\s+gate|[A-Za-z0-9_.-]+\.mjs|[A-Za-z0-9_.-]+\.sh)\b/i.test(planContent);
+  if (!hasMandatoryBehavior || !hasAnyMechanism) {
+    fail("etrnl-plan missing mandatory-behavior mechanical enforcement contract");
+  }
 }
 
 const executePath = path.join(skillsDir, "etrnl-execute", "SKILL.md");

@@ -390,6 +390,34 @@ parallelTaskPacket.tool_input.packet.maxConcurrentLanes = 2;
 parallelTaskPacket.tool_input.packet.nativeChildAgents = "forbidden";
 parallelTaskPacket.tool_input.packet.completionReceiptRequired = true;
 parallelTaskPacket.tool_input.packet.completionReceipt = "changed files, verification commands, result status, blockers, and follow-up ownership";
+const missingWavePacket = JSON.parse(JSON.stringify(parallelTaskPacket));
+delete missingWavePacket.tool_input.packet.waveId;
+delete missingWavePacket.tool_input.packet.waveSize;
+const missingWaveOutput = expectFail(
+  "task packet checker rejects parallel packet without wave fields",
+  "node",
+  [script("agent-task-packet-check.mjs")],
+  { input: JSON.stringify(missingWavePacket) },
+);
+if (missingWaveOutput.includes("waveId") && missingWaveOutput.includes("waveSize")) {
+  ok("task packet checker reports missing wave fields");
+} else {
+  fail("task packet checker reports missing wave fields", missingWaveOutput);
+}
+const stringSizedPacket = JSON.parse(JSON.stringify(parallelTaskPacket));
+stringSizedPacket.tool_input.packet.waveSize = "2";
+stringSizedPacket.tool_input.packet.maxConcurrentLanes = "2";
+const stringSizedOutput = expectFail(
+  "task packet checker rejects string numeric lane fields",
+  "node",
+  [script("agent-task-packet-check.mjs")],
+  { input: JSON.stringify(stringSizedPacket) },
+);
+if (stringSizedOutput.includes("waveSize must be a positive integer") && stringSizedOutput.includes("maxConcurrentLanes must be an integer")) {
+  ok("task packet checker reports string numeric lane fields");
+} else {
+  fail("task packet checker reports string numeric lane fields", stringSizedOutput);
+}
 expectPass("task packet checker accepts parallel lifecycle contract", "node", [script("agent-task-packet-check.mjs")], {
   input: JSON.stringify(parallelTaskPacket),
 });
