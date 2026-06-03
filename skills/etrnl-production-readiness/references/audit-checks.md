@@ -20,9 +20,9 @@ This reference defines the `production-readiness` deep-audit category. It rewrit
 - Count each search result before analysis. Empty worklists still become report rows.
 - Read every file in each required worklist. Sampling blocks completion.
 - Inspect file contents before recording a completed check.
-- For zero-finding checks, emit `CONFIRMED_CLEAN` with the check id and evidence summary.
-- For blocked checks, emit `CHECKS_SKIPPED` with check id, worklist id, and reason.
-- For absent features, emit `not_applicable` with the applicability gate and source evidence.
+- Zero-finding checks must emit `CONFIRMED_CLEAN` with the check id and evidence summary.
+- When checks are blocked, emit `CHECKS_SKIPPED` with check id, worklist id, and reason.
+- Absent features must emit `not_applicable` with the applicability gate and source evidence.
 - Keep source-limited blockers distinct from `CONFIRMED_CLEAN`.
 - Do not place local absolute paths, accounts, secrets, transcript excerpts, or private memory content in tracked artifacts.
 

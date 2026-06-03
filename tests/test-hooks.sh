@@ -625,6 +625,10 @@ paused_prod_stop="$(jq -cn --arg message "$paused_prod_message" '{session_id:"fi
 out="$(run_hook cc-stop-verifier.sh "$paused_prod_stop")"
 if [[ -z "$out" ]]; then ok "stop verifier allows paused production status"; else not_ok "paused production status should not claim completion: $out"; fi
 
+true_completion_pending_stop="$(jq -cn '{session_id:"fixture-true-completion-pending-token",last_assistant_message:"Done. Tests pass. No live change needed; nothing pending.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$true_completion_pending_stop")"
+assert_contains "stop verifier keeps true completion despite incidental work-state token" "$out" "claim completion without verification evidence"
+
 advice_state="$TMPROOT/claude-guard-fixture-advice.json"
 jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"which iPhone should I buy today?",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$advice_state"
 advice_missing_stop="$(jq -cn '{session_id:"fixture-advice",last_assistant_message:"Done, I recommend the Pro model.",stop_hook_active:false}')"

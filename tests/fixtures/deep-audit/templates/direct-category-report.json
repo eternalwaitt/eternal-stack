@@ -2,7 +2,8 @@
   "rowType": "direct_category_report",
   "requestedCategoriesExamples": [
     ["production-readiness"],
-    ["performance"]
+    ["performance"],
+    "all_registered"
   ],
   "validationCommand": "node scripts/deep-audit-artifact-check.mjs validate --artifact <artifact>",
   "CHECKS_SKIPPED": []

@@ -124,16 +124,7 @@ const hookOwner = (basename) => {
 };
 
 function invalidStopContextHandoff(command) {
-  if (hookBasename(command) !== "check-context-and-handoff.sh") return false;
-  const filePath = hookPath(command);
-  if (!filePath) return false;
-  try {
-    const body = fs.readFileSync(filePath, "utf8");
-    return /\bhookSpecificOutput\b[\s\S]*\bhookEventName\b[\s\S]*\bStop\b[\s\S]*\badditionalContext\b/.test(body);
-  } catch {
-    // Unreadable external hook files are ignored by this compatibility check.
-    return false;
-  }
+  return hookBasename(command) === "check-context-and-handoff.sh";
 }
 
 const rtkRewriteHasRgProxyGuard = (command) => {

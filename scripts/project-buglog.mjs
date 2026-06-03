@@ -126,7 +126,7 @@ function aggregateFingerprint(cwd, category, summary) {
  * @param {Array<{file?: string, at?: string, category: string, summary: string}>} entries
  *   Buglog entries sharing a category and normalized summary.
  * @param {{preSorted?: boolean}} [options] - Set `preSorted` when entries are already sorted oldest-first.
- * @returns {{kind: "aggregate", file: string, category: string, summary: string, severity: string, fingerprint: string, firstSeen: string, lastSeen: string, affectedFilesCount: number, occurrenceCount: number, recentFiles: string[], suggestedGuard: string}}
+ * @returns {{kind: "aggregate", file: string, category: string, summary: string, severity: string, fingerprint: string, firstSeen: string, lastSeen: string, affectedFilesCount: number, recentFiles: string[], suggestedGuard: string}}
  *   Redacted aggregate suggestion capped to five unique recent files.
  *
  * Assumes `entries` is non-empty. The helper sorts when needed, deduplicates
@@ -163,7 +163,6 @@ function aggregateSuggestionFor(cwd, entries, { preSorted = false } = {}) {
     firstSeen: sorted[0]?.at || "",
     lastSeen: latest.at || "",
     affectedFilesCount: affectedFiles.size,
-    occurrenceCount: sorted.length,
     recentFiles,
     suggestedGuard: suggestedGuard(latest.category),
   };

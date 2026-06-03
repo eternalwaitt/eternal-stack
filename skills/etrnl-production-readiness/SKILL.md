@@ -22,8 +22,8 @@ Run the production-readiness deep-audit category against a target application. T
 - Execute registered checks in order from `prod-01-state-coverage` through `prod-17-error-boundaries`.
 - Inspect file contents before marking a check complete. Match counts alone are not evidence.
 - Record `CONFIRMED_CLEAN` for every completed check with zero findings.
-- Record `CHECKS_SKIPPED` with check id, worklist id, and reason when source evidence, credentials, runtime access, or context budget blocks completion.
-- Record `not_applicable` with the applicability gate and evidence when tenancy, soft deletion, money value objects, i18n, exports, serverless deployment, queues, crons, webhooks, uploads, or market-specific rules are absent from the target.
+- Log `CHECKS_SKIPPED` with check id, worklist id, and reason when source evidence, credentials, runtime access, or context budget blocks completion.
+- Mark `not_applicable` with the applicability gate and evidence when tenancy, soft deletion, money value objects, i18n, exports, serverless deployment, queues, crons, webhooks, uploads, or market-specific rules are absent from the target.
 - Keep source-limited blockers separate from clean checks.
 - Keep local target paths, account identifiers, secrets, transcript content, and private memory material out of tracked artifacts.
 
