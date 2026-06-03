@@ -120,7 +120,7 @@ function aggregateFingerprint(cwd, category, summary) {
 }
 
 function aggregateSuggestionFor(cwd, entries) {
-  if (!entries || entries.length === 0) {
+  if (!Array.isArray(entries) || entries.length === 0) {
     throw new TypeError("aggregateSuggestionFor requires at least one buglog entry.");
   }
   const sorted = [...entries].sort((left, right) => String(left.at || "").localeCompare(String(right.at || "")));
