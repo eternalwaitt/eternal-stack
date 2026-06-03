@@ -92,7 +92,7 @@ cc_large_change_has_plan_artifact() {
     (((.reviewRuns // []) | length) > 0)
       or ([.skillCalls[]?.value // empty]
         | map(ascii_downcase)
-        | any(test("etrnl-plan|etrnl-review|plan|review")))
+        | any(test("^(etrnl-plan|etrnl-review|writing-plans|code-review|execute-plan|plan|review)$")))
       or ([.edits // {} | keys[] | select(plan_file)] | length > 0)
       or ([.successfulCommands[]?.value // empty, .commands[]?.value // empty]
         | map(ascii_downcase)
@@ -863,10 +863,10 @@ handle_serena_search_for_pattern() {
   if [[ -z "$max_chars" || ! "$max_chars" =~ ^[0-9]+$ || "$max_chars" -lt 1 || "$max_chars" -gt 20000 ]]; then
     deny "Serena search_for_pattern must set max_answer_chars to a positive value no greater than 20000."
   fi
-  if [[ -n "$before_lines" && "$before_lines" =~ ^[0-9]+$ && "$before_lines" -gt 5 ]]; then
+  if [[ -n "$before_lines" && ( ! "$before_lines" =~ ^[0-9]+$ || "$before_lines" -gt 5 ) ]]; then
     deny "Serena search_for_pattern context_lines_before must stay at 5 or fewer for bounded output."
   fi
-  if [[ -n "$after_lines" && "$after_lines" =~ ^[0-9]+$ && "$after_lines" -gt 5 ]]; then
+  if [[ -n "$after_lines" && ( ! "$after_lines" =~ ^[0-9]+$ || "$after_lines" -gt 5 ) ]]; then
     deny "Serena search_for_pattern context_lines_after must stay at 5 or fewer for bounded output."
   fi
   cc_json_allow

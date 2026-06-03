@@ -209,11 +209,11 @@ cc_command_is_unbounded_json_dump() {
   local cmd
   cmd="$(cc_command_normalize "$1")"
   [[ "$cmd" =~ --json ]] || return 1
-  if [[ "$cmd" =~ (^|[[:space:];&|])node[[:space:]]+([^[:space:];&|]+/)?code-health-inventory\.mjs([[:space:];&|]|$) ]]; then
+  if [[ "$cmd" =~ (^|[[:space:];&|])node([[:space:]]+[^[:space:];&|]+)*[[:space:]]+([^[:space:];&|]+/)?code-health-inventory\.mjs([[:space:];&|]|$) ]]; then
     [[ "$cmd" =~ (^|[[:space:]])--quiet([[:space:];&|]|$) ]] && return 1
     return 0
   fi
-  if [[ "$cmd" =~ (^|[[:space:];&|])node[[:space:]]+([^[:space:];&|]+/)?workflow-health\.mjs([[:space:];&|]|$) ]]; then
+  if [[ "$cmd" =~ (^|[[:space:];&|])node([[:space:]]+[^[:space:];&|]+)*[[:space:]]+([^[:space:];&|]+/)?workflow-health\.mjs([[:space:];&|]|$) ]]; then
     [[ "$cmd" =~ (^|[[:space:]])status([[:space:];&|]|$) ]] && return 1
     return 0
   fi

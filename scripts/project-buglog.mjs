@@ -165,14 +165,16 @@ function projectSuggestions(cwd, entries, limit, threshold) {
     .sort((left, right) => right.latest.localeCompare(left.latest));
   for (const { entries: group } of groupedEntries) {
     const sorted = [...group].sort((left, right) => String(left.at || "").localeCompare(String(right.at || "")));
-    if (sorted.length >= aggregateThreshold) {
-      suggestions.push(aggregateSuggestionFor(cwd, sorted));
-    } else {
-      suggestions.push(...sorted.reverse().map(suggestionFor));
+    const nextSuggestions = sorted.length >= aggregateThreshold
+      ? [aggregateSuggestionFor(cwd, sorted)]
+      : sorted.reverse().map(suggestionFor);
+    for (const suggestion of nextSuggestions) {
+      if (suggestions.length >= normalizedLimit) break;
+      suggestions.push(suggestion);
     }
     if (suggestions.length >= normalizedLimit) break;
   }
-  return suggestions.slice(0, normalizedLimit);
+  return suggestions;
 }
 
 function maxAgeMs() {
@@ -263,7 +265,7 @@ function latestUnique(entries) {
 function suggestProject() {
   const cwd = path.resolve(argValue(args, "--cwd", process.cwd()));
   const limit = Number.parseInt(argValue(args, "--limit", "5"), 10);
-  const aggregateThreshold = Number.parseInt(argValue(args, "--aggregate-threshold", "3"), 10) || 3;
+  const aggregateThreshold = Number.parseInt(argValue(args, "--aggregate-threshold", "3"), 10);
   const entries = latestUnique(
     readEntries(buglogPath())
       .filter((entry) => entry.cwd === cwd)

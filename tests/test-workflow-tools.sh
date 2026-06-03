@@ -734,7 +734,7 @@ CLAUDE_CONTROL_PLANE_BUGLOG="$buglog_path" node "$ROOT/scripts/project-buglog.mj
 buglog_json="$(CLAUDE_CONTROL_PLANE_BUGLOG="$buglog_path" node "$ROOT/scripts/project-buglog.mjs" suggest --cwd "$TMPROOT/project" --file src/app.ts --json)"
 assert_json_expr "project buglog suggest emits JSON" "$buglog_json" '.schemaVersion == 1 and (.suggestions | length) == 1'
 assert_json_expr "project buglog suggest includes guard recommendation" "$buglog_json" '(.suggestions[0].suggestedGuard | length) > 0'
-buglog_project_json="$(CLAUDE_CONTROL_PLANE_BUGLOG="$buglog_path" node "$ROOT/scripts/project-buglog.mjs" suggest-project --cwd "$TMPROOT/project" --json)"
+buglog_project_json="$(CLAUDE_CONTROL_PLANE_BUGLOG="$buglog_path" node "$ROOT/scripts/project-buglog.mjs" suggest-project --cwd "$TMPROOT/project" --json --aggregate-threshold 3)"
 assert_json_expr "project buglog project hints omit raw cwd" "$buglog_project_json" '.project == "project" and (.cwd | not) and (.suggestions | length) == 1'
 assert_json_expr "project buglog aggregates repeated lessons" "$buglog_project_json" '.suggestions[0].kind == "aggregate" and .suggestions[0].affectedFilesCount == 3 and (.suggestions[0].recentFiles | length) == 3'
 assert_json_expr "project buglog aggregate carries display file" "$buglog_project_json" '(.suggestions[0].file | type == "string" and length > 0)'

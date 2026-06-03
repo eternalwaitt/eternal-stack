@@ -351,7 +351,7 @@ out="$(run_hook cc-pretooluse-guard.sh "$large_edit")"
 assert_contains "large edit denied" "$out" "Large-change"
 planned_large_state="$TMPROOT/claude-guard-fixture-planned-large.json"
 planned_large_src="$(cd "$TMPROOT/example/src" && pwd -P)/app.ts"
-jq -nc --arg plans "$TMPROOT/example/.rulebook/PLANS.md" --arg src "$planned_large_src" '{schemaVersion:4,reads:{($src):"2026-01-01T00:00:00Z"},searches:{"/tmp/example/src/app.ts":"2026-01-01T00:00:00Z"},edits:{($plans):"2026-01-01T00:00:01Z"},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:1,commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$planned_large_state"
+jq -nc --arg plans "$TMPROOT/example/.rulebook/PLANS.md" --arg src "$planned_large_src" '{schemaVersion:4,reads:{($src):"2026-01-01T00:00:00Z"},searches:{($src):"2026-01-01T00:00:00Z"},edits:{($plans):"2026-01-01T00:00:01Z"},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:1,commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$planned_large_state"
 planned_large_edit="$(jq --arg text "$large_new_string" '.session_id = "fixture-planned-large" | .tool_input.old_string = "export const oldValue = 1;" | .tool_input.new_string = $text' <<<"$edit_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$planned_large_edit")"
 assert_json_expr "plan artifact allows large edit path" "$out" '.continue == true'
@@ -520,15 +520,15 @@ serena_large_failure_json="$(jq -cn '{session_id:"fixture-serena-large-failure",
 out="$(run_hook cc-posttoolusefailure-diagnose.sh "$serena_large_failure_json")"
 assert_contains "serena large-output failure gets scoped diagnostic" "$out" "narrower relative_path"
 serena_unscoped_json="$(jq -cn '{session_id:"fixture-serena-preflight",tool_name:"mcp__serena__search_for_pattern",tool_input:{substring_pattern:"needle",max_answer_chars:12000}}')"
-out="$(run_hook cc-pretooluse-guard.sh "$serena_unscoped_json")"
+out="$(CLAUDE_CONTROL_PLANE_SERENA_SCOPE_GUARD=1 run_hook cc-pretooluse-guard.sh "$serena_unscoped_json")"
 assert_json_expr "serena unscoped search denied before output blowup" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
 assert_contains "serena unscoped search reason" "$out" "must be scoped"
 serena_uncapped_json="$(jq -cn '{session_id:"fixture-serena-preflight",tool_name:"mcp__serena__search_for_pattern",tool_input:{substring_pattern:"needle",relative_path:"src"}}')"
-out="$(run_hook cc-pretooluse-guard.sh "$serena_uncapped_json")"
+out="$(CLAUDE_CONTROL_PLANE_SERENA_SCOPE_GUARD=1 run_hook cc-pretooluse-guard.sh "$serena_uncapped_json")"
 assert_json_expr "serena uncapped search denied before output blowup" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
 assert_contains "serena uncapped search reason" "$out" "max_answer_chars"
 serena_scoped_json="$(jq -cn '{session_id:"fixture-serena-preflight",tool_name:"mcp__serena__search_for_pattern",tool_input:{substring_pattern:"needle",relative_path:"src",max_answer_chars:12000,context_lines_before:2,context_lines_after:2}}')"
-out="$(run_hook cc-pretooluse-guard.sh "$serena_scoped_json")"
+out="$(CLAUDE_CONTROL_PLANE_SERENA_SCOPE_GUARD=1 run_hook cc-pretooluse-guard.sh "$serena_scoped_json")"
 assert_json_expr "serena scoped bounded search allowed" "$out" '.continue == true'
 email_guard_failure_json="$(jq -cn '{session_id:"fixture-email-guard-failure",tool_name:"Bash",tool_input:{command:"vivaz-email triage guarded-run --account agencia --apply --require-insights"},error:"TRIAGE_GUARD_ML_DISAGREED: ML archive review found 1 disagreement"}')"
 out="$(run_hook cc-posttoolusefailure-diagnose.sh "$email_guard_failure_json")"

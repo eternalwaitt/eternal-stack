@@ -68,7 +68,7 @@ cc_deferred_status_update() {
   [[ "$message_lower" =~ $shared_re ]] || { [[ "$message_lower" =~ $nonfinal_only_re ]] && [[ "$message_lower" =~ $work_state_only_re ]]; }
 }
 
-if [[ "$claims_done" == "true" && "$browser_qa_outstanding" != "true" ]] && cc_deferred_status_update; then
+if [[ "$claims_done" == "true" ]] && cc_deferred_status_update; then
   claims_done=false
 fi
 
