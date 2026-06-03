@@ -436,13 +436,15 @@ else
 fi
 out="$(HOME="$TMPROOT/home" CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD=always run_hook cc-userprompt-router.sh "$prompt")"
 assert_contains "prompt router always mode repeats CLAUDE.md reinjection" "$out" "Project-specific gotcha from injected CLAUDE.md"
-out="$(HOME="$TMPROOT/home" CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD=0 run_hook cc-userprompt-router.sh "$prompt")"
+disabled_zero_prompt="$(printf '%s' "$prompt" | jq '.session_id = "fixture-userprompt-disabled-zero"')"
+out="$(HOME="$TMPROOT/home" CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD=0 run_hook cc-userprompt-router.sh "$disabled_zero_prompt")"
 if [[ "$out" == *"Project-specific gotcha from injected CLAUDE.md"* ]]; then
   not_ok "prompt router disables CLAUDE.md reinjection"
 else
   ok "prompt router disables CLAUDE.md reinjection"
 fi
-out="$(HOME="$TMPROOT/home" CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD=FALSE run_hook cc-userprompt-router.sh "$prompt")"
+disabled_false_prompt="$(printf '%s' "$prompt" | jq '.session_id = "fixture-userprompt-disabled-false"')"
+out="$(HOME="$TMPROOT/home" CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD=FALSE run_hook cc-userprompt-router.sh "$disabled_false_prompt")"
 if [[ "$out" == *"Project-specific gotcha from injected CLAUDE.md"* ]]; then
   not_ok "prompt router disables CLAUDE.md reinjection case-insensitively"
 else

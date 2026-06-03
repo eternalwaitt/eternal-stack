@@ -98,19 +98,22 @@ const rewriteKnownHookCommand = (command, eventName = "") => {
   return command;
 };
 
+const hookCommandMatch = (command) => {
+  const canonical = canonicalCommand(command).replace(/\$\{HOME\}|\$HOME/g, homeDir);
+  return canonical.match(/(?:^|\s)(?:bash\s+)?["']?(~|[^\s"';&|]+)\/\.claude\/hooks\/([^ "';&|]+)["']?/);
+};
+
 const hookBasename = (command) => {
-  const canonical = canonicalCommand(command);
-  const match = canonical.match(/(?:^|\s)(?:bash\s+)?(?:~|[^\s"';&|]+)\/\.claude\/hooks\/([^ "';&|]+)/);
+  const match = hookCommandMatch(command);
   if (!match) return "";
-  return path.basename(match[1]);
+  return path.basename(match[2]);
 };
 
 const hookPath = (command) => {
-  const canonical = canonicalCommand(command).replace(/\$\{HOME\}|\$HOME/g, homeDir);
-  const match = canonical.match(/(?:^|\s)(?:bash\s+)?(?:~|([^\s"';&|]+))\/\.claude\/hooks\/([^ "';&|]+)/);
+  const match = hookCommandMatch(command);
   if (!match) return "";
-  if (!match[1]) return path.join(homeDir, ".claude", "hooks", match[2]);
-  return path.join(match[1], ".claude", "hooks", match[2]);
+  const root = match[1] === "~" ? homeDir : match[1];
+  return path.join(root, ".claude", "hooks", match[2]);
 };
 
 const hookOwner = (basename) => {
