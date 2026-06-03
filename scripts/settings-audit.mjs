@@ -110,8 +110,7 @@ const hookPath = (command) => {
   const match = canonical.match(/(?:^|\s)(?:bash\s+)?(?:~|([^\s"';&|]+))\/\.claude\/hooks\/([^ "';&|]+)/);
   if (!match) return "";
   if (!match[1]) return path.join(homeDir, ".claude", "hooks", match[2]);
-  const basePath = match[1].startsWith("~/") ? path.join(homeDir, match[1].slice(2)) : match[1];
-  return path.join(basePath, ".claude", "hooks", match[2]);
+  return path.join(match[1], ".claude", "hooks", match[2]);
 };
 
 const hookOwner = (basename) => {
