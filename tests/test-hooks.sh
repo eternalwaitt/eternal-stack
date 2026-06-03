@@ -88,12 +88,18 @@ assert_contains "unbounded inventory JSON reason" "$out" "Unbounded JSON dump"
 bounded_inventory_bash="$(jq '.tool_input.command = "node scripts/code-health-inventory.mjs --json --quiet --include-untracked"' <<<"$bash_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$bounded_inventory_bash")"
 assert_json_expr "bounded inventory JSON allowed" "$out" '.continue == true'
+redirected_inventory_bash="$(jq '.tool_input.command = "node scripts/code-health-inventory.mjs --json --include-untracked > artifacts/code-health.json"' <<<"$bash_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$redirected_inventory_bash")"
+assert_json_expr "redirected inventory JSON artifact allowed" "$out" '.continue == true'
 unbounded_workflow_bash="$(jq '.tool_input.command = "node scripts/workflow-health.mjs --json"' <<<"$bash_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$unbounded_workflow_bash")"
 assert_json_expr "unbounded workflow JSON dump denied" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
 bounded_workflow_bash="$(jq '.tool_input.command = "node scripts/workflow-health.mjs status --json"' <<<"$bash_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$bounded_workflow_bash")"
 assert_json_expr "bounded workflow status JSON allowed" "$out" '.continue == true'
+redirected_workflow_bash="$(jq '.tool_input.command = "node scripts/workflow-health.mjs --json >> artifacts/workflow-health.jsonl"' <<<"$bash_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$redirected_workflow_bash")"
+assert_json_expr "redirected workflow JSON artifact allowed" "$out" '.continue == true'
 rtk_filtered_check_types="$(bash -c 'source "$1"; cc_command_is_quality_verification "$2"; echo $?' _ "$ROOT/hooks/lib/command-classifiers.sh" "rtk pnpm --filter @tcg-collector/api check-types 2>&1 | tail -20")"
 if [[ "$rtk_filtered_check_types" == "0" ]]; then ok "rtk pnpm filtered check-types counts as quality verification"; else not_ok "rtk pnpm filtered check-types should count as quality verification: got '$rtk_filtered_check_types'"; fi
 readiness_help_bash="$(jq '.tool_input.command = "node ~/.claude/scripts/plan-readiness-check.mjs --help 2>&1 || bat ~/.claude/scripts/plan-readiness-check.mjs"' <<<"$bash_json")"

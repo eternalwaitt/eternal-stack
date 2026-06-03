@@ -160,21 +160,22 @@ function projectSuggestions(cwd, entries, limit, threshold) {
   const groupedEntries = [...groups.values()]
     .map((group) => {
       const sortedGroup = [...group].sort((left, right) => String(left.at || "").localeCompare(String(right.at || "")));
+      const latest = sortedGroup[sortedGroup.length - 1];
       return {
         entries: sortedGroup,
-        latest: String(sortedGroup.at(-1)?.at || ""),
+        latest: String(latest?.at || ""),
       };
     })
     .sort((left, right) => right.latest.localeCompare(left.latest));
+  outer:
   for (const { entries: group } of groupedEntries) {
     const nextSuggestions = group.length >= aggregateThreshold
       ? [aggregateSuggestionFor(cwd, group)]
       : [...group].reverse().map(suggestionFor);
     for (const suggestion of nextSuggestions) {
-      if (suggestions.length >= normalizedLimit) break;
+      if (suggestions.length >= normalizedLimit) break outer;
       suggestions.push(suggestion);
     }
-    if (suggestions.length >= normalizedLimit) break;
   }
   return suggestions;
 }

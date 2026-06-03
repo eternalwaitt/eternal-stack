@@ -66,6 +66,18 @@ cc_prompt_context_cap() {
   fi
 }
 
+cc_prompt_sha256() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum | cut -d' ' -f1
+    return 0
+  fi
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 | cut -d' ' -f1
+    return 0
+  fi
+  return 1
+}
+
 cc_prompt_collect_upward() {
   local start="$1"
   local dir candidate
@@ -170,14 +182,15 @@ cc_prompt_claude_context() {
   done < <(cc_prompt_collect_upward "$cwd")
 
   [[ -n "$cc_prompt_seen_files" ]] || return 0
-  fingerprint_hash="$(printf '%s' "$cc_prompt_seen_files" | shasum -a 256 | cut -d' ' -f1)"
-  fingerprint="claude-md-context-injected:$fingerprint_hash"
-  if [[ "$force_always" != "true" ]] \
-    && cc_state_has_warning_fingerprint "$fingerprint"; then
-    return 0
-  fi
-  if [[ "$force_always" != "true" ]]; then
-    cc_state_record_warning_fingerprint "$fingerprint" || true
+  if fingerprint_hash="$(printf '%s' "$cc_prompt_seen_files" | cc_prompt_sha256)"; then
+    fingerprint="claude-md-context-injected:$fingerprint_hash"
+    if [[ "$force_always" != "true" ]] \
+      && cc_state_has_warning_fingerprint "$fingerprint"; then
+      return 0
+    fi
+    if [[ "$force_always" != "true" ]]; then
+      cc_state_record_warning_fingerprint "$fingerprint" || true
+    fi
   fi
   printf '%s\n' "$cc_prompt_context"
 }

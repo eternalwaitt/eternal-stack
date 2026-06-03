@@ -206,9 +206,11 @@ cc_command_is_review_verification() {
 }
 
 cc_command_is_unbounded_json_dump() {
-  local cmd
+  local cmd redirect_re
   cmd="$(cc_command_normalize "$1")"
+  redirect_re='(^|[[:space:]])(>>|>)[[:space:]]*[^[:space:];&|]+'
   [[ "$cmd" =~ (^|[[:space:]])--json([=[:space:];&|]|$) ]] || return 1
+  [[ "$cmd" =~ $redirect_re ]] && return 1
   if [[ "$cmd" =~ (^|[[:space:];&|])node([[:space:]]+[^[:space:];&|]+)*[[:space:]]+([^[:space:];&|]+/)?code-health-inventory\.mjs([[:space:];&|]|$) ]]; then
     [[ "$cmd" =~ (^|[[:space:]])--quiet([[:space:];&|]|$) ]] && return 1
     return 0
