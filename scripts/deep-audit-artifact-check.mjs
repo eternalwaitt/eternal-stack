@@ -370,6 +370,11 @@ function validateOutcomeConsistency(artifact, artifactPath, errors) {
 
 function validateArtifact(artifact, artifactPath) {
   const errors = [];
+  if (!artifact || typeof artifact !== "object" || Array.isArray(artifact)) {
+    const typeName = Array.isArray(artifact) ? "array" : typeof artifact;
+    errors.push(diagnostic("INVALID_ARTIFACT_TYPE", artifactPath, `Artifact must be a JSON object, got ${typeName}.`, "The deep-audit artifact validator expects an object with audit envelope fields.", "Supply a JSON object containing the required audit artifact fields."));
+    return errors;
+  }
   const registryIds = registeredCategoryIds();
   validateRequiredFields(artifact, artifactPath, errors);
   validateRegistrySnapshot(artifact, artifactPath, errors, registryIds);
@@ -396,7 +401,11 @@ function runValidate() {
   try {
     report(validateArtifact(readJson(artifactPath), artifactPath), artifactPath);
   } catch (error) {
-    report([error], artifactPath);
+    const isDiagnostic = error && typeof error === "object" && (error.errorCode || error.problem);
+    const normalized = isDiagnostic
+      ? error
+      : diagnostic("UNEXPECTED_ERROR", artifactPath, error instanceof Error ? error.message : String(error), error instanceof Error ? error.stack || error.message : "Unexpected validator error.", "Inspect the artifact and validator input.");
+    report([normalized], artifactPath);
   }
 }
 

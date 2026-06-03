@@ -156,7 +156,7 @@
         "perf_next_configs": "sha256:perf_next_configs",
         "perf_compiler_status": "sha256:perf_compiler_status"
       },
-      "summary": "lane completed"
+      "summary": "lane failed"
     },
     {
       "categoryId": "performance",

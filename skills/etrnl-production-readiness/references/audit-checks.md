@@ -146,7 +146,7 @@ Record `not_applicable` when the target uses a persistent server, managed realti
 
 ### `prod-10-tenant-isolation` - Multi-Tenant Data Isolation
 
-Gate: Tenant or location scoped data exists.
+Gate: Tenant or location-scoped data exists.
 
 Required worklists: `prod_tenant`, `prod_schema`.
 
