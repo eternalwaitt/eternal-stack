@@ -72,7 +72,7 @@ export function packetHash(packet) {
 
 /**
  * Checks whether an ISO timestamp is recent enough for quality gates while
- * rejecting unparsable values and timestamps more than one minute in the future.
+ * rejecting unparsable values and allowing up to one minute of future clock skew.
  * @throws {TypeError} When maxAgeMs is not finite.
  */
 export function isFreshIso(value, maxAgeMs, nowMs = Date.now()) {

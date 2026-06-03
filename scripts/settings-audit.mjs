@@ -126,8 +126,9 @@ function invalidStopContextHandoff(command) {
   if (!filePath) return false;
   try {
     const body = fs.readFileSync(filePath, "utf8");
-    return /hookSpecificOutput.*hookEventName.*Stop.*additionalContext/s.test(body);
+    return /\bhookSpecificOutput\b[\s\S]*\bhookEventName\b[\s\S]*\bStop\b[\s\S]*\badditionalContext\b/.test(body);
   } catch {
+    // Unreadable external hook files are ignored by this compatibility check.
     return false;
   }
 }

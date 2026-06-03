@@ -17,7 +17,7 @@
     "checks": [{"checkId": "prod-01-state-coverage", "status": "confirmed_clean", "confirmedClean": "CONFIRMED_CLEAN: state - 0 findings"}]
   }],
   "laneReceipts": [],
-  "confirmedClean": ["prod-01-state-coverage"],
+  "confirmedClean": ["production-readiness"],
   "checksSkipped": [],
   "findings": [],
   "sourceLimitedBlockers": [],

@@ -110,6 +110,10 @@ function objectEntries(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? Object.entries(value) : [];
 }
 
+function hasOwn(object, key) {
+  return Object.prototype.hasOwnProperty.call(object, key);
+}
+
 function hasPrivateString(value) {
   const patterns = [
     /\/Users\//,
@@ -171,7 +175,7 @@ function validateConsumedHashes(item, category, artifact, artifactPath, errors, 
   const hashes = worklistHashes(artifact);
   const worklists = artifact.worklists && typeof artifact.worklists === "object" ? artifact.worklists : {};
   for (const worklistId of category.requiredWorklists) {
-    if (!Object.hasOwn(worklists, worklistId)) {
+    if (!hasOwn(worklists, worklistId)) {
       errors.push(diagnostic("REQUIRED_WORKLIST_MISSING", artifactPath, `${jsonPath} cannot find required shared worklist ${worklistId}.`, "Selected categories must consume every required worklist from the orchestrator inventory.", `Add ${worklistId} to worklists with sha256 and artifactLabel.`, `$.worklists.${worklistId}`));
       continue;
     }
@@ -179,7 +183,7 @@ function validateConsumedHashes(item, category, artifact, artifactPath, errors, 
       errors.push(diagnostic("WORKLIST_HASH_MISSING", artifactPath, `${worklistId} lacks a shared hash.`, "Category reports and lane receipts cannot prove shared inventory consumption without hashes.", `Add sha256 for ${worklistId}.`, `$.worklists.${worklistId}`));
       continue;
     }
-    if (!Object.hasOwn(consumed, worklistId)) {
+    if (!hasOwn(consumed, worklistId)) {
       errors.push(diagnostic("CONSUMED_WORKLIST_HASH_MISSING", artifactPath, `${jsonPath} does not consume required worklist ${worklistId}.`, "Category reports and lane receipts must prove they consumed every required shared worklist.", `Copy worklists.${worklistId}.sha256 into consumedWorklistHashes.${worklistId}.`, `${jsonPath}.consumedWorklistHashes.${worklistId}`));
       continue;
     }

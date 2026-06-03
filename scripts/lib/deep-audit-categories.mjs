@@ -137,6 +137,9 @@ export function registeredCategoryIds() {
   return REGISTERED_DEEP_AUDIT_CATEGORIES.map((category) => category.categoryId);
 }
 
+/**
+ * @returns {object | undefined} The registered category for `categoryId`, or undefined when absent.
+ */
 export function findCategory(categoryId) {
   return REGISTERED_DEEP_AUDIT_CATEGORIES.find((category) => category.categoryId === categoryId);
 }
