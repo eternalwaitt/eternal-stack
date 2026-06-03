@@ -158,12 +158,13 @@ cc_prompt_add_referenced_markdown() {
 }
 
 cc_prompt_claude_context() {
-  case "${CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD:-1}" in
+  case "${CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD:-once}" in
     0|false|FALSE|no|NO|off|OFF) return 0 ;;
   esac
 
-  local inject_mode force_always global_claude project_file fingerprint fingerprint_hash cc_prompt_context cc_prompt_seen_files cc_prompt_remaining_chars
-  inject_mode="$(printf '%s' "${CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD:-once}" | tr '[:upper:]' '[:lower:]')"
+  local inject_mode force_always global_claude project_file fingerprint fingerprint_hash cc_prompt_context cc_prompt_seen_files cc_prompt_remaining_chars raw_mode
+  raw_mode="${CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD:-once}"
+  inject_mode="$(printf '%s' "$raw_mode" | tr '[:upper:]' '[:lower:]')"
   force_always=false
   [[ "$inject_mode" == "always" ]] && force_always=true
 

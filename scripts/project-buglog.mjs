@@ -120,6 +120,9 @@ function aggregateFingerprint(cwd, category, summary) {
 }
 
 function aggregateSuggestionFor(cwd, entries) {
+  if (!entries || entries.length === 0) {
+    throw new TypeError("aggregateSuggestionFor requires at least one buglog entry.");
+  }
   const sorted = [...entries].sort((left, right) => String(left.at || "").localeCompare(String(right.at || "")));
   const latest = sorted[sorted.length - 1];
   const recentFiles = [];
@@ -148,6 +151,7 @@ function aggregateSuggestionFor(cwd, entries) {
 
 function projectSuggestions(cwd, entries, limit, threshold) {
   const normalizedLimit = Math.max(1, Number.isFinite(limit) ? limit : 5);
+  // Aggregates need at least two entries; one entry stays a direct suggestion.
   const aggregateThreshold = Math.max(2, Number.isFinite(threshold) ? threshold : 3);
   const groups = new Map();
   for (const entry of entries) {
