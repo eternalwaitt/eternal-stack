@@ -167,10 +167,9 @@ function projectSuggestions(cwd, entries, limit, threshold) {
     })
     .sort((left, right) => right.latest.localeCompare(left.latest));
   for (const { entries: group } of groupedEntries) {
-    const sorted = [...group].sort((left, right) => String(left.at || "").localeCompare(String(right.at || "")));
-    const nextSuggestions = sorted.length >= aggregateThreshold
-      ? [aggregateSuggestionFor(cwd, sorted)]
-      : sorted.reverse().map(suggestionFor);
+    const nextSuggestions = group.length >= aggregateThreshold
+      ? [aggregateSuggestionFor(cwd, group)]
+      : [...group].reverse().map(suggestionFor);
     for (const suggestion of nextSuggestions) {
       if (suggestions.length >= normalizedLimit) break;
       suggestions.push(suggestion);

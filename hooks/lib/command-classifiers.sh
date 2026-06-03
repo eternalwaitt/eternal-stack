@@ -214,7 +214,7 @@ cc_command_is_unbounded_json_dump() {
     return 0
   fi
   if [[ "$cmd" =~ (^|[[:space:];&|])node([[:space:]]+[^[:space:];&|]+)*[[:space:]]+([^[:space:];&|]+/)?workflow-health\.mjs([[:space:];&|]|$) ]]; then
-    [[ "$cmd" =~ (^|[[:space:]])status([[:space:];&|]|$) ]] && return 1
+    [[ "$cmd" =~ (^|[[:space:]])(status|doctor)([[:space:];&|]|$) ]] && return 1
     return 0
   fi
   return 1

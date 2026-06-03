@@ -106,7 +106,7 @@ const hookBasename = (command) => {
 };
 
 const hookPath = (command) => {
-  const canonical = canonicalCommand(command);
+  const canonical = canonicalCommand(command).replace(/\$\{HOME\}|\$HOME/g, homeDir);
   const match = canonical.match(/(?:^|\s)(?:bash\s+)?(?:~|([^\s"';&|]+))\/\.claude\/hooks\/([^ "';&|]+)/);
   if (!match) return "";
   if (!match[1]) return path.join(homeDir, ".claude", "hooks", match[2]);
