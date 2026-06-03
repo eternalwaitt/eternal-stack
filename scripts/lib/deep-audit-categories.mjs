@@ -44,6 +44,8 @@ const worklists = {
   ],
 };
 
+const RECEIPT_FIELDS = ["laneId", "categoryId", "status", "consumedWorklistHashes", "summary"];
+
 function check(checkId, label, requiredWorklists, applicabilityGate, laneId = "") {
   return { checkId, label, requiredWorklists, applicabilityGate, laneId };
 }
@@ -95,37 +97,37 @@ export const REGISTERED_DEEP_AUDIT_CATEGORIES = [
         laneId: "database-query-performance",
         label: "Database query performance",
         allowedWorklists: ["perf_queries"],
-        receiptFields: ["laneId", "categoryId", "status", "consumedWorklistHashes", "summary"],
+        receiptFields: RECEIPT_FIELDS,
       },
       {
         laneId: "server-response-caching",
         label: "Server response time and caching",
         allowedWorklists: ["perf_pages", "perf_route_handlers", "perf_dynamic_routes"],
-        receiptFields: ["laneId", "categoryId", "status", "consumedWorklistHashes", "summary"],
+        receiptFields: RECEIPT_FIELDS,
       },
       {
         laneId: "bundle-code-splitting",
         label: "Bundle size and code splitting",
         allowedWorklists: ["perf_client", "perf_dynamic", "perf_deps"],
-        receiptFields: ["laneId", "categoryId", "status", "consumedWorklistHashes", "summary"],
+        receiptFields: RECEIPT_FIELDS,
       },
       {
         laneId: "react-rendering",
         label: "React rendering performance",
         allowedWorklists: ["perf_client", "perf_pages", "perf_compiler_status"],
-        receiptFields: ["laneId", "categoryId", "status", "consumedWorklistHashes", "summary"],
+        receiptFields: RECEIPT_FIELDS,
       },
       {
         laneId: "perceived-performance",
         label: "Perceived performance and UX speed",
         allowedWorklists: ["perf_pages", "perf_loading", "perf_client"],
-        receiptFields: ["laneId", "categoryId", "status", "consumedWorklistHashes", "summary"],
+        receiptFields: RECEIPT_FIELDS,
       },
       {
         laneId: "infrastructure-network",
         label: "Infrastructure and network performance",
         allowedWorklists: ["perf_route_handlers", "perf_next_configs", "perf_large_files"],
-        receiptFields: ["laneId", "categoryId", "status", "consumedWorklistHashes", "summary"],
+        receiptFields: RECEIPT_FIELDS,
       },
     ],
   },

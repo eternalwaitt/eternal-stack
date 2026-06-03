@@ -119,6 +119,19 @@ function aggregateFingerprint(cwd, category, summary) {
     .slice(0, 16);
 }
 
+/**
+ * Builds one aggregate buglog suggestion for a non-empty group of related entries.
+ *
+ * @param {string} cwd - Repository or project root used to scope the aggregate fingerprint.
+ * @param {Array<{file?: string, at?: string, category: string, summary: string}>} entries
+ *   Buglog entries sharing a category and normalized summary.
+ * @param {{preSorted?: boolean}} [options] - Set `preSorted` when entries are already sorted oldest-first.
+ * @returns {{kind: "aggregate", file: string, category: string, summary: string, severity: string, fingerprint: string, firstSeen: string, lastSeen: string, affectedFilesCount: number, occurrenceCount: number, recentFiles: string[], suggestedGuard: string}}
+ *   Redacted aggregate suggestion capped to five unique recent files.
+ *
+ * Assumes `entries` is non-empty. The helper sorts when needed, deduplicates
+ * affected files, and derives severity, fingerprint, redaction, and guard text.
+ */
 function aggregateSuggestionFor(cwd, entries, { preSorted = false } = {}) {
   if (!Array.isArray(entries) || entries.length === 0) {
     throw new TypeError("aggregateSuggestionFor requires at least one buglog entry.");
@@ -162,6 +175,7 @@ function projectSuggestions(cwd, entries, limit, threshold) {
   const aggregateThreshold = Math.max(2, Number.isFinite(threshold) ? threshold : 3);
   const groups = new Map();
   for (const entry of entries) {
+    // Null separates category from summary without colliding with normal text.
     const key = [entry.category, normalizeSummary(entry.summary)].join("\0");
     const group = groups.get(key) || [];
     group.push(entry);
@@ -178,6 +192,7 @@ function projectSuggestions(cwd, entries, limit, threshold) {
       };
     })
     .sort((left, right) => right.latest.localeCompare(left.latest));
+  // Breaks out once the global limit is reached across aggregate and direct rows.
   outer:
   for (const { entries: group } of groupedEntries) {
     const nextSuggestions = group.length >= aggregateThreshold

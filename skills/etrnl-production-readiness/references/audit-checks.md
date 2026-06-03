@@ -49,20 +49,20 @@ Use these ids and generated files in the shared artifact directory:
 | Worklist id | Contents | Baseline command |
 | --- | --- | --- |
 | `prod_pages` | routed page files | `fd -g 'page.tsx' --exclude node_modules --exclude .next` |
-| `prod_procedures` | internal API procedure files | `rg "createProcedure|publicProcedure|protectedProcedure|router\\(" --type ts -g '!**/generated/**' -l` |
+| `prod_procedures` | internal API procedure files | `rg "createProcedure\|publicProcedure\|protectedProcedure\|router\\(" --type ts -g '!**/generated/**' -l` |
 | `prod_routes` | route handler files | `fd -g 'route.ts' --exclude node_modules --exclude .next` |
 | `prod_actions` | server action files | `rg "'use server'" --type ts -g '!**/generated/**' -l` |
 | `prod_webhooks` | webhook handlers | route handler worklist filtered for webhook handling |
-| `prod_queues` | worker and queue files | `rg "new Worker|new Queue|createWorker|inngest\\.createFunction" --type ts -g '!**/generated/**' -l` |
-| `prod_crons` | cron and scheduled work | `rg "cron|schedule|vercel.*cron" --type ts -g '!**/generated/**' -g '!**/*.test.*' -l` |
-| `prod_notifications` | notification send sites | `rg "sendEmail|sendSMS|sendWhatsApp|sendPush|sendNotification|notify" --type ts -g '!**/generated/**' -g '!**/*.test.*' -l` |
-| `prod_uploads` | upload and object-storage handlers | `rg "upload|putObject|presign" --type ts -g '!**/generated/**' -g '!**/*.test.*' -l` |
-| `prod_exports` | export features | `rg "export.*csv|export.*pdf|createObjectURL|\\.xlsx" --type ts -g '!**/generated/**' -l` |
+| `prod_queues` | worker and queue files | `rg "new Worker\|new Queue\|createWorker\|inngest\\.createFunction" --type ts -g '!**/generated/**' -l` |
+| `prod_crons` | cron and scheduled work | `rg "cron\|schedule\|vercel.*cron" --type ts -g '!**/generated/**' -g '!**/*.test.*' -l` |
+| `prod_notifications` | notification send sites | `rg "sendEmail\|sendSMS\|sendWhatsApp\|sendPush\|sendNotification\|notify" --type ts -g '!**/generated/**' -g '!**/*.test.*' -l` |
+| `prod_uploads` | upload and object-storage handlers | `rg "upload\|putObject\|presign" --type ts -g '!**/generated/**' -g '!**/*.test.*' -l` |
+| `prod_exports` | export features | `rg "export.*csv\|export.*pdf\|createObjectURL\|\\.xlsx" --type ts -g '!**/generated/**' -l` |
 | `prod_schema` | ORM schema files | ORM-specific schema glob, such as `schema.prisma` |
 | `prod_client` | client components | `rg "'use client'" -g '*.tsx' -l` |
-| `prod_mutations` | mutation surfaces | `rg "useMutation|useActionState|startTransition|\\.mutate\\(" --type ts -g '!**/generated/**' -l` |
-| `prod_tenant` | tenant and location scoping surfaces | `rg "tenantId|organizationId|orgId|locationId" --type ts -g '!**/generated/**' -l` |
-| `prod_dates` | date, locale, and formatting surfaces | `rg "new Date|Date\\.now|toISOString|dayjs|date-fns|format.*date" --type ts -g '!**/generated/**' -g '!**/*.test.*' -l` |
+| `prod_mutations` | mutation surfaces | `rg "useMutation\|useActionState\|startTransition\|\\.mutate\\(" --type ts -g '!**/generated/**' -l` |
+| `prod_tenant` | tenant and location scoping surfaces | `rg "tenantId\|organizationId\|orgId\|locationId" --type ts -g '!**/generated/**' -l` |
+| `prod_dates` | date, locale, and formatting surfaces | `rg "new Date\|Date\\.now\|toISOString\|dayjs\|date-fns\|format.*date" --type ts -g '!**/generated/**' -g '!**/*.test.*' -l` |
 | `prod_raw_env_files` | raw env access files | `rg "process\\.env\\." --type ts -g '!**/generated/**' -g '!**/*.test.*' -l` |
 | `prod_error_boundaries` | App Router error boundaries | `fd -g 'error.tsx' --exclude node_modules --exclude .next` |
 
