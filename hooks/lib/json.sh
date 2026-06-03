@@ -42,6 +42,10 @@ cc_json_get() {
 cc_json_emit_context() {
   local event="$1"
   local text="$2"
+  if [[ "$event" == "Stop" ]]; then
+    jq -cn --arg text "$text" '{continue: true, suppressOutput: true, systemMessage: $text}'
+    return 0
+  fi
   jq -cn --arg event "$event" --arg text "$text" '{
     hookSpecificOutput: {
       hookEventName: $event,

@@ -77,6 +77,7 @@ const knownCompanionHooks = new Set([
   "block-junk-files.sh",
   "block-secrets.sh",
   "check-code-quality.sh",
+  "check-context-and-handoff.sh",
   "cli-update-check.sh",
   "enforce-cli-toolkit.sh",
   "enforce-positive-rules.sh",
@@ -93,21 +94,24 @@ const knownCompanionHooks = new Set([
 ]);
 const rewriteKnownHookCommand = (command) => {
   if (isLegacyRateLimiter(command)) return "bash ~/.claude/hooks/cc-rate-limiter.sh";
+  if (invalidStopContextHandoff(command)) return "";
   return command;
 };
 
 const hookBasename = (command) => {
   const canonical = canonicalCommand(command);
-  const match = canonical.match(/(?:^|\s)(?:bash\s+)?~\/\.claude\/hooks\/([^ "';&|]+)/);
+  const match = canonical.match(/(?:^|\s)(?:bash\s+)?(?:~|[^\s"';&|]+)\/\.claude\/hooks\/([^ "';&|]+)/);
   if (!match) return "";
   return path.basename(match[1]);
 };
 
 const hookPath = (command) => {
   const canonical = canonicalCommand(command);
-  const match = canonical.match(/(?:^|\s)(?:bash\s+)?~\/\.claude\/hooks\/([^ "';&|]+)/);
+  const match = canonical.match(/(?:^|\s)(?:bash\s+)?(?:~|([^\s"';&|]+))\/\.claude\/hooks\/([^ "';&|]+)/);
   if (!match) return "";
-  return path.join(homeDir, ".claude", "hooks", match[1]);
+  if (!match[1]) return path.join(homeDir, ".claude", "hooks", match[2]);
+  const basePath = match[1].startsWith("~/") ? path.join(homeDir, match[1].slice(2)) : match[1];
+  return path.join(basePath, ".claude", "hooks", match[2]);
 };
 
 const hookOwner = (basename) => {
@@ -116,6 +120,19 @@ const hookOwner = (basename) => {
   if (knownCompanionHooks.has(basename)) return "known-companion";
   return "unknown-external";
 };
+
+function invalidStopContextHandoff(command) {
+  if (hookBasename(command) !== "check-context-and-handoff.sh") return false;
+  const filePath = hookPath(command);
+  if (!filePath) return true;
+  try {
+    const body = fs.readFileSync(filePath, "utf8");
+    return /hookSpecificOutput[^]*hookEventName:\s*"Stop"[^]*additionalContext/.test(body)
+      || /hookSpecificOutput[^]*hookEventName[^]*Stop[^]*additionalContext/.test(body);
+  } catch {
+    return true;
+  }
+}
 
 const rtkRewriteHasRgProxyGuard = (command) => {
   const filePath = hookPath(command);
@@ -140,6 +157,12 @@ const conflictForHook = (basename, command, eventName, matcher) => {
     return {
       id: "legacy-cli-toolkit",
       reason: "legacy CLI-toolkit blocker denies raw Bash commands instead of letting RTK rewrite them; observed first-failure loops should be handled by rtk hook claude plus cc-pretooluse-guard",
+    };
+  }
+  if (basename === "check-context-and-handoff.sh" && eventName === "Stop" && invalidStopContextHandoff(command)) {
+    return {
+      id: "invalid-stop-context-handoff",
+      reason: "legacy handoff monitor emits hookSpecificOutput.additionalContext for Stop and guesses context pressure from transcript size; use PreCompact/context-state instead",
     };
   }
   return null;

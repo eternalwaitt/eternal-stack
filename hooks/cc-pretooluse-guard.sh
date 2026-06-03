@@ -85,6 +85,21 @@ fi
 current_tool="$(cc_json_get '.tool_name // .toolName // .tool')"
 cwd="$(cc_project_cwd)"
 
+cc_large_change_has_plan_artifact() {
+  jq -e '
+    def plan_file:
+      test("(^|/)(\\.rulebook/PLANS\\.md|PLANS\\.md|docs/plans/[^/]+\\.md|\\.planning/[^/]+\\.md)$");
+    (((.reviewRuns // []) | length) > 0)
+      or ([.skillCalls[]?.value // empty]
+        | map(ascii_downcase)
+        | any(test("etrnl-plan|etrnl-review|plan|review")))
+      or ([.edits // {} | keys[] | select(plan_file)] | length > 0)
+      or ([.successfulCommands[]?.value // empty, .commands[]?.value // empty]
+        | map(ascii_downcase)
+        | any(test("review-log|context-state\\.mjs save|/handoff|\\.rulebook/PLANS\\.md|docs/plans/")))
+  ' "$(cc_state_file)" >/dev/null 2>&1
+}
+
 message_fingerprint() {
   local text="$1"
   local output
@@ -782,7 +797,7 @@ handle_edit() {
     if violation="$(cc_large_change_violation "$old_text" "$text" "$current_tool")"; then
       cc_state_append_value largeEdits "$abs"
       cc_state_append_value reviewTriggers "large edit: $abs"
-      if ! jq -e '((.reviewRuns // []) | length) > 0 or ((.skillCalls // []) | map(.value | ascii_downcase) | any(test("etrnl-plan|etrnl-review|plan|review")))' "$(cc_state_file)" >/dev/null 2>&1; then
+      if ! cc_large_change_has_plan_artifact; then
         deny "$violation"
       fi
     fi
@@ -845,7 +860,7 @@ handle_serena_search_for_pattern() {
   if [[ -z "$rel_path" || "$rel_path" == "." ]] && [[ -z "$include_glob" ]]; then
     deny "Serena search_for_pattern must be scoped before execution. Set relative_path to a specific subdirectory/file or provide paths_include_glob."
   fi
-  if [[ -z "$max_chars" || "$max_chars" == "-1" || ! "$max_chars" =~ ^[0-9]+$ || "$max_chars" -gt 20000 ]]; then
+  if [[ -z "$max_chars" || ! "$max_chars" =~ ^[0-9]+$ || "$max_chars" -gt 20000 ]]; then
     deny "Serena search_for_pattern must set max_answer_chars to a positive value no greater than 20000."
   fi
   if [[ -n "$before_lines" && "$before_lines" =~ ^[0-9]+$ && "$before_lines" -gt 5 ]]; then

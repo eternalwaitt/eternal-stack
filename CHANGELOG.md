@@ -5,6 +5,7 @@
 ## v0.1.7 - 2026-06-03
 
 - Improve stop-hook completion classification so paused production handoffs and other explicit non-final status updates do not get blocked as unverified completion claims.
+- Repair hook ergonomics around context and large edits: settings audit now removes legacy Stop handoff monitors that emit invalid context output, and the large-change guard honors recorded plan artifacts such as `.rulebook/PLANS.md`.
 - Add quick-win runtime hardening from recent logs: preflight unscoped Serena searches and unbounded health JSON dumps, aggregate project buglog repeat-edit hints, and make local skill metadata validation opt-in at SessionStart.
 - Harden script reliability after defensive Bash audit: clean up PreToolUse temp files, remove overlapping shell patterns, and bound Git child processes in script helpers.
 - Bound `UserPromptSubmit` `CLAUDE.md` reinjection to once per session by default, document `CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD=always`, and add a scoped recovery hint for oversized Serena search output.

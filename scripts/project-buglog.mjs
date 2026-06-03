@@ -122,7 +122,14 @@ function aggregateFingerprint(cwd, category, summary) {
 function aggregateSuggestionFor(cwd, entries) {
   const sorted = [...entries].sort((left, right) => String(left.at || "").localeCompare(String(right.at || "")));
   const latest = sorted[sorted.length - 1];
-  const recentFiles = [...new Set(sorted.slice().reverse().map((entry) => entry.file))].slice(0, 5);
+  const recentFiles = [];
+  const seenFiles = new Set();
+  for (let index = sorted.length - 1; index >= 0 && recentFiles.length < 5; index -= 1) {
+    const file = sorted[index]?.file || "";
+    if (!file || seenFiles.has(file)) continue;
+    seenFiles.add(file);
+    recentFiles.push(file);
+  }
   return {
     kind: "aggregate",
     file: latest.file || "",
@@ -153,12 +160,13 @@ function projectSuggestions(cwd, entries, limit) {
     groups.set(key, group);
   }
   const suggestions = [];
-  const groupedEntries = [...groups.values()].sort((left, right) => {
-    const leftLast = left.map((entry) => entry.at || "").sort().at(-1) || "";
-    const rightLast = right.map((entry) => entry.at || "").sort().at(-1) || "";
-    return rightLast.localeCompare(leftLast);
-  });
-  for (const group of groupedEntries) {
+  const groupedEntries = [...groups.values()]
+    .map((group) => ({
+      entries: group,
+      latest: group.reduce((latest, entry) => String(entry.at || "").localeCompare(latest) > 0 ? String(entry.at || "") : latest, ""),
+    }))
+    .sort((left, right) => right.latest.localeCompare(left.latest));
+  for (const { entries: group } of groupedEntries) {
     const sorted = [...group].sort((left, right) => String(left.at || "").localeCompare(String(right.at || "")));
     if (sorted.length >= aggregateThreshold) {
       suggestions.push(aggregateSuggestionFor(cwd, sorted));

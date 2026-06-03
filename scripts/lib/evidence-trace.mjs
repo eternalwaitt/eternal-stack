@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import { existsSync, lstatSync, readFileSync, realpathSync, statSync } from "node:fs";
 import path from "node:path";
 
+const MAX_FUTURE_SKEW_MS = 60_000;
+
 /**
  * Returns a compact UTC ISO timestamp without milliseconds for stable ledger
  * and artifact comparisons.
@@ -73,9 +75,12 @@ export function packetHash(packet) {
  * rejecting unparsable values and timestamps more than one minute in the future.
  */
 export function isFreshIso(value, maxAgeMs, nowMs = Date.now()) {
+  if (!Number.isFinite(maxAgeMs)) {
+    throw new TypeError("isFreshIso requires a finite maxAgeMs");
+  }
   const parsed = Date.parse(String(value || ""));
   if (!Number.isFinite(parsed)) return false;
-  return nowMs - parsed <= maxAgeMs && parsed - nowMs <= 60_000;
+  return nowMs - parsed <= maxAgeMs && parsed - nowMs <= MAX_FUTURE_SKEW_MS;
 }
 
 /**

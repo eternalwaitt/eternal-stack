@@ -349,6 +349,12 @@ large_new_string="$(node -e 'for (let i = 0; i < 130; i += 1) console.log("expor
 large_edit="$(jq --arg text "$large_new_string" '.tool_input.old_string = "export const oldValue = 1;" | .tool_input.new_string = $text' <<<"$edit_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$large_edit")"
 assert_contains "large edit denied" "$out" "Large-change"
+planned_large_state="$TMPROOT/claude-guard-fixture-planned-large.json"
+planned_large_src="$(cd "$TMPROOT/example/src" && pwd -P)/app.ts"
+jq -nc --arg plans "$TMPROOT/example/.rulebook/PLANS.md" --arg src "$planned_large_src" '{schemaVersion:4,reads:{($src):"2026-01-01T00:00:00Z"},searches:{"/tmp/example/src/app.ts":"2026-01-01T00:00:00Z"},edits:{($plans):"2026-01-01T00:00:01Z"},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:1,commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$planned_large_state"
+planned_large_edit="$(jq --arg text "$large_new_string" '.session_id = "fixture-planned-large" | .tool_input.old_string = "export const oldValue = 1;" | .tool_input.new_string = $text' <<<"$edit_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$planned_large_edit")"
+assert_json_expr "plan artifact allows large edit path" "$out" '.continue == true'
 
 write_json="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-session-2",tool_name:"Write",cwd:$root,tool_input:{file_path:($root + "/src/new.ts"),content:"export const created = true;"}}')"
 out="$(run_hook cc-pretooluse-guard.sh "$write_json")"

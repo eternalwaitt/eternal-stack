@@ -59,10 +59,13 @@ if [[ "$message_lower" =~ (outstanding|still[[:space:]]+pending|still[[:space:]]
 fi
 
 cc_deferred_status_update() {
-  local nonfinal_re work_state_re
-  nonfinal_re='(not[[:space:]-]+(claiming[[:space:]-]+)?completion|not[[:space:]-]+done|not[[:space:]-]+complete|nothing[[:space:]]+is[[:space:]]+live[[:space:]]+yet|work[[:space:]]+is[[:space:]]+paused|paused[[:space:]]+(mid|until|awaiting|while)|awaiting[[:space:]]+(your[[:space:]]+)?(answer|approval|confirmation|go/no-go|go[[:space:]-]*no[[:space:]-]*go)|waiting[[:space:]]+for[[:space:]]+(your[[:space:]]+)?(answer|approval|confirmation|go/no-go|go[[:space:]-]*no[[:space:]-]*go)|before[[:space:]]+i[[:space:]]+(ssh|deploy|proceed)|do[[:space:]]+you[[:space:]]+want[[:space:]]+me[[:space:]]+to[[:space:]]+proceed|no[[:space:]]+live[[:space:]]+change|not[[:space:]]+live[[:space:]]+yet)'
-  work_state_re='(awaiting|waiting|approval|confirmation|go/no-go|go[[:space:]-]*no[[:space:]-]*go|in_progress|in[[:space:]-]+progress|pending|paused|blocked|nothing[[:space:]]+is[[:space:]]+live[[:space:]]+yet|before[[:space:]]+i[[:space:]]+(ssh|deploy|proceed)|do[[:space:]]+you[[:space:]]+want[[:space:]]+me[[:space:]]+to[[:space:]]+proceed)'
-  [[ "$message_lower" =~ $nonfinal_re ]] && [[ "$message_lower" =~ $work_state_re ]]
+  local shared_re nonfinal_only_re work_state_only_re
+  # Some phrases are explicit enough on their own; weaker phrases must pair a
+  # non-final claim with a pending/blocked work-state cue to avoid false passes.
+  shared_re='(nothing[[:space:]]+is[[:space:]]+live[[:space:]]+yet|before[[:space:]]+i[[:space:]]+(ssh|deploy|proceed)|do[[:space:]]+you[[:space:]]+want[[:space:]]+me[[:space:]]+to[[:space:]]+proceed|awaiting[[:space:]]+(your[[:space:]]+)?(answer|approval|confirmation|go/no-go|go[[:space:]-]*no[[:space:]-]*go)|waiting[[:space:]]+for[[:space:]]+(your[[:space:]]+)?(answer|approval|confirmation|go/no-go|go[[:space:]-]*no[[:space:]-]*go))'
+  nonfinal_only_re='(not[[:space:]-]+(claiming[[:space:]-]+)?completion|not[[:space:]-]+done|not[[:space:]-]+complete|work[[:space:]]+is[[:space:]]+paused|paused[[:space:]]+(mid|until|awaiting|while)|no[[:space:]]+live[[:space:]]+change|not[[:space:]]+live[[:space:]]+yet)'
+  work_state_only_re='(awaiting|waiting|approval|confirmation|go/no-go|go[[:space:]-]*no[[:space:]-]*go|in_progress|in[[:space:]-]+progress|pending|paused|blocked)'
+  [[ "$message_lower" =~ $shared_re ]] || { [[ "$message_lower" =~ $nonfinal_only_re ]] && [[ "$message_lower" =~ $work_state_only_re ]]; }
 }
 
 if [[ "$claims_done" == "true" && "$browser_qa_outstanding" != "true" ]] && cc_deferred_status_update; then
