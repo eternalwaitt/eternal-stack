@@ -119,14 +119,21 @@ function aggregateFingerprint(cwd, category, summary) {
     .slice(0, 16);
 }
 
-function aggregateSuggestionFor(cwd, entries) {
+function aggregateSuggestionFor(cwd, entries, { preSorted = false } = {}) {
   if (!Array.isArray(entries) || entries.length === 0) {
     throw new TypeError("aggregateSuggestionFor requires at least one buglog entry.");
   }
-  const sorted = [...entries].sort((left, right) => String(left.at || "").localeCompare(String(right.at || "")));
+  const sorted = preSorted
+    ? entries
+    : [...entries].sort((left, right) => String(left.at || "").localeCompare(String(right.at || "")));
   const latest = sorted[sorted.length - 1];
+  const affectedFiles = new Set();
   const recentFiles = [];
   const seenFiles = new Set();
+  for (const entry of sorted) {
+    const file = String(entry.file || "").trim();
+    if (file) affectedFiles.add(file);
+  }
   for (let index = sorted.length - 1; index >= 0 && recentFiles.length < 5; index -= 1) {
     const file = sorted[index]?.file || "";
     if (!file || seenFiles.has(file)) continue;
@@ -142,7 +149,7 @@ function aggregateSuggestionFor(cwd, entries) {
     fingerprint: aggregateFingerprint(cwd, latest.category, latest.summary),
     firstSeen: sorted[0]?.at || "",
     lastSeen: latest.at || "",
-    affectedFilesCount: new Set(sorted.map((entry) => entry.file).filter((file) => String(file || "").trim())).size,
+    affectedFilesCount: affectedFiles.size,
     occurrenceCount: sorted.length,
     recentFiles,
     suggestedGuard: suggestedGuard(latest.category),
@@ -174,7 +181,7 @@ function projectSuggestions(cwd, entries, limit, threshold) {
   outer:
   for (const { entries: group } of groupedEntries) {
     const nextSuggestions = group.length >= aggregateThreshold
-      ? [aggregateSuggestionFor(cwd, group)]
+      ? [aggregateSuggestionFor(cwd, group, { preSorted: true })]
       : [...group].reverse().map(suggestionFor);
     for (const suggestion of nextSuggestions) {
       if (suggestions.length >= normalizedLimit) break outer;
