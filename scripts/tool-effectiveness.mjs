@@ -71,7 +71,13 @@ function sanitizeProjectHash(input = "") {
 
 function projectConfigEntries() {
   if (!projectsConfigPath || !existsSync(projectsConfigPath)) return [];
-  const parsed = JSON.parse(readFileSync(projectsConfigPath, "utf8"));
+  let parsed;
+  try {
+    parsed = JSON.parse(readFileSync(projectsConfigPath, "utf8"));
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(`invalid --projects-config ${projectsConfigPath}: ${detail}`);
+  }
   return Array.isArray(parsed.projects) ? parsed.projects : [];
 }
 
@@ -322,14 +328,21 @@ function importCodex() {
   emit({ schemaVersion: 1, command: "import-codex", dryRun, eventsImported: events.length, rejected, ...(dryRun ? { events } : {}) });
 }
 
-if (command === "validate-fixtures") validateFixtures();
-else if (command === "baseline") emit(baseline(loadSource().events));
-else if (command === "import-codex") importCodex();
-else if (command === "summarize") {
-  const source = loadSource();
-  emit(summarizeEvents(source.events, source.rejected));
-}
-else if (command === "doctor") {
-  const source = loadSource();
-  emit({ schemaVersion: 1, command: "doctor", malformed: 0, privacyRejected: source.rejected.length, stalePilotWindows: 0, nextAction: "none" });
+try {
+  if (command === "validate-fixtures") validateFixtures();
+  else if (command === "baseline") emit(baseline(loadSource().events));
+  else if (command === "import-codex") importCodex();
+  else if (command === "summarize") {
+    const source = loadSource();
+    emit(summarizeEvents(source.events, source.rejected));
+  }
+  else if (command === "doctor") {
+    const source = loadSource();
+    emit({ schemaVersion: 1, command: "doctor", malformed: 0, privacyRejected: source.rejected.length, stalePilotWindows: 0, nextAction: "none" });
+  }
+} catch (error) {
+  const detail = error instanceof Error ? error.message : String(error);
+  if (jsonMode) emit({ ok: false, error: detail });
+  else console.error(`tool-effectiveness error: ${detail}`);
+  process.exit(2);
 }

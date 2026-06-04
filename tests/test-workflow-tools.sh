@@ -464,6 +464,13 @@ tool_effectiveness_codegraph_only_json="$(node "$ROOT/scripts/tool-effectiveness
 assert_json_expr "tool-effectiveness tool filter narrows summary" "$tool_effectiveness_codegraph_only_json" '(.tools | keys) == ["codegraph"]'
 tool_effectiveness_project_json="$(node "$ROOT/scripts/tool-effectiveness.mjs" summarize --fixtures "$ROOT/tests/fixtures/tool-effectiveness" --project project-alpha --json)"
 assert_json_expr "tool-effectiveness project filter narrows events" "$tool_effectiveness_project_json" '.totals.events > 0 and .totals.events < 18'
+tool_effectiveness_bad_projects_config="$TMPROOT/tool-effectiveness-bad-projects.json"
+printf '%s\n' '{"projects": [' >"$tool_effectiveness_bad_projects_config"
+if bad_projects_out="$(node "$ROOT/scripts/tool-effectiveness.mjs" summarize --fixtures "$ROOT/tests/fixtures/tool-effectiveness" --projects-config "$tool_effectiveness_bad_projects_config" --project project-alpha 2>&1)"; then
+  not_ok "tool-effectiveness rejects malformed projects config"
+else
+  assert_contains "tool-effectiveness rejects malformed projects config" "$bad_projects_out" "tool-effectiveness error: invalid --projects-config"
+fi
 tool_effectiveness_privacy_root="$TMPROOT/tool-effectiveness-privacy"
 mkdir -p "$tool_effectiveness_privacy_root"
 jq -n '{
