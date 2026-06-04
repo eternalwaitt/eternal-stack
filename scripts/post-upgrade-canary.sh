@@ -16,6 +16,8 @@ required_paths=(
   "hooks/cc-stop-verifier.sh"
   "hooks/cc-posttoolusefailure-diagnose.sh"
   "scripts/update-check.mjs"
+  "scripts/tool-stack-check.mjs"
+  "scripts/bootstrap-tools.sh"
   "scripts/browser-qa-report.mjs"
   "scripts/lib/evidence-trace.mjs"
   "control-plane/install.json"

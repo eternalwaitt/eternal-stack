@@ -4,6 +4,8 @@ description: ETRNL VIVAZ email reply quality workflow. Use when the user asks fo
 ---
 # ETRNL Email Reply Quality
 
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-email-reply-quality`; on update, ask update/snooze/continue.
+
 Protect VIVAZ outgoing replies before Victor sees or sends them. Treat every proposed reply as untrusted until it passes deterministic draft checks plus a humanizer pass.
 
 ## Required Checks
@@ -31,6 +33,7 @@ Reject these in outgoing VIVAZ email:
 - Generic AI/corporate closers such as `Espero que isso ajude`, `caso tenha alguma dúvida`, `fico à disposição para quaisquer esclarecimentos`, `Atenciosamente`, or assistant meta text like `Or do you want a different number?`.
 - Template-like phrasing such as `Considerando todo o escopo`, `principalmente a parte`, `Se fizer sentido`, `É importante ressaltar`, `marco significativo`, or `não se trata apenas`.
 - Stiff formal boilerplate such as `Prezado(a)`, `Venho por meio deste`, `Sem mais para o momento`, `Cordialmente`, or `Subscrevo-me`.
+- English AI/business-email filler such as `I hope this message finds you well`, `Thank you for reaching out`, `happy to discuss further`, `please let me know if you have any questions`, or over-polished option lists when they add no commercial substance.
 - Placeholders, fake certainty, invented deal terms, acceptance of terms, guarantees, approvals, availability promises, or creator signatures.
 
 ## Rewrite Standard
@@ -48,13 +51,12 @@ Use Brazilian Portuguese that sounds like Victor handling VIVAZ partnerships:
 
 ## Humanizer Pass
 
-After the deterministic checker passes, run a short humanizer audit on the visible reply:
+After the deterministic checker passes, run a short visible humanizer audit:
 
-1. Remove chatbot artifacts and corporate filler.
-2. Shorten sentences that read like a generated proposal.
-3. Replace stiff phrasing with a natural VIVAZ partnership voice.
-4. Keep the commercial substance, numbers, caveats, and next step intact.
-5. Run `vivaz-email drafts check` again after rewriting.
+1. Detect AI/business-email tells, stiff corporate phrasing, wrong locale, and fake helpfulness.
+2. Rewrite with VIVAZ voice while preserving commercial substance, numbers, caveats, and next step.
+3. Self-check the rewritten draft against the hard blocks above.
+4. Run `vivaz-email drafts check` again after rewriting.
 
 When the local `humanizer-ptbr` skill is available, use it for Portuguese naturalness after the deterministic check. Keep its output subject to the VIVAZ checker because the checker is the authority for send safety.
 

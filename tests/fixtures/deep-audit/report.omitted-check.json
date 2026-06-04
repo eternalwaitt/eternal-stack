@@ -1,26 +1,103 @@
 {
   "schemaVersion": 1,
   "auditId": "omitted-check",
-  "categoryRegistryVersion": "2026-06-03.1",
-  "registeredCategories": ["production-readiness", "performance"],
-  "knownUnimplementedCategories": ["security", "ux-accessibility", "api-data", "docs", "payments", "privacy-compliance"],
-  "coverageStatement": "Coverage: production-readiness. Known not-yet-registered audit domains: security, ux-accessibility, api-data, docs, payments, privacy-compliance.",
+  "categoryRegistryVersion": "2026-06-04.1",
+  "registeredCategories": [
+    "production-readiness",
+    "security",
+    "performance"
+  ],
+  "knownUnimplementedCategories": [
+    "ux-accessibility",
+    "api-data",
+    "docs",
+    "payments",
+    "privacy-compliance"
+  ],
+  "coverageStatement": "Coverage: production-readiness. Known not-yet-registered audit domains: ux-accessibility, api-data, docs, payments, privacy-compliance.",
   "targetLabel": "synthetic-app",
   "targetFingerprint": "repo:synthetic-app@omitted-check",
-  "requestedCategories": ["production-readiness"],
+  "requestedCategories": [
+    "production-readiness"
+  ],
   "runArtifactLabel": "omitted-check-run",
-  "worklists": {"prod_pages": {"count": 1, "sha256": "sha256:prod_pages", "artifactLabel": "prod-pages"}},
-  "categoryReports": [{
-    "categoryId": "production-readiness",
-    "status": "clean",
-    "consumedWorklistHashes": {"prod_pages": "sha256:prod_pages"},
-    "checks": [{"checkId": "prod-01-state-coverage", "status": "confirmed_clean", "confirmedClean": "CONFIRMED_CLEAN: state - 0 findings"}]
-  }],
+  "worklists": {
+    "prod_pages": {
+      "count": 1,
+      "sha256": "sha256:prod_pages",
+      "artifactLabel": "prod-pages"
+    },
+    "sec_entrypoints": {
+      "count": 1,
+      "sha256": "sha256:sec_entrypoints",
+      "artifactLabel": "sec-entrypoints"
+    },
+    "sec_authz": {
+      "count": 1,
+      "sha256": "sha256:sec_authz",
+      "artifactLabel": "sec-authz"
+    },
+    "sec_inputs": {
+      "count": 1,
+      "sha256": "sha256:sec_inputs",
+      "artifactLabel": "sec-inputs"
+    },
+    "sec_sinks": {
+      "count": 1,
+      "sha256": "sha256:sec_sinks",
+      "artifactLabel": "sec-sinks"
+    },
+    "sec_secrets": {
+      "count": 1,
+      "sha256": "sha256:sec_secrets",
+      "artifactLabel": "sec-secrets"
+    },
+    "sec_uploads": {
+      "count": 1,
+      "sha256": "sha256:sec_uploads",
+      "artifactLabel": "sec-uploads"
+    },
+    "sec_webhooks": {
+      "count": 1,
+      "sha256": "sha256:sec_webhooks",
+      "artifactLabel": "sec-webhooks"
+    },
+    "sec_dependencies": {
+      "count": 1,
+      "sha256": "sha256:sec_dependencies",
+      "artifactLabel": "sec-dependencies"
+    }
+  },
+  "categoryReports": [
+    {
+      "categoryId": "production-readiness",
+      "status": "clean",
+      "consumedWorklistHashes": {
+        "prod_pages": "sha256:prod_pages"
+      },
+      "checks": [
+        {
+          "checkId": "prod-01-state-coverage",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: state - 0 findings"
+        },
+        {
+          "checkId": "prod-18-operability-prr",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Operability PRR - 0 findings"
+        }
+      ]
+    }
+  ],
   "laneReceipts": [],
-  "confirmedClean": ["production-readiness"],
+  "confirmedClean": [
+    "production-readiness"
+  ],
   "checksSkipped": [],
   "findings": [],
   "sourceLimitedBlockers": [],
-  "synthesis": {"status": "clean"},
+  "synthesis": {
+    "status": "clean"
+  },
   "verification": []
 }

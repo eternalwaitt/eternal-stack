@@ -4,6 +4,8 @@ description: ETRNL control-plane CI/CD workflow for Claude Code. Use when design
 ---
 # ETRNL CI/CD
 
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-ci-cd`; on update, ask update/snooze/continue.
+
 Treat CI/CD as an execution harness with lanes, evidence, and rollback, not as scattered workflow YAML.
 
 ## Operating Model
@@ -30,6 +32,12 @@ For broad workflow audits:
 2. Inspect `.github/workflows/*.yml`, `.github/workflows/*.yaml`, action references, `permissions:`, shell `run:` blocks, secrets, caches, artifacts, and concurrency by hand.
 3. Record every finding with file, job, step, impact, fix, and verification command.
 4. Rerun the helper or manual checklist after patching.
+
+Use this finding shape for pipeline changes:
+
+- Before: current lane, job, permission, artifact, environment, or deploy behavior.
+- After: exact changed behavior and preserved check names.
+- Why: failure, risk, cost, or release requirement that justifies the pipeline change.
 
 ## Non-Negotiables
 
@@ -110,6 +118,13 @@ Every production deploy workflow requires:
 - Post-deploy revision/image evidence.
 - Public or internal smoke check.
 - Failure log capture.
+
+## Runner And Scale Decisions
+
+- Use hosted runners for ordinary lint, typecheck, tests, builds, and artifact packaging.
+- Use self-hosted runners only for required hardware, private network access, strict data residency, licensing, or cost evidence that hosted runners cannot satisfy.
+- Add matrix builds, sharding, or cache complexity only when measured CI duration, platform compatibility, or release policy requires it.
+- Do not generate scaffold workflows until target platform, package manager, deploy target, secrets model, and required checks are confirmed.
 
 ## Completion Evidence
 

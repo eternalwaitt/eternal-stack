@@ -4,6 +4,8 @@ description: ETRNL documentation-health audit and remediation workflow. Use when
 ---
 # ETRNL Documentation Health
 
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-documentation-health`; on update, ask update/snooze/continue.
+
 Run documentation health as an evidence-led repo workflow. Inspect actual files, commands, contracts, scripts, tests, routes, schemas, and runtime docs before judging whether documentation is accurate.
 
 This is the documentation specialist. Use `etrnl-code-health` for whole-codebase health, and use this skill when the documentation layer itself is the target.

@@ -22,7 +22,7 @@ OWNED_SKILLS=(
   etrnl-documentation-health
   etrnl-email-reply-quality
   etrnl-execute
-  etrnl-fix-issue
+  etrnl-systematic-debugging
   etrnl-parallel
   etrnl-performance-audit
   etrnl-plan
@@ -30,6 +30,7 @@ OWNED_SKILLS=(
   etrnl-pr
   etrnl-qa-browser
   etrnl-review
+  etrnl-security-audit
   etrnl-stress-test
   etrnl-test
 )
@@ -62,12 +63,15 @@ CRITICAL_SCRIPTS=(
   code-health-ledger-check.mjs
   documentation-comment-health.mjs
   documentation-health-ledger-check.mjs
+  disk-cleanup-manifest.mjs
   execution-ledger.mjs
   execute-evidence-check.mjs
   tool-effectiveness.mjs
   deep-stack-check.mjs
   deep-audit-artifact-check.mjs
   plan-readiness-check.mjs
+  performance-baseline.mjs
+  pr-preflight.mjs
   agent-task-packet-check.mjs
   guard-override-token.mjs
   lib/audit-exclusions.mjs
@@ -90,6 +94,8 @@ CRITICAL_SCRIPTS=(
   research-competitor-intel.mjs
   skill-contract-check.mjs
   skill-behavior-smoke.mjs
+  skill-update-prompt.mjs
+  tool-stack-check.mjs
   update-check.mjs
   codex-rtk-pre-tool-use.sh
 )
@@ -102,11 +108,14 @@ INSTALL_SCRIPTS=(
   code-health-ledger-check.mjs
   documentation-comment-health.mjs
   documentation-health-ledger-check.mjs
+  disk-cleanup-manifest.mjs
   merge-settings.mjs
   settings-audit.mjs
   deep-stack-check.mjs
   deep-audit-artifact-check.mjs
   plan-readiness-check.mjs
+  performance-baseline.mjs
+  pr-preflight.mjs
   agent-task-packet-check.mjs
   guard-override-token.mjs
   replay-hook-fixtures.mjs
@@ -122,11 +131,14 @@ INSTALL_SCRIPTS=(
   prompt-budget-check.mjs
   skill-contract-check.mjs
   skill-behavior-smoke.mjs
+  skill-update-prompt.mjs
   changelog-release-check.mjs
   port-guard.mjs
   research-competitor-intel.mjs
   update-check.mjs
+  tool-stack-check.mjs
   codex-rtk-pre-tool-use.sh
+  bootstrap-tools.sh
   update.sh
   uninstall.sh
   canary-websearch.sh
@@ -142,6 +154,7 @@ LEGACY_SKILLS=(
   commit
   deps
   devils-advocate
+  etrnl-fix-issue
   etrnl-run-plan
   execute-plan
   fix-issue

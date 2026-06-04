@@ -225,6 +225,36 @@ function validateCheckEntry(check, artifactPath, errors, jsonPath) {
   }
 }
 
+function validateSecurityCheckEntry(check, artifactPath, errors, jsonPath) {
+  if (check.status === "finding") {
+    const required = ["source", "sink", "missingControl", "exploit", "reachability", "confidence", "impact", "remediation"];
+    for (const [findingIndex, finding] of asArray(check.findings).entries()) {
+      for (const field of required) {
+        if (!String(finding?.[field] || "").trim()) {
+          errors.push(diagnostic("SECURITY_FINDING_FIELD_MISSING", artifactPath, `${check.checkId} finding ${findingIndex} lacks ${field}.`, "Security findings must prove exploitability instead of listing generic hardening advice.", `Add ${field} to the security finding.`, `${jsonPath}.findings[${findingIndex}].${field}`));
+        }
+      }
+      if (finding.confidence && !["high", "medium", "low"].includes(String(finding.confidence))) {
+        errors.push(diagnostic("SECURITY_FINDING_CONFIDENCE_INVALID", artifactPath, `${check.checkId} finding ${findingIndex} uses invalid confidence.`, "Security confidence must be machine-readable.", "Use high, medium, or low.", `${jsonPath}.findings[${findingIndex}].confidence`));
+      }
+    }
+  }
+  if (check.status === "confirmed_clean") {
+    const nonFindings = check.nonFindings;
+    if (!nonFindings || typeof nonFindings !== "object" || Array.isArray(nonFindings)) {
+      errors.push(diagnostic("SECURITY_NON_FINDINGS_MISSING", artifactPath, `${check.checkId} is confirmed clean without explicit non-findings.`, "Security clean claims need checked source/sink/control/reachability evidence.", "Add nonFindings with checkedSources, checkedSinks, controlsObserved, unreachableReason, and validationEvidence.", `${jsonPath}.nonFindings`));
+      return;
+    }
+    for (const field of ["checkedSources", "checkedSinks", "controlsObserved", "unreachableReason", "validationEvidence"]) {
+      const value = nonFindings[field];
+      const present = Array.isArray(value) ? value.length > 0 : String(value || "").trim().length > 0;
+      if (!present) {
+        errors.push(diagnostic("SECURITY_NON_FINDING_FIELD_MISSING", artifactPath, `${check.checkId} nonFindings lacks ${field}.`, "Security non-findings must show exactly what was checked and why it is not exploitable.", `Add nonFindings.${field}.`, `${jsonPath}.nonFindings.${field}`));
+      }
+    }
+  }
+}
+
 function validateRequiredFields(artifact, artifactPath, errors) {
   for (const field of REQUIRED_ARTIFACT_FIELDS) {
     if (!(field in artifact)) {
@@ -318,6 +348,9 @@ function validateCategoryReport(report, reportIndex, artifact, artifactPath, reg
       covered.add(check.checkId);
     }
     validateCheckEntry(check, artifactPath, errors, checkPath);
+    if (category.categoryId === "security") {
+      validateSecurityCheckEntry(check, artifactPath, errors, checkPath);
+    }
   });
   for (const registeredCheck of category.checks) {
     if (!covered.has(registeredCheck.checkId)) {
@@ -460,7 +493,10 @@ function validateRegistryInstallSurfaces(skillLists, install, errors) {
   if (!installScripts.includes("deep-audit-artifact-check.mjs")) {
     errors.push(diagnostic("REGISTRY_INSTALL_DRIFT", "scripts/lib/skill-lists.sh", "INSTALL_SCRIPTS omits deep-audit-artifact-check.mjs.", "The validator may pass source gates without being installed.", "Add deep-audit-artifact-check.mjs to INSTALL_SCRIPTS and scripts/install.sh copy commands."));
   }
-  if (!installScripts.includes("lib/deep-audit-categories.mjs") && !install.includes('copy_dir_contents "$ROOT/scripts/lib" "$TARGET/scripts/lib"')) {
+  const installsScriptLib =
+    install.includes('copy_dir_contents "$ROOT/scripts/lib" "$TARGET/scripts/lib"') ||
+    install.includes('copy_dir_contents "$ROOT/scripts/lib" "$target_home/scripts/lib"');
+  if (!installScripts.includes("lib/deep-audit-categories.mjs") && !installsScriptLib) {
     errors.push(diagnostic("REGISTRY_INSTALL_DRIFT", "scripts/install.sh", "scripts/install.sh does not install lib/deep-audit-categories.mjs.", "Installed deep-audit-artifact-check.mjs imports the registry helper and will crash if the helper is absent.", "Copy scripts/lib into the install target or add lib/deep-audit-categories.mjs to INSTALL_SCRIPTS."));
   }
   if (!install.includes("deep-audit-artifact-check.mjs") && !install.includes('for script in "${INSTALL_SCRIPTS[@]}"')) {

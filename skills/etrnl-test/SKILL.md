@@ -5,6 +5,8 @@ disable-model-invocation: true
 ---
 # Test
 
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-test`; on update, ask update/snooze/continue.
+
 Run tests with red-green-refactor discipline. Evidence before fixes; gate before done.
 
 ## TDD Protocol (required_process)
@@ -25,11 +27,13 @@ After fixing: run the full test suite (not just the changed tests) to confirm no
 ## Required Flow
 
 1. Detect project tooling from config (package.json, pyproject.toml, Cargo.toml, go.mod).
-2. Run typecheck, lint, tests, and build when available — in that order.
-3. Report exact failures with file, line number, and command evidence.
-4. For each failure, identify whether it is pre-existing or newly introduced.
-5. Fix failures unless the user requested report-only.
-6. After fixes: rerun the full gate to confirm zero failures, zero new warnings.
+2. Build a behavior inventory before adding tests: success path, invalid input, boundary values, permission/auth states, external failure, and regression case.
+3. Accept generated tests only when they use deterministic inputs, clear Arrange/Act/Assert structure, and assertions that prove behavior rather than implementation details.
+4. Run typecheck, lint, tests, and build when available — in that order.
+5. Report exact failures with file, line number, and command evidence.
+6. For each failure, identify whether it is pre-existing or newly introduced.
+7. Fix failures unless the user requested report-only.
+8. After fixes: rerun the full gate to confirm zero failures, zero new warnings.
 
 ## Verification Evidence Requirements
 

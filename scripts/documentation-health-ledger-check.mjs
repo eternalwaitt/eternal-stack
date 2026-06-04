@@ -243,6 +243,16 @@ function reportStatus(message) {
   if (!commentHealthNotApplicable && !hasNumericCounters(message, commentHealthRequired)) {
     return "missing-comment-health-counters";
   }
+  const aiContextNotApplicable = /AI_CONTEXT_NOT_APPLICABLE:/i.test(message);
+  const aiContextRequired = [
+    "AI_CONTEXT_FILES_REVIEWED",
+    "AI_CONTEXT_DRIFT_FINDINGS",
+    "AI_CONTEXT_DUPLICATE_RULE_OWNERS",
+    "AI_CONTEXT_HOT_PATH_LEAKS",
+  ];
+  if (!aiContextNotApplicable && !hasNumericCounters(message, aiContextRequired)) {
+    return "missing-ai-context-counters";
+  }
 
   const sourceTruth = [/source[_ -]of[_ -]truth/i, /source of truth/i];
   if (!hasAny(message, sourceTruth)) return "missing-source-truth";

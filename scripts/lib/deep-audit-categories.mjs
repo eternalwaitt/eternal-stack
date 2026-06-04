@@ -1,7 +1,6 @@
-export const CATEGORY_REGISTRY_VERSION = "2026-06-03.1";
+export const CATEGORY_REGISTRY_VERSION = "2026-06-04.1";
 
 export const KNOWN_UNIMPLEMENTED_CATEGORIES = [
-  "security",
   "ux-accessibility",
   "api-data",
   "docs",
@@ -42,6 +41,16 @@ const worklists = {
     "perf_next_configs",
     "perf_compiler_status",
   ],
+  security: [
+    "sec_entrypoints",
+    "sec_authz",
+    "sec_inputs",
+    "sec_sinks",
+    "sec_secrets",
+    "sec_uploads",
+    "sec_webhooks",
+    "sec_dependencies",
+  ],
 };
 
 const RECEIPT_FIELDS = ["laneId", "categoryId", "status", "consumedWorklistHashes", "summary"];
@@ -75,6 +84,24 @@ export const REGISTERED_DEEP_AUDIT_CATEGORIES = [
       check("prod-15-path-route-correctness", "Path and route correctness", ["prod_pages", "prod_routes"], "Routed pages, dynamic links, redirects, or route handlers exist"),
       check("prod-16-raw-env-access", "Raw environment variable access", ["prod_raw_env_files"], "Environment variables are accessed"),
       check("prod-17-error-boundaries", "Missing error route boundaries", ["prod_pages", "prod_error_boundaries"], "Route segments can throw during data fetching"),
+      check("prod-18-operability-prr", "Operability PRR", ["prod_queues", "prod_crons", "prod_routes", "prod_notifications"], "Production runbooks, on-call signals, queues, crons, deploy gates, or incident paths exist"),
+    ],
+    lanes: [],
+  },
+  {
+    categoryId: "security",
+    skillName: "etrnl-security-audit",
+    referencePath: "skills/etrnl-security-audit/references/audit-checks.md",
+    executionMode: "sequential",
+    requiredWorklists: worklists.security,
+    checks: [
+      check("sec-01-trust-boundary-validation", "Trust-boundary validation", ["sec_entrypoints", "sec_inputs"], "External input, request, job, or import boundary exists"),
+      check("sec-02-authz-tenant-isolation", "Authorization and tenant isolation", ["sec_authz", "sec_entrypoints"], "Authenticated, role-scoped, tenant-scoped, or account-scoped data exists"),
+      check("sec-03-secret-handling", "Secret and credential handling", ["sec_secrets"], "Environment variables, credentials, tokens, or key material are referenced"),
+      check("sec-04-injection-command-sinks", "Injection and command sinks", ["sec_sinks", "sec_inputs"], "SQL, shell, template, redirect, path, eval, dynamic import, or external command sinks exist"),
+      check("sec-05-webhook-csrf-origin", "Webhook, CSRF, and origin controls", ["sec_webhooks", "sec_entrypoints"], "Webhooks, browser mutations, forms, callbacks, or cross-origin requests exist"),
+      check("sec-06-file-upload-deserialization", "File upload and deserialization safety", ["sec_uploads", "sec_inputs"], "File uploads, parsers, archives, importers, serializers, or untrusted payload decoders exist"),
+      check("sec-07-dependency-exposure", "Dependency exposure", ["sec_dependencies"], "Runtime dependencies, package manifests, or lockfiles exist"),
     ],
     lanes: [],
   },

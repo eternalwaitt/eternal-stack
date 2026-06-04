@@ -79,7 +79,9 @@ Use only after the parent has a deduplicated ledger and disjoint ownership.
   "specReviewRequired": false,
   "qualityReviewRequired": true,
   "integrationOwner": "parent",
-  "expectedDiffShape": "documentation-only, no behavior edits"
+  "expectedDiffShape": "documentation-only, no behavior edits",
+  "criticalPath": "shared inventory before lane report",
+  "stopCondition": "stop if evidence requires source edits outside writeScope"
 }
 ```
 

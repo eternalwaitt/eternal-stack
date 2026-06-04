@@ -5,6 +5,8 @@ disable-model-invocation: true
 ---
 # Stress Test
 
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-stress-test`; on update, ask update/snooze/continue.
+
 Stress-test the proposal:
 
 1. Identify the assumption most likely to be false.
@@ -14,3 +16,13 @@ Stress-test the proposal:
 5. Look for shareable-repo leaks: private identity, credentials, transcripts, local permissions, or memory dumps.
 6. Convert vague risks into concrete gates or tests.
 7. Keep the critique actionable.
+
+This skill is adversarial review by default. Actual load, stress, spike, soak, or breakpoint testing requires:
+
+- target host and environment;
+- explicit approval for non-local traffic;
+- load profile, thresholds, abort criteria, and cleanup path;
+- result artifact with command, duration, concurrency, failure rate, latency, and exit status;
+- rollback or mitigation owner for any failed threshold.
+
+Route code/runtime performance measurement through `etrnl-performance-audit` when the user asks for measured latency, bundle, route, database, or infrastructure performance.

@@ -4,12 +4,15 @@ description: ETRNL application deep-audit orchestrator. Use when a user asks for
 ---
 # ETRNL Deep Audit
 
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-deep-audit`; on update, ask update/snooze/continue.
+
 Run application deep audits through the registered category contract. Use `etrnl-code-health` for repo health; use this skill for target-application audit categories and final synthesis.
 
 ## Modes
 
 - `all_registered`: run every category exported by `scripts/lib/deep-audit-categories.mjs`.
 - `--category production-readiness`: run the production-readiness category through the shared envelope.
+- `--category security`: run the security category through the shared envelope.
 - `--category performance`: run the performance category through the shared envelope.
 - category list: run only registered category ids named by the user.
 
@@ -24,6 +27,7 @@ Run application deep audits through the registered category contract. Use `etrnl
 5. Create shared worklists before category execution. Every selected category receives each required worklist with `count`, `sha256` or `hash`, and `artifactLabel`.
 6. Dispatch category work:
    - `production-readiness`: invoke `etrnl-production-readiness` after production worklists exist.
+   - `security`: invoke `etrnl-security-audit` after security worklists exist; require exploitable-bug evidence for findings and explicit non-findings for clean rows.
    - `performance`: invoke `etrnl-performance-audit` after performance worklists exist; use the `etrnl-parallel` six-lane cap and require every registered lane receipt.
 7. Reject category output that creates category-local inventory after shared worklists exist. Category reports and lane receipts consume shared worklist hashes.
 8. Require every selected category report before synthesis. Require exactly one report row for every registered check id.
@@ -35,8 +39,8 @@ Run application deep audits through the registered category contract. Use `etrnl
 For `all_registered`, print this statement in the final synthesis:
 
 ```text
-Coverage: all_registered categories completed: production-readiness, performance.
-Known not-yet-registered audit domains: security, ux-accessibility, api-data, docs, payments, privacy-compliance.
+Coverage: all_registered categories completed: production-readiness, security, performance.
+Known not-yet-registered audit domains: ux-accessibility, api-data, docs, payments, privacy-compliance.
 This is not a claim that every possible audit domain has run.
 ```
 

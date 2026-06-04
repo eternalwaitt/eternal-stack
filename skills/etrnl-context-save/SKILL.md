@@ -5,7 +5,19 @@ disable-model-invocation: true
 ---
 # ETRNL Context Save
 
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-context-save`; on update, ask update/snooze/continue.
+
 Save compact, local-only workflow context. Do not store private transcripts, credentials, API keys, account data, or raw chat logs.
+
+Save only durable continuation material:
+
+- `decision`: chosen path and rejected alternatives.
+- `pattern`: reusable implementation or verification pattern.
+- `preference`: stable user or repo preference.
+- `fact`: verified repo/runtime state with timestamp or command.
+- `solution`: repeated problem, fix, and verification.
+
+Skip transient thoughts, raw chat, secrets, large logs, speculative claims, and details recoverable from git or current files.
 
 ## Workflow
 

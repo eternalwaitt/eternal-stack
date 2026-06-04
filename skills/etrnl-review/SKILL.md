@@ -4,6 +4,8 @@ description: ETRNL control-plane review workflow for Claude Code. Use for code r
 ---
 # Code Review
 
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-review`; on update, ask update/snooze/continue.
+
 Lead with findings. Treat the original request, written plan, actual diff, installed surface, and verification evidence as separate truth sources.
 
 ## Review Order
@@ -23,18 +25,23 @@ Lead with findings. Treat the original request, written plan, actual diff, insta
    - `finding-duplicate-functions` for duplicate logic.
    - `brooks-audit` for health/quality mode expectations.
    - `typescript-advanced-types` when TypeScript changes touch exported/public types, API contracts, runtime validation, schema/generated types, state machines, discriminated unions, branded/domain IDs, reusable type utilities, or cross-layer DTO/domain boundaries.
-5. Apply the engineering review frame:
+5. Run the focused review lenses before reading implementation details too deeply:
+   - Tests first: read changed tests, fixtures, and test names before production code; flag tests that assert implementation details instead of behavior.
+   - Dependency discipline: flag new packages that duplicate built-ins, existing helpers, or framework primitives; verify peer and runtime impact.
+   - Change size: flag diffs that are too large to review safely, especially broad formatting churn, mixed refactor plus behavior, or more than 800 changed source lines without a split rationale.
+   - Split-lens trigger: create or invoke sibling review skills only when router history, prompt-budget failures, or repeated review overload show that this single review prompt is dropping required findings.
+6. Apply the engineering review frame:
    - Scope: existing code reused, minimal change set, explicit NOT in scope, distribution/install coverage.
    - Architecture: boundaries, dependency graph, data flow, scaling, auth/data access, rollback, and one failure scenario per new integration.
    - Code quality: organization, DRY, error handling, over/under-engineering, stale diagrams, and accidental complexity.
    - Tests: code paths, user flows, error states, regressions, E2E/eval needs, and exact commands.
    - Performance: N+1 queries, memory, caching, slow paths, and work on hot paths.
    - Parallelization: safe lanes, shared modules, dependencies, and conflict risks.
-6. Point to exact files, commands, or plan sections.
-7. Apply the smallest fix that closes the risk when in fix/remediation mode; otherwise record the smallest fix that closes the risk.
-8. When findings are durable, record them with `node ~/.claude/scripts/review-log.mjs add --finding "<finding>" --severity <severity> --status open`.
-9. For deep-stack plans, validate `Deep stack artifacts:` with `node scripts/deep-stack-check.mjs validate-plan --plan <plan-path>` or the installed `~/.claude/scripts/deep-stack-check.mjs` equivalent.
-10. Say clearly when no blocking findings remain, and name any live-gated follow-up.
+7. Point to exact files, commands, or plan sections.
+8. Apply the smallest fix that closes the risk when in fix/remediation mode; otherwise record the smallest fix that closes the risk.
+9. When findings are durable, record them with `node ~/.claude/scripts/review-log.mjs add --finding "<finding>" --severity <severity> --status open`.
+10. For deep-stack plans, validate `Deep stack artifacts:` with `node scripts/deep-stack-check.mjs validate-plan --plan <plan-path>` or the installed `~/.claude/scripts/deep-stack-check.mjs` equivalent.
+11. Say clearly when no blocking findings remain, and name any live-gated follow-up.
 
 ## Hybrid Deep Stack Review Contract
 

@@ -7,7 +7,7 @@ This reference defines the `production-readiness` deep-audit category. It rewrit
 - Category id: `production-readiness`
 - Skill name: `etrnl-production-readiness`
 - Execution mode: sequential
-- Registered check ids: `prod-01-state-coverage` through `prod-17-error-boundaries`
+- Registered check ids: `prod-01-state-coverage` through `prod-18-operability-prr`
 - Report envelope: same schema used by `etrnl-deep-audit`
 - Direct invocation: create `requestedCategories: ["production-readiness"]` or route to `etrnl-deep-audit --category production-readiness`
 - Completion gate: validate the final artifact with `node scripts/deep-audit-artifact-check.mjs validate --artifact <artifact>`
@@ -207,6 +207,14 @@ Gate: Route segments can throw during data fetching.
 Required worklists: `prod_pages`, `prod_error_boundaries`.
 
 For every route segment with async data fetching, verify a sibling or ancestor `error.tsx` boundary that gives a recoverable user path. Flag async pages that fetch from database or network sources without a route boundary. Record the fetched resource and expected user-visible failure behavior.
+
+### `prod-18-operability-prr` - Operability PRR
+
+Gate: Queues, crons, route handlers, notifications, or production runbooks exist.
+
+Required worklists: `prod_queues`, `prod_crons`, `prod_routes`, `prod_notifications`.
+
+Inspect production readiness evidence for SLOs, alert thresholds, dashboard links or metric names, runbook paths, restore or replay drills, canary or rollback path, owner/on-call handoff, queue dead-letter handling, cron idempotency, notification provider failure handling, and route-level error-monitoring coverage. Flag production surfaces that can fail silently, cannot be replayed, or have no documented recovery path. Record `not_applicable` only when the target has no production routes, queues, crons, notifications, or runbook obligations in scope.
 
 ## Report Rows
 

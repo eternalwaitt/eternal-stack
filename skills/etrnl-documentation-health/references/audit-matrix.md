@@ -97,6 +97,14 @@ Check architecture, stack/versions, commands, folder boundaries, coding rules, t
 
 Treat stale AI context as high severity because agents will confidently repeat it.
 
+Additional drift checks:
+
+- dead imports: every `@path.md`, markdown import, and generated context reference resolves;
+- zero-match globs: every documented path glob matches at least one current file or records an absent-surface rationale;
+- hot-path leakage: volatile current-session facts, active todo state, transcripts, credentials, local account details, and private memory content stay out of always-loaded files;
+- duplicate rule owners: repeated policy text across AGENTS, CLAUDE, rules, skills, and docs has one canonical owner;
+- command drift: every documented mandatory command exists and runs or has a source-limited blocker.
+
 ## Plans And Work Queues
 
 Find planning folders, queues, roadmaps, RFCs, specs, and active work docs. Classify as `active`, `completed`, `stale`, `superseded`, `archive`, or `delete_candidate`.

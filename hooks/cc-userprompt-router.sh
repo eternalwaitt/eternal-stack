@@ -219,9 +219,33 @@ notes=()
 claude_context="$(cc_prompt_claude_context)"
 [[ -z "$claude_context" ]] || notes+=("$claude_context")
 notes+=("Evidence-first correction protocol: do not use reflexive agreement phrases like \"You're right\". State what is verified or unverified, then name the evidence check or correction.")
+
+cc_prompt_skill_update_note() {
+  [[ "${CLAUDE_CONTROL_PLANE_SKILL_UPDATE_CHECK:-1}" != "0" ]] || return 0
+  command -v node >/dev/null 2>&1 || return 0
+
+  local state requested_count update_script update_output update_status max_chars
+  state="$(cc_state_read 2>/dev/null || true)"
+  requested_count="$(jq -r '(.requestedSkills // []) | length' <<<"$state" 2>/dev/null || printf '0')"
+  [[ "$requested_count" =~ ^[0-9]+$ ]] || requested_count=0
+  (( requested_count > 0 )) || return 0
+
+  update_script="${CLAUDE_CONTROL_PLANE_UPDATE_CHECK_SCRIPT:-$SCRIPT_DIR/../scripts/update-check.mjs}"
+  [[ -f "$update_script" ]] || return 0
+
+  update_status=0
+  update_output="$(CLAUDE_CONTROL_PLANE_AUTO_UPDATE=0 node "$update_script" 2>/dev/null)" || update_status=$?
+  [[ "$update_status" == "0" ]] || return 0
+  [[ "$update_output" =~ (CONTROL_PLANE_UPDATE_AVAILABLE|CONTROL_PLANE_REMOTE_UPDATE_AVAILABLE|TOOL_STACK_UPDATE_AVAILABLE|TOOL_STACK_MISSING) ]] || return 0
+
+  max_chars="$(cc_prompt_context_cap "${CLAUDE_CONTROL_PLANE_SKILL_UPDATE_MAX_CHARS:-1200}")"
+  update_output="${update_output:0:max_chars}"
+  notes+=("Skill update check before requested skill: $update_output"$'\n'"Before using the requested skill, tell the user an ETRNL or tool-stack update is available and ask whether to update/bootstrap now, snooze, or continue without updating.")
+}
+
 documentation_health_pattern='documentation[[:space:]-]+health|docs[[:space:]-]+health|documentation[[:space:]-]+audit|docs[[:space:]-]+audit|documentation[[:space:]-]+drift|docs[[:space:]-]+drift|stale[[:space:]]+docs|readme[[:space:]-]+audit|adr[[:space:]-]+health|runbook[[:space:]-]+audit|api[[:space:]-]+docs[[:space:]-]+audit|tsdoc|jsdoc|code[[:space:]-]+documentation[[:space:]-]+health|onboarding[[:space:]-]+docs|documentation[[:space:]-]+pass'
 code_health_pattern='code[[:space:]]+health|health[[:space:]]+check|repo[[:space:]]+rot|audit[[:space:]]+.*(whole|entire)[[:space:]]+codebase|no[[:space:]]+skips|dead[[:space:]]+code|pr-gate'
-ci_cd_pattern='ci/cd|ci-cd|ci[[:space:]-]+pipeline|pipeline[[:space:]-]+(failed|failure|broken|failing)|workflow[[:space:]-]+run[[:space:]-]+(failed|failure|broken|failing)|continuous[[:space:]]+integration|continuous[[:space:]]+delivery|github[[:space:]]+actions?|gitlab[[:space:]]+ci|jenkins|branch[[:space:]-]+protection|deployment[[:space:]-]+automation|release[[:space:]-]+gate|deploy[[:space:]-]+gate|oidc|sbom|cosign|docker[[:space:]-]+image[[:space:]-]+build|canary[[:space:]-]+deploy|blue[[:space:]-]+green|rollback[[:space:]-]+pipeline|flaky[[:space:]-]+ci|slow[[:space:]-]+build'
+ci_cd_pattern='ci/cd|ci-cd|ci[[:space:]-]+pipeline|pr[[:space:]-]+ci|ci[[:space:]-]+.*pr|pipeline[[:space:]-]+(failed|failure|broken|failing)|workflow[[:space:]-]+run[[:space:]-]+(failed|failure|broken|failing)|continuous[[:space:]]+integration|continuous[[:space:]]+delivery|github[[:space:]]+actions?|gitlab[[:space:]]+ci|jenkins|branch[[:space:]-]+protection|deployment[[:space:]-]+automation|release[[:space:]-]+gate|deploy[[:space:]-]+gate|oidc|sbom|cosign|docker[[:space:]-]+image[[:space:]-]+build|canary[[:space:]-]+deploy|blue[[:space:]-]+green|rollback[[:space:]-]+pipeline|flaky[[:space:]-]+ci|slow[[:space:]-]+build'
 case "$prompt_lower" in
   *"why"*|*"are you sure"*|*"that's not"*|*"thats not"*|*"not what"*|*"wrong"*|*"still"*|*"wasn't"*|*"wasnt"*|*"i thought"*|*"you said"*|*"she said"*|*"loose ends"*|*"wdym"*)
     cc_state_append_value evidenceChallenges "$prompt"
@@ -290,6 +314,10 @@ if [[ "$prompt_lower" =~ deep[[:space:]-]+audit|full[[:space:]]+registered[[:spa
   record_skill "etrnl-deep-audit"
   notes+=("Use etrnl-deep-audit: create shared worklists, run registered deep-audit categories, require lane receipts where applicable, and validate the final artifact.")
 fi
+if [[ "$prompt_lower" =~ security[[:space:]-]+audit|exploitable[[:space:]-]+bug|injection[[:space:]-]+review|authz[[:space:]-]+review|secret[[:space:]-]+handling|csrf|origin[[:space:]-]+review ]]; then
+  record_skill "etrnl-security-audit"
+  notes+=("Use etrnl-security-audit: prove source, sink, missing control, exploit, reachability, confidence, and explicit non-findings.")
+fi
 if [[ "$prompt_lower" =~ production[[:space:]-]+readiness|auth[[:space:]]+edge[[:space:]]+cases|webhook[[:space:]-]+reliability|webhook[[:space:]-]+safety|webhook.*tenan|tenan.*migration|error[[:space:]]+boundar ]]; then
   record_skill "etrnl-production-readiness"
   notes+=("Use etrnl-production-readiness: audit validation, auth, webhooks, tenancy, migrations, env access, route states, and error boundaries using shared deep-audit worklists.")
@@ -310,7 +338,7 @@ if [[ "$prompt_lower" =~ restore[[:space:]]+context|context[[:space:]]+restore|r
   record_skill "etrnl-context-restore"
   notes+=("Use etrnl-context-restore: load saved workflow state and flag stale continuation risk.")
 fi
-if [[ "$prompt_lower" =~ dependency|dependencies|upgrade[[:space:]]+package|update[[:space:]]+package|dep[[:space:]]+audit ]]; then
+if [[ "$prompt_lower" =~ dependency|dependencies|dependabot|renovate|security[[:space:]-]+dependency[[:space:]-]+alert|dependency[[:space:]-]+alert|upgrade[[:space:]]+package|update[[:space:]]+package|dep[[:space:]]+audit ]]; then
   record_skill "etrnl-deps"
   notes+=("Use etrnl-deps for targeted dependency maintenance with migration and audit checks.")
 fi
@@ -318,13 +346,13 @@ if [[ "$prompt_lower" =~ commit[[:space:]]+(the|all|these|verified|changes)|stag
   record_skill "etrnl-commit"
   notes+=("Use etrnl-commit only after reviewing the diff and running relevant verification.")
 fi
-if [[ "$prompt_lower" =~ pull[[:space:]]+request|prepare[[:space:]]+pr|create[[:space:]]+pr|update[[:space:]]+pr ]]; then
+if [[ "$prompt_lower" =~ pull[[:space:]]+request|prepare[[:space:]]+pr|create[[:space:]]+pr|update[[:space:]]+pr|pr[[:space:]-]+ci|ci[[:space:]-]+.*pr|copilot[[:space:]-]+review[[:space:]-]+comments.*pr|review[[:space:]-]+comments.*pr ]]; then
   record_skill "etrnl-pr"
   notes+=("Use etrnl-pr for PR preparation with verification evidence and risk summary.")
 fi
-if [[ "$prompt_lower" =~ fix[[:space:]]+issue|issue[[:space:]]+#[0-9]+|bug[[:space:]]+#[0-9]+|reproduce[[:space:]]+.*fix ]]; then
-  record_skill "etrnl-fix-issue"
-  notes+=("Use etrnl-fix-issue: reproduce or prove the issue, patch the smallest surface, and verify the original symptom.")
+if [[ "$prompt_lower" =~ systematic[[:space:]-]+debugging|root[[:space:]-]+cause|fix[[:space:]]+issue|issue[[:space:]]+#[0-9]+|bug[[:space:]]+#[0-9]+|debug[[:space:]]+.*(bug|failure|failing|error|issue)|investigate[[:space:]]+.*(bug|failure|failing|error|issue)|reproduce[[:space:]]+.*fix ]]; then
+  record_skill "etrnl-systematic-debugging"
+  notes+=("Use etrnl-systematic-debugging: prove the symptom, trace root cause before fixes, patch the smallest source surface, and verify the original failure.")
 fi
 if [[ "$prompt_lower" =~ parallel|fan[[:space:]-]?out|split[[:space:]]+.*agents|multiple[[:space:]]+agents ]]; then
   record_skill "etrnl-parallel"
@@ -341,7 +369,7 @@ if [[ "$prompt_lower" =~ run[[:space:]]+tests|test[[:space:]]+the[[:space:]]+rep
   record_skill "etrnl-test"
   notes+=("Use etrnl-test for project preflight and focused failure remediation.")
 fi
-if [[ "$prompt_lower" =~ audit|code[[:space:]]+review|pr[[:space:]]+review|design[[:space:]]+review|plan[[:space:]]+review|final[[:space:]]+review|review[[:space:]]+pass|loose[[:space:]]+ends|final[[:space:]]+pass|compare[[:space:]]+changes ]]; then
+if [[ "$prompt_lower" =~ audit|code[[:space:]]+review|pr[[:space:]]+review|design[[:space:]]+review|plan[[:space:]]+review|final[[:space:]]+review|review[[:space:]-]+comments|review[[:space:]]+pass|loose[[:space:]]+ends|final[[:space:]]+pass|compare[[:space:]]+changes ]]; then
   record_skill "etrnl-review"
   notes+=("Use etrnl-review for findings-first review, gap mapping, and evidence against the original request.")
 fi
@@ -357,6 +385,8 @@ fi
 if [[ "$prompt" =~ (Gmail|Drive|Sheets|Calendar|GWS|Google) ]]; then
   notes+=("Confirm account identity before any Google Workspace write.")
 fi
+
+cc_prompt_skill_update_note
 
 if (( ${#notes[@]} > 0 )); then
   msg="$(printf '%s\n' "${notes[@]}")"

@@ -4,6 +4,8 @@ description: ETRNL control-plane brainstorming and design-spec workflow for Clau
 ---
 # ETRNL Brainstorming
 
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-brainstorm`; on update, ask update/snooze/continue.
+
 Turn an idea into an approved design/spec before implementation planning.
 
 ## Hard Gate
@@ -32,7 +34,12 @@ Do not implement, scaffold, or write an implementation plan until the design is 
    - If the repo already has a stronger convention, use this fallback order: `docs/specs/`, then `plans/`, then `.claude/plans/`.
    - Otherwise create `docs/plans/<yyyy-mm-dd>-<slug>-design.md`.
 7. Self-review the design for placeholders, contradictions, ambiguity, and scope creep.
-8. Ask the user to approve the saved spec before moving to `etrnl-plan`.
+8. Run the spec self-review:
+   - No `TODO`, `TBD`, placeholder, fake decision, or unresolved assumption is left unmarked.
+   - The selected approach and rejected alternatives are explicit.
+   - The scope is small enough for one implementation plan, or the decomposition is written down.
+   - Risks, verification, rollout, rollback, and owner/user impact are named.
+9. Ask the user to approve the saved spec before moving to `etrnl-plan`.
 
 ## Output
 

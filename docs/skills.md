@@ -17,12 +17,13 @@ Claude Code personal and project skills use hyphenated command names. If this co
 | `/etrnl-context-restore` | User or model | Restores a saved context summary and flags stale continuation state. |
 | `/etrnl-disk-cleanup` | User only | Reclaims local disk space with host/filesystem evidence, a dry-run manifest, approved transient path classes, `trash` deletion, and before/after free-space verification. |
 | `/etrnl-review` | Model or user | Reviews code, plans, risks, loose ends, and final pass readiness. |
+| `/etrnl-security-audit` | Model or user | Runs the registered security deep-audit category with exploitable-bug evidence, source/sink tracing, missing-control checks, reachability, confidence, and explicit non-findings. |
 | `/etrnl-commit` | User only | Reviews, verifies, stages, and commits relevant work. |
 | `/etrnl-deps` | User only | Handles targeted dependency maintenance with migration checks. |
 | `/etrnl-email-reply-quality` | Model or user | Checks VIVAZ outgoing email replies for banned dash typography, natural Brazilian Portuguese, AI tells, and humanizer cleanup before approval or send. |
 | `/etrnl-stress-test` | Model or user | Stress-tests architecture, rollout, migration, automation, and safety assumptions. |
 | `/etrnl-execute` | User only | Executes an approved readiness-checked implementation plan end to end with test-first source tasks, run ledger, write-mode implementation subagents for parallel-safe multi-file work, reviews, and verification. |
-| `/etrnl-fix-issue` | User only | Reproduces and fixes tracked issues with focused verification. |
+| `/etrnl-systematic-debugging` | User only | Debugs bugs, failing tests, CI failures, production issues, tracked issues, and unexpected behavior through root-cause evidence before fixes. |
 | `/etrnl-parallel` | User only | Thin explicit fanout helper; `/etrnl-execute` owns normal plan orchestration. |
 | `/etrnl-performance-audit` | Model or user | Runs the registered performance deep-audit category with route matrix evidence, cold and warm measurements, response bytes, shared worklist hashes, and six lane receipts. |
 | `/etrnl-pr` | User only | Prepares or updates pull requests with verification evidence. |
@@ -39,7 +40,7 @@ Claude Code personal and project skills use hyphenated command names. If this co
 
 ## Deep Audit Skills
 
-`/etrnl-deep-audit` is the thin orchestrator. `all_registered` means every category exported by `scripts/lib/deep-audit-categories.mjs`, currently `production-readiness` and `performance`; it is not a claim that security, UX/accessibility, API/data, docs, payments, or privacy/compliance ran.
+`/etrnl-deep-audit` is the thin orchestrator. `all_registered` means every category exported by `scripts/lib/deep-audit-categories.mjs`, currently `production-readiness`, `security`, and `performance`; it is not a claim that UX/accessibility, API/data, docs, payments, or privacy/compliance ran.
 
 Quick validator path:
 
@@ -53,6 +54,7 @@ Direct category examples:
 
 ```bash
 /etrnl-production-readiness --category production-readiness
+/etrnl-security-audit --category security
 /etrnl-performance-audit --category performance
 ```
 
@@ -83,6 +85,7 @@ These skills are not owned by this repo, but the control plane knows about them 
 | `code-health-inventory.mjs` | `~/.claude/scripts/code-health-inventory.mjs` | Inventories tracked files and classifies audit coverage for no-skips code-health runs. |
 | `code-health-ledger-check.mjs` | `~/.claude/scripts/code-health-ledger-check.mjs` | Blocks code-health completion unless inventory, action-item counters, terminal findings, resolution plan, and final gate evidence are present. |
 | `documentation-comment-health.mjs` | `~/.claude/scripts/documentation-comment-health.mjs` | Inventories exported JS/TS targets and their leading TSDoc/JSDoc coverage so documentation-health runs cannot pass with comment sampling only. |
+| `disk-cleanup-manifest.mjs` | `~/.claude/scripts/disk-cleanup-manifest.mjs` | Validates disk-cleanup dry-run manifests with absolute paths, byte estimates, risk tiers, approval requirements, and no recursive `rm` or whole-Trash cleanup. |
 | `merge-settings.mjs` | `~/.claude/scripts/merge-settings.mjs` | Merges control-plane hooks into existing Claude settings without replacing unrelated local configuration. |
 | `plan-readiness-check.mjs` | `~/.claude/scripts/plan-readiness-check.mjs` | Rejects thin plans before they are marked final or executed; final plans require a validated deep-stack artifact bundle unless a legacy transitional flag is explicitly used. |
 | `deep-stack-check.mjs` | `~/.claude/scripts/deep-stack-check.mjs` | Creates and validates the Hybrid Deep Stack artifact bundle for final plans: sanitized source manifest, skill matrix, review phase records, TDD evidence, reuse inventory/bindings, findings ledger, completion audit/reconciliation, risk tier, TypeScript trigger evidence, and install proof. |
@@ -90,10 +93,13 @@ These skills are not owned by this repo, but the control plane knows about them 
 | `lib/deep-audit-categories.mjs` | `~/.claude/scripts/lib/deep-audit-categories.mjs` | Defines registered deep-audit categories, known unimplemented domains, check ids, lane ids, required worklists, and reference paths. |
 | `lib/deep-stack-artifacts.mjs` | `~/.claude/scripts/lib/deep-stack-artifacts.mjs` | Shared deep-stack artifact schema and validators used by readiness, packet, install, and operator-facing section checks. |
 | `agent-task-packet-check.mjs` | `~/.claude/scripts/agent-task-packet-check.mjs` | Enforces structured subagent packet contracts with task identity, lineage identity, packet hashes, lane limits, child-agent policy, completion receipts, spec/quality reviewer contracts, and reuse/TDD/simplifier fields for new-surface or deep-stack writes. |
+| `performance-baseline.mjs` | `~/.claude/scripts/performance-baseline.mjs` | Creates, validates, and compares performance baseline artifacts with next-run thresholds. |
+| `pr-preflight.mjs` | `~/.claude/scripts/pr-preflight.mjs` | Reports PR readiness inputs: branch, upstream, dirty files, GitHub auth, existing PR, checks, and suggested local gate. |
 | `guard-override-token.mjs` | `~/.claude/scripts/guard-override-token.mjs` | Issues and verifies one-time signed override tokens for safety-critical prod/secret commands. |
 | `settings-audit.mjs` | `~/.claude/scripts/settings-audit.mjs` | Audits and repairs duplicate hook commands, overlapping matcher groups, and legacy rate-limiter registrations in Claude settings. |
 | `codex-rtk-pre-tool-use.sh` | `~/.claude/scripts/codex-rtk-pre-tool-use.sh` | Source-controlled Codex RTK PreToolUse hook; syncs to `~/.codex/hooks/rtk-pre-tool-use.sh` to rewrite commands with `updatedInput`, proxy unsafe `rg` forms, and block broad `.codex` scans. |
 | `update-check.mjs` | `~/.claude/scripts/update-check.mjs` | Compares installed metadata with the recorded source checkout, reports local/remote drift, emits `--explain` diagnostics, and can run local auto-update when enabled. |
+| `skill-update-prompt.mjs` | `~/.claude/scripts/skill-update-prompt.mjs`, `~/.codex/scripts/skill-update-prompt.mjs` | Converts update-check and CodeGraph/Beads drift into the per-skill prompt used by Claude hooks and the first Codex skill step. |
 | `replay-hook-fixtures.mjs` | `~/.claude/scripts/replay-hook-fixtures.mjs` | Replays scrubbed regression fixtures through live hooks and asserts allow/deny/block outcomes. |
 | `execution-ledger.mjs` | `~/.claude/scripts/execution-ledger.mjs` | Creates, validates, and checks local ETRNL run ledgers, including task lineage, packet-bound write evidence, reviews, TDD/simplifier/specialist/completion/install evidence rows, mandatory phase recording during plan execution, conditional workstream metadata, and UAT completion gates. |
 | `execution-wave-check.mjs` | `~/.claude/scripts/execution-wave-check.mjs` | Groups planned tasks by wave, detects file overlap, and reports worktree eligibility. |
@@ -102,6 +108,8 @@ These skills are not owned by this repo, but the control plane knows about them 
 | `context-state.mjs` | `~/.claude/scripts/context-state.mjs` | Saves, validates, lists, and restores concise workflow context with stale-state detection. |
 | `workflow-health.mjs` | `~/.claude/scripts/workflow-health.mjs` | Summarizes recent ETRNL workflow runs, filtered `status --json`, doctor/prune diagnostics, stale runs, missing artifacts, UAT state, and next local action from local files. |
 | `tool-effectiveness.mjs` | `~/.claude/scripts/tool-effectiveness.mjs` | Summarizes sanitized local CodeGraph, Beads, Codex-import, and hook-pattern signals into deterministic keep/enforce/repo-specific/remove-watch/insufficient-data verdicts. |
+| `tool-stack-check.mjs` | `~/.claude/scripts/tool-stack-check.mjs` | Checks installed CodeGraph and Beads versions, cached latest versions, missing tools, available updates, and optional project-local `.codegraph`/`.beads` health. |
+| `bootstrap-tools.sh` | `~/.claude/scripts/bootstrap-tools.sh` | Installs or checks global CodeGraph/Beads tooling, refreshes CodeGraph MCP registration, and bootstraps project-local CodeGraph and Beads state when explicitly requested. |
 | `prompt-budget-check.mjs` | `~/.claude/scripts/prompt-budget-check.mjs` | Fails oversized skills or agents before prompt bloat becomes default context. |
 | `port-guard.mjs` | `~/.claude/scripts/port-guard.mjs` | Checks or picks explicit free local dev-server ports before commands run. |
 | `project-buglog.mjs` | `~/.claude/scripts/project-buglog.mjs` | Records and suggests project-local repeated bug memories with cross-session fingerprints, redaction, file/project JSON output, stale-hint filtering, and no transcript storage. |

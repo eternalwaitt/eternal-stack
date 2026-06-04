@@ -187,6 +187,36 @@ for skill in "${OWNED_SKILLS[@]}"; do
   fi
 done
 
+mkdir -p "$CODEX_TARGET/scripts" "$CODEX_TARGET/scripts/lib"
+for script in "${INSTALL_SCRIPTS[@]}"; do
+  rm -f -- "$CODEX_TARGET/scripts/$script"
+  if [[ -f "$BACKUP/codex-scripts/$script" ]]; then
+    cp -- "$BACKUP/codex-scripts/$script" "$CODEX_TARGET/scripts/$script"
+    restored+=("codex-scripts/$script")
+    restored_count=$((restored_count + 1))
+  fi
+done
+for script in "${CRITICAL_SCRIPTS[@]}"; do
+  if [[ "$script" == lib/* ]]; then
+    rm -f -- "$CODEX_TARGET/scripts/$script"
+    if [[ -f "$BACKUP/codex-scripts/$script" ]]; then
+      mkdir -p "$CODEX_TARGET/scripts/$(dirname -- "$script")"
+      cp -- "$BACKUP/codex-scripts/$script" "$CODEX_TARGET/scripts/$script"
+      restored+=("codex-scripts/$script")
+      restored_count=$((restored_count + 1))
+    fi
+  fi
+done
+for script in doctor.sh doctor-control-plane.sh; do
+  rm -f -- "$CODEX_TARGET/scripts/$script"
+  if [[ -f "$BACKUP/codex-scripts/$script" || -L "$BACKUP/codex-scripts/$script" ]]; then
+    cp -P -- "$BACKUP/codex-scripts/$script" "$CODEX_TARGET/scripts/$script"
+    restored+=("codex-scripts/$script")
+    restored_count=$((restored_count + 1))
+  fi
+done
+rm -f -- "$CODEX_TARGET/control-plane/install.json" "$CODEX_TARGET/control-plane/update-state.json" "$CODEX_TARGET/control-plane/just-updated.json"
+
 mkdir -p "$ROOT/commands"
 for command_name in "${OWNED_COMMANDS[@]}"; do
   rm -f -- "$ROOT/commands/$command_name.md"

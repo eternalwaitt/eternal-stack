@@ -10,7 +10,13 @@ function readInput() {
     console.error("execution-wave-check requires JSON on stdin.");
     process.exit(2);
   }
-  return JSON.parse(raw);
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`execution-wave-check invalid JSON: ${message}`);
+    process.exit(2);
+  }
 }
 
 function normalizePlan(plan) {
@@ -36,6 +42,10 @@ function pathsOverlap(left, right) {
 
 function submoduleHit(files, submodules) {
   return files.some((file) => submodules.some((submodule) => file === submodule || file.startsWith(`${submodule}/`)));
+}
+
+function comparableFileList(files) {
+  return [...new Set(files)].sort((left, right) => left.localeCompare(right));
 }
 
 function analyzeWave(wave, plans, submodules, useWorktrees) {
@@ -67,14 +77,39 @@ function analyzeWave(wave, plans, submodules, useWorktrees) {
   };
 }
 
+function driftEntries(previousPlans, currentPlans) {
+  const previous = new Map(previousPlans.map((plan) => [plan.id, plan]));
+  const current = new Map(currentPlans.map((plan) => [plan.id, plan]));
+  const drift = [];
+  for (const [id, plan] of current.entries()) {
+    const before = previous.get(id);
+    if (!before) {
+      drift.push({ id, type: "added" });
+      continue;
+    }
+    if (before.wave !== plan.wave) drift.push({ id, type: "wave_changed", before: before.wave, after: plan.wave });
+    const beforeFiles = comparableFileList(before.files).join("\0");
+    const afterFiles = comparableFileList(plan.files).join("\0");
+    if (beforeFiles !== afterFiles) drift.push({ id, type: "files_changed", before: before.files, after: plan.files });
+  }
+  for (const id of previous.keys()) {
+    if (!current.has(id)) drift.push({ id, type: "removed" });
+  }
+  return drift;
+}
+
 const input = readInput();
 const plans = (input.plans || input).map(normalizePlan);
+const previousPlans = (input.previousPlans || input.expectedPlans || []).map(normalizePlan);
 const submodules = (input.submodules || []).map(String);
 const useWorktrees = input.useWorktrees !== false;
 const waves = [...new Set(plans.map((plan) => plan.wave))].sort((a, b) => a - b)
   .map((wave) => analyzeWave(wave, plans.filter((plan) => plan.wave === wave), submodules, useWorktrees));
+const drift = previousPlans.length > 0 ? driftEntries(previousPlans, plans) : [];
 
-console.log(JSON.stringify({ schemaVersion: 1, waves }, null, 2));
-if (strict && waves.some((wave) => wave.parallelSafe === false)) {
+// schemaVersion anchors consumers; drift reports added/removed plans, wave changes, and order-insensitive file membership changes.
+console.log(JSON.stringify({ schemaVersion: 1, waves, drift }, null, 2));
+// --strict fails when a wave has file overlap or when any previous/current plan drift is detected.
+if (strict && (waves.some((wave) => wave.parallelSafe === false) || drift.length > 0)) {
   process.exit(1);
 }
