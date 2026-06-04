@@ -11,6 +11,10 @@ const VALID_COMMANDS = new Set(["validate-fixtures", "baseline", "import-codex",
 const VALID_VERDICTS = new Set(["keep", "enforce", "repo-specific", "remove-watch", "insufficient-data"]);
 const DEFAULT_EVENTS_FILE = path.join(process.env.CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR || path.join(homedir(), ".claude", "control-plane", "artifacts"), "tool-effectiveness", "events.jsonl");
 const DEFAULT_FIXTURES_DIR = path.join(process.cwd(), "tests", "fixtures", "tool-effectiveness");
+const sinceDays = Number(flagValue("--since-days", "0"));
+const cwdFilter = flagValue("--cwd");
+const projectFilter = flagValue("--project");
+const projectsConfigPath = flagValue("--projects-config");
 
 if (!VALID_COMMANDS.has(command)) usage();
 
@@ -65,6 +69,24 @@ function sanitizeProjectHash(input = "") {
   return createHash("sha256").update(String(input || "unknown")).digest("hex").slice(0, 16);
 }
 
+function projectConfigEntries() {
+  if (!projectsConfigPath || !existsSync(projectsConfigPath)) return [];
+  const parsed = JSON.parse(readFileSync(projectsConfigPath, "utf8"));
+  return Array.isArray(parsed.projects) ? parsed.projects : [];
+}
+
+function configuredProjectHashes() {
+  const hashes = new Set();
+  for (const project of projectConfigEntries()) {
+    if (!projectFilter || project.alias === projectFilter || project.id === projectFilter || project.path === projectFilter) {
+      if (project.path) hashes.add(sanitizeProjectHash(path.resolve(project.path)));
+      if (project.alias) hashes.add(sanitizeProjectHash(project.alias));
+      if (project.id) hashes.add(sanitizeProjectHash(project.id));
+    }
+  }
+  return hashes;
+}
+
 function normalizeEvent(raw, source = "fixture") {
   const rejectReason = privacyReason(raw);
   if (rejectReason) return { rejected: true, reason: rejectReason, raw };
@@ -95,6 +117,32 @@ function normalizeEvent(raw, source = "fixture") {
   };
 }
 
+function applyEventFilters(source) {
+  const projectHashes = configuredProjectHashes();
+  const cwdHash = cwdFilter ? sanitizeProjectHash(path.resolve(cwdFilter)) : "";
+  const cutoff = Number.isFinite(sinceDays) && sinceDays > 0 ? Date.now() - sinceDays * 24 * 60 * 60 * 1000 : 0;
+  const keepByTime = (event) => {
+    if (!cutoff) return true;
+    const parsed = Date.parse(event.at || "");
+    return !Number.isFinite(parsed) || parsed <= 0 || parsed >= cutoff;
+  };
+  const keepByProject = (event) => {
+    if (cwdHash && event.projectHash !== cwdHash) return false;
+    if (projectFilter) {
+      if (event.project === projectFilter || event.projectHash === projectFilter) return true;
+      if (projectHashes.size > 0) return projectHashes.has(event.projectHash);
+      return sanitizeProjectHash(projectFilter) === event.projectHash;
+    }
+    return true;
+  };
+  const keep = (event) => keepByTime(event) && keepByProject(event);
+  return {
+    ...source,
+    events: source.events.filter(keep),
+    rejected: source.rejected.filter((row) => !row.tool || !flagValue("--tool") || row.tool === flagValue("--tool")),
+  };
+}
+
 function eventsFromFixtureDir(dir) {
   const rejected = [];
   const events = [];
@@ -108,7 +156,7 @@ function eventsFromFixtureDir(dir) {
       for (const raw of rawEvents) {
         const normalized = normalizeEvent(raw, "fixture");
         if (normalized.rejected) {
-          rejected.push({ file, line: item.line, reason: normalized.reason });
+          rejected.push({ file, line: item.line, reason: normalized.reason, tool: raw.tool || raw.toolId || raw.name || "" });
           if (root.expectPrivacyReject) expectedPrivacyRejects.push(file);
         } else {
           events.push(normalized);
@@ -125,7 +173,7 @@ function eventsFromLive() {
   if (existsSync(DEFAULT_EVENTS_FILE)) {
     for (const item of parseJsonFile(DEFAULT_EVENTS_FILE)) {
       const normalized = normalizeEvent(item.value, "live");
-      if (normalized.rejected) rejected.push({ file: item.file, line: item.line, reason: normalized.reason });
+      if (normalized.rejected) rejected.push({ file: item.file, line: item.line, reason: normalized.reason, tool: item.value.tool || item.value.toolId || item.value.name || "" });
       else events.push(normalized);
     }
   }
@@ -168,7 +216,8 @@ function summarizeEvents(events, rejected = []) {
     const verificationRecoveryRate = used.filter((row) => row.verificationRecovered).length / Math.max(used.length, 1);
     const usefulArtifactRate = used.filter((row) => row.downstreamArtifact || row.usefulWork).length / Math.max(used.length, 1);
     const noiseRate = used.filter((row) => row.noise || (!row.usefulWork && !row.downstreamArtifact && !row.verificationRecovered)).length / Math.max(used.length, 1);
-    const privacyFailure = used.some((row) => row.privacyFailure) || rejected.some((row) => row.tool === tool);
+    const privacyRejectCount = rejected.filter((row) => row.tool === tool || row.toolKind === tool).length;
+    const privacyFailure = used.some((row) => row.privacyFailure) || privacyRejectCount > 0;
     const duplicateTruthState = used.some((row) => row.duplicateTruthState);
     const score = Math.round(Math.max(0, Math.min(100,
       25 * autonomous + 20 * beforeUseful + 20 * explorationDelta + 15 * reworkDelta + 10 * verificationRecoveryRate + 10 * usefulArtifactRate - 30 * noiseRate - (privacyFailure ? 100 : 0),
@@ -187,7 +236,7 @@ function summarizeEvents(events, rejected = []) {
         verificationRecoveryRate: Number(verificationRecoveryRate.toFixed(3)),
         usefulArtifactRate: Number(usefulArtifactRate.toFixed(3)),
         noiseRate: Number(noiseRate.toFixed(3)),
-        privacyRejectCount: privacyFailure ? 1 : 0,
+        privacyRejectCount,
       },
     };
   }
@@ -216,7 +265,7 @@ function baseline(events) {
 
 function loadSource() {
   const fixtures = flagValue("--fixtures", command === "validate-fixtures" && existsSync(DEFAULT_FIXTURES_DIR) ? DEFAULT_FIXTURES_DIR : "");
-  return fixtures ? eventsFromFixtureDir(fixtures) : eventsFromLive();
+  return applyEventFilters(fixtures ? eventsFromFixtureDir(fixtures) : eventsFromLive());
 }
 
 function codexToolKind(toolName, commandText) {
@@ -252,8 +301,20 @@ function importCodex() {
       const toolName = item.value.tool_name || item.value.toolName || item.value.tool || "";
       const tool = codexToolKind(toolName, item.value.command || "");
       if (tool === "other") continue;
-      const normalized = normalizeEvent({ tool, source: "codex", toolUsed: true, eligible: true, usedBeforeFirstEdit: true, usefulWork: true, downstreamArtifact: true, cwd: item.value.cwd || "" }, "codex");
-      if (normalized.rejected) rejected.push({ file, line: item.line, reason: normalized.reason });
+      const normalized = normalizeEvent({
+        tool,
+        source: "codex",
+        toolUsed: true,
+        eligible: true,
+        usedBeforeFirstEdit: Boolean(item.value.usedBeforeFirstEdit),
+        usefulWork: Boolean(item.value.usefulWork || item.value.downstreamArtifact),
+        downstreamArtifact: Boolean(item.value.downstreamArtifact),
+        readSearchCount: Number(item.value.readSearchCount || 0),
+        baselineReadSearchCount: Number(item.value.baselineReadSearchCount || item.value.readSearchCount || 0),
+        cwd: item.value.cwd || "",
+        at: item.value.timestamp || item.value.at || "",
+      }, "codex");
+      if (normalized.rejected) rejected.push({ file, line: item.line, reason: normalized.reason, tool });
       else events.push(normalized);
     }
   }

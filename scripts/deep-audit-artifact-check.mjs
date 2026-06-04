@@ -460,8 +460,8 @@ function validateRegistryInstallSurfaces(skillLists, install, errors) {
   if (!installScripts.includes("deep-audit-artifact-check.mjs")) {
     errors.push(diagnostic("REGISTRY_INSTALL_DRIFT", "scripts/lib/skill-lists.sh", "INSTALL_SCRIPTS omits deep-audit-artifact-check.mjs.", "The validator may pass source gates without being installed.", "Add deep-audit-artifact-check.mjs to INSTALL_SCRIPTS and scripts/install.sh copy commands."));
   }
-  if (!install.includes("deep-audit-artifact-check.mjs")) {
-    errors.push(diagnostic("REGISTRY_INSTALL_DRIFT", "scripts/install.sh", "scripts/install.sh does not copy deep-audit-artifact-check.mjs.", "Installed Claude state can drift from source validation.", "Add an install copy command for deep-audit-artifact-check.mjs."));
+  if (!install.includes("deep-audit-artifact-check.mjs") && !install.includes('for script in "${INSTALL_SCRIPTS[@]}"')) {
+    errors.push(diagnostic("REGISTRY_INSTALL_DRIFT", "scripts/install.sh", "scripts/install.sh does not copy INSTALL_SCRIPTS.", "Installed Claude state can drift from source validation.", "Copy scripts from INSTALL_SCRIPTS or add an explicit deep-audit-artifact-check.mjs copy command."));
   }
 }
 

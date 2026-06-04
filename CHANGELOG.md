@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Harden `/etrnl-autoplan` against shallow fast-plan runs with an explicit depth contract, full review/subagent/research parity requirements, deterministic final gates, and a required autoplan parity scorecard.
 - Remove hard `model:`/`effort:` routing from repo-owned `etrnl-*` skills and enforce active-model inheritance in `skill-contract-check.mjs` to prevent slash-skill invocations from taking the wrong context-entitlement path.
 - Add `/etrnl-deep-audit`, `/etrnl-production-readiness`, and `/etrnl-performance-audit` as registered deep-audit skills with a shared category registry, artifact validator, fixture suite, and install/test coverage.
 - Add `/etrnl-ci-cd` as a canonical repo-owned skill and wire it into owned-skill install/discovery, prompt routing, trigger fixtures, docs, and parity-scorecard coverage.

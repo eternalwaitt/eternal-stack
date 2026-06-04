@@ -55,14 +55,14 @@ Use these ids and generated files in the shared artifact directory:
 | `prod_webhooks` | webhook handlers | route handler worklist filtered for webhook handling |
 | `prod_queues` | worker and queue files | `rg "new Worker\|new Queue\|createWorker\|inngest\\.createFunction" --type ts -g '!**/generated/**' -l` |
 | `prod_crons` | cron and scheduled work | `rg "cron\|schedule\|vercel.*cron" --type ts -g '!**/generated/**' -g '!**/*.test.*' -l` |
-| `prod_notifications` | notification send sites | `rg "sendEmail\|sendSMS\|sendWhatsApp\|sendPush\|sendNotification\|notify" --type ts -g '!**/generated/**' -g '!**/*.test.*' -l` |
-| `prod_uploads` | upload and object-storage handlers | `rg "upload\|putObject\|presign" --type ts -g '!**/generated/**' -g '!**/*.test.*' -l` |
-| `prod_exports` | export features | `rg "export.*csv\|export.*pdf\|createObjectURL\|\\.xlsx" --type ts -g '!**/generated/**' -l` |
+| `prod_notifications` | notification send sites | `rg -e sendEmail -e sendSMS -e sendWhatsApp -e sendPush -e sendNotification -e notify --type ts -g '!**/generated/**' -g '!**/*.test.*' -l` |
+| `prod_uploads` | upload and object-storage handlers | `rg -e upload -e putObject -e presign --type ts -g '!**/generated/**' -g '!**/*.test.*' -l` |
+| `prod_exports` | export features | `rg -e 'export.*csv' -e 'export.*pdf' -e createObjectURL -e '\\.xlsx' --type ts -g '!**/generated/**' -l` |
 | `prod_schema` | ORM schema files | ORM-specific schema glob, such as `schema.prisma` |
 | `prod_client` | client components | `rg "'use client'" -g '*.tsx' -l` |
-| `prod_mutations` | mutation surfaces | `rg "useMutation\|useActionState\|startTransition\|\\.mutate\\(" --type ts -g '!**/generated/**' -l` |
+| `prod_mutations` | mutation surfaces | `rg -e useMutation -e useActionState -e startTransition -e '\\.mutate\\(' --type ts -g '!**/generated/**' -l` |
 | `prod_tenant` | tenant and location scoping surfaces | `rg "\\b(tenantId|organizationId|orgId|locationId)\\b" --type ts -g '!**/generated/**' -l` |
-| `prod_dates` | date, locale, and formatting surfaces | `rg "new Date\|Date\\.now\|toISOString\|dayjs\|date-fns\|format.*date" --type ts -g '!**/generated/**' -g '!**/*.test.*' -l` |
+| `prod_dates` | date, locale, and formatting surfaces | `rg -e 'new Date' -e 'Date\\.now' -e toISOString -e dayjs -e date-fns -e 'format.*date' --type ts -g '!**/generated/**' -g '!**/*.test.*' -l` |
 | `prod_raw_env_files` | raw env access files | `rg "process\\.env\\." --type ts -g '!**/generated/**' -g '!**/*.test.*' -l` |
 | `prod_error_boundaries` | App Router error boundaries | `fd -g 'error.tsx' --exclude node_modules --exclude .next` |
 

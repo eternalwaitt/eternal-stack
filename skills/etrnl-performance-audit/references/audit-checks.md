@@ -40,7 +40,7 @@ fd -g 'package.json' --max-depth 3 --exclude node_modules | while IFS= read -r f
 : > "$AUDIT_DIR/worklists/perf_large_files.txt"
 for root in .cache public apps packages; do
   [ -d "$root" ] || continue
-  fd --type f . "$root" --exclude node_modules --exclude .next --exclude generated --exec sh -c 'stat -f "%z %N" "$1" 2>/dev/null || stat -c "%s %n" "$1"' sh {} \\;
+  fd --type f . "$root" --exclude node_modules --exclude .next --exclude generated --exec sh -c 'stat -f "%z %N" "$1" 2>/dev/null || stat -c "%s %n" "$1"' sh {} \;
 done | sort -nr > "$AUDIT_DIR/worklists/perf_large_files.txt"
 fd -g 'next.config.*' --exclude node_modules | sort > "$AUDIT_DIR/worklists/perf_next_configs.txt"
 : > "$AUDIT_DIR/worklists/perf_compiler_status.txt"

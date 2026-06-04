@@ -171,6 +171,8 @@ Metrics:
 - `beforeFirstEditRate`: CodeGraph or code-context tool use before the first source edit.
 - `explorationDelta`: median read/search/tool-call pressure versus the baseline or versus eligible sessions where the tool was not used.
 - `reworkDelta`: repeated-edit and failed-check recovery delta versus baseline.
+- `verificationRecoveryRate`: tool-use sessions that recovered a failed check or stale quality state.
+- `usefulArtifactRate`: tool-use sessions that produced a downstream edit, check, plan update, decision, or durable artifact.
 - `noiseRate`: tool-use sessions with no downstream edit, check, plan update, discovered follow-up, or useful artifact.
 - `privacyRejectCount`: events rejected for raw prompts, secrets, private paths, transcript content, or private project names.
 
@@ -187,13 +189,13 @@ Initial score formula:
 ```text
 score =
   25 * autonomousUseRate
-  + 20 * beforeUsefulWorkRate
-  + 20 * positiveExplorationDelta
-  + 15 * positiveReworkDelta
+  + 20 * beforeFirstEditRate
+  + 20 * explorationDelta
+  + 15 * reworkDelta
   + 10 * verificationRecoveryRate
   + 10 * usefulArtifactRate
   - 30 * noiseRate
-  - 100 * privacyFailure
+  - 100 * (privacyRejectCount > 0)
 ```
 
 Beads-specific value is counted only when Beads provides durable state before planning, before a resumed task, or between ETRNL runs: dependencies, claims, blockers, backlog items, or discovered follow-ups. Beads use during an active ETRNL execution is noise if it merely duplicates the execution ledger.

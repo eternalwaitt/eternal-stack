@@ -460,6 +460,35 @@ assert_json_expr "tool-effectiveness codegraph keep verdict" "$tool_effectivenes
 assert_json_expr "tool-effectiveness beads keep verdict" "$tool_effectiveness_fixtures_json" '.tools.beads.verdict == "keep"'
 assert_json_expr "tool-effectiveness duplicate beads remove-watch verdict" "$tool_effectiveness_fixtures_json" '."tools"."beads-duplicate-fixture".verdict == "remove-watch"'
 assert_json_expr "tool-effectiveness privacy fixture rejected" "$tool_effectiveness_fixtures_json" '.totals.rejected == 1'
+tool_effectiveness_codegraph_only_json="$(node "$ROOT/scripts/tool-effectiveness.mjs" summarize --fixtures "$ROOT/tests/fixtures/tool-effectiveness" --tool codegraph --json)"
+assert_json_expr "tool-effectiveness tool filter narrows summary" "$tool_effectiveness_codegraph_only_json" '(.tools | keys) == ["codegraph"]'
+tool_effectiveness_project_json="$(node "$ROOT/scripts/tool-effectiveness.mjs" summarize --fixtures "$ROOT/tests/fixtures/tool-effectiveness" --project project-alpha --json)"
+assert_json_expr "tool-effectiveness project filter narrows events" "$tool_effectiveness_project_json" '.totals.events > 0 and .totals.events < 18'
+tool_effectiveness_privacy_root="$TMPROOT/tool-effectiveness-privacy"
+mkdir -p "$tool_effectiveness_privacy_root"
+jq -n '{
+  events: (
+    [range(0;5) | {
+      tool: "leaky-tool",
+      projectHash: "privacy-project",
+      eligible: true,
+      toolUsed: true,
+      usedBeforeFirstEdit: true,
+      usefulWork: true,
+      downstreamArtifact: true,
+      readSearchCount: 1,
+      baselineReadSearchCount: 4,
+      repeatedEdits: 0,
+      baselineRepeatedEdits: 2
+    }]
+    + [{
+      tool: "leaky-tool",
+      promptText: "raw prompt must be rejected"
+    }]
+  )
+}' >"$tool_effectiveness_privacy_root/events.json"
+tool_effectiveness_privacy_json="$(node "$ROOT/scripts/tool-effectiveness.mjs" summarize --fixtures "$tool_effectiveness_privacy_root" --json)"
+assert_json_expr "tool-effectiveness privacy rejects downgrade tool" "$tool_effectiveness_privacy_json" '."tools"."leaky-tool".verdict == "remove-watch" and ."tools"."leaky-tool".evidence.privacyRejectCount == 1'
 tool_effectiveness_baseline_json="$(node "$ROOT/scripts/tool-effectiveness.mjs" baseline --since-days 7 --fixtures "$ROOT/tests/fixtures/tool-effectiveness" --json)"
 assert_json_expr "tool-effectiveness baseline emits tool medians" "$tool_effectiveness_baseline_json" '.command == "baseline" and .byTool.codegraph.medianReadSearchCount >= 0'
 tool_effectiveness_codex_import_json="$(node "$ROOT/scripts/tool-effectiveness.mjs" import-codex --fixtures "$ROOT/tests/fixtures/tool-effectiveness/codex" --dry-run --json)"
@@ -930,6 +959,8 @@ mkdir -p "$health_root/artifacts/tool-effectiveness"
 printf '%s\n' '{"schemaVersion":1,"tool":"codegraph","eligible":true,"toolUsed":true,"usedBeforeFirstEdit":true}' >"$health_root/artifacts/tool-effectiveness/events.jsonl"
 effectiveness_status_json="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" status --json --all)"
 assert_json_expr "workflow health status projects effectiveness when present" "$effectiveness_status_json" '.effectiveness.events == 1 and (.effectiveness.tools | index("codegraph")) != null'
+effectiveness_scoped_status_json="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" status --json --cwd "$health_root/project-a")"
+assert_json_expr "workflow health scoped status suppresses global effectiveness" "$effectiveness_scoped_status_json" '.effectiveness == null'
 effectiveness_doctor_json="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" doctor --json --all)"
 assert_json_expr "workflow health doctor reports effectiveness health" "$effectiveness_doctor_json" '.effectiveness.events == 1 and .effectiveness.malformed == 0'
 jq -n '{"schemaVersion":2,"runId":"old-terminal-run","sessionId":"old","cwd":"/tmp/old","projectId":"old","updatedAt":"2000-01-01T00:00:00Z","tasks":[{"id":"T1","status":"verified"}],"agents":[],"checks":[{"name":"fixture","status":"passed"}],"events":[]}' >"$health_root/runs/old-terminal-run.json"

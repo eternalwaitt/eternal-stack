@@ -38,6 +38,7 @@ const cwdFilter = cwdFilterRaw ? path.resolve(cwdFilterRaw) : "";
 const sessionFilter = flagValue("--session");
 const projectFilter = flagValue("--project");
 const includeAll = args.includes("--all");
+const scopedView = Boolean(cwdFilter || sessionFilter || projectFilter) && !includeAll;
 
 if (requestedLedgerReadConcurrency > MAX_LEDGER_READ_CONCURRENCY) {
   console.warn(
@@ -330,7 +331,7 @@ function buildStatus(ledgers, ledgerParseErrors = []) {
     },
     nextAction: nextAction(runStatus),
   };
-  if (effectiveness.events > 0 || effectiveness.malformed > 0) {
+  if (!scopedView && (effectiveness.events > 0 || effectiveness.malformed > 0)) {
     status.effectiveness = effectiveness;
   }
   return status;
@@ -363,11 +364,9 @@ function buildDoctor(ledgers, ledgerParseErrors) {
       stale: ledgers.filter(staleRun).length,
       prunable: prunable.length,
     },
-    effectiveness: {
-      events: effectiveness.events,
-      malformed: effectiveness.malformed,
-      stalePilotWindows: 0,
-    },
+    effectiveness: scopedView
+      ? { events: 0, malformed: 0, stalePilotWindows: 0, scopedOut: true }
+      : { events: effectiveness.events, malformed: effectiveness.malformed, stalePilotWindows: 0 },
     activeRunId: latestLedger(ledgers)?.runId || "",
     nextAction: prunable.length > 0 ? "run workflow-health prune --dry-run first, then prune without --dry-run" : "none",
   };

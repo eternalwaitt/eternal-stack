@@ -537,6 +537,7 @@ cc_state_batch_append_tool_signal() {
       | .toolSignals = (.toolSignals[-$max_items:] // [])
       | .effectivenessCounters[$tool] = ((.effectivenessCounters[$tool] // 0) + 1)
       | if $beforeFirstEdit then .toolUseBeforeFirstEdit[$tool] = ((.toolUseBeforeFirstEdit[$tool] // 0) + 1) else . end
+      | .editGeneration = ((.editGeneration // 0) + 1)
     ' <<<"$_CC_STATE_BATCH_PAYLOAD")"; then
     cc_state_abort_batch
     return 1
