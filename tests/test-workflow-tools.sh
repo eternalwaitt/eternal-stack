@@ -512,6 +512,13 @@ settings_audit_report="$(HOME="$settings_audit_home" node "$ROOT/scripts/setting
 assert_json_expr "settings-audit reports stale rtk rewrite conflict" "$settings_audit_report" 'any(.after.conflictingHooks[]?; .id == "rtk-rewrite" and .hook == "rtk-rewrite.sh")'
 assert_json_expr "settings-audit reports legacy cli toolkit conflict" "$settings_audit_report" 'any(.after.conflictingHooks[]?; .id == "legacy-cli-toolkit" and .hook == "enforce-cli-toolkit.sh")'
 assert_json_expr "settings-audit reports unknown external hooks" "$settings_audit_report" 'any(.after.externalHooks[]?; .owner == "unknown-external" and .hook == "custom-local-guard.sh")'
+settings_audit_quoted_target="$TMPROOT/settings-audit-quoted-target.json"
+printf '%s\n' '{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"bash '\''$HOME/.claude/hooks/check-context-and-handoff.sh'\''"},{"type":"command","command":"bash \"~/.claude/hooks/check-context-and-handoff.sh\""}]}]}}' >"$settings_audit_quoted_target"
+settings_audit_quoted_report="$(HOME="$settings_audit_home" node "$ROOT/scripts/settings-audit.mjs" "$settings_audit_quoted_target" --json)"
+assert_json_expr "settings-audit ignores single-quoted HOME hook paths" "$settings_audit_quoted_report" '([.after.conflictingHooks[]? | select(.id == "invalid-stop-context-handoff")] | length) == 0'
+assert_json_expr "settings-audit ignores double-quoted tilde hook paths" "$settings_audit_quoted_report" '([.after.externalHooks[]? | select(.hook == "check-context-and-handoff.sh")] | length) == 0'
+HOME="$settings_audit_home" node "$ROOT/scripts/settings-audit.mjs" "$settings_audit_quoted_target" --fix
+assert_json_expr "settings-audit preserves shell-literal hook paths" "$(jq -c . "$settings_audit_quoted_target")" '([.hooks.Stop[]?.hooks[]?.command // empty | select(test("check-context-and-handoff"))] | length) == 2'
 settings_audit_strict_status=0
 HOME="$settings_audit_home" node "$ROOT/scripts/settings-audit.mjs" "$settings_audit_target" --strict-conflicts >/dev/null 2>&1 || settings_audit_strict_status=$?
 if [[ "$settings_audit_strict_status" -ne 0 ]]; then ok "settings-audit strict conflicts fail closed"; else not_ok "settings-audit strict conflicts should fail closed"; fi

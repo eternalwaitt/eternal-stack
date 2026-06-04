@@ -36,6 +36,12 @@
     "unexpectedSkills": ["etrnl-code-health"]
   },
   {
+    "name": "all registered prompt routes etrnl-deep-audit",
+    "prompt": "run all_registered deep audit lanes across all levels and sublevels",
+    "expectedSkills": ["etrnl-deep-audit"],
+    "unexpectedSkills": ["etrnl-code-health"]
+  },
+  {
     "name": "documentation health prompt routes etrnl-documentation-health",
     "prompt": "run a documentation health audit for docs drift, stale READMEs, ADR health, and TSDoc coverage",
     "expectedSkills": ["etrnl-documentation-health"],

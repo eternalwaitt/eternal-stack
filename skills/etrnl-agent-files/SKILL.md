@@ -7,6 +7,29 @@ disable-model-invocation: true
 
 Maintain instruction files as routing/configuration surfaces, not memory stores.
 
+## Target Scope
+
+This skill audits the active agent-file hierarchy for the requested target, not this control-plane repo by default.
+
+Before recommending edits, declare:
+
+- target root: the repo, subdirectory, or install home being audited.
+- target tool: Claude Code, Codex, or both.
+- scope depth: global, repo root, nested subdirectories, local overrides, imports, generated/runtime injection, and install templates.
+- source owner: repo canonical source, installed home copy, private overlay, or external tool-generated file.
+
+If the user asks for "all levels", "all sublevels", "startup files", "Claude and Codex sessions", or does not name a narrow file, inspect every applicable level in the active load chain. Do not propose pruning `AGENTS.md`, `CLAUDE.md`, rules, or overlays from one repo until nested/closer files, imported markdown, installed copies, and runtime-injected context for the target have also been inventoried.
+
+For monorepos and workspaces, walk downward from the target root for nested agent files:
+
+- `AGENTS.md`, `AGENTS.override.md`
+- `CLAUDE.md`, `CLAUDE.local.md`, `.claude/CLAUDE.md`
+- `.claude/rules/**/*.md`
+- imported markdown referenced with `@path.md`
+- local tool overlays such as `RTK.md` only when they are part of the target session's actual load chain
+
+When the repo is `claude-control-plane`, distinguish control-plane source maintenance from auditing the user's installed Claude/Codex session context. Repo-managed source changes belong in this repo; installed-home drift is verified separately and updated through install/update scripts unless the user explicitly requests a local override.
+
 ## Evidence Pass
 
 Before editing, inventory the active surfaces and report:
