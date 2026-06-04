@@ -3,9 +3,16 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { gitSubprocessLimits } from "./lib/env-utils.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
+const DEFAULT_GIT_TIMEOUT_MS = 10_000;
+const DEFAULT_GIT_MAX_BUFFER = 1024 * 1024;
+const GIT_LIMITS = gitSubprocessLimits({
+  timeoutMs: DEFAULT_GIT_TIMEOUT_MS,
+  maxBufferBytes: DEFAULT_GIT_MAX_BUFFER,
+});
 
 function argValue(flag, fallback = "") {
   const index = args.indexOf(flag);
@@ -23,11 +30,15 @@ function fail(errors) {
 }
 
 function git(argsForGit, root) {
-  const result = spawnSync("git", ["-C", root, ...argsForGit], { encoding: "utf8" });
+  const result = spawnSync("git", ["-C", root, ...argsForGit], {
+    encoding: "utf8",
+    timeout: GIT_LIMITS.timeout,
+    maxBuffer: GIT_LIMITS.maxBuffer,
+  });
   return {
-    ok: result.status === 0,
+    ok: result.status === 0 && !result.error,
     stdout: String(result.stdout || "").trim(),
-    stderr: String(result.stderr || "").trim(),
+    stderr: String(result.stderr || result.error?.message || "").trim(),
   };
 }
 

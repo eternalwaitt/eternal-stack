@@ -2,8 +2,20 @@
 
 ## Unreleased
 
+- Sync repo-owned ETRNL skills into both Claude and Codex homes during install/update, with rollback cleanup and install-test coverage that checks matching `/etrnl-autoplan` copies.
+- Harden `/etrnl-autoplan` against shallow fast-plan runs with an explicit depth contract, full review/subagent/research parity requirements, deterministic final gates, and a required autoplan parity scorecard.
+- Remove hard `model:`/`effort:` routing from repo-owned `etrnl-*` skills and enforce active-model inheritance in `skill-contract-check.mjs` to prevent slash-skill invocations from taking the wrong context-entitlement path.
+- Add `/etrnl-deep-audit`, `/etrnl-production-readiness`, and `/etrnl-performance-audit` as registered deep-audit skills with a shared category registry, artifact validator, fixture suite, and install/test coverage.
+- Add `/etrnl-ci-cd` as a canonical repo-owned skill and wire it into owned-skill install/discovery, prompt routing, trigger fixtures, docs, and parity-scorecard coverage.
+- Add local tool-effectiveness measurement for CodeGraph, Beads, Codex imports, and hook-pattern signals, including deterministic keep/drop verdict fixtures, workflow-health projection, and a synthetic continuous-project config template.
+
 ## v0.1.7 - 2026-06-03
 
+- Improve stop-hook completion classification so paused production handoffs and other explicit non-final status updates do not get blocked as unverified completion claims.
+- Repair hook ergonomics around context and large edits: settings audit now removes legacy Stop handoff monitors that emit invalid context output, and the large-change guard honors recorded plan artifacts such as `.rulebook/PLANS.md`.
+- Add quick-win runtime hardening from recent logs: preflight unscoped Serena searches and unbounded health JSON dumps, aggregate project buglog repeat-edit hints, and make local skill metadata validation opt-in at SessionStart.
+- Harden script reliability after defensive Bash audit: clean up PreToolUse temp files, remove overlapping shell patterns, and bound Git child processes in script helpers.
+- Bound `UserPromptSubmit` `CLAUDE.md` reinjection to once per session by default, document `CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD=always`, and add a scoped recovery hint for oversized Serena search output.
 - Add the latest starred-agent stack research map and convert the highest-value findings into enforcement: parallel subagent lifecycle fields, executable task-group readiness checks, mandatory-rule mechanical gate validation, and optional CodeGraph/React Doctor/Brooks-Lint health-stack mappings.
 - Add the Hybrid Deep Stack plan/review/execute contract: final plans validate `Deep stack artifacts:` through `deep-stack-check.mjs`, with source manifests, skill matrices, reuse inventories, review phase records, findings ledgers, completion audits, risk tiers, TypeScript trigger evidence, staged-install proof, and structured repair errors.
 - Harden task packets, ledgers, and stop checks so multi-file source work is bound to implementation agents, spec/quality reviewers, reuse/TDD/simplifier/completion/install evidence, no-revert acknowledgement, overlap checks, packet hashes, and direct-parent-edit blocking unless a sequential-degraded blocker is recorded.

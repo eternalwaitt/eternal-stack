@@ -1,0 +1,6 @@
+{
+  "rowType": "CHECKS_SKIPPED",
+  "checkId": "prod-02-transition-integrity",
+  "worklistId": "prod_mutations",
+  "skippedReason": "context budget exhausted before full worklist read"
+}

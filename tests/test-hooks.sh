@@ -81,6 +81,31 @@ assert_contains "output limiter reason" "$out" "output-limiter"
 diagnostic_tail_bash="$(jq '.tool_input.command = "pnpm test 2>&1 | tail -80"' <<<"$bash_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$diagnostic_tail_bash")"
 assert_json_expr "diagnostic verification tail allowed" "$out" '.continue == true'
+unbounded_inventory_bash="$(jq '.tool_input.command = "node scripts/code-health-inventory.mjs --json --include-untracked"' <<<"$bash_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$unbounded_inventory_bash")"
+assert_json_expr "unbounded inventory JSON dump denied" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+assert_contains "unbounded inventory JSON reason" "$out" "Unbounded JSON dump"
+bounded_inventory_bash="$(jq '.tool_input.command = "node scripts/code-health-inventory.mjs --json --quiet --include-untracked"' <<<"$bash_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$bounded_inventory_bash")"
+assert_json_expr "bounded inventory JSON allowed" "$out" '.continue == true'
+redirected_inventory_bash="$(jq '.tool_input.command = "node scripts/code-health-inventory.mjs --json --include-untracked > artifacts/code-health.json"' <<<"$bash_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$redirected_inventory_bash")"
+assert_json_expr "redirected inventory JSON artifact allowed" "$out" '.continue == true'
+compact_redirected_inventory_bash="$(jq '.tool_input.command = "node scripts/code-health-inventory.mjs --json>artifacts/code-health.json"' <<<"$bash_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$compact_redirected_inventory_bash")"
+assert_json_expr "compact redirected inventory JSON artifact allowed" "$out" '.continue == true'
+unbounded_workflow_bash="$(jq '.tool_input.command = "node scripts/workflow-health.mjs --json"' <<<"$bash_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$unbounded_workflow_bash")"
+assert_json_expr "unbounded workflow JSON dump denied" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+bounded_workflow_bash="$(jq '.tool_input.command = "node scripts/workflow-health.mjs status --json"' <<<"$bash_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$bounded_workflow_bash")"
+assert_json_expr "bounded workflow status JSON allowed" "$out" '.continue == true'
+redirected_workflow_bash="$(jq '.tool_input.command = "node scripts/workflow-health.mjs --json >> artifacts/workflow-health.jsonl"' <<<"$bash_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$redirected_workflow_bash")"
+assert_json_expr "redirected workflow JSON artifact allowed" "$out" '.continue == true'
+fd_redirected_workflow_bash="$(jq '.tool_input.command = "node scripts/workflow-health.mjs --json 1>artifacts/workflow-health.json"' <<<"$bash_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$fd_redirected_workflow_bash")"
+assert_json_expr "fd redirected workflow JSON artifact allowed" "$out" '.continue == true'
 rtk_filtered_check_types="$(bash -c 'source "$1"; cc_command_is_quality_verification "$2"; echo $?' _ "$ROOT/hooks/lib/command-classifiers.sh" "rtk pnpm --filter @tcg-collector/api check-types 2>&1 | tail -20")"
 if [[ "$rtk_filtered_check_types" == "0" ]]; then ok "rtk pnpm filtered check-types counts as quality verification"; else not_ok "rtk pnpm filtered check-types should count as quality verification: got '$rtk_filtered_check_types'"; fi
 readiness_help_bash="$(jq '.tool_input.command = "node ~/.claude/scripts/plan-readiness-check.mjs --help 2>&1 || bat ~/.claude/scripts/plan-readiness-check.mjs"' <<<"$bash_json")"
@@ -113,6 +138,13 @@ assert_contains "broad codex memory scan reason" "$out" "Broad ~/.codex scans ar
 broad_codex_config_scan="$(jq '.tool_input.command = "rg -n token /Users/testuser/.codex/config.toml"' <<<"$bash_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$broad_codex_config_scan")"
 assert_json_expr "broad codex config scan denied" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+
+tool_signal_batch="$(jq -nc '{session_id:"fixture-tool-signals",tool_calls:[{tool_name:"mcp__codegraph__search",tool_input:{query:"symbol"}},{tool_name:"Bash",tool_input:{command:"bd show ready"}}]}')"
+run_hook cc-posttoolbatch-observer.sh "$tool_signal_batch" >/dev/null
+tool_signal_state="$(jq -c . "$TMPROOT/claude-guard-fixture-tool-signals.json")"
+assert_json_expr "posttool observer records codegraph tool signal" "$tool_signal_state" 'any(.toolSignals[]; .tool == "codegraph" and .toolKind == "codegraph" and .event == "mcp-call")'
+assert_json_expr "posttool observer records beads tool signal" "$tool_signal_state" 'any(.toolSignals[]; .tool == "beads" and .toolKind == "beads" and .event == "bash-command")'
+assert_json_expr "posttool observer records before-first-edit signal" "$tool_signal_state" '.toolUseBeforeFirstEdit.codegraph == 1 and .toolUseBeforeFirstEdit.beads == 1'
 
 disk_cleanup_state="$TMPROOT/claude-guard-fixture-disk-cleanup.json"
 jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[{value:"etrnl-disk-cleanup",at:"2026-01-01T00:00:00Z"}],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"free SSD space",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$disk_cleanup_state"
@@ -336,6 +368,17 @@ large_new_string="$(node -e 'for (let i = 0; i < 130; i += 1) console.log("expor
 large_edit="$(jq --arg text "$large_new_string" '.tool_input.old_string = "export const oldValue = 1;" | .tool_input.new_string = $text' <<<"$edit_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$large_edit")"
 assert_contains "large edit denied" "$out" "Large-change"
+planned_large_state="$TMPROOT/claude-guard-fixture-planned-large.json"
+planned_large_src="$(cd "$TMPROOT/example/src" && pwd -P)/app.ts"
+jq -nc --arg plans "$TMPROOT/example/.rulebook/PLANS.md" --arg src "$planned_large_src" '{schemaVersion:4,reads:{($src):"2026-01-01T00:00:00Z"},searches:{($src):"2026-01-01T00:00:00Z"},edits:{($plans):"2026-01-01T00:00:01Z"},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:1,commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$planned_large_state"
+planned_large_edit="$(jq --arg text "$large_new_string" '.session_id = "fixture-planned-large" | .tool_input.old_string = "export const oldValue = 1;" | .tool_input.new_string = $text' <<<"$edit_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$planned_large_edit")"
+assert_json_expr "plan artifact allows large edit path" "$out" '.continue == true'
+planned_large_command_state="$TMPROOT/claude-guard-fixture-planned-large-command.json"
+jq -nc --arg src "$planned_large_src" '{schemaVersion:4,reads:{($src):"2026-01-01T00:00:00Z"},searches:{($src):"2026-01-01T00:00:00Z"},edits:{},commands:[],blockedCommands:[],successfulCommands:[{command:"node scripts/context-state.mjs save --reason refactor-plan",at:"2026-01-01T00:00:01Z"}],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:1,commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$planned_large_command_state"
+planned_large_command_edit="$(jq --arg text "$large_new_string" '.session_id = "fixture-planned-large-command" | .tool_input.old_string = "export const oldValue = 1;" | .tool_input.new_string = $text' <<<"$edit_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$planned_large_command_edit")"
+assert_json_expr "plan command artifact allows large edit path" "$out" '.continue == true'
 
 write_json="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-session-2",tool_name:"Write",cwd:$root,tool_input:{file_path:($root + "/src/new.ts"),content:"export const created = true;"}}')"
 out="$(run_hook cc-pretooluse-guard.sh "$write_json")"
@@ -392,11 +435,27 @@ if [[ "$out" == *"Outside secret should not be injected"* ]]; then
 else
   ok "prompt router skips out-of-root CLAUDE.md references"
 fi
-out="$(HOME="$TMPROOT/home" CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD=0 run_hook cc-userprompt-router.sh "$prompt")"
+out="$(HOME="$TMPROOT/home" run_hook cc-userprompt-router.sh "$prompt")"
+if [[ "$out" == *"Project-specific gotcha from injected CLAUDE.md"* ]]; then
+  not_ok "prompt router reinjects CLAUDE.md only once per session"
+else
+  ok "prompt router reinjects CLAUDE.md only once per session"
+fi
+out="$(HOME="$TMPROOT/home" CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD=always run_hook cc-userprompt-router.sh "$prompt")"
+assert_contains "prompt router always mode repeats CLAUDE.md reinjection" "$out" "Project-specific gotcha from injected CLAUDE.md"
+disabled_zero_prompt="$(printf '%s' "$prompt" | jq '.session_id = "fixture-userprompt-disabled-zero"')"
+out="$(HOME="$TMPROOT/home" CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD=0 run_hook cc-userprompt-router.sh "$disabled_zero_prompt")"
 if [[ "$out" == *"Project-specific gotcha from injected CLAUDE.md"* ]]; then
   not_ok "prompt router disables CLAUDE.md reinjection"
 else
   ok "prompt router disables CLAUDE.md reinjection"
+fi
+disabled_false_prompt="$(printf '%s' "$prompt" | jq '.session_id = "fixture-userprompt-disabled-false"')"
+out="$(HOME="$TMPROOT/home" CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD=FALSE run_hook cc-userprompt-router.sh "$disabled_false_prompt")"
+if [[ "$out" == *"Project-specific gotcha from injected CLAUDE.md"* ]]; then
+  not_ok "prompt router disables CLAUDE.md reinjection case-insensitively"
+else
+  ok "prompt router disables CLAUDE.md reinjection case-insensitively"
 fi
 challenge_prompt="$(jq -cn '{session_id:"fixture-challenge-prompt",prompt:"why is Vega saying you are right? I thought we had a hook for this"}')"
 out="$(run_hook cc-userprompt-router.sh "$challenge_prompt")"
@@ -489,6 +548,20 @@ assert_contains "repeated failure pivots" "$out" "repeated"
 large_failure_json="$(jq -cn '{session_id:"fixture-large-failure",tool_name:"Read",tool_input:{file_path:"/tmp/huge-output.txt"},error:"File content exceeds maximum allowed tokens"}')"
 out="$(run_hook cc-posttoolusefailure-diagnose.sh "$large_failure_json")"
 assert_contains "large-output failure gets targeted diagnostic" "$out" "targeted read/search"
+serena_large_failure_json="$(jq -cn '{session_id:"fixture-serena-large-failure",tool_name:"mcp__serena__search_for_pattern",tool_input:{substring_pattern:"needle"},error:"Error: result (43,867 characters) exceeds maximum allowed tokens. Output has been saved to /tmp/mcp-plugin_serena_serena-search_for_pattern.txt"}')"
+out="$(run_hook cc-posttoolusefailure-diagnose.sh "$serena_large_failure_json")"
+assert_contains "serena large-output failure gets scoped diagnostic" "$out" "narrower relative_path"
+serena_unscoped_json="$(jq -cn '{session_id:"fixture-serena-preflight",tool_name:"mcp__serena__search_for_pattern",tool_input:{substring_pattern:"needle",max_answer_chars:12000}}')"
+out="$(CLAUDE_CONTROL_PLANE_SERENA_SCOPE_GUARD=1 run_hook cc-pretooluse-guard.sh "$serena_unscoped_json")"
+assert_json_expr "serena unscoped search denied before output blowup" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+assert_contains "serena unscoped search reason" "$out" "must be scoped"
+serena_uncapped_json="$(jq -cn '{session_id:"fixture-serena-preflight",tool_name:"mcp__serena__search_for_pattern",tool_input:{substring_pattern:"needle",relative_path:"src"}}')"
+out="$(CLAUDE_CONTROL_PLANE_SERENA_SCOPE_GUARD=1 run_hook cc-pretooluse-guard.sh "$serena_uncapped_json")"
+assert_json_expr "serena uncapped search denied before output blowup" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+assert_contains "serena uncapped search reason" "$out" "max_answer_chars"
+serena_scoped_json="$(jq -cn '{session_id:"fixture-serena-preflight",tool_name:"mcp__serena__search_for_pattern",tool_input:{substring_pattern:"needle",relative_path:"src",max_answer_chars:12000,context_lines_before:2,context_lines_after:2}}')"
+out="$(CLAUDE_CONTROL_PLANE_SERENA_SCOPE_GUARD=1 run_hook cc-pretooluse-guard.sh "$serena_scoped_json")"
+assert_json_expr "serena scoped bounded search allowed" "$out" '.continue == true'
 email_guard_failure_json="$(jq -cn '{session_id:"fixture-email-guard-failure",tool_name:"Bash",tool_input:{command:"vivaz-email triage guarded-run --account agencia --apply --require-insights"},error:"TRIAGE_GUARD_ML_DISAGREED: ML archive review found 1 disagreement"}')"
 out="$(run_hook cc-posttoolusefailure-diagnose.sh "$email_guard_failure_json")"
 assert_contains "email triage ML disagreement gets recovery diagnostic" "$out" "triage ml-reviews"
@@ -551,6 +624,17 @@ assert_json_expr "stop verifier blocks unverified completion" "$out" '.decision 
 browser_outstanding_stop="$(jq -cn '{session_id:"fixture-browser-outstanding",last_assistant_message:"Phases 0-10 complete. Only the manual browser pass is still outstanding - needs pnpm dev:web and a real browser.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$browser_outstanding_stop")"
 assert_contains "stop verifier blocks outstanding browser QA" "$out" "Outstanding browser QA"
+
+paused_prod_state="$TMPROOT/claude-guard-fixture-paused-prod-status.json"
+jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:false,planExecutionRequestedAt:"",lastPrompt:"did u read the handoff file?",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$paused_prod_state"
+paused_prod_message=$'Yes. It was injected as the restored handoff.\n\n1. Check PR #53 CI - green\n2. Merge - done\n3. Deploy to prod metacards-painel - was watching GHCR build-and-push, in_progress\n4. Set bruno to master in prod DB - only AFTER deploy\n\nBefore I SSH into prod: do you want me to proceed with the deploy once the GHCR build is green?\nNothing is live yet. Awaiting your answer before I SSH to prod.'
+paused_prod_stop="$(jq -cn --arg message "$paused_prod_message" '{session_id:"fixture-paused-prod-status",last_assistant_message:$message,stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$paused_prod_stop")"
+if [[ -z "$out" ]]; then ok "stop verifier allows paused production status"; else not_ok "paused production status should not claim completion: $out"; fi
+
+true_completion_pending_stop="$(jq -cn '{session_id:"fixture-true-completion-pending-token",last_assistant_message:"Done. Tests pass. No live change needed; nothing pending.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$true_completion_pending_stop")"
+assert_contains "stop verifier keeps true completion despite incidental work-state token" "$out" "claim completion without verification evidence"
 
 advice_state="$TMPROOT/claude-guard-fixture-advice.json"
 jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"which iPhone should I buy today?",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$advice_state"
@@ -870,7 +954,7 @@ jq -nc '{schemaVersion:1,reads:[],searches:"oops",edits:{},commands:{},verificat
 migration_event="$(jq -cn '{session_id:"fixture-migration-v1",tool_name:"Bash",cwd:"/tmp/example",tool_input:{command:"rg -n value src"}}')"
 out="$(run_hook cc-pretooluse-guard.sh "$migration_event")"
 assert_json_expr "migration event allowed" "$out" '.continue == true'
-assert_json_expr "state schema upgraded to v4" "$(jq -c . "$migration_state")" '.schemaVersion == 4'
+assert_json_expr "state schema upgraded to v5" "$(jq -c . "$migration_state")" '.schemaVersion == 5'
 assert_json_expr "state migration normalizes new buckets" "$(jq -c . "$migration_state")" '(.blockedCommands | type) == "array" and (.successfulCommands | type) == "array" and (.commandLastEditGeneration | type) == "object" and (.prodApprovalMarkers | type) == "array" and (.reviewerAgentCalls | type) == "array" and (.compactCount | type) == "number" and (.lastCompactAt | type) == "string"'
 
 broken_state="$TMPROOT/claude-guard-fixture-migration-broken.json"
@@ -878,7 +962,7 @@ printf '{broken' >"$broken_state"
 broken_event="$(jq -cn '{session_id:"fixture-migration-broken",tool_name:"Bash",cwd:"/tmp/example",tool_input:{command:"rg -n value src"}}')"
 out="$(run_hook cc-pretooluse-guard.sh "$broken_event")"
 assert_json_expr "broken legacy state fails open to default" "$out" '.continue == true'
-assert_json_expr "broken legacy state reset to schema v4" "$(jq -c . "$broken_state")" '.schemaVersion == 4'
+assert_json_expr "broken legacy state reset to schema v5" "$(jq -c . "$broken_state")" '.schemaVersion == 5'
 
 # Tiered degraded-mode policy matrix
 no_node_safe_event="$(jq -cn '{session_id:"fixture-no-node-safe",tool_name:"Bash",cwd:"/tmp/example",tool_input:{command:"rg -n value src"}}')"

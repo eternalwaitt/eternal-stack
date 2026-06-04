@@ -143,7 +143,24 @@ const goodPlan = path.join(root, "hooks/fixtures/plans/good-plan.md");
 const deepStackPlan = path.join(root, "tests/fixtures/deep-stack/plan.deep-stack.valid.md");
 const badPlan = path.join(tmp, "bad-plan.md");
 write(badPlan, "# Bad Plan\n\nStatus: Final\n\nGoal: too thin\n");
+const autoplanSkill = readFileSync(path.join(root, "skills/etrnl-autoplan/SKILL.md"), "utf8");
 const executeSkill = readFileSync(path.join(root, "skills/etrnl-execute/SKILL.md"), "utf8");
+
+if (hasKeywords(autoplanSkill, ["Autoplan Depth Contract", "context recovery", "reuse inventory", "research parity"])) {
+  ok("autoplan skill requires deep context and parity work");
+} else {
+  fail("autoplan skill requires deep context and parity work", "missing depth contract, context recovery, reuse inventory, or research parity concept");
+}
+if (hasKeywords(autoplanSkill, ["Full review gauntlet", "subagent", "outside-voice", "Autoplan parity scorecard"])) {
+  ok("autoplan skill requires full review and parity scorecard");
+} else {
+  fail("autoplan skill requires full review and parity scorecard", "missing full review, subagent/outside voice, or parity scorecard concept");
+}
+if (hasKeywords(autoplanSkill, ["deep-stack-check.mjs validate-plan", "plan-readiness-check.mjs", "Blocked until"])) {
+  ok("autoplan skill requires deterministic final gates");
+} else {
+  fail("autoplan skill requires deterministic final gates", "missing deep-stack validation, plan readiness, or blocked verdict concept");
+}
 
 if (hasKeywords(executeSkill, ["dispatch", "write-capable", "implementation subagents", "parallel-safe"])) {
   ok("execute skill requires implementation subagents for parallel-safe waves");

@@ -28,6 +28,10 @@ function validateManifestRow(row, index, errors) {
   assert(typeof row.collectedAt === "string" && row.collectedAt.length > 0, `${prefix}.collectedAt is required`, errors);
 }
 
+/**
+ * Validates the pinned competitor manifest structure before extraction or
+ * generated research artifacts trust the listed repositories.
+ */
 export function validateManifest(manifest) {
   const errors = [];
   assert(typeof manifest === "object" && manifest !== null, "manifest must be an object", errors);
@@ -89,6 +93,10 @@ function validateEvidenceRow(row, rowIndex, errors) {
   row.evidence.forEach((item, evIndex) => validateEvidenceItem(item, `${prefix}.evidence[${evIndex}]`, errors));
 }
 
+/**
+ * Validates extracted capability evidence, including non-README source rows,
+ * staleness policy, enforcement levels, and negative-scan records.
+ */
 export function validateEvidence(evidenceDoc) {
   const errors = [];
   assert(typeof evidenceDoc === "object" && evidenceDoc !== null, "evidence document must be object", errors);
@@ -126,6 +134,10 @@ function validateScorecardEntry(entry, index, opts) {
   entry.gaps.forEach((gap, gapIndex) => validateGap(gap, `${prefix}.gaps[${gapIndex}]`, knownEvidenceRows, errors));
 }
 
+/**
+ * Validates the generated parity scorecard against the owned skill list and
+ * optional evidence-row index so gaps stay traceable to source evidence.
+ */
 export function validateScorecard(scorecard, ownedSkills, knownEvidenceRows = null) {
   const errors = [];
   assert(Array.isArray(scorecard.scorecards), "scorecards array is required", errors);

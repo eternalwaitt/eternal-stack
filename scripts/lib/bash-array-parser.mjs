@@ -1,7 +1,15 @@
+/**
+ * Escapes literal text before embedding it in a dynamically built regular
+ * expression, preserving Bash array names that contain regex metacharacters.
+ */
 export function escapeRegexLiteral(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/**
+ * Removes Bash comments while preserving quoted hash characters and escaped
+ * bytes so downstream array parsing sees the same tokens a shell would.
+ */
 export function stripBashComment(line) {
   let result = "";
   // Bash parsing rules mirrored here:
@@ -86,6 +94,11 @@ function validateTokenStreamSource(rawValues) {
   return "";
 }
 
+/**
+ * Parses a named Bash array assignment into unquoted tokens for installer and
+ * doctor checks; malformed or missing arrays report through `onError` and
+ * return an empty list.
+ */
 export function parseBashArray(source, name, options = {}) {
   const onError = typeof options.onError === "function" ? options.onError : null;
   const assignment = new RegExp(`^\\s*${escapeRegexLiteral(name)}\\s*=\\s*\\(`, "m").exec(source);

@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "auditId": "private-path",
+  "categoryRegistryVersion": "2026-06-03.1",
+  "registeredCategories": ["production-readiness", "performance"],
+  "knownUnimplementedCategories": ["security", "ux-accessibility", "api-data", "docs", "payments", "privacy-compliance"],
+  "coverageStatement": "Coverage: production-readiness. Known not-yet-registered audit domains: security, ux-accessibility, api-data, docs, payments, privacy-compliance.",
+  "targetLabel": "synthetic-app",
+  "targetFingerprint": "repo:synthetic-app@private-path",
+  "requestedCategories": ["production-readiness"],
+  "runArtifactLabel": "/Users/example/private-target",
+  "worklists": {},
+  "categoryReports": [],
+  "laneReceipts": [],
+  "confirmedClean": [],
+  "checksSkipped": [],
+  "findings": [],
+  "sourceLimitedBlockers": [],
+  "synthesis": {"status": "source_limited"},
+  "verification": []
+}

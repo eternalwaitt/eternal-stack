@@ -1,8 +1,6 @@
 ---
 name: etrnl-plan
 description: ETRNL control-plane file-backed planning workflow for Claude Code. Use when the user asks to "write a plan", "make an implementation plan", "turn this spec into tasks", "review/improve/finalize a plan", or plan multi-step work before implementation.
-model: sonnet
-effort: medium
 paths:
   - "docs/plans/**"
   - "plans/**"

@@ -3,6 +3,10 @@ import path from "node:path";
 import { isAuditExcludedPath, isGeneratedOrFixturePath } from "./audit-exclusions.mjs";
 import { parseBashArray } from "./bash-array-parser.mjs";
 
+/**
+ * Capability taxonomy used by the competitor extractor, generated matrix, and
+ * parity scorecard so all research artifacts score the same behavior set.
+ */
 export const CAPABILITY_DEFS = [
   {
     id: "tdd_enforcement",
@@ -48,13 +52,33 @@ export const CAPABILITY_DEFS = [
 
 const RELEVANT_SEGMENTS = ["skill", "hook", "command", "workflow", "script", "agent", "test"];
 const TEXT_EXTENSIONS = new Set([".md", ".sh", ".mjs", ".js", ".jsx", ".ts", ".tsx", ".json", ".yaml", ".yml", ".toml", ".ini", ".hcl", ".py", ".txt"]);
-// Capture enough matches to avoid missing relevant evidence in larger repos before dedupe/scoring.
+/**
+ * Capture enough matches to avoid missing relevant evidence in larger repos
+ * before dedupe and scoring trim each capability row.
+ */
 export const RAW_EVIDENCE_LIMIT = 6;
-// Keep only the strongest compact subset per capability row to limit report noise.
+
+/**
+ * Keep only the strongest compact subset per capability row so generated
+ * reports stay reviewable while preserving source-backed evidence.
+ */
 export const FINAL_EVIDENCE_LIMIT = 3;
+
+/**
+ * Minimum evidence count that can mark a capability present without relying on
+ * hook-level or test-level enforcement.
+ */
 export const PRESENT_EVIDENCE_THRESHOLD = 2;
+
+/**
+ * Minimum evidence count that can mark a capability partially present.
+ */
 export const PARTIAL_EVIDENCE_THRESHOLD = 1;
 
+/**
+ * Reads and parses a JSON artifact with path-specific failure context for
+ * research validation and generation commands.
+ */
 export function readJson(filePath) {
   try {
     return JSON.parse(readFileSync(filePath, "utf8"));
@@ -65,6 +89,10 @@ export function readJson(filePath) {
   }
 }
 
+/**
+ * Writes formatted JSON artifacts using private-by-default file permissions for
+ * locally generated research evidence.
+ */
 export function writeJson(filePath, data) {
   mkdirSync(path.dirname(filePath), { recursive: true });
   writeFileSync(filePath, `${JSON.stringify(data, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
@@ -225,6 +253,10 @@ function buildAbsentRow(competitorId, capability, relFiles, extractedAt) {
   };
 }
 
+/**
+ * Extracts capability evidence for one competitor repository, excluding README,
+ * generated, fixture, vendor, and cache surfaces from scoring.
+ */
 export function extractCompetitor(repoRoot, competitorId) {
   if (!existsSync(repoRoot)) {
     throw new Error(`repo root missing for ${competitorId}: ${repoRoot}`);
@@ -265,6 +297,10 @@ export function extractCompetitor(repoRoot, competitorId) {
   return { analyzedPaths, rows };
 }
 
+/**
+ * Parses the repo-owned skill list from a Bash source file; missing files are
+ * treated as an empty install surface after emitting a warning.
+ */
 export function parseOwnedSkills(skillListPath) {
   let source;
   try {
@@ -282,10 +318,16 @@ export function parseOwnedSkills(skillListPath) {
 
 export { validateManifest, validateEvidence, validateScorecard } from "./research-intel-validators.mjs";
 
+/**
+ * Ensures an output directory exists before generated research docs are written.
+ */
 export function ensureDirectory(dirPath) {
   mkdirSync(dirPath, { recursive: true });
 }
 
+/**
+ * Writes generated text artifacts after creating their parent directory.
+ */
 export function writeText(filePath, text) {
   ensureDirectory(path.dirname(filePath));
   writeFileSync(filePath, text, "utf8");

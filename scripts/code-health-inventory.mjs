@@ -2,6 +2,7 @@
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { classifyAuditPathExclusion } from "./lib/audit-exclusions.mjs";
+import { gitSubprocessLimits } from "./lib/env-utils.mjs";
 
 const args = process.argv.slice(2);
 let json = false;
@@ -9,6 +10,12 @@ let includeUntracked = false;
 let quiet = false;
 let root = process.cwd();
 let rootProvided = false;
+const DEFAULT_GIT_TIMEOUT_MS = 15_000;
+const DEFAULT_GIT_MAX_BUFFER = 20 * 1024 * 1024;
+const GIT_LIMITS = gitSubprocessLimits({
+  timeoutMs: DEFAULT_GIT_TIMEOUT_MS,
+  maxBufferBytes: DEFAULT_GIT_MAX_BUFFER,
+});
 
 for (const arg of args) {
   if (arg === "--json") json = true;
@@ -27,10 +34,15 @@ for (const arg of args) {
 }
 
 function git(gitArgs, options = {}) {
-  const result = spawnSync("git", gitArgs, { cwd: root, encoding: "utf8" });
-  if (result.status === 0) return result.stdout;
+  const result = spawnSync("git", gitArgs, {
+    cwd: root,
+    encoding: "utf8",
+    timeout: GIT_LIMITS.timeout,
+    maxBuffer: GIT_LIMITS.maxBuffer,
+  });
+  if (result.status === 0 && !result.error) return result.stdout;
   if (options.allowFailure === true) return "";
-  const stderr = result.stderr.trim();
+  const stderr = String(result.stderr || result.error?.message || "").trim();
   const detail = stderr ? `: ${stderr}` : "";
   throw new Error(`git ${gitArgs.join(" ")} failed${detail}`);
 }
@@ -41,8 +53,12 @@ function fail(message) {
 }
 
 function checkGit() {
-  const result = spawnSync("git", ["--version"], { encoding: "utf8" });
-  if (result.status !== 0) {
+  const result = spawnSync("git", ["--version"], {
+    encoding: "utf8",
+    timeout: GIT_LIMITS.timeout,
+    maxBuffer: GIT_LIMITS.maxBuffer,
+  });
+  if (result.status !== 0 || result.error) {
     fail("git is not available in PATH");
   }
 }

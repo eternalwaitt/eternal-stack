@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "projects": [
+    {
+      "alias": "project-alpha",
+      "path": "/workspace/project-alpha",
+      "continuousWork": true,
+      "tools": ["codegraph", "beads"]
+    },
+    {
+      "alias": "project-beta",
+      "path": "/workspace/project-beta",
+      "continuousWork": true,
+      "tools": ["codegraph", "beads"]
+    }
+  ]
+}

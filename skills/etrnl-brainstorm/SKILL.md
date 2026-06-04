@@ -1,8 +1,6 @@
 ---
 name: etrnl-brainstorm
 description: ETRNL control-plane brainstorming and design-spec workflow for Claude Code. Use when the user asks to "brainstorm", "scope this", "design this", "think through options", "turn this idea into a spec", or when implementation requirements are still ambiguous.
-model: sonnet
-effort: medium
 ---
 # ETRNL Brainstorming
 

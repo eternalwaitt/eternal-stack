@@ -7,6 +7,7 @@ __pycache__/
 node_modules/
 coverage/
 .serena/
+.codegraph/
 
 # Never commit private Claude runtime data.
 settings.local.json
@@ -18,3 +19,10 @@ history.jsonl
 backups/
 cache/
 telemetry/
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+.beads/*.db
+.beads/**/*.db
+.beads-credential-key
+.beads/proxieddb/

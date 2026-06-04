@@ -112,6 +112,99 @@ function suggestionFor(entry) {
   };
 }
 
+function aggregateFingerprint(cwd, category, summary) {
+  return createHash("sha256")
+    .update(["project-aggregate", cwd, category, normalizeSummary(summary)].join(":"))
+    .digest("hex")
+    .slice(0, 16);
+}
+
+/**
+ * Builds one aggregate buglog suggestion for a non-empty group of related entries.
+ *
+ * @param {string} cwd - Repository or project root used to scope the aggregate fingerprint.
+ * @param {Array<{file?: string, at?: string, category: string, summary: string}>} entries
+ *   Buglog entries sharing a category and normalized summary.
+ * @param {{preSorted?: boolean}} [options] - Set `preSorted` when entries are already sorted oldest-first.
+ * @returns {{kind: "aggregate", file: string, category: string, summary: string, severity: string, fingerprint: string, firstSeen: string, lastSeen: string, affectedFilesCount: number, recentFiles: string[], suggestedGuard: string}}
+ *   Redacted aggregate suggestion capped to five unique recent files.
+ *
+ * Assumes `entries` is non-empty. The helper sorts when needed, deduplicates
+ * affected files, and derives severity, fingerprint, redaction, and guard text.
+ */
+function aggregateSuggestionFor(cwd, entries, { preSorted = false } = {}) {
+  if (!Array.isArray(entries) || entries.length === 0) {
+    throw new TypeError("aggregateSuggestionFor requires at least one buglog entry.");
+  }
+  const sorted = preSorted
+    ? entries
+    : [...entries].sort((left, right) => String(left.at || "").localeCompare(String(right.at || "")));
+  const latest = sorted[sorted.length - 1];
+  const affectedFiles = new Set();
+  const recentFiles = [];
+  const seenFiles = new Set();
+  for (const entry of sorted) {
+    const file = String(entry.file || "").trim();
+    if (file) affectedFiles.add(file);
+  }
+  for (let index = sorted.length - 1; index >= 0 && recentFiles.length < 5; index -= 1) {
+    const file = sorted[index]?.file || "";
+    if (!file || seenFiles.has(file)) continue;
+    seenFiles.add(file);
+    recentFiles.push(file);
+  }
+  return {
+    kind: "aggregate",
+    file: latest.file || "",
+    category: latest.category,
+    summary: redactText(latest.summary),
+    severity: severityFor(latest),
+    fingerprint: aggregateFingerprint(cwd, latest.category, latest.summary),
+    firstSeen: sorted[0]?.at || "",
+    lastSeen: latest.at || "",
+    affectedFilesCount: affectedFiles.size,
+    recentFiles,
+    suggestedGuard: suggestedGuard(latest.category),
+  };
+}
+
+function projectSuggestions(cwd, entries, limit, threshold) {
+  const normalizedLimit = Math.max(1, Number.isFinite(limit) ? limit : 5);
+  // Aggregates need at least two entries; one entry stays a direct suggestion.
+  const aggregateThreshold = Math.max(2, Number.isFinite(threshold) ? threshold : 3);
+  const groups = new Map();
+  for (const entry of entries) {
+    // Null separates category from summary without colliding with normal text.
+    const key = [entry.category, normalizeSummary(entry.summary)].join("\0");
+    const group = groups.get(key) || [];
+    group.push(entry);
+    groups.set(key, group);
+  }
+  const suggestions = [];
+  const groupedEntries = [...groups.values()]
+    .map((group) => {
+      const sortedGroup = [...group].sort((left, right) => String(left.at || "").localeCompare(String(right.at || "")));
+      const latest = sortedGroup[sortedGroup.length - 1];
+      return {
+        entries: sortedGroup,
+        latest: String(latest?.at || ""),
+      };
+    })
+    .sort((left, right) => right.latest.localeCompare(left.latest));
+  // Breaks out once the global limit is reached across aggregate and direct rows.
+  outer:
+  for (const { entries: group } of groupedEntries) {
+    const nextSuggestions = group.length >= aggregateThreshold
+      ? [aggregateSuggestionFor(cwd, group, { preSorted: true })]
+      : [...group].reverse().map(suggestionFor);
+    for (const suggestion of nextSuggestions) {
+      if (suggestions.length >= normalizedLimit) break outer;
+      suggestions.push(suggestion);
+    }
+  }
+  return suggestions;
+}
+
 function maxAgeMs() {
   const raw = argValue(args, "--max-age-days", process.env.CLAUDE_CONTROL_PLANE_LEARNING_HINT_MAX_AGE_DAYS || "90");
   const days = Number(raw);
@@ -200,12 +293,13 @@ function latestUnique(entries) {
 function suggestProject() {
   const cwd = path.resolve(argValue(args, "--cwd", process.cwd()));
   const limit = Number.parseInt(argValue(args, "--limit", "5"), 10);
+  const aggregateThreshold = Number.parseInt(argValue(args, "--aggregate-threshold", "3"), 10);
   const entries = latestUnique(
     readEntries(buglogPath())
       .filter((entry) => entry.cwd === cwd)
       .filter(freshEnough),
-  ).slice(-Math.max(1, Number.isFinite(limit) ? limit : 5)).reverse();
-  const suggestions = entries.map(suggestionFor);
+  );
+  const suggestions = projectSuggestions(cwd, entries, limit, aggregateThreshold);
   if (jsonMode) {
     console.log(JSON.stringify({
       schemaVersion: 1,

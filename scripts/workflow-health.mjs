@@ -38,6 +38,7 @@ const cwdFilter = cwdFilterRaw ? path.resolve(cwdFilterRaw) : "";
 const sessionFilter = flagValue("--session");
 const projectFilter = flagValue("--project");
 const includeAll = args.includes("--all");
+const scopedView = Boolean(cwdFilter || sessionFilter || projectFilter) && !includeAll;
 
 if (requestedLedgerReadConcurrency > MAX_LEDGER_READ_CONCURRENCY) {
   console.warn(
@@ -175,6 +176,29 @@ function reviewStats() {
   return { entries: entries.length, unresolved: unresolved.length, malformed: malformedDetails.length, malformedDetails };
 }
 
+function effectivenessStats() {
+  const file = path.join(artifactBase, "tool-effectiveness", "events.jsonl");
+  if (!existsSync(file)) return { events: 0, malformed: 0, latest: "none", tools: [] };
+  const tools = new Set();
+  let events = 0;
+  let malformed = 0;
+  for (const [index, line] of readFileSync(file, "utf8").split(/\n/).filter(Boolean).entries()) {
+    const parsed = parseJson(line, `${file}:${index + 1}`);
+    if (!parsed.value) {
+      malformed += 1;
+      continue;
+    }
+    events += 1;
+    if (parsed.value.tool) tools.add(String(parsed.value.tool));
+  }
+  return {
+    events,
+    malformed,
+    latest: latestMtimeIso(path.dirname(file)),
+    tools: [...tools].sort(),
+  };
+}
+
 function reviewSummary(verboseMode = false) {
   const stats = reviewStats();
   const summary = stats.malformedDetails.length > 0
@@ -254,7 +278,8 @@ function buildStatus(ledgers, ledgerParseErrors = []) {
   const contextsLatest = latestMtimeIso(contextsDir);
   const artifactLatest = latestMtimeIso(artifactBase);
   const review = reviewStats();
-  return {
+  const effectiveness = effectivenessStats();
+  const status = {
     schemaVersion: 1,
     command: "status",
     filters: {
@@ -306,6 +331,10 @@ function buildStatus(ledgers, ledgerParseErrors = []) {
     },
     nextAction: nextAction(runStatus),
   };
+  if (!scopedView && (effectiveness.events > 0 || effectiveness.malformed > 0)) {
+    status.effectiveness = effectiveness;
+  }
+  return status;
 }
 
 function prunableLedger(ledger) {
@@ -319,6 +348,7 @@ function prunableLedger(ledger) {
 
 function buildDoctor(ledgers, ledgerParseErrors) {
   const prunable = ledgers.filter(prunableLedger);
+  const effectiveness = effectivenessStats();
   return {
     schemaVersion: 1,
     command: "doctor",
@@ -334,6 +364,9 @@ function buildDoctor(ledgers, ledgerParseErrors) {
       stale: ledgers.filter(staleRun).length,
       prunable: prunable.length,
     },
+    effectiveness: scopedView
+      ? { events: 0, malformed: 0, stalePilotWindows: 0, scopedOut: true }
+      : { events: effectiveness.events, malformed: effectiveness.malformed, stalePilotWindows: 0 },
     activeRunId: latestLedger(ledgers)?.runId || "",
     nextAction: prunable.length > 0 ? "run workflow-health prune --dry-run first, then prune without --dry-run" : "none",
   };
@@ -342,6 +375,7 @@ function buildDoctor(ledgers, ledgerParseErrors) {
 function renderDoctorText(doctor) {
   return [
     `workflowDoctor ledgers=${doctor.ledgers.total} malformed=${doctor.ledgers.malformed} stale=${doctor.ledgers.stale} prunable=${doctor.ledgers.prunable}`,
+    `workflowDoctor effectivenessEvents=${doctor.effectiveness.events} effectivenessMalformed=${doctor.effectiveness.malformed}`,
     `workflowDoctor activeRun=${doctor.activeRunId || "none"} nextAction=${doctor.nextAction}`,
   ].join("\n");
 }
@@ -371,12 +405,16 @@ function emitJson(value) {
 
 function renderStatusText(status) {
   const missing = status.missingArtifacts.length > 0 ? status.missingArtifacts.join(",") : "none";
-  return [
+  const lines = [
     `workflowStatus activeRun=${status.activeRunId || "none"} unfinished=${status.unfinishedTasks} blocked=${status.blockedTasks} failedChecks=${status.failedChecks}`,
     `workflowStatus missingArtifacts=${missing} staleRuns=${status.staleRuns} browserQa=${status.browserQa.reports} contexts=${status.contexts.saved}`,
     `workflowStatus phase=${status.phase.id || "none"} workstream=${status.phase.workstreamId || "none"} uatOpenFindings=${status.uat.openFindings}`,
     `workflowStatus nextAction=${status.nextAction}`,
-  ].join("\n");
+  ];
+  if (status.effectiveness) {
+    lines.splice(3, 0, `workflowStatus effectivenessEvents=${status.effectiveness.events} effectivenessTools=${status.effectiveness.tools.join(",") || "none"}`);
+  }
+  return lines.join("\n");
 }
 
 if (!existsSync(base)) {

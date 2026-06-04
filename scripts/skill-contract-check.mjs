@@ -72,6 +72,21 @@ function skillFrontmatterName(text, fileLabel = "<unknown>") {
   return value.replace(/\\"/g, '"').replace(/\\'/g, "'").trim();
 }
 
+function skillFrontmatterBlock(text) {
+  const match = text.match(/^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/);
+  return match ? match[1] : "";
+}
+
+function assertNoModelRoutingFrontmatter(text, relSkillPath) {
+  const frontmatter = skillFrontmatterBlock(text);
+  if (!frontmatter) return;
+  for (const field of ["model", "effort"]) {
+    if (new RegExp(`^\\s*${field}\\s*:`, "m").test(frontmatter)) {
+      fail(`${relSkillPath}: ${field} frontmatter is not allowed on repo-owned skills; inherit the active Claude model/context instead`);
+    }
+  }
+}
+
 function assertFile(file, label) {
   if (!existsSync(file)) fail(`${label} missing: ${path.relative(root, file)}`);
 }
@@ -197,6 +212,7 @@ for (const skill of ownedSkills) {
   const text = read(skillPath);
   assertDirectiveLanguage(skillPath, text);
   assertMandatoryRulesNameEnforcement(skillPath, text);
+  assertNoModelRoutingFrontmatter(text, relSkillPath);
   for (const referencePath of markdownFilesUnder(path.join(skillsDir, skill, "references"))) {
     const referenceText = read(referencePath);
     assertDirectiveLanguage(referencePath, referenceText);

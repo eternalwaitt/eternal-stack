@@ -29,7 +29,37 @@ const readJson = (path) => {
 
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const homeDirPattern = new RegExp(`(^|[\\s"'=:])${escapeRegex(homeDir)}(?=$|[\\s/"'=:])`, "g");
-const canonicalCommand = (command) => String(command ?? "").trim().replace(homeDirPattern, "$1~");
+const canonicalCommandSegment = (segment) => segment.replace(/\$\{HOME\}|\$HOME/g, homeDir).replace(homeDirPattern, "$1~");
+const canonicalCommand = (command) => {
+  const input = String(command ?? "").trim();
+  let output = "";
+  let segment = "";
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+
+  const flush = () => {
+    output += inSingleQuote ? segment : canonicalCommandSegment(segment);
+    segment = "";
+  };
+
+  for (const char of input) {
+    if (char === "'" && !inDoubleQuote) {
+      flush();
+      output += char;
+      inSingleQuote = !inSingleQuote;
+      continue;
+    }
+    if (char === '"' && !inSingleQuote) {
+      segment += char;
+      inDoubleQuote = !inDoubleQuote;
+      continue;
+    }
+    segment += char;
+  }
+
+  flush();
+  return output;
+};
 const matcherTokens = (matcher) => {
   if (matcher === undefined || matcher === null || String(matcher).trim() === "") return null;
   return String(matcher)
@@ -77,6 +107,7 @@ const knownCompanionHooks = new Set([
   "block-junk-files.sh",
   "block-secrets.sh",
   "check-code-quality.sh",
+  "check-context-and-handoff.sh",
   "cli-update-check.sh",
   "enforce-cli-toolkit.sh",
   "enforce-positive-rules.sh",
@@ -91,23 +122,33 @@ const knownCompanionHooks = new Set([
   "terminal-title.sh",
   "verification-gate.sh",
 ]);
-const rewriteKnownHookCommand = (command) => {
+const rewriteKnownHookCommand = (command, eventName = "") => {
   if (isLegacyRateLimiter(command)) return "bash ~/.claude/hooks/cc-rate-limiter.sh";
+  if (eventName === "Stop" && invalidStopContextHandoff(command)) return "";
   return command;
 };
 
+const hookCommandMatch = (command) => {
+  const raw = String(command ?? "").trim();
+  const match = raw.match(/(?:^|\s)(?:bash\s+)?(["']?)(~|\$\{HOME\}|\$HOME|[^\s"';&|]+)\/\.claude\/hooks\/([^ "';&|]+)\1?(?=\s|$|[;&|])/);
+  if (!match) return null;
+  const [, quote, root, hook] = match;
+  if (quote === "'" && (root === "~" || root === "$HOME" || root === "${HOME}")) return null;
+  if (quote === '"' && root === "~") return null;
+  return { root, hook };
+};
+
 const hookBasename = (command) => {
-  const canonical = canonicalCommand(command);
-  const match = canonical.match(/(?:^|\s)(?:bash\s+)?~\/\.claude\/hooks\/([^ "';&|]+)/);
+  const match = hookCommandMatch(command);
   if (!match) return "";
-  return path.basename(match[1]);
+  return path.basename(match.hook);
 };
 
 const hookPath = (command) => {
-  const canonical = canonicalCommand(command);
-  const match = canonical.match(/(?:^|\s)(?:bash\s+)?~\/\.claude\/hooks\/([^ "';&|]+)/);
+  const match = hookCommandMatch(command);
   if (!match) return "";
-  return path.join(homeDir, ".claude", "hooks", match[1]);
+  const root = match.root === "~" || match.root === "$HOME" || match.root === "${HOME}" ? homeDir : match.root;
+  return path.join(root, ".claude", "hooks", match.hook);
 };
 
 const hookOwner = (basename) => {
@@ -116,6 +157,10 @@ const hookOwner = (basename) => {
   if (knownCompanionHooks.has(basename)) return "known-companion";
   return "unknown-external";
 };
+
+function invalidStopContextHandoff(command) {
+  return hookBasename(command) === "check-context-and-handoff.sh";
+}
 
 const rtkRewriteHasRgProxyGuard = (command) => {
   const filePath = hookPath(command);
@@ -140,6 +185,12 @@ const conflictForHook = (basename, command, eventName, matcher) => {
     return {
       id: "legacy-cli-toolkit",
       reason: "legacy CLI-toolkit blocker denies raw Bash commands instead of letting RTK rewrite them; observed first-failure loops should be handled by rtk hook claude plus cc-pretooluse-guard",
+    };
+  }
+  if (basename === "check-context-and-handoff.sh" && eventName === "Stop" && invalidStopContextHandoff(command)) {
+    return {
+      id: "invalid-stop-context-handoff",
+      reason: "legacy handoff monitor emits hookSpecificOutput.additionalContext for Stop and guesses context pressure from transcript size; use PreCompact/context-state instead",
     };
   }
   return null;
@@ -192,10 +243,10 @@ function collectIssues(settings) {
 }
 
 function rewriteKnownHooks(settings) {
-  for (const groups of Object.values(settings.hooks ?? {})) {
+  for (const [eventName, groups] of Object.entries(settings.hooks ?? {})) {
     for (const group of groups ?? []) {
       for (const hook of group.hooks ?? []) {
-        hook.command = rewriteKnownHookCommand(hook.command);
+        hook.command = rewriteKnownHookCommand(hook.command, eventName);
       }
     }
   }

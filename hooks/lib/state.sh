@@ -40,7 +40,7 @@ cc_state_lock() {
 
 cc_state_default() {
   jq -cn --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{
-    schemaVersion: 4,
+    schemaVersion: 5,
     reads: {},
     searches: {},
     edits: {},
@@ -61,6 +61,12 @@ cc_state_default() {
     testRuns: [],
     browserRuns: [],
     reviewRuns: [],
+    toolSignals: [],
+    firstEditAt: "",
+    firstEditGeneration: 0,
+    toolUseBeforeFirstEdit: {},
+    toolNoise: {},
+    effectivenessCounters: {},
     newFileSearches: [],
     newSourceFiles: {},
     editCounts: {},
@@ -120,7 +126,7 @@ def arr(v): if (v | type) == "array" then v else [] end;
 def obj(v): if (v | type) == "object" then v else {} end;
 def num(v): if (v | type) == "number" then v else 0 end;
 {
-  schemaVersion: 4,
+  schemaVersion: 5,
   reads: obj(.reads),
   searches: obj(.searches),
   edits: obj(.edits),
@@ -141,6 +147,12 @@ def num(v): if (v | type) == "number" then v else 0 end;
   testRuns: arr(.testRuns),
   browserRuns: arr(.browserRuns),
   reviewRuns: arr(.reviewRuns),
+  toolSignals: arr(.toolSignals),
+  firstEditAt: (.firstEditAt // ""),
+  firstEditGeneration: num(.firstEditGeneration),
+  toolUseBeforeFirstEdit: obj(.toolUseBeforeFirstEdit),
+  toolNoise: obj(.toolNoise),
+  effectivenessCounters: obj(.effectivenessCounters),
   newFileSearches: arr(.newFileSearches),
   newSourceFiles: obj(.newSourceFiles),
   editCounts: obj(.editCounts),
@@ -495,6 +507,43 @@ cc_state_batch_append_value() {
   fi
 }
 
+cc_state_batch_append_tool_signal() {
+  local tool="$1"
+  local tool_kind="$2"
+  local event="$3"
+  local max_items now
+  cc_state_require_batch || return 1
+  max_items="$(cc_state_max_items)"
+  now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  if ! _CC_STATE_BATCH_PAYLOAD="$(jq -c \
+    --arg tool "$tool" \
+    --arg tool_kind "$tool_kind" \
+    --arg event "$event" \
+    --arg now "$now" \
+    --argjson max_items "$max_items" \
+    '
+      (.editGeneration // 0) as $generation
+      | ((.firstEditAt // "") == "") as $beforeFirstEdit
+      | .toolSignals = ((.toolSignals // []) + [{
+          tool: $tool,
+          toolKind: $tool_kind,
+          event: $event,
+          toolUsed: true,
+          eligible: false,
+          usedBeforeFirstEdit: $beforeFirstEdit,
+          editGeneration: $generation,
+          at: $now
+        }])
+      | .toolSignals = (.toolSignals[-$max_items:] // [])
+      | .effectivenessCounters[$tool] = ((.effectivenessCounters[$tool] // 0) + 1)
+      | if $beforeFirstEdit then .toolUseBeforeFirstEdit[$tool] = ((.toolUseBeforeFirstEdit[$tool] // 0) + 1) else . end
+      | .editGeneration = ((.editGeneration // 0) + 1)
+    ' <<<"$_CC_STATE_BATCH_PAYLOAD")"; then
+    cc_state_abort_batch
+    return 1
+  fi
+}
+
 cc_state_batch_increment_edit_count() {
   local path="$1"
   cc_state_require_batch || return 1
@@ -542,7 +591,14 @@ cc_state_batch_append_command_success() {
 
 cc_state_batch_increment_edit_generation() {
   cc_state_require_batch || return 1
-  if ! _CC_STATE_BATCH_PAYLOAD="$(jq -c '.editGeneration = ((.editGeneration // 0) + 1)' <<<"$_CC_STATE_BATCH_PAYLOAD")"; then
+  if ! _CC_STATE_BATCH_PAYLOAD="$(jq -c --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '
+    if ((.firstEditAt // "") == "") then
+      .firstEditAt = $now | .firstEditGeneration = (.editGeneration // 0)
+    else
+      .
+    end
+    | .editGeneration = ((.editGeneration // 0) + 1)
+  ' <<<"$_CC_STATE_BATCH_PAYLOAD")"; then
     cc_state_abort_batch
     return 1
   fi

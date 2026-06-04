@@ -1,8 +1,6 @@
 ---
 name: etrnl-deps
 description: ETRNL control-plane dependency maintenance workflow for Claude Code. Use only when the user explicitly asks to update dependencies; hidden from model auto-invocation.
-model: sonnet
-effort: medium
 disable-model-invocation: true
 ---
 # Deps

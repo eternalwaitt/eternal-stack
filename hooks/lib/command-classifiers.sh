@@ -205,6 +205,23 @@ cc_command_is_review_verification() {
   [[ "$cmd" =~ (etrnl-review|code[[:space:]-]?review|review-log|coderabbit|adversarial|redline|second[[:space:]-]?pass) ]]
 }
 
+cc_command_is_unbounded_json_dump() {
+  local cmd redirect_re
+  cmd="$(cc_command_normalize "$1")"
+  redirect_re='[0-9]*(>>|>)[[:space:]]*[^[:space:];&|]+'
+  [[ "$cmd" =~ (^|[[:space:]])--json([=[:space:];&|>]|$) ]] || return 1
+  [[ "$cmd" =~ $redirect_re ]] && return 1
+  if [[ "$cmd" =~ (^|[[:space:];&|])node([[:space:]]+[^[:space:];&|]+)*[[:space:]]+([^[:space:];&|]+/)?code-health-inventory\.mjs([[:space:];&|]|$) ]]; then
+    [[ "$cmd" =~ (^|[[:space:]])--quiet([[:space:];&|]|$) ]] && return 1
+    return 0
+  fi
+  if [[ "$cmd" =~ (^|[[:space:];&|])node([[:space:]]+[^[:space:];&|]+)*[[:space:]]+([^[:space:];&|]+/)?workflow-health\.mjs([[:space:];&|]|$) ]]; then
+    [[ "$cmd" =~ (^|[[:space:]])(status|doctor)([[:space:];&|]|$) ]] && return 1
+    return 0
+  fi
+  return 1
+}
+
 cc_command_is_dev_server_start() {
   local cmd token
   cmd="$(cc_command_normalize "$1")"

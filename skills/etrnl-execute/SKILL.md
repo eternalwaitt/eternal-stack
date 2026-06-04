@@ -1,8 +1,6 @@
 ---
 name: etrnl-execute
 description: ETRNL control-plane plan execution workflow for Claude Code. Use only when the user explicitly asks to execute an implementation plan; hidden from model auto-invocation because it edits files and runs commands.
-model: sonnet
-effort: medium
 disable-model-invocation: true
 ---
 # ETRNL Execute

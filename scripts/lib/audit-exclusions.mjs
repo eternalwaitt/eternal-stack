@@ -53,16 +53,29 @@ function normalizedSegments(filePath) {
     .filter(Boolean);
 }
 
+/**
+ * Returns whether a relative path belongs to repo-local state, dependency,
+ * cache, build, or vendor output that health inventories must not audit as
+ * first-party source.
+ */
 export function isAuditExcludedPath(filePath) {
   return normalizedSegments(filePath).some((segment) => auditExcludedDirs.has(segment));
 }
 
+/**
+ * Returns whether a relative path is generated or fixture-like so inventories
+ * can list it without treating it as an editable source or docs finding.
+ */
 export function isGeneratedOrFixturePath(filePath) {
   return normalizedSegments(filePath).some(
     (segment) => generatedOrFixtureDirs.has(segment) || segment.endsWith(".egg-info"),
   );
 }
 
+/**
+ * Classifies a path exclusion with the audit category, scope, and stable reason
+ * shared by code-health and documentation-health inventories.
+ */
 export function classifyAuditPathExclusion(filePath) {
   if (isAuditExcludedPath(filePath)) {
     return {

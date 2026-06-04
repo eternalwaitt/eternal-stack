@@ -1,0 +1,10 @@
+{
+  "rowType": "DIRECT_CATEGORY_REPORT",
+  "requestedCategoriesExamples": [
+    ["production-readiness"],
+    ["performance"],
+    "all_registered"
+  ],
+  "validationCommand": "node scripts/deep-audit-artifact-check.mjs validate --artifact <artifact>",
+  "CHECKS_SKIPPED": []
+}

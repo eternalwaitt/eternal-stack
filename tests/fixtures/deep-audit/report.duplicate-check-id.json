@@ -1,0 +1,239 @@
+{
+  "schemaVersion": 1,
+  "auditId": "duplicate-check-id",
+  "categoryRegistryVersion": "2026-06-03.1",
+  "registeredCategories": [
+    "production-readiness",
+    "performance"
+  ],
+  "knownUnimplementedCategories": [
+    "security",
+    "ux-accessibility",
+    "api-data",
+    "docs",
+    "payments",
+    "privacy-compliance"
+  ],
+  "coverageStatement": "Coverage: production-readiness. Known not-yet-registered audit domains: security, ux-accessibility, api-data, docs, payments, privacy-compliance.",
+  "targetLabel": "synthetic-app",
+  "targetFingerprint": "repo:synthetic-app@duplicate-check-id",
+  "requestedCategories": [
+    "production-readiness"
+  ],
+  "runArtifactLabel": "duplicate-check-id-run",
+  "worklists": {
+    "prod_pages": {
+      "count": 2,
+      "sha256": "sha256:prod_pages",
+      "artifactLabel": "prod-pages"
+    },
+    "prod_procedures": {
+      "count": 1,
+      "sha256": "sha256:prod_procedures",
+      "artifactLabel": "prod-procedures"
+    },
+    "prod_routes": {
+      "count": 1,
+      "sha256": "sha256:prod_routes",
+      "artifactLabel": "prod-routes"
+    },
+    "prod_actions": {
+      "count": 1,
+      "sha256": "sha256:prod_actions",
+      "artifactLabel": "prod-actions"
+    },
+    "prod_webhooks": {
+      "count": 1,
+      "sha256": "sha256:prod_webhooks",
+      "artifactLabel": "prod-webhooks"
+    },
+    "prod_queues": {
+      "count": 0,
+      "sha256": "sha256:prod_queues",
+      "artifactLabel": "prod-queues"
+    },
+    "prod_crons": {
+      "count": 0,
+      "sha256": "sha256:prod_crons",
+      "artifactLabel": "prod-crons"
+    },
+    "prod_notifications": {
+      "count": 1,
+      "sha256": "sha256:prod_notifications",
+      "artifactLabel": "prod-notifications"
+    },
+    "prod_uploads": {
+      "count": 1,
+      "sha256": "sha256:prod_uploads",
+      "artifactLabel": "prod-uploads"
+    },
+    "prod_exports": {
+      "count": 1,
+      "sha256": "sha256:prod_exports",
+      "artifactLabel": "prod-exports"
+    },
+    "prod_schema": {
+      "count": 1,
+      "sha256": "sha256:prod_schema",
+      "artifactLabel": "prod-schema"
+    },
+    "prod_client": {
+      "count": 1,
+      "sha256": "sha256:prod_client",
+      "artifactLabel": "prod-client"
+    },
+    "prod_mutations": {
+      "count": 1,
+      "sha256": "sha256:prod_mutations",
+      "artifactLabel": "prod-mutations"
+    },
+    "prod_tenant": {
+      "count": 1,
+      "sha256": "sha256:prod_tenant",
+      "artifactLabel": "prod-tenant"
+    },
+    "prod_dates": {
+      "count": 1,
+      "sha256": "sha256:prod_dates",
+      "artifactLabel": "prod-dates"
+    },
+    "prod_raw_env_files": {
+      "count": 1,
+      "sha256": "sha256:prod_raw_env_files",
+      "artifactLabel": "prod-raw-env-files"
+    },
+    "prod_error_boundaries": {
+      "count": 1,
+      "sha256": "sha256:prod_error_boundaries",
+      "artifactLabel": "prod-error-boundaries"
+    }
+  },
+  "categoryReports": [
+    {
+      "categoryId": "production-readiness",
+      "status": "clean",
+      "consumedWorklistHashes": {
+        "prod_pages": "sha256:prod_pages",
+        "prod_procedures": "sha256:prod_procedures",
+        "prod_routes": "sha256:prod_routes",
+        "prod_actions": "sha256:prod_actions",
+        "prod_webhooks": "sha256:prod_webhooks",
+        "prod_queues": "sha256:prod_queues",
+        "prod_crons": "sha256:prod_crons",
+        "prod_notifications": "sha256:prod_notifications",
+        "prod_uploads": "sha256:prod_uploads",
+        "prod_exports": "sha256:prod_exports",
+        "prod_schema": "sha256:prod_schema",
+        "prod_client": "sha256:prod_client",
+        "prod_mutations": "sha256:prod_mutations",
+        "prod_tenant": "sha256:prod_tenant",
+        "prod_dates": "sha256:prod_dates",
+        "prod_raw_env_files": "sha256:prod_raw_env_files",
+        "prod_error_boundaries": "sha256:prod_error_boundaries"
+      },
+      "checks": [
+        {
+          "checkId": "prod-01-state-coverage",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: State coverage matrix - 0 findings"
+        },
+        {
+          "checkId": "prod-01-state-coverage",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: duplicate state coverage - 0 findings"
+        },
+        {
+          "checkId": "prod-02-transition-integrity",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Transition integrity - 0 findings"
+        },
+        {
+          "checkId": "prod-03-validation-boundaries",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Validation at trust boundaries - 0 findings"
+        },
+        {
+          "checkId": "prod-04-timezone-locale-market",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Timezone locale market correctness - 0 findings"
+        },
+        {
+          "checkId": "prod-05-concurrent-write-safety",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Concurrent write safety - 0 findings"
+        },
+        {
+          "checkId": "prod-06-auth-tier-enforcement",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Auth edge cases and tier enforcement - 0 findings"
+        },
+        {
+          "checkId": "prod-07-webhook-safety",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Webhook safety - 0 findings"
+        },
+        {
+          "checkId": "prod-08-notification-deduplication",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Notification deduplication - 0 findings"
+        },
+        {
+          "checkId": "prod-09-serverless-platform-failures",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Serverless platform failures - 0 findings"
+        },
+        {
+          "checkId": "prod-10-tenant-isolation",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Multi-tenant data isolation - 0 findings"
+        },
+        {
+          "checkId": "prod-11-file-upload-atomicity",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: File upload atomicity - 0 findings"
+        },
+        {
+          "checkId": "prod-12-migration-pii-logs",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Migration safety and PII in logs - 0 findings"
+        },
+        {
+          "checkId": "prod-13-schema-correctness",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Schema correctness - 0 findings"
+        },
+        {
+          "checkId": "prod-14-export-parity",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Export parity - 0 findings"
+        },
+        {
+          "checkId": "prod-15-path-route-correctness",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Path and route correctness - 0 findings"
+        },
+        {
+          "checkId": "prod-16-raw-env-access",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Raw environment variable access - 0 findings"
+        },
+        {
+          "checkId": "prod-17-error-boundaries",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Missing error route boundaries - 0 findings"
+        }
+      ]
+    }
+  ],
+  "laneReceipts": [],
+  "confirmedClean": [
+    "production-readiness"
+  ],
+  "checksSkipped": [],
+  "findings": [],
+  "sourceLimitedBlockers": [],
+  "synthesis": {
+    "status": "clean"
+  },
+  "verification": []
+}

@@ -1,8 +1,6 @@
 ---
 name: etrnl-stress-test
 description: ETRNL control-plane adversarial review workflow for Claude Code. Use when stress-testing architecture, rollout plans, migrations, automation, hooks, permissions, or safety assumptions.
-model: sonnet
-effort: high
 disable-model-invocation: true
 ---
 # Stress Test

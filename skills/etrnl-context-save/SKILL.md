@@ -1,8 +1,6 @@
 ---
 name: etrnl-context-save
 description: ETRNL context-save workflow for Claude Code. Use when saving progress, preparing handoff, preserving decisions before compaction, or recording remaining work across sessions.
-model: haiku
-effort: low
 disable-model-invocation: true
 ---
 # ETRNL Context Save

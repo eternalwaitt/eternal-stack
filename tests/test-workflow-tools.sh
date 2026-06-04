@@ -309,6 +309,38 @@ done
 
 assert_command "complexity syntax" node --check "$ROOT/hooks/lib/complexity-check.mjs"
 assert_command "audit exclusions syntax" node --check "$ROOT/scripts/lib/audit-exclusions.mjs"
+assert_command "env utils namespaced git limits" env \
+  CLAUDE_CONTROL_PLANE_GIT_TIMEOUT_MS=123 \
+  GIT_TIMEOUT_MS=456 \
+  CLAUDE_CONTROL_PLANE_GIT_MAX_BUFFER_BYTES=789 \
+  GIT_MAX_BUFFER_BYTES=111 \
+  node --input-type=module -e 'import { gitSubprocessLimits } from "./scripts/lib/env-utils.mjs";
+const limits = gitSubprocessLimits({ timeoutMs: 1, maxBufferBytes: 2 });
+if (limits.timeout !== 123 || limits.maxBuffer !== 789) process.exit(1);'
+assert_command "env utils invalid namespaced falls through" env \
+  CLAUDE_CONTROL_PLANE_GIT_TIMEOUT_MS=abc \
+  GIT_TIMEOUT_MS=456 \
+  CLAUDE_CONTROL_PLANE_GIT_MAX_BUFFER_BYTES=abc \
+  GIT_MAX_BUFFER_BYTES=111 \
+  node --input-type=module -e 'import { gitSubprocessLimits } from "./scripts/lib/env-utils.mjs";
+const limits = gitSubprocessLimits({ timeoutMs: 1, maxBufferBytes: 2 });
+if (limits.timeout !== 456 || limits.maxBuffer !== 111) process.exit(1);'
+assert_command "env utils rejects non-decimal integers" env \
+  CLAUDE_CONTROL_PLANE_GIT_TIMEOUT_MS=1e3 \
+  GIT_TIMEOUT_MS=456 \
+  CLAUDE_CONTROL_PLANE_GIT_MAX_BUFFER_BYTES=0x100 \
+  GIT_MAX_BUFFER_BYTES=111 \
+  node --input-type=module -e 'import { gitSubprocessLimits } from "./scripts/lib/env-utils.mjs";
+const limits = gitSubprocessLimits({ timeoutMs: 1, maxBufferBytes: 2 });
+if (limits.timeout !== 456 || limits.maxBuffer !== 111) process.exit(1);'
+assert_command "env utils rejects unsafe integers" env \
+  CLAUDE_CONTROL_PLANE_GIT_TIMEOUT_MS=9007199254740993 \
+  GIT_TIMEOUT_MS=456 \
+  CLAUDE_CONTROL_PLANE_GIT_MAX_BUFFER_BYTES=9007199254740993 \
+  GIT_MAX_BUFFER_BYTES=111 \
+  node --input-type=module -e 'import { gitSubprocessLimits } from "./scripts/lib/env-utils.mjs";
+const limits = gitSubprocessLimits({ timeoutMs: 1, maxBufferBytes: 2 });
+if (limits.timeout !== 456 || limits.maxBuffer !== 111) process.exit(1);'
 assert_command "code-health inventory syntax" node --check "$ROOT/scripts/code-health-inventory.mjs"
 if git -C "$ROOT" rev-parse --show-toplevel >/dev/null 2>&1; then
   assert_command "code-health inventory runs" node "$ROOT/scripts/code-health-inventory.mjs" --json
@@ -354,7 +386,29 @@ inventory_exclusion_json="$(node "$ROOT/scripts/code-health-inventory.mjs" --jso
 assert_json_expr "code-health inventory lists obvious folders without auditing them" "$inventory_exclusion_json" '([.files[] | select(.path == "src/app.ts" and .auditScope == "audit")] | length) == 1 and ([.files[] | select(.path != "src/app.ts")] | all(.auditScope == "listed")) and ([.files[] | select(.path | startswith(".audit/"))][0].category == "excluded")'
 assert_command "plan readiness syntax" node --check "$ROOT/scripts/plan-readiness-check.mjs"
 assert_command "deep-stack check syntax" node --check "$ROOT/scripts/deep-stack-check.mjs"
+assert_command "tool-effectiveness syntax" node --check "$ROOT/scripts/tool-effectiveness.mjs"
 assert_command "deep-stack artifact library syntax" node --check "$ROOT/scripts/lib/deep-stack-artifacts.mjs"
+assert_command "deep-audit artifact check syntax" node --check "$ROOT/scripts/deep-audit-artifact-check.mjs"
+assert_command "deep-audit category registry syntax" node --check "$ROOT/scripts/lib/deep-audit-categories.mjs"
+assert_command "deep-audit valid artifact passes" node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$ROOT/tests/fixtures/deep-audit/report.valid.json"
+assert_command "deep-audit production direct artifact passes" node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$ROOT/tests/fixtures/deep-audit/report.production-valid.json"
+assert_command "deep-audit performance direct artifact passes" node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$ROOT/tests/fixtures/deep-audit/report.performance-valid.json"
+assert_command "deep-audit source-limited artifact passes" node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$ROOT/tests/fixtures/deep-audit/report.source-limited.json"
+assert_command "deep-audit fixture suite passes" node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate-fixtures
+assert_command "deep-audit registry validates" node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate-registry --root "$ROOT"
+assert_command "deep-audit synthetic fixtures validate" node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate-synthetic-fixtures --fixture "$ROOT/tests/fixtures/deep-audit/synthetic-target" --templates "$ROOT/tests/fixtures/deep-audit/templates"
+deep_audit_diag_json="$(node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$ROOT/tests/fixtures/deep-audit/report.missing-confirmed-clean.json" --json 2>/dev/null || true)"
+assert_json_expr "deep-audit diagnostics include problem cause fix" "$deep_audit_diag_json" 'any(.errors[]; .errorCode == "CHECK_WITHOUT_EVIDENCE" and (.problem | length > 0) and (.cause | length > 0) and (.fix | length > 0))'
+deep_audit_hidden_finding_json="$(node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$ROOT/tests/fixtures/deep-audit/report.hidden-finding-clean-synthesis.json" --json 2>/dev/null || true)"
+assert_json_expr "deep-audit findings cannot hide under clean synthesis" "$deep_audit_hidden_finding_json" 'any(.errors[]; .errorCode == "FINDING_HIDDEN_UNDER_CLEAN")'
+deep_audit_missing_worklist_json="$(node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$ROOT/tests/fixtures/deep-audit/report.required-worklist-missing.json" --json 2>/dev/null || true)"
+assert_json_expr "deep-audit required worklists are mandatory" "$deep_audit_missing_worklist_json" 'any(.errors[]; .errorCode == "REQUIRED_WORKLIST_MISSING")'
+deep_audit_private_token_fixture="$TMPROOT/deep-audit-private-token.json"
+deep_audit_token_prefix="sk-proj-"
+deep_audit_token_body="abcdefghijklmnopqrstuvwxyz123456"
+jq --arg token "$deep_audit_token_prefix$deep_audit_token_body" '.findings = [{"evidence": ("redaction fixture " + $token)}]' "$ROOT/tests/fixtures/deep-audit/report.production-valid.json" >"$deep_audit_private_token_fixture"
+deep_audit_private_token_json="$(node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$deep_audit_private_token_fixture" --json 2>/dev/null || true)"
+assert_json_expr "deep-audit private token redaction catches sk-proj" "$deep_audit_private_token_json" 'any(.errors[]; .errorCode == "PRIVATE_STRING")'
 assert_command "cli arg parser edge cases" node --input-type=module <<'JS'
 import { argValue } from "./scripts/lib/cli-args.mjs";
 const expect = (actual, expected, label) => {
@@ -397,9 +451,56 @@ expect(parsed[5], "single quoted value", "single-quoted branch");
 expect(parsed[6], "plain token", "unquoted escaped space branch");
 expect(parsed[7], "escaped space token", "unquoted multi-escape branch");
 JS
-for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger execute-evidence-check execution-wave-check code-health-ledger-check documentation-comment-health documentation-health-ledger-check review-log project-buglog browser-qa-report context-state workflow-health prompt-budget-check changelog-release-check port-guard update-check settings-audit deep-stack-check; do
+for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger execute-evidence-check execution-wave-check tool-effectiveness code-health-ledger-check documentation-comment-health documentation-health-ledger-check review-log project-buglog browser-qa-report context-state workflow-health prompt-budget-check changelog-release-check port-guard update-check settings-audit deep-stack-check; do
   assert_command "$script syntax" node --check "$ROOT/scripts/$script.mjs"
 done
+tool_effectiveness_fixtures_json="$(node "$ROOT/scripts/tool-effectiveness.mjs" summarize --fixtures "$ROOT/tests/fixtures/tool-effectiveness" --json)"
+assert_command "tool-effectiveness fixtures validate" node "$ROOT/scripts/tool-effectiveness.mjs" validate-fixtures --fixtures "$ROOT/tests/fixtures/tool-effectiveness"
+assert_json_expr "tool-effectiveness codegraph keep verdict" "$tool_effectiveness_fixtures_json" '.tools.codegraph.verdict == "keep" and .tools.codegraph.evidence.eligibleSessions >= 5'
+assert_json_expr "tool-effectiveness beads keep verdict" "$tool_effectiveness_fixtures_json" '.tools.beads.verdict == "keep"'
+assert_json_expr "tool-effectiveness duplicate beads remove-watch verdict" "$tool_effectiveness_fixtures_json" '."tools"."beads-duplicate-fixture".verdict == "remove-watch"'
+assert_json_expr "tool-effectiveness privacy fixture rejected" "$tool_effectiveness_fixtures_json" '.totals.rejected == 1'
+tool_effectiveness_codegraph_only_json="$(node "$ROOT/scripts/tool-effectiveness.mjs" summarize --fixtures "$ROOT/tests/fixtures/tool-effectiveness" --tool codegraph --json)"
+assert_json_expr "tool-effectiveness tool filter narrows summary" "$tool_effectiveness_codegraph_only_json" '(.tools | keys) == ["codegraph"]'
+tool_effectiveness_project_json="$(node "$ROOT/scripts/tool-effectiveness.mjs" summarize --fixtures "$ROOT/tests/fixtures/tool-effectiveness" --project project-alpha --json)"
+assert_json_expr "tool-effectiveness project filter narrows events" "$tool_effectiveness_project_json" '.totals.events > 0 and .totals.events < 18'
+tool_effectiveness_bad_projects_config="$TMPROOT/tool-effectiveness-bad-projects.json"
+printf '%s\n' '{"projects": [' >"$tool_effectiveness_bad_projects_config"
+if bad_projects_out="$(node "$ROOT/scripts/tool-effectiveness.mjs" summarize --fixtures "$ROOT/tests/fixtures/tool-effectiveness" --projects-config "$tool_effectiveness_bad_projects_config" --project project-alpha 2>&1)"; then
+  not_ok "tool-effectiveness rejects malformed projects config"
+else
+  assert_contains "tool-effectiveness rejects malformed projects config" "$bad_projects_out" "tool-effectiveness error: invalid --projects-config"
+fi
+tool_effectiveness_privacy_root="$TMPROOT/tool-effectiveness-privacy"
+mkdir -p "$tool_effectiveness_privacy_root"
+jq -n '{
+  events: (
+    [range(0;5) | {
+      tool: "leaky-tool",
+      projectHash: "privacy-project",
+      eligible: true,
+      toolUsed: true,
+      usedBeforeFirstEdit: true,
+      usefulWork: true,
+      downstreamArtifact: true,
+      readSearchCount: 1,
+      baselineReadSearchCount: 4,
+      repeatedEdits: 0,
+      baselineRepeatedEdits: 2
+    }]
+    + [{
+      tool: "leaky-tool",
+      promptText: "raw prompt must be rejected"
+    }]
+  )
+}' >"$tool_effectiveness_privacy_root/events.json"
+tool_effectiveness_privacy_json="$(node "$ROOT/scripts/tool-effectiveness.mjs" summarize --fixtures "$tool_effectiveness_privacy_root" --json)"
+assert_json_expr "tool-effectiveness privacy rejects downgrade tool" "$tool_effectiveness_privacy_json" '."tools"."leaky-tool".verdict == "remove-watch" and ."tools"."leaky-tool".evidence.privacyRejectCount == 1'
+tool_effectiveness_baseline_json="$(node "$ROOT/scripts/tool-effectiveness.mjs" baseline --since-days 7 --fixtures "$ROOT/tests/fixtures/tool-effectiveness" --json)"
+assert_json_expr "tool-effectiveness baseline emits tool medians" "$tool_effectiveness_baseline_json" '.command == "baseline" and .byTool.codegraph.medianReadSearchCount >= 0'
+tool_effectiveness_codex_import_json="$(node "$ROOT/scripts/tool-effectiveness.mjs" import-codex --fixtures "$ROOT/tests/fixtures/tool-effectiveness/codex" --dry-run --json)"
+assert_json_expr "tool-effectiveness codex import sanitizes tool events" "$tool_effectiveness_codex_import_json" '.command == "import-codex" and .dryRun == true and .eventsImported == 2 and (.rejected | length) == 0'
+assert_json_expr "tool-effectiveness codex import preserves explicit outcomes" "$tool_effectiveness_codex_import_json" '(.events[] | select(.tool == "codegraph") | .eligible == true and .toolUsed == true and .usefulWork == true and .downstreamArtifact == true) and (.events[] | select(.tool == "beads") | .eligible == false and .toolUsed == false and .usefulWork == false and .downstreamArtifact == false)'
 assert_command "update shell syntax" bash -n "$ROOT/scripts/update.sh"
 merge_target="$TMPROOT/settings-target.json"
 merge_template="$TMPROOT/settings-template.json"
@@ -419,18 +520,49 @@ assert_json_expr "merge-settings orders rtk rg compat before native rtk hook" "$
 assert_json_expr "merge-settings orders rtk rg compat before pretool guard" "$(jq -c . "$merge_order_target")" '([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/cc-rtk-rg-compat.sh")) < ([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/cc-pretooluse-guard.sh"))'
 settings_audit_target="$TMPROOT/settings-audit-target.json"
 settings_audit_home="$TMPROOT/settings-audit-home"
-mkdir -p "$settings_audit_home/.claude/hooks"
+settings_audit_project="$TMPROOT/settings-audit-project"
+mkdir -p "$settings_audit_home/.claude/hooks" "$settings_audit_project/.claude/hooks"
 printf '%s\n' '#!/usr/bin/env bash' '# rtk-hook-version: 3' >"$settings_audit_home/.claude/hooks/rtk-rewrite.sh"
-printf '%s\n' "{\"hooks\":{\"PostToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"bash $settings_audit_home/.claude/hooks/rate-limiter.sh\"}]},{\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/rate-limiter.sh.backup\"}]},{\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/cc-rate-limiter.sh\",\"timeout\":5}]}],\"PreToolUse\":[{\"matcher\":\"Bash\",\"hooks\":[{\"type\":\"command\",\"command\":\"~/.claude/hooks/rtk-rewrite.sh\"}]},{\"matcher\":\"Bash\",\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/enforce-cli-toolkit.sh\"}]},{\"matcher\":\"Bash\",\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/custom-local-guard.sh\"}]},{\"matcher\":\"Task|Agent\",\"hooks\":[{\"type\":\"command\",\"command\":\"bash $settings_audit_home/.claude/hooks/cc-pretooluse-guard.sh\",\"timeout\":5}]},{\"matcher\":\"Task|TaskCreate|Agent\",\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/cc-pretooluse-guard.sh\",\"timeout\":10}]}]}}" >"$settings_audit_target"
+cat >"$settings_audit_project/.claude/hooks/check-context-and-handoff.sh" <<'BASH'
+#!/usr/bin/env bash
+jq -cn --arg text "context" '{
+  hookSpecificOutput: {
+    hookEventName: "Stop",
+    additionalContext: $text
+  }
+}'
+BASH
+printf '%s\n' "{\"hooks\":{\"PostToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"bash $settings_audit_home/.claude/hooks/rate-limiter.sh\"}]},{\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/rate-limiter.sh.backup\"}]},{\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/cc-rate-limiter.sh\",\"timeout\":5}]}],\"PreToolUse\":[{\"matcher\":\"Bash\",\"hooks\":[{\"type\":\"command\",\"command\":\"~/.claude/hooks/rtk-rewrite.sh\"}]},{\"matcher\":\"Bash\",\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/enforce-cli-toolkit.sh\"}]},{\"matcher\":\"Bash\",\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/custom-local-guard.sh\"}]},{\"matcher\":\"Task|Agent\",\"hooks\":[{\"type\":\"command\",\"command\":\"bash $settings_audit_home/.claude/hooks/cc-pretooluse-guard.sh\",\"timeout\":5}]},{\"matcher\":\"Task|TaskCreate|Agent\",\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/cc-pretooluse-guard.sh\",\"timeout\":10}]}],\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"bash $settings_audit_project/.claude/hooks/check-context-and-handoff.sh\"}]}]}}" >"$settings_audit_target"
+settings_audit_target_next="$settings_audit_target.tmp"
+jq --arg command "bash \"$settings_audit_project/.claude/hooks/check-context-and-handoff.sh\"" '.hooks.Stop[0].hooks[0].command = $command' "$settings_audit_target" >"$settings_audit_target_next"
+mv "$settings_audit_target_next" "$settings_audit_target"
+settings_audit_target_next="$settings_audit_target.home.tmp"
+jq '.hooks.PreToolUse += [{"matcher":"Task","hooks":[{"type":"command","command":"bash $HOME/.claude/hooks/cc-pretooluse-guard.sh","timeout":15}]}]' "$settings_audit_target" >"$settings_audit_target_next"
+mv "$settings_audit_target_next" "$settings_audit_target"
 HOME="$settings_audit_home" node "$ROOT/scripts/settings-audit.mjs" "$settings_audit_target" --fix
 assert_json_expr "settings-audit rewrites legacy rate limiter" "$(jq -c . "$settings_audit_target")" '([.hooks.PostToolUse[].hooks[].command] | map(select(test("/rate-limiter\\.sh$"))) | length) == 0'
 assert_json_expr "settings-audit ignores backup rate limiter names" "$(jq -c . "$settings_audit_target")" '([.hooks.PostToolUse[].hooks[].command] | any(endswith("rate-limiter.sh.backup")))'
 assert_json_expr "settings-audit compacts matcher supersets" "$(jq -c . "$settings_audit_target")" '([.hooks.PreToolUse[].hooks[] | select(.command | test("cc-pretooluse-guard"))] | length) == 1'
 assert_json_expr "settings-audit preserves TaskCreate matcher" "$(jq -c . "$settings_audit_target")" '(.hooks.PreToolUse[] | select(.hooks[0].command | test("cc-pretooluse-guard")) | .matcher) == "Task|TaskCreate|Agent"'
+assert_json_expr "settings-audit removes invalid stop handoff hook" "$(jq -c . "$settings_audit_target")" '([.hooks.Stop[]?.hooks[]?.command // empty | select(test("check-context-and-handoff"))] | length) == 0'
 settings_audit_report="$(HOME="$settings_audit_home" node "$ROOT/scripts/settings-audit.mjs" "$settings_audit_target" --json)"
 assert_json_expr "settings-audit reports stale rtk rewrite conflict" "$settings_audit_report" 'any(.after.conflictingHooks[]?; .id == "rtk-rewrite" and .hook == "rtk-rewrite.sh")'
 assert_json_expr "settings-audit reports legacy cli toolkit conflict" "$settings_audit_report" 'any(.after.conflictingHooks[]?; .id == "legacy-cli-toolkit" and .hook == "enforce-cli-toolkit.sh")'
 assert_json_expr "settings-audit reports unknown external hooks" "$settings_audit_report" 'any(.after.externalHooks[]?; .owner == "unknown-external" and .hook == "custom-local-guard.sh")'
+settings_audit_quoted_target="$TMPROOT/settings-audit-quoted-target.json"
+printf '%s\n' '{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"bash '\''$HOME/.claude/hooks/check-context-and-handoff.sh'\''"},{"type":"command","command":"bash \"~/.claude/hooks/check-context-and-handoff.sh\""}]}]}}' >"$settings_audit_quoted_target"
+settings_audit_quoted_report="$(HOME="$settings_audit_home" node "$ROOT/scripts/settings-audit.mjs" "$settings_audit_quoted_target" --json)"
+assert_json_expr "settings-audit ignores single-quoted HOME hook paths" "$settings_audit_quoted_report" '([.after.conflictingHooks[]? | select(.id == "invalid-stop-context-handoff")] | length) == 0'
+assert_json_expr "settings-audit ignores double-quoted tilde hook paths" "$settings_audit_quoted_report" '([.after.externalHooks[]? | select(.hook == "check-context-and-handoff.sh")] | length) == 0'
+HOME="$settings_audit_home" node "$ROOT/scripts/settings-audit.mjs" "$settings_audit_quoted_target" --fix
+assert_json_expr "settings-audit preserves shell-literal hook paths" "$(jq -c . "$settings_audit_quoted_target")" '([.hooks.Stop[]?.hooks[]?.command // empty | select(test("check-context-and-handoff"))] | length) == 2'
+settings_audit_literal_target="$TMPROOT/settings-audit-literal-target.json"
+cat >"$settings_audit_literal_target" <<'JSON'
+{"hooks":{"PostToolUse":[{"hooks":[{"type":"command","command":"bash '$HOME/.claude/hooks/rate-limiter.sh'"}]}]}}
+JSON
+HOME="$settings_audit_home" node "$ROOT/scripts/settings-audit.mjs" "$settings_audit_literal_target" --fix
+assert_json_expr "settings-audit preserves single-quoted HOME rate limiter literal" "$(jq -c . "$settings_audit_literal_target")" '(.hooks.PostToolUse[0].hooks[0].command | contains("$HOME/.claude/hooks/rate-limiter.sh"))'
+assert_json_expr "settings-audit does not rewrite single-quoted HOME rate limiter literal" "$(jq -c . "$settings_audit_literal_target")" '([.hooks.PostToolUse[].hooks[].command | select(test("cc-rate-limiter"))] | length) == 0'
 settings_audit_strict_status=0
 HOME="$settings_audit_home" node "$ROOT/scripts/settings-audit.mjs" "$settings_audit_target" --strict-conflicts >/dev/null 2>&1 || settings_audit_strict_status=$?
 if [[ "$settings_audit_strict_status" -ne 0 ]]; then ok "settings-audit strict conflicts fail closed"; else not_ok "settings-audit strict conflicts should fail closed"; fi
@@ -449,6 +581,18 @@ if advisory_skill_out="$(node "$ROOT/scripts/skill-contract-check.mjs" --root "$
   not_ok "skill contracts reject advisory wording"
 else
   assert_contains "skill contracts reject advisory wording" "$advisory_skill_out" 'advisory wording "prefer"'
+fi
+model_skill_root="$TMPROOT/model-skill-root"
+mkdir -p "$model_skill_root/scripts/lib" "$model_skill_root/docs" "$model_skill_root/skills/etrnl-model-pinned" "$model_skill_root/hooks/lib"
+printf '%s\n' 'OWNED_SKILLS=(' '  "etrnl-model-pinned"' ')' 'OWNED_AGENTS=()' >"$model_skill_root/scripts/lib/skill-lists.sh"
+printf '%s\n' '# ETRNL Skills' '' '| Command | Purpose |' '| --- | --- |' '| /etrnl-model-pinned | Test skill |' >"$model_skill_root/docs/skills.md"
+printf '%s\n' 'get_etrnl_skill_hint() {' '  printf "%s\n" "/etrnl-model-pinned"' '}' >"$model_skill_root/hooks/lib/skill-hints.sh"
+printf '%s\n' '---' 'name: etrnl-model-pinned' 'description: Test skill.' 'model: sonnet' 'effort: medium' '---' '# Model Pinned Skill' '' '- Use active model routing.' >"$model_skill_root/skills/etrnl-model-pinned/SKILL.md"
+if model_skill_out="$(node "$ROOT/scripts/skill-contract-check.mjs" --root "$model_skill_root" 2>&1)"; then
+  not_ok "skill contracts reject model routing frontmatter"
+else
+  assert_contains "skill contracts reject model routing frontmatter" "$model_skill_out" 'model frontmatter is not allowed'
+  assert_contains "skill contracts reject effort routing frontmatter" "$model_skill_out" 'effort frontmatter is not allowed'
 fi
 assert_command "skill behavior smoke syntax" node --check "$ROOT/scripts/skill-behavior-smoke.mjs"
 assert_command "skill behavior smoke pass" node "$ROOT/scripts/skill-behavior-smoke.mjs" --root "$ROOT"
@@ -718,11 +862,15 @@ if [[ "$buglog_fp_session2" == "$buglog_fp" ]]; then
 else
   not_ok "project buglog fingerprint is cross-session stable"
 fi
+CLAUDE_CONTROL_PLANE_BUGLOG="$buglog_path" node "$ROOT/scripts/project-buglog.mjs" record --cwd "$TMPROOT/project" --file src/other.ts --category repeated-edit --summary "repeat failure leaked $BUGLOG_TOKEN and $BUGLOG_SECRET" >/dev/null
+CLAUDE_CONTROL_PLANE_BUGLOG="$buglog_path" node "$ROOT/scripts/project-buglog.mjs" record --cwd "$TMPROOT/project" --file src/third.ts --category repeated-edit --summary "repeat failure leaked $BUGLOG_TOKEN and $BUGLOG_SECRET" >/dev/null
 buglog_json="$(CLAUDE_CONTROL_PLANE_BUGLOG="$buglog_path" node "$ROOT/scripts/project-buglog.mjs" suggest --cwd "$TMPROOT/project" --file src/app.ts --json)"
 assert_json_expr "project buglog suggest emits JSON" "$buglog_json" '.schemaVersion == 1 and (.suggestions | length) == 1'
 assert_json_expr "project buglog suggest includes guard recommendation" "$buglog_json" '(.suggestions[0].suggestedGuard | length) > 0'
-buglog_project_json="$(CLAUDE_CONTROL_PLANE_BUGLOG="$buglog_path" node "$ROOT/scripts/project-buglog.mjs" suggest-project --cwd "$TMPROOT/project" --json)"
+buglog_project_json="$(CLAUDE_CONTROL_PLANE_BUGLOG="$buglog_path" node "$ROOT/scripts/project-buglog.mjs" suggest-project --cwd "$TMPROOT/project" --json --aggregate-threshold 3)"
 assert_json_expr "project buglog project hints omit raw cwd" "$buglog_project_json" '.project == "project" and (.cwd | not) and (.suggestions | length) == 1'
+assert_json_expr "project buglog aggregates repeated lessons" "$buglog_project_json" '.suggestions[0].kind == "aggregate" and .suggestions[0].affectedFilesCount == 3 and (.suggestions[0].recentFiles | length) == 3'
+assert_json_expr "project buglog aggregate carries display file" "$buglog_project_json" '(.suggestions[0].file | type == "string" and length > 0)'
 if rg -F "$BUGLOG_TOKEN" "$buglog_path" >/dev/null || rg -F "$aws_secret_value" "$buglog_path" >/dev/null || printf '%s' "$buglog_json" | rg -F "$aws_secret_value" >/dev/null; then
   not_ok "project buglog redacts token-like values"
 else
@@ -822,6 +970,14 @@ else
 fi
 doctor_health_json="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" doctor --json --all)"
 assert_json_expr "workflow health doctor reports ledgers" "$doctor_health_json" '.command == "doctor" and .ledgers.total >= 2'
+mkdir -p "$health_root/artifacts/tool-effectiveness"
+printf '%s\n' '{"schemaVersion":1,"tool":"codegraph","eligible":true,"toolUsed":true,"usedBeforeFirstEdit":true}' >"$health_root/artifacts/tool-effectiveness/events.jsonl"
+effectiveness_status_json="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" status --json --all)"
+assert_json_expr "workflow health status projects effectiveness when present" "$effectiveness_status_json" '.effectiveness.events == 1 and (.effectiveness.tools | index("codegraph")) != null'
+effectiveness_scoped_status_json="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" status --json --cwd "$health_root/project-a")"
+assert_json_expr "workflow health scoped status suppresses global effectiveness" "$effectiveness_scoped_status_json" '.effectiveness == null'
+effectiveness_doctor_json="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" doctor --json --all)"
+assert_json_expr "workflow health doctor reports effectiveness health" "$effectiveness_doctor_json" '.effectiveness.events == 1 and .effectiveness.malformed == 0'
 jq -n '{"schemaVersion":2,"runId":"old-terminal-run","sessionId":"old","cwd":"/tmp/old","projectId":"old","updatedAt":"2000-01-01T00:00:00Z","tasks":[{"id":"T1","status":"verified"}],"agents":[],"checks":[{"name":"fixture","status":"passed"}],"events":[]}' >"$health_root/runs/old-terminal-run.json"
 prune_health_json="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" prune --older-than-days 30 --dry-run --json --all)"
 assert_json_expr "workflow health prune dry-run reports prunable ledgers" "$prune_health_json" '.command == "prune" and .dryRun == true and (.prunable | map(.runId) | index("old-terminal-run")) != null and .pruned == 0'

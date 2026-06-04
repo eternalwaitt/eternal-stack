@@ -24,12 +24,21 @@ const ADVANCED_TS_SURFACES = new Set([
   "dto-domain-boundaries",
   "cross-layer-boundaries",
 ]);
+
+/**
+ * Extracts the `Deep stack artifacts:` metadata line from a plan, returning
+ * `null` when the plan is intentionally still in transitional readiness mode.
+ */
 export function parseDeepStackMetadata(planText) {
   const match = planText.match(/^Deep stack artifacts:[ \t]*(.*)$/im);
   if (!match) return null;
   return match[1].trim();
 }
 
+/**
+ * Reads a JSON artifact and throws a structured deep-artifact parse error so
+ * callers can report the artifact path and original parse message.
+ */
 export function readJsonFile(filePath) {
   try {
     return JSON.parse(readFileSync(filePath, "utf8"));
@@ -43,6 +52,10 @@ export function readJsonFile(filePath) {
   }
 }
 
+/**
+ * Creates the required deep-stack artifact skeleton for a plan, deliberately
+ * defaulting review and execution sections to blocked until evidence is filled.
+ */
 export function createSkeleton(planPath, outDir) {
   mkdirSync(outDir, { recursive: true, mode: 0o755 });
   const artifactPath = path.join(outDir, "deep-stack-artifacts.json");
@@ -132,11 +145,20 @@ export function createSkeleton(planPath, outDir) {
   writeFileSync(artifactPath, `${JSON.stringify(artifact, null, 2)}\n`);
   return artifactPath;
 }
+
+/**
+ * Loads a plan from disk and validates its linked deep-stack artifact using the
+ * same options as text-based validation.
+ */
 export function validateDeepStackPlanFile(planPath, options = {}) {
   const planText = readFileSync(planPath, "utf8");
   return validateDeepStackPlanText(planText, { ...options, planPath });
 }
 
+/**
+ * Validates a plan's deep-stack artifact reference, preserving explicit
+ * transitional status unless the caller requires a final artifact bundle.
+ */
 export function validateDeepStackPlanText(planText, options = {}) {
   const planPath = options.planPath || "<plan>";
   const metadata = parseDeepStackMetadata(planText);
@@ -191,6 +213,11 @@ export function validateDeepStackPlanText(planText, options = {}) {
   }
   return validateBundle(artifact, { ...options, artifactPath, planPath });
 }
+
+/**
+ * Validates the complete deep-stack artifact schema and delegates each section
+ * to focused validators while sharing artifact-path context for diagnostics.
+ */
 export function validateBundle(artifact, options = {}) {
   const errors = [];
   const context = {
@@ -218,6 +245,11 @@ export function validateBundle(artifact, options = {}) {
   validateInstallProof(artifact.installProof, artifact.riskTier, context, errors);
   return { ok: errors.length === 0, errors, artifactPath: context.artifactPath };
 }
+
+/**
+ * Validates source-manifest rows and rejects private or secret-looking source
+ * strings before artifacts can be accepted as execution evidence.
+ */
 export function validateSources(sourceManifest, context = {}, errors = []) {
   const sources = sourceManifest?.sources;
   if (!Array.isArray(sources) || sources.length === 0) {
@@ -236,6 +268,10 @@ export function validateSources(sourceManifest, context = {}, errors = []) {
   return errors;
 }
 
+/**
+ * Validates skill activation rows and the linked advanced TypeScript policy so
+ * required skills cannot be silently omitted from executable plans.
+ */
 export function validateSkills(skillMatrix, typescript, context = {}, errors = []) {
   if (!Array.isArray(skillMatrix) || skillMatrix.length === 0) {
     errors.push(error("SKILL_MATRIX_EMPTY", context.artifactPath, "skillMatrix", "Skill activation matrix must not be empty.", "Add skill rows with skill, status, trigger, and evidence."));
@@ -257,6 +293,10 @@ export function validateSkills(skillMatrix, typescript, context = {}, errors = [
   return errors;
 }
 
+/**
+ * Validates reuse-inventory evidence, including searched paths and
+ * justification for any newly created surface.
+ */
 export function validateReuse(reuseInventory, context = {}, errors = []) {
   if (!reuseInventory || typeof reuseInventory !== "object" || Array.isArray(reuseInventory)) {
     errors.push(error("REUSE_INVENTORY_MISSING", context.artifactPath, "reuseInventory", "Reuse inventory is required.", "Add searchedPaths, existingAnalogs, candidateHelpers, candidateTests, and decisions."));
@@ -283,6 +323,10 @@ export function validateReuse(reuseInventory, context = {}, errors = []) {
   return errors;
 }
 
+/**
+ * Validates findings ledger rows, blocking open high-severity findings unless
+ * they are fixed, disproven, closed, or explicitly accepted by the owner.
+ */
 export function validateFindings(findings, context = {}, errors = []) {
   if (!Array.isArray(findings)) {
     errors.push(error("FINDINGS_INVALID", context.artifactPath, "findings", "Findings ledger must be an array.", "Use [] when no findings remain."));
@@ -303,6 +347,10 @@ export function validateFindings(findings, context = {}, errors = []) {
   return errors;
 }
 
+/**
+ * Validates completion-audit rows so high-impact incomplete work cannot be
+ * marked acceptable without explicit owner acceptance.
+ */
 export function validateCompletion(completionAudit, context = {}, errors = []) {
   if (!Array.isArray(completionAudit)) {
     errors.push(error("COMPLETION_INVALID", context.artifactPath, "completionAudit", "Completion audit must be an array.", "Use [] before execution or add plan item audit rows."));
@@ -322,6 +370,10 @@ export function validateCompletion(completionAudit, context = {}, errors = []) {
   return errors;
 }
 
+/**
+ * Validates the Hybrid risk-tier record and its stricter staged-install and
+ * rollback requirements for tier 3 execution.
+ */
 export function validateRiskTier(riskTier, context = {}, errors = []) {
   if (!riskTier || typeof riskTier !== "object" || Array.isArray(riskTier)) {
     errors.push(error("RISK_TIER_MISSING", context.artifactPath, "riskTier", "Hybrid execution requires a risk-tier artifact.", "Add tier, deepReviewPassed, reason, requiredArtifacts, verificationGate, and acceptedRisks."));
@@ -360,6 +412,10 @@ function sectionRequired(riskTier, artifactName) {
   return Array.isArray(riskTier?.requiredArtifacts) && riskTier.requiredArtifacts.includes(artifactName);
 }
 
+/**
+ * Validates deep-review phase records for every required review role, including
+ * checked inputs, dispositions, and absence of executable open-high findings.
+ */
 export function validateReviewPhases(reviewPhases, riskTier = {}, context = {}, errors = []) {
   if (reviewPhases === undefined && !sectionRequired(riskTier, "reviewPhases")) return errors;
   if (!Array.isArray(reviewPhases) || reviewPhases.length === 0) {
@@ -395,6 +451,10 @@ export function validateReviewPhases(reviewPhases, riskTier = {}, context = {}, 
   return errors;
 }
 
+/**
+ * Validates TDD evidence rows, requiring red/green proof when test-first work
+ * is claimed and rationale when test-first is not applicable.
+ */
 export function validateTddEvidence(tddEvidence, riskTier = {}, context = {}, errors = []) {
   if (tddEvidence === undefined && !sectionRequired(riskTier, "tddEvidence")) return errors;
   if (!Array.isArray(tddEvidence) || tddEvidence.length === 0) {
@@ -427,6 +487,10 @@ export function validateTddEvidence(tddEvidence, riskTier = {}, context = {}, er
   return errors;
 }
 
+/**
+ * Validates no-loose-ends reconciliation rows for requested plan items and
+ * blocks high-impact partial work without explicit owner acceptance.
+ */
 export function validateCompletionReconciliation(completionReconciliation, riskTier = {}, context = {}, errors = []) {
   if (completionReconciliation === undefined && !sectionRequired(riskTier, "completionReconciliation")) return errors;
   if (!Array.isArray(completionReconciliation) || completionReconciliation.length === 0) {
@@ -453,6 +517,10 @@ export function validateCompletionReconciliation(completionReconciliation, riskT
   return errors;
 }
 
+/**
+ * Validates per-task reuse bindings so write work records searched paths,
+ * analogs, decisions, and justification for any new surface.
+ */
 export function validateReuseBindings(reuseBindings, riskTier = {}, context = {}, errors = []) {
   if (reuseBindings === undefined && !sectionRequired(riskTier, "reuseBindings")) return errors;
   if (!Array.isArray(reuseBindings) || reuseBindings.length === 0) {
@@ -479,6 +547,10 @@ export function validateReuseBindings(reuseBindings, riskTier = {}, context = {}
   return errors;
 }
 
+/**
+ * Validates advanced TypeScript trigger rows, including ordinary verification
+ * and evidence when advanced review is required or blocked.
+ */
 export function validateTypeTriggerEvidence(typeTriggerEvidence, riskTier = {}, context = {}, errors = []) {
   if (typeTriggerEvidence === undefined && !sectionRequired(riskTier, "typeTriggerEvidence")) return errors;
   if (!Array.isArray(typeTriggerEvidence)) {
@@ -498,6 +570,10 @@ export function validateTypeTriggerEvidence(typeTriggerEvidence, riskTier = {}, 
   return errors;
 }
 
+/**
+ * Validates source, staged, rollback, live-decision, and canary install proof
+ * records, with tier 3 changes requiring passed staged proof.
+ */
 export function validateInstallProof(installProof, riskTier = {}, context = {}, errors = []) {
   if (installProof === undefined && !sectionRequired(riskTier, "installProof") && riskTier?.tier !== 3) return errors;
   if (!installProof || typeof installProof !== "object" || Array.isArray(installProof)) {
@@ -569,6 +645,10 @@ function requireString(value, field, code, context, errors) {
   }
 }
 
+/**
+ * Builds the structured diagnostics consumed by deep-stack CLI commands,
+ * including the exact repair command whenever a validator-specific one exists.
+ */
 export function error(code, artifact, pathName, whyItMatters, exactFix, exampleCommand = "") {
   const command = exampleCommand || exampleCommandFor(code);
   return {

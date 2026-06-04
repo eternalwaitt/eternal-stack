@@ -1,8 +1,6 @@
 ---
 name: etrnl-autoplan
 description: ETRNL control-plane planning companion for Claude Code. Use when the user asks to create an execution-ready implementation plan with task groups, dependencies, subagent candidates, verification gates, and explicit question policy.
-model: sonnet
-effort: medium
 ---
 # ETRNL Autoplan
 
@@ -11,6 +9,45 @@ Create execution-ready plans for `/etrnl-execute`. Do not implement the plan.
 Default to completeness 10/10 for non-trivial work. Do not offer fast, reduced, MVP, or partial paths unless the user explicitly asks for a spike, prototype, or quick pass.
 
 Every final plan must make execution scope machine-readable. Use `Execution scope: all_phases` by default. Use `Execution scope: first_patch_only` or an explicit subset only when the user asked for partial execution in that turn.
+
+## Autoplan Depth Contract
+
+Non-trivial autoplan work is a deep planning run, not a fast outline. The run must gather current context, run the review lanes, produce artifact evidence, and pass deterministic gates before any `Status: Final` output.
+
+Mandatory stages:
+
+1. Context recovery:
+   - Read current repo state, relevant docs, existing plans, installed helper availability, and prior durable artifacts before drafting.
+   - Record exact source paths, command outputs, and reused helpers in `Evidence:`.
+2. Problem framing:
+   - State the user goal, user-visible outcome, non-goals, constraints, and the highest-risk false premise.
+   - Challenge the premise only through a recorded `Autoplan decision log` row.
+3. Reuse inventory:
+   - Search existing components, hooks, scripts, skills, tests, docs, agents, and helpers before naming new surfaces.
+   - Record reuse decisions in the deep-stack artifact `reuseInventory` and plan `## What already exists`.
+4. Research parity:
+   - For tool, workflow, skill, hook, agent, or planning capability changes, validate or refresh repo research artifacts before finalization.
+   - Map every competitor-parity claim to a `docs/research/capability-evidence.json` row or a named `docs/research/etrnl-parity-backlog.md` gap.
+5. Full review gauntlet:
+   - Complete CEO/founder, engineering, design applicability, DX applicability, adversarial, specialist, reuse, and simplifier lanes.
+   - Record role, inputs, findings, high/blocker status, disposition, and completion time in the deep-stack artifact.
+6. Subagent and outside-voice routing:
+   - For large plans, create read-only task packets for `etrnl-scout`, `etrnl-adversary`, `etrnl-design-reviewer`, and `etrnl-dx-reviewer`, or record a blocker/unavailable/not-applicable disposition.
+   - Mark Codex, Gemini, Octopus, gstack design, GPT image/mock tooling, CodeGraph, Beads, and browser tooling as applicable, unavailable, or not-applicable with evidence.
+7. Test-first and verification design:
+   - Include red/green proof for source tasks, fixture coverage for workflow tasks, browser evidence for UI tasks, and install/canary gates for control-plane runtime changes.
+   - Name exact commands and expected pass conditions in `## Verification gates`.
+8. Artifact creation:
+   - Create the deep-stack artifact bundle with `node scripts/deep-stack-check.mjs create --plan <plan-path> --out <artifact-dir>`.
+   - Fill blocked skeleton sections with real evidence before finalization.
+   - Validate the plan with `node scripts/deep-stack-check.mjs validate-plan --plan <plan-path>` and `node scripts/plan-readiness-check.mjs <plan-path>`.
+9. Convergence:
+   - Close, disprove, downgrade with evidence, or record explicit Victor-accepted risk for every high/blocker finding.
+   - Reconcile requested outcomes against `DONE`, `PARTIAL`, `NOT_DONE`, `CHANGED`, or `BLOCKED`.
+10. Parity scorecard:
+   - Add an `## Autoplan parity scorecard` subsection under `## Plan Readiness Report`.
+   - Score context recovery, reuse, review coverage, research parity, test-first plan, artifact validity, execution handoff, and open-risk closure from 0 to 10.
+   - Final verdict requires every score at 9 or 10. Lower scores force `Blocked until <specific blocker>`.
 
 ## Full Deep Stack Review
 
@@ -111,7 +148,7 @@ Before finalizing any plan for a capability or feature that competes with or par
    - `review-log.jsonl` when review findings are created
    - `browser-qa-report.json` when UI/browser behavior changes
    - context-save when work is long-running or likely to be resumed
-12. The final plan must pass `node ~/.claude/scripts/plan-readiness-check.mjs <plan-path>` before `/etrnl-execute` starts. A result that says deep-stack metadata is absent is not a pass for a newly generated final plan; add the bundle and rerun the gate.
+1. The final plan must pass `node ~/.claude/scripts/deep-stack-check.mjs validate-plan --plan <plan-path>` and `node ~/.claude/scripts/plan-readiness-check.mjs <plan-path>` before `/etrnl-execute` starts. A result that says deep-stack metadata is absent is not a pass for a newly generated final plan; add the bundle and rerun the gate.
     Use the exact readiness-compatible headings in the Output section. Do not leave `TODO`, `TBD`, "handle edge cases", "wire it up", or "similar to above" in the plan.
 
 ## Task Packet Drafting
@@ -174,6 +211,7 @@ The Plan Readiness Report must explicitly cover:
 - Failure modes
 - Parallelization
 - Final decision inputs that justify the verdict section
+- Autoplan parity scorecard with context recovery, reuse, review coverage, research parity, test-first plan, artifact validity, execution handoff, and open-risk closure scores
 
 The final plan must include a separate `## Verdict` section with one explicit outcome:
 - Ready for execution

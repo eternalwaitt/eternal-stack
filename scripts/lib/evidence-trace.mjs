@@ -2,10 +2,20 @@ import { createHash } from "node:crypto";
 import { existsSync, lstatSync, readFileSync, realpathSync, statSync } from "node:fs";
 import path from "node:path";
 
+const MAX_FUTURE_SKEW_MS = 60_000;
+
+/**
+ * Returns a compact UTC ISO timestamp without milliseconds for stable ledger
+ * and artifact comparisons.
+ */
 export function nowIso() {
   return new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 }
 
+/**
+ * Converts arbitrary task or artifact identifiers into filesystem-safe labels,
+ * falling back to a deterministic default when the input is empty.
+ */
 export function safeId(value, fallback = "default") {
   const raw = String(value || fallback);
   return raw.replace(/[^A-Za-z0-9_.-]/g, "_");
@@ -23,14 +33,26 @@ function stableValue(value) {
   return value;
 }
 
+/**
+ * Serializes values with object keys sorted recursively so hash comparisons are
+ * stable across equivalent JSON object ordering.
+ */
 export function canonicalJson(value) {
   return JSON.stringify(stableValue(value));
 }
 
+/**
+ * Computes the SHA-256 hex digest for a text value used in evidence fingerprints
+ * and packet identity checks.
+ */
 export function sha256Hex(value) {
   return createHash("sha256").update(String(value)).digest("hex");
 }
 
+/**
+ * Computes a file SHA-256 digest and fails with path-specific context instead
+ * of silently treating unreadable files as empty evidence.
+ */
 export function fileSha256(file) {
   try {
     return createHash("sha256").update(readFileSync(file)).digest("hex");
@@ -40,16 +62,32 @@ export function fileSha256(file) {
   }
 }
 
+/**
+ * Produces the canonical packet fingerprint used to bind task packets, reviews,
+ * and execution-ledger evidence.
+ */
 export function packetHash(packet) {
   return sha256Hex(canonicalJson(packet));
 }
 
+/**
+ * Checks whether an ISO timestamp is recent enough for quality gates while
+ * rejecting unparsable values and allowing up to one minute of future clock skew.
+ */
 export function isFreshIso(value, maxAgeMs, nowMs = Date.now()) {
+  if (!Number.isFinite(maxAgeMs)) {
+    // Invalid freshness windows are treated as stale evidence for compatibility.
+    return false;
+  }
   const parsed = Date.parse(String(value || ""));
   if (!Number.isFinite(parsed)) return false;
-  return nowMs - parsed <= maxAgeMs && parsed - nowMs <= 60_000;
+  return nowMs - parsed <= maxAgeMs && parsed - nowMs <= MAX_FUTURE_SKEW_MS;
 }
 
+/**
+ * Reads basic file metadata without following symlink status away, returning a
+ * non-throwing absent-file shape for report validators.
+ */
 export function fileInfo(file) {
   if (!existsSync(file)) return { exists: false, size: 0, isFile: false, isSymlink: false };
   const lstat = lstatSync(file);
@@ -63,6 +101,10 @@ export function fileInfo(file) {
   };
 }
 
+/**
+ * Resolves a candidate artifact path under a trusted root and rejects missing,
+ * escaping, or symlink-resolved paths outside that root.
+ */
 export function resolveContainedPath(root, candidate) {
   const base = realpathSync(path.resolve(root));
   const raw = String(candidate || "").trim();

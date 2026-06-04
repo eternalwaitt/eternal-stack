@@ -1,0 +1,14 @@
+{
+  "rowType": "ROUTE_MATRIX",
+  "route": "/example",
+  "source": "app/example/page.tsx",
+  "kind": "page",
+  "auth": "public",
+  "fixture": "not_required",
+  "cold_ms": 150,
+  "warm_ms": 40,
+  "bytes": 2048,
+  "status": 200,
+  "redirect": "none",
+  "notes": "example row"
+}

@@ -5,7 +5,7 @@
 ./scripts/doctor.sh
 ```
 
-Default install is intentionally usable but conservative: it installs observer hooks, prompt routing, prompt expansion, `CLAUDE.md` reinjection, the locked advisory rate limiter, post-tool observation, session cleanup, scripts, docs, rules, skills, and agents. Hard blockers stay opt-in.
+Default install is intentionally usable but conservative: it installs observer hooks, prompt routing, prompt expansion, once-per-session `CLAUDE.md` reinjection, the locked advisory rate limiter, post-tool observation, session cleanup, scripts, docs, rules, skills, and agents. Hard blockers stay opt-in.
 
 Strict local install:
 
@@ -37,7 +37,7 @@ The installer:
 - installs `~/.claude/scripts/update-check.mjs`, `update.sh`, and `uninstall.sh` so installed Claude sessions can explain, detect, and repair drift from the source checkout
 - runs `settings-audit.mjs --fix` so duplicate hook commands are compacted and the legacy race-prone rate limiter is replaced with `cc-rate-limiter.sh`
 - runs the hook and workflow-tool test harnesses plus the post-upgrade canary
-- merges safe observer hooks into existing settings by default, including `UserPromptSubmit` `CLAUDE.md` reinjection and the advisory rate limiter
+- merges safe observer hooks into existing settings by default, including once-per-session `UserPromptSubmit` `CLAUDE.md` reinjection and the advisory rate limiter
 - merges strict blocker hooks, including `PreToolUse`, `Stop`, and `SubagentStop`, only when `CLAUDE_CONTROL_PLANE_ENABLE_STRICT=1`
 - records the evidence-before-agreement lesson to Hindsight only as a stable upsert when Hindsight is configured
 

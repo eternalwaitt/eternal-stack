@@ -9,15 +9,18 @@ source ./scripts/lib/skill-lists.sh
 source ./tests/lib/harness.sh
 cc_test_init
 export CLAUDE_HOME="$TMPROOT/claude"
+export CODEX_HOME="$TMPROOT/codex"
 export CLAUDE_GUARD_STATE_DIR="$TMPROOT/state"
 
 dry_run_home="$TMPROOT/dry-run-claude"
-if CLAUDE_HOME="$dry_run_home" "$ROOT/scripts/install.sh" --dry-run >/dev/null; then
+dry_run_codex_home="$TMPROOT/dry-run-codex"
+if CLAUDE_HOME="$dry_run_home" CODEX_HOME="$dry_run_codex_home" "$ROOT/scripts/install.sh" --dry-run >/dev/null; then
   ok "install dry-run succeeds"
 else
   not_ok "install dry-run succeeds"
 fi
 assert_no_directory "install dry-run does not create Claude home" "$dry_run_home"
+assert_no_directory "install dry-run does not create Codex home" "$dry_run_codex_home"
 
 "$ROOT/scripts/install.sh" >/dev/null
 
@@ -27,8 +30,19 @@ done
 for command_name in "${OWNED_COMMANDS[@]}"; do
   assert_file "installed $command_name command" "$CLAUDE_HOME/commands/$command_name.md"
 done
+for skill in "${OWNED_SKILLS[@]}"; do
+  assert_file "installed Claude skill $skill" "$CLAUDE_HOME/skills/$skill/SKILL.md"
+  assert_file "synced Codex skill $skill" "$CODEX_HOME/skills/$skill/SKILL.md"
+done
+if cmp -s "$CLAUDE_HOME/skills/etrnl-autoplan/SKILL.md" "$CODEX_HOME/skills/etrnl-autoplan/SKILL.md"; then
+  ok "Claude and Codex autoplan skills match"
+else
+  not_ok "Claude and Codex autoplan skills match"
+fi
 assert_executable "installed execution ledger helper" "$CLAUDE_HOME/scripts/execution-ledger.mjs"
 assert_executable "installed deep-stack helper" "$CLAUDE_HOME/scripts/deep-stack-check.mjs"
+assert_executable "installed deep-audit artifact helper" "$CLAUDE_HOME/scripts/deep-audit-artifact-check.mjs"
+assert_file "installed deep-audit category registry" "$CLAUDE_HOME/scripts/lib/deep-audit-categories.mjs"
 assert_file "installed deep-stack artifact library" "$CLAUDE_HOME/scripts/lib/deep-stack-artifacts.mjs"
 assert_executable "installed review log helper" "$CLAUDE_HOME/scripts/review-log.mjs"
 assert_executable "installed project buglog helper" "$CLAUDE_HOME/scripts/project-buglog.mjs"
@@ -135,6 +149,7 @@ for agent in etrnl-adversary etrnl-browser-qa etrnl-design-reviewer etrnl-dx-rev
 done
 for skill in "${OWNED_SKILLS[@]}"; do
   assert_no_directory "rollback removed $skill" "$CLAUDE_HOME/skills/$skill"
+  assert_no_directory "rollback removed Codex $skill" "$CODEX_HOME/skills/$skill"
 done
 for command_name in "${OWNED_COMMANDS[@]}"; do
   assert_no_file "rollback removed $command_name command" "$CLAUDE_HOME/commands/$command_name.md"

@@ -25,6 +25,10 @@ function prioritySortValue(priority) {
   return Number.isFinite(numeric) ? numeric : Number.POSITIVE_INFINITY;
 }
 
+/**
+ * Groups validated evidence rows by competitor and capability for generated
+ * matrix/backlog rendering, warning when evidence references unknown competitors.
+ */
 export function markerRows(manifest, evidenceDoc) {
   const knownCompetitors = new Set(manifest.competitors.map((c) => c.id));
   const rowsByCompetitor = new Map();
@@ -50,6 +54,10 @@ export function markerRows(manifest, evidenceDoc) {
   });
 }
 
+/**
+ * Renders the generated capability matrix from marker rows and embeds the exact
+ * regeneration command expected by docs health checks.
+ */
 export function renderMatrix(markers) {
   const header = ["Competitor", ...CAPABILITY_DEFS.map((cap) => escapeTableCell(cap.id))];
   const lines = [
@@ -79,6 +87,10 @@ export function renderMatrix(markers) {
   return `${lines.join("\n")}\n`;
 }
 
+/**
+ * Renders the generated per-competitor does/partial/does-not summary from the
+ * same marker rows as the capability matrix.
+ */
 export function renderDoesDoesnt(markers) {
   const lines = ["# Does / Doesn't by Competitor", "", "<!-- Generated file. Do not edit manually. -->", REGEN_COMMENT, ""];
   for (const marker of markers) {
@@ -103,6 +115,10 @@ export function renderDoesDoesnt(markers) {
   return `${lines.join("\n")}\n`;
 }
 
+/**
+ * Renders the generated ETRNL parity backlog, sorting priorities numerically
+ * before falling back to a stable lexical order.
+ */
 export function renderParityBacklog(scorecard) {
   const lines = [
     "# ETRNL Parity Backlog",

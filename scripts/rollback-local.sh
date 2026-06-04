@@ -2,6 +2,7 @@
 set -Eeuo pipefail
 
 ROOT="${CLAUDE_HOME:-$HOME/.claude}"
+CODEX_TARGET="${CODEX_HOME:-$HOME/.codex}"
 BACKUP=""
 DRY_RUN=0
 
@@ -76,7 +77,7 @@ fi
 if [[ -z "$BACKUP" || ! -d "$BACKUP" ]]; then
   if [[ "$DRY_RUN" == "1" ]]; then
     printf 'Dry run: no backup directory found; rollback would require a backup path or an existing %s/backups entry.\n' "$ROOT"
-    printf 'Dry run: would remove repo-owned agents, skills, commands, and hooks before restoring backed-up copies.\n'
+    printf 'Dry run: would remove repo-owned agents, Claude/Codex skills, commands, and hooks before restoring backed-up copies.\n'
     exit 0
   fi
   printf 'No backup directory found. Set CLAUDE_GUARD_DISABLED=1 to bypass guards manually.\n' >&2
@@ -115,7 +116,7 @@ if [[ "$DRY_RUN" == "1" ]]; then
   if (( restore_count > 0 )); then
     printf 'Dry run: would restore files: %s\n' "${restore_files[*]}"
   fi
-  printf 'Dry run: would remove repo-owned agents, skills, commands, and hooks before restoring backed-up copies.\n'
+  printf 'Dry run: would remove repo-owned agents, Claude/Codex skills, commands, and hooks before restoring backed-up copies.\n'
   exit 0
 fi
 
@@ -172,6 +173,16 @@ for skill in "${OWNED_SKILLS[@]}"; do
   if [[ -d "$BACKUP/skills/$skill" ]]; then
     cp -R -- "$BACKUP/skills/$skill" "$ROOT/skills/$skill"
     restored+=("skills/$skill")
+    restored_count=$((restored_count + 1))
+  fi
+done
+
+mkdir -p "$CODEX_TARGET/skills"
+for skill in "${OWNED_SKILLS[@]}"; do
+  rm -rf -- "$CODEX_TARGET/skills/$skill"
+  if [[ -d "$BACKUP/codex-skills/$skill" ]]; then
+    cp -R -- "$BACKUP/codex-skills/$skill" "$CODEX_TARGET/skills/$skill"
+    restored+=("codex-skills/$skill")
     restored_count=$((restored_count + 1))
   fi
 done

@@ -66,6 +66,18 @@ cc_prompt_context_cap() {
   fi
 }
 
+cc_prompt_sha256() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum | cut -d' ' -f1 && return 0
+    return 1
+  fi
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 | cut -d' ' -f1 && return 0
+    return 1
+  fi
+  return 1
+}
+
 cc_prompt_collect_upward() {
   local start="$1"
   local dir candidate
@@ -146,11 +158,16 @@ cc_prompt_add_referenced_markdown() {
 }
 
 cc_prompt_claude_context() {
-  case "${CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD:-1}" in
-    0|false|FALSE|no|NO|off|OFF) return 0 ;;
+  local inject_mode force_always global_claude project_file fingerprint fingerprint_hash cc_prompt_context cc_prompt_seen_files cc_prompt_remaining_chars raw_mode
+  raw_mode="${CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD:-once}"
+  inject_mode="$(printf '%s' "$raw_mode" | tr '[:upper:]' '[:lower:]')"
+  case "$inject_mode" in
+    0|false|no|off) return 0 ;;
   esac
 
-  local global_claude project_file cc_prompt_context cc_prompt_seen_files cc_prompt_remaining_chars
+  force_always=false
+  [[ "$inject_mode" == "always" ]] && force_always=true
+
   cc_prompt_context=""
   cc_prompt_seen_files=""
   cc_prompt_remaining_chars="$(cc_prompt_context_cap "${CLAUDE_CONTROL_PLANE_CLAUDE_MD_MAX_CHARS:-}")"
@@ -166,6 +183,18 @@ cc_prompt_claude_context() {
   done < <(cc_prompt_collect_upward "$cwd")
 
   [[ -n "$cc_prompt_seen_files" ]] || return 0
+  if fingerprint_hash="$(printf '%s' "$cc_prompt_seen_files" | cc_prompt_sha256)"; then
+    fingerprint="claude-md-context-injected:$fingerprint_hash"
+  else
+    fingerprint="claude-md-context-paths:$cc_prompt_seen_files"
+  fi
+  if [[ "$force_always" != "true" ]] \
+    && cc_state_has_warning_fingerprint "$fingerprint"; then
+    return 0
+  fi
+  if [[ "$force_always" != "true" ]]; then
+    cc_state_record_warning_fingerprint "$fingerprint" || true
+  fi
   printf '%s\n' "$cc_prompt_context"
 }
 
@@ -192,6 +221,7 @@ claude_context="$(cc_prompt_claude_context)"
 notes+=("Evidence-first correction protocol: do not use reflexive agreement phrases like \"You're right\". State what is verified or unverified, then name the evidence check or correction.")
 documentation_health_pattern='documentation[[:space:]-]+health|docs[[:space:]-]+health|documentation[[:space:]-]+audit|docs[[:space:]-]+audit|documentation[[:space:]-]+drift|docs[[:space:]-]+drift|stale[[:space:]]+docs|readme[[:space:]-]+audit|adr[[:space:]-]+health|runbook[[:space:]-]+audit|api[[:space:]-]+docs[[:space:]-]+audit|tsdoc|jsdoc|code[[:space:]-]+documentation[[:space:]-]+health|onboarding[[:space:]-]+docs|documentation[[:space:]-]+pass'
 code_health_pattern='code[[:space:]]+health|health[[:space:]]+check|repo[[:space:]]+rot|audit[[:space:]]+.*(whole|entire)[[:space:]]+codebase|no[[:space:]]+skips|dead[[:space:]]+code|pr-gate'
+ci_cd_pattern='ci/cd|ci-cd|ci[[:space:]-]+pipeline|pipeline[[:space:]-]+(failed|failure|broken|failing)|workflow[[:space:]-]+run[[:space:]-]+(failed|failure|broken|failing)|continuous[[:space:]]+integration|continuous[[:space:]]+delivery|github[[:space:]]+actions?|gitlab[[:space:]]+ci|jenkins|branch[[:space:]-]+protection|deployment[[:space:]-]+automation|release[[:space:]-]+gate|deploy[[:space:]-]+gate|oidc|sbom|cosign|docker[[:space:]-]+image[[:space:]-]+build|canary[[:space:]-]+deploy|blue[[:space:]-]+green|rollback[[:space:]-]+pipeline|flaky[[:space:]-]+ci|slow[[:space:]-]+build'
 case "$prompt_lower" in
   *"why"*|*"are you sure"*|*"that's not"*|*"thats not"*|*"not what"*|*"wrong"*|*"still"*|*"wasn't"*|*"wasnt"*|*"i thought"*|*"you said"*|*"she said"*|*"loose ends"*|*"wdym"*)
     cc_state_append_value evidenceChallenges "$prompt"
@@ -248,9 +278,25 @@ if [[ "$prompt_lower" =~ $code_health_pattern ]]; then
   record_skill "etrnl-code-health"
   notes+=("Use etrnl-code-health: inventory every tracked file, load the repo Health Stack, create a findings ledger, and close every finding as fixed, false-positive, accepted-risk, or blocked.")
 fi
+if [[ "$prompt_lower" =~ $ci_cd_pattern ]]; then
+  record_skill "etrnl-ci-cd"
+  notes+=("Use etrnl-ci-cd: map lanes, preserve required check names through an aggregate job, harden workflow permissions/secrets, and verify with local syntax plus a real CI run or source-limited blocker.")
+fi
 if [[ "$prompt_lower" =~ $documentation_health_pattern ]]; then
   record_skill "etrnl-documentation-health"
   notes+=("Use etrnl-documentation-health: inventory docs first, verify claims against source/runtime truth, fan out read-only documentation lanes when broad, and close every finding with evidence.")
+fi
+if [[ "$prompt_lower" =~ deep[[:space:]-]+audit|full[[:space:]]+registered[[:space:]]+audit|full[[:space:]]+registered[[:space:]]+deep[[:space:]]+audit|all_registered ]]; then
+  record_skill "etrnl-deep-audit"
+  notes+=("Use etrnl-deep-audit: create shared worklists, run registered deep-audit categories, require lane receipts where applicable, and validate the final artifact.")
+fi
+if [[ "$prompt_lower" =~ production[[:space:]-]+readiness|auth[[:space:]]+edge[[:space:]]+cases|webhook[[:space:]-]+reliability|webhook[[:space:]-]+safety|webhook.*tenan|tenan.*migration|error[[:space:]]+boundar ]]; then
+  record_skill "etrnl-production-readiness"
+  notes+=("Use etrnl-production-readiness: audit validation, auth, webhooks, tenancy, migrations, env access, route states, and error boundaries using shared deep-audit worklists.")
+fi
+if [[ "$prompt_lower" =~ performance[[:space:]-]+audit|speed[[:space:]-]+audit|latency[[:space:]-]+audit|route[[:space:]]+latency|bundle[[:space:]]+size|react[[:space:]]+rendering|infrastructure[[:space:]]+speed|cold[[:space:]]+and[[:space:]]+warm[[:space:]]+performance ]]; then
+  record_skill "etrnl-performance-audit"
+  notes+=("Use etrnl-performance-audit: fan out database, API, bundle, React rendering, background work, and infrastructure lanes after shared worklists exist.")
 fi
 if [[ "$prompt_lower" =~ browser[[:space:]]+qa|browser[[:space:]]+test|route.*viewport|screenshot|console.*network|ui[[:space:]]+verification ]]; then
   record_skill "etrnl-qa-browser"

@@ -10,6 +10,7 @@ fi
 # shellcheck source=scripts/lib/skill-lists.sh
 source "$SKILL_LISTS"
 TARGET="${CLAUDE_HOME:-$HOME/.claude}"
+CODEX_TARGET="${CODEX_HOME:-$HOME/.codex}"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP="$TARGET/backups/control-plane-install-$STAMP"
 SETTINGS_TEMPLATE="$ROOT/templates/settings.json"
@@ -74,6 +75,28 @@ copy_dir_contents() {
   fi
 }
 
+sync_owned_skills() {
+  local source_dir="$1"
+  local target_dir="$2"
+  local backup_dir="${3:-}"
+  local skill
+  if [[ ! -d "$source_dir" ]]; then
+    printf 'fatal: missing directory %s\n' "$source_dir" >&2
+    return 1
+  fi
+  mkdir -p "$target_dir"
+  if [[ -n "$backup_dir" ]]; then
+    mkdir -p "$backup_dir"
+  fi
+  for skill in "${OWNED_SKILLS[@]}"; do
+    if [[ -n "$backup_dir" && -d "$target_dir/$skill" ]]; then
+      cp -R -- "$target_dir/$skill" "$backup_dir/$skill"
+    fi
+    rm -rf -- "$target_dir/$skill"
+    cp -R -- "$source_dir/$skill" "$target_dir/$skill"
+  done
+}
+
 validate_source_install_inputs() {
   local missing=() file agent command_name skill
   for file in \
@@ -121,6 +144,7 @@ validate_source_install_inputs() {
 if [[ "$DRY_RUN" == "1" ]]; then
   validate_source_install_inputs
   printf 'Dry run: would install Claude control plane files into %s\n' "$TARGET"
+  printf 'Dry run: would sync ETRNL skills into %s/skills\n' "$CODEX_TARGET"
   printf 'Dry run: would create backup at %s\n' "$BACKUP"
   printf 'Dry run: registered hooks template would be %s\n' "$SETTINGS_TEMPLATE"
   exit 0
@@ -185,7 +209,8 @@ done
 
 mkdir -p "$TARGET/hooks" "$TARGET/scripts" "$TARGET/docs/templates" "$TARGET/skills" "$TARGET/agents" "$TARGET/commands" "$TARGET/rules" "$TARGET/tests/lib" "$TARGET/tests/fixtures"
 copy_dir_contents "$ROOT/hooks" "$TARGET/hooks"
-copy_dir_contents "$ROOT/skills" "$TARGET/skills"
+sync_owned_skills "$ROOT/skills" "$TARGET/skills"
+sync_owned_skills "$ROOT/skills" "$CODEX_TARGET/skills" "$BACKUP/codex-skills"
 for agent in "${OWNED_AGENTS[@]}"; do
   cp -- "$ROOT/agents/$agent.md" "$TARGET/agents/$agent.md"
 done
@@ -226,39 +251,9 @@ mkdir -p "$TARGET/hooks/lib"
 ln -sf -- "../../tests/lib/harness.sh" "$TARGET/hooks/lib/test-harness.sh"
 cp -- "$ROOT/scripts/doctor.sh" "$TARGET/scripts/doctor-control-plane.sh"
 ln -sf -- "doctor-control-plane.sh" "$TARGET/scripts/doctor.sh"
-cp -- "$ROOT/scripts/code-health-inventory.mjs" "$TARGET/scripts/code-health-inventory.mjs"
-cp -- "$ROOT/scripts/code-health-ledger-check.mjs" "$TARGET/scripts/code-health-ledger-check.mjs"
-cp -- "$ROOT/scripts/documentation-comment-health.mjs" "$TARGET/scripts/documentation-comment-health.mjs"
-cp -- "$ROOT/scripts/documentation-health-ledger-check.mjs" "$TARGET/scripts/documentation-health-ledger-check.mjs"
-cp -- "$ROOT/scripts/merge-settings.mjs" "$TARGET/scripts/merge-settings.mjs"
-cp -- "$ROOT/scripts/settings-audit.mjs" "$TARGET/scripts/settings-audit.mjs"
-cp -- "$ROOT/scripts/deep-stack-check.mjs" "$TARGET/scripts/deep-stack-check.mjs"
-cp -- "$ROOT/scripts/plan-readiness-check.mjs" "$TARGET/scripts/plan-readiness-check.mjs"
-cp -- "$ROOT/scripts/agent-task-packet-check.mjs" "$TARGET/scripts/agent-task-packet-check.mjs"
-cp -- "$ROOT/scripts/guard-override-token.mjs" "$TARGET/scripts/guard-override-token.mjs"
-cp -- "$ROOT/scripts/replay-hook-fixtures.mjs" "$TARGET/scripts/replay-hook-fixtures.mjs"
-cp -- "$ROOT/scripts/execution-ledger.mjs" "$TARGET/scripts/execution-ledger.mjs"
-cp -- "$ROOT/scripts/execute-evidence-check.mjs" "$TARGET/scripts/execute-evidence-check.mjs"
-cp -- "$ROOT/scripts/execution-wave-check.mjs" "$TARGET/scripts/execution-wave-check.mjs"
-cp -- "$ROOT/scripts/review-log.mjs" "$TARGET/scripts/review-log.mjs"
-cp -- "$ROOT/scripts/project-buglog.mjs" "$TARGET/scripts/project-buglog.mjs"
-cp -- "$ROOT/scripts/browser-qa-report.mjs" "$TARGET/scripts/browser-qa-report.mjs"
-cp -- "$ROOT/scripts/context-state.mjs" "$TARGET/scripts/context-state.mjs"
-cp -- "$ROOT/scripts/workflow-health.mjs" "$TARGET/scripts/workflow-health.mjs"
-cp -- "$ROOT/scripts/prompt-budget-check.mjs" "$TARGET/scripts/prompt-budget-check.mjs"
-cp -- "$ROOT/scripts/skill-contract-check.mjs" "$TARGET/scripts/skill-contract-check.mjs"
-cp -- "$ROOT/scripts/skill-behavior-smoke.mjs" "$TARGET/scripts/skill-behavior-smoke.mjs"
-cp -- "$ROOT/scripts/changelog-release-check.mjs" "$TARGET/scripts/changelog-release-check.mjs"
-cp -- "$ROOT/scripts/port-guard.mjs" "$TARGET/scripts/port-guard.mjs"
-cp -- "$ROOT/scripts/research-competitor-intel.mjs" "$TARGET/scripts/research-competitor-intel.mjs"
-cp -- "$ROOT/scripts/update-check.mjs" "$TARGET/scripts/update-check.mjs"
-cp -- "$ROOT/scripts/codex-rtk-pre-tool-use.sh" "$TARGET/scripts/codex-rtk-pre-tool-use.sh"
-cp -- "$ROOT/scripts/update.sh" "$TARGET/scripts/update.sh"
-cp -- "$ROOT/scripts/uninstall.sh" "$TARGET/scripts/uninstall.sh"
-cp -- "$ROOT/scripts/canary-websearch.sh" "$TARGET/scripts/canary-websearch.sh"
-cp -- "$ROOT/scripts/canary-hindsight.sh" "$TARGET/scripts/canary-hindsight.sh"
-cp -- "$ROOT/scripts/post-upgrade-canary.sh" "$TARGET/scripts/post-upgrade-canary.sh"
-cp -- "$ROOT/scripts/rollback-local.sh" "$TARGET/scripts/rollback-local.sh"
+for script in "${INSTALL_SCRIPTS[@]}"; do
+  cp -- "$ROOT/scripts/$script" "$TARGET/scripts/$script"
+done
 mkdir -p "$TARGET/scripts/lib"
 copy_dir_contents "$ROOT/scripts/lib" "$TARGET/scripts/lib"
 chmod +x "$TARGET/hooks/test-hooks.sh" "$TARGET/hooks/test-workflow-tools.sh" "$TARGET/tests/test-hooks.sh" "$TARGET/tests/test-workflow-tools.sh" "$TARGET/scripts/"*.sh
@@ -372,6 +367,9 @@ verify_install_state() {
   [[ -f "$TARGET/settings.json" ]] || missing+=("settings.json")
   [[ -f "$TARGET/control-plane/install.json" ]] || missing+=("control-plane/install.json")
   [[ -x "$TARGET/scripts/update.sh" ]] || missing+=("scripts/update.sh")
+  for file in "${OWNED_SKILLS[@]}"; do
+    [[ -f "$CODEX_TARGET/skills/$file/SKILL.md" ]] || missing+=("codex skills/$file/SKILL.md")
+  done
   if (( ${#missing[@]} > 0 )); then
     printf 'install error: post-install verification failed — missing files:\n' >&2
     printf '  %s\n' "${missing[@]}" >&2
@@ -382,6 +380,7 @@ verify_install_state
 CLAUDE_HOME="$TARGET" "$TARGET/scripts/post-upgrade-canary.sh"
 
 printf 'Installed Claude control plane files. Backup: %s\n' "$BACKUP"
+printf 'Synced ETRNL skills into Codex: %s/skills\n' "$CODEX_TARGET"
 printf 'Installed ETRNL agents: %s\n' "${OWNED_AGENTS[*]}"
 if [[ "$legacy_moved" == "1" ]]; then
   printf 'Moved legacy repo-owned skills into backup: %s/skills\n' "$BACKUP"

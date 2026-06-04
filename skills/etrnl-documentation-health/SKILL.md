@@ -1,8 +1,6 @@
 ---
 name: etrnl-documentation-health
 description: ETRNL documentation-health audit and remediation workflow. Use when the user asks for "documentation health", "docs health", "documentation audit", "docs drift", "stale docs", "README/ADR/runbook/API docs audit", "TSDoc/JSDoc health", "code documentation health", onboarding docs, or a "100/100 documentation pass".
-model: opus
-effort: high
 ---
 # ETRNL Documentation Health
 

@@ -1,8 +1,6 @@
 ---
 name: etrnl-review
 description: ETRNL control-plane review workflow for Claude Code. Use for code reviews, plan reviews, final review passes, pitfalls, loose ends, risks, and quick wins.
-model: opus
-effort: high
 ---
 # Code Review
 

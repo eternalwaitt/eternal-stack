@@ -1,0 +1,385 @@
+{
+  "schemaVersion": 1,
+  "artifactType": "deep-stack-plan",
+  "planPath": "docs/plans/2026-06-03-deep-audit-skills-orchestrator-plan.md",
+  "deepReview": {
+    "status": "passed",
+    "phases": ["ceo", "engineering", "dx", "adversarial", "specialist", "reuse", "simplifier"],
+    "completedAt": "2026-06-03T19:58:01Z"
+  },
+  "sourceManifest": {
+    "sources": [
+      {
+        "sourceId": "repo-control-plane",
+        "version": "current",
+        "commit": "7f0457d91c8e9631fc4b8b8b5e018bc4e13e9b43",
+        "hash": "git:7f0457d91c8e9631fc4b8b8b5e018bc4e13e9b43",
+        "capturedAt": "2026-06-03T19:33:33Z",
+        "refreshCommand": "git rev-parse HEAD",
+        "requiredFiles": [
+          "docs/skills.md",
+          "docs/health-stack.md",
+          "scripts/skill-contract-check.mjs",
+          "scripts/prompt-budget-check.mjs",
+          "scripts/skill-behavior-smoke.mjs",
+          "skills/etrnl-code-health/SKILL.md",
+          "skills/etrnl-parallel/SKILL.md",
+          "skills/etrnl-execute/SKILL.md"
+        ]
+      },
+      {
+        "sourceId": "production-readiness-audit-spec",
+        "version": "user-provided-2026-06-03",
+        "commit": "not_applicable_user_source",
+        "hash": "sha256:48090c3e4e04d2b018b65349bcbfef963988db1621499163c4fe438fa58a6b93",
+        "capturedAt": "2026-06-03T19:33:33Z",
+        "refreshCommand": "verify supplied source hash before rewrite",
+        "requiredFiles": ["source:production-readiness-audit-spec"]
+      },
+      {
+        "sourceId": "performance-audit-spec",
+        "version": "user-provided-2026-06-03",
+        "commit": "not_applicable_user_source",
+        "hash": "sha256:16b832a0f048897c1107e8215e4e0a17ba8b6141a8b0c48331270b0285f490b8",
+        "capturedAt": "2026-06-03T19:33:33Z",
+        "refreshCommand": "verify supplied source hash before rewrite",
+        "requiredFiles": ["source:performance-audit-spec"]
+      }
+    ]
+  },
+  "skillMatrix": [
+    {
+      "skill": "etrnl-plan",
+      "status": "required",
+      "trigger": "user requested a saved implementation plan",
+      "evidence": "This plan follows the file-backed planning workflow."
+    },
+    {
+      "skill": "autoplan",
+      "status": "required",
+      "trigger": "user requested autoplan with 10/10 completeness",
+      "evidence": "Plan includes CEO, engineering, and DX autoplan review sections plus direct plan changes."
+    },
+    {
+      "skill": "skill-creator",
+      "status": "required",
+      "trigger": "implementation creates new skills",
+      "evidence": "Plan requires compact skill entrypoints, reference-backed detail, and prompt-budget protection."
+    },
+    {
+      "skill": "code-simplifier",
+      "status": "required",
+      "trigger": "implementation adds new skill and script surfaces",
+      "evidence": "Completion requires simplifier review after source implementation."
+    },
+    {
+      "skill": "finding-duplicate-functions",
+      "status": "optional",
+      "trigger": "artifact validator may overlap with deep-stack or ledger validators",
+      "evidence": "Run when helper implementation duplicates existing validator logic."
+    },
+    {
+      "skill": "brooks-audit",
+      "status": "optional",
+      "trigger": "workflow architecture review",
+      "evidence": "Run before completion when available to challenge orchestrator and category boundaries."
+    },
+    {
+      "skill": "typescript-advanced-types",
+      "status": "not_applicable",
+      "trigger": "plain JavaScript control-plane helper and markdown skill work",
+      "evidence": "No advanced TypeScript surfaces are planned.",
+      "notApplicableRationale": "No exported TypeScript types, API contracts, runtime validation types, generated types, state machines, branded IDs, reusable type utilities, or cross-layer DTO boundaries are touched."
+    }
+  ],
+  "reuseInventory": {
+    "searchedPaths": [
+      "docs/plans",
+      "docs/skills.md",
+      "docs/health-stack.md",
+      "docs/research",
+      "skills",
+      "scripts",
+      "tests"
+    ],
+    "existingAnalogs": [
+      "skills/etrnl-code-health/SKILL.md",
+      "skills/etrnl-parallel/SKILL.md",
+      "skills/etrnl-execute/SKILL.md",
+      "scripts/deep-stack-check.mjs",
+      "scripts/skill-contract-check.mjs",
+      "scripts/prompt-budget-check.mjs",
+      "scripts/skill-behavior-smoke.mjs"
+    ],
+    "candidateHelpers": [
+      "scripts/lib/cli-args.mjs",
+      "scripts/lib/deep-stack-artifacts.mjs",
+      "scripts/lib/text-matchers.mjs"
+    ],
+    "candidateTests": [
+      "tests/test-workflow-tools.sh",
+      "tests/fixtures/skill-triggering/cases.json",
+      "tests/fixtures/deep-stack/deep-stack.valid.json"
+    ],
+    "decisions": [
+      {
+        "surface": "skills/etrnl-deep-audit",
+        "newSurface": true,
+        "reuseDecision": "Create a router skill instead of expanding etrnl-code-health.",
+        "newSurfaceJustification": "Application deep-audit category orchestration is a distinct workflow from repo health inventory and gate closure."
+      },
+      {
+        "surface": "skills/etrnl-production-readiness",
+        "newSurface": true,
+        "reuseDecision": "Create a category skill with reference-backed checks.",
+        "newSurfaceJustification": "Production-readiness ownership is broad and needs direct invocation without loading performance details."
+      },
+      {
+        "surface": "skills/etrnl-performance-audit",
+        "newSurface": true,
+        "reuseDecision": "Create a category skill with a six-lane fanout reference.",
+        "newSurfaceJustification": "Performance has a different execution model and runtime evidence contract from production readiness."
+      },
+      {
+        "surface": "scripts/deep-audit-artifact-check.mjs",
+        "newSurface": true,
+        "reuseDecision": "Add one bounded validator and reuse existing CLI argument helpers.",
+        "newSurfaceJustification": "Existing validators check plan, deep-stack, skill, and ledger contracts but do not validate category audit synthesis artifacts."
+      }
+    ]
+  },
+  "findings": [
+    {
+      "severity": "high",
+      "status": "fixed",
+      "path": "docs/plans/2026-06-03-deep-audit-skills-orchestrator-plan.md",
+      "category": "architecture",
+      "fix": "Rejected a single giant skill and planned a thin orchestrator with category skills and mechanical artifact validation.",
+      "owner": "parent",
+      "fingerprint": "deep-audit-router-not-giant-skill"
+    },
+    {
+      "severity": "high",
+      "status": "fixed",
+      "path": "docs/plans/2026-06-03-deep-audit-skills-orchestrator-plan.md",
+      "category": "coverage",
+      "fix": "Replaced ambiguous full-audit language with all_registered coverage semantics and known unimplemented categories.",
+      "owner": "autoplan-ceo",
+      "fingerprint": "deep-audit-all-registered-coverage"
+    },
+    {
+      "severity": "high",
+      "status": "fixed",
+      "path": "docs/plans/2026-06-03-deep-audit-skills-orchestrator-plan.md",
+      "category": "validator",
+      "fix": "Required a machine-readable category and check registry so omitted, unknown, or duplicate checks fail mechanically.",
+      "owner": "autoplan-eng",
+      "fingerprint": "deep-audit-check-universe"
+    },
+    {
+      "severity": "high",
+      "status": "fixed",
+      "path": "docs/plans/2026-06-03-deep-audit-skills-orchestrator-plan.md",
+      "category": "install",
+      "fix": "Added install and update wiring to the plan so the validator and registry helper cannot stay source-only.",
+      "owner": "autoplan-eng",
+      "fingerprint": "deep-audit-install-wiring"
+    },
+    {
+      "severity": "high",
+      "status": "fixed",
+      "path": "docs/plans/2026-06-03-deep-audit-skills-orchestrator-plan.md",
+      "category": "dx",
+      "fix": "Added a maintainer quick start and stable problem/cause/fix diagnostics for validator failures.",
+      "owner": "autoplan-dx",
+      "fingerprint": "deep-audit-maintainer-dx"
+    }
+  ],
+  "completionAudit": [
+    {
+      "planItem": "create executable plan",
+      "classification": "DONE",
+      "evidence": "Plan file and deep-stack artifact created for readiness validation.",
+      "diffPaths": [
+        "docs/plans/2026-06-03-deep-audit-skills-orchestrator-plan.md",
+        "docs/plans/artifacts/2026-06-03-deep-audit-skills-orchestrator/deep-stack-artifacts.json"
+      ],
+      "reason": "planning turn output",
+      "impact": "low"
+    }
+  ],
+  "reviewPhases": [
+    {
+      "role": "ceo",
+      "status": "passed",
+      "checkedInputs": ["user request", "repo skill map", "source audit specs"],
+      "findingsCount": 6,
+      "openHighCount": 0,
+      "disposition": "Scope kept to orchestrator plus two category skills, with all_registered semantics and machine-readable registry enforcement.",
+      "completedAt": "2026-06-03T19:58:01Z"
+    },
+    {
+      "role": "engineering",
+      "status": "passed",
+      "checkedInputs": ["scripts", "skills", "tests", "plan readiness checker"],
+      "findingsCount": 7,
+      "openHighCount": 0,
+      "disposition": "Plan now covers install wiring, registered check universe, expected-fail fixtures, worklist hash receipts, and redaction scope.",
+      "completedAt": "2026-06-03T19:58:01Z"
+    },
+    {
+      "role": "dx",
+      "status": "passed",
+      "checkedInputs": ["docs/skills.md", "docs/health-stack.md", "skill trigger smoke"],
+      "findingsCount": 5,
+      "openHighCount": 0,
+      "disposition": "Plan now includes a maintainer quick start, stable diagnostic contract, direct category validation commands, and teachable synthetic fixture errors.",
+      "completedAt": "2026-06-03T19:58:01Z"
+    },
+    {
+      "role": "adversarial",
+      "status": "passed",
+      "checkedInputs": ["full audit semantics", "source-limited blockers", "fanout receipts"],
+      "findingsCount": 2,
+      "openHighCount": 0,
+      "disposition": "False clean and fanout drift risks are covered by artifact validation tasks.",
+      "completedAt": "2026-06-03T19:33:33Z"
+    },
+    {
+      "role": "specialist",
+      "status": "passed",
+      "checkedInputs": ["skill-creator guidance", "skillMatrix"],
+      "findingsCount": 0,
+      "openHighCount": 0,
+      "disposition": "Skill creation constraints are routed through compact entrypoints and references.",
+      "completedAt": "2026-06-03T19:33:33Z"
+    },
+    {
+      "role": "reuse",
+      "status": "passed",
+      "checkedInputs": ["reuseInventory", "existing ETRNL skills", "existing validators"],
+      "findingsCount": 0,
+      "openHighCount": 0,
+      "disposition": "Existing registry, execution, and validator surfaces are reused.",
+      "completedAt": "2026-06-03T19:33:33Z"
+    },
+    {
+      "role": "simplifier",
+      "status": "passed",
+      "checkedInputs": ["file map", "task groups", "new surfaces"],
+      "findingsCount": 0,
+      "openHighCount": 0,
+      "disposition": "One small validator plus three skill surfaces is the minimal durable shape.",
+      "completedAt": "2026-06-03T19:33:33Z"
+    }
+  ],
+  "tddEvidence": [
+    {
+      "taskId": "planning",
+      "sourceFiles": [
+        "docs/plans/2026-06-03-deep-audit-skills-orchestrator-plan.md",
+        "docs/plans/artifacts/2026-06-03-deep-audit-skills-orchestrator/deep-stack-artifacts.json"
+      ],
+      "status": "not_applicable",
+      "rationaleWhenNotTestFirst": "This turn creates a plan and validation artifact; implementation tests are specified in the plan's test-first execution section."
+    }
+  ],
+  "completionReconciliation": [
+    {
+      "planItemId": "orchestrator-plan",
+      "requestedOutcome": "Write a plan for the thin orchestrator and master audit skills.",
+      "classification": "DONE",
+      "evidence": "Plan file covers etrnl-deep-audit, etrnl-production-readiness, and etrnl-performance-audit.",
+      "changedReason": "",
+      "acceptedBy": "",
+      "impact": "low"
+    },
+    {
+      "planItemId": "future-categories",
+      "requestedOutcome": "Keep future deep-audit categories extensible.",
+      "classification": "DONE",
+      "evidence": "Plan includes a category contract reference, all_registered semantics, and future category drift validation.",
+      "changedReason": "",
+      "acceptedBy": "",
+      "impact": "low"
+    }
+  ],
+  "reuseBindings": [
+    {
+      "taskId": "planning",
+      "createsNewSurface": true,
+      "searchedPaths": ["docs/plans", "skills", "scripts", "docs", "tests"],
+      "analogs": [
+        "skills/etrnl-code-health/SKILL.md",
+        "skills/etrnl-parallel/SKILL.md",
+        "scripts/deep-stack-check.mjs",
+        "scripts/skill-contract-check.mjs"
+      ],
+      "decision": "Plan new category skills and a router while reusing registry, execution, and validation conventions.",
+      "newSurfaceJustification": "The requested application deep-audit suite does not fit the existing repo-health router without overloading its meaning."
+    }
+  ],
+  "typeTriggerEvidence": [
+    {
+      "file": "scripts/deep-audit-artifact-check.mjs",
+      "triggerSurface": "plain JavaScript CLI validator",
+      "ordinaryVerification": "node --check scripts/deep-audit-artifact-check.mjs",
+      "advancedReviewStatus": "not_applicable"
+    }
+  ],
+  "installProof": {
+    "sourceGate": {
+      "status": "not_applicable",
+      "evidence": "Implementation has not run; this artifact validates planning readiness only."
+    },
+    "stagedInstall": {
+      "status": "not_applicable",
+      "evidence": "Staged install is not in this planning scope."
+    },
+    "stagedDoctor": {
+      "status": "not_applicable",
+      "evidence": "Staged doctor is not in this planning scope."
+    },
+    "rollbackVerification": {
+      "status": "not_applicable",
+      "evidence": "Rollback proof is reserved for a later explicit install or execution turn."
+    },
+    "liveInstallDecision": {
+      "status": "not_applicable",
+      "evidence": "Live install requires an explicit request."
+    },
+    "postUpgradeCanary": {
+      "status": "not_applicable",
+      "evidence": "Post-upgrade canary is not in this planning scope."
+    }
+  },
+  "riskTier": {
+    "tier": 2,
+    "deepReviewPassed": true,
+    "reason": "Execution will add multiple source and skill surfaces but will not mutate live installed control-plane state unless later requested.",
+    "requiredArtifacts": [
+      "sourceManifest",
+      "skillMatrix",
+      "reuseInventory",
+      "findings",
+      "completionAudit",
+      "reviewPhases",
+      "tddEvidence",
+      "completionReconciliation",
+      "reuseBindings",
+      "typeTriggerEvidence",
+      "installProof"
+    ],
+    "verificationGate": "tests/test-workflow-tools.sh",
+    "acceptedRisks": []
+  },
+  "typescript": {
+    "ordinaryVerification": "No TypeScript implementation is planned; JavaScript helpers use node --check.",
+    "advancedTypes": {
+      "status": "not_applicable",
+      "triggerEvidence": [],
+      "applicableSurfaces": [],
+      "notApplicableRationale": "This plan does not touch advanced TypeScript surfaces."
+    }
+  }
+}

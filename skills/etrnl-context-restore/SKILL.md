@@ -1,8 +1,6 @@
 ---
 name: etrnl-context-restore
 description: ETRNL context-restore workflow for Claude Code. Use when resuming prior work, loading a saved handoff, recovering after compaction, or checking what remains from an earlier run.
-model: haiku
-effort: low
 disable-model-invocation: true
 ---
 # ETRNL Context Restore
