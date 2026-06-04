@@ -292,6 +292,7 @@ function validateFixtures() {
 }
 
 function importCodex() {
+  const dryRun = args.includes("--dry-run");
   const input = flagValue("--fixtures", flagValue("--input"));
   const files = existsSync(input) && statSync(input).isDirectory() ? allFiles(input).filter((file) => file.endsWith(".jsonl") || file.endsWith(".json")) : (input ? [input] : []);
   const events = [];
@@ -304,10 +305,10 @@ function importCodex() {
       const normalized = normalizeEvent({
         tool,
         source: "codex",
-        toolUsed: true,
-        eligible: true,
+        toolUsed: item.value.toolUsed === true,
+        eligible: item.value.eligible === true,
         usedBeforeFirstEdit: Boolean(item.value.usedBeforeFirstEdit),
-        usefulWork: Boolean(item.value.usefulWork || item.value.downstreamArtifact),
+        usefulWork: Boolean(item.value.usefulWork),
         downstreamArtifact: Boolean(item.value.downstreamArtifact),
         readSearchCount: Number(item.value.readSearchCount || 0),
         baselineReadSearchCount: Number(item.value.baselineReadSearchCount || item.value.readSearchCount || 0),
@@ -318,7 +319,7 @@ function importCodex() {
       else events.push(normalized);
     }
   }
-  emit({ schemaVersion: 1, command: "import-codex", dryRun: args.includes("--dry-run"), eventsImported: events.length, rejected });
+  emit({ schemaVersion: 1, command: "import-codex", dryRun, eventsImported: events.length, rejected, ...(dryRun ? { events } : {}) });
 }
 
 if (command === "validate-fixtures") validateFixtures();

@@ -1,3 +1,3 @@
-{"timestamp":"2026-06-03T20:00:00Z","cwd":"/workspace/project-alpha","tool_name":"mcp__codegraph__search","tool_input":{"query":"symbol lookup"}}
-{"timestamp":"2026-06-03T20:01:00Z","cwd":"/workspace/project-alpha","tool_name":"functions.exec_command","command":"bd show ready"}
+{"timestamp":"2026-06-03T20:00:00Z","cwd":"/workspace/project-alpha","tool_name":"mcp__codegraph__search","tool_input":{"query":"symbol lookup"},"eligible":true,"toolUsed":true,"usedBeforeFirstEdit":true,"usefulWork":true,"downstreamArtifact":true}
+{"timestamp":"2026-06-03T20:01:00Z","cwd":"/workspace/project-alpha","tool_name":"functions.exec_command","command":"bd show ready","eligible":false,"toolUsed":false,"usedBeforeFirstEdit":false,"usefulWork":false,"downstreamArtifact":false}
 {"timestamp":"2026-06-03T20:02:00Z","cwd":"/workspace/project-alpha","tool_name":"functions.exec_command","command":"rg -n unused src"}

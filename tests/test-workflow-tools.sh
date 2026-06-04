@@ -493,6 +493,7 @@ tool_effectiveness_baseline_json="$(node "$ROOT/scripts/tool-effectiveness.mjs" 
 assert_json_expr "tool-effectiveness baseline emits tool medians" "$tool_effectiveness_baseline_json" '.command == "baseline" and .byTool.codegraph.medianReadSearchCount >= 0'
 tool_effectiveness_codex_import_json="$(node "$ROOT/scripts/tool-effectiveness.mjs" import-codex --fixtures "$ROOT/tests/fixtures/tool-effectiveness/codex" --dry-run --json)"
 assert_json_expr "tool-effectiveness codex import sanitizes tool events" "$tool_effectiveness_codex_import_json" '.command == "import-codex" and .dryRun == true and .eventsImported == 2 and (.rejected | length) == 0'
+assert_json_expr "tool-effectiveness codex import preserves explicit outcomes" "$tool_effectiveness_codex_import_json" '(.events[] | select(.tool == "codegraph") | .eligible == true and .toolUsed == true and .usefulWork == true and .downstreamArtifact == true) and (.events[] | select(.tool == "beads") | .eligible == false and .toolUsed == false and .usefulWork == false and .downstreamArtifact == false)'
 assert_command "update shell syntax" bash -n "$ROOT/scripts/update.sh"
 merge_target="$TMPROOT/settings-target.json"
 merge_template="$TMPROOT/settings-template.json"
