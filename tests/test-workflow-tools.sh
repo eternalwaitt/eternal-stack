@@ -548,6 +548,13 @@ assert_json_expr "settings-audit ignores single-quoted HOME hook paths" "$settin
 assert_json_expr "settings-audit ignores double-quoted tilde hook paths" "$settings_audit_quoted_report" '([.after.externalHooks[]? | select(.hook == "check-context-and-handoff.sh")] | length) == 0'
 HOME="$settings_audit_home" node "$ROOT/scripts/settings-audit.mjs" "$settings_audit_quoted_target" --fix
 assert_json_expr "settings-audit preserves shell-literal hook paths" "$(jq -c . "$settings_audit_quoted_target")" '([.hooks.Stop[]?.hooks[]?.command // empty | select(test("check-context-and-handoff"))] | length) == 2'
+settings_audit_literal_target="$TMPROOT/settings-audit-literal-target.json"
+cat >"$settings_audit_literal_target" <<'JSON'
+{"hooks":{"PostToolUse":[{"hooks":[{"type":"command","command":"bash '$HOME/.claude/hooks/rate-limiter.sh'"}]}]}}
+JSON
+HOME="$settings_audit_home" node "$ROOT/scripts/settings-audit.mjs" "$settings_audit_literal_target" --fix
+assert_json_expr "settings-audit preserves single-quoted HOME rate limiter literal" "$(jq -c . "$settings_audit_literal_target")" '(.hooks.PostToolUse[0].hooks[0].command | contains("$HOME/.claude/hooks/rate-limiter.sh"))'
+assert_json_expr "settings-audit does not rewrite single-quoted HOME rate limiter literal" "$(jq -c . "$settings_audit_literal_target")" '([.hooks.PostToolUse[].hooks[].command | select(test("cc-rate-limiter"))] | length) == 0'
 settings_audit_strict_status=0
 HOME="$settings_audit_home" node "$ROOT/scripts/settings-audit.mjs" "$settings_audit_target" --strict-conflicts >/dev/null 2>&1 || settings_audit_strict_status=$?
 if [[ "$settings_audit_strict_status" -ne 0 ]]; then ok "settings-audit strict conflicts fail closed"; else not_ok "settings-audit strict conflicts should fail closed"; fi

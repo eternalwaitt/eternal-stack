@@ -10,6 +10,7 @@ fi
 # shellcheck source=scripts/lib/skill-lists.sh
 source "$SKILL_LISTS"
 TARGET="${CLAUDE_HOME:-$HOME/.claude}"
+CODEX_TARGET="${CODEX_HOME:-$HOME/.codex}"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP="$TARGET/backups/control-plane-install-$STAMP"
 SETTINGS_TEMPLATE="$ROOT/templates/settings.json"
@@ -74,6 +75,28 @@ copy_dir_contents() {
   fi
 }
 
+sync_owned_skills() {
+  local source_dir="$1"
+  local target_dir="$2"
+  local backup_dir="${3:-}"
+  local skill
+  if [[ ! -d "$source_dir" ]]; then
+    printf 'fatal: missing directory %s\n' "$source_dir" >&2
+    return 1
+  fi
+  mkdir -p "$target_dir"
+  if [[ -n "$backup_dir" ]]; then
+    mkdir -p "$backup_dir"
+  fi
+  for skill in "${OWNED_SKILLS[@]}"; do
+    if [[ -n "$backup_dir" && -d "$target_dir/$skill" ]]; then
+      cp -R -- "$target_dir/$skill" "$backup_dir/$skill"
+    fi
+    rm -rf -- "$target_dir/$skill"
+    cp -R -- "$source_dir/$skill" "$target_dir/$skill"
+  done
+}
+
 validate_source_install_inputs() {
   local missing=() file agent command_name skill
   for file in \
@@ -121,6 +144,7 @@ validate_source_install_inputs() {
 if [[ "$DRY_RUN" == "1" ]]; then
   validate_source_install_inputs
   printf 'Dry run: would install Claude control plane files into %s\n' "$TARGET"
+  printf 'Dry run: would sync ETRNL skills into %s/skills\n' "$CODEX_TARGET"
   printf 'Dry run: would create backup at %s\n' "$BACKUP"
   printf 'Dry run: registered hooks template would be %s\n' "$SETTINGS_TEMPLATE"
   exit 0
@@ -185,7 +209,8 @@ done
 
 mkdir -p "$TARGET/hooks" "$TARGET/scripts" "$TARGET/docs/templates" "$TARGET/skills" "$TARGET/agents" "$TARGET/commands" "$TARGET/rules" "$TARGET/tests/lib" "$TARGET/tests/fixtures"
 copy_dir_contents "$ROOT/hooks" "$TARGET/hooks"
-copy_dir_contents "$ROOT/skills" "$TARGET/skills"
+sync_owned_skills "$ROOT/skills" "$TARGET/skills"
+sync_owned_skills "$ROOT/skills" "$CODEX_TARGET/skills" "$BACKUP/codex-skills"
 for agent in "${OWNED_AGENTS[@]}"; do
   cp -- "$ROOT/agents/$agent.md" "$TARGET/agents/$agent.md"
 done
@@ -342,6 +367,9 @@ verify_install_state() {
   [[ -f "$TARGET/settings.json" ]] || missing+=("settings.json")
   [[ -f "$TARGET/control-plane/install.json" ]] || missing+=("control-plane/install.json")
   [[ -x "$TARGET/scripts/update.sh" ]] || missing+=("scripts/update.sh")
+  for file in "${OWNED_SKILLS[@]}"; do
+    [[ -f "$CODEX_TARGET/skills/$file/SKILL.md" ]] || missing+=("codex skills/$file/SKILL.md")
+  done
   if (( ${#missing[@]} > 0 )); then
     printf 'install error: post-install verification failed — missing files:\n' >&2
     printf '  %s\n' "${missing[@]}" >&2
@@ -352,6 +380,7 @@ verify_install_state
 CLAUDE_HOME="$TARGET" "$TARGET/scripts/post-upgrade-canary.sh"
 
 printf 'Installed Claude control plane files. Backup: %s\n' "$BACKUP"
+printf 'Synced ETRNL skills into Codex: %s/skills\n' "$CODEX_TARGET"
 printf 'Installed ETRNL agents: %s\n' "${OWNED_AGENTS[*]}"
 if [[ "$legacy_moved" == "1" ]]; then
   printf 'Moved legacy repo-owned skills into backup: %s/skills\n' "$BACKUP"

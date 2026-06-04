@@ -535,7 +535,7 @@ function runValidateSyntheticFixtures() {
       errors.push(diagnostic("SYNTHETIC_TEMPLATE_MISSING", path.join(templatesDir, file), `Synthetic template is missing ${file}.`, "The fixture cannot teach the expected report row shape.", `Add ${file}.`));
     }
   }
-  const labels = ["ROUTE_MATRIX", "AUTH_BLOCKER", "NOT_APPLICABLE", "CONFIRMED_CLEAN", "CHECKS_SKIPPED"];
+  const labels = ["ROUTE_MATRIX", "AUTH_BLOCKER", "NOT_APPLICABLE", "CONFIRMED_CLEAN", "CHECKS_SKIPPED", "SOURCE_LIMITED"];
   const combined = [...requiredFixtureFiles.map((file) => path.join(fixtureDir, file)), ...requiredTemplates.map((file) => path.join(templatesDir, file))]
     .filter((file) => fs.existsSync(file))
     .map((file) => fs.readFileSync(file, "utf8"))

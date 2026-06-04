@@ -1,5 +1,5 @@
 {
-  "rowType": "AUTH_BLOCKER",
+  "rowType": "SOURCE_LIMITED",
   "sourceLimitedBlockers": [
     {
       "checkId": "perf-02-server-response-caching",

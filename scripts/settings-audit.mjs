@@ -29,11 +29,37 @@ const readJson = (path) => {
 
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const homeDirPattern = new RegExp(`(^|[\\s"'=:])${escapeRegex(homeDir)}(?=$|[\\s/"'=:])`, "g");
-const canonicalCommand = (command) =>
-  String(command ?? "")
-    .trim()
-    .replace(/\$\{HOME\}|\$HOME/g, homeDir)
-    .replace(homeDirPattern, "$1~");
+const canonicalCommandSegment = (segment) => segment.replace(/\$\{HOME\}|\$HOME/g, homeDir).replace(homeDirPattern, "$1~");
+const canonicalCommand = (command) => {
+  const input = String(command ?? "").trim();
+  let output = "";
+  let segment = "";
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+
+  const flush = () => {
+    output += inSingleQuote ? segment : canonicalCommandSegment(segment);
+    segment = "";
+  };
+
+  for (const char of input) {
+    if (char === "'" && !inDoubleQuote) {
+      flush();
+      output += char;
+      inSingleQuote = !inSingleQuote;
+      continue;
+    }
+    if (char === '"' && !inSingleQuote) {
+      segment += char;
+      inDoubleQuote = !inDoubleQuote;
+      continue;
+    }
+    segment += char;
+  }
+
+  flush();
+  return output;
+};
 const matcherTokens = (matcher) => {
   if (matcher === undefined || matcher === null || String(matcher).trim() === "") return null;
   return String(matcher)

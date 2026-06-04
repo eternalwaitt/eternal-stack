@@ -1,10 +1,14 @@
 {
   "rowType": "ROUTE_MATRIX",
   "route": "/example",
-  "status": 200,
-  "coldMs": 150,
-  "warmMs": 40,
+  "source": "app/example/page.tsx",
+  "kind": "page",
+  "auth": "public",
+  "fixture": "not_required",
+  "cold_ms": 150,
+  "warm_ms": 40,
   "bytes": 2048,
-  "authFixture": "public",
-  "dynamicFixture": "not_required"
+  "status": 200,
+  "redirect": "none",
+  "notes": "example row"
 }
