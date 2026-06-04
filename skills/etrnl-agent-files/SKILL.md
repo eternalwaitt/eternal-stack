@@ -20,6 +20,8 @@ Before recommending edits, declare:
 
 If the user asks for "all levels", "all sublevels", "startup files", "Claude and Codex sessions", or does not name a narrow file, inspect every applicable level in the active load chain. Do not propose pruning `AGENTS.md`, `CLAUDE.md`, rules, or overlays from one repo until nested/closer files, imported markdown, installed copies, and runtime-injected context for the target have also been inventoried.
 
+When the cwd is a workspace root or parent directory such as `~/Github`, do not treat the absence of `CLAUDE.md` or `AGENTS.md` in that parent as "global-only" evidence. First enumerate child git repos and workspace folders, then sample or inventory their root and nested agent files. Report the target set explicitly, including any repos skipped for size, access, or safety.
+
 For monorepos and workspaces, walk downward from the target root for nested agent files:
 
 - `AGENTS.md`, `AGENTS.override.md`
@@ -29,6 +31,8 @@ For monorepos and workspaces, walk downward from the target root for nested agen
 - local tool overlays such as `RTK.md` only when they are part of the target session's actual load chain
 
 When the repo is `claude-control-plane`, distinguish control-plane source maintenance from auditing the user's installed Claude/Codex session context. Repo-managed source changes belong in this repo; installed-home drift is verified separately and updated through install/update scripts unless the user explicitly requests a local override.
+
+Default to read-only audit output unless the user explicitly asks to edit. Do not stop to ask which surfaces to audit when a complete read-only inventory is possible. If edits are requested and ownership is split, apply repo-owned changes in the repo canonical source, local overlay changes in the installed-home overlay, and report any source-limited surfaces instead of asking a multiple-choice scope question.
 
 ## Evidence Pass
 
