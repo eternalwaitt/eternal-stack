@@ -386,6 +386,7 @@ inventory_exclusion_json="$(node "$ROOT/scripts/code-health-inventory.mjs" --jso
 assert_json_expr "code-health inventory lists obvious folders without auditing them" "$inventory_exclusion_json" '([.files[] | select(.path == "src/app.ts" and .auditScope == "audit")] | length) == 1 and ([.files[] | select(.path != "src/app.ts")] | all(.auditScope == "listed")) and ([.files[] | select(.path | startswith(".audit/"))][0].category == "excluded")'
 assert_command "plan readiness syntax" node --check "$ROOT/scripts/plan-readiness-check.mjs"
 assert_command "deep-stack check syntax" node --check "$ROOT/scripts/deep-stack-check.mjs"
+assert_command "tool-effectiveness syntax" node --check "$ROOT/scripts/tool-effectiveness.mjs"
 assert_command "deep-stack artifact library syntax" node --check "$ROOT/scripts/lib/deep-stack-artifacts.mjs"
 assert_command "deep-audit artifact check syntax" node --check "$ROOT/scripts/deep-audit-artifact-check.mjs"
 assert_command "deep-audit category registry syntax" node --check "$ROOT/scripts/lib/deep-audit-categories.mjs"
@@ -450,9 +451,19 @@ expect(parsed[5], "single quoted value", "single-quoted branch");
 expect(parsed[6], "plain token", "unquoted escaped space branch");
 expect(parsed[7], "escaped space token", "unquoted multi-escape branch");
 JS
-for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger execute-evidence-check execution-wave-check code-health-ledger-check documentation-comment-health documentation-health-ledger-check review-log project-buglog browser-qa-report context-state workflow-health prompt-budget-check changelog-release-check port-guard update-check settings-audit deep-stack-check; do
+for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger execute-evidence-check execution-wave-check tool-effectiveness code-health-ledger-check documentation-comment-health documentation-health-ledger-check review-log project-buglog browser-qa-report context-state workflow-health prompt-budget-check changelog-release-check port-guard update-check settings-audit deep-stack-check; do
   assert_command "$script syntax" node --check "$ROOT/scripts/$script.mjs"
 done
+tool_effectiveness_fixtures_json="$(node "$ROOT/scripts/tool-effectiveness.mjs" summarize --fixtures "$ROOT/tests/fixtures/tool-effectiveness" --json)"
+assert_command "tool-effectiveness fixtures validate" node "$ROOT/scripts/tool-effectiveness.mjs" validate-fixtures --fixtures "$ROOT/tests/fixtures/tool-effectiveness"
+assert_json_expr "tool-effectiveness codegraph keep verdict" "$tool_effectiveness_fixtures_json" '.tools.codegraph.verdict == "keep" and .tools.codegraph.evidence.eligibleSessions >= 5'
+assert_json_expr "tool-effectiveness beads keep verdict" "$tool_effectiveness_fixtures_json" '.tools.beads.verdict == "keep"'
+assert_json_expr "tool-effectiveness duplicate beads remove-watch verdict" "$tool_effectiveness_fixtures_json" '."tools"."beads-duplicate-fixture".verdict == "remove-watch"'
+assert_json_expr "tool-effectiveness privacy fixture rejected" "$tool_effectiveness_fixtures_json" '.totals.rejected == 1'
+tool_effectiveness_baseline_json="$(node "$ROOT/scripts/tool-effectiveness.mjs" baseline --since-days 7 --fixtures "$ROOT/tests/fixtures/tool-effectiveness" --json)"
+assert_json_expr "tool-effectiveness baseline emits tool medians" "$tool_effectiveness_baseline_json" '.command == "baseline" and .byTool.codegraph.medianReadSearchCount >= 0'
+tool_effectiveness_codex_import_json="$(node "$ROOT/scripts/tool-effectiveness.mjs" import-codex --fixtures "$ROOT/tests/fixtures/tool-effectiveness/codex" --dry-run --json)"
+assert_json_expr "tool-effectiveness codex import sanitizes tool events" "$tool_effectiveness_codex_import_json" '.command == "import-codex" and .dryRun == true and .eventsImported == 2 and (.rejected | length) == 0'
 assert_command "update shell syntax" bash -n "$ROOT/scripts/update.sh"
 merge_target="$TMPROOT/settings-target.json"
 merge_template="$TMPROOT/settings-template.json"
@@ -519,6 +530,18 @@ if advisory_skill_out="$(node "$ROOT/scripts/skill-contract-check.mjs" --root "$
   not_ok "skill contracts reject advisory wording"
 else
   assert_contains "skill contracts reject advisory wording" "$advisory_skill_out" 'advisory wording "prefer"'
+fi
+model_skill_root="$TMPROOT/model-skill-root"
+mkdir -p "$model_skill_root/scripts/lib" "$model_skill_root/docs" "$model_skill_root/skills/etrnl-model-pinned" "$model_skill_root/hooks/lib"
+printf '%s\n' 'OWNED_SKILLS=(' '  "etrnl-model-pinned"' ')' 'OWNED_AGENTS=()' >"$model_skill_root/scripts/lib/skill-lists.sh"
+printf '%s\n' '# ETRNL Skills' '' '| Command | Purpose |' '| --- | --- |' '| /etrnl-model-pinned | Test skill |' >"$model_skill_root/docs/skills.md"
+printf '%s\n' 'get_etrnl_skill_hint() {' '  printf "%s\n" "/etrnl-model-pinned"' '}' >"$model_skill_root/hooks/lib/skill-hints.sh"
+printf '%s\n' '---' 'name: etrnl-model-pinned' 'description: Test skill.' 'model: sonnet' 'effort: medium' '---' '# Model Pinned Skill' '' '- Use active model routing.' >"$model_skill_root/skills/etrnl-model-pinned/SKILL.md"
+if model_skill_out="$(node "$ROOT/scripts/skill-contract-check.mjs" --root "$model_skill_root" 2>&1)"; then
+  not_ok "skill contracts reject model routing frontmatter"
+else
+  assert_contains "skill contracts reject model routing frontmatter" "$model_skill_out" 'model frontmatter is not allowed'
+  assert_contains "skill contracts reject effort routing frontmatter" "$model_skill_out" 'effort frontmatter is not allowed'
 fi
 assert_command "skill behavior smoke syntax" node --check "$ROOT/scripts/skill-behavior-smoke.mjs"
 assert_command "skill behavior smoke pass" node "$ROOT/scripts/skill-behavior-smoke.mjs" --root "$ROOT"
@@ -896,6 +919,12 @@ else
 fi
 doctor_health_json="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" doctor --json --all)"
 assert_json_expr "workflow health doctor reports ledgers" "$doctor_health_json" '.command == "doctor" and .ledgers.total >= 2'
+mkdir -p "$health_root/artifacts/tool-effectiveness"
+printf '%s\n' '{"schemaVersion":1,"tool":"codegraph","eligible":true,"toolUsed":true,"usedBeforeFirstEdit":true}' >"$health_root/artifacts/tool-effectiveness/events.jsonl"
+effectiveness_status_json="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" status --json --all)"
+assert_json_expr "workflow health status projects effectiveness when present" "$effectiveness_status_json" '.effectiveness.events == 1 and (.effectiveness.tools | index("codegraph")) != null'
+effectiveness_doctor_json="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" doctor --json --all)"
+assert_json_expr "workflow health doctor reports effectiveness health" "$effectiveness_doctor_json" '.effectiveness.events == 1 and .effectiveness.malformed == 0'
 jq -n '{"schemaVersion":2,"runId":"old-terminal-run","sessionId":"old","cwd":"/tmp/old","projectId":"old","updatedAt":"2000-01-01T00:00:00Z","tasks":[{"id":"T1","status":"verified"}],"agents":[],"checks":[{"name":"fixture","status":"passed"}],"events":[]}' >"$health_root/runs/old-terminal-run.json"
 prune_health_json="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" prune --older-than-days 30 --dry-run --json --all)"
 assert_json_expr "workflow health prune dry-run reports prunable ledgers" "$prune_health_json" '.command == "prune" and .dryRun == true and (.prunable | map(.runId) | index("old-terminal-run")) != null and .pruned == 0'

@@ -2,7 +2,10 @@
 
 ## Unreleased
 
+- Remove hard `model:`/`effort:` routing from repo-owned `etrnl-*` skills and enforce active-model inheritance in `skill-contract-check.mjs` to prevent slash-skill invocations from taking the wrong context-entitlement path.
 - Add `/etrnl-deep-audit`, `/etrnl-production-readiness`, and `/etrnl-performance-audit` as registered deep-audit skills with a shared category registry, artifact validator, fixture suite, and install/test coverage.
+- Add `/etrnl-ci-cd` as a canonical repo-owned skill and wire it into owned-skill install/discovery, prompt routing, trigger fixtures, docs, and parity-scorecard coverage.
+- Add local tool-effectiveness measurement for CodeGraph, Beads, Codex imports, and hook-pattern signals, including deterministic keep/drop verdict fixtures, workflow-health projection, and a synthetic continuous-project config template.
 
 ## v0.1.7 - 2026-06-03
 

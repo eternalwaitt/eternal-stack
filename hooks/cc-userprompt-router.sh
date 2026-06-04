@@ -221,6 +221,7 @@ claude_context="$(cc_prompt_claude_context)"
 notes+=("Evidence-first correction protocol: do not use reflexive agreement phrases like \"You're right\". State what is verified or unverified, then name the evidence check or correction.")
 documentation_health_pattern='documentation[[:space:]-]+health|docs[[:space:]-]+health|documentation[[:space:]-]+audit|docs[[:space:]-]+audit|documentation[[:space:]-]+drift|docs[[:space:]-]+drift|stale[[:space:]]+docs|readme[[:space:]-]+audit|adr[[:space:]-]+health|runbook[[:space:]-]+audit|api[[:space:]-]+docs[[:space:]-]+audit|tsdoc|jsdoc|code[[:space:]-]+documentation[[:space:]-]+health|onboarding[[:space:]-]+docs|documentation[[:space:]-]+pass'
 code_health_pattern='code[[:space:]]+health|health[[:space:]]+check|repo[[:space:]]+rot|audit[[:space:]]+.*(whole|entire)[[:space:]]+codebase|no[[:space:]]+skips|dead[[:space:]]+code|pr-gate'
+ci_cd_pattern='ci/cd|ci-cd|continuous[[:space:]]+integration|continuous[[:space:]]+delivery|github[[:space:]]+actions?|gitlab[[:space:]]+ci|jenkins|branch[[:space:]-]+protection|deployment[[:space:]-]+automation|release[[:space:]-]+gate|deploy[[:space:]-]+gate|oidc|sbom|cosign|docker[[:space:]-]+image[[:space:]-]+build|canary[[:space:]-]+deploy|blue[[:space:]-]+green|rollback[[:space:]-]+pipeline|flaky[[:space:]-]+ci|slow[[:space:]-]+build'
 case "$prompt_lower" in
   *"why"*|*"are you sure"*|*"that's not"*|*"thats not"*|*"not what"*|*"wrong"*|*"still"*|*"wasn't"*|*"wasnt"*|*"i thought"*|*"you said"*|*"she said"*|*"loose ends"*|*"wdym"*)
     cc_state_append_value evidenceChallenges "$prompt"
@@ -276,6 +277,10 @@ fi
 if [[ "$prompt_lower" =~ $code_health_pattern ]]; then
   record_skill "etrnl-code-health"
   notes+=("Use etrnl-code-health: inventory every tracked file, load the repo Health Stack, create a findings ledger, and close every finding as fixed, false-positive, accepted-risk, or blocked.")
+fi
+if [[ "$prompt_lower" =~ $ci_cd_pattern ]]; then
+  record_skill "etrnl-ci-cd"
+  notes+=("Use etrnl-ci-cd: map lanes, preserve required check names through an aggregate job, harden workflow permissions/secrets, and verify with local syntax plus a real CI run or source-limited blocker.")
 fi
 if [[ "$prompt_lower" =~ $documentation_health_pattern ]]; then
   record_skill "etrnl-documentation-health"

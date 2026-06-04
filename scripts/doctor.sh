@@ -233,13 +233,17 @@ if [[ -f "$ROOT/scripts/codex-rtk-pre-tool-use.sh" ]]; then
 else
   fail "codex RTK hook script missing"
 fi
-for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger execute-evidence-check execution-wave-check code-health-ledger-check documentation-comment-health documentation-health-ledger-check review-log project-buglog browser-qa-report context-state workflow-health prompt-budget-check skill-contract-check skill-behavior-smoke changelog-release-check port-guard update-check research-competitor-intel settings-audit; do
+for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger execute-evidence-check execution-wave-check tool-effectiveness code-health-ledger-check documentation-comment-health documentation-health-ledger-check review-log project-buglog browser-qa-report context-state workflow-health prompt-budget-check skill-contract-check skill-behavior-smoke changelog-release-check port-guard update-check research-competitor-intel settings-audit; do
   if [[ -f "$ROOT/scripts/$script.mjs" ]]; then
     report_command "$script syntax valid" "$script syntax invalid" node --check "$ROOT/scripts/$script.mjs"
   else
     fail "$script script missing"
   fi
 done
+if [[ -d "$ROOT/tests/fixtures/tool-effectiveness" ]]; then
+  report_command "tool-effectiveness fixtures valid" "tool-effectiveness fixtures invalid" node "$ROOT/scripts/tool-effectiveness.mjs" validate-fixtures --fixtures "$ROOT/tests/fixtures/tool-effectiveness"
+  report_command "tool-effectiveness fixture summary runs" "tool-effectiveness fixture summary failed" node "$ROOT/scripts/tool-effectiveness.mjs" summarize --fixtures "$ROOT/tests/fixtures/tool-effectiveness" --json
+fi
 for hook_file in "${CRITICAL_HOOKS[@]}"; do
   if [[ -f "$ROOT/hooks/$hook_file" ]]; then
     ok "critical hook present: $hook_file"

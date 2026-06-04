@@ -9,6 +9,7 @@ Claude Code personal and project skills use hyphenated command names. If this co
 | `/etrnl-agent-files` | Model or user | Maintains AGENTS.md, CLAUDE.md, rules, and agent instruction files without bloat. |
 | `/etrnl-autoplan` | Model or user | Creates readiness-compatible execution plans with task groups, subagent candidates, verification gates, question policy, and mandatory deep-stack artifacts for final plans. |
 | `/etrnl-brainstorm` | Model or user | Turns ambiguous ideas into approved design/spec files before implementation planning. |
+| `/etrnl-ci-cd` | Model or user | Designs, audits, hardens, debugs, and repairs CI/CD lanes, GitHub Actions, branch protection, artifact/deploy gates, OIDC, SBOM/provenance, rollback, flaky CI, and slow builds. |
 | `/etrnl-code-health` | Model or user | Runs the canonical code-health router: inventory, Health Stack, deterministic gates, companion audits, ledger, and no-skips closure. |
 | `/etrnl-deep-audit` | Model or user | Runs registered application deep-audit categories through a shared artifact envelope, shared worklists, category reports, lane receipts, and `all_registered` coverage statements. |
 | `/etrnl-documentation-health` | Model or user | Runs documentation-health audits and fixes across READMEs, docs, ADRs, runbooks, API/runtime docs, AI context, and code comments with inventory, drift evidence, and parallel review lanes. |
@@ -100,12 +101,13 @@ These skills are not owned by this repo, but the control plane knows about them 
 | `browser-qa-report.mjs` | `~/.claude/scripts/browser-qa-report.mjs` | Creates, migrates, hashes, and validates browser QA artifacts; v2 `complete` reports require route/viewport matrix rows, screenshot hashes, fresh capture timestamps, provenance, and numeric console/network counts. |
 | `context-state.mjs` | `~/.claude/scripts/context-state.mjs` | Saves, validates, lists, and restores concise workflow context with stale-state detection. |
 | `workflow-health.mjs` | `~/.claude/scripts/workflow-health.mjs` | Summarizes recent ETRNL workflow runs, filtered `status --json`, doctor/prune diagnostics, stale runs, missing artifacts, UAT state, and next local action from local files. |
+| `tool-effectiveness.mjs` | `~/.claude/scripts/tool-effectiveness.mjs` | Summarizes sanitized local CodeGraph, Beads, Codex-import, and hook-pattern signals into deterministic keep/enforce/repo-specific/remove-watch/insufficient-data verdicts. |
 | `prompt-budget-check.mjs` | `~/.claude/scripts/prompt-budget-check.mjs` | Fails oversized skills or agents before prompt bloat becomes default context. |
 | `port-guard.mjs` | `~/.claude/scripts/port-guard.mjs` | Checks or picks explicit free local dev-server ports before commands run. |
 | `project-buglog.mjs` | `~/.claude/scripts/project-buglog.mjs` | Records and suggests project-local repeated bug memories with cross-session fingerprints, redaction, file/project JSON output, stale-hint filtering, and no transcript storage. |
 | `changelog-release-check.mjs` | `~/.claude/scripts/changelog-release-check.mjs` | Enforces release hygiene so `Unreleased` does not hide shipped work on `main`. |
 | `research-competitor-intel.mjs` | `~/.claude/scripts/research-competitor-intel.mjs` | Validates pinned competitor manifests, evidence rows, parity scorecards, and refresh cadence. |
-| `skill-contract-check.mjs` | `~/.claude/scripts/skill-contract-check.mjs` | Fails when repo-owned skills drift from docs, helper scripts, readiness contracts, directive-language rules, SessionStart hints, or installed copies. |
+| `skill-contract-check.mjs` | `~/.claude/scripts/skill-contract-check.mjs` | Fails when repo-owned skills drift from docs, helper scripts, readiness contracts, directive-language rules, model/context inheritance, SessionStart hints, or installed copies. |
 | `skill-behavior-smoke.mjs` | `~/.claude/scripts/skill-behavior-smoke.mjs` | Runs end-to-end helper smoke checks for the skill behaviors that must fail closed before live use. |
 | `doctor-control-plane.sh` | `~/.claude/scripts/doctor-control-plane.sh` | Checks installed hooks, settings, skills, agents, docs, scripts, strict/default mode, and workflow state. |
 | `update.sh` | `~/.claude/scripts/update.sh` | Re-enters the recorded source checkout and runs the normal installer for local upgrades. |

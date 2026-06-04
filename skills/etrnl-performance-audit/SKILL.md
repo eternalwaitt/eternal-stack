@@ -1,8 +1,6 @@
 ---
 name: etrnl-performance-audit
 description: ETRNL performance deep-audit category skill. Use when the user asks for a performance audit, speed audit, latency audit, bundle audit, route matrix audit, cold/warm timing pass, database query performance review, React rendering performance review, perceived performance review, or infrastructure/network performance review.
-model: opus
-effort: high
 ---
 # ETRNL Performance Audit
 

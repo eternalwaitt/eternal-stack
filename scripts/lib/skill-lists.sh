@@ -11,6 +11,7 @@ OWNED_SKILLS=(
   etrnl-agent-files
   etrnl-autoplan
   etrnl-brainstorm
+  etrnl-ci-cd
   etrnl-code-health
   etrnl-commit
   etrnl-context-restore
@@ -63,6 +64,7 @@ CRITICAL_SCRIPTS=(
   documentation-health-ledger-check.mjs
   execution-ledger.mjs
   execute-evidence-check.mjs
+  tool-effectiveness.mjs
   deep-stack-check.mjs
   deep-audit-artifact-check.mjs
   plan-readiness-check.mjs
@@ -111,6 +113,7 @@ INSTALL_SCRIPTS=(
   execution-ledger.mjs
   execute-evidence-check.mjs
   execution-wave-check.mjs
+  tool-effectiveness.mjs
   review-log.mjs
   project-buglog.mjs
   browser-qa-report.mjs

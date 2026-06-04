@@ -156,6 +156,13 @@ Keep those in the canonical competitor lock until intentionally refreshed. Use t
 - Add `react-doctor` as optional framework-specific quality-gate benchmark.
 - Consider adding `claude-code-harness` if the next research extraction supports its script-heavy evidence.
 
+## Pilot Measurement Criteria
+
+- CodeGraph value is counted when it is used before source edits for impact discovery, symbol relationships, cross-file navigation, or code-health investigation. Late use after manual exploration is useful only when it produces downstream evidence; it is not autonomous value.
+- Beads value is counted only for durable backlog, dependency, claim, blocker, or discovered-follow-up state before planning, before a resumed task, or between ETRNL runs. Beads use that duplicates an active execution ledger is noise.
+- Weekly decisions come from `tool-effectiveness.mjs summarize --since-days 7 --all --projects-config "$HOME/.claude/control-plane/tool-effectiveness/projects.json" --json`, not manual transcript review.
+- Verdicts are advisory during the first week unless fixture/schema/privacy gates fail. Public tracked files may include only synthetic project-registry examples; real continuous-project paths stay local.
+
 ## Non-Adoption Notes
 
 - Do not vendor large skill catalogs (`ComposioHQ/awesome-codex-skills`, `Anthropic-Cybersecurity-Skills`, `agent-skills`) into startup context.
@@ -171,4 +178,3 @@ Keep those in the canonical competitor lock until intentionally refreshed. Use t
 - Main shallow clones: `/tmp/ccp-star-dive/*`
 - Token/indexing lane clones: `/tmp/ccp-star-dive/token-indexing-os5nE3/*`
 - Skill/quality lane clones: `/tmp/ccp-star-dive/20260602-225730/*`
-

@@ -89,6 +89,32 @@
       "targetMilestone": "M1"
     },
     {
+      "etrnlSkill": "etrnl-ci-cd",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 2,
+        "research_flow": 1,
+        "subagent_orchestration": 1,
+        "parallelism_safety": 2,
+        "verification_gates": 3,
+        "rollback_guardrails": 3,
+        "telemetry_proactive": 1
+      },
+      "gaps": [
+        {
+          "capability": "telemetry_proactive",
+          "target": "summarize CI run id, required-check status, deploy revision, and rollback evidence in workflow-health output",
+          "ownerSurface": "script:workflow-health.mjs",
+          "sourceRows": [
+            "get-shit-done:telemetry_proactive",
+            "gstack:telemetry_proactive"
+          ]
+        }
+      ],
+      "priority": "P1",
+      "targetMilestone": "M2"
+    },
+    {
       "etrnlSkill": "etrnl-code-health",
       "capabilityScores": {
         "tdd_enforcement": 1,

@@ -139,6 +139,13 @@ broad_codex_config_scan="$(jq '.tool_input.command = "rg -n token /Users/testuse
 out="$(run_hook cc-pretooluse-guard.sh "$broad_codex_config_scan")"
 assert_json_expr "broad codex config scan denied" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
 
+tool_signal_batch="$(jq -nc '{session_id:"fixture-tool-signals",tool_calls:[{tool_name:"mcp__codegraph__search",tool_input:{query:"symbol"}},{tool_name:"Bash",tool_input:{command:"bd show ready"}}]}')"
+run_hook cc-posttoolbatch-observer.sh "$tool_signal_batch" >/dev/null
+tool_signal_state="$(jq -c . "$TMPROOT/claude-guard-fixture-tool-signals.json")"
+assert_json_expr "posttool observer records codegraph tool signal" "$tool_signal_state" 'any(.toolSignals[]; .tool == "codegraph" and .toolKind == "codegraph" and .event == "mcp-call")'
+assert_json_expr "posttool observer records beads tool signal" "$tool_signal_state" 'any(.toolSignals[]; .tool == "beads" and .toolKind == "beads" and .event == "bash-command")'
+assert_json_expr "posttool observer records before-first-edit signal" "$tool_signal_state" '.toolUseBeforeFirstEdit.codegraph == 1 and .toolUseBeforeFirstEdit.beads == 1'
+
 disk_cleanup_state="$TMPROOT/claude-guard-fixture-disk-cleanup.json"
 jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[{value:"etrnl-disk-cleanup",at:"2026-01-01T00:00:00Z"}],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"free SSD space",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$disk_cleanup_state"
 disk_cleanup_path="$HOME/Library/Caches/example-cache"
@@ -947,7 +954,7 @@ jq -nc '{schemaVersion:1,reads:[],searches:"oops",edits:{},commands:{},verificat
 migration_event="$(jq -cn '{session_id:"fixture-migration-v1",tool_name:"Bash",cwd:"/tmp/example",tool_input:{command:"rg -n value src"}}')"
 out="$(run_hook cc-pretooluse-guard.sh "$migration_event")"
 assert_json_expr "migration event allowed" "$out" '.continue == true'
-assert_json_expr "state schema upgraded to v4" "$(jq -c . "$migration_state")" '.schemaVersion == 4'
+assert_json_expr "state schema upgraded to v5" "$(jq -c . "$migration_state")" '.schemaVersion == 5'
 assert_json_expr "state migration normalizes new buckets" "$(jq -c . "$migration_state")" '(.blockedCommands | type) == "array" and (.successfulCommands | type) == "array" and (.commandLastEditGeneration | type) == "object" and (.prodApprovalMarkers | type) == "array" and (.reviewerAgentCalls | type) == "array" and (.compactCount | type) == "number" and (.lastCompactAt | type) == "string"'
 
 broken_state="$TMPROOT/claude-guard-fixture-migration-broken.json"
@@ -955,7 +962,7 @@ printf '{broken' >"$broken_state"
 broken_event="$(jq -cn '{session_id:"fixture-migration-broken",tool_name:"Bash",cwd:"/tmp/example",tool_input:{command:"rg -n value src"}}')"
 out="$(run_hook cc-pretooluse-guard.sh "$broken_event")"
 assert_json_expr "broken legacy state fails open to default" "$out" '.continue == true'
-assert_json_expr "broken legacy state reset to schema v4" "$(jq -c . "$broken_state")" '.schemaVersion == 4'
+assert_json_expr "broken legacy state reset to schema v5" "$(jq -c . "$broken_state")" '.schemaVersion == 5'
 
 # Tiered degraded-mode policy matrix
 no_node_safe_event="$(jq -cn '{session_id:"fixture-no-node-safe",tool_name:"Bash",cwd:"/tmp/example",tool_input:{command:"rg -n value src"}}')"

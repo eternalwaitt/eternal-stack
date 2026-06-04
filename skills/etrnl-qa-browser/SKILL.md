@@ -1,8 +1,6 @@
 ---
 name: etrnl-qa-browser
 description: ETRNL browser QA workflow for Claude Code. Use when the user asks for real browser QA, screenshots, route checks, viewport checks, console/network checks, or UI verification evidence.
-model: sonnet
-effort: medium
 disable-model-invocation: true
 ---
 # ETRNL Browser QA

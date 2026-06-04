@@ -1,8 +1,6 @@
 ---
 name: etrnl-deep-audit
 description: ETRNL application deep-audit orchestrator. Use when a user asks for a deep, full, or all_registered application audit; production-readiness plus performance category orchestration; shared worklists; category reports; lane receipts; coverage statements; source-limited blockers; or deep-audit artifact validation.
-model: opus
-effort: high
 ---
 # ETRNL Deep Audit
 

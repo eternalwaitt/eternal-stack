@@ -18,6 +18,12 @@
     "unexpectedSkills": ["etrnl-execute"]
   },
   {
+    "name": "ci cd prompt routes etrnl-ci-cd",
+    "prompt": "harden the GitHub Actions workflow with deployment rollback and branch protection",
+    "expectedSkills": ["etrnl-ci-cd"],
+    "unexpectedSkills": ["etrnl-code-health"]
+  },
+  {
     "name": "code health prompt routes etrnl-code-health",
     "prompt": "run a no skips code health audit on the whole repo",
     "expectedSkills": ["etrnl-code-health"],

@@ -1,8 +1,6 @@
 ---
 name: etrnl-code-health
 description: ETRNL control-plane master code-health router. Use when the user asks for "code health", "audit the whole codebase", "no skips", "repo rot", "dead code", "architecture health", "docs health", "PR gate", or a full codebase audit with no loose ends.
-model: opus
-effort: high
 ---
 # ETRNL Code Health
 

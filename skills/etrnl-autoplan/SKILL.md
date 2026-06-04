@@ -1,8 +1,6 @@
 ---
 name: etrnl-autoplan
 description: ETRNL control-plane planning companion for Claude Code. Use when the user asks to create an execution-ready implementation plan with task groups, dependencies, subagent candidates, verification gates, and explicit question policy.
-model: sonnet
-effort: medium
 ---
 # ETRNL Autoplan
 

@@ -1,8 +1,6 @@
 ---
 name: etrnl-production-readiness
 description: ETRNL deep-audit category skill for production readiness. Use when the user asks for production readiness, launch readiness, production blockers, runtime data safety, validation boundaries, auth and tenancy enforcement, webhook reliability, serverless readiness, exports, route correctness, raw env access, or App Router error boundaries.
-model: opus
-effort: high
 ---
 # ETRNL Production Readiness
 

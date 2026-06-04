@@ -1,0 +1,363 @@
+{
+  "schemaVersion": 1,
+  "artifactType": "deep-stack-plan",
+  "planPath": "docs/plans/2026-06-03-tool-effectiveness-and-beads-pilot-plan.md",
+  "deepReview": {
+    "status": "passed",
+    "phases": [
+      "ceo",
+      "engineering",
+      "dx",
+      "adversarial",
+      "specialist",
+      "reuse",
+      "simplifier",
+      "autoplan"
+    ],
+    "completedAt": "2026-06-03T23:14:00Z",
+    "summary": "Plan is scoped to local advisory measurement and Beads backlog-only pilot state, reusing existing hooks, state, execution ledgers, workflow health, doctor gates, Codex RTK coverage, local project config, and research artifacts."
+  },
+  "reviewPhases": [
+    {
+      "role": "ceo",
+      "status": "passed",
+      "checkedInputs": [
+        "user answers",
+        "docs/plans/2026-06-03-tool-effectiveness-and-beads-pilot-plan.md",
+        "docs/research/2026-06-03-starred-agent-stack-map.md",
+        "local continuous-project registry requirement"
+      ],
+      "findingsCount": 0,
+      "openHighCount": 0,
+      "disposition": "The plan answers the business question with automated keep/drop evidence, deterministic thresholds, advisory first-week verdicts, and no tracked private project inventory.",
+      "completedAt": "2026-06-03T23:14:00Z"
+    },
+    {
+      "role": "engineering",
+      "status": "passed",
+      "checkedInputs": [
+        "scripts/execution-ledger.mjs",
+        "scripts/workflow-health.mjs",
+        "hooks/cc-posttoolbatch-observer.sh",
+        "hooks/lib/state.sh",
+        "scripts/codex-rtk-pre-tool-use.sh"
+      ],
+      "findingsCount": 0,
+      "openHighCount": 0,
+      "disposition": "The plan extends existing local observation and health surfaces, adds explicit baseline and Codex import commands, and avoids creating a second telemetry stack.",
+      "completedAt": "2026-06-03T23:14:00Z"
+    },
+    {
+      "role": "dx",
+      "status": "passed",
+      "checkedInputs": [
+        "docs/configuration.md",
+        "docs/health-stack.md",
+        "docs/skills.md",
+        "templates/tool-effectiveness-projects.example.json"
+      ],
+      "findingsCount": 0,
+      "openHighCount": 0,
+      "disposition": "The weekly revisit path is a command and JSON summary with exact evidence counts, not manual log reading.",
+      "completedAt": "2026-06-03T23:14:00Z"
+    },
+    {
+      "role": "adversarial",
+      "status": "passed",
+      "checkedInputs": [
+        "Beads truth boundary",
+        "advisory-only first-week policy",
+        "privacy constraints",
+        "Codex importer constraints",
+        "tracked-project-inventory constraint"
+      ],
+      "findingsCount": 0,
+      "openHighCount": 0,
+      "disposition": "The main noise risks are captured as fixtures: late CodeGraph use, duplicate Beads state, insufficient data, raw Codex transcript ingestion, tracked private project inventory, and private-content leakage.",
+      "completedAt": "2026-06-03T23:14:00Z"
+    },
+    {
+      "role": "specialist",
+      "status": "passed",
+      "checkedInputs": [
+        "skills/etrnl-plan/SKILL.md",
+        "skills/etrnl-autoplan/SKILL.md",
+        "skills/etrnl-execute/SKILL.md"
+      ],
+      "findingsCount": 0,
+      "openHighCount": 0,
+      "disposition": "Beads is limited to backlog and dependency state before or between ETRNL runs, not planning, execution truth, or future issue-tracker truth.",
+      "completedAt": "2026-06-03T23:14:00Z"
+    },
+    {
+      "role": "reuse",
+      "status": "passed",
+      "checkedInputs": [
+        "scripts",
+        "hooks",
+        "docs",
+        "tests"
+      ],
+      "findingsCount": 0,
+      "openHighCount": 0,
+      "disposition": "Existing hook observation, state, ledgers, workflow-health, Codex RTK tests, and doctor gates are the reuse base.",
+      "completedAt": "2026-06-03T23:14:00Z"
+    },
+    {
+      "role": "simplifier",
+      "status": "passed",
+      "checkedInputs": [
+        "docs/plans/2026-06-03-tool-effectiveness-and-beads-pilot-plan.md",
+        "docs/plans/artifacts/2026-06-03-tool-effectiveness-and-beads-pilot/deep-stack-artifacts.json"
+      ],
+      "findingsCount": 0,
+      "openHighCount": 0,
+      "disposition": "The plan keeps one measurement script plus small hook, Codex-import, and workflow-health extensions; other starred-repo ideas remain patterns to steal, not always-on tools.",
+      "completedAt": "2026-06-03T23:14:00Z"
+    }
+  ],
+  "sourceManifest": {
+    "sources": [
+      {
+        "sourceId": "claude-control-plane-current-checkout",
+        "version": "current-working-tree",
+        "commit": "d79bafa37917d6ee098c574e3c877b8264b159ad",
+        "hash": "sha256:64506aac6573b49d12ef70cf617a3b2ea9502b76a430d42b46028942dbd99bed",
+        "capturedAt": "2026-06-03T23:03:00Z",
+        "refreshCommand": "git rev-parse HEAD && shasum -a 256 docs/plans/2026-06-03-tool-effectiveness-and-beads-pilot-plan.md",
+        "requiredFiles": [
+          "docs/plans/2026-06-03-tool-effectiveness-and-beads-pilot-plan.md",
+          "docs/research/2026-06-03-starred-agent-stack-map.md",
+          "scripts/execution-ledger.mjs",
+          "scripts/workflow-health.mjs",
+          "scripts/codex-rtk-pre-tool-use.sh",
+          "hooks/cc-posttoolbatch-observer.sh",
+          "hooks/lib/state.sh",
+          "templates/tool-effectiveness-projects.example.json"
+        ]
+      }
+    ]
+  },
+  "skillMatrix": [
+    {
+      "skill": "etrnl-plan",
+      "status": "required",
+      "trigger": "user requested a saved base plan and follow-up improvements",
+      "evidence": "Plan follows the file-backed ETRNL planning workflow and passed plan-readiness in draft mode before finalization."
+    },
+    {
+      "skill": "code-simplifier",
+      "status": "required",
+      "trigger": "future implementation creates a new summarizer and hook classifications",
+      "evidence": "Plan requires keeping the aggregator small and reusing workflow-health, hook state, execution ledger, and Codex RTK parsing where possible."
+    },
+    {
+      "skill": "finding-duplicate-functions",
+      "status": "optional",
+      "trigger": "future implementation may duplicate ledger or workflow-health parsing",
+      "evidence": "Run during implementation if helper logic overlaps existing parsers."
+    },
+    {
+      "skill": "brooks-audit",
+      "status": "optional",
+      "trigger": "future implementation changes workflow enforcement or public control-plane docs",
+      "evidence": "Use only if broad enforcement changes are made."
+    },
+    {
+      "skill": "typescript-advanced-types",
+      "status": "not_applicable",
+      "trigger": "planning-only markdown and JSON artifact work in this turn",
+      "evidence": "No TypeScript source is changed by this planning artifact.",
+      "notApplicableRationale": "No exported or public types, API contracts, runtime validation, generated types, state machines, branded IDs, reusable type utilities, or cross-layer DTO boundaries are touched."
+    }
+  ],
+  "reuseInventory": {
+    "searchedPaths": [
+      "scripts",
+      "hooks",
+      "docs",
+      "skills",
+      "tests"
+    ],
+    "existingAnalogs": [
+      "hooks/cc-posttoolbatch-observer.sh",
+      "hooks/lib/state.sh",
+      "scripts/codex-rtk-pre-tool-use.sh",
+      "scripts/execution-ledger.mjs",
+      "scripts/workflow-health.mjs",
+      "scripts/doctor.sh",
+      "tests/test-hooks.sh",
+      "tests/test-workflow-tools.sh"
+    ],
+    "candidateHelpers": [
+      "scripts/lib/cli-args.mjs",
+      "scripts/lib/evidence-trace.mjs",
+      "scripts/lib/text-matchers.mjs",
+      "scripts/codex-rtk-pre-tool-use.sh"
+    ],
+    "candidateTests": [
+      "tests/test-hooks.sh",
+      "tests/test-workflow-tools.sh",
+      "hooks/fixtures/events/replay",
+      "tests/fixtures/tool-effectiveness"
+    ],
+    "decisions": [
+      {
+        "surface": "scripts/tool-effectiveness.mjs",
+        "newSurface": true,
+        "reuseDecision": "Create one bounded aggregator while reusing hook state, ledgers, workflow-health filters, Codex RTK coverage, and doctor gates.",
+        "newSurfaceJustification": "No existing script computes keep, enforce, repo-specific, remove-watch, or insufficient-data verdicts across Claude/Codex tool usage and workflow outcomes."
+      },
+      {
+        "surface": "hooks/cc-posttoolbatch-observer.sh",
+        "newSurface": false,
+        "reuseDecision": "Extend existing observer classifications instead of adding another hook.",
+        "newSurfaceJustification": ""
+      },
+      {
+        "surface": "scripts/workflow-health.mjs",
+        "newSurface": false,
+        "reuseDecision": "Expose optional effectiveness summaries through existing status and doctor commands.",
+        "newSurfaceJustification": ""
+      },
+      {
+        "surface": "templates/tool-effectiveness-projects.example.json",
+        "newSurface": true,
+        "reuseDecision": "Create a synthetic tracked template for the local project registry instead of committing private project names or paths.",
+        "newSurfaceJustification": "The pilot needs all continuous projects, but this public repo cannot track Victor-specific project inventory."
+      }
+    ]
+  },
+  "findings": [],
+  "completionAudit": [
+    {
+      "planItem": "tool-effectiveness-plan",
+      "classification": "DONE",
+      "evidence": "Final plan and deep-stack artifact capture automatic local measurement, Codex and Claude evidence paths, Beads backlog-only pilot scope, local continuous-project config, deterministic thresholds, and advisory-only first-week verdicts.",
+      "diffPaths": [
+        "docs/plans/2026-06-03-tool-effectiveness-and-beads-pilot-plan.md",
+        "docs/plans/artifacts/2026-06-03-tool-effectiveness-and-beads-pilot/deep-stack-artifacts.json"
+      ],
+      "reason": "planning turn output",
+      "impact": "low"
+    }
+  ],
+  "tddEvidence": [
+    {
+      "taskId": "planning",
+      "sourceFiles": [
+        "docs/plans/2026-06-03-tool-effectiveness-and-beads-pilot-plan.md",
+        "docs/plans/artifacts/2026-06-03-tool-effectiveness-and-beads-pilot/deep-stack-artifacts.json"
+      ],
+      "status": "not_applicable",
+      "rationaleWhenNotTestFirst": "This turn creates a plan and validation artifact; implementation tests are specified in the plan's test-first execution section."
+    }
+  ],
+  "completionReconciliation": [
+    {
+      "planItemId": "automatic-tracking",
+      "requestedOutcome": "Plan a failsafe automated way to track which additions are worth keeping without manual checking.",
+      "classification": "DONE",
+      "evidence": "Plan specifies sanitized local effectiveness events, fixture validation, baseline capture, Codex import, weekly summarize command, workflow-health projection, exact threshold verdicts, and advisory first-week verdicts.",
+      "changedReason": "",
+      "acceptedBy": "",
+      "impact": "low"
+    },
+    {
+      "planItemId": "beads-value-boundary",
+      "requestedOutcome": "Decide whether Beads adds value alongside etrnl-plan, etrnl-autoplan, and etrnl-execute.",
+      "classification": "DONE",
+      "evidence": "Plan defines Beads as backlog, dependency, claim, blocker, and discovered-follow-up state only, not plan, execution, or future issue-tracker truth.",
+      "changedReason": "",
+      "acceptedBy": "",
+      "impact": "low"
+    },
+    {
+      "planItemId": "user-decisions",
+      "requestedOutcome": "Incorporate no GitHub issue usage, all continuous projects, and advisory-only revisit behavior.",
+      "classification": "DONE",
+      "evidence": "Assumptions, Group E, phases, local project registry boundary, verification, readiness report, and verdict reflect those decisions.",
+      "changedReason": "",
+      "acceptedBy": "",
+      "impact": "low"
+    }
+  ],
+  "reuseBindings": [
+    {
+      "taskId": "planning",
+      "createsNewSurface": true,
+      "searchedPaths": [
+        "scripts",
+        "hooks",
+        "docs",
+        "skills",
+        "tests"
+      ],
+      "analogs": [
+        "scripts/workflow-health.mjs",
+        "scripts/execution-ledger.mjs",
+        "hooks/cc-posttoolbatch-observer.sh",
+        "hooks/lib/state.sh",
+        "scripts/codex-rtk-pre-tool-use.sh"
+      ],
+      "decision": "Plan one dedicated effectiveness aggregator and reuse existing observation, Codex RTK, and health surfaces.",
+      "newSurfaceJustification": "Existing surfaces record workflow state but do not produce tool-level keep/drop verdicts for CodeGraph, Beads, or stolen hook patterns across both Claude and Codex."
+    }
+  ],
+  "typeTriggerEvidence": [],
+  "installProof": {
+    "sourceGate": {
+      "status": "not_applicable",
+      "evidence": "This turn finalizes a plan and artifact; source implementation gates are listed in the plan."
+    },
+    "stagedInstall": {
+      "status": "not_applicable",
+      "evidence": "No install is performed by this planning turn."
+    },
+    "stagedDoctor": {
+      "status": "not_applicable",
+      "evidence": "No staged install is performed by this planning turn."
+    },
+    "rollbackVerification": {
+      "status": "not_applicable",
+      "evidence": "Rollback is documented in the plan and applies to future implementation."
+    },
+    "liveInstallDecision": {
+      "status": "not_applicable",
+      "evidence": "Live install requires an explicit future request."
+    },
+    "postUpgradeCanary": {
+      "status": "not_applicable",
+      "evidence": "No upgrade is performed by this planning turn."
+    }
+  },
+  "riskTier": {
+    "tier": 2,
+    "deepReviewPassed": true,
+    "reason": "The future implementation touches hooks, workflow scripts, Codex import, tests, and docs, but this artifact is planning-only and live findings stay advisory in the first week.",
+    "requiredArtifacts": [
+      "sourceManifest",
+      "skillMatrix",
+      "reuseInventory",
+      "findings",
+      "completionAudit",
+      "reviewPhases",
+      "tddEvidence",
+      "completionReconciliation",
+      "reuseBindings",
+      "typeTriggerEvidence",
+      "installProof"
+    ],
+    "verificationGate": "tests/test-hooks.sh && tests/test-workflow-tools.sh && node scripts/tool-effectiveness.mjs validate-fixtures && scripts/doctor.sh",
+    "acceptedRisks": []
+  },
+  "typescript": {
+    "ordinaryVerification": "not applicable for planning-only markdown and JSON artifact",
+    "advancedTypes": {
+      "status": "not_applicable",
+      "triggerEvidence": [],
+      "applicableSurfaces": [],
+      "notApplicableRationale": "No TypeScript source is edited in this planning turn."
+    }
+  }
+}

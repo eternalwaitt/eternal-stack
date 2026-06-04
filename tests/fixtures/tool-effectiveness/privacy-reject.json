@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "expectPrivacyReject": true,
+  "events": [
+    {
+      "caseId": "privacy-raw-prompt-rejected",
+      "tool": "codegraph",
+      "promptText": "raw user prompt must never be stored",
+      "projectHash": "project-private"
+    }
+  ]
+}

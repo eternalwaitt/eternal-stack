@@ -1,8 +1,6 @@
 ---
 name: etrnl-fix-issue
 description: ETRNL control-plane issue-fixing workflow for Claude Code. Use only when the user explicitly asks to fix a tracked issue; hidden from model auto-invocation because it edits code.
-model: sonnet
-effort: medium
 disable-model-invocation: true
 ---
 # Fix Issue
