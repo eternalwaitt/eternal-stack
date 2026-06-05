@@ -6,9 +6,18 @@ const args = process.argv.slice(2);
 const command = args[0] || "status";
 const json = args.includes("--json");
 const commandTimeoutMs = Number(process.env.PR_PREFLIGHT_TIMEOUT_MS || "30000") || 30_000;
+const maxBufferBytes = parseMaxBuffer();
+
+function parseMaxBuffer() {
+  const fallback = 100 * 1024 * 1024;
+  const cap = 256 * 1024 * 1024;
+  const raw = Number.parseInt(process.env.PR_PREFLIGHT_MAX_BUFFER || "", 10);
+  if (!Number.isFinite(raw) || raw <= 0) return fallback;
+  return Math.min(raw, cap);
+}
 
 function run(bin, binArgs) {
-  const result = spawnSync(bin, binArgs, { encoding: "utf8", timeout: commandTimeoutMs, maxBuffer: 16 * 1024 * 1024 });
+  const result = spawnSync(bin, binArgs, { encoding: "utf8", timeout: commandTimeoutMs, maxBuffer: maxBufferBytes });
   return {
     ok: result.status === 0 && !result.error,
     status: result.status,
@@ -22,7 +31,12 @@ function splitLines(value) {
 }
 
 function porcelainPath(line) {
-  return String(line || "").replace(/^.{1,2}\s+/, "").trim();
+  const raw = String(line || "");
+  const rest = raw.slice(2).trim();
+  if (!rest) return "";
+  if (rest.includes("\t")) return rest.split("\t").at(-1).trim();
+  if (rest.includes("->")) return rest.slice(rest.lastIndexOf("->") + 2).trim();
+  return rest;
 }
 
 function emit(payload) {

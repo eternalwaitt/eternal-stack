@@ -74,3 +74,20 @@ Run the ecosystem's current vulnerability lookup command before closing this che
 - Existing project scanners: Snyk, OSV, CodeQL, Dependabot alerts, or the repo's documented security gate.
 
 Record package name, vulnerable range, fixed range, vulnerability id, severity, source command, and whether the vulnerable code is reachable. If auth or a private registry blocks lookup, mark the row source-limited with the command attempted and the blocking condition.
+
+Example vulnerability record:
+
+```json
+{
+  "package": "example-parser",
+  "vulnerableRange": "<1.2.3",
+  "fixedRange": ">=1.2.3",
+  "vulnerabilityId": "GHSA-xxxx-yyyy-zzzz",
+  "severity": "high",
+  "sourceCommand": "pnpm audit --json",
+  "reachable": true,
+  "reachabilityRationale": "Imported by src/api/upload.ts before file validation."
+}
+```
+
+All fields above are required when vulnerability evidence exists; use `reachable: false` only with a code path reason, and use `source_limited` when the lookup command cannot complete.

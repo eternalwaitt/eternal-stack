@@ -433,8 +433,10 @@ git -C "$pr_preflight_repo" add CHANGELOG.md
 git -C "$pr_preflight_repo" commit -qm "initial"
 printf '%s\n' '# Changelog' 'changed' >"$pr_preflight_repo/CHANGELOG.md"
 printf '%s\n' 'scratch' >"$pr_preflight_repo/untracked.txt"
+mkdir -p "$pr_preflight_repo/docs"
+git -C "$pr_preflight_repo" mv CHANGELOG.md docs/CHANGELOG.md
 pr_preflight_status_json="$(cd "$pr_preflight_repo" && node "$ROOT/scripts/pr-preflight.mjs" status --json)"
-assert_json_expr "pr preflight preserves modified path names" "$pr_preflight_status_json" '.changedFiles == ["CHANGELOG.md"]'
+assert_json_expr "pr preflight preserves modified path names" "$pr_preflight_status_json" '.changedFiles == ["docs/CHANGELOG.md"]'
 assert_json_expr "pr preflight separates untracked files" "$pr_preflight_status_json" '.dirty == true and .untrackedFiles == ["untracked.txt"]'
 perf_baseline_fixture="$TMPROOT/performance-baseline.json"
 printf '%s\n' '{"schemaVersion":1,"baselineId":"base","targetLabel":"fixture","measurements":[{"route":"/","durationMs":100,"responseBytes":1000,"capturedAt":"2026-01-01T00:00:00Z"},{"route":"/removed","durationMs":75,"responseBytes":500,"capturedAt":"2026-01-01T00:00:00Z"}],"nextRun":{"command":"pnpm bench","thresholds":{"maxRegressionPct":20}}}' >"$perf_baseline_fixture"

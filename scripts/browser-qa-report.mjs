@@ -93,11 +93,11 @@ function hasV2Input(input) {
 }
 
 function screenshotHash(row) {
-  return row.screenshotSha256 || row.screenshotHash || row.sha256 || "";
+  return evidenceHash(row, "screenshot", true);
 }
 
-function evidenceHash(row, field) {
-  return row[`${field}Sha256`] || row[`${field}Hash`] || "";
+function evidenceHash(row, field, includeLegacySha = false) {
+  return row[`${field}Sha256`] || row[`${field}Hash`] || (includeLegacySha ? row.sha256 : "") || "";
 }
 
 function matrixKey(route, viewport) {

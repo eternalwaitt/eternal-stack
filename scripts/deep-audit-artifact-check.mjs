@@ -37,7 +37,7 @@ const INVALID_FIXTURES = [
   ["tests/fixtures/deep-audit/report.omitted-check.json", "CHECK_OMITTED"],
   ["tests/fixtures/deep-audit/report.unknown-check-id.json", "CHECK_UNKNOWN"],
   ["tests/fixtures/deep-audit/report.duplicate-check-id.json", "CHECK_DUPLICATE"],
-  ["tests/fixtures/deep-audit/report.category-local-inventory.json", "CATEGORY_LOCAL_INVENTORY"],
+  ["tests/fixtures/deep-audit/report.invalid-category-local-inventory.json", "CATEGORY_LOCAL_INVENTORY"],
 ];
 
 const REQUIRED_ARTIFACT_FIELDS = [

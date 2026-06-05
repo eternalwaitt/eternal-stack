@@ -169,7 +169,7 @@ function hotspotScore(file) {
     score += SENSITIVE_PATH_WEIGHT;
     reasons.push("sensitive path");
   }
-  if (/\b(schema|router|handler|middleware|env|secret|token|credential|upload|export|delete|admin)\b/.test(lower)) {
+  if (/(?:^|[_./-])(?:schema|router|handler|middleware|env|secret|token|credential|upload|export|delete|admin)(?:$|[_./-])/.test(lower)) {
     score += SENSITIVE_NAME_WEIGHT;
     reasons.push("sensitive name");
   }
