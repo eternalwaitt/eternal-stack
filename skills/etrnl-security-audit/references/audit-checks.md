@@ -73,7 +73,7 @@ Run the ecosystem's current vulnerability lookup command before closing this che
 - GitHub vulnerability database: `gh api graphql -f query='<query>'` when repository/package coordinates are available.
 - Existing project scanners: Snyk, OSV, CodeQL, Dependabot alerts, or the repo's documented security gate.
 
-Record package name, vulnerable range, fixed range, vulnerability id, severity, source command, and whether the vulnerable code is reachable. If auth or a private registry blocks lookup, mark the row source-limited with the command attempted and the blocking condition.
+Record package name, vulnerable range, fixed range, vulnerability id, severity, source command, and whether the vulnerable code is reachable. If auth or a private registry blocks lookup, mark the row with canonical status `source_limited`, the command attempted, and the blocking condition.
 
 Example vulnerability record:
 

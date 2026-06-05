@@ -2,7 +2,9 @@
 
 ETRNL is the Claude control-plane skill family. Every skill shipped by this repo uses the `etrnl-` prefix so its origin is obvious in slash commands, hook state, and session summaries.
 
-Claude Code personal and project skills use hyphenated command names. If this control plane later ships as a Claude plugin, the plugin namespace can become `etrnl:<skill>`, but the installed skill commands in this repo are `etrnl-*`. Install materializes `~/.claude/commands/etrnl-*.md` shims from the repo-owned skill contracts so slash invocation works even when Claude Code does not expose `~/.claude/skills` directly.
+Claude Code personal and project skills use hyphenated command names. If this control plane later ships as a Claude plugin, the plugin namespace can become `etrnl:<skill>`, but the installed skill commands in this repo are `etrnl-*`.
+
+Install materializes `~/.claude/commands/etrnl-*.md` shims from the repo-owned skill contracts so slash invocation works even when Claude Code does not expose `~/.claude/skills` directly.
 
 | Command | Invocation | Purpose |
 | --- | --- | --- |
@@ -13,21 +15,21 @@ Claude Code personal and project skills use hyphenated command names. If this co
 | `/etrnl-code-health` | Model or user | Runs the canonical code-health router: inventory, Health Stack, deterministic gates, companion audits, ledger, and no-skips closure. |
 | `/etrnl-deep-audit` | Model or user | Runs registered application deep-audit categories through a shared artifact envelope, shared worklists, category reports, lane receipts, and `all_registered` coverage statements. |
 | `/etrnl-documentation-health` | Model or user | Runs documentation-health audits and fixes across READMEs, docs, ADRs, runbooks, API/runtime docs, AI context, and code comments with inventory, drift evidence, and parallel review lanes. |
+| `/etrnl-security-audit` | Model or user | Runs the registered security deep-audit category with exploitable-bug evidence, source/sink tracing, missing-control checks, reachability, confidence, and explicit non-findings. |
+| `/etrnl-performance-audit` | Model or user | Runs the registered performance deep-audit category with route matrix evidence, cold and warm measurements, response bytes, shared worklist hashes, and six lane receipts. |
+| `/etrnl-production-readiness` | Model or user | Runs the registered production-readiness deep-audit category with no-sampling checks, applicability gates, `CONFIRMED_CLEAN`, skipped-check reasons, and source-limited blockers. |
 | `/etrnl-context-save` | User or model | Saves concise resumable workflow state without storing transcripts or credentials. |
 | `/etrnl-context-restore` | User or model | Restores a saved context summary and flags stale continuation state. |
 | `/etrnl-disk-cleanup` | User only | Reclaims local disk space with host/filesystem evidence, a dry-run manifest, approved transient path classes, `trash` deletion, and before/after free-space verification. |
 | `/etrnl-review` | Model or user | Reviews code, plans, risks, loose ends, and final pass readiness. |
-| `/etrnl-security-audit` | Model or user | Runs the registered security deep-audit category with exploitable-bug evidence, source/sink tracing, missing-control checks, reachability, confidence, and explicit non-findings. |
+| `/etrnl-systematic-debugging` | User only | Debugs bugs, failing tests, CI failures, production issues, tracked issues, and unexpected behavior through root-cause evidence before fixes. |
 | `/etrnl-commit` | User only | Reviews, verifies, stages, and commits relevant work. |
 | `/etrnl-deps` | User only | Handles targeted dependency maintenance with migration checks, catalog consolidation, bot PR triage, and rollback evidence. |
 | `/etrnl-email-reply-quality` | Model or user | Checks VIVAZ outgoing email replies for banned dash typography, natural Brazilian Portuguese, AI tells, and humanizer cleanup before approval or send. |
 | `/etrnl-stress-test` | Model or user | Stress-tests architecture, rollout, migration, automation, and safety assumptions. |
 | `/etrnl-execute` | User only | Executes an approved readiness-checked implementation plan end to end with test-first source tasks, run ledger, write-mode implementation subagents for parallel-safe multi-file work, reviews, and verification. |
-| `/etrnl-systematic-debugging` | User only | Debugs bugs, failing tests, CI failures, production issues, tracked issues, and unexpected behavior through root-cause evidence before fixes. |
 | `/etrnl-parallel` | User only | Thin explicit fanout helper; `/etrnl-execute` owns normal plan orchestration. |
-| `/etrnl-performance-audit` | Model or user | Runs the registered performance deep-audit category with route matrix evidence, cold and warm measurements, response bytes, shared worklist hashes, and six lane receipts. |
 | `/etrnl-pr` | User only | Prepares or updates pull requests with verification evidence. |
-| `/etrnl-production-readiness` | Model or user | Runs the registered production-readiness deep-audit category with no-sampling checks, applicability gates, `CONFIRMED_CLEAN`, skipped-check reasons, and source-limited blockers. |
 | `/etrnl-qa-browser` | User only | Produces browser QA reports with route, viewport, screenshot, console, network, accessibility, and responsive evidence. |
 | `/etrnl-test` | User only | Runs project preflight and reports or fixes failures. |
 | `/etrnl-plan` | Model or user | Creates a plan file, reviews it, improves it, then finalizes it. |
@@ -114,7 +116,7 @@ These skills are not owned by this repo, but the control plane knows about them 
 | `prompt-budget-check.mjs` | `~/.claude/scripts/prompt-budget-check.mjs` | Fails oversized skills or agents before prompt bloat becomes default context. |
 | `port-guard.mjs` | `~/.claude/scripts/port-guard.mjs` | Checks or picks explicit free local dev-server ports before commands run. |
 | `project-buglog.mjs` | `~/.claude/scripts/project-buglog.mjs` | Records and suggests project-local repeated bug memories with cross-session fingerprints, redaction, file/project JSON output, stale-hint filtering, and no transcript storage. |
-| `changelog-release-check.mjs` | `~/.claude/scripts/changelog-release-check.mjs` | Enforces semantic-version release hygiene so every branch keeps `## Unreleased` empty unless work is intentionally pending. |
+| `changelog-release-check.mjs` | `~/.claude/scripts/changelog-release-check.mjs` | Enforces semantic-version release hygiene by requiring an empty `## Unreleased` section for healthy releases, with `--allow-unreleased` flag to permit pending work during active development. |
 | `research-competitor-intel.mjs` | `~/.claude/scripts/research-competitor-intel.mjs` | Validates pinned competitor manifests, evidence rows, parity scorecards, and refresh cadence. |
 | `skill-contract-check.mjs` | `~/.claude/scripts/skill-contract-check.mjs` | Fails when repo-owned skills drift from docs, helper scripts, readiness contracts, directive-language rules, model/context inheritance, SessionStart hints, or installed copies. |
 | `skill-behavior-smoke.mjs` | `~/.claude/scripts/skill-behavior-smoke.mjs` | Runs end-to-end helper smoke checks for the skill behaviors that must fail closed before live use. |
