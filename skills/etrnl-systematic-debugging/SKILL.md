@@ -48,7 +48,7 @@ Iron law: no fix before root-cause investigation. Symptom patches, silent fallba
 1. State one hypothesis: root cause, evidence, and predicted result of the smallest test.
 2. Test one variable at a time. Do not bundle multiple speculative changes.
 3. If the hypothesis fails, remove or isolate the failed experiment, update the evidence, and return to Phase 1.
-4. After two failed fix attempts, stop adding patches and re-check the trace and architecture. If three attempts fail, stop and surface the architectural question before continuing.
+4. After two failed fix attempts, pause patching, run a focused re-check of traces and architecture, and document the new evidence. If a third consecutive attempt fails, escalate to Victor or an architectural review with the documented evidence and proposed next step before continuing.
 
 ## Phase 4: Fix Contract
 

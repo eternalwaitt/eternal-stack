@@ -29,11 +29,17 @@ function commandReferencesPath(commandText, itemPath) {
 
 function hasRecursiveRm(commandText) {
   const commandString = normalizedCommand(commandText);
+  // Detects recursive rm after normalizing escaped spaces: optional path prefix,
+  // rm command boundary, arbitrary args, then -r/-R or --recursive.
+  // Matches "rm -rf /tmp/a"; does not match "trash /tmp/a".
   return /(^|[\s;&|])(?:\/[^\s;&|]+\/)?rm\s+(?:[^\n;&|]*\s+)*(?:-[A-Za-z]*[rR][A-Za-z]*|--recursive)\b/i.test(commandString);
 }
 
 function targetsWholeTrash(commandText) {
   const commandString = normalizedCommand(commandText);
+  // Trash roots: macOS ~/.Trash, Linux ~/.local/share/Trash, and absolute /.Trash.
+  // The branches catch "empty trash", trash commands naming a trash root, and
+  // rm commands targeting one. Matches "trash ~/.Trash"; not "trash /tmp/a".
   const trashPath = /(?:~|\$HOME)\/\.Trash|(?:~|\$HOME)\/\.local\/share\/Trash|\b\/\.Trash\b/i;
   return /empty\s+trash/i.test(commandString)
     || (/\btrash\b/i.test(commandString) && trashPath.test(commandString))

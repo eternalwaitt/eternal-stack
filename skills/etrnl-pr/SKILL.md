@@ -37,4 +37,4 @@ Prepare or update a pull request only after local evidence and remote state are 
 
 - Do not merge, force-push, mark ready for review, request reviewers, add labels, or post PR comments unless Victor explicitly asks.
 - Do not hide failing CI behind a summary.
-- Do not create a PR from unrelated dirty files.
+- Refrain from creating PRs that include unrelated dirty files.
