@@ -8,7 +8,7 @@ const json = args.includes("--json");
 const commandTimeoutMs = Number(process.env.PR_PREFLIGHT_TIMEOUT_MS || "30000") || 30_000;
 
 function run(bin, binArgs) {
-  const result = spawnSync(bin, binArgs, { encoding: "utf8", timeout: commandTimeoutMs, maxBuffer: 4 * 1024 * 1024 });
+  const result = spawnSync(bin, binArgs, { encoding: "utf8", timeout: commandTimeoutMs, maxBuffer: 16 * 1024 * 1024 });
   return {
     ok: result.status === 0 && !result.error,
     status: result.status,

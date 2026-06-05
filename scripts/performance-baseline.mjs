@@ -21,6 +21,29 @@ function readJson(file) {
   return JSON.parse(readFileSync(file, "utf8"));
 }
 
+function readablePath(flag) {
+  const file = argValue(args, flag);
+  if (!file) {
+    console.error(`performance-baseline trend requires ${flag} <file>.`);
+    process.exit(2);
+  }
+  if (!existsSync(file)) {
+    console.error(`performance-baseline trend file not found for ${flag}: ${file}`);
+    process.exit(2);
+  }
+  return file;
+}
+
+function readTrendReport(flag) {
+  const file = readablePath(flag);
+  const report = readJson(file);
+  if (!Array.isArray(report.measurements)) {
+    console.error(`performance-baseline trend ${flag} file must contain a measurements array: ${file}`);
+    process.exit(1);
+  }
+  return report;
+}
+
 function errors(report) {
   const out = [];
   if (report.schemaVersion !== 1) out.push("schemaVersion must be 1");
@@ -55,8 +78,8 @@ function validate() {
 }
 
 function trend() {
-  const before = readJson(argValue(args, "--before"));
-  const after = readJson(argValue(args, "--after"));
+  const before = readTrendReport("--before");
+  const after = readTrendReport("--after");
   const beforeByKey = new Map(before.measurements.map((row) => [row.route || row.operation, row]));
   const comparisons = after.measurements.map((row) => {
     const key = row.route || row.operation;

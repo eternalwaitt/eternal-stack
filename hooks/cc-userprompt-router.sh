@@ -232,6 +232,7 @@ cc_prompt_skill_update_note() {
 
   update_script="${CLAUDE_CONTROL_PLANE_UPDATE_CHECK_SCRIPT:-$SCRIPT_DIR/../scripts/update-check.mjs}"
   [[ -f "$update_script" ]] || return 0
+  [[ -r "$update_script" ]] || return 0
 
   update_status=0
   update_output="$(CLAUDE_CONTROL_PLANE_AUTO_UPDATE=0 node "$update_script" 2>/dev/null)" || update_status=$?

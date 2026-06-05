@@ -17,7 +17,7 @@ This reusable skill is the canonical browser QA workflow; `agents/etrnl-browser-
    - `playwright-cli`
    - `browser-use`
    - repo-provided Playwright test command or script
-   - exact unavailable-tool blocker
+   - exact blocker naming the unavailable browser tool and reason
 3. Use one named browser session per agent/task. Capture the right pre-interaction artifact before clicking, filling, or asserting elements: `page.screenshot()` for visual checks, `page.content()` or `page.evaluate()` for DOM assertions, and `page.context().tracing.start()` for replay/debugging evidence. Close or explicitly hand off sessions after the selected artifact is captured.
 4. Start the provided local dev command when the target needs it. Do not leave browser QA "manual" or "outstanding" just because it needs a local server or browser tooling; run it or report the exact unavailable tool/error.
 5. Check each route for:

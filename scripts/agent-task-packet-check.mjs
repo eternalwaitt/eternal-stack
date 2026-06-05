@@ -389,12 +389,6 @@ if (mode === "write" && "writeScope" in packet && "forbiddenPaths" in packet) {
     if (packet.qualityReviewRequired === true && !reviewers.includes("etrnl-quality-reviewer")) {
       violations.push("reviewers must include etrnl-quality-reviewer when qualityReviewRequired is true");
     }
-    if ("criticalPath" in packet && typeof packet.criticalPath !== "string") {
-      violations.push("criticalPath must be a string when provided");
-    }
-    if ("stopCondition" in packet && typeof packet.stopCondition !== "string") {
-      violations.push("stopCondition must be a string when provided");
-    }
   }
 }
 

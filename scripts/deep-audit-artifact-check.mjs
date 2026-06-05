@@ -493,9 +493,7 @@ function validateRegistryInstallSurfaces(skillLists, install, errors) {
   if (!installScripts.includes("deep-audit-artifact-check.mjs")) {
     errors.push(diagnostic("REGISTRY_INSTALL_DRIFT", "scripts/lib/skill-lists.sh", "INSTALL_SCRIPTS omits deep-audit-artifact-check.mjs.", "The validator may pass source gates without being installed.", "Add deep-audit-artifact-check.mjs to INSTALL_SCRIPTS and scripts/install.sh copy commands."));
   }
-  const installsScriptLib =
-    install.includes('copy_dir_contents "$ROOT/scripts/lib" "$TARGET/scripts/lib"') ||
-    install.includes('copy_dir_contents "$ROOT/scripts/lib" "$target_home/scripts/lib"');
+  const installsScriptLib = install.includes('copy_dir_contents "$ROOT/scripts/lib" "$target_home/scripts/lib"');
   if (!installScripts.includes("lib/deep-audit-categories.mjs") && !installsScriptLib) {
     errors.push(diagnostic("REGISTRY_INSTALL_DRIFT", "scripts/install.sh", "scripts/install.sh does not install lib/deep-audit-categories.mjs.", "Installed deep-audit-artifact-check.mjs imports the registry helper and will crash if the helper is absent.", "Copy scripts/lib into the install target or add lib/deep-audit-categories.mjs to INSTALL_SCRIPTS."));
   }
