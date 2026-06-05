@@ -6,7 +6,7 @@ Scope: compare current ETRNL control-plane behavior against GSD, Superpowers, GS
 
 Evidence base:
 
-- Current ETRNL skills: `skills/etrnl-plan/SKILL.md`, `skills/etrnl-autoplan/SKILL.md`, `skills/etrnl-review/SKILL.md`, `skills/etrnl-execute/SKILL.md`, `skills/etrnl-brainstorm/SKILL.md`.
+- Current ETRNL skills: `skills/etrnl-dev-plan/SKILL.md`, `skills/etrnl-autoplan/SKILL.md`, `skills/etrnl-dev-review/SKILL.md`, `skills/etrnl-execute/SKILL.md`, `skills/etrnl-brainstorm/SKILL.md`.
 - Current deterministic helpers: `scripts/plan-readiness-check.mjs`, `scripts/deep-stack-check.mjs`, `scripts/lib/deep-stack-artifacts.mjs`, `scripts/agent-task-packet-check.mjs`, `scripts/execution-ledger.mjs`, `scripts/execute-evidence-check.mjs`.
 - Current live hook surfaces: `hooks/cc-pretooluse-guard.sh`, `hooks/cc-stop-verifier.sh`.
 - Current tests and fixtures: `tests/test-workflow-tools.sh`, `tests/test-hooks.sh`, `tests/fixtures/deep-stack/**`, `hooks/fixtures/**`.
@@ -18,13 +18,13 @@ Evidence base:
 
 ## 1. Current State
 
-### `etrnl-plan`
+### `etrnl-dev-plan`
 
 Current enforcement:
 
-- File-backed planning is explicit: the skill requires creating a plan file, reviewing it, adding a readiness report, creating deep-stack artifacts, and rerunning readiness before finalization (`skills/etrnl-plan/SKILL.md:13-40`).
-- Required plan metadata is strong: `Execution scope`, `Goal`, `Non-goals`, `Evidence`, and `Deep stack artifacts` are declared in the plan header contract (`skills/etrnl-plan/SKILL.md:42-65`).
-- Required plan sections are broad enough for execution: reuse inventory, file map, task groups, test-first plan, failure modes, verification gates, rollback, handoff, readiness report, and verdict are all required by skill text (`skills/etrnl-plan/SKILL.md:73-89`).
+- File-backed planning is explicit: the skill requires creating a plan file, reviewing it, adding a readiness report, creating deep-stack artifacts, and rerunning readiness before finalization (`skills/etrnl-dev-plan/SKILL.md:13-40`).
+- Required plan metadata is strong: `Execution scope`, `Goal`, `Non-goals`, `Evidence`, and `Deep stack artifacts` are declared in the plan header contract (`skills/etrnl-dev-plan/SKILL.md:42-65`).
+- Required plan sections are broad enough for execution: reuse inventory, file map, task groups, test-first plan, failure modes, verification gates, rollback, handoff, readiness report, and verdict are all required by skill text (`skills/etrnl-dev-plan/SKILL.md:73-89`).
 - The deterministic readiness gate checks status, execution scope, top metadata, required sections, vague placeholder terms, oversized final plans without an index, and deep-stack artifacts (`scripts/plan-readiness-check.mjs:93-224`).
 - The deep-stack artifact validator fails final plans without an artifact unless an explicit transitional flag is passed (`scripts/lib/deep-stack-artifacts.mjs:114-151`).
 
@@ -48,15 +48,15 @@ Deterministic versus advisory:
 - Deterministic: final plan readiness can reject missing deep-stack artifacts and invalid artifact fields.
 - Advisory/model-discipline: the "full review gauntlet" is encoded mostly as skill instructions and artifact fields, not as a transcript-free machine check that each phase produced an evidence row with reviewer identity, result, and disposition.
 
-### `etrnl-review`
+### `etrnl-dev-review`
 
 Current enforcement:
 
-- Review starts from distinct truth sources: request, plan, diff, installed surface, and verification evidence (`skills/etrnl-review/SKILL.md:9-15`).
-- It explicitly checks missing enforcement, install/update/rollback coverage, verification, documentation drift, and live-gated operation (`skills/etrnl-review/SKILL.md:15-21`).
-- It routes companion passes for domain-sensitive work, simplification, duplicate logic, Brooks health, and conditional advanced TypeScript work (`skills/etrnl-review/SKILL.md:22-28`).
-- It has a Hybrid Deep Stack contract: CEO, engineering, DX, adversarial, specialist, reuse, simplifier, convergence; no high/blocker findings open without Victor acceptance; completion audit; source-manifest sanitization (`skills/etrnl-review/SKILL.md:41-50`).
-- It states the TDD limitation directly: stop-hook evidence can prove completion-time evidence, but not red-before-green ordering (`skills/etrnl-review/SKILL.md:62-72`).
+- Review starts from distinct truth sources: request, plan, diff, installed surface, and verification evidence (`skills/etrnl-dev-review/SKILL.md:9-15`).
+- It explicitly checks missing enforcement, install/update/rollback coverage, verification, documentation drift, and live-gated operation (`skills/etrnl-dev-review/SKILL.md:15-21`).
+- It routes companion passes for domain-sensitive work, simplification, duplicate logic, Brooks health, and conditional advanced TypeScript work (`skills/etrnl-dev-review/SKILL.md:22-28`).
+- It has a Hybrid Deep Stack contract: CEO, engineering, DX, adversarial, specialist, reuse, simplifier, convergence; no high/blocker findings open without Victor acceptance; completion audit; source-manifest sanitization (`skills/etrnl-dev-review/SKILL.md:41-50`).
+- It states the TDD limitation directly: stop-hook evidence can prove completion-time evidence, but not red-before-green ordering (`skills/etrnl-dev-review/SKILL.md:62-72`).
 
 Deterministic versus advisory:
 
@@ -135,7 +135,7 @@ Where the stack still depends on model discipline:
 ### P0 gaps
 
 1. Red-before-green proof is still mostly advisory.
-   - Evidence: ETRNL requires TDD in execution text (`skills/etrnl-execute/SKILL.md:95-100`), and review explicitly says stop-hook evidence does not prove red-before-green ordering (`skills/etrnl-review/SKILL.md:62-72`). Superpowers treats failing-first as an iron law (`test-driven-development/SKILL.md:31-45`) and requires watching RED fail (`test-driven-development/SKILL.md:113-129`).
+   - Evidence: ETRNL requires TDD in execution text (`skills/etrnl-execute/SKILL.md:95-100`), and review explicitly says stop-hook evidence does not prove red-before-green ordering (`skills/etrnl-dev-review/SKILL.md:62-72`). Superpowers treats failing-first as an iron law (`test-driven-development/SKILL.md:31-45`) and requires watching RED fail (`test-driven-development/SKILL.md:113-129`).
    - Why it matters: agents can write source first, add a passing test later, and satisfy current completion evidence.
    - Failure permitted: false regression tests, tests that only validate already-working or mocked behavior.
    - Prevent with: a `tddEvidence` ledger/artifact row per source task, with red command, expected failure, green command, and optional impossible-to-test-first rationale.
@@ -172,7 +172,7 @@ Where the stack still depends on model discipline:
    - Fix surface: task packet checker, execute evidence checker, fixtures.
 
 3. Advanced TypeScript trigger detection is artifact-driven, not source/diff-driven.
-   - Evidence: advanced TypeScript policy validates rows if present (`scripts/lib/deep-stack-artifacts.mjs:324-343`), and `etrnl-plan` names triggers (`skills/etrnl-plan/SKILL.md:132-135`), but no source analyzer detects exported/public contracts from planned or changed files.
+   - Evidence: advanced TypeScript policy validates rows if present (`scripts/lib/deep-stack-artifacts.mjs:324-343`), and `etrnl-dev-plan` names triggers (`skills/etrnl-dev-plan/SKILL.md:132-135`), but no source analyzer detects exported/public contracts from planned or changed files.
    - Why it matters: agents can set `not_applicable` incorrectly.
    - Failure permitted: public type/API/runtime-validation changes without type architecture review.
    - Prevent with: source/diff scanner for exported types, schemas, generated type paths, DTO/domain boundaries, state machines, discriminated unions, and branded IDs.
@@ -213,9 +213,9 @@ Where the stack still depends on model discipline:
 Command surface:
 
 - `/etrnl-brainstorm`: only for ambiguous ideas; outputs approved design/spec artifact.
-- `/etrnl-plan` and `/etrnl-autoplan`: produce one final plan with `Execution scope: all_phases`, deep-stack artifact bundle, review records, reuse inventory, TDD plan, and gate taxonomy.
+- `/etrnl-dev-plan` and `/etrnl-autoplan`: produce one final plan with `Execution scope: all_phases`, deep-stack artifact bundle, review records, reuse inventory, TDD plan, and gate taxonomy.
 - `/etrnl-execute`: executes every in-scope item; requires plan readiness, deep-stack artifact validation, ledger, TDD evidence, reviewer evidence, simplifier evidence, completion audit, and final preflight.
-- `/etrnl-review`: findings-first review of plans, diffs, runtime/install state, and completion claims.
+- `/etrnl-dev-review`: findings-first review of plans, diffs, runtime/install state, and completion claims.
 
 Internal flow:
 

@@ -19,6 +19,7 @@ Use a small append-only ETRNL state stream as the canonical local compact and wo
 - Hooks append bounded typed events through `scripts/etrnl-state.mjs`.
 - Materialized views under `views/` are rebuildable projections, not source of truth.
 - `SessionStart(source=compact)` is the restore point. It synchronously queries `compact-handoff` and injects only the bounded handoff packet.
+- Compact handoff intentionally excludes advisory workflow, update, and learning hints so recovery stays deterministic and bounded.
 - `PostCompact` records Claude's compact summary and marks verification stale. It does not inject context.
 - `Stop` blocks completion claims when the newest compact event is newer than the latest relevant verification evidence.
 - `execution-ledger.mjs`, `context-state.mjs`, `workflow-health.mjs`, and `tool-effectiveness.mjs` remain public compatibility surfaces during migration.

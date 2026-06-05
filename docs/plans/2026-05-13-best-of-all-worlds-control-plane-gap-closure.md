@@ -98,7 +98,7 @@ Current code facts:
 
 ## Skill/tool routing
 
-- Use `etrnl-plan` for plan shape and readiness, `etrnl-autoplan` for the review gauntlet, `etrnl-execute` for implementation, `etrnl-review`/CodeRabbit for second-pass review, and `etrnl-qa-browser` for UI artifact evidence.
+- Use `etrnl-dev-plan` for plan shape and readiness, `etrnl-autoplan` for the review gauntlet, `etrnl-execute` for implementation, `etrnl-dev-review`/CodeRabbit for second-pass review, and `etrnl-qa-browser` for UI artifact evidence.
 - Use `node scripts/plan-readiness-check.mjs`, `node scripts/skill-contract-check.mjs`, `node scripts/skill-behavior-smoke.mjs`, `./tests/test-hooks.sh`, `./tests/test-workflow-tools.sh`, and `./scripts/doctor.sh` as deterministic gates.
 
 ## Test plan
@@ -269,7 +269,7 @@ Owner files:
 - `scripts/workflow-health.mjs`
 - `scripts/plan-readiness-check.mjs`
 - `skills/etrnl-autoplan/SKILL.md`
-- `skills/etrnl-plan/SKILL.md`
+- `skills/etrnl-dev-plan/SKILL.md`
 - `skills/etrnl-execute/SKILL.md`
 - `skills/etrnl-qa-browser/SKILL.md`
 - `agents/etrnl-executor.md`
@@ -287,7 +287,7 @@ Implementation:
    - `phaseStatus`
 2. Add `execution-ledger.mjs set-phase` and `execution-ledger.mjs record-uat` commands.
 3. Add plan-readiness recognition for optional `Phase`, `Workstream`, and `UAT Gate` sections.
-4. Update `etrnl-autoplan` and `etrnl-plan` to include optional phase/UAT sections when a plan spans multiple sessions, routes, or workstreams.
+4. Update `etrnl-autoplan` and `etrnl-dev-plan` to include optional phase/UAT sections when a plan spans multiple sessions, routes, or workstreams.
 5. Update `etrnl-execute` to block phase completion when `uatOpenFindings > 0`.
 6. Update `workflow-health` to summarize UAT state.
 7. Add fixtures for:

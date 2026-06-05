@@ -130,7 +130,7 @@ Score rules:
 - 100/100 requires `DOCS_FILES_REVIEWED` to equal `DOCS_FILES_TOTAL` unless excluded paths are listed with reasons outside the total.
 - A run with no stale-reference searches, no checked doc claims, or no source-truth mappings is incomplete no matter how many repo gates passed.
 - A run with no recent commits reviewed or no recent-change docs-impact checks is incomplete. If GitHub PR access is unavailable, record `RECENT_PRS_REVIEWED: 0` and the exact `CHECKS_SKIPPED` reason; do not claim GitHub evidence was reviewed.
-- Accepted risk or blocked stale documentation is allowed as a ledger disposition only. It is not compatible with 100/100 overall documentation health.
+- Accepted risk or blocked stale documentation is allowed as a ledger disposition only. It is incompatible with 100/100 overall documentation health.
 
 ## Comment Health
 

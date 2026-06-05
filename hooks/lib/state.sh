@@ -33,14 +33,29 @@ cc_etrnl_state_available() {
 
 cc_etrnl_state_append_json() {
   local payload="$1"
-  cc_etrnl_state_available || return 1
-  node "$(cc_etrnl_state_script)" append --json --cwd "$(pwd -P)" <<<"$payload" >/dev/null
+  local output status
+  # Durable ETRNL writes are best-effort for observer hooks: this helper logs
+  # failures and returns non-zero so callers can choose fail-open or fail-closed.
+  if ! cc_etrnl_state_available; then
+    printf 'claude-guard warning: ETRNL state append unavailable\n' >&2
+    return 1
+  fi
+  status=0
+  output="$(node "$(cc_etrnl_state_script)" append --json --cwd "$(pwd -P)" <<<"$payload" 2>&1 >/dev/null)" || status=$?
+  if [[ "$status" != "0" ]]; then
+    printf 'claude-guard warning: ETRNL state append failed (exit %s): %s\n' "$status" "${output%%$'\n'*}" >&2
+    return "$status"
+  fi
 }
 
 cc_etrnl_state_compact_handoff_json() {
   local session_id="$1"
+  local max_chars="${2:-1200}"
+  if [[ ! "$max_chars" =~ ^[0-9]+$ ]] || (( max_chars <= 0 )); then
+    max_chars=1200
+  fi
   cc_etrnl_state_available || return 1
-  node "$(cc_etrnl_state_script)" compact-handoff --session "$session_id" --json --max-chars 1200
+  node "$(cc_etrnl_state_script)" compact-handoff --session "$session_id" --json --max-chars "$max_chars"
 }
 
 cc_session_id() {

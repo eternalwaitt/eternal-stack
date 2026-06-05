@@ -233,9 +233,9 @@
   },
   "skillMatrix": [
     {
-      "skill": "etrnl-plan",
+      "skill": "etrnl-dev-plan",
       "status": "required",
-      "trigger": "User invoked etrnl-plan for a file-backed implementation plan.",
+      "trigger": "User invoked etrnl-dev-plan for a file-backed implementation plan.",
       "evidence": "Plan and artifact were created under docs/plans."
     },
     {

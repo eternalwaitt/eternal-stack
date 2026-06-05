@@ -49,7 +49,7 @@
   },
   "skillMatrix": [
     {
-      "skill": "etrnl-plan",
+      "skill": "etrnl-dev-plan",
       "status": "required",
       "trigger": "user requested a saved implementation plan",
       "evidence": "This plan follows the file-backed planning workflow."

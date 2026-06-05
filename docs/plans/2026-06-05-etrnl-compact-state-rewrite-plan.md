@@ -244,7 +244,7 @@ Close every plan outcome through completion reconciliation. Source and staged in
 
 ## Skill/tool routing
 
-- Use `etrnl-plan` for this plan and readiness gates.
+- Use `etrnl-dev-plan` for this plan and readiness gates.
 - Use `Hook Development` guidance for hook event boundaries, sync/async behavior, JSON stdout discipline, and matcher rules.
 - Use `etrnl-execute` when Victor asks to implement this plan.
 - Use `etrnl-parallel` only after task packets are split by the file ownership lanes above.

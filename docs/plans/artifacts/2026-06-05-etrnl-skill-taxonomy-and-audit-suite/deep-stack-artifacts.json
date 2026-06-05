@@ -58,9 +58,9 @@
   },
   "skillMatrix": [
     {
-      "skill": "etrnl-plan",
+      "skill": "etrnl-dev-plan",
       "status": "required",
-      "trigger": "user requested a saved implementation plan and explicitly linked etrnl-plan",
+      "trigger": "user requested a saved implementation plan and explicitly linked etrnl-dev-plan",
       "evidence": "Plan follows the file-backed planning workflow and includes readiness artifact metadata."
     },
     {
@@ -336,8 +336,8 @@
       "impact": "low"
     },
     {
-      "planItemId": "etrnl-plan-skill",
-      "requestedOutcome": "Use etrnl-plan for the plan-writing workflow.",
+      "planItemId": "etrnl-dev-plan-skill",
+      "requestedOutcome": "Use etrnl-dev-plan for the plan-writing workflow.",
       "classification": "DONE",
       "evidence": "Plan file and deep-stack artifact were created under docs/plans with readiness validation metadata.",
       "changedReason": "",

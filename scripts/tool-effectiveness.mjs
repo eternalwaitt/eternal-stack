@@ -201,13 +201,16 @@ function eventsFromLive() {
         usefulWork: true,
         downstreamArtifact: true,
         verificationRecovered: handoff.handoff && !handoff.handoff.verificationStale,
-        projectHash: handoff.handoff?.sessionId || "compact",
+        projectHash: handoff.handoff?.projectFingerprint || handoff.latestCompact?.projectFingerprint || "compact",
         at: handoff.handoff?.lastCompactAt || new Date(0).toISOString(),
       }, "etrnl-state");
       if (!normalized.rejected) events.push(normalized);
     }
-  } catch {
+  } catch (error) {
     // Live ETRNL state is optional for effectiveness summaries.
+    const message = error instanceof Error ? error.message : String(error);
+    const level = /ENOENT|not found|missing|unavailable/i.test(message) ? "notice" : "warning";
+    console.error(`tool-effectiveness ${level}: live ETRNL state skipped: ${message}`);
   }
   const stateDir = process.env.CLAUDE_GUARD_STATE_DIR || "";
   if (stateDir && existsSync(stateDir)) {

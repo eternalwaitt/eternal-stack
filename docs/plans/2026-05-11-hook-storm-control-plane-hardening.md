@@ -4,7 +4,7 @@ Status: Final
 
 Goal: Turn the VIVAZ and MIMO hook-storm transcripts into deterministic guard fixes that preserve useful enforcement without trapping Claude in repeated blocked-tool loops or allowing prod-data hazards.
 Non-goals: No redesign of Claude Code itself; no RTK Rust implementation unless the local hook can safely avoid bad rewrites; no immediate patching of VIVAZ or MIMO application code; no migration of non-Hindsight memory systems.
-Evidence: `skills/etrnl-plan/SKILL.md`, `scripts/plan-readiness-check.mjs`, `hooks/cc-pretooluse-guard.sh`, `hooks/cc-posttooluse-sycophancy.sh`, `hooks/cc-stop-verifier.sh`, `hooks/cc-posttoolbatch-observer.sh`, `hooks/lib/code-patterns.sh`, `hooks/lib/state.sh`, `scripts/agent-task-packet-check.mjs`, `hooks/fixtures/plans/good-plan.md`, VIVAZ transcript `14c676c0-0894-40b9-b26a-8c15d1286447`, and MIMO transcript `6506f7cd-4330-4d83-8850-b286fc23c16d`.
+Evidence: `skills/etrnl-dev-plan/SKILL.md`, `scripts/plan-readiness-check.mjs`, `hooks/cc-pretooluse-guard.sh`, `hooks/cc-posttooluse-sycophancy.sh`, `hooks/cc-stop-verifier.sh`, `hooks/cc-posttoolbatch-observer.sh`, `hooks/lib/code-patterns.sh`, `hooks/lib/state.sh`, `scripts/agent-task-packet-check.mjs`, `hooks/fixtures/plans/good-plan.md`, VIVAZ transcript `14c676c0-0894-40b9-b26a-8c15d1286447`, and MIMO transcript `6506f7cd-4330-4d83-8850-b286fc23c16d`.
 Assumptions: The goal is to improve the shareable `claude-control-plane` repo and its installed `~/.claude` copy through the normal install/update path after verification.
 
 ## Hook pipeline (ASCII)
@@ -68,7 +68,7 @@ PreToolUse input
 - `hooks/fixtures/events/`: add scrubbed single-event fixtures for RTK/rg flags, output limiters, repeated verification, Markdown safety-removal, prod `prisma db push`, `veloz db credentials`, read-only subagent packets, and sticky sycophancy.
 - `tests/test-hooks.sh`: add assertions for every new fixture and update existing expectations.
 - `docs/health-stack.md`: document new guard semantics and operator expectations for prod schema/secret commands.
-- `docs/skills.md`: document the expected workflow impact for `etrnl-plan`, `etrnl-execute`, and `etrnl-review`.
+- `docs/skills.md`: document the expected workflow impact for `etrnl-dev-plan`, `etrnl-execute`, and `etrnl-dev-review`.
 - `CHANGELOG.md`: add an unreleased entry because hook behavior and install-visible workflow semantics change.
 - `scripts/doctor.sh`: add checks that replay fixtures and changelog coverage are present.
 
@@ -190,9 +190,9 @@ PreToolUse input
 
 ## Skill/tool routing
 
-- `etrnl-plan`: used for this file-backed implementation plan.
+- `etrnl-dev-plan`: used for this file-backed implementation plan.
 - `etrnl-execute`: use for implementation after this plan is accepted.
-- `etrnl-review`: required before any commit/push/deploy of this hook change.
+- `etrnl-dev-review`: required before any commit/push/deploy of this hook change.
 - `eternal-best-practices`: relevant because prod DB, credential, and finance-domain guard behavior is in scope.
 - `code-simplifier`: run after implementation to prevent hook logic from becoming an unreadable regex pile.
 - `finding-duplicate-functions`: run if command classifiers duplicate shell/Node logic across files.

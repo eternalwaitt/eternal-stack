@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -55,10 +56,16 @@ def lesson_content() -> str:
     return os.environ.get("CLAUDE_GUARD_HINDSIGHT_LESSON_TEXT", LESSON)
 
 
+# Safety: append_etrnl_lesson calls a repo-local state_cli from repo_root(),
+# uses a resolved node binary, and sends internally constructed event JSON.
 def append_etrnl_lesson() -> dict | None:
     state_cli = repo_root() / "scripts" / "etrnl-state.mjs"
     if not state_cli.exists():
         print(f"cc-hindsight-lesson: state cli missing: {state_cli}", file=sys.stderr)
+        return None
+    node_bin = shutil.which("node")
+    if not node_bin:
+        print("cc-hindsight-lesson: node binary not found", file=sys.stderr)
         return None
     event = {
         "eventKind": "lesson",
@@ -72,7 +79,7 @@ def append_etrnl_lesson() -> dict | None:
         },
     }
     result = subprocess.run(
-        ["node", str(state_cli), "append", "--json"],
+        [node_bin, str(state_cli), "append", "--json"],
         input=json.dumps(event),
         text=True,
         capture_output=True,

@@ -329,8 +329,25 @@ if [[ "$claims_done" == "true" ]]; then
   fi
   if cc_etrnl_state_available; then
     stop_status_json=""
-    if ! stop_status_json="$(node "$(cc_etrnl_state_script)" stop-status --session "$(cc_session_id)" --json 2>/dev/null)"; then
-      stop_reason="$(jq -r '.blockReason // .message // "Verification is stale after compact."' <<<"$stop_status_json" 2>/dev/null || printf 'Verification is stale after compact.')"
+    stop_err=""
+    stop_err_file="$(mktemp "${TMPDIR:-/tmp}/cc-stop-status.XXXXXX")"
+    if ! stop_status_json="$(node "$(cc_etrnl_state_script)" stop-status --session "$(cc_session_id)" --json 2>"$stop_err_file")"; then
+      stop_err="$(head -n 1 "$stop_err_file" 2>/dev/null || true)"
+      stop_reason="ETRNL stop-status check failed. Verification is stale after compact."
+      [[ -z "$stop_err" ]] || stop_reason="$stop_reason $stop_err"
+      rm -f -- "$stop_err_file"
+      cc_json_block "$stop_reason"
+      exit 0
+    fi
+    rm -f -- "$stop_err_file"
+    if [[ -z "$stop_status_json" ]] || ! jq -e . >/dev/null 2>&1 <<<"$stop_status_json"; then
+      stop_reason="ETRNL stop-status returned invalid JSON. Verification is stale after compact."
+      [[ -z "$stop_status_json" ]] || stop_reason="$stop_reason Output: ${stop_status_json:0:200}"
+      cc_json_block "$stop_reason"
+      exit 0
+    fi
+    stop_reason="$(jq -r 'if .staleVerificationAfterCompact == true then (.blockReason // .message // "Verification is stale after compact.") else "" end' <<<"$stop_status_json")"
+    if [[ -n "$stop_reason" ]]; then
       cc_json_block "$stop_reason"
       exit 0
     fi

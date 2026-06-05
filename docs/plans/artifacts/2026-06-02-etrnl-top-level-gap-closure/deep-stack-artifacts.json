@@ -26,9 +26,9 @@
         "capturedAt": "2026-06-02T12:00:00Z",
         "refreshCommand": "fd -t f . && inspect listed repo files with line-numbered reads",
         "requiredFiles": [
-          "skills/etrnl-plan/SKILL.md",
+          "skills/etrnl-dev-plan/SKILL.md",
           "skills/etrnl-autoplan/SKILL.md",
-          "skills/etrnl-review/SKILL.md",
+          "skills/etrnl-dev-review/SKILL.md",
           "skills/etrnl-execute/SKILL.md",
           "scripts/plan-readiness-check.mjs",
           "scripts/lib/deep-stack-artifacts.mjs",
@@ -86,13 +86,13 @@
   },
   "skillMatrix": [
     {
-      "skill": "etrnl-plan",
+      "skill": "etrnl-dev-plan",
       "status": "required",
       "trigger": "saved implementation plan requested",
       "evidence": "Plan saved under docs/plans with required headings and deep-stack artifact."
     },
     {
-      "skill": "etrnl-review",
+      "skill": "etrnl-dev-review",
       "status": "required",
       "trigger": "findings report requested",
       "evidence": "Findings report leads with current-state, comparison, gaps, and deterministic fix surfaces."

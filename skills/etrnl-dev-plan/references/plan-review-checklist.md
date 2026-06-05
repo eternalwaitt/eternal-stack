@@ -18,6 +18,8 @@ Answer these before reviewing tasks:
 
 Flag and fix before finalizing:
 
+The following checks apply only when the referenced companion skills (e.g., code-simplifier, finding-duplicate-functions, eternal-best-practices) are installed; record unavailable skills and their impact in the Plan Readiness Report.
+
 - Requirement from the source spec/request has no task.
 - Existing code or workflow solves part of the problem, but the plan rebuilds it.
 - The plan lacks a "What already exists" section.

@@ -165,10 +165,14 @@ function hotspotScore(file) {
     score += AUDIT_WITH_CARE_WEIGHT;
     reasons.push("audit-with-care");
   }
+  // Deliberately broad to catch security-sensitive path segments; the
+  // multi-factor hotspot threshold reduces false positives.
   if (!["docs", "test"].includes(file.category) && /(?:^|[/-])(?:auth|security|payment|billing|tenant|permissions?|webhooks?|migrations?)(?:$|[/-])/.test(lower)) {
     score += SENSITIVE_PATH_WEIGHT;
     reasons.push("sensitive path");
   }
+  // Deliberately broad to catch risky filenames such as router, handler,
+  // middleware, env, secret, token, upload, export, delete, or admin.
   if (/(?:^|[_./-])(?:schema|router|handler|middleware|env|secret|token|credential|upload|export|delete|admin)(?:$|[_./-])/.test(lower)) {
     score += SENSITIVE_NAME_WEIGHT;
     reasons.push("sensitive name");

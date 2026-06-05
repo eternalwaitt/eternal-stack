@@ -7,6 +7,8 @@
 
 Default install is intentionally usable but conservative: `--profile core` installs observer hooks, prompt routing, prompt expansion, once-per-session `CLAUDE.md` reinjection, the locked advisory rate limiter, post-tool observation, session cleanup, scripts, docs, rules, skills, and agents. Hard blockers and global memory/backlog/codegraph services stay opt-in.
 
+Breaking install behavior: managed `~/.claude/settings.json` is backed up and reset to vanilla `{}` before the stack is applied unless `--preserve-settings` is supplied. Live migration of memory systems, plugins, MCPs, broad permissions, and private overlays is a separate local rollout step, not an automatic install-time side effect.
+
 Full stack install:
 
 ```bash

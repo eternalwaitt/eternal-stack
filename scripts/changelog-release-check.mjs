@@ -14,6 +14,14 @@ const GIT_LIMITS = gitSubprocessLimits({
   maxBufferBytes: DEFAULT_GIT_MAX_BUFFER,
 });
 
+function usage() {
+  console.error("usage: changelog-release-check.mjs [--root <path>] [--allow-unreleased] [--strict-unreleased]");
+  console.error("--strict-unreleased takes precedence over --allow-unreleased when both are present.");
+  process.exit(2);
+}
+
+if (args.includes("--help") || args.includes("-h")) usage();
+
 function argValue(flag, fallback = "") {
   const index = args.indexOf(flag);
   if (index < 0) return fallback;

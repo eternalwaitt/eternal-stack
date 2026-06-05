@@ -220,7 +220,7 @@ Quick win: removes non-blocking `mv: ... No such file or directory` warnings dur
 ### Phase 5: Skill updates
 
 1. Update `etrnl-autoplan` to use packet templates and plan-readiness explain mode.
-2. Update `etrnl-plan` to treat design-spec approval and implementation-plan readiness as separate gates.
+2. Update `etrnl-dev-plan` to treat design-spec approval and implementation-plan readiness as separate gates.
 3. Add skill behavior smoke cases for packet creation and readiness repair.
 4. Gate: `node scripts/skill-behavior-smoke.mjs --root .`.
 
@@ -235,9 +235,9 @@ Quick win: removes non-blocking `mv: ... No such file or directory` warnings dur
 
 ## Skill/tool routing
 
-- Use `etrnl-plan` for plan updates and readiness checks.
+- Use `etrnl-dev-plan` for plan updates and readiness checks.
 - Use `etrnl-execute` after this plan is accepted.
-- Use `etrnl-review` before commit or push because hook semantics affect every Claude Code session.
+- Use `etrnl-dev-review` before commit or push because hook semantics affect every Claude Code session.
 - Use `investigate` posture for fixture extraction: evidence first, hypothesis second.
 - Use `bash-defensive-patterns` when editing shell hooks.
 - Use `ast-grep` only for structural code scans; use `rtk grep` or `rg` for plain text.

@@ -161,7 +161,7 @@ Rollback: revert Stop gate to current string evidence path. Keep v2 recording if
 
 Status: Complete; see `## Implementation Status`.
 
-Owner files: `scripts/execution-ledger.mjs`, `scripts/workflow-health.mjs`, `scripts/plan-readiness-check.mjs`, `skills/etrnl-autoplan/SKILL.md`, `skills/etrnl-plan/SKILL.md`, `skills/etrnl-execute/SKILL.md`, `skills/etrnl-qa-browser/SKILL.md`, `tests/test-workflow-tools.sh`.
+Owner files: `scripts/execution-ledger.mjs`, `scripts/workflow-health.mjs`, `scripts/plan-readiness-check.mjs`, `skills/etrnl-autoplan/SKILL.md`, `skills/etrnl-dev-plan/SKILL.md`, `skills/etrnl-execute/SKILL.md`, `skills/etrnl-qa-browser/SKILL.md`, `tests/test-workflow-tools.sh`.
 
 Implementation:
 
@@ -356,7 +356,7 @@ CLAUDE_HOME="$_STRICT_HOME" "$_STRICT_HOME/scripts/doctor-control-plane.sh"
 
 ## Skill/tool routing
 
-- Use `/etrnl-plan` or this plan file as the planning artifact.
+- Use `/etrnl-dev-plan` or this plan file as the planning artifact.
 - Use `/autoplan` for strategy, engineering, and DX review before execution.
 - Use `/etrnl-execute` only after `plan-readiness-check.mjs` passes.
 - Use `etrnl-executor` for write-mode implementation packets when parallel-safe or multi-file work is involved.
@@ -834,7 +834,7 @@ Reviewer B findings:
 | Prerequisites | Missing tools surface during/after mutation. | Add preflight before any install mutation. |
 | Install | `~/.claude` mutation feels risky. | Document sandbox `CLAUDE_HOME` path and backup location. |
 | Verify | Doctor exists, expected outputs are scattered. | Add expected pass signals and mode matrix. |
-| First behavior | No single hello-world workflow. | Add one `/etrnl-plan` or workflow-health smoke path. |
+| First behavior | No single hello-world workflow. | Add one `/etrnl-dev-plan` or workflow-health smoke path. |
 | Strict mode | Opt-in exists but fresh smoke is undefined. | Add strict isolated smoke gate. |
 | Failure | Troubleshooting is list-based, not error-to-fix. | Standardize error shape and docs links. |
 | Upgrade | Update exists, dirty checkout refusal is good. | Add failure recovery and backup selection walkthrough. |

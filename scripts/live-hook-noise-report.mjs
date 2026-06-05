@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { homedir } from "node:os";
+import { lstatSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { argValue } from "./lib/cli-args.mjs";
 
@@ -8,6 +9,7 @@ const json = args.includes("--json");
 const strict = args.includes("--strict");
 const sinceDays = Number(argValue(args, "--since-days", "3")) || 3;
 const maxFiles = Number(argValue(args, "--max-files", "500")) || 500;
+const maxFileBytes = Number(argValue(args, "--max-file-bytes", process.env.CLAUDE_CONTROL_PLANE_HOOK_LOG_MAX_BYTES || "52428800")) || 52_428_800;
 const maxNonBlocking = Number(argValue(args, "--max-non-blocking", "-1"));
 const maxBlocking = Number(argValue(args, "--max-blocking", "-1"));
 const root = expandHome(argValue(args, "--root", process.env.CLAUDE_HOME || "~/.claude"));
@@ -15,12 +17,16 @@ const cutoffMs = Date.now() - sinceDays * 24 * 60 * 60 * 1000;
 
 function expandHome(value) {
   if (!value.startsWith("~")) return value;
-  return `${process.env.HOME || ""}${value.slice(1)}`;
+  return `${homePath()}${value.slice(1)}`;
+}
+
+function homePath() {
+  return process.env.HOME || process.env.USERPROFILE || homedir() || "/tmp";
 }
 
 function redact(value) {
   return String(value || "")
-    .replaceAll(process.env.HOME || "\u0000", "~")
+    .replaceAll(homePath(), "~")
     .replace(/\/Users\/[^/\s]+/g, "/Users/<user>")
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "<email>")
     .slice(0, 220);
@@ -38,8 +44,18 @@ function topEntries(map, limit = 10) {
     .map(([value, count]) => ({ value, count }));
 }
 
-function findJsonlFiles(dir, out = []) {
+function findJsonlFiles(dir, out = [], visited = new Set()) {
   if (out.length >= maxFiles) return out;
+  let realDir;
+  try {
+    const stat = lstatSync(dir);
+    if (stat.isSymbolicLink()) return out;
+    realDir = realpathSync(dir);
+  } catch {
+    return out;
+  }
+  if (visited.has(realDir)) return out;
+  visited.add(realDir);
   let entries = [];
   try {
     entries = readdirSync(dir, { withFileTypes: true });
@@ -48,7 +64,8 @@ function findJsonlFiles(dir, out = []) {
   }
   for (const entry of entries) {
     const path = join(dir, entry.name);
-    if (entry.isDirectory()) findJsonlFiles(path, out);
+    if (entry.isSymbolicLink()) continue;
+    if (entry.isDirectory()) findJsonlFiles(path, out, visited);
     else if (entry.isFile() && entry.name.endsWith(".jsonl")) out.push(path);
     if (out.length >= maxFiles) break;
   }
@@ -102,8 +119,18 @@ function scan() {
   const hooks = new Map();
   let linesScanned = 0;
   let parseErrors = 0;
+  let skippedLargeFiles = 0;
   for (const file of files) {
     const project = projectFor(file);
+    try {
+      if (statSync(file).size > maxFileBytes) {
+        skippedLargeFiles += 1;
+        continue;
+      }
+    } catch {
+      parseErrors += 1;
+      continue;
+    }
     for (const line of readFileSync(file, "utf8").split(/\r?\n/)) {
       if (!line.trim()) continue;
       linesScanned += 1;
@@ -137,6 +164,7 @@ function scan() {
     filesScanned: files.length,
     linesScanned,
     parseErrors,
+    skippedLargeFiles,
     counts: counters,
     topReasons: topEntries(reasons),
     topProjects: topEntries(projects),

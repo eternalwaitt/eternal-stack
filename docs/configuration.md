@@ -20,7 +20,9 @@ Install:
 - `CLAUDE_CONTROL_PLANE_INSTALL_STARTUP=1` overwrites installed `AGENTS.md` and `CLAUDE.md` startup files instead of preserving existing local copies.
 - `CLAUDE_CONTROL_PLANE_BOOTSTRAP_PROJECTS=1` lets a full install initialize or verify project-local `.codegraph` and `.beads` state.
 - `CLAUDE_CONTROL_PLANE_HINDSIGHT_MODE=local-daemon|external-api|docker-server` selects full-profile Hindsight provisioning mode.
+- `local-daemon` mode requires a local Hindsight daemon or `uvx hindsight-embed`/`hindsight-embed`; set `HINDSIGHT_DAEMON_SOCKET` only when your local daemon uses a non-default socket.
 - `HINDSIGHT_API_URL` is required for `external-api` mode; `HINDSIGHT_API_TOKEN` remains an environment secret and is not written to tracked files.
+- `docker-server` mode requires Docker plus the Hindsight image selection, such as `HINDSIGHT_DOCKER_IMAGE` and `HINDSIGHT_DOCKER_TAG`; configure registry credentials and host port mapping outside tracked files.
 
 Updater:
 

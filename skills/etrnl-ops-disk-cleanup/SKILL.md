@@ -11,15 +11,16 @@ Reclaim local disk space with an inspect-first, trash-only workflow.
 
 ## Required Flow
 
-1. Identify the target host and filesystem first with `pwd`, `df -h`, and a bounded usage command such as `dust -d 2 "$HOME"` or a focused project path.
-2. Build a dry-run manifest before deleting anything. Include exact absolute paths, category, estimated bytes, contents description, why the path is safe to trash, cleanup command, and risk tier.
+1. Verify `trash` is available before building the manifest: `command -v trash`. If it is missing, abort with `trash is required - install via npm i -g trash-cli or your OS package manager`.
+2. Identify the target host and filesystem first with `pwd`, `df -h`, and a bounded usage command such as `dust -d 2 "$HOME"` or a focused project path.
+3. Build a dry-run manifest before deleting anything. Include exact absolute paths, category, estimated bytes, contents description, why the path is safe to trash, cleanup command, and risk tier.
    Validate structured manifests with `node ~/.claude/scripts/disk-cleanup-manifest.mjs validate < manifest.json` when the helper is installed.
-3. Only cleanup transient paths: caches, build outputs, logs, package-manager caches, simulator/build artifacts, and explicitly disposable temp files.
-4. Use owner cleanup commands before direct path trashing when they exist, such as `brew cleanup`, package-manager cache clean commands, `go clean -cache`, or Docker prune commands after `docker system df` and explicit confirmation.
-5. Use `trash` for deletion. Do not use `rm -r` or `rm -rf` for cleanup.
-6. Never delete source checkouts, documents, photos, mail stores, keychains, databases, or project data unless Victor explicitly names that exact path and confirms the deletion after seeing the manifest.
-7. Do not empty the whole Trash unless Victor explicitly asks after seeing the current Trash contents and estimated size.
-8. After trashing files, rerun `df -h` or the same usage command and report before/after space.
+4. Only cleanup transient paths: caches, build outputs, logs, package-manager caches, simulator/build artifacts, and explicitly disposable temp files.
+5. Use owner cleanup commands before direct path trashing when they exist, such as `brew cleanup`, package-manager cache clean commands, `go clean -cache`, or Docker prune commands after `docker system df` and explicit confirmation.
+6. Use `trash` for deletion. Do not use `rm -r` or `rm -rf` for cleanup.
+7. Never delete source checkouts, documents, photos, mail stores, keychains, databases, or project data unless Victor explicitly names that exact path and confirms the deletion after seeing the manifest.
+8. Do not empty the whole Trash unless Victor explicitly asks after seeing the current Trash contents and estimated size.
+9. After trashing files, rerun `df -h` or the same usage command and report before/after space.
 
 ## Risk Tiers
 

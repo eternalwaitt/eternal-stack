@@ -183,18 +183,15 @@ REMOVED_SKILLS=(
   etrnl-context-save
   etrnl-deep-audit
   etrnl-deps
-  etrnl-disk-cleanup
   etrnl-documentation-health
   etrnl-email-reply-quality
   etrnl-execute
   etrnl-fix-issue
   etrnl-parallel
   etrnl-performance-audit
-  etrnl-plan
   etrnl-production-readiness
   etrnl-pr
   etrnl-qa-browser
-  etrnl-review
   etrnl-run-plan
   etrnl-security-audit
   etrnl-stress-test

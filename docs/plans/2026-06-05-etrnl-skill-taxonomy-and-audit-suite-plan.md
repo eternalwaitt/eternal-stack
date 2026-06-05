@@ -60,18 +60,18 @@ Proposed canonical mapping:
 | `etrnl-context-save` | `etrnl-ops-context-save` | ops | Local workflow-state save. |
 | `etrnl-deep-audit` | `etrnl-audit` | audit | Thin audit orchestrator for registered categories. |
 | `etrnl-deps` | `etrnl-dev-deps` | dev | Dependency maintenance and bot PR triage. |
-| `etrnl-disk-cleanup` | `etrnl-ops-disk-cleanup` | ops | Local disk cleanup. |
+| `etrnl-ops-disk-cleanup` | `etrnl-ops-disk-cleanup` | ops | Local disk cleanup. |
 | `etrnl-documentation-health` | `etrnl-audit-docs` | audit | Documentation health category/specialist. |
 | `etrnl-email-reply-quality` | `etrnl-comm-email-reply-quality` | comm | VIVAZ outgoing email quality. |
 | `etrnl-execute` | `etrnl-dev-execute` | dev | Plan execution. |
 | `etrnl-systematic-debugging` | `etrnl-dev-debug` | dev | Root-cause debugging. |
 | `etrnl-parallel` | `etrnl-dev-parallel` | dev | Explicit parallel fanout helper. |
 | `etrnl-performance-audit` | `etrnl-audit-performance` | audit | Registered performance category. |
-| `etrnl-plan` | `etrnl-dev-plan` | dev | File-backed plan writing. |
+| `etrnl-dev-plan` | `etrnl-dev-plan` | dev | File-backed plan writing. |
 | `etrnl-production-readiness` | `etrnl-audit-production` | audit | Registered production-readiness category. |
 | `etrnl-pr` | `etrnl-dev-pr` | dev | PR preparation/update. |
 | `etrnl-qa-browser` | `etrnl-audit-browser` | audit | Browser QA evidence workflow. |
-| `etrnl-review` | `etrnl-dev-review` | dev | Review workflow. |
+| `etrnl-dev-review` | `etrnl-dev-review` | dev | Review workflow. |
 | `etrnl-security-audit` | `etrnl-audit-security` | audit | Registered security category. |
 | `etrnl-stress-test` | `etrnl-dev-stress-test` | dev | Assumption/stress review; future load testing can become `etrnl-audit-load`. |
 | `etrnl-test` | `etrnl-dev-test` | dev | Test/preflight workflow. |
@@ -132,7 +132,7 @@ Verification: `tests/test-install.sh`, `scripts/doctor.sh`, and `node scripts/sk
 Owner: dev-workflow skill owner.
 Dependencies: Groups A and B.
 Acceptance criteria: plan, execute, review, test, debug, PR, commit, CI, deps, brainstorm, autoplan, parallel, and stress-test skills exist under `etrnl-dev-*`; old names do not route; references inside skill bodies and docs point to canonical names.
-Verification: `node scripts/skill-behavior-smoke.mjs`, `node scripts/prompt-budget-check.mjs --owned-only`, and targeted trigger fixtures for `etrnl-dev-plan`, old `etrnl-plan` rejection, `etrnl-dev-execute`, and old `etrnl-execute` rejection.
+Verification: `node scripts/skill-behavior-smoke.mjs`, `node scripts/prompt-budget-check.mjs --owned-only`, and targeted trigger fixtures for `etrnl-dev-plan`, old `etrnl-dev-plan` rejection, `etrnl-dev-execute`, and old `etrnl-execute` rejection.
 
 ### Group D - Audit Family Rename
 
@@ -223,15 +223,15 @@ Update docs, changelog, health-stack docs, install tests, and doctor output. Run
 
 ## Test-first execution plan
 
-- Red: add a taxonomy fixture or synthetic skill name such as `etrnl-plan-v2` and confirm `node scripts/skill-contract-check.mjs` rejects it before implementing canonical validation.
-- Red: add an old-name rejection fixture for `etrnl-plan` and confirm install/smoke checks fail before old-name removal exists.
+- Red: add a taxonomy fixture or synthetic skill name such as `etrnl-dev-plan-v2` and confirm `node scripts/skill-contract-check.mjs` rejects it before implementing canonical validation.
+- Red: add an old-name rejection fixture for `etrnl-dev-plan` and confirm install/smoke checks fail before old-name removal exists.
 - Red: add trigger cases for `etrnl-dev-plan`, `etrnl-audit-ux`, and `etrnl-audit-tooling` before canonical skill directories exist.
 - Green: implement taxonomy arrays, canonical skill directories, old-directory removal, and router updates until skill-contract, smoke, install, and workflow-tool tests pass.
 - Green: add category fixtures for new audit categories and pass deep-audit artifact validation.
 
 ## Failure modes
 
-- Command breakage: users invoke `etrnl-plan` after the clean rename. Router and docs should return a clear canonical-name error instead of silently invoking old behavior.
+- Command breakage: users invoke `etrnl-dev-plan` after the clean rename. Router and docs should return a clear canonical-name error instead of silently invoking old behavior.
 - Double routing: an old name and canonical name both activate skills. Router fixtures assert old names do not route and canonical names route once.
 - Install drift: source canonical names work but installed Claude/Codex homes retain old bodies. Installed skill-contract checks and install tests cover both homes.
 - Audit overclaim: `etrnl-audit` says all audits ran while UX/reuse/repo/tooling are missing or source-limited. Registry and artifact validation require coverage statements and known missing/source-limited rows.

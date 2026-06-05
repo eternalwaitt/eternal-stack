@@ -14,10 +14,10 @@ Evidence: `AGENTS.md`; `docs/plans/2026-05-12-etrnl-superiority-implementation-p
 - `skills/etrnl-execute/SKILL.md` already treats `Execution scope: all_phases` as a hard contract, requires a run ledger, supports wave-based execution, requires structured subagent task packets, records spec and quality review evidence, and blocks completion when required phase/task/artifact evidence is missing.
 - `scripts/agent-task-packet-check.mjs` already validates structured read-only/write packets, task identity, lineage identity, read sets, write scopes, forbidden paths, reviewer fields, and packet hashes.
 - `scripts/execution-ledger.mjs` already provides the local evidence backbone for tasks, phases, checks, artifacts, reviews, and stop validation.
-- `skills/etrnl-plan/SKILL.md` already requires saved plan files, current repo evidence, `Execution scope`, reuse inventory, non-goals, file map, skill routing, test plan, failure modes, verification gates, rollback, readiness report, and final verdict.
+- `skills/etrnl-dev-plan/SKILL.md` already requires saved plan files, current repo evidence, `Execution scope`, reuse inventory, non-goals, file map, skill routing, test plan, failure modes, verification gates, rollback, readiness report, and final verdict.
 - `skills/etrnl-autoplan/SKILL.md` already names CEO, engineering, design, DX, adversarial, and outside-voice passes, but currently frames them as Gauntlet-Lite and does not force full-depth artifacts.
-- `skills/etrnl-review/SKILL.md` already leads with findings, separates request/plan/diff/runtime truth sources, and names companion passes for `eternal-best-practices`, `code-simplifier`, `finding-duplicate-functions`, and `brooks-audit`.
-- `docs/research/etrnl-parity-backlog.md` already marks `etrnl-autoplan`, `etrnl-plan`, `etrnl-review`, and `etrnl-test` as P0/M1 gap surfaces.
+- `skills/etrnl-dev-review/SKILL.md` already leads with findings, separates request/plan/diff/runtime truth sources, and names companion passes for `eternal-best-practices`, `code-simplifier`, `finding-duplicate-functions`, and `brooks-audit`.
+- `docs/research/etrnl-parity-backlog.md` already marks `etrnl-autoplan`, `etrnl-dev-plan`, `etrnl-dev-review`, and `etrnl-test` as P0/M1 gap surfaces.
 - `docs/skills.md` already documents companion skills, but it does not include a stack-aware activation matrix or advanced TypeScript/type-system lane.
 - `docs/health-stack.md` already lists required control-plane gates and optional repo-health tools.
 - Local companion skills exist for the required deep lanes: `typescript-advanced-types`, `nextjs-app-router-patterns`, `react-best-practices`, `prisma-expert`, `better-auth`, `tenant-isolation-patterns`, `money-vo-discipline`, `orpc-patterns`, `i18n-localization`, `frontend-code-review`, `senior-backend`, `senior-qa`, `code-review-excellence`, `code-simplifier`, and `finding-duplicate-functions`.
@@ -33,9 +33,9 @@ Evidence: `AGENTS.md`; `docs/plans/2026-05-12-etrnl-superiority-implementation-p
 ## File map
 
 - `skills/etrnl-brainstorm/SKILL.md` - upgrade into a Superpowers-style brainstorm/spec workflow with alternatives, approved design, written spec, spec self-review, and transition to plan.
-- `skills/etrnl-plan/SKILL.md` - upgrade plan creation to require research, reuse inventory, pattern mapping, skill activation matrix, advanced type architecture, source coverage, and zero-open-finding readiness.
+- `skills/etrnl-dev-plan/SKILL.md` - upgrade plan creation to require research, reuse inventory, pattern mapping, skill activation matrix, advanced type architecture, source coverage, and zero-open-finding readiness.
 - `skills/etrnl-autoplan/SKILL.md` - replace Gauntlet-Lite with full-depth sequential CEO, design, engineering, DX, adversarial, specialist, and convergence phases.
-- `skills/etrnl-review/SKILL.md` - add Gstack-style completion audit, review army, red-team pass, simplifier pass, advanced type pass, and zero-open-findings output contract.
+- `skills/etrnl-dev-review/SKILL.md` - add Gstack-style completion audit, review army, red-team pass, simplifier pass, advanced type pass, and zero-open-findings output contract.
 - `skills/etrnl-execute/SKILL.md` - tighten execution to require plan-declared deep-stack artifacts before editing and completion-declared review/simplification/type evidence before done.
 - `skills/etrnl-test/SKILL.md` - add red-green-refactor evidence requirements and typed test evidence when TypeScript type behavior is part of the change.
 - `skills/etrnl-stress-test/SKILL.md` - add deterministic rollback mapping for each failure mode and output fields that feed the findings ledger.
@@ -75,13 +75,13 @@ Evidence: `AGENTS.md`; `docs/plans/2026-05-12-etrnl-superiority-implementation-p
 ### Group B - Plan-Time Hard Gates
 
 - Add `skill-activation-matrix.mjs`, `reuse-inventory-check.mjs`, `plan-source-coverage-check.mjs`, and `advanced-type-plan-check.mjs`.
-- Upgrade `etrnl-plan` and `etrnl-autoplan` to require those artifacts before `Status: Final`.
+- Upgrade `etrnl-dev-plan` and `etrnl-autoplan` to require those artifacts before `Status: Final`.
 - Upgrade `plan-readiness-check.mjs` to fail final plans that declare deep-stack work but omit those artifacts.
 
 ### Group C - Full Review Stack
 
 - Add review-army and zero-open-findings validators.
-- Upgrade `etrnl-review` with plan completion audit, specialist lanes, red-team review, simplifier review, advanced type review, and structured findings output.
+- Upgrade `etrnl-dev-review` with plan completion audit, specialist lanes, red-team review, simplifier review, advanced type review, and structured findings output.
 - Upgrade reviewer agents so implementation cannot self-certify quality.
 
 ### Group D - Execution Contract Integration
@@ -144,7 +144,7 @@ Read first:
 
 - `docs/skills.md`
 - `scripts/lib/skill-lists.sh`
-- `skills/etrnl-plan/SKILL.md`
+- `skills/etrnl-dev-plan/SKILL.md`
 - sanitized local skill root inventory, without private home paths
 
 Implementation:
@@ -172,7 +172,7 @@ Implementation:
    - `planSection`
    - `loadedBy`
    - `finalDisposition`
-4. Update `skills/etrnl-plan/SKILL.md` and `skills/etrnl-autoplan/SKILL.md` so every final non-trivial plan contains a `Skill Activation Matrix` artifact path and a summary table.
+4. Update `skills/etrnl-dev-plan/SKILL.md` and `skills/etrnl-autoplan/SKILL.md` so every final non-trivial plan contains a `Skill Activation Matrix` artifact path and a summary table.
 5. Update `scripts/plan-readiness-check.mjs` to fail when the plan references TypeScript, Next, React, Prisma, auth, tenancy, money, API, i18n, or UI scope but lacks the relevant matrix row.
 
 Acceptance:
@@ -192,7 +192,7 @@ Expected result:
 
 Read first:
 
-- `skills/etrnl-plan/SKILL.md`
+- `skills/etrnl-dev-plan/SKILL.md`
 - `skills/etrnl-autoplan/SKILL.md`
 - `agents/etrnl-scout.md`
 - GSD pattern-mapper workflow reference
@@ -212,7 +212,7 @@ Implementation:
    - `newSurfaceJustification`
    - `duplicateRisk`
    - `executorReadFirst`
-4. Upgrade `etrnl-plan` to require `## What already exists` to cite the reuse artifact.
+4. Upgrade `etrnl-dev-plan` to require `## What already exists` to cite the reuse artifact.
 5. Upgrade `etrnl-autoplan` engineering phase to require a scout/pattern-map pass before final plan verdict.
 6. Upgrade `agent-task-packet-check.mjs` so write packets for new files include `reuseArtifact` or `newSurfaceJustification`.
 
@@ -234,8 +234,8 @@ Expected result:
 Read first:
 
 - installed `typescript-advanced-types/SKILL.md`
-- `skills/etrnl-plan/SKILL.md`
-- `skills/etrnl-review/SKILL.md`
+- `skills/etrnl-dev-plan/SKILL.md`
+- `skills/etrnl-dev-review/SKILL.md`
 - `skills/etrnl-test/SKILL.md`
 
 Implementation:
@@ -254,8 +254,8 @@ Implementation:
    - `componentPropsStrategy`
    - `typeTests`
    - `forbiddenEscapes`: `as any`, broad `unknown` casts without boundary validation, untyped `Record<string, unknown>` where domain shape is known, non-exhaustive unions, and unchecked JSON parses.
-4. Upgrade `etrnl-plan` to require a `Type Architecture` subsection for TypeScript projects.
-5. Upgrade `etrnl-review` to run an advanced type review lane on TypeScript diffs.
+4. Upgrade `etrnl-dev-plan` to require a `Type Architecture` subsection for TypeScript projects.
+5. Upgrade `etrnl-dev-review` to run an advanced type review lane on TypeScript diffs.
 6. Upgrade `etrnl-test` to require type-level test strategy when type utilities, API contracts, discriminated unions, or branded IDs are changed.
 
 Acceptance:
@@ -324,7 +324,7 @@ Expected result:
 
 Read first:
 
-- `skills/etrnl-review/SKILL.md`
+- `skills/etrnl-dev-review/SKILL.md`
 - Gstack `review/SKILL.md`
 - Gstack `review/specialists/*.md`
 - installed `code-review-excellence/SKILL.md`
@@ -362,7 +362,7 @@ Implementation:
    - `status`
 5. Create `scripts/zero-open-findings-check.mjs` with:
    - `validate --artifact <artifact> --block-severity high`
-6. Upgrade `etrnl-review` output to require:
+6. Upgrade `etrnl-dev-review` output to require:
    - findings first
    - plan completion audit if plan exists
    - review-army artifact path
@@ -392,7 +392,7 @@ Read first:
 - Gstack `review/SKILL.md` plan completion audit section
 - `scripts/execution-ledger.mjs`
 - `skills/etrnl-execute/SKILL.md`
-- `skills/etrnl-review/SKILL.md`
+- `skills/etrnl-dev-review/SKILL.md`
 
 Implementation:
 
@@ -577,10 +577,10 @@ Stop condition:
 ## Skill/tool routing
 
 - `etrnl-brainstorm` handles vague ideas and produces approved design/spec artifacts before implementation planning.
-- `etrnl-plan` writes the file-backed implementation plan and requires source map, skill matrix, reuse inventory, type architecture, source coverage, verification, rollback, and readiness artifacts.
+- `etrnl-dev-plan` writes the file-backed implementation plan and requires source map, skill matrix, reuse inventory, type architecture, source coverage, verification, rollback, and readiness artifacts.
 - `etrnl-autoplan` runs the full deep-stack review over the plan and writes an autoplan decision ledger.
 - `etrnl-execute` implements only after readiness passes, then coordinates worker, spec reviewer, quality reviewer, simplifier reviewer, type reviewer, and completion audit evidence.
-- `etrnl-review` runs final review, review army, red team, simplifier, advanced type review, and zero-open-findings gate.
+- `etrnl-dev-review` runs final review, review army, red team, simplifier, advanced type review, and zero-open-findings gate.
 - `etrnl-test` owns red-green-refactor and type-test evidence for eligible behavior.
 - `etrnl-stress-test` owns adversarial failure-mode and rollback validation.
 - `code-simplifier` is mandatory after implementation for changed source unless the skill is unavailable or no source code changed.
@@ -648,9 +648,9 @@ Stop condition:
 - Phase 8 can run after Phase 3 and before Phase 10, but hook changes must be serialized with any stop-verifier edits.
 - Phase 9 is the final docs/install integration phase.
 - Shared files that require serialized ownership:
-  - `skills/etrnl-plan/SKILL.md`
+  - `skills/etrnl-dev-plan/SKILL.md`
   - `skills/etrnl-autoplan/SKILL.md`
-  - `skills/etrnl-review/SKILL.md`
+  - `skills/etrnl-dev-review/SKILL.md`
   - `skills/etrnl-execute/SKILL.md`
   - `scripts/plan-readiness-check.mjs`
   - `scripts/agent-task-packet-check.mjs`

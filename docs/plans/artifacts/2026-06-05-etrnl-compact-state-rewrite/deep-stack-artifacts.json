@@ -114,7 +114,7 @@
       "checkedInputs": [
         "docs/plans/2026-06-05-etrnl-compact-state-rewrite-plan.md",
         "scripts/lib/deep-stack-artifacts.mjs",
-        "skills/etrnl-plan/references/plan-review-checklist.md"
+        "skills/etrnl-dev-plan/references/plan-review-checklist.md"
       ],
       "findingsCount": 2,
       "openHighCount": 0,
@@ -164,9 +164,9 @@
   },
   "skillMatrix": [
     {
-      "skill": "etrnl-plan",
+      "skill": "etrnl-dev-plan",
       "status": "required",
-      "trigger": "User invoked etrnl-plan for implementation planning.",
+      "trigger": "User invoked etrnl-dev-plan for implementation planning.",
       "evidence": "Plan file and deep-stack artifact were created under docs/plans."
     },
     {

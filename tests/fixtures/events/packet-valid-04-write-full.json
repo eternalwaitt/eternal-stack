@@ -10,7 +10,7 @@
       "contextSummary": "Track B task B5; scope is skills/etrnl-dev-review/SKILL.md only",
       "cwd": "/repo",
       "scope": "skills/etrnl-dev-review/SKILL.md",
-      "readSet": ["skills/etrnl-dev-review/SKILL.md", "docs/research/parity-scorecard.json", "skills/etrnl-plan/SKILL.md"],
+      "readSet": ["skills/etrnl-dev-review/SKILL.md", "docs/research/parity-scorecard.json", "skills/etrnl-dev-plan/SKILL.md"],
       "writeScope": ["skills/etrnl-dev-review/SKILL.md"],
       "forbiddenPaths": ["scripts", "hooks", "tests"],
       "expectedOutput": "skills/etrnl-dev-review/SKILL.md with Research Flow and TDD Enforcement sections; contract check passes",

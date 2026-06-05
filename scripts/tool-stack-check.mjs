@@ -22,6 +22,7 @@ const jsonMode = hasFlag("--json");
 const explainMode = hasFlag("--explain");
 const force = hasFlag("--force");
 const projectPath = valueAfter("--project", valueAfter("--cwd", ""));
+const hindsightStrictChecks = /^(1|true|yes)$/i.test(process.env.HINDSIGHT_STRICT_CHECKS || "");
 
 function usage() {
   console.error("usage: tool-stack-check.mjs [--json|--explain] [--force] [--project <path>]");
@@ -256,14 +257,16 @@ function hindsightStatus() {
   const apiUrl = configExists ? String(config.hindsightApiUrl || "").replace(/\/$/, "") : "";
   const mode = configExists ? (apiUrl ? "external-api" : "local-daemon") : "missing-config";
   const issues = [];
+  const warnings = [];
+  const addConfigFinding = (message) => (hindsightStrictChecks ? issues : warnings).push(message);
   if (pluginEnabled && !pluginInstalled) issues.push("enabled plugin is not installed");
   if (pluginEnabled && !configExists) issues.push("enabled plugin has no Hindsight config");
   if (configExists) {
-    if (config.dynamicBankId !== true) issues.push("dynamicBankId must be true");
-    if (JSON.stringify(config.dynamicBankGranularity) !== JSON.stringify(["agent", "project"])) issues.push("dynamicBankGranularity must be [agent,project]");
-    if (Number(config.recallContextTurns) > 3) issues.push("recallContextTurns must be <= 3");
-    if (config.retainToolCalls !== false) issues.push("retainToolCalls must be false");
-    if (!String(config.recallPromptPreamble || "").includes("Fresh repo/runtime evidence overrides memory")) issues.push("fresh-evidence preamble missing");
+    if (config.dynamicBankId !== true) addConfigFinding("dynamicBankId should be true");
+    if (JSON.stringify(config.dynamicBankGranularity) !== JSON.stringify(["agent", "project"])) addConfigFinding("dynamicBankGranularity should be [agent,project]");
+    if (Number(config.recallContextTurns) > 3) addConfigFinding("recallContextTurns should be <= 3");
+    if (config.retainToolCalls !== false) addConfigFinding("retainToolCalls should be false");
+    if (!String(config.recallPromptPreamble || "").includes("Fresh repo/runtime evidence overrides memory")) addConfigFinding("fresh-evidence preamble missing");
   }
   const apiHealth = apiUrl ? curlHealth(apiUrl) : { ok: true, skipped: true, reason: mode === "local-daemon" ? "local daemon starts on demand; use canary for live port check" : "no api url configured" };
   if (pluginEnabled && apiUrl && !apiHealth.ok) issues.push(`Hindsight API health failed: ${apiHealth.error}`);
@@ -282,8 +285,10 @@ function hindsightStatus() {
     currentVersion: "",
     latestVersion: latest.version,
     latestError: latest.error,
-    ok: !pluginEnabled || (pluginInstalled && configExists && issues.length === 0 && apiHealth.ok),
+	    ok: !pluginEnabled || (pluginInstalled && configExists && issues.length === 0 && apiHealth.ok),
     issues,
+    warnings,
+    strictChecks: hindsightStrictChecks,
     installCommand: "claude plugin marketplace add vectorize-io/hindsight && claude plugin install hindsight-memory",
     updateCommand: "claude plugin update hindsight-memory",
     healthCommand: "scripts/canary-hindsight.sh",
@@ -333,6 +338,25 @@ writeJson(statePath, cache);
 const missing = toolRows.filter((tool) => !tool.installed);
 const updates = toolRows.filter((tool) => tool.updateAvailable);
 const project = projectStatus(projectPath);
+
+function formatToolVersion(tool) {
+  if (!tool.currentVersion) return `${tool.id}: missing`;
+  const latest = tool.latestVersion ? ` latest=${tool.latestVersion}` : "";
+  return `${tool.id}: ${tool.currentVersion}${latest}`;
+}
+
+function formatHindsightStatus(hindsightRow) {
+  if (!hindsightRow.pluginEnabled) return `hindsight: disabled mode=${hindsightRow.mode}`;
+  const health = hindsightRow.ok ? "enabled healthy" : `enabled unhealthy (${hindsightRow.issues.join("; ")})`;
+  const warnings = hindsightRow.warnings?.length ? ` warnings=${hindsightRow.warnings.join("; ")}` : "";
+  return `hindsight: ${health} mode=${hindsightRow.mode}${warnings}`;
+}
+
+function formatProjectStatus(label, healthy, initialized) {
+  if (healthy) return `${label}: healthy`;
+  return `${label}: ${initialized ? "present but unhealthy" : "missing"}`;
+}
+
 const result = {
   ok: missing.length === 0 && hindsight.ok,
   schemaVersion: 1,
@@ -351,21 +375,20 @@ if (jsonMode) {
   console.log(JSON.stringify(result, null, 2));
 } else if (explainMode) {
   console.log(`Tool stack check: ${missing.length === 0 ? "installed" : "missing tools"}`);
-	  for (const tool of toolRows) {
-    const versionText = tool.currentVersion ? `${tool.currentVersion}${tool.latestVersion ? ` latest=${tool.latestVersion}` : ""}` : "missing";
-    console.log(`${tool.id}: ${versionText}`);
+  for (const tool of toolRows) {
+    console.log(formatToolVersion(tool));
   }
-  console.log(`hindsight: ${hindsight.pluginEnabled ? hindsight.ok ? "enabled healthy" : `enabled unhealthy (${hindsight.issues.join("; ")})` : "disabled"} mode=${hindsight.mode}`);
+  console.log(formatHindsightStatus(hindsight));
   if (project) {
     console.log(`Project: ${project.path}`);
-    console.log(`CodeGraph index: ${project.codegraphHealthy ? "healthy" : project.codegraphInitialized ? "present but unhealthy" : "missing"}`);
-    console.log(`Beads database: ${project.beadsHealthy ? "healthy" : project.beadsInitialized ? "present but unhealthy" : "missing"}`);
+    console.log(formatProjectStatus("CodeGraph index", project.codegraphHealthy, project.codegraphInitialized));
+    console.log(formatProjectStatus("Beads database", project.beadsHealthy, project.beadsInitialized));
   }
 } else {
   for (const tool of missing) {
     console.log(`TOOL_STACK_MISSING ${tool.id} install="${tool.installCommand}"`);
   }
-	  for (const tool of updates) {
+  for (const tool of updates) {
     console.log(`TOOL_STACK_UPDATE_AVAILABLE ${tool.id} current=${tool.currentVersion} latest=${tool.latestVersion} run="${tool.updateCommand}"`);
   }
   if (!hindsight.ok) {

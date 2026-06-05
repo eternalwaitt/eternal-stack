@@ -334,13 +334,13 @@ Run all verification gates listed below. Fix every failure in source before any 
 
 ## Skill/tool routing
 
-- Use `etrnl-plan` for this plan and any plan edits.
+- Use `etrnl-dev-plan` for this plan and any plan edits.
 - Use `skill-creator` guidance for the three new skills: compact `SKILL.md`, reference-backed detail, no auxiliary README files, and prompt-budget protection.
 - Use `etrnl-execute` only after Victor asks to implement this plan.
 - Use `etrnl-parallel` during implementation only for disjoint lanes after packet validation.
 - Use `code-simplifier` after implementation because this adds new skill and script surfaces.
 - Use `finding-duplicate-functions` if the artifact validator duplicates logic already present in deep-stack or ledger validators.
-- Use `brooks-audit` or `etrnl-review` for the workflow architecture review before final completion.
+- Use `brooks-audit` or `etrnl-dev-review` for the workflow architecture review before final completion.
 - `eternal-best-practices` is not domain-triggered by this source-only control-plane skill work; if implementation starts editing auth, tenancy, money, i18n, Prisma, permissions, or soft-delete policy, it becomes required.
 
 ## Test plan

@@ -80,7 +80,7 @@
       "role": "specialist",
       "status": "passed",
       "checkedInputs": [
-        "skills/etrnl-plan/SKILL.md",
+        "skills/etrnl-dev-plan/SKILL.md",
         "skills/etrnl-autoplan/SKILL.md",
         "skills/etrnl-execute/SKILL.md"
       ],
@@ -140,7 +140,7 @@
   },
   "skillMatrix": [
     {
-      "skill": "etrnl-plan",
+      "skill": "etrnl-dev-plan",
       "status": "required",
       "trigger": "user requested a saved base plan and follow-up improvements",
       "evidence": "Plan follows the file-backed ETRNL planning workflow and passed plan-readiness in draft mode before finalization."
@@ -265,7 +265,7 @@
     },
     {
       "planItemId": "beads-value-boundary",
-      "requestedOutcome": "Decide whether Beads adds value alongside etrnl-plan, etrnl-autoplan, and etrnl-execute.",
+      "requestedOutcome": "Decide whether Beads adds value alongside etrnl-dev-plan, etrnl-autoplan, and etrnl-execute.",
       "classification": "DONE",
       "evidence": "Plan defines Beads as backlog, dependency, claim, blocker, and discovered-follow-up state only, not plan, execution, or future issue-tracker truth.",
       "changedReason": "",

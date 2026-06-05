@@ -220,7 +220,7 @@ Run source gates, staged core install, staged full install with stubs or safe te
 
 ## Skill/tool routing
 
-- Use `etrnl-plan` for this plan and readiness artifact.
+- Use `etrnl-dev-plan` for this plan and readiness artifact.
 - Use `Hook Development` during implementation because the work changes Claude lifecycle hooks, plugin hook auditing, and installed settings behavior.
 - Use `Plugin Structure` or `Plugin Settings` only if implementation vendors plugin metadata or needs a repo-owned plugin wrapper; otherwise keep Hindsight as an installed third-party plugin with this repo owning the profile/canary contract.
 - Use `Command Development` if new installer CLI flags or commands are added beyond simple `install.sh` options.

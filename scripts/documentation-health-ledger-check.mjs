@@ -311,10 +311,12 @@ function reportStatus(message) {
 
   const freshness = freshnessStatus(message);
   if (freshness) return freshness;
+  const finalScore = scoreValue(message);
+  if (finalScore === null) return "missing-final-score";
   const docsTotal = counterValue(message, "DOCS_FILES_TOTAL");
   const docsReviewed = counterValue(message, "DOCS_FILES_REVIEWED");
   if (
-    scoreValue(message) === 100
+    finalScore === 100
     && Number.isInteger(docsTotal)
     && Number.isInteger(docsReviewed)
     && docsReviewed < docsTotal

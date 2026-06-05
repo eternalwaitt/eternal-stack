@@ -263,11 +263,11 @@ record_tool() {
       cc_state_batch_append_command_success "$command"
       if [[ "$command" =~ (^|[[:space:];&|])(codegraph)([[:space:]]|$) ]]; then
         cc_state_batch_append_tool_signal codegraph codegraph bash-command || true
-        cc_etrnl_record_tool_signal codegraph codegraph bash-command
+        cc_etrnl_record_tool_signal codegraph codegraph bash-command || true
       fi
       if [[ "$command" =~ (^|[[:space:];&|])(beads|bd)([[:space:]]|$) ]]; then
         cc_state_batch_append_tool_signal beads beads bash-command || true
-        cc_etrnl_record_tool_signal beads beads bash-command
+        cc_etrnl_record_tool_signal beads beads bash-command || true
       fi
       if [[ "$command" =~ (^|[[:space:]])(rg|fd|sg|rtk[[:space:]]+grep|git[[:space:]]+grep)([[:space:]]|$) ]]; then
         cc_state_batch_mark_path searches "$command"

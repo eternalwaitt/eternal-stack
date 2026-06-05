@@ -58,6 +58,8 @@ cc_state_update --arg cwd "$cwd" ".cwd = \$cwd"
 
 skill_hint="$(get_etrnl_skill_hint)"
 if [[ "$source_name" == "compact" ]]; then
+  # Compact recovery stays deterministic: inject only the bounded handoff and
+  # skill hint, not advisory workflow/update/learning projections.
   if handoff_json="$(cc_etrnl_state_compact_handoff_json "$(cc_session_id)" 2>/dev/null)" \
     && jq -e '.found == true and ((.text // "") | length > 0)' >/dev/null 2>&1 <<<"$handoff_json"; then
     msg="$(jq -r '.text' <<<"$handoff_json")"

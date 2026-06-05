@@ -194,6 +194,19 @@ install_skill_command_shims() {
   done
 }
 
+reset_settings_preserving_enabled_plugins() {
+  local settings_file="$1"
+  local tmp
+  tmp="$(mktemp "$settings_file.tmp.XXXXXX")"
+  if [[ -f "$settings_file" ]]; then
+    jq '{enabledPlugins: (.enabledPlugins // {})}' "$settings_file" >"$tmp"
+  else
+    printf '{"enabledPlugins":{}}\n' >"$tmp"
+  fi
+  install -m 600 "$tmp" "$settings_file"
+  rm -f "$tmp"
+}
+
 backup_removed_skills() {
   local target_dir="$1"
   local backup_dir="$2"
@@ -470,7 +483,7 @@ chmod_control_scripts "$TARGET"
 chmod_control_scripts "$CODEX_TARGET"
 
 if [[ "$RESET_CLAUDE_SETTINGS" == "1" ]]; then
-  printf '{}\n' >"$TARGET/settings.json"
+  reset_settings_preserving_enabled_plugins "$TARGET/settings.json"
 fi
 node "$ROOT/scripts/merge-settings.mjs" "$TARGET/settings.json" "$SETTINGS_TEMPLATE"
 node "$ROOT/scripts/settings-audit.mjs" "$TARGET/settings.json" --fix >/dev/null
