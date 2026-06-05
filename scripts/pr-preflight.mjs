@@ -35,7 +35,7 @@ function porcelainPath(line) {
   const rest = raw.slice(2).trim();
   if (!rest) return "";
   if (rest.includes("\t")) return rest.split("\t").at(-1).trim();
-  if (rest.includes("->")) return rest.slice(rest.lastIndexOf("->") + 2).trim();
+  if (rest.includes(" -> ")) return rest.slice(rest.lastIndexOf(" -> ") + 4).trim();
   return rest;
 }
 

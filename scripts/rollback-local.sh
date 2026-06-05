@@ -105,6 +105,7 @@ cleanup_restore_temps() {
 
 restored=()
 restored_count=0
+restored_command_names=()
 restore_files=()
 temp_files=()
 restore_count=0
@@ -165,6 +166,23 @@ if (( restore_count > 0 )); then
 fi
 trap - EXIT
 
+restore_command_once() {
+  local command_name seen
+  command_name="$1"
+  if (( ${#restored_command_names[@]} > 0 )); then
+    for seen in "${restored_command_names[@]}"; do
+      [[ "$seen" == "$command_name" ]] && return 0
+    done
+  fi
+  restored_command_names+=("$command_name")
+  rm -f -- "$ROOT/commands/$command_name.md"
+  if [[ -f "$BACKUP/commands/$command_name.md" ]]; then
+    cp -- "$BACKUP/commands/$command_name.md" "$ROOT/commands/$command_name.md"
+    restored+=("commands/$command_name.md")
+    restored_count=$((restored_count + 1))
+  fi
+}
+
 mkdir -p "$ROOT/agents"
 for agent in "${OWNED_AGENTS[@]}"; do
   rm -f -- "$ROOT/agents/$agent.md"
@@ -187,12 +205,7 @@ done
 
 mkdir -p "$ROOT/commands"
 for skill in "${OWNED_SKILLS[@]}"; do
-  rm -f -- "$ROOT/commands/$skill.md"
-  if [[ -f "$BACKUP/commands/$skill.md" ]]; then
-    cp -- "$BACKUP/commands/$skill.md" "$ROOT/commands/$skill.md"
-    restored+=("commands/$skill.md")
-    restored_count=$((restored_count + 1))
-  fi
+  restore_command_once "$skill"
 done
 
 mkdir -p "$CODEX_TARGET/skills"
@@ -235,14 +248,8 @@ for script in doctor.sh doctor-control-plane.sh; do
 done
 rm -f -- "$CODEX_TARGET/control-plane/install.json" "$CODEX_TARGET/control-plane/update-state.json" "$CODEX_TARGET/control-plane/just-updated.json"
 
-mkdir -p "$ROOT/commands"
 for command_name in "${OWNED_COMMANDS[@]}"; do
-  rm -f -- "$ROOT/commands/$command_name.md"
-  if [[ -f "$BACKUP/commands/$command_name.md" ]]; then
-    cp -- "$BACKUP/commands/$command_name.md" "$ROOT/commands/$command_name.md"
-    restored+=("commands/$command_name.md")
-    restored_count=$((restored_count + 1))
-  fi
+  restore_command_once "$command_name"
 done
 
 mkdir -p "$ROOT/hooks"

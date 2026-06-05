@@ -81,7 +81,8 @@ install_codegraph() {
   else
     need_command npm || { printf 'bootstrap error: npm is required to install codegraph\n' >&2; return 1; }
     if confirm_or_skip "Install CodeGraph globally with npm?"; then
-      npm install -g @colbymchenry/codegraph
+      npm install -g @colbymchenry/codegraph || return $?
+      need_command codegraph || { printf 'bootstrap error: codegraph binary not found after npm install\n' >&2; return 1; }
     fi
   fi
   if need_command codegraph && confirm_or_skip "Install/refresh CodeGraph MCP config for supported agents?"; then
@@ -97,6 +98,7 @@ install_beads() {
   if need_command npm; then
     if confirm_or_skip "Install Beads globally with npm?"; then
       npm install -g @beads/bd || return $?
+      need_command bd || { printf 'bootstrap error: bd binary not found after npm install\n' >&2; return 1; }
     else
       return 1
     fi
