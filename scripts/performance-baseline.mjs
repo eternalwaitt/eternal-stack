@@ -69,6 +69,10 @@ function validate() {
     console.error("performance-baseline validate requires a file path.");
     process.exit(2);
   }
+  if (!existsSync(file)) {
+    console.error(`performance-baseline validate: file not found: ${file}`);
+    process.exit(2);
+  }
   const issues = errors(readJson(file));
   if (issues.length > 0) {
     console.error(issues.join("\n"));

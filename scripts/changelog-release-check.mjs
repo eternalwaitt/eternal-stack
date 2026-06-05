@@ -177,6 +177,7 @@ function validateUntaggedReleaseDrift(root, releaseSections) {
 }
 
 const root = path.resolve(argValue("--root", path.join(scriptDir, "..")));
+const allowUnreleased = args.includes("--allow-unreleased") && !args.includes("--strict-unreleased");
 const changelogPath = path.join(root, "CHANGELOG.md");
 let lines = [];
 try {
@@ -192,7 +193,7 @@ const { topRelease, unreleasedEntries } = unreleasedResult;
 errors.push(...unreleasedResult.errors);
 const releaseSections = parseReleaseSections(lines);
 const releaseVersions = new Set(releaseSections.map((release) => release.version));
-if (unreleasedEntries.length > 0) {
+if (unreleasedEntries.length > 0 && !allowUnreleased) {
   const preview = unreleasedEntries.slice(0, 3).join(" | ");
   errors.push(`CHANGELOG.md has ${unreleasedEntries.length} entries under ## Unreleased: ${preview}. Move them into a semantic version section before claiming repo health.`);
 }

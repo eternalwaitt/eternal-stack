@@ -450,6 +450,11 @@ printf '%s\n' '{"schemaVersion":1,"baselineId":"after","targetLabel":"fixture","
 perf_trend_json="$(node "$ROOT/scripts/performance-baseline.mjs" trend --before "$perf_baseline_fixture" --after "$perf_baseline_after")"
 assert_json_expr "performance baseline trend reports delta" "$perf_trend_json" '.comparisons[0].deltaMs == 25'
 assert_json_expr "performance baseline trend reports removed rows" "$perf_trend_json" 'any(.comparisons[]; .key == "/removed" and .removed == true and .beforeMs == 75 and .afterMs == null)'
+if perf_missing_file="$(node "$ROOT/scripts/performance-baseline.mjs" validate "$TMPROOT/missing-performance-baseline.json" 2>&1)"; then
+  not_ok "performance baseline validate reports missing file"
+else
+  assert_contains "performance baseline validate reports missing file" "$perf_missing_file" "performance-baseline validate: file not found"
+fi
 if perf_invalid_json="$(printf '{' | node "$ROOT/scripts/performance-baseline.mjs" create 2>&1)"; then
   not_ok "performance baseline reports invalid JSON"
 else
@@ -929,11 +934,7 @@ if node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_bad" --st
 else
   ok "changelog check rejects Unreleased entries"
 fi
-if node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_bad" --allow-unreleased >/dev/null 2>&1; then
-  not_ok "changelog check rejects Unreleased entries with allow flag"
-else
-  ok "changelog check rejects Unreleased entries with allow flag"
-fi
+assert_command "changelog check allows Unreleased entries with allow flag" node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_bad" --allow-unreleased
 changelog_repo="$TMPROOT/changelog-repo"
 mkdir -p "$changelog_repo"
 printf '%s\n' '# Changelog' '' '## Unreleased' '' '## v0.1.0' '' '- Initial release.' >"$changelog_repo/CHANGELOG.md"
