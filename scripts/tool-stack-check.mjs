@@ -45,6 +45,10 @@ function run(command, commandArgs, options = {}) {
   };
 }
 
+function shellQuote(value) {
+  return `'${String(value).replace(/'/g, "'\\''")}'`;
+}
+
 function readJson(filePath, fallback) {
   if (!fs.existsSync(filePath)) return fallback;
   try {
@@ -213,7 +217,7 @@ function projectStatus(projectRoot) {
     beadsInitialized: fs.existsSync(beadsDir),
     beadsHealthy: beadsStatus.ok,
     beadsError: beadsStatus.ok ? "" : beadsStatus.stderr || beadsStatus.error,
-    bootstrapCommand: `bash ~/.claude/scripts/bootstrap-tools.sh project --project ${JSON.stringify(resolved)}`,
+    bootstrapCommand: `bash ~/.claude/scripts/bootstrap-tools.sh project --project ${shellQuote(resolved)}`,
   };
 }
 
@@ -227,7 +231,7 @@ function failedProjectStatus(resolved, message) {
     beadsInitialized: false,
     beadsHealthy: false,
     beadsError: message,
-    bootstrapCommand: `bash ~/.claude/scripts/bootstrap-tools.sh project --project ${JSON.stringify(resolved)}`,
+    bootstrapCommand: `bash ~/.claude/scripts/bootstrap-tools.sh project --project ${shellQuote(resolved)}`,
   };
 }
 
@@ -291,6 +295,6 @@ if (jsonMode) {
     console.log(`TOOL_STACK_UPDATE_AVAILABLE ${tool.id} current=${tool.currentVersion} latest=${tool.latestVersion} run="${tool.updateCommand}"`);
   }
   if (project && (!project.codegraphHealthy || !project.beadsHealthy)) {
-    console.log(`TOOL_STACK_PROJECT_BOOTSTRAP_AVAILABLE run="${project.bootstrapCommand}"`);
+    console.log(`TOOL_STACK_PROJECT_BOOTSTRAP_AVAILABLE run=${shellQuote(project.bootstrapCommand)}`);
   }
 }

@@ -116,7 +116,10 @@ bootstrap_project() {
         codegraph init "$project"
       fi
     else
-      codegraph sync "$project" || codegraph status "$project" || true
+      if ! codegraph sync "$project"; then
+        printf 'note: codegraph sync failed; trying codegraph status\n' >&2
+        codegraph status "$project" || printf 'note: codegraph status also failed\n' >&2
+      fi
     fi
   fi
   if need_command bd; then
@@ -125,7 +128,10 @@ bootstrap_project() {
         bd -C "$project" bootstrap --yes
       fi
     else
-      bd -C "$project" bootstrap --yes || bd -C "$project" status || true
+      if ! bd -C "$project" bootstrap --yes; then
+        printf 'note: bd bootstrap failed; trying bd status\n' >&2
+        bd -C "$project" status || printf 'note: bd status also failed\n' >&2
+      fi
     fi
   fi
 }

@@ -196,6 +196,8 @@ for skill in "${OWNED_SKILLS[@]}"; do
 done
 assert_no_file "rollback removed Codex update-check helper" "$CODEX_HOME/scripts/update-check.mjs"
 assert_no_file "rollback removed Codex skill update prompt helper" "$CODEX_HOME/scripts/skill-update-prompt.mjs"
+assert_no_file "rollback removed Codex tool stack check helper" "$CODEX_HOME/scripts/tool-stack-check.mjs"
+assert_no_file "rollback removed Codex bootstrap helper" "$CODEX_HOME/scripts/bootstrap-tools.sh"
 assert_no_file "rollback removed Codex install metadata" "$CODEX_HOME/control-plane/install.json"
 for command_name in "${OWNED_COMMANDS[@]}"; do
   assert_no_file "rollback removed $command_name command" "$CLAUDE_HOME/commands/$command_name.md"

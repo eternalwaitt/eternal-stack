@@ -131,6 +131,11 @@ PY
 for dep in jq git node rg fd; do
   require_command "$dep"
 done
+if [[ -f "$ROOT/scripts/bootstrap-tools.sh" ]]; then
+  report_command "bootstrap-tools syntax valid" "bootstrap-tools syntax invalid" bash -n "$ROOT/scripts/bootstrap-tools.sh"
+else
+  fail "bootstrap-tools script missing"
+fi
 optional_command sg "sg available" "sg unavailable; live hooks fail open"
 
 if [[ -f "$ROOT/hooks/lib/skill-hints.sh" ]]; then

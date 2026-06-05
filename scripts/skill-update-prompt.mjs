@@ -130,9 +130,10 @@ for (const tool of Object.values(toolStack.tools || {})) {
 }
 if (state.warning) rawLines.push(`CONTROL_PLANE_UPDATE_WARNING ${state.warning}`);
 
-const promptNeeded = Boolean(state.updateAvailable) || state.ok === false || rawLines.length > 0;
+const resultOk = state.ok !== false;
+const promptNeeded = Boolean(state.updateAvailable) || !resultOk || rawLines.length > 0;
 emit({
-  ok: true,
+  ok: resultOk,
   promptNeeded,
   agent,
   skill,

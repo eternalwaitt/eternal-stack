@@ -8,10 +8,10 @@ Repo sources inspected: `AGENTS.md`, `docs/skills.md`, `scripts/lib/skill-lists.
 
 Installed state checked:
 
-- `node scripts/skill-contract-check.mjs --installed --claude-home /Users/victorpenter/.claude`
-- `node scripts/skill-contract-check.mjs --installed --claude-home /Users/victorpenter/.codex`
-- `diff -qr skills /Users/victorpenter/.claude/skills`
-- `diff -qr skills /Users/victorpenter/.codex/skills`
+- `node scripts/skill-contract-check.mjs --installed --claude-home "$HOME/.claude"`
+- `node scripts/skill-contract-check.mjs --installed --claude-home "$HOME/.codex"`
+- `diff -qr skills "$HOME/.claude/skills"`
+- `diff -qr skills "$HOME/.codex/skills"`
 - Hash checks for `skill-update-prompt.mjs`, `update-check.mjs`, `tool-stack-check.mjs`, and `bootstrap-tools.sh`
 
 Result: source, Claude-home, and Codex-home ETRNL skills match right now.

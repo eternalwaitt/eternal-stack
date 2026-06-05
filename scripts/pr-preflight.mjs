@@ -104,6 +104,7 @@ function status() {
 function validate() {
   const raw = readFileSync(0, "utf8").trim();
   const blockers = [];
+  const warnings = [];
   let payload = {};
   if (raw) {
     try {
@@ -119,8 +120,8 @@ function validate() {
   if (payload.dirty === undefined) blockers.push("dirty status missing");
   if (!Array.isArray(payload.changedFiles)) blockers.push("changedFiles must be an array");
   if (!Array.isArray(payload.blockers)) blockers.push("blockers must be an array");
-  if (payload.ghAvailable === true && payload.ghAuthenticated !== true) blockers.push("gh available but not authenticated");
-  emit({ schemaVersion: 1, command: "validate", blockers, warnings: [] });
+  if (payload.ghAvailable === true && payload.ghAuthenticated !== true) warnings.push("gh available but not authenticated; remote PR checks will be skipped");
+  emit({ schemaVersion: 1, command: "validate", blockers, warnings });
   process.exit(blockers.length > 0 ? 1 : 0);
 }
 

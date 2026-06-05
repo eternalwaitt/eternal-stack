@@ -56,6 +56,14 @@ if [[ -z "${CRITICAL_HOOKS+x}" || "${#CRITICAL_HOOKS[@]}" -eq 0 ]]; then
   printf 'CRITICAL_HOOKS is missing from %s/scripts/lib/skill-lists.sh\n' "$ROOT" >&2
   exit 1
 fi
+if [[ -z "${INSTALL_SCRIPTS+x}" || "${#INSTALL_SCRIPTS[@]}" -eq 0 ]]; then
+  printf 'INSTALL_SCRIPTS is missing from %s/scripts/lib/skill-lists.sh\n' "$ROOT" >&2
+  exit 1
+fi
+if [[ -z "${CRITICAL_SCRIPTS+x}" || "${#CRITICAL_SCRIPTS[@]}" -eq 0 ]]; then
+  printf 'CRITICAL_SCRIPTS is missing from %s/scripts/lib/skill-lists.sh\n' "$ROOT" >&2
+  exit 1
+fi
 
 latest_backup() {
   local candidate latest
