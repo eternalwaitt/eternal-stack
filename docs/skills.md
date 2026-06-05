@@ -27,12 +27,12 @@ Claude Code personal and project skills use hyphenated command names. If this co
 | `/etrnl-dev-debug` | User only | Debugs bugs, failing tests, CI failures, production issues, tracked issues, and unexpected behavior through root-cause evidence before fixes. |
 | `/etrnl-dev-parallel` | User only | Thin explicit fanout helper; `/etrnl-dev-execute` owns normal plan orchestration. |
 | `/etrnl-audit-performance` | Model or user | Runs the registered performance deep-audit category with route matrix evidence, cold and warm measurements, response bytes, shared worklist hashes, and six lane receipts. |
-| `/etrnl-dev-pr` | User only | Prepares or updates pull requests with verification evidence. |
+| `/etrnl-dev-pr` | User only | Prepares or updates pull requests with verification evidence, CI state, review feedback, CodeRabbit findings, and a closed readiness loop. |
 | `/etrnl-audit-production` | Model or user | Runs the registered production-readiness deep-audit category with no-sampling checks, applicability gates, `CONFIRMED_CLEAN`, skipped-check reasons, and source-limited blockers. |
 | `/etrnl-audit-browser` | User only | Produces browser QA reports with route, viewport, screenshot, console, network, accessibility, and responsive evidence. |
 | `/etrnl-audit-repo` | Model or user | Runs the registered repo-hygiene deep-audit category across entrypoints, file organization, generated artifacts, config consistency, and public/private boundary. |
 | `/etrnl-audit-reuse` | Model or user | Runs the registered shared-reuse deep-audit category across reusable surfaces, duplication hotspots, abstraction fit, test reuse, and new-surface justification. |
-| `/etrnl-audit-tooling` | Model or user | Runs the registered tooling-ecosystem deep-audit category across local setup, command parity, lint/format/type gates, tests, and update/rollback paths. |
+| `/etrnl-audit-tooling` | Model or user | Runs the registered tooling-ecosystem deep-audit category across local setup, command parity, lint/format/type gates, tests, update/rollback paths, live installed-state checks, and tooling hardening. |
 | `/etrnl-audit-ux` | Model or user | Runs the registered UI/UX/product deep-audit category across primary flows, hierarchy, states, accessibility, responsiveness, and product copy. |
 | `/etrnl-dev-test` | User only | Runs project preflight and reports or fixes failures. |
 | `/etrnl-dev-plan` | Model or user | Creates a plan file, reviews it, improves it, then finalizes it. |
@@ -122,6 +122,8 @@ These skills are not owned by this repo, but the control plane knows about them 
 | `review-log.mjs` | `~/.claude/scripts/review-log.mjs` | Appends, validates, redacts, fingerprints, and summarizes durable review findings. |
 | `browser-qa-report.mjs` | `~/.claude/scripts/browser-qa-report.mjs` | Creates, migrates, hashes, and validates browser QA artifacts; v2 `complete` reports require route/viewport matrix rows, screenshot hashes, fresh capture timestamps, provenance, and numeric console/network counts. |
 | `context-state.mjs` | `~/.claude/scripts/context-state.mjs` | Saves, validates, lists, and restores concise workflow context with stale-state detection. |
+| `live-hook-noise-report.mjs` | `~/.claude/scripts/live-hook-noise-report.mjs` | Summarizes recent Claude hook success/error events from local JSONL logs, redacts private paths and emails, and can fail strict thresholds. |
+| `session-audit.mjs` | `~/.claude/scripts/session-audit.mjs` | Produces a privacy-bounded recent-session summary across Claude hook noise and Codex rollout-memory keyword signals. |
 | `workflow-health.mjs` | `~/.claude/scripts/workflow-health.mjs` | Summarizes recent ETRNL workflow runs, filtered `status --json`, doctor/prune diagnostics, stale runs, missing artifacts, UAT state, and next local action from local files. |
 | `tool-effectiveness.mjs` | `~/.claude/scripts/tool-effectiveness.mjs` | Summarizes sanitized local CodeGraph, Beads, Codex-import, and hook-pattern signals into deterministic keep/enforce/repo-specific/remove-watch/insufficient-data verdicts. |
 | `tool-stack-check.mjs` | `~/.claude/scripts/tool-stack-check.mjs` | Checks installed CodeGraph and Beads versions, cached latest versions, missing tools, available updates, optional project-local `.codegraph`/`.beads` health, and Hindsight plugin/config health. |

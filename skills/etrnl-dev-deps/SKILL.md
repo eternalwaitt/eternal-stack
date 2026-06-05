@@ -31,7 +31,7 @@ For detailed catalog, reporting, and rollback rules, load `references/catalogs-r
 9. Keep intentionally divergent versions explicit. Document the reason when a package cannot share the catalog because of framework, runtime, peer, or migration constraints.
 10. Install dependencies with the repo package manager. Do not hand-edit lockfiles except for conflict resolution that the package manager cannot produce.
 11. Run Knip (`pnpm knip`) or the repo's equivalent when available to detect unused dependencies, exports, files, and unused catalog entries.
-12. Fail on unused production dependencies; record unused devDependencies for review unless the repo config says to fail on all Knip findings.
+12. Fail on unused production dependencies. Record unused devDependencies for review by default; fail on unused devDependencies only when repo config sets `failOnUnusedDevDependencies` or `failOnAllKnipFindings`.
 13. Use targeted upgrades. Broad upgrades require explicit user request, security evidence, or compatibility evidence.
 14. Do not run `npm audit fix --force`, major upgrades, package-manager migration commands, global installs, or dependency removals without explicit approval.
 15. If an upgrade breaks tests, typecheck, lint, build, or install, revert the specific package or catalog change, rerun the failing gate, and report the skipped package with the failure evidence.

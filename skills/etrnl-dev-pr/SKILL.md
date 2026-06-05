@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-pr`; on update, ask update/snooze/continue.
 
-Prepare or update a pull request only after local evidence and remote state are known.
+Prepare, update, and close the pull request loop only after local evidence, remote state, and reviewer feedback are known.
 
 ## Preflight
 
@@ -33,8 +33,18 @@ Prepare or update a pull request only after local evidence and remote state are 
 3. For failing checks, fetch the failing job/logs before proposing fixes.
 4. For pending checks, report pending state with run URL or check name; do not claim CI is green.
 
+## PR Loop
+
+1. After each push or PR update, re-run local gates that cover the changed files, then fetch remote checks.
+2. Inspect review feedback before final readiness: CodeRabbit, GitHub review threads, requested changes, and unresolved comments when the repo uses them.
+3. Classify every review item as fixed, already-covered, false-positive, source-limited, or explicitly deferred by Victor.
+4. Patch only real findings inside the PR scope, then rerun the relevant local gate and remote check query.
+5. If the diff is too large to review coherently, split by ownership boundary or file set before creating more review churn.
+6. Final readiness requires a clean local gate, no failing required checks, no unresolved must-fix review items, and a PR body that matches the final diff.
+
 ## Boundaries
 
 - Do not merge, force-push, mark ready for review, request reviewers, add labels, or post PR comments unless Victor explicitly asks.
 - Do not hide failing CI behind a summary.
 - Do not create a PR from unrelated dirty files.
+- Do not mark review feedback as addressed without evidence from the changed code or a concrete false-positive explanation.

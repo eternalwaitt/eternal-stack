@@ -8,6 +8,7 @@ import { gitSubprocessLimits } from "./lib/env-utils.mjs";
 
 const args = process.argv.slice(2);
 const command = args[0] ?? "help";
+const dryRun = args.includes("--dry-run");
 const staleHours = Number(argValue("--stale-hours", process.env.ETRNL_CONTEXT_STALE_HOURS || "24"));
 const DEFAULT_GIT_TIMEOUT_MS = 5_000;
 const DEFAULT_GIT_MAX_BUFFER = 5 * 1024 * 1024;
@@ -69,7 +70,7 @@ function contextErrors(context) {
   return errors;
 }
 
-function appendContextEntries(context) {
+function appendContextEntries(context, appendDryRun = false) {
   const base = {
     sessionId: context.contextId,
     cwd: process.cwd(),
@@ -81,7 +82,7 @@ function appendContextEntries(context) {
     ...context.verification.map((value) => ({ entryType: "fact", value })),
   ];
   for (const row of rows) {
-    const result = appendEvent({ ...base, eventKind: "context_entry", data: row }, { dryRun: false });
+    const result = appendEvent({ ...base, eventKind: "context_entry", data: row }, { dryRun: appendDryRun });
     if (!result.ok) throw new Error(result.error.message);
   }
 }
@@ -108,9 +109,14 @@ function save() {
     process.exit(1);
   }
   const file = path.join(contextDir(), `${context.contextId}.json`);
+  if (dryRun) {
+    appendContextEntries(context, true);
+    console.log(`dry-run: would write ${file}`);
+    return;
+  }
   mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
   writeFileSync(file, `${JSON.stringify(context, null, 2)}\n`, { mode: 0o600 });
-  appendContextEntries(context);
+  appendContextEntries(context, false);
   console.log(file);
 }
 

@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 import time
 import urllib.error
 import urllib.parse
@@ -57,6 +58,7 @@ def lesson_content() -> str:
 def append_etrnl_lesson() -> dict | None:
     state_cli = repo_root() / "scripts" / "etrnl-state.mjs"
     if not state_cli.exists():
+        print(f"cc-hindsight-lesson: state cli missing: {state_cli}", file=sys.stderr)
         return None
     event = {
         "eventKind": "lesson",
@@ -78,8 +80,15 @@ def append_etrnl_lesson() -> dict | None:
         timeout=5,
     )
     if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "").strip().splitlines()
+        message = detail[0] if detail else f"exit {result.returncode}"
+        print(f"cc-hindsight-lesson: state append failed: {message}", file=sys.stderr)
         return None
-    payload = json.loads(result.stdout)
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError as error:
+        print(f"cc-hindsight-lesson: state append JSON parse failed: {error}", file=sys.stderr)
+        return None
     return payload.get("event") if isinstance(payload, dict) else None
 
 

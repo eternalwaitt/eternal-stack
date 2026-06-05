@@ -225,15 +225,16 @@ function compactStats() {
 }
 
 function beadStats() {
+  const defaults = { backlogCandidates: 0, activeExecutionNoise: 0, wouldRunBd: false };
   try {
     const bridge = beadLinkDryRun();
     return {
-      backlogCandidates: bridge.backlogCandidates,
-      activeExecutionNoise: bridge.activeExecutionNoise,
-      wouldRunBd: bridge.wouldRunBd,
+      backlogCandidates: Number(bridge.backlogCandidates || 0),
+      activeExecutionNoise: Number(bridge.activeExecutionNoise || 0),
+      wouldRunBd: bridge.wouldRunBd === true,
     };
   } catch (error) {
-    return { backlogCandidates: 0, activeExecutionNoise: 0, wouldRunBd: false, projectionError: error instanceof Error ? error.message : String(error) };
+    return { ...defaults, projectionError: error instanceof Error ? error.message : String(error) };
   }
 }
 

@@ -41,13 +41,13 @@ Every orchestrated or standalone category run emits the same envelope:
 | `categoryRegistryVersion` | Copy `CATEGORY_REGISTRY_VERSION`. |
 | `registeredCategories` | Copy every registered category id. |
 | `knownUnimplementedCategories` | Copy `KNOWN_UNIMPLEMENTED_CATEGORIES`. |
-| `coverageStatement` | Include selected category ids and every known unimplemented domain. |
+| `coverageStatement` | Include requested category ids and every known unimplemented domain. |
 | `targetLabel` | Use a redacted target name. |
 | `targetFingerprint` | Use a repo, commit, content, or config fingerprint without local paths. |
 | `requestedCategories` | Use `all_registered` or an array of registered ids. |
 | `runArtifactLabel` | Use a run label, not an absolute path. |
-| `worklists` | Include shared worklists for selected categories. |
-| `categoryReports` | Include one report for each selected category. |
+| `worklists` | Include shared worklists for requested categories. |
+| `categoryReports` | Include one report for each requested category. |
 | `laneReceipts` | Include one receipt for each registered fanout lane. |
 | `confirmedClean` | List clean categories or checks with evidence. |
 | `checksSkipped` | List skipped checks with reasons. |
@@ -117,7 +117,7 @@ Known not-yet-registered audit domains: api-data, payments, privacy-compliance.
 This is not a claim that every possible audit domain has run.
 ```
 
-For a category subset, replace the first sentence with selected registered category ids. Keep the known-domain sentence and final caveat.
+For a category subset, replace the first sentence with the explicitly requested registered category ids. Keep the known-domain sentence and final caveat.
 
 ## Source-Limited Handling
 

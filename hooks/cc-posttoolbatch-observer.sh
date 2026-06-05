@@ -106,13 +106,15 @@ cc_etrnl_record_tool_signal() {
   local tool_kind="$2"
   local event="$3"
   local payload
-  payload="$(jq -cn \
+  if ! payload="$(jq -cn \
     --arg session "$(cc_session_id)" \
     --arg cwd "$cwd" \
     --arg tool "$tool" \
     --arg tool_kind "$tool_kind" \
     --arg event "$event" \
-    '{eventKind:"tool_signal",sessionId:$session,cwd:$cwd,data:{tool:$tool,toolKind:$tool_kind,event:$event}}')"
+    '{eventKind:"tool_signal",sessionId:$session,cwd:$cwd,data:{tool:$tool,toolKind:$tool_kind,event:$event}}' 2>/dev/null)"; then
+    payload='{"eventKind":"tool_signal","sessionId":"unknown","cwd":"","data":{"tool":"","toolKind":"","event":"json_encode_failed"}}'
+  fi
   cc_etrnl_state_append_json "$payload" || true
 }
 

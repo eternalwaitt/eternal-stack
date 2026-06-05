@@ -34,6 +34,7 @@
       "mode": "local-daemon",
       "plugin": "hindsight-memory",
       "marketplace": "vectorize-io/hindsight",
+      "marketplaceSource": "External Claude plugin marketplace dependency; install requires current Claude CLI marketplace access.",
       "configTemplate": "templates/hindsight/claude-code.local-daemon.json",
       "configTarget": "~/.hindsight/claude-code.json",
       "apiPort": 9077,

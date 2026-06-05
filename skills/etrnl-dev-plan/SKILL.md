@@ -115,7 +115,9 @@ Before finalizing, review the draft for:
   - On a fresh clone with missing artifacts, fail with explicit messages (`docs/research/top10-lock.json missing`, `docs/research/capability-evidence.json missing`) and do not finalize silently.
   - `nextScan` staleness is enforced by the manifest validator (`validate-manifest`) and `scripts/doctor.sh`, not by `scripts/plan-readiness-check.mjs`; inspect `stalenessPolicy.nextScan` in `docs/research/capability-evidence.json`, or refresh with a new extract run (`--refresh-cadence-days <days>`) if cadence must change.
   - Each planned capability change must cite the parity gap or source row from the evidence file.
-  - Plans without research grounding for new capabilities must include `research_flow: blocked — no evidence file` in `## Plan Readiness Report` -> `Unresolved questions` and require explicit user sign-off before `Status: Final`.
+  - Internal refactors, bug fixes, security patches, and performance optimizations can skip external competitor research when they do not add a new user-facing skill or hook capability.
+  - Plans that use a research exception must include `research_exception: <category> - <approval/evidence>` in `## Plan Readiness Report`.
+  - Plans without research grounding or a valid exception for new capabilities must include `research_flow: blocked - no evidence file` in `## Plan Readiness Report` -> `Unresolved questions` and require explicit user sign-off before `Status: Final`.
 - Missing competitor matrix inputs for plans that overlap with documented competitor capabilities:
   - Reference `docs/research/top10-lock.json` if available, or name why no competitor analysis is needed.
 - Missing companion-skill passes from the original control-plane vision:

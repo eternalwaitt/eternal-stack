@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { appendFileSync, chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { homedir } from "node:os";
 import path from "node:path";
@@ -354,6 +354,8 @@ function importCodex() {
   if (!dryRun && events.length > 0) {
     mkdirSync(path.dirname(DEFAULT_EVENTS_FILE), { recursive: true, mode: 0o700 });
     for (const event of events) appendFileSync(DEFAULT_EVENTS_FILE, `${JSON.stringify(event)}\n`, { mode: 0o600 });
+    chmodSync(path.dirname(DEFAULT_EVENTS_FILE), 0o700);
+    chmodSync(DEFAULT_EVENTS_FILE, 0o600);
   }
   emit({ schemaVersion: 1, command: "import-codex", dryRun, eventsImported: events.length, rejected, output: dryRun ? "" : DEFAULT_EVENTS_FILE, ...(dryRun ? { events } : {}) });
 }

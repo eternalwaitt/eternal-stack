@@ -170,6 +170,10 @@ install_skill_command_shims() {
       printf 'fatal: missing skill source for slash command shim: %s\n' "$skill_file" >&2
       return 1
     fi
+    if [[ ! -s "$skill_file" ]]; then
+      printf 'fatal: empty skill source for slash command shim: %s\n' "$skill_file" >&2
+      return 1
+    fi
     command_file="$target_dir/$skill.md"
     tmp="$(mktemp "$command_file.tmp.XXXXXX")"
     {
@@ -250,7 +254,7 @@ chmod_control_scripts() {
 
 validate_source_install_inputs() {
   local missing=() file agent command_name skill
-	for file in \
+  for file in \
     "$SETTINGS_TEMPLATE" \
     "$ROOT/templates/settings.local.example.json" \
     "$ROOT/templates/stack-profile.core.json" \
@@ -265,7 +269,7 @@ validate_source_install_inputs() {
     "$ROOT/tests/lib/busy-port-server.mjs"; do
     [[ -f "$file" ]] || missing+=("$file")
   done
-	for file in hooks skills docs rules/etrnl tests/fixtures scripts/lib templates/hindsight; do
+  for file in hooks skills docs rules/etrnl tests/fixtures scripts/lib templates/hindsight; do
     [[ -d "$ROOT/$file" ]] || missing+=("$ROOT/$file")
   done
   for file in "${CRITICAL_HOOKS[@]}"; do
@@ -290,7 +294,7 @@ validate_source_install_inputs() {
   for skill in "${OWNED_SKILLS[@]}"; do
     [[ -d "$ROOT/skills/$skill" ]] || missing+=("$ROOT/skills/$skill")
   done
-	  if (( ${#missing[@]} > 0 )); then
+    if (( ${#missing[@]} > 0 )); then
     printf 'install dry-run failed; missing source files:\n' >&2
     printf '  %s\n' "${missing[@]}" >&2
     return 1
@@ -535,7 +539,7 @@ write_install_metadata() {
   mkdir -p "$install_home/control-plane"
   metadata_tmp="$(mktemp "$install_home/control-plane/install.json.tmp.XXXXXX")"
   settings_mode="$install_settings_mode"
-	  jq -n \
+    jq -n \
     --arg sourceRoot "$ROOT" \
     --arg sourceCommit "$commit" \
     --arg sourceCommitShort "${commit:0:12}" \
@@ -580,7 +584,7 @@ verify_install_state() {
     missing+=("scripts/lib/skill-lists.sh: CRITICAL_SCRIPTS missing or empty")
   fi
   [[ -f "$TARGET/settings.json" ]] || missing+=("settings.json")
-	  [[ -f "$TARGET/control-plane/install.json" ]] || missing+=("control-plane/install.json")
+    [[ -f "$TARGET/control-plane/install.json" ]] || missing+=("control-plane/install.json")
   [[ -f "$TARGET/templates/stack-profile.$PROFILE.json" ]] || missing+=("templates/stack-profile.$PROFILE.json")
   [[ -f "$TARGET/templates/hindsight/claude-code.local-daemon.json" ]] || missing+=("templates/hindsight/claude-code.local-daemon.json")
   [[ -x "$TARGET/scripts/update.sh" ]] || missing+=("scripts/update.sh")

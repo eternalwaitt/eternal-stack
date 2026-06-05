@@ -9,6 +9,9 @@ const fix = args.includes("--fix");
 const json = args.includes("--json");
 const strictConflicts = args.includes("--strict-conflicts");
 const settingsPath = args.find((arg) => !arg.startsWith("--"));
+const configuredMaxWalkDepth = Number(process.env.CLAUDE_CONTROL_PLANE_SETTINGS_AUDIT_MAX_DEPTH || "8");
+const maxWalkDepth = Number.isFinite(configuredMaxWalkDepth) && configuredMaxWalkDepth >= 0 ? configuredMaxWalkDepth : 8;
+const walkDepthWarnings = new Set();
 
 if (!settingsPath) {
   console.error("usage: settings-audit.mjs <settings.json> [--fix] [--json] [--strict-conflicts]");
@@ -258,7 +261,11 @@ const executableMode = (file) => {
 };
 
 function walkDir(root, visitor, depth = 0) {
-  if (!root || depth > 8 || !fs.existsSync(root)) return;
+  if (!root || !fs.existsSync(root)) return;
+  if (depth > maxWalkDepth) {
+    walkDepthWarnings.add(root);
+    return;
+  }
   let entries = [];
   try {
     entries = fs.readdirSync(root, { withFileTypes: true });
@@ -294,6 +301,13 @@ function collectCommandObjects(node, rows, context) {
   }
 }
 
+function pluginNameFromManifestPath(file) {
+  const parts = file.split(path.sep);
+  const cacheIndex = parts.lastIndexOf("cache");
+  if (cacheIndex >= 0 && parts[cacheIndex + 1]) return parts[cacheIndex + 1];
+  return path.basename(path.dirname(path.dirname(file)));
+}
+
 function collectPluginHookManifests() {
   const roots = [
     path.join(configuredClaudeHome, "plugins"),
@@ -311,7 +325,7 @@ function collectPluginHookManifests() {
       } catch (error) {
         rows.push({
           manifestPath: file,
-          plugin: path.basename(path.dirname(path.dirname(file))),
+          plugin: pluginNameFromManifestPath(file),
           eventName: "",
           command: "",
           async: false,
@@ -319,7 +333,7 @@ function collectPluginHookManifests() {
         });
         return;
       }
-      const plugin = manifest.name || manifest.id || manifest.plugin || path.basename(path.dirname(path.dirname(file)));
+      const plugin = manifest.name || manifest.id || manifest.plugin || pluginNameFromManifestPath(file);
       collectCommandObjects(manifest.hooks ?? manifest, rows, {
         manifestPath: file,
         plugin: String(plugin),
@@ -419,6 +433,7 @@ function collectIssues(settings) {
   const syncExpectationIssues = [];
   const executableIssues = [];
   const pluginHookManifests = settingsIsTemplate ? [] : collectPluginHookManifests();
+  const manifestErrors = pluginHookManifests.filter((row) => row.error);
   const memoryPluginHooks = pluginHookManifests.filter((row) => /hindsight|memory|recall|retain/i.test(`${row.plugin} ${row.command}`));
   const riskyTopLevelSettings = collectRiskyTopLevel(settings);
   const frontmatterHookDeclarations = settingsIsTemplate ? [] : collectFrontmatterHookDeclarations();
@@ -496,6 +511,8 @@ function collectIssues(settings) {
     syncExpectationIssues,
     executableIssues,
     pluginHookManifests,
+    manifestErrors,
+    walkDepthWarnings: [...walkDepthWarnings],
     memoryPluginHooks,
     riskyTopLevelSettings,
     frontmatterHookDeclarations,
@@ -561,11 +578,13 @@ const strictOk = after.conflictingHooks.length === 0
   && after.missingRequiredHooks.length === 0
   && after.syncExpectationIssues.length === 0
   && after.executableIssues.length === 0
+  && after.manifestErrors.length === 0
   && after.riskyTopLevelSettings.length === 0
   && after.memoryPluginPosture.every((row) => row.status !== "unhealthy");
 const result = {
   ok: after.duplicateHooks.length === 0
     && after.legacyHooks.length === 0
+    && after.manifestErrors.length === 0
     && (!strictConflicts || strictOk),
   strictOk,
   fixed: fix,
@@ -581,11 +600,14 @@ if (json) {
   if (fix && (before.duplicateHooks.length > 0 || before.legacyHooks.length > 0)) {
     console.log(`fixed: duplicates=${before.duplicateHooks.length} legacyRateLimiters=${before.legacyHooks.length}`);
   }
-	  for (const conflict of after.conflictingHooks) {
+    for (const conflict of after.conflictingHooks) {
     console.log(`warning: conflicting external hook ${conflict.eventName} ${conflict.matcher}: ${conflict.command} (${conflict.reason})`);
   }
   for (const risky of after.riskyTopLevelSettings) {
     console.log(`warning: risky top-level setting ${risky.key}: ${risky.reason}`);
+  }
+  for (const root of after.walkDepthWarnings) {
+    console.log(`warning: settings audit max depth reached at ${root}; set CLAUDE_CONTROL_PLANE_SETTINGS_AUDIT_MAX_DEPTH to scan deeper`);
   }
   if (after.pluginHookManifests.length > 0) {
     console.log(`info: ${after.pluginHookManifests.length} plugin hook(s) visible outside settings.json`);
@@ -602,6 +624,9 @@ if (json) {
   for (const legacy of after.legacyHooks) {
     console.error(`- legacy rate limiter ${legacy.eventName} ${legacy.matcher}: ${legacy.command}`);
   }
+  for (const manifest of after.manifestErrors) {
+    console.error(`- plugin hook manifest unreadable ${manifest.manifestPath}: ${manifest.error}`);
+  }
   for (const conflict of after.conflictingHooks) {
     console.error(`- conflicting external hook ${conflict.eventName} ${conflict.matcher}: ${conflict.command} (${conflict.reason})`);
   }
@@ -611,7 +636,7 @@ if (json) {
   for (const issue of after.syncExpectationIssues) {
     console.error(`- sync expectation ${issue.eventName} ${issue.matcher}: ${issue.reason}`);
   }
-	  for (const issue of after.executableIssues) {
+    for (const issue of after.executableIssues) {
     console.error(`- hook executable issue ${issue.eventName}: ${issue.hook} ${issue.mode} at ${issue.file}`);
   }
   for (const risky of after.riskyTopLevelSettings) {
@@ -622,6 +647,9 @@ if (json) {
   }
   for (const posture of after.memoryPluginPosture.filter((row) => row.status === "unhealthy")) {
     console.error(`- memory plugin unhealthy ${posture.plugin}: ${posture.issues.join("; ")}`);
+  }
+  for (const root of after.walkDepthWarnings) {
+    console.error(`- settings audit max depth reached at ${root}; set CLAUDE_CONTROL_PLANE_SETTINGS_AUDIT_MAX_DEPTH to scan deeper`);
   }
 }
 

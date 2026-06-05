@@ -33,6 +33,18 @@ const FORBIDDEN_KEYS = new Set([
   "messageText",
 ]);
 const EVENT_VALUE_FLAGS = new Set(["--fixture", "--state-dir", "--session", "--run", "--cwd", "--event-kind", "--max-chars", "--input"]);
+const DEFAULT_PRIVATE_PROJECT_NAMES = ["tcg-collector", "agency-tbd", "core-suite", "openclaw-etrnl", "metacards-admin"];
+const configuredPrivateProjectNames = (process.env.ETRNL_STATE_PRIVATE_PROJECT_NAMES || DEFAULT_PRIVATE_PROJECT_NAMES.join(","))
+  .split(",")
+  .map((value) => value.trim())
+  .filter(Boolean);
+const privateProjectPattern = configuredPrivateProjectNames.length > 0
+  ? new RegExp(`\\b(${configuredPrivateProjectNames.map(escapeRegex).join("|")})\\b`)
+  : null;
+
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 export function flagValue(args, flag, fallback = "") {
   for (let index = 0; index < args.length; index += 1) {
@@ -112,6 +124,13 @@ function writeAtomic(file, value, mode = 0o600) {
   fs.renameSync(tmp, file);
 }
 
+function sleepSync(ms) {
+  const end = Date.now() + ms;
+  while (Date.now() < end) {
+    // Busy-wait keeps this lock helper synchronous without Atomics.wait.
+  }
+}
+
 export function withLock(root, fn) {
   const { lock } = statePaths(root);
   fs.mkdirSync(root, { recursive: true, mode: 0o700 });
@@ -123,7 +142,7 @@ export function withLock(root, fn) {
       break;
     } catch (error) {
       if (!error || typeof error !== "object" || error.code !== "EEXIST") throw error;
-      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 25);
+      sleepSync(25);
     }
   }
   if (!acquired) throw Object.assign(new Error("ETRNL state lock timed out"), { code: "StateLockTimeout" });
@@ -147,7 +166,7 @@ function privacyReject(value, trail = []) {
   if (/sk-(proj-)?[A-Za-z0-9_-]{20,}/.test(value)) return "secret-looking token";
   if (/\.codex\/sessions|\.claude\/projects/.test(value)) return "private transcript path";
   if (/\/Users\/[^/\s]+/.test(value)) return "private absolute home path";
-  if (/\b(tcg-collector|agency-tbd|core-suite|openclaw-etrnl|metacards-admin)\b/.test(value)) return "private project name";
+  if (privateProjectPattern?.test(value)) return "private project name";
   return "";
 }
 

@@ -238,7 +238,7 @@ if [[ -f "$ROOT/scripts/codex-rtk-pre-tool-use.sh" ]]; then
 else
   fail "codex RTK hook script missing"
 fi
-for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger etrnl-state execute-evidence-check execution-wave-check tool-effectiveness tool-stack-check stack-profile-check code-health-ledger-check documentation-comment-health documentation-health-ledger-check review-log project-buglog browser-qa-report context-state workflow-health prompt-budget-check skill-contract-check skill-behavior-smoke skill-update-prompt disk-cleanup-manifest performance-baseline pr-preflight changelog-release-check port-guard update-check research-competitor-intel settings-audit; do
+for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger etrnl-state execute-evidence-check execution-wave-check tool-effectiveness tool-stack-check stack-profile-check code-health-ledger-check documentation-comment-health documentation-health-ledger-check review-log project-buglog browser-qa-report context-state live-hook-noise-report session-audit workflow-health prompt-budget-check skill-contract-check skill-behavior-smoke skill-update-prompt disk-cleanup-manifest performance-baseline pr-preflight changelog-release-check port-guard update-check research-competitor-intel settings-audit; do
   if [[ -f "$ROOT/scripts/$script.mjs" ]]; then
     report_command "$script syntax valid" "$script syntax invalid" node --check "$ROOT/scripts/$script.mjs"
   else

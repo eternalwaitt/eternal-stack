@@ -66,6 +66,19 @@ cc_prompt_context_cap() {
   fi
 }
 
+cc_prompt_record_skill_update_state_failure() {
+  local state_status="$1"
+  local requested_count="$2"
+  local payload
+  payload="$(jq -cn \
+    --arg session "$(cc_session_id)" \
+    --arg cwd "$cwd" \
+    --arg state_status "$state_status" \
+    --argjson requested_count "$requested_count" \
+    '{eventKind:"settings_observation",sessionId:$session,cwd:$cwd,data:{event:"skill_update_state_read_failed",stateStatus:$state_status,requestedCount:$requested_count}}' 2>/dev/null)" || return 0
+  cc_etrnl_state_append_json "$payload" || true
+}
+
 cc_prompt_sha256() {
   if command -v sha256sum >/dev/null 2>&1; then
     sha256sum | cut -d' ' -f1 && return 0
@@ -229,6 +242,7 @@ cc_prompt_skill_update_note() {
   if [[ "$state_status" != "0" || -z "$state" ]]; then
     requested_count=0
     cc_state_persist_warning "skill update state read failed status=${state_status} requested_count=${requested_count}" || true
+    cc_prompt_record_skill_update_state_failure "$state_status" "$requested_count"
     printf 'claude-guard warning: skill update state read failed; requested_count=%s\n' "$requested_count" >&2
   else
     requested_count="$(jq -r '(.requestedSkills // []) | length' <<<"$state" 2>/dev/null || printf '0')"

@@ -131,7 +131,7 @@ DX requirements:
 - `tests/fixtures/deep-audit/report.omitted-check.json`: new invalid fixture proving registered checks cannot disappear from a category report.
 - `tests/fixtures/deep-audit/report.unknown-check-id.json`: new invalid fixture proving category reports cannot invent check ids outside the registry.
 - `tests/fixtures/deep-audit/report.duplicate-check-id.json`: new invalid fixture proving a report cannot count the same check twice.
-- `tests/fixtures/deep-audit/report.invalid-category-local-inventory.json`: invalid fixture proving category reports cannot consume unshared local inventory after shared worklists exist.
+- `tests/fixtures/deep-audit/report.unexpected-local-inventory-flag.json`: invalid fixture proving category reports cannot consume unshared local inventory after shared worklists exist.
 - `tests/fixtures/deep-audit/report.invalid-category.json`: new invalid fixture proving category ids must come from the registry.
 - `tests/fixtures/deep-audit/synthetic-target/`: new minimal synthetic target fixture used by `validate-synthetic-fixtures` to prove category skills can author realistic reports, including missing target evidence, auth blockers, route matrices, and `not_applicable` rows.
 - `tests/fixtures/deep-audit/templates/`: new deterministic report authoring templates for direct category invocation, source-limited blockers, route matrices, clean checks, skipped checks, and not-applicable checks.
@@ -424,7 +424,7 @@ USER FLOW COVERAGE
 ## Test-first execution plan
 
 - Red: add invalid deep-audit artifact fixtures and workflow-tool assertions first; run `tests/test-workflow-tools.sh` and confirm the new fixture cases fail before `scripts/deep-audit-artifact-check.mjs` implements the missing validation.
-- Red: add `report.private-path.json`, `report.missing-coverage-statement.json`, `report.invalid-category.json`, `report.omitted-check.json`, `report.unknown-check-id.json`, `report.duplicate-check-id.json`, and `report.invalid-category-local-inventory.json`; confirm each fails with the expected message before implementing the validator rules.
+- Red: add `report.private-path.json`, `report.missing-coverage-statement.json`, `report.invalid-category.json`, `report.omitted-check.json`, `report.unknown-check-id.json`, `report.duplicate-check-id.json`, and `report.unexpected-local-inventory-flag.json`; confirm each fails with the expected message before implementing the validator rules.
 - Red: add synthetic target authoring fixtures before category skill instructions are complete; confirm the authoring check fails because the report envelope, route matrix, auth blocker, or `not_applicable` rows are missing.
 - Red: add the three new skills to `OWNED_SKILLS` before adding complete trigger fixtures; run `node scripts/skill-behavior-smoke.mjs` and confirm it reports missing trigger coverage.
 - Red: add the validator script to the repo without install/update wiring; run `tests/test-install.sh` and confirm it reports the missing copied helper before updating install surfaces.
@@ -503,7 +503,7 @@ Expected-fail fixtures, asserted by `tests/test-workflow-tools.sh` and `node scr
 - `tests/fixtures/deep-audit/report.omitted-check.json`
 - `tests/fixtures/deep-audit/report.unknown-check-id.json`
 - `tests/fixtures/deep-audit/report.duplicate-check-id.json`
-- `tests/fixtures/deep-audit/report.invalid-category-local-inventory.json`
+- `tests/fixtures/deep-audit/report.unexpected-local-inventory-flag.json`
 
 Each expected-fail fixture must exit nonzero with a stable error code or stable diagnostic token. A direct successful exit from any invalid fixture is a blocker.
 
@@ -566,7 +566,7 @@ Engineering findings:
 - P1: No-sampling was not mechanically provable without a registry check universe. Fixed by requiring registered `checks[]`, stable `checkId` values, lane ownership, applicability gates, and omitted/unknown/duplicate check fixtures.
 - P1: Verification gates mixed pass commands with invalid fixtures. Fixed by splitting `Must pass` commands from expected-fail fixtures asserted by `tests/test-workflow-tools.sh` and `validate-fixtures`.
 - P1: Registry validation needed to cover every public surface. Fixed by making `validate-registry --root .` compare registry entries to `OWNED_SKILLS`, `docs/skills.md`, trigger fixtures, skill directories, reference paths, and install/update helper lists.
-- P2: Category agents could report evidence from independent scans. Fixed by requiring `consumedWorklistHashes` on category reports and lane receipts, plus a category-local-inventory failure fixture.
+- P2: Category agents could report evidence from independent scans. Fixed by requiring `consumedWorklistHashes` on category reports and lane receipts, plus a unexpected-local-inventory-flag failure fixture.
 - P2: Private-path redaction was too narrow. Fixed by broadening redaction to home paths, volume paths, Windows paths, UNC paths, emails, tokens, API keys, and private-key text, and by replacing path-derived identity with `targetFingerprint`.
 - P2: Synthetic authoring validation needed deterministic scope. Fixed by renaming it to `validate-synthetic-fixtures` and adding templates for the expected report row types.
 

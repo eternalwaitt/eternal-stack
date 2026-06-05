@@ -416,6 +416,8 @@ assert_command "tool stack check syntax" node --check "$ROOT/scripts/tool-stack-
 assert_command "stack profile check syntax" node --check "$ROOT/scripts/stack-profile-check.mjs"
 assert_command "skill update prompt syntax" node --check "$ROOT/scripts/skill-update-prompt.mjs"
 assert_command "pr preflight syntax" node --check "$ROOT/scripts/pr-preflight.mjs"
+assert_command "live hook noise report syntax" node --check "$ROOT/scripts/live-hook-noise-report.mjs"
+assert_command "session audit syntax" node --check "$ROOT/scripts/session-audit.mjs"
 assert_command "performance baseline syntax" node --check "$ROOT/scripts/performance-baseline.mjs"
 assert_command "disk cleanup manifest syntax" node --check "$ROOT/scripts/disk-cleanup-manifest.mjs"
 assert_command "pr preflight validates fixture" bash -c 'printf "%s\n" "{\"branch\":\"feature\",\"dirty\":false,\"changedFiles\":[],\"blockers\":[],\"ghAvailable\":false}" | node "$0/scripts/pr-preflight.mjs" validate --json >/dev/null' "$ROOT"
@@ -558,7 +560,7 @@ expect(parsed[5], "single quoted value", "single-quoted branch");
 expect(parsed[6], "plain token", "unquoted escaped space branch");
 expect(parsed[7], "escaped space token", "unquoted multi-escape branch");
 JS
-for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger etrnl-state execute-evidence-check execution-wave-check tool-effectiveness tool-stack-check stack-profile-check code-health-ledger-check documentation-comment-health documentation-health-ledger-check review-log project-buglog browser-qa-report context-state workflow-health prompt-budget-check skill-update-prompt changelog-release-check port-guard update-check settings-audit deep-stack-check; do
+for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger etrnl-state execute-evidence-check execution-wave-check tool-effectiveness tool-stack-check stack-profile-check code-health-ledger-check documentation-comment-health documentation-health-ledger-check review-log project-buglog browser-qa-report context-state live-hook-noise-report session-audit workflow-health prompt-budget-check skill-update-prompt changelog-release-check port-guard update-check settings-audit deep-stack-check; do
   assert_command "$script syntax" node --check "$ROOT/scripts/$script.mjs"
 done
 assert_command "core stack profile check passes" node "$ROOT/scripts/stack-profile-check.mjs" "$ROOT/templates/stack-profile.core.json"
@@ -793,6 +795,13 @@ assert_json_expr "settings-audit reports legacy cli toolkit conflict" "$settings
 assert_json_expr "settings-audit reports unknown external hooks" "$settings_audit_report" 'any(.after.externalHooks[]?; .owner == "unknown-external" and .hook == "custom-local-guard.sh")'
 assert_json_expr "settings-audit reports plugin hook manifests" "$settings_audit_report" 'any(.after.pluginHookManifests[]?; .plugin == "hindsight-memory" and .eventName == "UserPromptSubmit")'
 assert_json_expr "settings-audit reports memory plugin hooks" "$settings_audit_report" 'any(.after.memoryPluginHooks[]?; .plugin == "hindsight-memory" and .eventName == "Stop" and .async == true)'
+settings_audit_bad_home="$TMPROOT/settings-audit-bad-home"
+settings_audit_bad_target="$TMPROOT/settings-audit-bad-target.json"
+mkdir -p "$settings_audit_bad_home/.claude/plugins/cache/bad-plugin/0.0.1/hooks"
+printf '%s\n' '{"hooks":' >"$settings_audit_bad_home/.claude/plugins/cache/bad-plugin/0.0.1/hooks/hooks.json"
+printf '%s\n' '{"hooks":{}}' >"$settings_audit_bad_target"
+settings_audit_bad_report="$(HOME="$settings_audit_bad_home" node "$ROOT/scripts/settings-audit.mjs" "$settings_audit_bad_target" --json 2>/dev/null || true)"
+assert_json_expr "settings-audit rejects corrupt plugin hook manifest" "$settings_audit_bad_report" '.ok == false and any(.after.manifestErrors[]?; .plugin == "bad-plugin")'
 settings_audit_memory_target="$TMPROOT/settings-audit-memory-target.json"
 cat >"$settings_audit_memory_target" <<'JSON'
 {
@@ -1234,6 +1243,18 @@ assert_contains "context restore command works" "$context_restore" "stale="
 stale_context="$(node "$ROOT/scripts/context-state.mjs" save --id fixture-stale-context --title "Stale" --saved-at "2000-01-01T00:00:00Z")"
 context_summary="$(node "$ROOT/scripts/context-state.mjs" show "$stale_context" --stale-hours 1)"
 assert_contains "context restore detects stale context" "$context_summary" "stale=true"
+session_scan_root="$TMPROOT/session-scan"
+mkdir -p "$session_scan_root/claude/projects/project-a" "$session_scan_root/codex/rollout_summaries"
+printf '%s\n' \
+  '{"message":{"content":[{"type":"hook_non_blocking_error","hookName":"stale-hook","message":"/Users/example/old/path failed"}]}}' \
+  '{"message":{"content":[{"type":"hook_blocking_error","hookName":"guard","stderr":"blocked for test@example.com"}]}}' \
+  >"$session_scan_root/claude/projects/project-a/session.jsonl"
+printf '%s\n' '{"event_msg":"CodeRabbit lint hook stale tooling warning"}' >"$session_scan_root/codex/rollout_summaries/session.jsonl"
+live_hook_json="$(node "$ROOT/scripts/live-hook-noise-report.mjs" --root "$session_scan_root/claude" --since-days 30 --json)"
+assert_json_expr "live hook report counts blocking and non-blocking errors" "$live_hook_json" '.counts.nonBlocking == 1 and .counts.blocking == 1 and .topHooks[0].count >= 1'
+assert_json_expr "live hook report redacts private paths and emails" "$live_hook_json" '((.topReasons | tostring) | contains("/Users/example") | not) and ((.topReasons | tostring) | contains("test@example.com") | not)'
+session_audit_json="$(node "$ROOT/scripts/session-audit.mjs" --claude-root "$session_scan_root/claude" --codex-memory-root "$session_scan_root/codex" --since-days 30 --json)"
+assert_json_expr "session audit combines claude hooks and codex memory signals" "$session_audit_json" '.claude.counts.blocking == 1 and .codexMemory.filesScanned == 1 and any(.codexMemory.keywordHits[]; .keyword == "CodeRabbit")'
 wave_json="$(printf '{"useWorktrees":true,"submodules":["vendor/lib"],"plans":[{"id":"T1","wave":1,"files":["src/a.ts"]},{"id":"T2","wave":1,"files":["src/a.ts"]},{"id":"T3","wave":2,"files":["vendor/lib/x.ts"]}]}' | node "$ROOT/scripts/execution-wave-check.mjs")"
 assert_json_expr "wave overlap disables parallel" "$wave_json" '.waves[0].parallelSafe == false'
 assert_json_expr "submodule task not worktree eligible" "$wave_json" '.waves[1].plans[0].worktreeEligible == false'

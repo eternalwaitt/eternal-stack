@@ -20,6 +20,8 @@ node scripts/tool-effectiveness.mjs summarize --fixtures tests/fixtures/tool-eff
 node scripts/etrnl-state.mjs validate --fixtures tests/fixtures/etrnl-state
 node scripts/etrnl-state.mjs doctor --compact --explain
 node scripts/tool-stack-check.mjs --json
+node scripts/live-hook-noise-report.mjs --since-days 3 --json
+node scripts/session-audit.mjs --since-days 3 --json
 node scripts/stack-profile-check.mjs templates/stack-profile.core.json --json
 node scripts/stack-profile-check.mjs templates/stack-profile.full.json --json
 tests/test-hooks.sh
@@ -62,6 +64,8 @@ node --check \
   scripts/project-buglog.mjs \
   scripts/browser-qa-report.mjs \
   scripts/context-state.mjs \
+  scripts/live-hook-noise-report.mjs \
+  scripts/session-audit.mjs \
   scripts/disk-cleanup-manifest.mjs \
   scripts/performance-baseline.mjs \
   scripts/pr-preflight.mjs \
@@ -89,6 +93,8 @@ node scripts/workflow-health.mjs doctor --json --all
 node scripts/workflow-health.mjs prune --older-than-days 30 --dry-run --all
 node scripts/tool-effectiveness.mjs summarize --since-days 7 --all --projects-config "$HOME/.claude/control-plane/tool-effectiveness/projects.json" --json
 node scripts/tool-effectiveness.mjs doctor --json
+node scripts/live-hook-noise-report.mjs --since-days 3 --json
+node scripts/session-audit.mjs --since-days 3 --json
 node scripts/etrnl-state.mjs compact-handoff --latest --json
 node scripts/etrnl-state.mjs doctor --compact --explain
 node scripts/tool-stack-check.mjs --explain --project "$PWD"

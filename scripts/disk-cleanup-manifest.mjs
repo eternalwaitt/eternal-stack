@@ -56,7 +56,7 @@ function validateManifest(manifest) {
       if (!(field in item)) errors.push(`items[${index}].${field} is required`);
     }
     if (typeof item.path !== "string" || !item.path.startsWith("/")) errors.push(`items[${index}].path must be absolute`);
-    if (!Number.isFinite(item.estimatedBytes) || item.estimatedBytes < 0) errors.push(`items[${index}].estimatedBytes must be non-negative`);
+    if (typeof item.estimatedBytes !== "number" || !Number.isFinite(item.estimatedBytes) || item.estimatedBytes < 0) errors.push(`items[${index}].estimatedBytes must be a non-negative number`);
     if (!ALLOWED_RISK_TIERS.has(item.riskTier)) errors.push(`items[${index}].riskTier must be 1, 2, or 3`);
     if (typeof item.cleanupCommand !== "string" || item.cleanupCommand.trim().length === 0) {
       errors.push(`items[${index}].cleanupCommand must be a non-empty string`);

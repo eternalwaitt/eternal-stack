@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "auditId": "category-local-inventory",
+  "auditId": "unexpected-local-inventory-flag",
   "categoryRegistryVersion": "2026-06-04.1",
   "registeredCategories": [
     "production-readiness",
@@ -16,11 +16,11 @@
   ],
   "coverageStatement": "Coverage: production-readiness. Known not-yet-registered audit domains: ux-accessibility, api-data, docs, payments, privacy-compliance.",
   "targetLabel": "synthetic-app",
-  "targetFingerprint": "repo:synthetic-app@category-local-inventory",
+  "targetFingerprint": "repo:synthetic-app@unexpected-local-inventory-flag",
   "requestedCategories": [
     "production-readiness"
   ],
-  "runArtifactLabel": "category-local-inventory-run",
+  "runArtifactLabel": "unexpected-local-inventory-flag-run",
   "worklists": {
     "prod_pages": {
       "count": 1,
