@@ -14,6 +14,7 @@ const valueAfter = (flag, fallback = "") => {
 };
 
 const claudeHome = process.env.CLAUDE_HOME || path.join(os.homedir(), ".claude");
+const bootstrapToolsPath = path.join(claudeHome, "scripts", "bootstrap-tools.sh");
 const statePath = process.env.CLAUDE_CONTROL_PLANE_TOOL_STACK_STATE ||
   path.join(claudeHome, "control-plane", "tool-stack-state.json");
 const latestTtlSec = Number(process.env.CLAUDE_CONTROL_PLANE_TOOL_UPDATE_INTERVAL_SEC || 21_600);
@@ -217,7 +218,7 @@ function projectStatus(projectRoot) {
     beadsInitialized: fs.existsSync(beadsDir),
     beadsHealthy: beadsStatus.ok,
     beadsError: beadsStatus.ok ? "" : beadsStatus.stderr || beadsStatus.error,
-    bootstrapCommand: `bash ~/.claude/scripts/bootstrap-tools.sh project --project ${shellQuote(resolved)}`,
+    bootstrapCommand: `bash ${shellQuote(bootstrapToolsPath)} project --project ${shellQuote(resolved)}`,
   };
 }
 
@@ -231,7 +232,7 @@ function failedProjectStatus(resolved, message) {
     beadsInitialized: false,
     beadsHealthy: false,
     beadsError: message,
-    bootstrapCommand: `bash ~/.claude/scripts/bootstrap-tools.sh project --project ${shellQuote(resolved)}`,
+    bootstrapCommand: `bash ${shellQuote(bootstrapToolsPath)} project --project ${shellQuote(resolved)}`,
   };
 }
 

@@ -427,11 +427,17 @@ printf '%s\n' '# Changelog' >"$pr_preflight_repo/CHANGELOG.md"
 git -C "$pr_preflight_repo" add CHANGELOG.md
 git -C "$pr_preflight_repo" commit -qm "initial"
 printf '%s\n' '# Changelog' 'changed' >"$pr_preflight_repo/CHANGELOG.md"
+printf '%s\n' 'scratch' >"$pr_preflight_repo/untracked.txt"
 pr_preflight_status_json="$(cd "$pr_preflight_repo" && node "$ROOT/scripts/pr-preflight.mjs" status --json)"
 assert_json_expr "pr preflight preserves modified path names" "$pr_preflight_status_json" '.changedFiles == ["CHANGELOG.md"]'
+assert_json_expr "pr preflight separates untracked files" "$pr_preflight_status_json" '.dirty == true and .untrackedFiles == ["untracked.txt"]'
 perf_baseline_fixture="$TMPROOT/performance-baseline.json"
 printf '%s\n' '{"schemaVersion":1,"baselineId":"base","targetLabel":"fixture","measurements":[{"route":"/","durationMs":100,"responseBytes":1000,"capturedAt":"2026-01-01T00:00:00Z"}],"nextRun":{"command":"pnpm bench","thresholds":{"maxRegressionPct":20}}}' >"$perf_baseline_fixture"
 assert_command "performance baseline validates fixture" node "$ROOT/scripts/performance-baseline.mjs" validate "$perf_baseline_fixture"
+perf_created_path="$(printf '%s\n' '{"baselineId":"created","targetLabel":"fixture","measurements":[{"route":"/created","durationMs":50,"capturedAt":"2026-01-01T00:00:00Z"}]}' | CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$TMPROOT/artifacts" node "$ROOT/scripts/performance-baseline.mjs" create)"
+assert_file "performance baseline create writes report without nextRun" "$perf_created_path"
+assert_command "performance baseline create output validates" node "$ROOT/scripts/performance-baseline.mjs" validate "$perf_created_path"
+assert_json_expr "performance baseline create omits empty nextRun" "$(cat "$perf_created_path")" 'has("nextRun") | not'
 perf_baseline_after="$TMPROOT/performance-baseline-after.json"
 printf '%s\n' '{"schemaVersion":1,"baselineId":"after","targetLabel":"fixture","measurements":[{"route":"/","durationMs":125,"responseBytes":1000,"capturedAt":"2026-01-01T00:01:00Z"}],"nextRun":{"command":"pnpm bench","thresholds":{"maxRegressionPct":20}}}' >"$perf_baseline_after"
 perf_trend_json="$(node "$ROOT/scripts/performance-baseline.mjs" trend --before "$perf_baseline_fixture" --after "$perf_baseline_after")"

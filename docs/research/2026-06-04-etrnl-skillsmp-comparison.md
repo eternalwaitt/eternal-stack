@@ -47,7 +47,8 @@ Result: source, Claude-home, and Codex-home ETRNL skills match right now.
 
 ## Loose Ends
 
-- Stale docs: `docs/skills.md` is aligned on skill list, but it does not expose the richer PR/commit/fix-issue/deps contracts because those skills are currently skeletal.
+- Stale docs: `docs/skills.md` is aligned on skill list, but it does not expose the richer PR/commit/systematic-debugging/deps contracts because those skills are currently skeletal.
+- Validation note: `docs/skills.md` is synchronized with repo-owned skills by `skill-contract-check`. The removed `etrnl-fix-issue` name is intentionally absent after the rename to `etrnl-systematic-debugging`; `etrnl-executor`, `etrnl-spec-reviewer`, `etrnl-quality-reviewer`, `etrnl-investigator`, `etrnl-scout`, `etrnl-adversary`, `etrnl-design-reviewer`, and `etrnl-dx-reviewer` are agents, not skills.
 - Missing tests: trigger fixtures cover every owned skill, but do not cover Dependabot/Renovate/security dependency PRs, PR CI-green requests, or Copilot review-comment handling.
 - Missing routing: bot dependency PR language routes through generic dependency patterns only when it contains `dependency`; `Dependabot`, `Renovate`, and `security alert` deserve explicit fixtures before router changes.
 - Installed-state drift: none found in this run. Both installed homes match source for `etrnl-*` skills; checked shared scripts also hash-match.

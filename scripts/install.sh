@@ -130,14 +130,16 @@ install_skill_command_shims() {
 backup_legacy_skills() {
   local target_dir="$1"
   local backup_dir="$2"
+  local moved=0
   local skill
   for skill in "${LEGACY_SKILLS[@]}"; do
     if [[ -d "$target_dir/$skill" ]]; then
       mkdir -p "$backup_dir"
       cp -R -- "$target_dir/${skill:?}" "$backup_dir/${skill:?}"
-      legacy_moved=1
+      moved=1
     fi
   done
+  printf '%s\n' "$moved"
 }
 
 remove_legacy_skills() {
@@ -291,8 +293,12 @@ for script in "${CRITICAL_SCRIPTS[@]}"; do
   fi
 done
 legacy_moved=0
-backup_legacy_skills "$TARGET/skills" "$BACKUP/skills"
-backup_legacy_skills "$CODEX_TARGET/skills" "$BACKUP/codex-skills"
+if [[ "$(backup_legacy_skills "$TARGET/skills" "$BACKUP/skills")" == "1" ]]; then
+  legacy_moved=1
+fi
+if [[ "$(backup_legacy_skills "$CODEX_TARGET/skills" "$BACKUP/codex-skills")" == "1" ]]; then
+  legacy_moved=1
+fi
 # Source tests must pass before LEGACY_SKILLS are removed from installed skill homes.
 "$ROOT/tests/test-hooks.sh"
 "$ROOT/tests/test-workflow-tools.sh"

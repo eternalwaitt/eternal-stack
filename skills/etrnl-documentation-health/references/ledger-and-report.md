@@ -89,7 +89,14 @@ Score 1-10 with evidence for:
 
 A 10 means accurate, current, discoverable, non-duplicative, verified against source, enough for a new contributor or agent to act safely, and guarded by repeatable checks whenever a repeatable check exists.
 
-Do not collapse deterministic enforcement into overall health. A passing docs gate can support the enforcement score, but overall 100/100 also requires all docs in scope reviewed, recent local commit and GitHub PR/change impact evidence checked when available, checked source-truth mappings, stale-reference searches, zero remaining stale/misleading/outdated documentation, and zero stale active plan or work-queue docs.
+Do not collapse deterministic enforcement into overall health. A passing docs gate can support the enforcement score, but overall 100/100 also requires:
+
+- all docs in scope reviewed;
+- recent local commit and GitHub PR/change impact evidence checked when available;
+- checked source-truth mappings;
+- stale-reference searches;
+- zero remaining stale, misleading, or outdated documentation;
+- zero stale active plan or work-queue docs.
 
 ## Final Report
 

@@ -58,7 +58,7 @@ function status() {
   const upstream = upstreamResult.ok ? upstreamResult.stdout : "";
   if (!upstream) warnings.push("branch has no upstream");
   const porcelain = splitLines(run("git", ["status", "--porcelain"]).stdout);
-  const changedFiles = porcelain.map((line) => porcelainPath(line)).filter(Boolean);
+  const changedFiles = porcelain.filter((line) => !line.startsWith("?? ")).map((line) => porcelainPath(line)).filter(Boolean);
   const untrackedFiles = porcelain.filter((line) => line.startsWith("?? ")).map((line) => porcelainPath(line));
   const ghVersion = run("gh", ["--version"]);
   const ghAvailable = ghVersion.ok;
@@ -87,7 +87,7 @@ function status() {
     command: "status",
     branch,
     upstream,
-    dirty: changedFiles.length > 0,
+    dirty: changedFiles.length > 0 || untrackedFiles.length > 0,
     changedFiles,
     untrackedFiles,
     ghAvailable,

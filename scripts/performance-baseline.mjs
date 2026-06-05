@@ -102,17 +102,22 @@ function create() {
       process.exit(2);
     }
   }
+  const nextCommand = argValue(args, "--next-command", "");
   const report = {
     schemaVersion: 1,
     baselineId: input.baselineId || argValue(args, "--id", `perf-baseline-${Date.now()}`),
     targetLabel: input.targetLabel || argValue(args, "--target", "target"),
     capturedAt: input.capturedAt || nowIso(),
     measurements: input.measurements || [],
-    nextRun: input.nextRun || {
-      command: argValue(args, "--next-command", ""),
-      thresholds: { maxRegressionPct: Number(argValue(args, "--max-regression-pct", "20")) },
-    },
   };
+  if (input.nextRun !== undefined) {
+    report.nextRun = input.nextRun;
+  } else if (nextCommand) {
+    report.nextRun = {
+      command: nextCommand,
+      thresholds: { maxRegressionPct: Number(argValue(args, "--max-regression-pct", "20")) },
+    };
+  }
   const issues = errors(report);
   if (issues.length > 0) {
     console.error(issues.join("\n"));

@@ -28,6 +28,14 @@ node ~/.claude/scripts/performance-baseline.mjs create < measurements.json > <ba
 node ~/.claude/scripts/performance-baseline.mjs validate <baseline-json>
 ```
 
+   `measurements.json` is produced after route, bundle, query, or infrastructure measurement rows are collected; it must provide the `measurements` array consumed by `performance-baseline.mjs create`.
+
+1. When a prior baseline exists, record a trend delta before final:
+
+```bash
+node ~/.claude/scripts/performance-baseline.mjs trend --before <old-baseline> --after <baseline-json> > <trend-json>
+```
+
 1. Validate standalone output before final with:
 
 ```bash
@@ -44,7 +52,7 @@ Completion requires all of these items:
 - Dev compile time is separated from runtime latency.
 - Authenticated and dynamic route blockers are explicit source-limited blockers, not silent skips.
 - Every registered check id from `scripts/lib/deep-audit-categories.mjs` appears exactly once in the category report.
-- Measured reports include a validated performance baseline with `nextRun.command`, thresholds, and trend inputs, or a source-limited reason that blocked repeat measurement capture.
+- Measured reports include a validated performance baseline with `nextRun.command`, thresholds, and trend inputs; when a prior baseline exists, include the trend delta. If repeat measurement capture is blocked, record the source-limited reason.
 - The category report validates with `deep-audit-artifact-check.mjs`.
 
 ## References
