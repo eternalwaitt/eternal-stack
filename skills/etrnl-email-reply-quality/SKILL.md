@@ -33,7 +33,7 @@ Reject these in outgoing VIVAZ email:
 - Generic AI/corporate closers such as `Espero que isso ajude`, `caso tenha alguma dúvida`, `fico à disposição para quaisquer esclarecimentos`, `Atenciosamente`, or assistant meta text like `Or do you want a different number?`.
 - Template-like phrasing such as `Considerando todo o escopo`, `principalmente a parte`, `Se fizer sentido`, `É importante ressaltar`, `marco significativo`, or `não se trata apenas`.
 - Stiff formal boilerplate such as `Prezado(a)`, `Venho por meio deste`, `Sem mais para o momento`, `Cordialmente`, or `Subscrevo-me`.
-- English AI/business-email filler such as `I hope this message finds you well`, `Thank you for reaching out`, `happy to discuss further`, `please let me know if you have any questions`, or over-polished option lists when they add no commercial substance.
+- English AI/business-email filler such as `I hope this message finds you well`, `Thank you for reaching out`, `happy to discuss further`, `please let me know if you have any questions`, or over-polished option lists when they add no commercial substance. Commercial substance means at least one concrete metric, deliverable, deadline, owner, next step, cost, usage-rights term, or ROI constraint.
 - Placeholders, fake certainty, invented deal terms, acceptance of terms, guarantees, approvals, availability promises, or creator signatures.
 
 ## Rewrite Standard
@@ -102,4 +102,16 @@ Com isso eu vejo aqui e te retorno.
 
 Abraço,
 Victor
+```
+
+Bad:
+
+```text
+We can support strategy, content, or a full campaign.
+```
+
+Better:
+
+```text
+We can do a 3-video package, a 30-day content sprint, or a full campaign with usage rights. Send the deadline and budget range, and Juan will confirm the best option.
 ```

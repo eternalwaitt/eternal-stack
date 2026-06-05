@@ -14,7 +14,7 @@
     "payments",
     "privacy-compliance"
   ],
-  "coverageStatement": "Coverage: security.",
+  "coverageStatement": "Coverage: unknown-category.",
   "targetLabel": "synthetic-app",
   "targetFingerprint": "repo:synthetic-app@invalid-category",
   "requestedCategories": [

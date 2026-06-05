@@ -66,3 +66,11 @@ Inspect file type validation, size limits, path containment, archive extraction,
 Worklists: `sec_dependencies`.
 
 Inspect package manifests, lockfiles, native/postinstall scripts, vulnerable direct dependencies, auth libraries, parsers, and update constraints. Use current vulnerability evidence when available.
+
+Run the ecosystem's current vulnerability lookup command before closing this check. Examples:
+
+- JavaScript: `npm audit --json`, `pnpm audit --json`, or `yarn npm audit --json`.
+- GitHub vulnerability database: `gh api graphql -f query='<query>'` when repository/package coordinates are available.
+- Existing project scanners: Snyk, OSV, CodeQL, Dependabot alerts, or the repo's documented security gate.
+
+Record package name, vulnerable range, fixed range, vulnerability id, severity, source command, and whether the vulnerable code is reachable. If auth or a private registry blocks lookup, mark the row source-limited with the command attempted and the blocking condition.
