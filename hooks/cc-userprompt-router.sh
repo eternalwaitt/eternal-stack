@@ -35,7 +35,7 @@ mark_plan_execution_requested() {
 }
 
 record_execute_skill() {
-  record_skill "etrnl-execute"
+  record_skill "etrnl-dev-execute"
   mark_plan_execution_requested
 }
 
@@ -204,14 +204,13 @@ fi
 if [[ "$prompt" =~ Skill\(([A-Za-z0-9:_/-]+)\) ]]; then
   record_skill "${BASH_REMATCH[1]}"
 fi
-legacy_aliases="writing-plans|execute-plan|run-plan|code-review|commit|deps|test|pr|fix-issue|parallel-fan-out|devils-advocate|agent-file-doctor|audit-pipeline"
-# Group 2 is the requested skill name for etrnl-* slash commands and legacy aliases.
-slash_skill_re="(^|[[:space:]])/(etrnl-[A-Za-z0-9_-]+|${legacy_aliases})([[:space:]]|$)"
+# Group 2 is the requested skill name for etrnl-* slash commands.
+slash_skill_re="(^|[[:space:]])/(etrnl-[A-Za-z0-9_-]+)([[:space:]]|$)"
 if [[ "$prompt" =~ $slash_skill_re ]]; then
   slash_skill="${BASH_REMATCH[2]}"
   record_skill "$slash_skill"
   case "$slash_skill" in
-    etrnl-execute|execute-plan|run-plan) mark_plan_execution_requested ;;
+    etrnl-dev-execute) mark_plan_execution_requested ;;
   esac
 fi
 
@@ -254,6 +253,11 @@ cc_prompt_skill_update_note() {
 documentation_health_pattern='documentation[[:space:]-]+health|docs[[:space:]-]+health|documentation[[:space:]-]+audit|docs[[:space:]-]+audit|documentation[[:space:]-]+drift|docs[[:space:]-]+drift|stale[[:space:]]+docs|readme[[:space:]-]+audit|adr[[:space:]-]+health|runbook[[:space:]-]+audit|api[[:space:]-]+docs[[:space:]-]+audit|tsdoc|jsdoc|code[[:space:]-]+documentation[[:space:]-]+health|onboarding[[:space:]-]+docs|documentation[[:space:]-]+pass'
 code_health_pattern='code[[:space:]]+health|health[[:space:]]+check|repo[[:space:]]+rot|audit[[:space:]]+.*(whole|entire)[[:space:]]+codebase|no[[:space:]]+skips|dead[[:space:]]+code|pr-gate'
 ci_cd_pattern='ci/cd|ci-cd|ci[[:space:]-]+pipeline|pr[[:space:]-]+ci|ci[[:space:]-]+.*pr|pipeline[[:space:]-]+(failed|failure|broken|failing)|workflow[[:space:]-]+run[[:space:]-]+(failed|failure|broken|failing)|continuous[[:space:]]+integration|continuous[[:space:]]+delivery|github[[:space:]]+actions?|gitlab[[:space:]]+ci|jenkins|branch[[:space:]-]+protection|deployment[[:space:]-]+automation|release[[:space:]-]+gate|deploy[[:space:]-]+gate|oidc|sbom|cosign|docker[[:space:]-]+image[[:space:]-]+build|canary[[:space:]-]+deploy|blue[[:space:]-]+green|rollback[[:space:]-]+pipeline|flaky[[:space:]-]+ci|slow[[:space:]-]+build'
+code_excellence_pattern='code[[:space:]-]+excellence|engineering[[:space:]-]+excellence|code[[:space:]-]+quality[[:space:]-]+audit|maintainability[[:space:]-]+audit|architecture[[:space:]-]+quality|type[[:space:]-]+safety[[:space:]-]+audit|error[[:space:]-]+handling[[:space:]-]+audit'
+ui_ux_pattern='ui[[:space:]/-]*ux|ux[[:space:]-]+audit|product[[:space:]-]+audit|design[[:space:]-]+audit|accessibility[[:space:]-]+audit|responsive[[:space:]-]+audit|interaction[[:space:]-]+quality|visual[[:space:]-]+qa'
+reuse_pattern='shared[[:space:]-]+reuse|reuse[[:space:]-]+audit|duplication[[:space:]-]+audit|duplicate[[:space:]-]+logic|component[[:space:]-]+reuse|helper[[:space:]-]+reuse|abstraction[[:space:]-]+audit'
+repo_hygiene_pattern='repo[[:space:]-]+hygiene|repository[[:space:]-]+hygiene|repo[[:space:]-]+health|file[[:space:]-]+organization|dead[[:space:]-]+files|generated[[:space:]-]+artifact|gitignore|readme[[:space:]-]+health'
+tooling_ecosystem_pattern='tooling[[:space:]-]+ecosystem|developer[[:space:]-]+experience[[:space:]-]+audit|devex[[:space:]-]+audit|toolchain[[:space:]-]+audit|scripts?[[:space:]-]+audit|formatter[[:space:]-]+lint|local[[:space:]-]+setup|onboarding[[:space:]-]+tooling'
 case "$prompt_lower" in
   *"why"*|*"are you sure"*|*"that's not"*|*"thats not"*|*"not what"*|*"wrong"*|*"still"*|*"wasn't"*|*"wasnt"*|*"i thought"*|*"you said"*|*"she said"*|*"loose ends"*|*"wdym"*)
     cc_state_append_value evidenceChallenges "$prompt"
@@ -261,12 +265,12 @@ case "$prompt_lower" in
     ;;
 esac
 if [[ "$prompt_lower" =~ brainstorm|scope[[:space:]]+this|think[[:space:]]+through|design[[:space:]]+this ]]; then
-  record_skill "etrnl-brainstorm"
-  notes+=("Use etrnl-brainstorm first: clarify, produce a design/spec file, get approval, then move to planning.")
+  record_skill "etrnl-dev-brainstorm"
+  notes+=("Use etrnl-dev-brainstorm first: clarify, produce a design/spec file, get approval, then move to planning.")
 fi
 if [[ "$prompt_lower" =~ auto[[:space:]-]?plan|autoplan|run[[:space:]]+all[[:space:]]+reviews|review[[:space:]]+.*plan[[:space:]]+automatically ]]; then
-  record_skill "etrnl-autoplan"
-  notes+=("Use etrnl-autoplan: run the automated plan review gauntlet and write decisions back to the plan artifact.")
+  record_skill "etrnl-dev-autoplan"
+  notes+=("Use etrnl-dev-autoplan: run the automated plan review gauntlet and write decisions back to the plan artifact.")
 fi
 if [[ "$prompt_lower" =~ /email-triage|email[[:space:]-]+triage ]]; then
   record_skill "email-triage"
@@ -283,103 +287,123 @@ if [[ "$prompt_lower" =~ /email-triage|email[[:space:]-]+triage ]]; then
   fi
 fi
 if [[ "$prompt_lower" =~ disk[[:space:]-]+cleanup|clean[[:space:]]+up[[:space:]]+disk|free[[:space:]]+(disk|ssd|storage)[[:space:]]+space|reclaim[[:space:]]+(disk|ssd|storage)[[:space:]]+space ]]; then
-  record_skill "etrnl-disk-cleanup"
-  notes+=("Use etrnl-disk-cleanup: inspect disk usage first, write a dry-run deletion manifest with exact paths and byte counts, then use trash only for approved cache/build/log paths. Do not use rm -r/rm -rf for cleanup.")
+  record_skill "etrnl-ops-disk-cleanup"
+  notes+=("Use etrnl-ops-disk-cleanup: inspect disk usage first, write a dry-run deletion manifest with exact paths and byte counts, then use trash only for approved cache/build/log paths. Do not use rm -r/rm -rf for cleanup.")
 fi
 if [[ "$prompt_lower" =~ email[[:space:]-]+reply[[:space:]-]+quality|brazilian[[:space:]]+portuguese[[:space:]]+email|bad[[:space:]]+portuguese[[:space:]]+.*repl|em[[:space:]-]+dash.*email|humanize[[:space:]]+email[[:space:]]+reply|draft[[:space:]-]+checker|ai[[:space:]-]+tell.*email|vivaz[[:space:]]+email[[:space:]]+reply ]]; then
-  record_skill "etrnl-email-reply-quality"
-  notes+=("Use etrnl-email-reply-quality: run vivaz-email drafts check, rewrite failed drafts with natural Brazilian Portuguese and humanizer cleanup, then rerun the checker before approval.")
+  record_skill "etrnl-comm-email-reply-quality"
+  notes+=("Use etrnl-comm-email-reply-quality: run vivaz-email drafts check, rewrite failed drafts with natural Brazilian Portuguese and humanizer cleanup, then rerun the checker before approval.")
 fi
 if [[ "$prompt_lower" =~ agent[[:space:]-]?files|instruction[[:space:]]+files|startup[[:space:]]+guidance|align[[:space:]]+.*agents\.md|align[[:space:]]+.*claude\.md ]]; then
-  record_skill "etrnl-agent-files"
-  notes+=("Use etrnl-agent-files: keep AGENTS.md, CLAUDE.md, rules, and agent instructions aligned without bloating startup context.")
+  record_skill "etrnl-ops-agent-files"
+  notes+=("Use etrnl-ops-agent-files: keep AGENTS.md, CLAUDE.md, rules, and agent instructions aligned without bloating startup context.")
 fi
 if [[ "$prompt_lower" =~ write[[:space:]]+a[[:space:]]+plan|implementation[[:space:]]+plan|planning|turn.*into[[:space:]]+tasks ]]; then
-  record_skill "etrnl-plan"
-  notes+=("Use etrnl-plan: write the plan to disk, review it, improve it, mark it Final, and keep chat short.")
+  record_skill "etrnl-dev-plan"
+  notes+=("Use etrnl-dev-plan: write the plan to disk, review it, improve it, mark it Final, and keep chat short.")
 fi
 if [[ "$prompt_lower" =~ execute[[:space:]]+.*plan|implement[[:space:]]+.*plan|carry[[:space:]]+out[[:space:]]+.*plan ]]; then
   record_execute_skill
-  notes+=("Use etrnl-execute only for user-requested plan execution; preserve checkpoints and verification evidence.")
+  notes+=("Use etrnl-dev-execute only for user-requested plan execution; preserve checkpoints and verification evidence.")
 fi
 if [[ -n "$active_plan_path" ]] && [[ "$prompt_lower" =~ (^|[[:space:]])(implement now|do it|execute now|continue the plan|continue plan|finish the plan|finish it|carry on)([[:space:]]|$) ]]; then
   record_execute_skill
-  notes+=("Use etrnl-execute for the active plan: $active_plan_path. Complete every in-scope phase or stop with a blocker.")
+  notes+=("Use etrnl-dev-execute for the active plan: $active_plan_path. Complete every in-scope phase or stop with a blocker.")
 fi
 if [[ "$prompt_lower" =~ $code_health_pattern ]]; then
-  record_skill "etrnl-code-health"
-  notes+=("Use etrnl-code-health: inventory every tracked file, load the repo Health Stack, create a findings ledger, and close every finding as fixed, false-positive, accepted-risk, or blocked.")
+  record_skill "etrnl-audit-code"
+  notes+=("Use etrnl-audit-code: inventory every tracked file, load the repo Health Stack, create a findings ledger, and close every finding as fixed, false-positive, accepted-risk, or blocked.")
 fi
 if [[ "$prompt_lower" =~ $ci_cd_pattern ]]; then
-  record_skill "etrnl-ci-cd"
-  notes+=("Use etrnl-ci-cd: map lanes, preserve required check names through an aggregate job, harden workflow permissions/secrets, and verify with local syntax plus a real CI run or source-limited blocker.")
+  record_skill "etrnl-dev-ci"
+  notes+=("Use etrnl-dev-ci: map lanes, preserve required check names through an aggregate job, harden workflow permissions/secrets, and verify with local syntax plus a real CI run or source-limited blocker.")
 fi
 if [[ "$prompt_lower" =~ $documentation_health_pattern ]]; then
-  record_skill "etrnl-documentation-health"
-  notes+=("Use etrnl-documentation-health: inventory docs first, verify claims against source/runtime truth, fan out read-only documentation lanes when broad, and close every finding with evidence.")
+  record_skill "etrnl-audit-docs"
+  notes+=("Use etrnl-audit-docs: inventory docs first, verify claims against source/runtime truth, fan out read-only documentation lanes when broad, and close every finding with evidence.")
+fi
+if [[ "$prompt_lower" =~ $code_excellence_pattern ]]; then
+  record_skill "etrnl-audit-excellence"
+  notes+=("Use etrnl-audit-excellence: inspect maintainability, architecture, type safety, error handling, tests, boundaries, and dead complexity with source-backed findings.")
+fi
+if [[ "$prompt_lower" =~ $ui_ux_pattern ]]; then
+  record_skill "etrnl-audit-ux"
+  notes+=("Use etrnl-audit-ux: inspect product flows, hierarchy, states, accessibility, responsiveness, interaction quality, and visual polish with browser evidence when UI is runnable.")
+fi
+if [[ "$prompt_lower" =~ $reuse_pattern ]]; then
+  record_skill "etrnl-audit-reuse"
+  notes+=("Use etrnl-audit-reuse: inventory existing components/helpers/modules, identify duplication, and separate reuse opportunities from justified local specialization.")
+fi
+if [[ "$prompt_lower" =~ $repo_hygiene_pattern ]]; then
+  record_skill "etrnl-audit-repo"
+  notes+=("Use etrnl-audit-repo: inspect file organization, stale artifacts, ignored/generated files, repo metadata, docs entrypoints, and ownership boundaries.")
+fi
+if [[ "$prompt_lower" =~ $tooling_ecosystem_pattern ]]; then
+  record_skill "etrnl-audit-tooling"
+  notes+=("Use etrnl-audit-tooling: inspect scripts, local setup, linters, formatters, test commands, CI parity, update paths, and developer experience gates.")
 fi
 if [[ "$prompt_lower" =~ deep[[:space:]-]+audit|full[[:space:]]+registered[[:space:]]+audit|full[[:space:]]+registered[[:space:]]+deep[[:space:]]+audit|all_registered ]]; then
-  record_skill "etrnl-deep-audit"
-  notes+=("Use etrnl-deep-audit: create shared worklists, run registered deep-audit categories, require lane receipts where applicable, and validate the final artifact.")
+  record_skill "etrnl-audit"
+  notes+=("Use etrnl-audit: create shared worklists, run registered deep-audit categories, require lane receipts where applicable, and validate the final artifact.")
 fi
 if [[ "$prompt_lower" =~ security[[:space:]-]+audit|exploitable[[:space:]-]+bug|injection[[:space:]-]+review|authz[[:space:]-]+review|secret[[:space:]-]+handling|csrf|origin[[:space:]-]+review ]]; then
-  record_skill "etrnl-security-audit"
-  notes+=("Use etrnl-security-audit: prove source, sink, missing control, exploit, reachability, confidence, and explicit non-findings.")
+  record_skill "etrnl-audit-security"
+  notes+=("Use etrnl-audit-security: prove source, sink, missing control, exploit, reachability, confidence, and explicit non-findings.")
 fi
 if [[ "$prompt_lower" =~ production[[:space:]-]+readiness|auth[[:space:]]+edge[[:space:]]+cases|webhook[[:space:]-]+reliability|webhook[[:space:]-]+safety|webhook.*tenan|tenan.*migration|error[[:space:]]+boundar ]]; then
-  record_skill "etrnl-production-readiness"
-  notes+=("Use etrnl-production-readiness: audit validation, auth, webhooks, tenancy, migrations, env access, route states, and error boundaries using shared deep-audit worklists.")
+  record_skill "etrnl-audit-production"
+  notes+=("Use etrnl-audit-production: audit validation, auth, webhooks, tenancy, migrations, env access, route states, and error boundaries using shared deep-audit worklists.")
 fi
 if [[ "$prompt_lower" =~ performance[[:space:]-]+audit|speed[[:space:]-]+audit|latency[[:space:]-]+audit|route[[:space:]]+latency|bundle[[:space:]]+size|react[[:space:]]+rendering|infrastructure[[:space:]]+speed|cold[[:space:]]+and[[:space:]]+warm[[:space:]]+performance ]]; then
-  record_skill "etrnl-performance-audit"
-  notes+=("Use etrnl-performance-audit: fan out database, API, bundle, React rendering, background work, and infrastructure lanes after shared worklists exist.")
+  record_skill "etrnl-audit-performance"
+  notes+=("Use etrnl-audit-performance: fan out database, API, bundle, React rendering, background work, and infrastructure lanes after shared worklists exist.")
 fi
 if [[ "$prompt_lower" =~ browser[[:space:]]+qa|browser[[:space:]]+test|route.*viewport|screenshot|console.*network|ui[[:space:]]+verification ]]; then
-  record_skill "etrnl-qa-browser"
-  notes+=("Use etrnl-qa-browser for route, viewport, console, network, accessibility, and screenshot evidence.")
+  record_skill "etrnl-audit-browser"
+  notes+=("Use etrnl-audit-browser for route, viewport, console, network, accessibility, and screenshot evidence.")
 fi
 if [[ "$prompt_lower" =~ save[[:space:]]+context|context[[:space:]]+save|handover[[:space:]]+prompt|fresh[[:space:]]+session ]]; then
-  record_skill "etrnl-context-save"
-  notes+=("Use etrnl-context-save: write concise resumable state without transcripts, credentials, or private memories.")
+  record_skill "etrnl-ops-context-save"
+  notes+=("Use etrnl-ops-context-save: write concise resumable state without transcripts, credentials, or private memories.")
 fi
 if [[ "$prompt_lower" =~ restore[[:space:]]+context|context[[:space:]]+restore|resume[[:space:]]+saved|pick[[:space:]]+up[[:space:]]+from[[:space:]]+context ]]; then
-  record_skill "etrnl-context-restore"
-  notes+=("Use etrnl-context-restore: load saved workflow state and flag stale continuation risk.")
+  record_skill "etrnl-ops-context-restore"
+  notes+=("Use etrnl-ops-context-restore: load saved workflow state and flag stale continuation risk.")
 fi
 if [[ "$prompt_lower" =~ dependency|dependencies|dependabot|renovate|security[[:space:]-]+dependency[[:space:]-]+alert|dependency[[:space:]-]+alert|upgrade[[:space:]]+package|update[[:space:]]+package|dep[[:space:]]+audit ]]; then
-  record_skill "etrnl-deps"
-  notes+=("Use etrnl-deps for targeted dependency maintenance with migration and audit checks.")
+  record_skill "etrnl-dev-deps"
+  notes+=("Use etrnl-dev-deps for targeted dependency maintenance with migration and audit checks.")
 fi
 if [[ "$prompt_lower" =~ commit[[:space:]]+(the|all|these|verified|changes)|stage[[:space:]]+.*commit ]]; then
-  record_skill "etrnl-commit"
-  notes+=("Use etrnl-commit only after reviewing the diff and running relevant verification.")
+  record_skill "etrnl-dev-commit"
+  notes+=("Use etrnl-dev-commit only after reviewing the diff and running relevant verification.")
 fi
 if [[ "$prompt_lower" =~ pull[[:space:]]+request|prepare[[:space:]]+pr|create[[:space:]]+pr|update[[:space:]]+pr|pr[[:space:]-]+ci|ci[[:space:]-]+.*pr|copilot[[:space:]-]+review[[:space:]-]+comments.*pr|review[[:space:]-]+comments.*pr ]]; then
-  record_skill "etrnl-pr"
-  notes+=("Use etrnl-pr for PR preparation with verification evidence and risk summary.")
+  record_skill "etrnl-dev-pr"
+  notes+=("Use etrnl-dev-pr for PR preparation with verification evidence and risk summary.")
 fi
 if [[ "$prompt_lower" =~ systematic[[:space:]-]+debugging|root[[:space:]-]+cause|fix[[:space:]]+issue|issue[[:space:]]+#[0-9]+|bug[[:space:]]+#[0-9]+|debug[[:space:]]+.*(bug|failure|failing|error|issue)|investigate[[:space:]]+.*(bug|failure|failing|error|issue)|reproduce[[:space:]]+.*fix ]]; then
-  record_skill "etrnl-systematic-debugging"
-  notes+=("Use etrnl-systematic-debugging: prove the symptom, trace root cause before fixes, patch the smallest source surface, and verify the original failure.")
+  record_skill "etrnl-dev-debug"
+  notes+=("Use etrnl-dev-debug: prove the symptom, trace root cause before fixes, patch the smallest source surface, and verify the original failure.")
 fi
 if [[ "$prompt_lower" =~ parallel|fan[[:space:]-]?out|split[[:space:]]+.*agents|multiple[[:space:]]+agents ]]; then
-  record_skill "etrnl-parallel"
-  notes+=("Use etrnl-parallel only for explicit bounded fanout with disjoint ownership and final integration checks. Generate each Task packet first with node \${CLAUDE_HOME:-\$HOME/.claude}/scripts/agent-task-packet-check.mjs --template read-only or --template write; do not handwrite partial packets.")
+  record_skill "etrnl-dev-parallel"
+  notes+=("Use etrnl-dev-parallel only for explicit bounded fanout with disjoint ownership and final integration checks. Generate each Task packet first with node \${CLAUDE_HOME:-\$HOME/.claude}/scripts/agent-task-packet-check.mjs --template read-only or --template write; do not handwrite partial packets.")
 fi
 if [[ "$prompt_lower" =~ subagent|agent[[:space:]]+packet|task[[:space:]]+packet|delegate[[:space:]]+to[[:space:]]+agent ]]; then
   notes+=("Before any Agent/Task call, generate a complete packet with node \${CLAUDE_HOME:-\$HOME/.claude}/scripts/agent-task-packet-check.mjs --template read-only or --template write, then pass the JSON-only packet to the agent call.")
 fi
 if [[ "$prompt_lower" =~ stress[[:space:]-]?test|red[[:space:]-]?team|failure[[:space:]]+modes|adversarial[[:space:]]+stress ]]; then
-  record_skill "etrnl-stress-test"
-  notes+=("Use etrnl-stress-test for adversarial rollout, migration, automation, and safety assumptions.")
+  record_skill "etrnl-dev-stress-test"
+  notes+=("Use etrnl-dev-stress-test for adversarial rollout, migration, automation, and safety assumptions.")
 fi
 if [[ "$prompt_lower" =~ run[[:space:]]+tests|test[[:space:]]+the[[:space:]]+repo|preflight|fix[[:space:]]+tests|test[[:space:]]+failures ]]; then
-  record_skill "etrnl-test"
-  notes+=("Use etrnl-test for project preflight and focused failure remediation.")
+  record_skill "etrnl-dev-test"
+  notes+=("Use etrnl-dev-test for project preflight and focused failure remediation.")
 fi
 if [[ "$prompt_lower" =~ audit|code[[:space:]]+review|pr[[:space:]]+review|design[[:space:]]+review|plan[[:space:]]+review|final[[:space:]]+review|review[[:space:]-]+comments|review[[:space:]]+pass|loose[[:space:]]+ends|final[[:space:]]+pass|compare[[:space:]]+changes ]]; then
-  record_skill "etrnl-review"
-  notes+=("Use etrnl-review for findings-first review, gap mapping, and evidence against the original request.")
+  record_skill "etrnl-dev-review"
+  notes+=("Use etrnl-dev-review for findings-first review, gap mapping, and evidence against the original request.")
 fi
 if [[ "$prompt" =~ (current|latest|docs|API|library|package) ]]; then
   notes+=("Use context7 or official/current docs before relying on memory.")

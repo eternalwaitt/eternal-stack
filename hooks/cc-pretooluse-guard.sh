@@ -92,7 +92,7 @@ cc_large_change_has_plan_artifact() {
     (((.reviewRuns // []) | length) > 0)
       or ([.skillCalls[]?.value // empty]
         | map(ascii_downcase)
-        | any(test("^(etrnl-plan|etrnl-review|writing-plans|code-review|execute-plan|plan|review)$")))
+        | any(test("^(etrnl-dev-plan|etrnl-dev-review|writing-plans|code-review|execute-plan|plan|review)$")))
       or ([.edits // {} | keys[] | select(plan_file)] | length > 0)
       or ([.successfulCommands[]?.command // empty, .commands[]?.value // empty]
         | map(ascii_downcase)
@@ -196,7 +196,7 @@ cc_email_triage_active() {
 
 cc_disk_cleanup_active() {
   jq -e '
-    ([.requestedSkills[]?.value // empty | ascii_downcase] | any(. == "etrnl-disk-cleanup" or . == "/etrnl-disk-cleanup"))
+    ([.requestedSkills[]?.value // empty | ascii_downcase] | any(. == "etrnl-ops-disk-cleanup" or . == "/etrnl-ops-disk-cleanup"))
       or ((.lastPrompt // "" | ascii_downcase) | test("disk[ -]cleanup|clean up disk|free (disk|ssd|storage) space|reclaim (disk|ssd|storage) space"))
   ' "$(cc_state_file)" >/dev/null 2>&1
 }
@@ -460,7 +460,7 @@ review_required_for_risky_command() {
       and
     (([.reviewRuns[]?.value // empty, .verificationRuns[]?.value // empty, .skillCalls[]?.value // empty]
       | map(ascii_downcase)
-      | any(test("etrnl-review|code[ -]?review|review-log|coderabbit|adversarial|redline|second[ -]?pass|stress-test"))) | not)
+      | any(test("etrnl-dev-review|code[ -]?review|review-log|coderabbit|adversarial|redline|second[ -]?pass|stress-test"))) | not)
   ' "$(cc_state_file)" >/dev/null 2>&1
 }
 
@@ -556,7 +556,7 @@ cc_unresolved_agent_packet_failure_after_execute() {
       | sub("\\)$"; "")
       | sub("^eternal-control-"; "")
       | sub("^etrnl-"; "")
-      | if . == "execute-plan" or . == "run-plan" then "execute" else . end;
+      | if . == "execute-plan" or . == "run-plan" or . == "dev-execute" then "execute" else . end;
     ([.requestedSkills[]?
       | select((.value // "" | norm) == "execute")
       | (.at // "")]
@@ -584,7 +584,7 @@ cc_execute_direct_source_edit_without_degraded_marker() {
       | sub("\\)$"; "")
       | sub("^eternal-control-"; "")
       | sub("^etrnl-"; "")
-      | if . == "execute-plan" or . == "run-plan" then "execute" else . end;
+      | if . == "execute-plan" or . == "run-plan" or . == "dev-execute" then "execute" else . end;
     ([.requestedSkills[]?
       | select((.value // "" | norm) == "execute")
       | (.at // "")]
@@ -685,7 +685,7 @@ handle_bash() {
   local env_hint
   env_hint="$(cc_json_get '.tool_input.environment // .environment // .env // empty')"
   if cc_command_is_risky_completion_operation "$cmd" && review_required_for_risky_command; then
-    deny "Risky completion command blocked until second-pass review evidence is present. Run etrnl-review (or equivalent review artifact) before commit/push/deploy operations."
+    deny "Risky completion command blocked until second-pass review evidence is present. Run etrnl-dev-review (or equivalent review artifact) before commit/push/deploy operations."
   fi
   if cc_command_is_prod_schema_mutation "$cmd" "$env_hint"; then
     if migration_evidence_missing; then
@@ -746,10 +746,10 @@ handle_edit() {
 
   if [[ -n "$abs" ]] && cc_is_source_path "$abs" && ! cc_is_exempt_path "$abs"; then
     if cc_unresolved_agent_packet_failure_after_execute; then
-      deny "A required /etrnl-execute Agent/Task packet was rejected. Retry the Agent/Task call with a JSON-only task packet before editing source files. A malformed packet is not a sequential-degraded blocker."
+      deny "A required /etrnl-dev-execute Agent/Task packet was rejected. Retry the Agent/Task call with a JSON-only task packet before editing source files. A malformed packet is not a sequential-degraded blocker."
     fi
     if cc_execute_direct_source_edit_without_degraded_marker; then
-      deny "/etrnl-execute source edits must be owned by write-mode implementation subagents. Direct parent source edits require a recorded sequential-degraded ledger marker with the exact blocker before editing."
+      deny "/etrnl-dev-execute source edits must be owned by write-mode implementation subagents. Direct parent source edits require a recorded sequential-degraded ledger marker with the exact blocker before editing."
     fi
     if [[ "$current_tool" != "Write" && -e "$abs" ]] && ! cc_state_has_read "$abs"; then
       deny "Read the existing source file before editing it: $abs"

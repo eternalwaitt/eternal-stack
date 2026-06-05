@@ -1,0 +1,11 @@
+{
+  "expectReject": true,
+  "event": {
+    "eventKind": "lesson",
+    "sessionId": "fixture-lesson",
+    "data": {
+      "lessonId": "fixture/private-path",
+      "content": "Do not store private home paths such as /Users/testuser/.claude/projects/session.json"
+    }
+  }
+}

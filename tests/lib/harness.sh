@@ -4,6 +4,7 @@ cc_test_init() {
   TMPROOT="$(mktemp -d)"
   export TMPDIR="$TMPROOT"
   export CLAUDE_GUARD_STATE_DIR="$TMPROOT"
+  export ETRNL_STATE_DIR="$TMPROOT/etrnl-state"
   export CLAUDE_CONTROL_PLANE_RUNS_DIR="$TMPROOT/runs"
   export CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$TMPROOT/artifacts"
   export CLAUDE_GUARD_DISABLE_HINDSIGHT_LESSON=1

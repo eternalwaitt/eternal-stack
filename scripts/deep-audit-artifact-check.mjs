@@ -521,14 +521,14 @@ function validateRegisteredCategorySurface(category, root, docs, triggerText, ow
 }
 
 function validateOrchestratorSurface(docs, triggerText, ownedSkills, errors) {
-  if (!ownedSkills.includes("etrnl-deep-audit")) {
-    errors.push(diagnostic("REGISTRY_ORCHESTRATOR_MISSING", "scripts/lib/skill-lists.sh", "etrnl-deep-audit is missing from OWNED_SKILLS.", "The orchestrator will not install as repo-owned.", "Add etrnl-deep-audit to OWNED_SKILLS."));
+  if (!ownedSkills.includes("etrnl-audit")) {
+    errors.push(diagnostic("REGISTRY_ORCHESTRATOR_MISSING", "scripts/lib/skill-lists.sh", "etrnl-audit is missing from OWNED_SKILLS.", "The orchestrator will not install as repo-owned.", "Add etrnl-audit to OWNED_SKILLS."));
   }
-  if (!docs.includes("/etrnl-deep-audit")) {
-    errors.push(diagnostic("REGISTRY_DOCS_MISSING", "docs/skills.md", "etrnl-deep-audit is missing from docs/skills.md.", "Maintainers cannot discover the orchestrator.", "Document /etrnl-deep-audit."));
+  if (!docs.includes("/etrnl-audit")) {
+    errors.push(diagnostic("REGISTRY_DOCS_MISSING", "docs/skills.md", "etrnl-audit is missing from docs/skills.md.", "Maintainers cannot discover the orchestrator.", "Document /etrnl-audit."));
   }
-  if (!triggerText.includes("etrnl-deep-audit")) {
-    errors.push(diagnostic("REGISTRY_TRIGGER_FIXTURE_MISSING", "tests/fixtures/skill-triggering/cases.json", "etrnl-deep-audit is missing from trigger cases.", "Skill behavior smoke cannot prove orchestrator routing.", "Add a trigger fixture expecting etrnl-deep-audit."));
+  if (!triggerText.includes("etrnl-audit")) {
+    errors.push(diagnostic("REGISTRY_TRIGGER_FIXTURE_MISSING", "tests/fixtures/skill-triggering/cases.json", "etrnl-audit is missing from trigger cases.", "Skill behavior smoke cannot prove orchestrator routing.", "Add a trigger fixture expecting etrnl-audit."));
   }
 }
 

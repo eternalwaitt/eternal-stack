@@ -33,7 +33,7 @@ Evidence: scripts/plan-readiness-check.mjs and scripts/deep-stack-check.mjs.
 
 ## Skill/tool routing
 
-- Use etrnl-plan and etrnl-review.
+- Use etrnl-dev-plan and etrnl-dev-review.
 
 ## Test plan
 
@@ -62,7 +62,7 @@ Evidence: scripts/plan-readiness-check.mjs and scripts/deep-stack-check.mjs.
 
 ## Execution handoff
 
-- Use etrnl-execute after readiness passes.
+- Use etrnl-dev-execute after readiness passes.
 
 ## Plan Readiness Report
 

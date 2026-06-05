@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "profile": "full",
+  "description": "Shareable full Claude/Codex control-plane stack with ETRNL, CodeGraph, Beads, and Hindsight supervision.",
+  "installCommand": "./scripts/install.sh --profile full --yes",
+  "components": {
+    "etrnl": {
+      "enabled": true,
+      "authority": "compact-handoff",
+      "installs": [
+        "claude-hooks",
+        "claude-skills",
+        "claude-agents",
+        "claude-commands",
+        "codex-skills",
+        "rules",
+        "scripts",
+        "settings-audit"
+      ],
+      "requiredHooks": [
+        "cc-sessionstart-restore.sh",
+        "cc-precompact-save.sh",
+        "cc-postcompact-record.sh",
+        "cc-stop-verifier.sh"
+      ],
+      "healthChecks": [
+        "tests/test-hooks.sh",
+        "tests/test-workflow-tools.sh",
+        "scripts/doctor.sh"
+      ]
+    },
+    "hindsight": {
+      "enabled": true,
+      "mode": "local-daemon",
+      "plugin": "hindsight-memory",
+      "marketplace": "vectorize-io/hindsight",
+      "configTemplate": "templates/hindsight/claude-code.local-daemon.json",
+      "configTarget": "~/.hindsight/claude-code.json",
+      "apiPort": 9077,
+      "versionPolicy": "latest-compatible",
+      "serviceCommand": "uvx hindsight-embed --profile claude-code",
+      "healthChecks": [
+        "scripts/canary-hindsight.sh",
+        "node scripts/tool-stack-check.mjs --json"
+      ],
+      "privacy": {
+        "retainToolCalls": false,
+        "transcriptRetention": false,
+        "freshEvidenceWins": true
+      },
+      "skipFlag": "--skip-hindsight"
+    },
+    "beads": {
+      "enabled": true,
+      "package": "@beads/bd",
+      "binary": "bd",
+      "mode": "binary-and-explicit-project-db",
+      "rawHooksAllowed": false,
+      "rawPrimeAllowed": false,
+      "allowedCandidates": [
+        "blocker",
+        "dependency",
+        "follow_up",
+        "claim"
+      ],
+      "healthChecks": [
+        "bd status --json",
+        "bd setup claude --check",
+        "bd setup codex --check"
+      ],
+      "skipFlag": "--skip-beads"
+    },
+    "codegraph": {
+      "enabled": true,
+      "package": "@colbymchenry/codegraph",
+      "binary": "codegraph",
+      "mode": "global-binary-and-mcp",
+      "healthChecks": [
+        "codegraph --version",
+        "codegraph install --print-config codex"
+      ],
+      "skipFlag": "--skip-codegraph"
+    }
+  },
+  "settings": {
+    "template": "templates/settings.json",
+    "stockBoundary": "repo-owned hooks plus explicitly enabled full-profile plugin",
+    "unsupportedTopLevelKeys": [
+      "autoCompactWindow",
+      "skipAutoPermissionPrompt"
+    ]
+  },
+  "rollback": {
+    "metadata": "control-plane/install.json",
+    "required": true,
+    "ownedServiceRecords": [
+      "hindsight"
+    ]
+  }
+}

@@ -1,20 +1,23 @@
 {
   "schemaVersion": 1,
   "auditId": "deep-audit-source-limited",
-  "categoryRegistryVersion": "2026-06-04.1",
+  "categoryRegistryVersion": "2026-06-05.1",
   "registeredCategories": [
+    "code-excellence",
+    "ui-ux-product",
     "production-readiness",
     "security",
-    "performance"
+    "performance",
+    "shared-reuse",
+    "repo-hygiene",
+    "tooling-ecosystem"
   ],
   "knownUnimplementedCategories": [
-    "ux-accessibility",
     "api-data",
-    "docs",
     "payments",
     "privacy-compliance"
   ],
-  "coverageStatement": "Coverage: registered category completed with source-limited blockers: production-readiness. Known not-yet-registered audit domains: ux-accessibility, api-data, docs, payments, privacy-compliance. This is not a claim that every possible audit domain has run.",
+  "coverageStatement": "Coverage: selected categories completed: production-readiness. Known not-yet-registered audit domains: api-data, payments, privacy-compliance. This is not a claim that every possible audit domain has run.",
   "targetLabel": "synthetic-app",
   "targetFingerprint": "repo:synthetic-app@source-limited",
   "requestedCategories": [

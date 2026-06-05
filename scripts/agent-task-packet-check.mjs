@@ -404,7 +404,7 @@ if (mode === "write" && packet.tddRequired === true && !("tddEvidence" in packet
 if (mode === "write" && packet.deepStackExecution === true) {
   const reviewers = Array.isArray(packet.reviewers) ? packet.reviewers : [];
   // TDD fields are conditional (enforced above when tddRequired === true), matching
-  // the etrnl-execute contract; deep-stack covers install/review/docs-only tasks too.
+  // the etrnl-dev-execute contract; deep-stack covers install/review/docs-only tasks too.
   const requiredDeepStackKeys = ["deepStackArtifacts", "riskTier", "completionEvidence", "reuseArtifact", "simplifierEvidence"];
   for (const key of requiredDeepStackKeys) {
     if (!(key in packet)) missing.push(key);

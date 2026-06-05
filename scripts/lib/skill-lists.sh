@@ -5,34 +5,39 @@
 # Add new repo-owned skills to OWNED_SKILLS by directory name only, then run doctor.
 # The parity-scorecard schema does not hardcode OWNED_SKILLS count; rerun tests/test-workflow-tools.sh when skills change.
 # Keep hooks/lib/skill-hints.sh fallback `skills=(...)` synchronized with OWNED_SKILLS.
-# LEGACY_SKILLS names are moved into the install backup during migration.
+# REMOVED_SKILLS names are one-way cleanup targets. They are backed up and removed during install.
 
 OWNED_SKILLS=(
-  etrnl-agent-files
-  etrnl-autoplan
-  etrnl-brainstorm
-  etrnl-ci-cd
-  etrnl-code-health
-  etrnl-commit
-  etrnl-context-restore
-  etrnl-context-save
-  etrnl-deep-audit
-  etrnl-deps
-  etrnl-disk-cleanup
-  etrnl-documentation-health
-  etrnl-email-reply-quality
-  etrnl-execute
-  etrnl-systematic-debugging
-  etrnl-parallel
-  etrnl-performance-audit
-  etrnl-plan
-  etrnl-production-readiness
-  etrnl-pr
-  etrnl-qa-browser
-  etrnl-review
-  etrnl-security-audit
-  etrnl-stress-test
-  etrnl-test
+  etrnl-ops-agent-files
+  etrnl-dev-autoplan
+  etrnl-dev-brainstorm
+  etrnl-dev-ci
+  etrnl-audit-code
+  etrnl-audit-excellence
+  etrnl-dev-commit
+  etrnl-ops-context-restore
+  etrnl-ops-context-save
+  etrnl-audit
+  etrnl-dev-deps
+  etrnl-ops-disk-cleanup
+  etrnl-audit-docs
+  etrnl-comm-email-reply-quality
+  etrnl-dev-execute
+  etrnl-dev-debug
+  etrnl-dev-parallel
+  etrnl-audit-performance
+  etrnl-dev-plan
+  etrnl-audit-production
+  etrnl-dev-pr
+  etrnl-audit-browser
+  etrnl-audit-repo
+  etrnl-dev-review
+  etrnl-audit-reuse
+  etrnl-audit-security
+  etrnl-audit-tooling
+  etrnl-audit-ux
+  etrnl-dev-stress-test
+  etrnl-dev-test
 )
 
 OWNED_AGENTS=(
@@ -52,11 +57,15 @@ OWNED_COMMANDS=(
 )
 
 CRITICAL_HOOKS=(
+  cc-sessionstart-restore.sh
   cc-pretooluse-guard.sh
   cc-rate-limiter.sh
   cc-posttoolbatch-observer.sh
   cc-stop-verifier.sh
   cc-posttoolusefailure-diagnose.sh
+  cc-precompact-save.sh
+  cc-postcompact-record.sh
+  cc-sessionend-save.sh
 )
 
 CRITICAL_SCRIPTS=(
@@ -65,6 +74,7 @@ CRITICAL_SCRIPTS=(
   documentation-health-ledger-check.mjs
   disk-cleanup-manifest.mjs
   execution-ledger.mjs
+  etrnl-state.mjs
   execute-evidence-check.mjs
   tool-effectiveness.mjs
   deep-stack-check.mjs
@@ -81,6 +91,7 @@ CRITICAL_SCRIPTS=(
   lib/deep-audit-categories.mjs
   lib/deep-stack-artifacts.mjs
   lib/env-utils.mjs
+  lib/etrnl-state-core.mjs
   lib/evidence-trace.mjs
   lib/plan-headings.mjs
   lib/text-matchers.mjs
@@ -95,6 +106,7 @@ CRITICAL_SCRIPTS=(
   skill-contract-check.mjs
   skill-behavior-smoke.mjs
   skill-update-prompt.mjs
+  stack-profile-check.mjs
   tool-stack-check.mjs
   update-check.mjs
   codex-rtk-pre-tool-use.sh
@@ -120,6 +132,7 @@ INSTALL_SCRIPTS=(
   agent-task-packet-check.mjs
   guard-override-token.mjs
   replay-hook-fixtures.mjs
+  etrnl-state.mjs
   execution-ledger.mjs
   execute-evidence-check.mjs
   execution-wave-check.mjs
@@ -133,6 +146,7 @@ INSTALL_SCRIPTS=(
   skill-contract-check.mjs
   skill-behavior-smoke.mjs
   skill-update-prompt.mjs
+  stack-profile-check.mjs
   changelog-release-check.mjs
   port-guard.mjs
   research-competitor-intel.mjs
@@ -148,15 +162,40 @@ INSTALL_SCRIPTS=(
   rollback-local.sh
 )
 
-LEGACY_SKILLS=(
+REMOVED_SKILLS=(
   agent-file-doctor
   code-health
   code-review
   commit
   deps
   devils-advocate
+  etrnl-agent-files
+  etrnl-autoplan
+  etrnl-brainstorm
+  etrnl-ci-cd
+  etrnl-code-health
+  etrnl-commit
+  etrnl-context-restore
+  etrnl-context-save
+  etrnl-deep-audit
+  etrnl-deps
+  etrnl-disk-cleanup
+  etrnl-documentation-health
+  etrnl-email-reply-quality
+  etrnl-execute
   etrnl-fix-issue
+  etrnl-parallel
+  etrnl-performance-audit
+  etrnl-plan
+  etrnl-production-readiness
+  etrnl-pr
+  etrnl-qa-browser
+  etrnl-review
   etrnl-run-plan
+  etrnl-security-audit
+  etrnl-stress-test
+  etrnl-systematic-debugging
+  etrnl-test
   execute-plan
   fix-issue
   parallel-fan-out
@@ -194,4 +233,4 @@ LEGACY_SKILLS=(
 DOMAIN_COMPANION_SKILL_PATTERN='^(eternal-best-practices|domain-[a-z0-9_-]+|better-auth|tenant-isolation(-patterns)?|money-vo-discipline|prisma-expert|i18n-localization|stripe-best-practices|abacatepay-integration)$'
 
 # Keep shellcheck aware these sourced constants are intentionally read by callers.
-: "${OWNED_SKILLS[*]}" "${OWNED_AGENTS[*]}" "${OWNED_COMMANDS[*]}" "${CRITICAL_HOOKS[*]}" "${CRITICAL_SCRIPTS[*]}" "${INSTALL_SCRIPTS[*]}" "${LEGACY_SKILLS[*]}" "$DOMAIN_COMPANION_SKILL_PATTERN"
+: "${OWNED_SKILLS[*]}" "${OWNED_AGENTS[*]}" "${OWNED_COMMANDS[*]}" "${CRITICAL_HOOKS[*]}" "${CRITICAL_SCRIPTS[*]}" "${INSTALL_SCRIPTS[*]}" "${REMOVED_SKILLS[*]}" "$DOMAIN_COMPANION_SKILL_PATTERN"

@@ -1,0 +1,9 @@
+{
+  "eventKind": "settings_observation",
+  "sessionId": "fixture-settings",
+  "data": {
+    "recordedSettingsMode": "default",
+    "observedSettingsMode": "strict",
+    "settingsModeMismatch": true
+  }
+}

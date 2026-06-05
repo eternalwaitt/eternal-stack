@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { homedir } from "node:os";
 import path from "node:path";
+import { compactHandoff, readEvents } from "./lib/etrnl-state-core.mjs";
 
 const args = process.argv.slice(2);
 const command = args.find((arg) => !arg.startsWith("--")) || "help";
@@ -183,6 +184,31 @@ function eventsFromLive() {
       else events.push(normalized);
     }
   }
+  try {
+    for (const event of readEvents()) {
+      if (event.eventKind === "tool_signal") {
+        const normalized = normalizeEvent({ ...event.data, projectHash: event.projectFingerprint, eligible: true, toolUsed: true, usefulWork: true, downstreamArtifact: true, at: event.at }, "etrnl-state");
+        if (!normalized.rejected) events.push(normalized);
+      }
+    }
+    const handoff = compactHandoff({ latest: true });
+    if (handoff.found) {
+      const normalized = normalizeEvent({
+        tool: "compact-handoff",
+        toolKind: "compact-handoff",
+        eligible: true,
+        toolUsed: true,
+        usefulWork: true,
+        downstreamArtifact: true,
+        verificationRecovered: handoff.handoff && !handoff.handoff.verificationStale,
+        projectHash: handoff.handoff?.sessionId || "compact",
+        at: handoff.handoff?.lastCompactAt || new Date(0).toISOString(),
+      }, "etrnl-state");
+      if (!normalized.rejected) events.push(normalized);
+    }
+  } catch {
+    // Live ETRNL state is optional for effectiveness summaries.
+  }
   const stateDir = process.env.CLAUDE_GUARD_STATE_DIR || "";
   if (stateDir && existsSync(stateDir)) {
     for (const file of readdirSync(stateDir).filter((name) => /^claude-guard-.*\.json$/.test(name))) {
@@ -325,7 +351,11 @@ function importCodex() {
       else events.push(normalized);
     }
   }
-  emit({ schemaVersion: 1, command: "import-codex", dryRun, eventsImported: events.length, rejected, ...(dryRun ? { events } : {}) });
+  if (!dryRun && events.length > 0) {
+    mkdirSync(path.dirname(DEFAULT_EVENTS_FILE), { recursive: true, mode: 0o700 });
+    for (const event of events) appendFileSync(DEFAULT_EVENTS_FILE, `${JSON.stringify(event)}\n`, { mode: 0o600 });
+  }
+  emit({ schemaVersion: 1, command: "import-codex", dryRun, eventsImported: events.length, rejected, output: dryRun ? "" : DEFAULT_EVENTS_FILE, ...(dryRun ? { events } : {}) });
 }
 
 try {

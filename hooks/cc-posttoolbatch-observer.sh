@@ -101,6 +101,21 @@ cmd="$(cc_json_get '.tool_input.command // .input.command // .command')"
 file_path="$(cc_json_get '.tool_input.file_path')"
 skill_name="$(cc_json_get '.tool_input.name // .tool_input.skill // .command_name')"
 
+cc_etrnl_record_tool_signal() {
+  local tool="$1"
+  local tool_kind="$2"
+  local event="$3"
+  local payload
+  payload="$(jq -cn \
+    --arg session "$(cc_session_id)" \
+    --arg cwd "$cwd" \
+    --arg tool "$tool" \
+    --arg tool_kind "$tool_kind" \
+    --arg event "$event" \
+    '{eventKind:"tool_signal",sessionId:$session,cwd:$cwd,data:{tool:$tool,toolKind:$tool_kind,event:$event}}')"
+  cc_etrnl_state_append_json "$payload" || true
+}
+
 call_succeeded() {
   local payload="$1"
   local denied status is_error error_text
@@ -246,9 +261,11 @@ record_tool() {
       cc_state_batch_append_command_success "$command"
       if [[ "$command" =~ (^|[[:space:];&|])(codegraph)([[:space:]]|$) ]]; then
         cc_state_batch_append_tool_signal codegraph codegraph bash-command || true
+        cc_etrnl_record_tool_signal codegraph codegraph bash-command
       fi
       if [[ "$command" =~ (^|[[:space:];&|])(beads|bd)([[:space:]]|$) ]]; then
         cc_state_batch_append_tool_signal beads beads bash-command || true
+        cc_etrnl_record_tool_signal beads beads bash-command
       fi
       if [[ "$command" =~ (^|[[:space:]])(rg|fd|sg|rtk[[:space:]]+grep|git[[:space:]]+grep)([[:space:]]|$) ]]; then
         cc_state_batch_mark_path searches "$command"
@@ -309,12 +326,14 @@ record_tool() {
       fi
       cc_state_batch_mark_path searches "$name"
       cc_state_batch_append_tool_signal codegraph codegraph mcp-call || true
+      cc_etrnl_record_tool_signal codegraph codegraph mcp-call
       ;;
     mcp__beads*|beads*)
       if [[ "$succeeded" != "true" ]]; then
         return 0
       fi
       cc_state_batch_append_tool_signal beads beads mcp-call || true
+      cc_etrnl_record_tool_signal beads beads mcp-call
       ;;
   esac
 }

@@ -2,7 +2,7 @@
   "generatedAt": "2026-05-16T00:00:00Z",
   "scorecards": [
     {
-      "etrnlSkill": "etrnl-agent-files",
+      "etrnlSkill": "etrnl-ops-agent-files",
       "capabilityScores": {
         "tdd_enforcement": 1,
         "planning_depth": 2,
@@ -28,7 +28,7 @@
       "targetMilestone": "M2"
     },
     {
-      "etrnlSkill": "etrnl-autoplan",
+      "etrnlSkill": "etrnl-dev-autoplan",
       "capabilityScores": {
         "tdd_enforcement": 1,
         "planning_depth": 3,
@@ -43,7 +43,7 @@
         {
           "capability": "research_flow",
           "target": "add mandatory top-10 competitor compare stage before plan finalization",
-          "ownerSurface": "skill:etrnl-autoplan",
+          "ownerSurface": "skill:etrnl-dev-autoplan",
           "sourceRows": [
             "gstack:research_flow",
             "spec-kit:planning_depth"
@@ -63,7 +63,7 @@
       "targetMilestone": "M1"
     },
     {
-      "etrnlSkill": "etrnl-brainstorm",
+      "etrnlSkill": "etrnl-dev-brainstorm",
       "capabilityScores": {
         "tdd_enforcement": 1,
         "planning_depth": 2,
@@ -78,7 +78,7 @@
         {
           "capability": "research_flow",
           "target": "require competitor landscape section with explicit does/does-not outputs",
-          "ownerSurface": "skill:etrnl-brainstorm",
+          "ownerSurface": "skill:etrnl-dev-brainstorm",
           "sourceRows": [
             "superpowers:research_flow",
             "shipyard:planning_depth"
@@ -89,7 +89,7 @@
       "targetMilestone": "M1"
     },
     {
-      "etrnlSkill": "etrnl-ci-cd",
+      "etrnlSkill": "etrnl-dev-ci",
       "capabilityScores": {
         "tdd_enforcement": 1,
         "planning_depth": 2,
@@ -115,7 +115,7 @@
       "targetMilestone": "M2"
     },
     {
-      "etrnlSkill": "etrnl-code-health",
+      "etrnlSkill": "etrnl-audit-code",
       "capabilityScores": {
         "tdd_enforcement": 1,
         "planning_depth": 2,
@@ -139,7 +139,7 @@
         {
           "capability": "parallelism_safety",
           "target": "add overlap-safe split for research extraction and parity generation tasks",
-          "ownerSurface": "skill:etrnl-code-health",
+          "ownerSurface": "skill:etrnl-audit-code",
           "sourceRows": [
             "gstack:parallelism_safety",
             "reap:parallelism_safety"
@@ -150,7 +150,179 @@
       "targetMilestone": "M1"
     },
     {
-      "etrnlSkill": "etrnl-documentation-health",
+      "etrnlSkill": "etrnl-audit-excellence",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 2,
+        "research_flow": 1,
+        "subagent_orchestration": 1,
+        "parallelism_safety": 1,
+        "verification_gates": 2,
+        "rollback_guardrails": 1,
+        "telemetry_proactive": 1
+      },
+      "gaps": [],
+      "priority": "P2",
+      "targetMilestone": "M3"
+    },
+    {
+      "etrnlSkill": "etrnl-dev-commit",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 2,
+        "research_flow": 1,
+        "subagent_orchestration": 2,
+        "parallelism_safety": 1,
+        "verification_gates": 2,
+        "rollback_guardrails": 0,
+        "telemetry_proactive": 1
+      },
+      "gaps": [
+        {
+          "capability": "rollback_guardrails",
+          "target": "require rollback snippet for high-risk hook/script changes in commit summary",
+          "ownerSurface": "skill:etrnl-dev-commit",
+          "sourceRows": [
+            "get-shit-done:rollback_guardrails",
+            "shipyard:rollback_guardrails"
+          ]
+        }
+      ],
+      "priority": "P2",
+      "targetMilestone": "M2"
+    },
+    {
+      "etrnlSkill": "etrnl-ops-context-restore",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 2,
+        "research_flow": 1,
+        "subagent_orchestration": 2,
+        "parallelism_safety": 1,
+        "verification_gates": 2,
+        "rollback_guardrails": 2,
+        "telemetry_proactive": 1
+      },
+      "gaps": [
+        {
+          "capability": "telemetry_proactive",
+          "target": "track stale context restores and emit follow-up recommendations",
+          "ownerSurface": "script:context-state.mjs",
+          "sourceRows": [
+            "gstack:telemetry_proactive",
+            "reap:telemetry_proactive"
+          ]
+        }
+      ],
+      "priority": "P2",
+      "targetMilestone": "M3"
+    },
+    {
+      "etrnlSkill": "etrnl-ops-context-save",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 2,
+        "research_flow": 1,
+        "subagent_orchestration": 2,
+        "parallelism_safety": 1,
+        "verification_gates": 1,
+        "rollback_guardrails": 2,
+        "telemetry_proactive": 2
+      },
+      "gaps": [
+        {
+          "capability": "verification_gates",
+          "target": "block save when verification artifacts are missing for execution runs",
+          "ownerSurface": "hook:cc-stop-verifier.sh",
+          "sourceRows": [
+            "superpowers:verification_gates",
+            "spec-kitty:verification_gates"
+          ]
+        }
+      ],
+      "priority": "P2",
+      "targetMilestone": "M3"
+    },
+    {
+      "etrnlSkill": "etrnl-audit",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 3,
+        "research_flow": 1,
+        "subagent_orchestration": 3,
+        "parallelism_safety": 2,
+        "verification_gates": 3,
+        "rollback_guardrails": 1,
+        "telemetry_proactive": 1
+      },
+      "gaps": [
+        {
+          "capability": "telemetry_proactive",
+          "target": "surface stale or missing category coverage in workflow-health when the deep-audit registry changes",
+          "ownerSurface": "script:workflow-health.mjs",
+          "sourceRows": [
+            "gstack:telemetry_proactive",
+            "reap:telemetry_proactive"
+          ]
+        }
+      ],
+      "priority": "P1",
+      "targetMilestone": "M2"
+    },
+    {
+      "etrnlSkill": "etrnl-dev-deps",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 2,
+        "research_flow": 1,
+        "subagent_orchestration": 2,
+        "parallelism_safety": 1,
+        "verification_gates": 2,
+        "rollback_guardrails": 0,
+        "telemetry_proactive": 1
+      },
+      "gaps": [
+        {
+          "capability": "rollback_guardrails",
+          "target": "require dependency rollback command sequence in dependency upgrades",
+          "ownerSurface": "skill:etrnl-dev-deps",
+          "sourceRows": [
+            "shipyard:rollback_guardrails",
+            "get-shit-done:rollback_guardrails"
+          ]
+        }
+      ],
+      "priority": "P2",
+      "targetMilestone": "M2"
+    },
+    {
+      "etrnlSkill": "etrnl-ops-disk-cleanup",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 1,
+        "research_flow": 1,
+        "subagent_orchestration": 1,
+        "parallelism_safety": 1,
+        "verification_gates": 2,
+        "rollback_guardrails": 2,
+        "telemetry_proactive": 1
+      },
+      "gaps": [
+        {
+          "capability": "verification_gates",
+          "target": "record before/after free-space evidence and dry-run manifest paths in cleanup reports",
+          "ownerSurface": "skill:etrnl-ops-disk-cleanup",
+          "sourceRows": [
+            "get-shit-done:verification_gates",
+            "superpowers:rollback_guardrails"
+          ]
+        }
+      ],
+      "priority": "P1",
+      "targetMilestone": "M1"
+    },
+    {
+      "etrnlSkill": "etrnl-audit-docs",
       "capabilityScores": {
         "tdd_enforcement": 1,
         "planning_depth": 2,
@@ -185,189 +357,7 @@
       "targetMilestone": "M2"
     },
     {
-      "etrnlSkill": "etrnl-commit",
-      "capabilityScores": {
-        "tdd_enforcement": 1,
-        "planning_depth": 2,
-        "research_flow": 1,
-        "subagent_orchestration": 2,
-        "parallelism_safety": 1,
-        "verification_gates": 2,
-        "rollback_guardrails": 0,
-        "telemetry_proactive": 1
-      },
-      "gaps": [
-        {
-          "capability": "rollback_guardrails",
-          "target": "require rollback snippet for high-risk hook/script changes in commit summary",
-          "ownerSurface": "skill:etrnl-commit",
-          "sourceRows": [
-            "get-shit-done:rollback_guardrails",
-            "shipyard:rollback_guardrails"
-          ]
-        }
-      ],
-      "priority": "P2",
-      "targetMilestone": "M2"
-    },
-    {
-      "etrnlSkill": "etrnl-context-restore",
-      "capabilityScores": {
-        "tdd_enforcement": 1,
-        "planning_depth": 2,
-        "research_flow": 1,
-        "subagent_orchestration": 2,
-        "parallelism_safety": 1,
-        "verification_gates": 2,
-        "rollback_guardrails": 2,
-        "telemetry_proactive": 1
-      },
-      "gaps": [
-        {
-          "capability": "telemetry_proactive",
-          "target": "track stale context restores and emit follow-up recommendations",
-          "ownerSurface": "script:context-state.mjs",
-          "sourceRows": [
-            "gstack:telemetry_proactive",
-            "reap:telemetry_proactive"
-          ]
-        }
-      ],
-      "priority": "P2",
-      "targetMilestone": "M3"
-    },
-    {
-      "etrnlSkill": "etrnl-context-save",
-      "capabilityScores": {
-        "tdd_enforcement": 1,
-        "planning_depth": 2,
-        "research_flow": 1,
-        "subagent_orchestration": 2,
-        "parallelism_safety": 1,
-        "verification_gates": 1,
-        "rollback_guardrails": 2,
-        "telemetry_proactive": 2
-      },
-      "gaps": [
-        {
-          "capability": "verification_gates",
-          "target": "block save when verification artifacts are missing for execution runs",
-          "ownerSurface": "hook:cc-stop-verifier.sh",
-          "sourceRows": [
-            "superpowers:verification_gates",
-            "spec-kitty:verification_gates"
-          ]
-        }
-      ],
-      "priority": "P2",
-      "targetMilestone": "M3"
-    },
-    {
-      "etrnlSkill": "etrnl-deep-audit",
-      "capabilityScores": {
-        "tdd_enforcement": 1,
-        "planning_depth": 3,
-        "research_flow": 1,
-        "subagent_orchestration": 3,
-        "parallelism_safety": 2,
-        "verification_gates": 3,
-        "rollback_guardrails": 1,
-        "telemetry_proactive": 1
-      },
-      "gaps": [
-        {
-          "capability": "telemetry_proactive",
-          "target": "surface stale or missing category coverage in workflow-health when the deep-audit registry changes",
-          "ownerSurface": "script:workflow-health.mjs",
-          "sourceRows": [
-            "gstack:telemetry_proactive",
-            "reap:telemetry_proactive"
-          ]
-        }
-      ],
-      "priority": "P1",
-      "targetMilestone": "M2"
-    },
-    {
-      "etrnlSkill": "etrnl-security-audit",
-      "capabilityScores": {
-        "tdd_enforcement": 1,
-        "planning_depth": 2,
-        "research_flow": 2,
-        "subagent_orchestration": 1,
-        "parallelism_safety": 1,
-        "verification_gates": 3,
-        "rollback_guardrails": 1,
-        "telemetry_proactive": 1
-      },
-      "gaps": [
-        {
-          "capability": "rollback_guardrails",
-          "target": "attach fix validation and rollback evidence to security remediation runs after read-only audit findings are accepted",
-          "ownerSurface": "skill:etrnl-security-audit",
-          "sourceRows": [
-            "shipyard:rollback_guardrails",
-            "get-shit-done:rollback_guardrails"
-          ]
-        }
-      ],
-      "priority": "P2",
-      "targetMilestone": "M3"
-    },
-    {
-      "etrnlSkill": "etrnl-deps",
-      "capabilityScores": {
-        "tdd_enforcement": 1,
-        "planning_depth": 2,
-        "research_flow": 1,
-        "subagent_orchestration": 2,
-        "parallelism_safety": 1,
-        "verification_gates": 2,
-        "rollback_guardrails": 0,
-        "telemetry_proactive": 1
-      },
-      "gaps": [
-        {
-          "capability": "rollback_guardrails",
-          "target": "require dependency rollback command sequence in dependency upgrades",
-          "ownerSurface": "skill:etrnl-deps",
-          "sourceRows": [
-            "shipyard:rollback_guardrails",
-            "get-shit-done:rollback_guardrails"
-          ]
-        }
-      ],
-      "priority": "P2",
-      "targetMilestone": "M2"
-    },
-    {
-      "etrnlSkill": "etrnl-disk-cleanup",
-      "capabilityScores": {
-        "tdd_enforcement": 1,
-        "planning_depth": 1,
-        "research_flow": 1,
-        "subagent_orchestration": 1,
-        "parallelism_safety": 1,
-        "verification_gates": 2,
-        "rollback_guardrails": 2,
-        "telemetry_proactive": 1
-      },
-      "gaps": [
-        {
-          "capability": "verification_gates",
-          "target": "record before/after free-space evidence and dry-run manifest paths in cleanup reports",
-          "ownerSurface": "skill:etrnl-disk-cleanup",
-          "sourceRows": [
-            "get-shit-done:verification_gates",
-            "superpowers:rollback_guardrails"
-          ]
-        }
-      ],
-      "priority": "P1",
-      "targetMilestone": "M1"
-    },
-    {
-      "etrnlSkill": "etrnl-email-reply-quality",
+      "etrnlSkill": "etrnl-comm-email-reply-quality",
       "capabilityScores": {
         "tdd_enforcement": 1,
         "planning_depth": 1,
@@ -402,7 +392,7 @@
       "targetMilestone": "M2"
     },
     {
-      "etrnlSkill": "etrnl-execute",
+      "etrnlSkill": "etrnl-dev-execute",
       "capabilityScores": {
         "tdd_enforcement": 1,
         "planning_depth": 2,
@@ -437,7 +427,7 @@
       "targetMilestone": "M1"
     },
     {
-      "etrnlSkill": "etrnl-systematic-debugging",
+      "etrnlSkill": "etrnl-dev-debug",
       "capabilityScores": {
         "tdd_enforcement": 0,
         "planning_depth": 2,
@@ -452,7 +442,7 @@
         {
           "capability": "tdd_enforcement",
           "target": "require failing test reference before fix implementation for skill/hook regressions",
-          "ownerSurface": "skill:etrnl-systematic-debugging",
+          "ownerSurface": "skill:etrnl-dev-debug",
           "sourceRows": [
             "superpowers:tdd_enforcement",
             "get-shit-done:tdd_enforcement"
@@ -463,7 +453,7 @@
       "targetMilestone": "M2"
     },
     {
-      "etrnlSkill": "etrnl-parallel",
+      "etrnlSkill": "etrnl-dev-parallel",
       "capabilityScores": {
         "tdd_enforcement": 1,
         "planning_depth": 2,
@@ -478,7 +468,7 @@
         {
           "capability": "parallelism_safety",
           "target": "add strict no-overlap contract check for research subagent lanes",
-          "ownerSurface": "skill:etrnl-parallel",
+          "ownerSurface": "skill:etrnl-dev-parallel",
           "sourceRows": [
             "gstack:parallelism_safety",
             "spec-kit:parallelism_safety"
@@ -498,7 +488,7 @@
       "targetMilestone": "M2"
     },
     {
-      "etrnlSkill": "etrnl-performance-audit",
+      "etrnlSkill": "etrnl-audit-performance",
       "capabilityScores": {
         "tdd_enforcement": 1,
         "planning_depth": 2,
@@ -524,7 +514,7 @@
       "targetMilestone": "M3"
     },
     {
-      "etrnlSkill": "etrnl-plan",
+      "etrnlSkill": "etrnl-dev-plan",
       "capabilityScores": {
         "tdd_enforcement": 1,
         "planning_depth": 3,
@@ -539,7 +529,7 @@
         {
           "capability": "research_flow",
           "target": "force explicit competitor matrix inputs as a hard precondition for final plan status",
-          "ownerSurface": "skill:etrnl-plan",
+          "ownerSurface": "skill:etrnl-dev-plan",
           "sourceRows": [
             "spec-kit:planning_depth",
             "superpowers:research_flow"
@@ -550,33 +540,7 @@
       "targetMilestone": "M1"
     },
     {
-      "etrnlSkill": "etrnl-pr",
-      "capabilityScores": {
-        "tdd_enforcement": 1,
-        "planning_depth": 2,
-        "research_flow": 1,
-        "subagent_orchestration": 2,
-        "parallelism_safety": 1,
-        "verification_gates": 1,
-        "rollback_guardrails": 1,
-        "telemetry_proactive": 1
-      },
-      "gaps": [
-        {
-          "capability": "verification_gates",
-          "target": "require matrix/backlog artifact diffs in PR checklist when parity work is touched",
-          "ownerSurface": "skill:etrnl-pr",
-          "sourceRows": [
-            "compound-engineering-plugin:verification_gates",
-            "gstack:verification_gates"
-          ]
-        }
-      ],
-      "priority": "P2",
-      "targetMilestone": "M3"
-    },
-    {
-      "etrnlSkill": "etrnl-production-readiness",
+      "etrnlSkill": "etrnl-audit-production",
       "capabilityScores": {
         "tdd_enforcement": 1,
         "planning_depth": 2,
@@ -591,7 +555,7 @@
         {
           "capability": "parallelism_safety",
           "target": "document split-safe sublanes before turning production-readiness from sequential execution into fanout execution",
-          "ownerSurface": "skill:etrnl-production-readiness",
+          "ownerSurface": "skill:etrnl-audit-production",
           "sourceRows": [
             "gstack:parallelism_safety",
             "reap:parallelism_safety"
@@ -602,7 +566,33 @@
       "targetMilestone": "M3"
     },
     {
-      "etrnlSkill": "etrnl-qa-browser",
+      "etrnlSkill": "etrnl-dev-pr",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 2,
+        "research_flow": 1,
+        "subagent_orchestration": 2,
+        "parallelism_safety": 1,
+        "verification_gates": 1,
+        "rollback_guardrails": 1,
+        "telemetry_proactive": 1
+      },
+      "gaps": [
+        {
+          "capability": "verification_gates",
+          "target": "require matrix/backlog artifact diffs in PR checklist when parity work is touched",
+          "ownerSurface": "skill:etrnl-dev-pr",
+          "sourceRows": [
+            "compound-engineering-plugin:verification_gates",
+            "gstack:verification_gates"
+          ]
+        }
+      ],
+      "priority": "P2",
+      "targetMilestone": "M3"
+    },
+    {
+      "etrnlSkill": "etrnl-audit-browser",
       "capabilityScores": {
         "tdd_enforcement": 1,
         "planning_depth": 2,
@@ -628,7 +618,23 @@
       "targetMilestone": "M2"
     },
     {
-      "etrnlSkill": "etrnl-review",
+      "etrnlSkill": "etrnl-audit-repo",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 2,
+        "research_flow": 1,
+        "subagent_orchestration": 1,
+        "parallelism_safety": 1,
+        "verification_gates": 2,
+        "rollback_guardrails": 1,
+        "telemetry_proactive": 1
+      },
+      "gaps": [],
+      "priority": "P2",
+      "targetMilestone": "M3"
+    },
+    {
+      "etrnlSkill": "etrnl-dev-review",
       "capabilityScores": {
         "tdd_enforcement": 1,
         "planning_depth": 2,
@@ -643,7 +649,7 @@
         {
           "capability": "research_flow",
           "target": "require code-level competitor citations in review findings for strategy/skill recommendations",
-          "ownerSurface": "skill:etrnl-review",
+          "ownerSurface": "skill:etrnl-dev-review",
           "sourceRows": [
             "superpowers:research_flow",
             "spec-kit:research_flow"
@@ -663,7 +669,81 @@
       "targetMilestone": "M1"
     },
     {
-      "etrnlSkill": "etrnl-stress-test",
+      "etrnlSkill": "etrnl-audit-reuse",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 2,
+        "research_flow": 1,
+        "subagent_orchestration": 1,
+        "parallelism_safety": 1,
+        "verification_gates": 2,
+        "rollback_guardrails": 1,
+        "telemetry_proactive": 1
+      },
+      "gaps": [],
+      "priority": "P2",
+      "targetMilestone": "M3"
+    },
+    {
+      "etrnlSkill": "etrnl-audit-security",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 2,
+        "research_flow": 2,
+        "subagent_orchestration": 1,
+        "parallelism_safety": 1,
+        "verification_gates": 3,
+        "rollback_guardrails": 1,
+        "telemetry_proactive": 1
+      },
+      "gaps": [
+        {
+          "capability": "rollback_guardrails",
+          "target": "attach fix validation and rollback evidence to security remediation runs after read-only audit findings are accepted",
+          "ownerSurface": "skill:etrnl-audit-security",
+          "sourceRows": [
+            "shipyard:rollback_guardrails",
+            "get-shit-done:rollback_guardrails"
+          ]
+        }
+      ],
+      "priority": "P2",
+      "targetMilestone": "M3"
+    },
+    {
+      "etrnlSkill": "etrnl-audit-tooling",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 2,
+        "research_flow": 1,
+        "subagent_orchestration": 1,
+        "parallelism_safety": 1,
+        "verification_gates": 2,
+        "rollback_guardrails": 1,
+        "telemetry_proactive": 1
+      },
+      "gaps": [],
+      "priority": "P2",
+      "targetMilestone": "M3"
+    },
+    {
+      "etrnlSkill": "etrnl-audit-ux",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 2,
+        "research_flow": 1,
+        "subagent_orchestration": 1,
+        "parallelism_safety": 1,
+        "verification_gates": 2,
+        "rollback_guardrails": 1,
+        "telemetry_proactive": 1
+      },
+      "gaps": [],
+      "priority": "P2",
+      "targetMilestone": "M3"
+    },
+    {
+      "etrnlSkill": "etrnl-dev-stress-test",
       "capabilityScores": {
         "tdd_enforcement": 2,
         "planning_depth": 2,
@@ -678,7 +758,7 @@
         {
           "capability": "rollback_guardrails",
           "target": "attach deterministic rollback steps for each stress test failure mode",
-          "ownerSurface": "skill:etrnl-stress-test",
+          "ownerSurface": "skill:etrnl-dev-stress-test",
           "sourceRows": [
             "shipyard:rollback_guardrails",
             "reap:rollback_guardrails"
@@ -698,7 +778,7 @@
       "targetMilestone": "M2"
     },
     {
-      "etrnlSkill": "etrnl-test",
+      "etrnlSkill": "etrnl-dev-test",
       "capabilityScores": {
         "tdd_enforcement": 1,
         "planning_depth": 2,
@@ -713,7 +793,7 @@
         {
           "capability": "tdd_enforcement",
           "target": "codify red-green-refactor evidence requirements in test plans",
-          "ownerSurface": "skill:etrnl-test",
+          "ownerSurface": "skill:etrnl-dev-test",
           "sourceRows": [
             "superpowers:tdd_enforcement",
             "get-shit-done:tdd_enforcement"

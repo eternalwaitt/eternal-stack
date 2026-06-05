@@ -16,8 +16,6 @@ This repo builds a shareable control plane for Claude Code. Keep the public repo
 ## Boundaries
 
 - Repo-owned skills use the `etrnl-*` namespace.
-- Codex startup lines in repo-owned `SKILL.md` files intentionally call `~/.codex/scripts/skill-update-prompt.mjs`; Claude-installed helper paths use `~/.claude/scripts`.
 - Companion skills such as `eternal-best-practices`, `code-simplifier`, `finding-duplicate-functions`, and `brooks-audit` are mapped but not vendored.
 - Live migration of memory systems, plugins, MCPs, and broad permissions is a local rollout step, not a blind install-time side effect.
-- Whole-codebase audits use `etrnl-code-health` plus `scripts/code-health-inventory.mjs`; no tracked file may vanish from the coverage map.
-- Invalid deep-audit fixtures under `tests/fixtures/deep-audit/report.*.json` intentionally contain mismatched fields when the mismatch proves the expected validator diagnostic.
+- Whole-codebase audits use `etrnl-audit-code` plus `scripts/code-health-inventory.mjs`; no tracked file may vanish from the coverage map.

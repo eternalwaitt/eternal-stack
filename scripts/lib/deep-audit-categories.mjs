@@ -1,14 +1,28 @@
-export const CATEGORY_REGISTRY_VERSION = "2026-06-04.1";
+export const CATEGORY_REGISTRY_VERSION = "2026-06-05.1";
 
 export const KNOWN_UNIMPLEMENTED_CATEGORIES = [
-  "ux-accessibility",
   "api-data",
-  "docs",
   "payments",
   "privacy-compliance",
 ];
 
 const worklists = {
+  excellence: [
+    "code_source_files",
+    "code_tests",
+    "code_types",
+    "code_error_paths",
+    "code_boundaries",
+    "code_architecture",
+  ],
+  ux: [
+    "ux_routes",
+    "ux_components",
+    "ux_states",
+    "ux_styles",
+    "ux_copy",
+    "ux_accessibility",
+  ],
   production: [
     "prod_pages",
     "prod_procedures",
@@ -51,6 +65,29 @@ const worklists = {
     "sec_webhooks",
     "sec_dependencies",
   ],
+  reuse: [
+    "reuse_source_files",
+    "reuse_components",
+    "reuse_helpers",
+    "reuse_modules",
+    "reuse_tests",
+    "reuse_duplicate_candidates",
+  ],
+  repo: [
+    "repo_tracked_files",
+    "repo_docs_entrypoints",
+    "repo_generated_artifacts",
+    "repo_ignored_files",
+    "repo_metadata",
+  ],
+  tooling: [
+    "tool_scripts",
+    "tool_package_manifests",
+    "tool_lint_format",
+    "tool_tests",
+    "tool_ci",
+    "tool_bootstrap",
+  ],
 };
 
 const RECEIPT_FIELDS = ["laneId", "categoryId", "status", "consumedWorklistHashes", "summary"];
@@ -61,9 +98,41 @@ function check(checkId, label, requiredWorklists, applicabilityGate, laneId = ""
 
 export const REGISTERED_DEEP_AUDIT_CATEGORIES = [
   {
+    categoryId: "code-excellence",
+    skillName: "etrnl-audit-excellence",
+    referencePath: "skills/etrnl-audit-excellence/references/audit-checks.md",
+    executionMode: "sequential",
+    requiredWorklists: worklists.excellence,
+    checks: [
+      check("code-01-correctness-invariants", "Correctness invariants", ["code_source_files", "code_tests"], "Application source or library code exists"),
+      check("code-02-type-contracts", "Type and schema contracts", ["code_types", "code_boundaries"], "Typed language, schemas, or external contracts exist"),
+      check("code-03-error-handling", "Error handling and failure clarity", ["code_error_paths", "code_boundaries"], "Error, retry, fallback, or boundary code exists"),
+      check("code-04-architecture-boundaries", "Architecture boundaries", ["code_architecture", "code_boundaries"], "Modules, packages, layers, or service boundaries exist"),
+      check("code-05-test-signal", "Test signal and regression coverage", ["code_tests", "code_source_files"], "Tests or verification commands exist"),
+      check("code-06-complexity-debt", "Complexity, dead code, and stale abstractions", ["code_source_files", "code_architecture"], "Non-trivial source files exist"),
+    ],
+    lanes: [],
+  },
+  {
+    categoryId: "ui-ux-product",
+    skillName: "etrnl-audit-ux",
+    referencePath: "skills/etrnl-audit-ux/references/audit-checks.md",
+    executionMode: "sequential",
+    requiredWorklists: worklists.ux,
+    checks: [
+      check("ux-01-primary-flows", "Primary product flows", ["ux_routes", "ux_components"], "User-facing routes, screens, or views exist"),
+      check("ux-02-information-hierarchy", "Information hierarchy and scanning", ["ux_routes", "ux_copy"], "Screens contain navigable content or decisions"),
+      check("ux-03-states-feedback", "States, feedback, and empty paths", ["ux_states", "ux_components"], "Interactive components, async data, forms, or lists exist"),
+      check("ux-04-accessibility", "Accessibility and keyboard paths", ["ux_accessibility", "ux_components"], "Interactive or semantic UI exists"),
+      check("ux-05-responsive-visual-polish", "Responsive visual polish", ["ux_styles", "ux_routes"], "CSS, layout, or viewport-sensitive surfaces exist"),
+      check("ux-06-product-copy", "Product copy and trust cues", ["ux_copy", "ux_routes"], "User-facing text exists"),
+    ],
+    lanes: [],
+  },
+  {
     categoryId: "production-readiness",
-    skillName: "etrnl-production-readiness",
-    referencePath: "skills/etrnl-production-readiness/references/audit-checks.md",
+    skillName: "etrnl-audit-production",
+    referencePath: "skills/etrnl-audit-production/references/audit-checks.md",
     executionMode: "sequential",
     requiredWorklists: worklists.production,
     checks: [
@@ -90,8 +159,8 @@ export const REGISTERED_DEEP_AUDIT_CATEGORIES = [
   },
   {
     categoryId: "security",
-    skillName: "etrnl-security-audit",
-    referencePath: "skills/etrnl-security-audit/references/audit-checks.md",
+    skillName: "etrnl-audit-security",
+    referencePath: "skills/etrnl-audit-security/references/audit-checks.md",
     executionMode: "sequential",
     requiredWorklists: worklists.security,
     checks: [
@@ -107,8 +176,8 @@ export const REGISTERED_DEEP_AUDIT_CATEGORIES = [
   },
   {
     categoryId: "performance",
-    skillName: "etrnl-performance-audit",
-    referencePath: "skills/etrnl-performance-audit/references/audit-checks.md",
+    skillName: "etrnl-audit-performance",
+    referencePath: "skills/etrnl-audit-performance/references/audit-checks.md",
     executionMode: "fanout",
     requiredWorklists: worklists.performance,
     checks: [
@@ -157,6 +226,51 @@ export const REGISTERED_DEEP_AUDIT_CATEGORIES = [
         receiptFields: RECEIPT_FIELDS,
       },
     ],
+  },
+  {
+    categoryId: "shared-reuse",
+    skillName: "etrnl-audit-reuse",
+    referencePath: "skills/etrnl-audit-reuse/references/audit-checks.md",
+    executionMode: "sequential",
+    requiredWorklists: worklists.reuse,
+    checks: [
+      check("reuse-01-existing-surfaces", "Existing reusable surfaces", ["reuse_components", "reuse_helpers", "reuse_modules"], "Components, helpers, modules, services, hooks, or utilities exist"),
+      check("reuse-02-duplication-hotspots", "Duplication hotspots", ["reuse_duplicate_candidates", "reuse_source_files"], "Repeated names, patterns, or logic appear"),
+      check("reuse-03-abstraction-fit", "Abstraction fit and ownership", ["reuse_modules", "reuse_helpers"], "Shared code or candidate shared code exists"),
+      check("reuse-04-test-and-contract-reuse", "Reusable tests and contracts", ["reuse_tests", "reuse_modules"], "Test helpers, fixtures, contract tests, or shared schemas exist"),
+      check("reuse-05-new-surface-justification", "New surface justification", ["reuse_duplicate_candidates", "reuse_components"], "New files or repeated components are in scope"),
+    ],
+    lanes: [],
+  },
+  {
+    categoryId: "repo-hygiene",
+    skillName: "etrnl-audit-repo",
+    referencePath: "skills/etrnl-audit-repo/references/audit-checks.md",
+    executionMode: "sequential",
+    requiredWorklists: worklists.repo,
+    checks: [
+      check("repo-01-entrypoints", "Repository entrypoints", ["repo_docs_entrypoints", "repo_metadata"], "README, docs, package metadata, or startup files exist"),
+      check("repo-02-file-organization", "File organization and ownership", ["repo_tracked_files"], "Tracked files exist"),
+      check("repo-03-generated-artifacts", "Generated artifacts and cache drift", ["repo_generated_artifacts", "repo_ignored_files"], "Generated, build, cache, or ignored paths exist"),
+      check("repo-04-config-consistency", "Config consistency", ["repo_metadata", "repo_tracked_files"], "Config files, manifests, or tool settings exist"),
+      check("repo-05-public-private-boundary", "Public/private boundary", ["repo_tracked_files", "repo_docs_entrypoints"], "Public repo, docs, examples, or template surfaces exist"),
+    ],
+    lanes: [],
+  },
+  {
+    categoryId: "tooling-ecosystem",
+    skillName: "etrnl-audit-tooling",
+    referencePath: "skills/etrnl-audit-tooling/references/audit-checks.md",
+    executionMode: "sequential",
+    requiredWorklists: worklists.tooling,
+    checks: [
+      check("tool-01-local-setup", "Local setup and bootstrap", ["tool_bootstrap", "tool_package_manifests"], "Install scripts, package managers, or local setup docs exist"),
+      check("tool-02-command-parity", "Command parity across local and CI", ["tool_scripts", "tool_ci"], "Local scripts and CI workflows exist"),
+      check("tool-03-lint-format-type-gates", "Lint, format, and type gates", ["tool_lint_format", "tool_package_manifests"], "Lint, format, typecheck, or static-analysis tooling exists"),
+      check("tool-04-test-developer-loop", "Test developer loop", ["tool_tests", "tool_scripts"], "Tests or test scripts exist"),
+      check("tool-05-upgrade-rollback", "Upgrade, update, and rollback paths", ["tool_scripts", "tool_bootstrap"], "Update, install, deploy, or rollback scripts exist"),
+    ],
+    lanes: [],
   },
 ];
 

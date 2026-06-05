@@ -1,0 +1,9 @@
+{
+  "eventKind": "compact_post",
+  "sessionId": "fixture-compact",
+  "cwd": "/tmp/fixture-project",
+  "data": {
+    "trigger": "auto",
+    "compactSummary": "state persisted"
+  }
+}

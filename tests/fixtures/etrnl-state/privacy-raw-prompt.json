@@ -1,0 +1,10 @@
+{
+  "expectReject": true,
+  "event": {
+    "eventKind": "compact_pre",
+    "sessionId": "fixture-privacy",
+    "data": {
+      "lastPrompt": "raw prompt must not be stored"
+    }
+  }
+}

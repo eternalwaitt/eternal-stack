@@ -6,8 +6,7 @@
           {
             "type": "command",
             "command": "bash ~/.claude/hooks/cc-sessionstart-restore.sh",
-            "timeout": 10,
-            "async": true
+            "timeout": 10
           }
         ]
       }
@@ -63,6 +62,39 @@
           {
             "type": "command",
             "command": "bash ~/.claude/hooks/cc-rate-limiter.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/cc-stop-verifier.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/cc-precompact-save.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/cc-postcompact-record.sh",
             "timeout": 5
           }
         ]

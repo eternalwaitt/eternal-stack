@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
+import { appendEvent, stableHash } from "./lib/etrnl-state-core.mjs";
 import { gitSubprocessLimits } from "./lib/env-utils.mjs";
 
 const args = process.argv.slice(2);
@@ -63,9 +64,26 @@ function contextErrors(context) {
   if (!context.contextId) errors.push("contextId is required");
   if (!context.savedAt) errors.push("savedAt is required");
   if (context.savedAt && Number.isNaN(Date.parse(context.savedAt))) errors.push("savedAt must be an ISO timestamp");
-  if (!Array.isArray(context.modifiedFiles)) errors.push("modifiedFiles must be an array");
+  if (!Number.isFinite(Number(context.modifiedFileCount ?? 0))) errors.push("modifiedFileCount must be numeric");
   if (!Array.isArray(context.remainingWork)) errors.push("remainingWork must be an array");
   return errors;
+}
+
+function appendContextEntries(context) {
+  const base = {
+    sessionId: context.contextId,
+    cwd: process.cwd(),
+  };
+  const rows = [
+    ...context.decisions.map((value) => ({ entryType: "decision", value })),
+    ...context.blockers.map((value) => ({ entryType: "blocker", value })),
+    ...context.remainingWork.map((value) => ({ entryType: "next_action", value })),
+    ...context.verification.map((value) => ({ entryType: "fact", value })),
+  ];
+  for (const row of rows) {
+    const result = appendEvent({ ...base, eventKind: "context_entry", data: row }, { dryRun: false });
+    if (!result.ok) throw new Error(result.error.message);
+  }
 }
 
 function save() {
@@ -74,10 +92,10 @@ function save() {
     schemaVersion: 1,
     contextId: argValue("--id", `context-${Date.now()}`),
     title,
-    cwd: process.cwd(),
+    projectFingerprint: stableHash(process.cwd()),
     branch: gitOutput(["branch", "--show-current"]),
     head: gitOutput(["rev-parse", "--short", "HEAD"]),
-    modifiedFiles: gitOutput(["status", "--short"]).split(/\n/).filter(Boolean),
+    modifiedFileCount: gitOutput(["status", "--short"]).split(/\n/).filter(Boolean).length,
     decisions: allValues("--decision"),
     blockers: allValues("--blocker"),
     remainingWork: allValues("--remaining"),
@@ -92,6 +110,7 @@ function save() {
   const file = path.join(contextDir(), `${context.contextId}.json`);
   mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
   writeFileSync(file, `${JSON.stringify(context, null, 2)}\n`, { mode: 0o600 });
+  appendContextEntries(context);
   console.log(file);
 }
 
@@ -111,7 +130,7 @@ function show() {
   const context = readContext(file);
   console.log(`# ${context.title}`);
   console.log(`branch=${context.branch} head=${context.head} savedAt=${context.savedAt} stale=${isStale(context)}`);
-  console.log(`modified=${context.modifiedFiles.length} remaining=${context.remainingWork.length} blockers=${context.blockers.length}`);
+  console.log(`modified=${context.modifiedFileCount ?? 0} remaining=${context.remainingWork.length} blockers=${context.blockers.length}`);
 }
 
 function list() {

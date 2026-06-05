@@ -1,0 +1,452 @@
+{
+  "schemaVersion": 1,
+  "artifactType": "deep-stack-plan",
+  "planPath": "docs/plans/2026-06-05-etrnl-skill-taxonomy-and-audit-suite-plan.md",
+  "deepReview": {
+    "status": "passed",
+    "phases": ["ceo", "engineering", "dx", "adversarial", "specialist", "reuse", "simplifier"],
+    "completedAt": "2026-06-05T17:42:00Z"
+  },
+  "sourceManifest": {
+    "sources": [
+      {
+        "sourceId": "repo-control-plane",
+        "version": "current-dirty-worktree",
+        "commit": "0ac32c4ccaecde7815057b82203a7e0b9076acc6",
+        "hash": "git:0ac32c4ccaecde7815057b82203a7e0b9076acc6",
+        "capturedAt": "2026-06-05T17:42:00Z",
+        "refreshCommand": "git rev-parse HEAD",
+        "requiredFiles": [
+          "docs/skills.md",
+          "docs/research/2026-06-04-etrnl-skillsmp-comparison.md",
+          "scripts/lib/skill-lists.sh",
+          "hooks/lib/skill-hints.sh",
+          "hooks/cc-userprompt-router.sh",
+          "scripts/skill-contract-check.mjs",
+          "scripts/skill-behavior-smoke.mjs",
+          "scripts/deep-audit-artifact-check.mjs",
+          "scripts/lib/deep-audit-categories.mjs",
+          "tests/fixtures/skill-triggering/cases.json",
+          "tests/test-hooks.sh",
+          "tests/test-install.sh",
+          "tests/test-workflow-tools.sh"
+        ]
+      },
+      {
+        "sourceId": "plan-file",
+        "version": "draft-2026-06-05",
+        "commit": "not_applicable_planning_artifact",
+        "hash": "sha256:c3ee7cfe0a996d150bacc5ae622e5b0337e1e217827ff7b9fcbf41b70c11e87d",
+        "capturedAt": "2026-06-05T17:42:00Z",
+        "refreshCommand": "shasum -a 256 docs/plans/2026-06-05-etrnl-skill-taxonomy-and-audit-suite-plan.md",
+        "requiredFiles": [
+          "docs/plans/2026-06-05-etrnl-skill-taxonomy-and-audit-suite-plan.md"
+        ]
+      },
+      {
+        "sourceId": "skillsmp-comparison",
+        "version": "2026-06-04",
+        "commit": "0ac32c4ccaecde7815057b82203a7e0b9076acc6",
+        "hash": "sha256:f73238ef44de732fa85628c60a010509d40447f79545daabf358a50af8adb0f6",
+        "capturedAt": "2026-06-05T17:42:00Z",
+        "refreshCommand": "shasum -a 256 docs/research/2026-06-04-etrnl-skillsmp-comparison.md",
+        "requiredFiles": [
+          "docs/research/2026-06-04-etrnl-skillsmp-comparison.md"
+        ]
+      }
+    ]
+  },
+  "skillMatrix": [
+    {
+      "skill": "etrnl-plan",
+      "status": "required",
+      "trigger": "user requested a saved implementation plan and explicitly linked etrnl-plan",
+      "evidence": "Plan follows the file-backed planning workflow and includes readiness artifact metadata."
+    },
+    {
+      "skill": "skill-creator",
+      "status": "required",
+      "trigger": "implementation will create and rename repo-owned skills",
+      "evidence": "Plan requires canonical skill directories, compact skill entrypoints, references, and prompt-budget checks."
+    },
+    {
+      "skill": "code-simplifier",
+      "status": "required",
+      "trigger": "taxonomy rename and new audit categories risk prompt bloat and overlap",
+      "evidence": "Plan includes a simplifier review phase and rejects wholesale SkillsMP imports."
+    },
+    {
+      "skill": "finding-duplicate-functions",
+      "status": "required",
+      "trigger": "new validators and audit categories may duplicate current code-health, docs-health, and deep-audit behavior",
+      "evidence": "Plan requires ownership-boundary decisions for excellence/code/repo and reuse category overlap."
+    },
+    {
+      "skill": "brooks-audit",
+      "status": "optional",
+      "trigger": "workflow architecture and naming taxonomy review",
+      "evidence": "Run during implementation if installed and relevant; planning artifact records architecture risks."
+    },
+    {
+      "skill": "typescript-advanced-types",
+      "status": "not_applicable",
+      "trigger": "planning artifact and mostly JavaScript/Markdown control-plane work",
+      "evidence": "No exported TypeScript contracts are planned; ordinary JS syntax and shell gates are required.",
+      "notApplicableRationale": "No exported/public TypeScript types, API contracts, runtime validation types, generated types, state machines, branded IDs, reusable type utilities, or cross-layer DTO/domain boundaries are touched by this plan."
+    }
+  ],
+  "reuseInventory": {
+    "searchedPaths": [
+      "docs/skills.md",
+      "docs/research/2026-06-04-etrnl-skillsmp-comparison.md",
+      "scripts/lib/skill-lists.sh",
+      "hooks/lib/skill-hints.sh",
+      "scripts/skill-contract-check.mjs",
+      "scripts/skill-behavior-smoke.mjs",
+      "scripts/deep-audit-artifact-check.mjs",
+      "scripts/lib/deep-audit-categories.mjs",
+      "tests/fixtures/skill-triggering/cases.json",
+      "docs/plans/2026-06-03-deep-audit-skills-orchestrator-plan.md"
+    ],
+    "existingAnalogs": [
+      "skills/etrnl-deep-audit/SKILL.md",
+      "skills/etrnl-production-readiness/SKILL.md",
+      "skills/etrnl-performance-audit/SKILL.md",
+      "skills/etrnl-security-audit/SKILL.md",
+      "skills/etrnl-code-health/SKILL.md",
+      "skills/etrnl-documentation-health/SKILL.md",
+      "skills/etrnl-qa-browser/SKILL.md",
+      "scripts/lib/skill-lists.sh",
+      "scripts/skill-contract-check.mjs",
+      "scripts/deep-audit-artifact-check.mjs"
+    ],
+    "candidateHelpers": [
+      "scripts/lib/deep-audit-categories.mjs",
+      "scripts/lib/deep-stack-artifacts.mjs",
+      "scripts/lib/text-matchers.mjs",
+      "scripts/lib/skill-lists.sh"
+    ],
+    "candidateTests": [
+      "tests/fixtures/skill-triggering/cases.json",
+      "tests/fixtures/deep-audit/report.valid.json",
+      "tests/test-workflow-tools.sh",
+      "tests/test-hooks.sh",
+      "tests/test-install.sh"
+    ],
+    "decisions": [
+      {
+        "surface": "canonical taxonomy",
+        "newSurface": true,
+        "reuseDecision": "Extend the existing owned skill list and contract checker instead of adding a second registry.",
+        "newSurfaceJustification": "The flat naming scheme does not express family/category boundaries; enforcement must live in the existing source-of-truth path."
+      },
+      {
+        "surface": "old-name removal",
+        "newSurface": true,
+        "reuseDecision": "Implement a clean rename by removing old repo-owned skill directories, command shims, docs references, and router paths after canonical replacements exist.",
+        "newSurfaceJustification": "Victor explicitly rejected old command preservation; the migration must not preserve old command behavior."
+      },
+      {
+        "surface": "audit category expansion",
+        "newSurface": true,
+        "reuseDecision": "Reuse the existing deep-audit registry and artifact validator for missing audit categories.",
+        "newSurfaceJustification": "UX, reuse, repo hygiene, and tooling need first-class categories but should not invent a parallel audit envelope."
+      }
+    ]
+  },
+  "findings": [
+    {
+      "severity": "high",
+      "status": "fixed",
+      "path": "docs/plans/2026-06-05-etrnl-skill-taxonomy-and-audit-suite-plan.md",
+      "category": "naming",
+      "fix": "Added a canonical etrnl-<family>-<capability> taxonomy with dev, audit, ops, and comm families.",
+      "owner": "planning",
+      "fingerprint": "skill-taxonomy-family-contract"
+    },
+    {
+      "severity": "high",
+      "status": "fixed",
+      "path": "docs/plans/2026-06-05-etrnl-skill-taxonomy-and-audit-suite-plan.md",
+      "category": "clean-rename",
+      "fix": "Planned old-name removal and rejection gates instead of fallback shims or compatibility routing.",
+      "owner": "planning",
+      "fingerprint": "old-name-removal-clean-rename"
+    },
+    {
+      "severity": "medium",
+      "status": "fixed",
+      "path": "docs/plans/2026-06-05-etrnl-skill-taxonomy-and-audit-suite-plan.md",
+      "category": "audit-coverage",
+      "fix": "Mapped the seven audit prompts to canonical audit categories and separated existing coverage from missing categories.",
+      "owner": "planning",
+      "fingerprint": "seven-audit-category-map"
+    },
+    {
+      "severity": "medium",
+      "status": "fixed",
+      "path": "docs/plans/2026-06-05-etrnl-skill-taxonomy-and-audit-suite-plan.md",
+      "category": "research",
+      "fix": "Recorded SkillsMP material as scaffold evidence only and rejected wholesale imports.",
+      "owner": "planning",
+      "fingerprint": "skillsmp-scaffold-not-import"
+    }
+  ],
+  "completionAudit": [
+    {
+      "planItem": "write naming and audit suite plan",
+      "classification": "DONE",
+      "evidence": "Plan file created with taxonomy, migration map, audit-category expansion, tests, rollback, and readiness sections.",
+      "diffPaths": [
+        "docs/plans/2026-06-05-etrnl-skill-taxonomy-and-audit-suite-plan.md",
+        "docs/plans/artifacts/2026-06-05-etrnl-skill-taxonomy-and-audit-suite/deep-stack-artifacts.json"
+      ],
+      "reason": "planning turn output",
+      "impact": "low"
+    }
+  ],
+  "reviewPhases": [
+    {
+      "role": "ceo",
+      "status": "passed",
+      "checkedInputs": [
+        "user request",
+        "docs/skills.md",
+        "docs/research/2026-06-04-etrnl-skillsmp-comparison.md",
+        "current SkillsMP API search results"
+      ],
+      "findingsCount": 2,
+      "openHighCount": 0,
+      "disposition": "Plan solves the naming problem and audit expansion together, removes old commands instead of preserving aliases, and avoids wholesale third-party imports.",
+      "completedAt": "2026-06-05T17:42:00Z"
+    },
+    {
+      "role": "engineering",
+      "status": "passed",
+      "checkedInputs": [
+        "scripts/lib/skill-lists.sh",
+        "scripts/skill-contract-check.mjs",
+        "hooks/lib/skill-hints.sh",
+        "tests/fixtures/skill-triggering/cases.json",
+        "scripts/install.sh"
+      ],
+      "findingsCount": 3,
+      "openHighCount": 0,
+      "disposition": "Plan is validator-first: taxonomy, old-name rejection fixtures, install sync, and deep-audit registry updates precede skill migration.",
+      "completedAt": "2026-06-05T17:42:00Z"
+    },
+    {
+      "role": "dx",
+      "status": "passed",
+      "checkedInputs": [
+        "docs/skills.md",
+        "current flat skill names",
+        "proposed canonical mapping",
+        "old-name removal policy"
+      ],
+      "findingsCount": 2,
+      "openHighCount": 0,
+      "disposition": "Canonical names group skills by operator intent; old names are removed rather than kept as aliases.",
+      "completedAt": "2026-06-05T17:42:00Z"
+    },
+    {
+      "role": "adversarial",
+      "status": "passed",
+      "checkedInputs": [
+        "failure modes",
+        "rollback",
+        "dirty worktree status",
+        "old command removal"
+      ],
+      "findingsCount": 2,
+      "openHighCount": 0,
+      "disposition": "Main risks are command breakage, double routing, install drift, prompt bloat, category overlap, and dirty-worktree collision; each has a planned gate.",
+      "completedAt": "2026-06-05T17:42:00Z"
+    },
+    {
+      "role": "specialist",
+      "status": "passed",
+      "checkedInputs": [
+        "skill-creator requirements",
+        "prompt-budget checker",
+        "deep-audit registry",
+        "SkillsMP candidates"
+      ],
+      "findingsCount": 1,
+      "openHighCount": 0,
+      "disposition": "New categories must use compact entrypoints and rewritten references rather than large pasted prompt bodies.",
+      "completedAt": "2026-06-05T17:42:00Z"
+    },
+    {
+      "role": "reuse",
+      "status": "passed",
+      "checkedInputs": [
+        "reuseInventory",
+        "existing ETRNL skill directories",
+        "existing registry and validator scripts"
+      ],
+      "findingsCount": 1,
+      "openHighCount": 0,
+      "disposition": "The plan reuses the existing skill list, router, install, smoke, and deep-audit validator surfaces instead of adding parallel registries.",
+      "completedAt": "2026-06-05T17:42:00Z"
+    },
+    {
+      "role": "simplifier",
+      "status": "passed",
+      "checkedInputs": [
+        "naming scheme",
+        "canonical mapping",
+        "task groups",
+        "new audit category list"
+      ],
+      "findingsCount": 1,
+      "openHighCount": 0,
+      "disposition": "The naming scheme stays to four families and one command shape; category details remain in references and validators.",
+      "completedAt": "2026-06-05T17:42:00Z"
+    }
+  ],
+  "tddEvidence": [
+    {
+      "taskId": "plan-artifact",
+      "sourceFiles": [
+        "docs/plans/2026-06-05-etrnl-skill-taxonomy-and-audit-suite-plan.md",
+        "docs/plans/artifacts/2026-06-05-etrnl-skill-taxonomy-and-audit-suite/deep-stack-artifacts.json"
+      ],
+      "status": "not_applicable",
+      "rationaleWhenNotTestFirst": "This turn writes a plan and readiness artifact only; the plan itself specifies red taxonomy, old-name rejection, router, and category fixture tests before implementation."
+    }
+  ],
+  "completionReconciliation": [
+    {
+      "planItemId": "naming-scheme",
+      "requestedOutcome": "Create a better ETRNL naming scheme such as audit category names and dev flow names.",
+      "classification": "DONE",
+      "evidence": "Plan defines etrnl-dev-*, etrnl-audit-*, etrnl-ops-*, and etrnl-comm-* families plus a full canonical mapping.",
+      "changedReason": "",
+      "acceptedBy": "",
+      "impact": "low"
+    },
+    {
+      "planItemId": "audit-suite",
+      "requestedOutcome": "Plan how to turn the seven audit prompts and SkillsMP scaffolds into improved skills.",
+      "classification": "DONE",
+      "evidence": "Plan maps each audit prompt to canonical audit skills and names missing categories to create.",
+      "changedReason": "",
+      "acceptedBy": "",
+      "impact": "low"
+    },
+    {
+      "planItemId": "etrnl-plan-skill",
+      "requestedOutcome": "Use etrnl-plan for the plan-writing workflow.",
+      "classification": "DONE",
+      "evidence": "Plan file and deep-stack artifact were created under docs/plans with readiness validation metadata.",
+      "changedReason": "",
+      "acceptedBy": "",
+      "impact": "low"
+    }
+  ],
+  "reuseBindings": [
+    {
+      "taskId": "taxonomy-plan",
+      "createsNewSurface": true,
+      "searchedPaths": [
+        "docs/skills.md",
+        "scripts/lib/skill-lists.sh",
+        "hooks/lib/skill-hints.sh",
+        "scripts/skill-contract-check.mjs",
+        "scripts/deep-audit-artifact-check.mjs",
+        "tests/fixtures/skill-triggering/cases.json"
+      ],
+      "analogs": [
+        "existing flat OWNED_SKILLS array",
+        "existing deep-audit category registry",
+        "existing skill trigger smoke fixtures",
+        "existing installed-home skill contract checks"
+      ],
+      "decision": "Plan a canonical taxonomy and old-name removal layer using the existing registry/install/test machinery.",
+      "newSurfaceJustification": "The current flat naming scheme cannot express dev-flow versus audit-category skills clearly."
+    },
+    {
+      "taskId": "audit-suite-plan",
+      "createsNewSurface": true,
+      "searchedPaths": [
+        "skills/etrnl-deep-audit",
+        "skills/etrnl-production-readiness",
+        "skills/etrnl-performance-audit",
+        "skills/etrnl-security-audit",
+        "docs/research/2026-06-04-etrnl-skillsmp-comparison.md"
+      ],
+      "analogs": [
+        "etrnl-deep-audit",
+        "etrnl-production-readiness",
+        "etrnl-performance-audit",
+        "etrnl-security-audit"
+      ],
+      "decision": "Plan missing audit categories in the existing deep-audit envelope.",
+      "newSurfaceJustification": "UX, reuse, repo hygiene, tooling, and possibly excellence are not first-class registered categories today."
+    }
+  ],
+  "typeTriggerEvidence": [
+    {
+      "file": "scripts/skill-contract-check.mjs",
+      "triggerSurface": "JavaScript validator change planned",
+      "ordinaryVerification": "node --check scripts/skill-contract-check.mjs",
+      "advancedReviewStatus": "not_applicable"
+    }
+  ],
+  "installProof": {
+    "sourceGate": {
+      "status": "not_applicable",
+      "evidence": "This turn only creates a plan and artifact; source gates are listed for the implementation turn."
+    },
+    "stagedInstall": {
+      "status": "not_applicable",
+      "evidence": "No staged install requested during planning."
+    },
+    "stagedDoctor": {
+      "status": "not_applicable",
+      "evidence": "No staged doctor requested during planning."
+    },
+    "rollbackVerification": {
+      "status": "not_applicable",
+      "evidence": "Rollback verification applies after implementation or install."
+    },
+    "liveInstallDecision": {
+      "status": "not_applicable",
+      "evidence": "Live install requires explicit Victor approval."
+    },
+    "postUpgradeCanary": {
+      "status": "not_applicable",
+      "evidence": "Post-upgrade canary applies after install/update."
+    }
+  },
+  "riskTier": {
+    "tier": 2,
+    "deepReviewPassed": true,
+    "reason": "Implementation will rename and add multiple repo-owned skill, docs, test, and validator surfaces but should not mutate live installed state without explicit approval.",
+    "requiredArtifacts": [
+      "sourceManifest",
+      "skillMatrix",
+      "reuseInventory",
+      "findings",
+      "completionAudit",
+      "reviewPhases",
+      "tddEvidence",
+      "completionReconciliation",
+      "reuseBindings",
+      "typeTriggerEvidence",
+      "installProof"
+    ],
+    "verificationGate": "tests/test-workflow-tools.sh",
+    "acceptedRisks": []
+  },
+  "typescript": {
+    "ordinaryVerification": "No TypeScript implementation is planned; JavaScript helpers use node --check and repo shell tests.",
+    "advancedTypes": {
+      "status": "not_applicable",
+      "triggerEvidence": [],
+      "applicableSurfaces": [],
+      "notApplicableRationale": "This plan does not touch advanced TypeScript surfaces."
+    }
+  }
+}

@@ -2,8 +2,9 @@
 
 Profiles:
 
-- Public default: observer hooks, prompt router, prompt expansion, `CLAUDE.md` reinjection, skill recorder, locked advisory rate limiter, session cleanup, scripts, docs, rules, skills, and agents.
-- Strict local: public default plus `PreToolUse` guard, post-write quality checks, `PostToolUseFailure` repeated-failure blocker, `Stop` verifier, `SubagentStop` recorder, compact recovery, WebSearch canary, and Hindsight canary.
+- Core install: observer hooks, prompt router, prompt expansion, `CLAUDE.md` reinjection, skill recorder, locked advisory rate limiter, session cleanup, scripts, docs, rules, skills, agents, settings audit, and Codex skill/runtime sync.
+- Full install: core plus CodeGraph, Beads, Hindsight plugin/config, stack profile metadata, memory posture checks, and canaries.
+- Strict local: core/full profile plus `PreToolUse` guard, post-write quality checks, `PostToolUseFailure` repeated-failure blocker, `Stop` verifier, `SubagentStop` recorder, compact recovery, WebSearch canary, and Hindsight canary.
 - Private overlay: identity, accounts, local permissions, and project-specific preferences.
 
 Codex should receive shared standards through `AGENTS.md`, `AGENTS.override.md` where intentional, Codex hooks, or Codex skills. Claude-specific hook wiring should stay in Claude settings.
@@ -13,8 +14,13 @@ Repo-owned ETRNL agents install into `~/.claude/agents/` by default. Local run l
 
 Install:
 
+- `CLAUDE_CONTROL_PLANE_STACK_PROFILE=core|full` sets the default install profile when `--profile` is omitted.
 - `CLAUDE_CONTROL_PLANE_ENABLE_STRICT=1` merges strict blocker hooks during install.
+- `./scripts/install.sh` backs up and resets managed `~/.claude/settings.json` to vanilla before applying the selected stack. Use `--preserve-settings` only for a deliberate merge into existing settings.
 - `CLAUDE_CONTROL_PLANE_INSTALL_STARTUP=1` overwrites installed `AGENTS.md` and `CLAUDE.md` startup files instead of preserving existing local copies.
+- `CLAUDE_CONTROL_PLANE_BOOTSTRAP_PROJECTS=1` lets a full install initialize or verify project-local `.codegraph` and `.beads` state.
+- `CLAUDE_CONTROL_PLANE_HINDSIGHT_MODE=local-daemon|external-api|docker-server` selects full-profile Hindsight provisioning mode.
+- `HINDSIGHT_API_URL` is required for `external-api` mode; `HINDSIGHT_API_TOKEN` remains an environment secret and is not written to tracked files.
 
 Updater:
 
@@ -49,6 +55,9 @@ Workflow state:
 
 - `CLAUDE_CONTROL_PLANE_RUNS_DIR` overrides local execution-ledger storage.
 - `CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR` overrides local review, browser-QA, context, and buglog artifact storage.
+- `ETRNL_STATE_DIR` overrides canonical ETRNL JSONL state storage for tests, staged installs, or local experiments.
+- `CLAUDE_CONTROL_PLANE_STATE_DIR` is the control-plane override used when `ETRNL_STATE_DIR` is unset.
+- Default ETRNL state lives under `~/.claude/control-plane/state`; `events.jsonl` is canonical and `views/` are rebuildable materialized projections.
 - `CLAUDE_CONTROL_PLANE_BUGLOG` overrides the project bug-memory file used by `project-buglog.mjs`.
 - `CLAUDE_CONTROL_PLANE_LEARNING_STARTUP_HINTS=1` enables project-level bug-memory hints at SessionStart; `0` disables them. When unset, hints are only considered when scoped workflow-health reports active trouble.
 - `CLAUDE_CONTROL_PLANE_LEARNING_HINT_MAX_CHARS` caps SessionStart learning hints; default is `500` characters.
@@ -57,6 +66,11 @@ Workflow state:
 - `ETRNL_TOOL_EFFECTIVENESS_DISABLED=1` disables future hook-side tool-effectiveness recording if it becomes noisy during rollout.
 - `~/.claude/control-plane/tool-effectiveness/projects.json` is the local continuous-project pilot registry for CodeGraph/Beads effectiveness. Keep real project paths there, not in this public repo. Use `templates/tool-effectiveness-projects.example.json` as the tracked schema example.
 - `node scripts/tool-effectiveness.mjs baseline --since-days 7 --json` captures the pre-pilot comparison window when live data exists. `node scripts/tool-effectiveness.mjs import-codex --input <file-or-dir> --dry-run --json` imports only sanitized Codex tool names, timing buckets, edit/check classes, and project hashes.
+- `node scripts/etrnl-state.mjs compact-handoff --latest --json` shows the exact compact recovery packet that a synchronous `SessionStart(source=compact)` would inject.
+- `node scripts/etrnl-state.mjs doctor --compact --explain` diagnoses compact pre/post state, stale verification, projection errors, and the next local command.
+- Hindsight integration is semantic recall/export only. It cannot override ETRNL compact handoff state, and `cc-hindsight-lesson.py` records accepted lessons to ETRNL state before optional Hindsight export.
+- Beads integration is explicit and backlog-only. Do not run `bd setup` or inject `bd prime` output as part of startup, resume, compact, or Stop hooks. Use `node scripts/etrnl-state.mjs bead-prime-audit --json` to reject raw Beads startup doctrine in fixtures or rollout checks.
+- Dolt remains an optional future projection target. It is not used by lifecycle hooks.
 - `CLAUDE_CONTROL_PLANE_GIT_TIMEOUT_MS` and `CLAUDE_CONTROL_PLANE_GIT_MAX_BUFFER_BYTES` tune Git subprocess limits for Node helpers. Legacy `GIT_TIMEOUT_MS`, `GIT_MAX_BUFFER_BYTES`, and `GIT_MAX_BUFFER` are still accepted as fallbacks.
 - `CLAUDE_CONTROL_PLANE_SERENA_SCOPE_GUARD` defaults to enabled when unset. It requires `mcp__serena__search_for_pattern` calls to include `relative_path` or `paths_include_glob`, `max_answer_chars` from `1..20000`, and `context_lines_before`/`context_lines_after` from `0..5`. Set `CLAUDE_CONTROL_PLANE_SERENA_SCOPE_GUARD=0` to opt out.
 

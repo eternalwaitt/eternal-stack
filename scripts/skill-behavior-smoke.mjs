@@ -143,8 +143,8 @@ const goodPlan = path.join(root, "hooks/fixtures/plans/good-plan.md");
 const deepStackPlan = path.join(root, "tests/fixtures/deep-stack/plan.deep-stack.valid.md");
 const badPlan = path.join(tmp, "bad-plan.md");
 write(badPlan, "# Bad Plan\n\nStatus: Final\n\nGoal: too thin\n");
-const autoplanSkill = readFileSync(path.join(root, "skills/etrnl-autoplan/SKILL.md"), "utf8");
-const executeSkill = readFileSync(path.join(root, "skills/etrnl-execute/SKILL.md"), "utf8");
+const autoplanSkill = readFileSync(path.join(root, "skills/etrnl-dev-autoplan/SKILL.md"), "utf8");
+const executeSkill = readFileSync(path.join(root, "skills/etrnl-dev-execute/SKILL.md"), "utf8");
 
 if (hasKeywords(autoplanSkill, ["Autoplan Depth Contract", "context recovery", "reuse inventory", "research parity"])) {
   ok("autoplan skill requires deep context and parity work");

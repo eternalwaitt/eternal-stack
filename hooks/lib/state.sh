@@ -4,7 +4,7 @@
 # [hook event]
 #    |
 #    v
-# [init + migrate to v4; v3 was an internal-only schema during hook hardening]
+# [init + migrate to v5; v3 was an internal-only schema during hook hardening]
 #    |
 #    v
 # [apply event mutations]
@@ -12,6 +12,8 @@
 #    v
 # [persist once under lock]
 #    |
+#    +--> tmp cache fields for legacy compatibility
+#    +--> ETRNL JSONL state for durable compact handoff
 #    +--> commands[] (attempts)
 #    +--> successfulCommands[] / blockedCommands[]
 #    +--> editGeneration / commandLastEditGeneration
@@ -19,6 +21,26 @@
 
 cc_state_dir() {
   printf '%s\n' "${CLAUDE_GUARD_STATE_DIR:-${TMPDIR:-/tmp}}"
+}
+
+cc_etrnl_state_script() {
+  printf '%s/../scripts/etrnl-state.mjs\n' "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
+}
+
+cc_etrnl_state_available() {
+  command -v node >/dev/null 2>&1 && [[ -f "$(cc_etrnl_state_script)" ]]
+}
+
+cc_etrnl_state_append_json() {
+  local payload="$1"
+  cc_etrnl_state_available || return 1
+  node "$(cc_etrnl_state_script)" append --json --cwd "$(pwd -P)" <<<"$payload" >/dev/null
+}
+
+cc_etrnl_state_compact_handoff_json() {
+  local session_id="$1"
+  cc_etrnl_state_available || return 1
+  node "$(cc_etrnl_state_script)" compact-handoff --session "$session_id" --json --max-chars 1200
 }
 
 cc_session_id() {

@@ -163,6 +163,17 @@ Keep those in the canonical competitor lock until intentionally refreshed. Use t
 - Weekly decisions come from `tool-effectiveness.mjs summarize --since-days 7 --all --projects-config "$HOME/.claude/control-plane/tool-effectiveness/projects.json" --json`, not manual transcript review.
 - Verdicts are advisory during the first week unless fixture/schema/privacy gates fail. Public tracked files may include only synthetic project-registry examples; real continuous-project paths stay local.
 
+## 2026-06-05 Compact Context Decisions
+
+The compact-state rewrite carries forward these patterns:
+
+- Steal bounded handoff structure from `claude-code-harness`, `Writ`, and `oh-my-claudecode`: the recovery packet is current task, last safe state, next action, and stale verification, not a broad memory replay.
+- Keep Claude native compaction as the trigger. Do not build a second compactor based on tool counts or context guesses.
+- Use local append-only ETRNL JSONL for compact lifecycle state. It is cheaper and more reversible than starting with Beads, Dolt, vector stores, or model summarization in hook hot paths.
+- Treat companion compact hooks as rejected-by-default unless explicitly accepted: `suggest-compact.sh`, `pre-compact-context.sh`, `log-compact-event.sh`, and `pre-compact-backup.sh` can add noise or timing ambiguity.
+- Count Beads value only when it records backlog, blockers, dependencies, claims, or discovered follow-ups outside active ETRNL execution. Duplicating current tasks, phases, checks, or compact packets is noise.
+- Keep Dolt as a future projection option only after JSONL state proves a query bottleneck.
+
 ## Non-Adoption Notes
 
 - Do not vendor large skill catalogs (`ComposioHQ/awesome-codex-skills`, `Anthropic-Cybersecurity-Skills`, `agent-skills`) into startup context.

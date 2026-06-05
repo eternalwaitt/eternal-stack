@@ -90,7 +90,9 @@ def norm:
   | sub("^etrnl-"; "")
   | if . == "writing-plans" then "plan"
     elif . == "code-review" then "review"
-    elif . == "execute-plan" or . == "run-plan" then "execute"
+    elif . == "execute-plan" or . == "run-plan" or . == "dev-execute" then "execute"
+    elif . == "audit-docs" then "documentation-health"
+    elif . == "audit-code" then "code-health"
     elif . == "parallel-fan-out" then "parallel"
     elif . == "devils-advocate" then "stress-test"
     elif . == "agent-file-doctor" then "agent-files"
@@ -324,6 +326,14 @@ if [[ "$claims_done" == "true" ]]; then
   if ! ledger_status="$(node "$SCRIPT_DIR/../scripts/execution-ledger.mjs" "${ledger_args[@]}" 2>&1)"; then
     cc_json_block "$ledger_status"
     exit 0
+  fi
+  if cc_etrnl_state_available; then
+    stop_status_json=""
+    if ! stop_status_json="$(node "$(cc_etrnl_state_script)" stop-status --session "$(cc_session_id)" --json 2>/dev/null)"; then
+      stop_reason="$(jq -r '.blockReason // .message // "Verification is stale after compact."' <<<"$stop_status_json" 2>/dev/null || printf 'Verification is stale after compact.')"
+      cc_json_block "$stop_reason"
+      exit 0
+    fi
   fi
   if cc_advice_or_search_requested && ! cc_state_has_edits; then
     if ! cc_advice_message_has_source_evidence; then
@@ -575,36 +585,36 @@ else:
     exit 0
   fi
   if ! execute_gate_status="$(node "$SCRIPT_DIR/../scripts/execute-evidence-check.mjs" 2>/dev/null <<<"$state")"; then
-    cc_json_block "etrnl-execute evidence checker failed. Re-run source gates or inspect scripts/execute-evidence-check.mjs before claiming completion."
+    cc_json_block "etrnl-dev-execute evidence checker failed. Re-run source gates or inspect scripts/execute-evidence-check.mjs before claiming completion."
     exit 0
   fi
   case "$execute_gate_status" in
     missing-agent)
-      cc_json_block "etrnl-execute touched multiple source files without write-mode implementation subagent evidence. Dispatch etrnl-executor/Task workers with structured packets for parallel-safe work, or state the exact sequential-degraded blocker before claiming completion."
+      cc_json_block "etrnl-dev-execute touched multiple source files without write-mode implementation subagent evidence. Dispatch etrnl-executor/Task workers with structured packets for parallel-safe work, or state the exact sequential-degraded blocker before claiming completion."
       exit 0
       ;;
     missing-reviewers)
-      cc_json_block "etrnl-execute multi-file source completion needs reviewer subagent evidence. Run etrnl-spec-reviewer and etrnl-quality-reviewer after implementation, then include the review evidence before claiming completion."
+      cc_json_block "etrnl-dev-execute multi-file source completion needs reviewer subagent evidence. Run etrnl-spec-reviewer and etrnl-quality-reviewer after implementation, then include the review evidence before claiming completion."
       exit 0
       ;;
     missing-tdd-evidence)
-      cc_json_block "etrnl-execute source completion needs TDD evidence. Record a red/green verification row, or an explicit not-test-first rationale, before claiming completion."
+      cc_json_block "etrnl-dev-execute source completion needs TDD evidence. Record a red/green verification row, or an explicit not-test-first rationale, before claiming completion."
       exit 0
       ;;
     missing-simplifier)
-      cc_json_block "etrnl-execute non-trivial source completion needs code-simplifier evidence. Run or record the simplifier pass after implementation before claiming completion."
+      cc_json_block "etrnl-dev-execute non-trivial source completion needs code-simplifier evidence. Run or record the simplifier pass after implementation before claiming completion."
       exit 0
       ;;
     missing-reuse-binding)
-      cc_json_block "etrnl-execute created new source files without reuse binding evidence. Record searched paths, existing analogs, the reuse decision, and new-surface justification before claiming completion."
+      cc_json_block "etrnl-dev-execute created new source files without reuse binding evidence. Record searched paths, existing analogs, the reuse decision, and new-surface justification before claiming completion."
       exit 0
       ;;
     missing-type-review)
-      cc_json_block "etrnl-execute touched a TypeScript contract/schema/state boundary without advanced TypeScript disposition. Run or record typescript-advanced-types evidence before claiming completion."
+      cc_json_block "etrnl-dev-execute touched a TypeScript contract/schema/state boundary without advanced TypeScript disposition. Run or record typescript-advanced-types evidence before claiming completion."
       exit 0
       ;;
     missing-install-proof)
-      cc_json_block "etrnl-execute touched control-plane install surfaces without install proof. Record source gate, staged install/doctor/canary, and rollback evidence, or state the explicit blocker."
+      cc_json_block "etrnl-dev-execute touched control-plane install surfaces without install proof. Record source gate, staged install/doctor/canary, and rollback evidence, or state the explicit blocker."
       exit 0
       ;;
   esac
@@ -623,9 +633,9 @@ else:
   ' <<<"$state" >/dev/null; then
     if ! jq -e '
       ([.reviewRuns[]?.value // empty, .verificationRuns[]?.value // empty, .skillCalls[]?.value // empty] | map(ascii_downcase))
-      | any(test("etrnl-review|code[ -]?review|review-log|coderabbit|adversarial|redline|second[ -]?pass|stress-test"))
+      | any(test("etrnl-dev-review|code[ -]?review|review-log|coderabbit|adversarial|redline|second[ -]?pass|stress-test"))
     ' <<<"$state" >/dev/null; then
-      cc_json_block "This change is large or risky enough to need a second-pass review before completion. Run etrnl-review, CodeRabbit, an adversarial/stress review, or record a review-log artifact."
+      cc_json_block "This change is large or risky enough to need a second-pass review before completion. Run etrnl-dev-review, CodeRabbit, an adversarial/stress review, or record a review-log artifact."
       exit 0
     fi
   fi

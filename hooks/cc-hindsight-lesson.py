@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import time
 import urllib.error
 import urllib.parse
@@ -45,19 +46,78 @@ def should_skip(stamp_path: Path) -> bool:
     return time.time() - stamp_path.stat().st_mtime < LESSON_TTL_SECONDS
 
 
-def retain_lesson(config: dict) -> None:
+def repo_root() -> Path:
+    return Path(__file__).resolve().parent.parent
+
+
+def lesson_content() -> str:
+    return os.environ.get("CLAUDE_GUARD_HINDSIGHT_LESSON_TEXT", LESSON)
+
+
+def append_etrnl_lesson() -> dict | None:
+    state_cli = repo_root() / "scripts" / "etrnl-state.mjs"
+    if not state_cli.exists():
+        return None
+    event = {
+        "eventKind": "lesson",
+        "sessionId": os.environ.get("CLAUDE_SESSION_ID") or "control-plane-lesson",
+        "data": {
+            "lessonId": LESSON_ID,
+            "content": lesson_content(),
+            "kind": "standing_behavior_rule",
+            "version": "1",
+            "exportTarget": "hindsight",
+        },
+    }
+    result = subprocess.run(
+        ["node", str(state_cli), "append", "--json"],
+        input=json.dumps(event),
+        text=True,
+        capture_output=True,
+        check=False,
+        timeout=5,
+    )
+    if result.returncode != 0:
+        return None
+    payload = json.loads(result.stdout)
+    return payload.get("event") if isinstance(payload, dict) else None
+
+
+def canary_green() -> bool:
+    canary = repo_root() / "scripts" / "canary-hindsight.sh"
+    if not canary.exists():
+        return False
+    result = subprocess.run(
+        [str(canary), "--json"],
+        text=True,
+        capture_output=True,
+        check=False,
+        timeout=5,
+    )
+    if result.returncode != 0:
+        return False
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return False
+    return payload.get("ok") is True
+
+
+def retain_lesson(config: dict, event: dict) -> bool:
     api_url = str(config.get("hindsightApiUrl") or "").rstrip("/")
     if not api_url:
-        return
+        return False
+    data = event.get("data") if isinstance(event.get("data"), dict) else {}
 
     item = {
-        "content": LESSON,
+        "content": data.get("content") or LESSON,
         "document_id": LESSON_ID,
         "context": "claude-control-plane",
         "metadata": {
             "kind": "standing_behavior_rule",
             "version": "1",
             "retention_policy": "stable_upsert_not_per_violation",
+            "etrnl_event_id": event.get("eventId", ""),
         },
         "tags": ["control-plane", "behavior", "evidence-before-agreement"],
     }
@@ -73,7 +133,7 @@ def retain_lesson(config: dict) -> None:
     if token:
         req.add_header("Authorization", f"Bearer {token}")
     with urllib.request.urlopen(req, timeout=3):
-        return
+        return True
 
 
 def main() -> int:
@@ -82,14 +142,20 @@ def main() -> int:
 
     stamp_dir = Path.home() / ".claude" / "cache" / "control-plane-lessons"
     stamp_dir.mkdir(parents=True, exist_ok=True)
-    stamp_path = stamp_dir / "evidence-before-agreement-v1.retained"
-    if should_skip(stamp_path):
-        return 0
+    event_path = stamp_dir / "evidence-before-agreement-v1.event.json"
+    hindsight_stamp_path = stamp_dir / "evidence-before-agreement-v1.hindsight.retained"
 
     try:
-        retain_lesson(load_config())
-        stamp_path.write_text(time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
-    except (OSError, ValueError, json.JSONDecodeError, urllib.error.URLError, TimeoutError):
+        if should_skip(event_path):
+            event = json.loads(event_path.read_text())
+        else:
+            event = append_etrnl_lesson()
+            if not event:
+                return 0
+            event_path.write_text(json.dumps(event, sort_keys=True))
+        if canary_green() and retain_lesson(load_config(), event):
+            hindsight_stamp_path.write_text(time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
+    except (OSError, ValueError, json.JSONDecodeError, urllib.error.URLError, TimeoutError, subprocess.SubprocessError):
         return 0
     return 0
 

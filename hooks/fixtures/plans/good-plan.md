@@ -18,7 +18,7 @@ Assumptions: None.
 
 ## File map
 
-- skills/etrnl-plan/SKILL.md: planning instructions.
+- skills/etrnl-dev-plan/SKILL.md: planning instructions.
 
 ## Task groups
 
@@ -33,7 +33,7 @@ Assumptions: None.
 
 ## Skill/tool routing
 
-- Use etrnl-plan, then etrnl-execute.
+- Use etrnl-dev-plan, then etrnl-dev-execute.
 
 ## Test plan
 
@@ -63,7 +63,7 @@ Sequential implementation, no parallelization opportunity.
 
 ## Execution handoff
 
-- Use `etrnl-execute` after readiness passes.
+- Use `etrnl-dev-execute` after readiness passes.
 
 ## Plan Readiness Report
 
