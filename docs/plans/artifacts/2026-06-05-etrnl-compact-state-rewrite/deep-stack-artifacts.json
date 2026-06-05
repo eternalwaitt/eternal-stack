@@ -451,7 +451,7 @@
       "searchedPaths": [
         "docs/plans/2026-06-03-tool-effectiveness-and-beads-pilot-plan.md",
         "scripts/tool-effectiveness.mjs",
-        "skills/etrnl-agent-files/SKILL.md",
+        "skills/etrnl-ops-agent-files/SKILL.md",
         ".beads/README.md"
       ],
       "analogs": [

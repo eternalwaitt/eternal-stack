@@ -109,13 +109,13 @@
       "docs/plans/2026-06-03-deep-audit-skills-orchestrator-plan.md"
     ],
     "existingAnalogs": [
-      "skills/etrnl-deep-audit/SKILL.md",
-      "skills/etrnl-production-readiness/SKILL.md",
-      "skills/etrnl-performance-audit/SKILL.md",
-      "skills/etrnl-security-audit/SKILL.md",
-      "skills/etrnl-code-health/SKILL.md",
-      "skills/etrnl-documentation-health/SKILL.md",
-      "skills/etrnl-qa-browser/SKILL.md",
+      "skills/etrnl-audit/SKILL.md",
+      "skills/etrnl-audit-production/SKILL.md",
+      "skills/etrnl-audit-performance/SKILL.md",
+      "skills/etrnl-audit-security/SKILL.md",
+      "skills/etrnl-audit-code/SKILL.md",
+      "skills/etrnl-audit-docs/SKILL.md",
+      "skills/etrnl-audit-browser/SKILL.md",
       "scripts/lib/skill-lists.sh",
       "scripts/skill-contract-check.mjs",
       "scripts/deep-audit-artifact-check.mjs"
@@ -370,17 +370,17 @@
       "taskId": "audit-suite-plan",
       "createsNewSurface": true,
       "searchedPaths": [
-        "skills/etrnl-deep-audit",
-        "skills/etrnl-production-readiness",
-        "skills/etrnl-performance-audit",
-        "skills/etrnl-security-audit",
+        "skills/etrnl-audit",
+        "skills/etrnl-audit-production",
+        "skills/etrnl-audit-performance",
+        "skills/etrnl-audit-security",
         "docs/research/2026-06-04-etrnl-skillsmp-comparison.md"
       ],
       "analogs": [
-        "etrnl-deep-audit",
-        "etrnl-production-readiness",
-        "etrnl-performance-audit",
-        "etrnl-security-audit"
+        "etrnl-audit",
+        "etrnl-audit-production",
+        "etrnl-audit-performance",
+        "etrnl-audit-security"
       ],
       "decision": "Plan missing audit categories in the existing deep-audit envelope.",
       "newSurfaceJustification": "UX, reuse, repo hygiene, tooling, and possibly excellence are not first-class registered categories today."

@@ -32,14 +32,18 @@ optional_command() {
 report_command() {
   local present_msg="$1"
   local failure_msg="$2"
-  local output
+  local output_file
   shift 2
-  if output="$("$@" 2>&1)"; then
+  output_file="$(mktemp "${TMPDIR:-/tmp}/control-plane-doctor.XXXXXX")"
+  if "$@" >"$output_file" 2>&1; then
     ok "$present_msg"
-  elif [[ -n "$output" ]]; then
-    fail "$failure_msg: $output"
+    rm -f "$output_file"
+  elif [[ -s "$output_file" ]]; then
+    fail "$failure_msg: $(tail -n 40 "$output_file")"
+    rm -f "$output_file"
   else
     fail "$failure_msg"
+    rm -f "$output_file"
   fi
 }
 
@@ -332,10 +336,10 @@ stack_profile=""
 if [[ -f "$ROOT/control-plane/install.json" ]]; then
   stack_profile="$(jq -r '.stackProfile // ""' "$ROOT/control-plane/install.json" 2>/dev/null || true)"
 fi
-if [[ -x "$ROOT/scripts/canary-hindsight.sh" ]]; then
-  report_command "hindsight canary syntax valid" "hindsight canary syntax invalid" bash -n "$ROOT/scripts/canary-hindsight.sh"
-  if [[ "$stack_profile" == "full" || "${CLAUDE_CONTROL_PLANE_REQUIRE_HINDSIGHT:-0}" == "1" ]]; then
-    report_command "hindsight canary green" "hindsight canary red" "$ROOT/scripts/canary-hindsight.sh" --json
+  if [[ -x "$ROOT/scripts/canary-hindsight.sh" ]]; then
+    report_command "hindsight canary syntax valid" "hindsight canary syntax invalid" bash -n "$ROOT/scripts/canary-hindsight.sh"
+    if [[ "$stack_profile" == "full" || "${CLAUDE_CONTROL_PLANE_REQUIRE_HINDSIGHT:-0}" == "1" ]]; then
+      report_command "hindsight canary green" "hindsight canary red" env HINDSIGHT_CANARY_REQUIRE_HEALTH=1 "$ROOT/scripts/canary-hindsight.sh" --json
   elif hindsight_posture="$("$ROOT/scripts/canary-hindsight.sh" --json 2>/dev/null)"; then
     ok "hindsight posture green: $(jq -r '.mode + \" \" + .health' <<<"$hindsight_posture")"
   else

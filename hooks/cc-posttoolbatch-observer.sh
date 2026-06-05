@@ -328,14 +328,14 @@ record_tool() {
       fi
       cc_state_batch_mark_path searches "$name"
       cc_state_batch_append_tool_signal codegraph codegraph mcp-call || true
-      cc_etrnl_record_tool_signal codegraph codegraph mcp-call
+      cc_etrnl_record_tool_signal codegraph codegraph mcp-call || true
       ;;
     mcp__beads*|beads*)
       if [[ "$succeeded" != "true" ]]; then
         return 0
       fi
       cc_state_batch_append_tool_signal beads beads mcp-call || true
-      cc_etrnl_record_tool_signal beads beads mcp-call
+      cc_etrnl_record_tool_signal beads beads mcp-call || true
       ;;
   esac
 }

@@ -7,7 +7,7 @@
 
 Default install is intentionally usable but conservative: `--profile core` installs observer hooks, prompt routing, prompt expansion, once-per-session `CLAUDE.md` reinjection, the locked advisory rate limiter, post-tool observation, session cleanup, scripts, docs, rules, skills, and agents. Hard blockers and global memory/backlog/codegraph services stay opt-in.
 
-Breaking install behavior: managed `~/.claude/settings.json` is backed up and reset to vanilla `{}` before the stack is applied unless `--preserve-settings` is supplied. Live migration of memory systems, plugins, MCPs, broad permissions, and private overlays is a separate local rollout step, not an automatic install-time side effect.
+Breaking install behavior: managed `~/.claude/settings.json` is backed up and reset to a vanilla settings shell before the stack is applied unless `--preserve-settings` is supplied. Existing `enabledPlugins` entries are preserved so installs do not disable already-enabled Claude Code plugins. Live migration of memory systems, plugins, MCPs, broad permissions, and private overlays is a separate local rollout step, not an automatic install-time side effect.
 
 Full stack install:
 
@@ -30,7 +30,7 @@ CLAUDE_CONTROL_PLANE_ENABLE_STRICT=1 ./scripts/install.sh
 The installer:
 
 - backs up existing Claude settings and `CLAUDE.md`
-- resets managed `~/.claude/settings.json` to vanilla `{}` before applying the selected control-plane stack, unless `--preserve-settings` is explicitly supplied
+- resets managed `~/.claude/settings.json` to a vanilla settings shell before applying the selected control-plane stack, preserving `enabledPlugins` unless `--preserve-settings` is explicitly supplied
 - backs up pre-existing repo-owned hooks, skills, and agent files so rollback can restore them or remove newly installed copies
 - copies reusable hooks, hook libraries, fixtures, docs, skills, generated `etrnl-*` slash command shims, and ETRNL agent templates
 - copies control-plane assets:
@@ -75,7 +75,7 @@ node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-pl
 ~/.claude/scripts/post-upgrade-canary.sh
 ```
 
-`settings-audit.mjs` should report no duplicate hooks, no legacy `rate-limiter.sh` registrations, and no risky top-level settings such as `autoCompactWindow` or `skipAutoPermissionPrompt`. A normal install removes those from managed `settings.json` by resetting it before applying the stack. Its JSON output also lists plugin hook manifests and known outside-settings sources for audit visibility. `update-check.mjs --json` should show the recorded source checkout, installed/source commits, version, dirty-state flag, installed skill/agent counts, settings mode, stale installed script count, and whether a local or remote update is available.
+`settings-audit.mjs` should report no duplicate hooks, no legacy `rate-limiter.sh` registrations, and no risky top-level settings such as `autoCompactWindow` or `skipAutoPermissionPrompt`. A normal install removes those from managed `settings.json` by resetting it before applying the stack, while preserving `enabledPlugins`. Its JSON output also lists plugin hook manifests and known outside-settings sources for audit visibility. `update-check.mjs --json` should show the recorded source checkout, installed/source commits, version, dirty-state flag, installed skill/agent counts, settings mode, stale installed script count, and whether a local or remote update is available.
 
 Rollback:
 
@@ -97,7 +97,7 @@ Startup update checks are cached and local-first.
 
 - `CLAUDE_CONTROL_PLANE_UPDATE_CHECK=0`: disable startup update checks.
 - `CLAUDE_CONTROL_PLANE_REMOTE_UPDATE_CHECK=1`: also check the git upstream.
-- `CLAUDE_CONTROL_PLANE_AUTO_UPDATE=1`: auto-update from the recorded source checkout when the installed fingerprint is stale.
+- `CLAUDE_CONTROL_PLANE_AUTO_UPDATE=0`: disable automatic local control-plane repair from the recorded source checkout. Local auto-update is enabled by default when the installed fingerprint is stale.
 - `CLAUDE_CONTROL_PLANE_TOOL_UPDATE_CHECK=0`: disable CodeGraph/Beads checks inside update-check.
 - `CLAUDE_CONTROL_PLANE_SKILL_UPDATE_CHECK=0`: disable the per-skill update prompt.
 
@@ -122,4 +122,4 @@ Every requested Claude `etrnl-*` skill invocation runs the installed update chec
 
 Codex does not expose the same prompt-submit hook in the current CLI, so every repo-owned Codex skill starts with `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill <skill>`.
 
-If the control plane, CodeGraph, or Beads is missing or stale, the helper tells the agent to ask whether to update/bootstrap now, snooze, or continue without updating.
+If the local control plane is stale, the helper auto-updates from the recorded source checkout before the skill runs. It only prompts for remaining remote or tool-stack choices, such as a pull, CodeGraph, or Beads bootstrap, that cannot be safely completed as local repair.

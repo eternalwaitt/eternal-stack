@@ -468,7 +468,7 @@ const jsonOutput = hasFlag("--json");
 const explainOutput = hasFlag("--explain");
 const force = hasFlag("--force");
 const remoteEnabled = hasFlag("--remote") || process.env.CLAUDE_CONTROL_PLANE_REMOTE_UPDATE_CHECK === "1";
-const autoEnabled = hasFlag("--auto") || process.env.CLAUDE_CONTROL_PLANE_AUTO_UPDATE === "1";
+const autoEnabled = hasFlag("--auto") || process.env.CLAUDE_CONTROL_PLANE_AUTO_UPDATE !== "0";
 const installState = readJson(installStatePath, null);
 
 if (!installState?.sourceRoot) {
@@ -526,9 +526,13 @@ if (autoEnabled && localUpdateAvailable) {
   if (!fs.existsSync(updateScriptPath)) {
     autoUpdate = `CONTROL_PLANE_AUTO_UPDATE_FAILED missing update script: ${updateScriptPath}`;
   } else {
+    const updateEnv = {
+      CLAUDE_HOME: process.env.CLAUDE_HOME || (installState.settingsMode === "codex" ? path.join(os.homedir(), ".claude") : controlHome),
+      CODEX_HOME: process.env.CODEX_HOME || (installState.settingsMode === "codex" ? controlHome : path.join(os.homedir(), ".codex")),
+    };
     const update = run("bash", [updateScriptPath], {
-      env: { CLAUDE_HOME: controlHome },
-      timeout: 60_000,
+      env: updateEnv,
+      timeout: 180_000,
     });
     autoSucceeded = update.ok;
     autoUpdate = update.ok

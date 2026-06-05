@@ -81,8 +81,8 @@
       "status": "passed",
       "checkedInputs": [
         "skills/etrnl-dev-plan/SKILL.md",
-        "skills/etrnl-autoplan/SKILL.md",
-        "skills/etrnl-execute/SKILL.md"
+        "skills/etrnl-dev-autoplan/SKILL.md",
+        "skills/etrnl-dev-execute/SKILL.md"
       ],
       "findingsCount": 0,
       "openHighCount": 0,
@@ -265,7 +265,7 @@
     },
     {
       "planItemId": "beads-value-boundary",
-      "requestedOutcome": "Decide whether Beads adds value alongside etrnl-dev-plan, etrnl-autoplan, and etrnl-execute.",
+      "requestedOutcome": "Decide whether Beads adds value alongside etrnl-dev-plan, etrnl-dev-autoplan, and etrnl-dev-execute.",
       "classification": "DONE",
       "evidence": "Plan defines Beads as backlog, dependency, claim, blocker, and discovered-follow-up state only, not plan, execution, or future issue-tracker truth.",
       "changedReason": "",

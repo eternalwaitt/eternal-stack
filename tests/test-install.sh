@@ -21,7 +21,7 @@ else
 fi
 assert_contains "install dry-run names core profile" "$dry_run_out" "profile=core"
 assert_contains "install dry-run names stack validator" "$dry_run_out" "stack-profile-check.mjs"
-assert_contains "install dry-run resets Claude settings before applying stack" "$dry_run_out" "reset it to vanilla before applying stack hooks"
+assert_contains "install dry-run resets Claude settings before applying stack" "$dry_run_out" "reset it to vanilla while preserving enabledPlugins before applying stack hooks"
 core_dry_run_out="$(CLAUDE_HOME="$dry_run_home" CODEX_HOME="$dry_run_codex_home" "$ROOT/scripts/install.sh" --profile core --dry-run)"
 assert_contains "core profile dry-run skips global memory tools" "$core_dry_run_out" "core profile skips Hindsight, Beads, and CodeGraph bootstrap"
 preserve_dry_run_out="$(CLAUDE_HOME="$dry_run_home" CODEX_HOME="$dry_run_codex_home" "$ROOT/scripts/install.sh" --preserve-settings --dry-run)"
@@ -36,9 +36,10 @@ assert_no_directory "install dry-run does not create Codex home" "$dry_run_codex
 assert_command "core stack profile validates" node "$ROOT/scripts/stack-profile-check.mjs" "$ROOT/templates/stack-profile.core.json"
 assert_command "full stack profile validates" node "$ROOT/scripts/stack-profile-check.mjs" "$ROOT/templates/stack-profile.full.json"
 
-mkdir -p "$CLAUDE_HOME/skills/etrnl-fix-issue" "$CODEX_HOME/skills/etrnl-fix-issue"
+mkdir -p "$CLAUDE_HOME/skills/etrnl-fix-issue" "$CODEX_HOME/skills/etrnl-fix-issue" "$CLAUDE_HOME/commands"
 printf 'legacy claude skill\n' >"$CLAUDE_HOME/skills/etrnl-fix-issue/SKILL.md"
 printf 'legacy codex skill\n' >"$CODEX_HOME/skills/etrnl-fix-issue/SKILL.md"
+printf 'legacy command\n' >"$CLAUDE_HOME/commands/etrnl-fix-issue.md"
 mkdir -p "$CLAUDE_HOME"
 cat >"$CLAUDE_HOME/settings.json" <<'JSON'
 {
@@ -78,6 +79,7 @@ for skill in "${OWNED_SKILLS[@]}"; do
 done
 assert_no_directory "removed legacy Claude etrnl-fix-issue" "$CLAUDE_HOME/skills/etrnl-fix-issue"
 assert_no_directory "removed legacy Codex etrnl-fix-issue" "$CODEX_HOME/skills/etrnl-fix-issue"
+assert_no_file "removed legacy Claude etrnl-fix-issue command" "$CLAUDE_HOME/commands/etrnl-fix-issue.md"
 if cmp -s "$CLAUDE_HOME/skills/etrnl-dev-autoplan/SKILL.md" "$CODEX_HOME/skills/etrnl-dev-autoplan/SKILL.md"; then
   ok "Claude and Codex autoplan skills match"
 else
@@ -110,7 +112,10 @@ assert_executable "installed tool bootstrap helper" "$CLAUDE_HOME/scripts/bootst
 assert_executable "installed codex RTK pre-tool hook" "$CLAUDE_HOME/scripts/codex-rtk-pre-tool-use.sh"
 assert_executable "installed update helper" "$CLAUDE_HOME/scripts/update.sh"
 assert_executable "installed uninstall helper" "$CLAUDE_HOME/scripts/uninstall.sh"
+assert_file "installed autoplan metadata" "$CLAUDE_HOME/skills/metadata/etrnl-dev-autoplan.json"
+assert_file "installed execute metadata" "$CLAUDE_HOME/skills/metadata/etrnl-dev-execute.json"
 assert_file "installed Codex metadata" "$CODEX_HOME/control-plane/install.json"
+assert_file "installed Codex autoplan metadata" "$CODEX_HOME/skills/metadata/etrnl-dev-autoplan.json"
 assert_file "installed stack core profile template" "$CLAUDE_HOME/templates/stack-profile.core.json"
 assert_file "installed stack full profile template" "$CLAUDE_HOME/templates/stack-profile.full.json"
 assert_file "installed Hindsight local config template" "$CLAUDE_HOME/templates/hindsight/claude-code.local-daemon.json"
@@ -150,7 +155,7 @@ for script_file in "${CRITICAL_SCRIPTS[@]}"; do
 done
 assert_file "post-install: settings.json present" "$CLAUDE_HOME/settings.json"
 assert_json_expr "post-install: reset removed risky top-level settings" "$(jq -c . "$CLAUDE_HOME/settings.json")" '(has("autoCompactWindow") | not) and (has("skipAutoPermissionPrompt") | not)'
-assert_json_expr "post-install: reset removed foreign plugin settings" "$(jq -c . "$CLAUDE_HOME/settings.json")" '(.enabledPlugins // {} | has("foreign-plugin@example") | not)'
+assert_json_expr "post-install: reset preserved enabled plugin settings" "$(jq -c . "$CLAUDE_HOME/settings.json")" '.enabledPlugins["foreign-plugin@example"] == true'
 assert_json_expr "post-install: reset removed foreign hooks before stack merge" "$(jq -c . "$CLAUDE_HOME/settings.json")" '([.hooks.SessionStart[]?.hooks[]?.command // empty | select(test("foreign-session-start"))] | length) == 0'
 shopt -s nullglob
 backup_settings=("$CLAUDE_HOME"/backups/control-plane-install-*/settings.json)
@@ -213,7 +218,7 @@ jq '.sourceFingerprint = "stale"' "$CLAUDE_HOME/control-plane/install.json" >"$m
 mv -- "$metadata_tmp" "$CLAUDE_HOME/control-plane/install.json"
 metadata_tmp=""
 trap - EXIT
-if ! stale_update_json="$(node "$CLAUDE_HOME/scripts/update-check.mjs" --json 2>&1)"; then
+if ! stale_update_json="$(CLAUDE_CONTROL_PLANE_AUTO_UPDATE=0 node "$CLAUDE_HOME/scripts/update-check.mjs" --json 2>&1)"; then
   not_ok "post-install: stale update-check.mjs failed: $stale_update_json"
   finish_tests
   exit 1
@@ -225,9 +230,8 @@ jq '.sourceFingerprint = "stale"' "$CODEX_HOME/control-plane/install.json" >"$co
 mv -- "$codex_metadata_tmp" "$CODEX_HOME/control-plane/install.json"
 codex_metadata_tmp=""
 trap - EXIT
-if codex_prompt_text="$(CLAUDE_CONTROL_PLANE_TOOL_UPDATE_CHECK=0 node "$CODEX_HOME/scripts/skill-update-prompt.mjs" --agent codex --skill etrnl-dev-plan 2>&1)"; then
-  assert_contains "post-install: stale Codex skill prompt names update" "$codex_prompt_text" "ETRNL_SKILL_UPDATE_AVAILABLE"
-  assert_contains "post-install: stale Codex skill prompt names skill" "$codex_prompt_text" "skill=etrnl-dev-plan"
+if codex_prompt_text="$(CLAUDE_CONTROL_PLANE_AUTO_UPDATE=0 CLAUDE_CONTROL_PLANE_TOOL_UPDATE_CHECK=0 node "$CODEX_HOME/scripts/skill-update-prompt.mjs" --agent codex --skill etrnl-dev-plan --json 2>&1)"; then
+  assert_json_expr "post-install: stale Codex skill prompt reports update when auto disabled" "$codex_prompt_text" '.ok == true and .promptNeeded == true and .localUpdateAvailable == true'
 else
   not_ok "post-install: stale Codex skill prompt failed: $codex_prompt_text"
 fi

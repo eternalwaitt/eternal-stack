@@ -490,7 +490,7 @@ skill_update_prompt="$(jq -cn '{session_id:"fixture-skill-update-prompt",prompt:
 out="$(CLAUDE_CONTROL_PLANE_SKILL_UPDATE_CHECK=1 CLAUDE_CONTROL_PLANE_UPDATE_CHECK_SCRIPT="$fake_skill_update" run_hook cc-userprompt-router.sh "$skill_update_prompt")"
 assert_contains "skill prompt checks control-plane updates" "$out" "Skill update check before requested skill"
 assert_contains "skill prompt includes tool-stack update" "$out" "TOOL_STACK_UPDATE_AVAILABLE codegraph"
-assert_contains "skill prompt asks before update" "$out" "ask whether to update/bootstrap now"
+assert_contains "skill prompt names remaining choices only" "$out" "remaining remote/tool-stack choices"
 health_prompt="$(jq -cn '{session_id:"fixture-health-prompt",prompt:"audit the entire codebase with no skips or loose ends"}')"
 out="$(run_hook cc-userprompt-router.sh "$health_prompt")"
 assert_contains "health prompt routes code health" "$out" "etrnl-audit-code"

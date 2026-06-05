@@ -27,9 +27,9 @@
         "refreshCommand": "fd -t f . && inspect listed repo files with line-numbered reads",
         "requiredFiles": [
           "skills/etrnl-dev-plan/SKILL.md",
-          "skills/etrnl-autoplan/SKILL.md",
+          "skills/etrnl-dev-autoplan/SKILL.md",
           "skills/etrnl-dev-review/SKILL.md",
-          "skills/etrnl-execute/SKILL.md",
+          "skills/etrnl-dev-execute/SKILL.md",
           "scripts/plan-readiness-check.mjs",
           "scripts/lib/deep-stack-artifacts.mjs",
           "scripts/agent-task-packet-check.mjs",
@@ -178,7 +178,7 @@
     { "role": "engineering", "status": "passed", "checkedInputs": ["scripts/lib/deep-stack-artifacts.mjs", "scripts/execution-ledger.mjs", "scripts/execute-evidence-check.mjs"], "findingsCount": 0, "openHighCount": 0, "disposition": "Existing artifact, ledger, packet, and stop-hook surfaces were extended instead of adding a new state store.", "completedAt": "2026-06-02T12:00:00Z" },
     { "role": "dx", "status": "passed", "checkedInputs": ["scripts/deep-stack-check.mjs", "docs/health-stack.md"], "findingsCount": 0, "openHighCount": 0, "disposition": "Section validators and repair commands are documented for operator use.", "completedAt": "2026-06-02T12:00:00Z" },
     { "role": "adversarial", "status": "passed", "checkedInputs": ["hooks/cc-stop-verifier.sh", "scripts/execute-evidence-check.mjs"], "findingsCount": 0, "openHighCount": 0, "disposition": "Stop statuses fail closed for missing TDD, simplifier, reuse, type, and install evidence.", "completedAt": "2026-06-02T12:00:00Z" },
-    { "role": "specialist", "status": "passed", "checkedInputs": ["skills/etrnl-execute/SKILL.md", "agents/etrnl-*.md"], "findingsCount": 0, "openHighCount": 0, "disposition": "Skill and agent contracts name the deterministic fields and completion markers.", "completedAt": "2026-06-02T12:00:00Z" },
+    { "role": "specialist", "status": "passed", "checkedInputs": ["skills/etrnl-dev-execute/SKILL.md", "agents/etrnl-*.md"], "findingsCount": 0, "openHighCount": 0, "disposition": "Skill and agent contracts name the deterministic fields and completion markers.", "completedAt": "2026-06-02T12:00:00Z" },
     { "role": "reuse", "status": "passed", "checkedInputs": ["scripts/lib/deep-stack-artifacts.mjs", "scripts/execution-ledger.mjs"], "findingsCount": 0, "openHighCount": 0, "disposition": "Implementation reused existing validators and added one shared ledger evidence helper.", "completedAt": "2026-06-02T12:00:00Z" },
     { "role": "simplifier", "status": "passed", "checkedInputs": ["scripts/lib/deep-stack-artifacts.mjs", "scripts/execution-ledger.mjs"], "findingsCount": 0, "openHighCount": 0, "disposition": "New validators stay under function-size caps; explicit row checks are clearer than a denser generic abstraction.", "completedAt": "2026-06-02T12:00:00Z" }
   ],

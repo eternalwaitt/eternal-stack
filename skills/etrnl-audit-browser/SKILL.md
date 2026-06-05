@@ -35,6 +35,7 @@ This reusable skill is the canonical browser QA workflow; `agents/etrnl-browser-
    - First run `node ~/.claude/scripts/browser-qa-report.mjs hash <screenshot-path>` for each screenshot.
    - Put the returned SHA256 value into that row's `screenshotSha256` field inside the `--matrix` JSON.
    - Only then run the create command with all v2 fields:
+
      ```bash
      node ~/.claude/scripts/browser-qa-report.mjs create \
        --schema-version 2 \
@@ -49,6 +50,7 @@ This reusable skill is the canonical browser QA workflow; `agents/etrnl-browser-
        --network "<network findings summary>" \
        --status complete
      ```
+
    - Error handling and troubleshooting:
      - If `hash` fails, check the exit code, verify the screenshot path and permissions, confirm the screenshot file exists under the artifact root, then rerun `hash`.
      - If the screenshot is still being written, use a short retry loop with backoff; abort with a clear message if the file never appears before hashing.

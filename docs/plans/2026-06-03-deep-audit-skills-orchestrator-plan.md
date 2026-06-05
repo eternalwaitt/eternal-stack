@@ -7,13 +7,13 @@ Execution scope: all_phases
 Deep stack artifacts: docs/plans/artifacts/2026-06-03-deep-audit-skills-orchestrator/deep-stack-artifacts.json
 Goal: Create a thin ETRNL deep-audit orchestrator plus production-readiness and performance category skills that can later expand into a full stack audit suite.
 Non-goals: No target-application audit execution, no remediation in downstream apps, no live install into Claude or Codex home directories, no extra audit categories beyond the two provided specs, and no verbatim copy of unreviewed source prompts into repo-owned skills.
-Evidence: AGENTS.md; docs/skills.md; docs/health-stack.md; docs/research/etrnl-parity-backlog.md; docs/research/2026-06-03-starred-agent-stack-map.md; scripts/lib/skill-lists.sh; hooks/lib/skill-hints.sh; scripts/skill-contract-check.mjs; scripts/prompt-budget-check.mjs; scripts/skill-behavior-smoke.mjs; scripts/plan-readiness-check.mjs; scripts/deep-stack-check.mjs; scripts/lib/deep-stack-artifacts.mjs; skills/etrnl-code-health/SKILL.md; skills/etrnl-parallel/SKILL.md; skills/etrnl-execute/SKILL.md; skill-creator guidance; production-readiness audit source sha256:48090c3e4e04d2b018b65349bcbfef963988db1621499163c4fe438fa58a6b93; performance audit source sha256:16b832a0f048897c1107e8215e4e0a17ba8b6141a8b0c48331270b0285f490b8.
+Evidence: AGENTS.md; docs/skills.md; docs/health-stack.md; docs/research/etrnl-parity-backlog.md; docs/research/2026-06-03-starred-agent-stack-map.md; scripts/lib/skill-lists.sh; hooks/lib/skill-hints.sh; scripts/skill-contract-check.mjs; scripts/prompt-budget-check.mjs; scripts/skill-behavior-smoke.mjs; scripts/plan-readiness-check.mjs; scripts/deep-stack-check.mjs; scripts/lib/deep-stack-artifacts.mjs; skills/etrnl-audit-code/SKILL.md; skills/etrnl-dev-parallel/SKILL.md; skills/etrnl-dev-execute/SKILL.md; skill-creator guidance; production-readiness audit source sha256:48090c3e4e04d2b018b65349bcbfef963988db1621499163c4fe438fa58a6b93; performance audit source sha256:16b832a0f048897c1107e8215e4e0a17ba8b6141a8b0c48331270b0285f490b8.
 
 ## What already exists
 
-- `etrnl-code-health` is the current whole-codebase health router. It already owns inventory, deterministic gates, companion audits, ledgers, no-skips closure, and final repo health verification.
-- `etrnl-parallel` defines the bounded fanout contract: disjoint file scopes, maximum six lanes, task packets, completion receipts, and final integration verification.
-- `etrnl-execute` already owns implementation execution, run ledgers, packet validation, spec/quality review evidence, simplifier evidence, and verification gates.
+- `etrnl-audit-code` is the current whole-codebase health router. It already owns inventory, deterministic gates, companion audits, ledgers, no-skips closure, and final repo health verification.
+- `etrnl-dev-parallel` defines the bounded fanout contract: disjoint file scopes, maximum six lanes, task packets, completion receipts, and final integration verification.
+- `etrnl-dev-execute` already owns implementation execution, run ledgers, packet validation, spec/quality review evidence, simplifier evidence, and verification gates.
 - `scripts/skill-contract-check.mjs` already enforces repo-owned skill list sync, docs links, helper references, reference-file existence, and directive-language rules for skill bodies and skill references.
 - `scripts/prompt-budget-check.mjs` caps owned `SKILL.md` files at 18 KB, so the provided audit specs belong in rewritten references plus compact skill entrypoints.
 - `scripts/skill-behavior-smoke.mjs` already verifies trigger-case coverage for every owned skill through `tests/fixtures/skill-triggering/cases.json`.
@@ -27,16 +27,16 @@ Processing model:
 Victor request
   |
   v
-etrnl-deep-audit
+etrnl-audit
   |
   +-- detects requested categories and required target evidence
   +-- creates a run-scoped audit artifact directory
   +-- dispatches category skills only after shared inventory exists
   |
-  +-- etrnl-production-readiness
+  +-- etrnl-audit-production
   |     +-- serial or tightly grouped checks against full worklists
   |
-  +-- etrnl-performance-audit
+  +-- etrnl-audit-performance
         +-- six read-only lanes after Phase 1 worklists are written
   |
   v
@@ -45,7 +45,7 @@ final synthesis with findings, clean checks, skipped checks, and source-limited 
 
 ## NOT in scope
 
-- No replacement of `etrnl-code-health`; the new orchestrator targets application deep-audit categories, while `etrnl-code-health` remains the repo health router.
+- No replacement of `etrnl-audit-code`; the new orchestrator targets application deep-audit categories, while `etrnl-audit-code` remains the repo health router.
 - No broad audit execution in this implementation. The work creates skills, references, fixtures, and validators.
 - No automatic install or update into live local Claude/Codex state. Source gates come first; install remains explicit.
 - No future category implementation such as security, UX, accessibility, docs, API, data, payments, or privacy beyond the two supplied category specs. The design includes a registry so later categories fit the same contract.
@@ -70,7 +70,7 @@ Implementation alternatives reviewed:
 
 | Option | Pros | Cons | Decision |
 | --- | --- | --- | --- |
-| Extend `etrnl-code-health` | Reuses existing health router name | Blurs repo-health gates with application deep-audit categories | Reject |
+| Extend `etrnl-audit-code` | Reuses existing health router name | Blurs repo-health gates with application deep-audit categories | Reject |
 | One orchestrator with references only | Smallest trigger surface | Harder to invoke a single category directly and harder to attach category-specific behavior | Reject |
 | Thin orchestrator plus category skills | Clear routing, single-category invocation, future expansion | More registry drift risk | Accept, with machine-readable registry and direct-invocation guard |
 
@@ -105,7 +105,7 @@ DX requirements:
 | Failure | User-visible risk | Rescue |
 | --- | --- | --- |
 | `all_registered` hides known missing domains | Victor thinks security, UX, API/data, docs, payments, or privacy ran when they did not | Mandatory `coverageStatement` plus `knownUnimplementedCategories` in every report |
-| Category skill runs directly and bypasses shared worklists | Production and performance reports disagree on coverage or artifact shape | Standalone category skills must initialize the same envelope or route through `etrnl-deep-audit --category <id>` |
+| Category skill runs directly and bypasses shared worklists | Production and performance reports disagree on coverage or artifact shape | Standalone category skills must initialize the same envelope or route through `etrnl-audit --category <id>` |
 | Tracked report leaks local target paths | Public repo exposes operator identity or local filesystem layout | Tracked fixtures use `targetLabel` and `targetFingerprint`; absolute paths stay only in ignored local run artifacts |
 | Golden JSON passes while real authoring fails | Validator proves shape only, not that skills can produce the shape | Add realistic synthetic target fixtures and artifact-authoring fixtures for missing evidence, auth blockers, route matrices, and `not_applicable` cases |
 | Registry prose drifts from validator behavior | Full audit omits or invents categories | `scripts/lib/deep-audit-categories.mjs` is the single source loaded by validator, docs check, and orchestrator |
@@ -114,13 +114,13 @@ DX requirements:
 
 ## File map
 
-- `skills/etrnl-deep-audit/SKILL.md`: new thin orchestrator skill that selects categories, requires a run artifact directory, enforces shared worklists before fanout, and synthesizes category reports.
-- `skills/etrnl-deep-audit/references/category-contract.md`: new reference that defines category registration fields, shared artifact schema, fanout rules, `all_registered` mode, and future-category extension rules.
+- `skills/etrnl-audit/SKILL.md`: new thin orchestrator skill that selects categories, requires a run artifact directory, enforces shared worklists before fanout, and synthesizes category reports.
+- `skills/etrnl-audit/references/category-contract.md`: new reference that defines category registration fields, shared artifact schema, fanout rules, `all_registered` mode, and future-category extension rules.
 - `scripts/lib/deep-audit-categories.mjs`: new machine-readable registry with category id, skill name, reference path, execution mode, required worklists, registered `checks[]`, registered `lanes[]`, known-not-implemented domain tags, and version.
-- `skills/etrnl-production-readiness/SKILL.md`: new category skill that loads its rewritten reference only when production readiness is requested.
-- `skills/etrnl-production-readiness/references/audit-checks.md`: new directive-language rewrite of the production-readiness audit spec with applicability gates and no private source paths.
-- `skills/etrnl-performance-audit/SKILL.md`: new category skill that loads its rewritten reference only when performance audit is requested.
-- `skills/etrnl-performance-audit/references/audit-checks.md`: new directive-language rewrite of the performance audit spec with the six-lane fanout contract and runtime-evidence requirements.
+- `skills/etrnl-audit-production/SKILL.md`: new category skill that loads its rewritten reference only when production readiness is requested.
+- `skills/etrnl-audit-production/references/audit-checks.md`: new directive-language rewrite of the production-readiness audit spec with applicability gates and no private source paths.
+- `skills/etrnl-audit-performance/SKILL.md`: new category skill that loads its rewritten reference only when performance audit is requested.
+- `skills/etrnl-audit-performance/references/audit-checks.md`: new directive-language rewrite of the performance audit spec with the six-lane fanout contract and runtime-evidence requirements.
 - `scripts/deep-audit-artifact-check.mjs`: new validator for audit manifests, registry/docs/install alignment, registered categories, registered checks, category reports, lane receipts, `CONFIRMED_CLEAN`, `CHECKS_SKIPPED`, consumed worklist hashes, private string redaction, coverage statements, all-registered synthesis completeness, stable diagnostic codes, and `--json` output.
 - `tests/fixtures/deep-audit/report.valid.json`: new valid artifact fixture covering orchestrator synthesis plus both category reports.
 - `tests/fixtures/deep-audit/report.missing-confirmed-clean.json`: new invalid fixture proving clean checks cannot disappear.
@@ -135,10 +135,10 @@ DX requirements:
 - `tests/fixtures/deep-audit/report.invalid-category.json`: new invalid fixture proving category ids must come from the registry.
 - `tests/fixtures/deep-audit/synthetic-target/`: new minimal synthetic target fixture used by `validate-synthetic-fixtures` to prove category skills can author realistic reports, including missing target evidence, auth blockers, route matrices, and `not_applicable` rows.
 - `tests/fixtures/deep-audit/templates/`: new deterministic report authoring templates for direct category invocation, source-limited blockers, route matrices, clean checks, skipped checks, and not-applicable checks.
-- `tests/fixtures/skill-triggering/cases.json`: add trigger coverage for `etrnl-deep-audit`, `etrnl-production-readiness`, and `etrnl-performance-audit`.
+- `tests/fixtures/skill-triggering/cases.json`: add trigger coverage for `etrnl-audit`, `etrnl-audit-production`, and `etrnl-audit-performance`.
 - `scripts/lib/skill-lists.sh`: add the three owned skill names in registry order and ensure install helper arrays include the new validator script where this repo's install/update contracts require copied scripts.
 - `scripts/install.sh`: copy or preserve the new validator and registry helper exactly as existing repo-owned workflow scripts are installed.
-- `docs/skills.md`: document the orchestrator, the two category skills, how they relate to `etrnl-code-health`, and the three-command deep-audit validator quick start.
+- `docs/skills.md`: document the orchestrator, the two category skills, how they relate to `etrnl-audit-code`, and the three-command deep-audit validator quick start.
 - `docs/health-stack.md`: add the deep-audit artifact validator and skill behavior smoke expectations to relevant gate descriptions.
 - `CHANGELOG.md`: record the source-level skill addition under `Unreleased`.
 - `tests/test-workflow-tools.sh`: add validator fixture assertions for the new deep-audit artifact checker.
@@ -157,22 +157,22 @@ Verification: `node scripts/deep-audit-artifact-check.mjs validate --artifact te
 ### Group B - Thin Orchestrator Skill
 
 Owner: skill workflow writer.
-Dependencies: Group A contract and existing `etrnl-code-health`, `etrnl-parallel`, and `etrnl-execute` behavior.
-Acceptance criteria: `etrnl-deep-audit` stays below the prompt budget, delegates category details to references, refuses all-registered completion without every registered category report, prints `coverageStatement`, prints known unimplemented domains, rejects invalid category ids, and records source-limited blockers instead of clean claims.
+Dependencies: Group A contract and existing `etrnl-audit-code`, `etrnl-dev-parallel`, and `etrnl-dev-execute` behavior.
+Acceptance criteria: `etrnl-audit` stays below the prompt budget, delegates category details to references, refuses all-registered completion without every registered category report, prints `coverageStatement`, prints known unimplemented domains, rejects invalid category ids, and records source-limited blockers instead of clean claims.
 Verification: `node scripts/prompt-budget-check.mjs .` and `node scripts/skill-contract-check.mjs`.
 
 ### Group C - Production Readiness Category Skill
 
 Owner: production-readiness skill writer.
 Dependencies: Group A contract and the production-readiness source hash.
-Acceptance criteria: the skill owns the 17 production-readiness checks, rewrites stack-specific assumptions into applicability gates, preserves no-sampling and `CONFIRMED_CLEAN` rules, blocks false positives when tenancy, soft delete, money value objects, i18n, or serverless deployment are not applicable, and cannot complete standalone unless it creates the same report envelope or routes through `etrnl-deep-audit --category production-readiness`.
+Acceptance criteria: the skill owns the 17 production-readiness checks, rewrites stack-specific assumptions into applicability gates, preserves no-sampling and `CONFIRMED_CLEAN` rules, blocks false positives when tenancy, soft delete, money value objects, i18n, or serverless deployment are not applicable, and cannot complete standalone unless it creates the same report envelope or routes through `etrnl-audit --category production-readiness`.
 Verification: `node scripts/skill-contract-check.mjs` and `node scripts/prompt-budget-check.mjs .`.
 
 ### Group D - Performance Category Skill
 
 Owner: performance skill writer.
 Dependencies: Group A contract and the performance source hash.
-Acceptance criteria: the skill owns the performance checks, requires Phase 1 worklists before six-lane fanout, separates dev compile time from runtime latency, requires route matrix evidence for user-facing routes, records authenticated/dynamic fixture blockers explicitly, and cannot complete standalone unless it creates the same report envelope or routes through `etrnl-deep-audit --category performance`.
+Acceptance criteria: the skill owns the performance checks, requires Phase 1 worklists before six-lane fanout, separates dev compile time from runtime latency, requires route matrix evidence for user-facing routes, records authenticated/dynamic fixture blockers explicitly, and cannot complete standalone unless it creates the same report envelope or routes through `etrnl-audit --category performance`.
 Verification: `node scripts/skill-contract-check.mjs` and `node scripts/deep-audit-artifact-check.mjs validate --artifact tests/fixtures/deep-audit/report.missing-lane-receipt.json` with expected failure.
 
 ### Group E - Registry, Docs, And Trigger Coverage
@@ -258,7 +258,7 @@ Every validator failure prints a stable `errorCode`, artifact or registry path, 
 
 ### Phase 2 - Orchestrator Skill
 
-Create `etrnl-deep-audit` as a small router. It must:
+Create `etrnl-audit` as a small router. It must:
 
 - ask the executor to select `production-readiness`, `performance`, or `all_registered`;
 - initialize a run-scoped artifact directory;
@@ -278,7 +278,7 @@ All-registered behavior:
 
 ### Phase 3 - Production Readiness Skill
 
-Create `etrnl-production-readiness` with a compact `SKILL.md` and a rewritten reference. The reference preserves the provided spec's category ownership while adding applicability gates:
+Create `etrnl-audit-production` with a compact `SKILL.md` and a rewritten reference. The reference preserves the provided spec's category ownership while adding applicability gates:
 
 - stack runtime and framework;
 - API layer and validation library;
@@ -294,13 +294,13 @@ The skill blocks completion when a worklist is sampled instead of fully processe
 
 Standalone invocation behavior:
 
-- If the user invokes `etrnl-production-readiness` directly, the skill creates the same report envelope with `requestedCategories: ["production-readiness"]` or routes to `etrnl-deep-audit --category production-readiness`.
+- If the user invokes `etrnl-audit-production` directly, the skill creates the same report envelope with `requestedCategories: ["production-readiness"]` or routes to `etrnl-audit --category production-readiness`.
 - Direct invocation cannot emit a final answer that bypasses `scripts/deep-audit-artifact-check.mjs`.
 - Direct invocation final output includes `node scripts/deep-audit-artifact-check.mjs validate --artifact <artifact>` as the validation command.
 
 ### Phase 4 - Performance Skill
 
-Create `etrnl-performance-audit` with a compact `SKILL.md` and a rewritten reference. The skill preserves the six-lane model:
+Create `etrnl-audit-performance` with a compact `SKILL.md` and a rewritten reference. The skill preserves the six-lane model:
 
 - database query performance;
 - server response time and caching;
@@ -313,7 +313,7 @@ The skill requires the route matrix, cold and warm measurements, response bytes,
 
 Standalone invocation behavior:
 
-- If the user invokes `etrnl-performance-audit` directly, the skill creates the same report envelope with `requestedCategories: ["performance"]` or routes to `etrnl-deep-audit --category performance`.
+- If the user invokes `etrnl-audit-performance` directly, the skill creates the same report envelope with `requestedCategories: ["performance"]` or routes to `etrnl-audit --category performance`.
 - Direct invocation cannot emit a final answer that bypasses `scripts/deep-audit-artifact-check.mjs`.
 - Direct invocation final output includes `node scripts/deep-audit-artifact-check.mjs validate --artifact <artifact>` as the validation command.
 
@@ -336,8 +336,8 @@ Run all verification gates listed below. Fix every failure in source before any 
 
 - Use `etrnl-dev-plan` for this plan and any plan edits.
 - Use `skill-creator` guidance for the three new skills: compact `SKILL.md`, reference-backed detail, no auxiliary README files, and prompt-budget protection.
-- Use `etrnl-execute` only after Victor asks to implement this plan.
-- Use `etrnl-parallel` during implementation only for disjoint lanes after packet validation.
+- Use `etrnl-dev-execute` only after Victor asks to implement this plan.
+- Use `etrnl-dev-parallel` during implementation only for disjoint lanes after packet validation.
 - Use `code-simplifier` after implementation because this adds new skill and script surfaces.
 - Use `finding-duplicate-functions` if the artifact validator duplicates logic already present in deep-stack or ledger validators.
 - Use `brooks-audit` or `etrnl-dev-review` for the workflow architecture review before final completion.
@@ -370,15 +370,15 @@ Coverage map:
 ```text
 CODE PATH COVERAGE
 ==================
-[+] skills/etrnl-deep-audit/SKILL.md
+[+] skills/etrnl-audit/SKILL.md
     +-- [TESTED] prompt budget and directive-language contract
     +-- [TESTED] trigger fixture invokes orchestrator
 
-[+] skills/etrnl-production-readiness/SKILL.md
+[+] skills/etrnl-audit-production/SKILL.md
     +-- [TESTED] prompt budget and directive-language contract
     +-- [TESTED] trigger fixture invokes category skill
 
-[+] skills/etrnl-performance-audit/SKILL.md
+[+] skills/etrnl-audit-performance/SKILL.md
     +-- [TESTED] prompt budget and directive-language contract
     +-- [TESTED] trigger fixture invokes category skill
 
@@ -459,9 +459,9 @@ Parallel lanes after Phase 1:
 
 | Lane | Files | Conflict risk |
 | --- | --- | --- |
-| Orchestrator | `skills/etrnl-deep-audit/**` | Low after contract settles |
-| Production readiness | `skills/etrnl-production-readiness/**` | Low after contract settles |
-| Performance | `skills/etrnl-performance-audit/**` | Low after contract settles |
+| Orchestrator | `skills/etrnl-audit/**` | Low after contract settles |
+| Production readiness | `skills/etrnl-audit-production/**` | Low after contract settles |
+| Performance | `skills/etrnl-audit-performance/**` | Low after contract settles |
 | Validator fixtures | `scripts/deep-audit-artifact-check.mjs`, `scripts/lib/deep-audit-categories.mjs`, `tests/fixtures/deep-audit/**` | Medium; one owner for script and fixtures |
 | Docs/registry | `docs/skills.md`, `docs/health-stack.md`, `scripts/lib/skill-lists.sh`, `tests/fixtures/skill-triggering/cases.json`, `CHANGELOG.md` | High; one integration owner |
 
@@ -513,7 +513,7 @@ For source rollback, revert only the files created or changed by this implementa
 
 ## Execution handoff
 
-Use `etrnl-execute` after Victor explicitly asks to implement this plan. Because `Execution scope: all_phases`, execution must complete every phase here or stop with a concrete blocker. Use implementation subagents for the orchestrator, production-readiness, and performance skill directories only after Phase 1 stabilizes the artifact contract and packet scopes prove no file overlap. Use direct parent edits for the shared registry and final integration wave unless the executor creates one authoritative integration packet.
+Use `etrnl-dev-execute` after Victor explicitly asks to implement this plan. Because `Execution scope: all_phases`, execution must complete every phase here or stop with a concrete blocker. Use implementation subagents for the orchestrator, production-readiness, and performance skill directories only after Phase 1 stabilizes the artifact contract and packet scopes prove no file overlap. Use direct parent edits for the shared registry and final integration wave unless the executor creates one authoritative integration packet.
 
 ## AUTOPLAN CEO REVIEW
 
@@ -627,7 +627,7 @@ DX completion summary:
 
 ## Plan Readiness Report
 
-- Scope Challenge: The plan avoids a single giant skill, reuses `etrnl-code-health`, `etrnl-parallel`, `etrnl-execute`, skill contract checks, prompt budget checks, and skill trigger smoke instead of adding a parallel control plane. It creates three requested skill surfaces, one category registry, and one mechanical artifact validator.
+- Scope Challenge: The plan avoids a single giant skill, reuses `etrnl-audit-code`, `etrnl-dev-parallel`, `etrnl-dev-execute`, skill contract checks, prompt budget checks, and skill trigger smoke instead of adding a parallel control plane. It creates three requested skill surfaces, one category registry, and one mechanical artifact validator.
 - Architecture Review: The orchestrator is a router, category skills own details, the registry owns category truth, and the validator owns evidence completeness. This preserves category expansion without making all-registered audit mode ambiguous. No live install or target-app mutation is part of this plan.
 - Code Quality Review: Skill entrypoints stay compact, detailed checks move into references, source specs are rewritten into directive language, and shared registry/docs/install updates have one integration owner to avoid drift.
 - Test Review: The plan includes positive and negative validator fixtures, registry checks, check-universe checks, consumed worklist hashes, synthetic authoring fixtures, private-string rejection, coverage-statement rejection, stable diagnostic assertions, skill trigger coverage, prompt-budget checks, skill-contract checks, workflow-tool tests, hook tests, install tests, doctor, and diff hygiene.

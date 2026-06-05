@@ -39,7 +39,7 @@ const emit = (result) => {
   );
   if (result.summary) console.log(result.summary);
   if (result.rawUpdateOutput) console.log(result.rawUpdateOutput);
-  console.log("Before using this skill, tell the user the update/bootstrap choices and ask to update now, snooze, or continue.");
+  console.log("Before using this skill, tell the user only about remaining remote/tool-stack choices that could not be auto-updated locally.");
 };
 
 if (!fs.existsSync(updateScript)) {
@@ -59,10 +59,9 @@ if (!fs.existsSync(updateScript)) {
 
 const update = spawnSync(process.execPath, [updateScript, "--json"], {
   encoding: "utf8",
-  timeout: 30_000,
+  timeout: 180_000,
   env: {
     ...process.env,
-    CLAUDE_CONTROL_PLANE_AUTO_UPDATE: "0",
     CLAUDE_CONTROL_PLANE_HOME: controlHome,
   },
 });

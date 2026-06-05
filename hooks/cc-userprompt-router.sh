@@ -255,13 +255,13 @@ cc_prompt_skill_update_note() {
   [[ -r "$update_script" ]] || return 0
 
   update_status=0
-  update_output="$(CLAUDE_CONTROL_PLANE_AUTO_UPDATE=0 node "$update_script" 2>/dev/null)" || update_status=$?
+  update_output="$(node "$update_script" 2>/dev/null)" || update_status=$?
   [[ "$update_status" == "0" ]] || return 0
   [[ "$update_output" =~ (CONTROL_PLANE_UPDATE_AVAILABLE|CONTROL_PLANE_REMOTE_UPDATE_AVAILABLE|TOOL_STACK_UPDATE_AVAILABLE|TOOL_STACK_MISSING) ]] || return 0
 
   max_chars="$(cc_prompt_context_cap "${CLAUDE_CONTROL_PLANE_SKILL_UPDATE_MAX_CHARS:-1200}")"
   update_output="${update_output:0:max_chars}"
-  notes+=("Skill update check before requested skill: $update_output"$'\n'"Before using the requested skill, tell the user an ETRNL or tool-stack update is available and ask whether to update/bootstrap now, snooze, or continue without updating.")
+  notes+=("Skill update check before requested skill: $update_output"$'\n'"Before using the requested skill, tell the user only about remaining remote/tool-stack choices that could not be auto-updated locally.")
 }
 
 documentation_health_pattern='documentation[[:space:]-]+health|docs[[:space:]-]+health|documentation[[:space:]-]+audit|docs[[:space:]-]+audit|documentation[[:space:]-]+drift|docs[[:space:]-]+drift|stale[[:space:]]+docs|readme[[:space:]-]+audit|adr[[:space:]-]+health|runbook[[:space:]-]+audit|api[[:space:]-]+docs[[:space:]-]+audit|tsdoc|jsdoc|code[[:space:]-]+documentation[[:space:]-]+health|onboarding[[:space:]-]+docs|documentation[[:space:]-]+pass'

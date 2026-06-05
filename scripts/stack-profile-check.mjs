@@ -31,6 +31,13 @@ function hasSecretLookingText(value) {
   return /sk-(proj-)?[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{20,}/.test(String(value));
 }
 
+function hasPrivateHomePath(value) {
+  const normalized = String(value).replace(/\\/g, "/");
+  return /\/Users\/[^/\s]+/i.test(normalized) ||
+    /^[A-Za-z]:\/Users\/[^/\s]+/i.test(normalized) ||
+    /\/mnt\/[a-z]\/Users\/[^/\s]+/i.test(normalized);
+}
+
 function walk(value, trail = [], visit) {
   visit(value, trail);
   if (!value || typeof value !== "object") return;
@@ -60,7 +67,7 @@ function validate(profile, file) {
   walk(profile, [], (value, trail) => {
     if (typeof value !== "string") return;
     if (hasSecretLookingText(value)) errors.push(`secret-looking value at ${trail.join(".") || "<root>"}`);
-    if (/\/Users\/[^/\s]+/.test(value)) errors.push(`private absolute home path at ${trail.join(".") || "<root>"}`);
+    if (hasPrivateHomePath(value)) errors.push(`private absolute home path at ${trail.join(".") || "<root>"}`);
   });
 
   if (profile.profile === "core") {

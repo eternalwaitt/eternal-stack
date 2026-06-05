@@ -335,7 +335,7 @@ Stop condition: any source gate failure, any full-profile silent skip, any stage
 
 ## Execution handoff
 
-Use `etrnl-execute` after Victor explicitly asks to implement this plan. Execution must complete `all_phases` or stop with a concrete blocker. Use parallel agents only after Group A defines fixtures and only for disjoint Hindsight, Beads, CodeGraph, and audit work. Live Claude home mutation is a separate explicit rollout checkpoint after source, staged core install, staged full install, rollback, and canaries pass.
+Use `etrnl-dev-execute` after Victor explicitly asks to implement this plan. Execution must complete `all_phases` or stop with a concrete blocker. Use parallel agents only after Group A defines fixtures and only for disjoint Hindsight, Beads, CodeGraph, and audit work. Live Claude home mutation is a separate explicit rollout checkpoint after source, staged core install, staged full install, rollback, and canaries pass.
 
 ## Plan Readiness Report
 

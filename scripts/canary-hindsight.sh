@@ -51,7 +51,7 @@ emit_ok() {
     jq -cn --arg mode "$mode" --arg health "$health" --arg settings "$settings" --arg config "$config" \
       '{ok:true,command:"canary-hindsight",mode:$mode,health:$health,settings:$settings,config:$config}'
   else
-    printf 'ok: hindsight plugin, config, and %s health passed\n' "$mode"
+    printf 'ok: hindsight plugin, config, and %s %s\n' "$mode" "$health"
   fi
 }
 

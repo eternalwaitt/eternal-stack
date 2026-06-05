@@ -220,12 +220,35 @@ backup_removed_skills() {
   done
 }
 
+backup_removed_skill_commands() {
+  local target_dir="$1"
+  local backup_dir="$2"
+  local skill
+  for skill in "${REMOVED_SKILLS[@]}"; do
+    if [[ -f "$target_dir/$skill.md" ]]; then
+      mkdir -p "$backup_dir"
+      cp -- "$target_dir/${skill:?}.md" "$backup_dir/${skill:?}.md"
+      removed_moved=1
+    fi
+  done
+}
+
 remove_removed_skills() {
   local target_dir="$1"
   local skill
   for skill in "${REMOVED_SKILLS[@]}"; do
     if [[ -d "$target_dir/$skill" ]]; then
       rm -rf -- "$target_dir/${skill:?}"
+    fi
+  done
+}
+
+remove_removed_skill_commands() {
+  local target_dir="$1"
+  local skill
+  for skill in "${REMOVED_SKILLS[@]}"; do
+    if [[ -f "$target_dir/$skill.md" ]]; then
+      rm -f -- "$target_dir/${skill:?}.md"
     fi
   done
 }
@@ -306,6 +329,7 @@ validate_source_install_inputs() {
   done
   for skill in "${OWNED_SKILLS[@]}"; do
     [[ -d "$ROOT/skills/$skill" ]] || missing+=("$ROOT/skills/$skill")
+    [[ -s "$ROOT/skills/$skill/SKILL.md" ]] || missing+=("$ROOT/skills/$skill/SKILL.md")
   done
     if (( ${#missing[@]} > 0 )); then
     printf 'install dry-run failed; missing source files:\n' >&2
@@ -323,7 +347,7 @@ if [[ "$DRY_RUN" == "1" ]]; then
   printf 'Dry run: would install Codex skill/runtime files into %s\n' "$CODEX_TARGET"
   printf 'Dry run: would copy settings, stack profile, and Hindsight config templates\n'
   if [[ "$RESET_CLAUDE_SETTINGS" == "1" ]]; then
-    printf 'Dry run: would back up %s/settings.json and reset it to vanilla before applying stack hooks\n' "$TARGET"
+    printf 'Dry run: would back up %s/settings.json and reset it to vanilla while preserving enabledPlugins before applying stack hooks\n' "$TARGET"
   else
     printf 'Dry run: would preserve existing %s/settings.json and merge stack hooks into it\n' "$TARGET"
   fi
@@ -406,6 +430,7 @@ done
 removed_moved=0
 backup_removed_skills "$TARGET/skills" "$BACKUP/skills"
 backup_removed_skills "$CODEX_TARGET/skills" "$BACKUP/codex-skills"
+backup_removed_skill_commands "$TARGET/commands" "$BACKUP/commands"
 # Source tests must pass before REMOVED_SKILLS are removed from installed skill homes.
 "$ROOT/tests/test-hooks.sh"
 "$ROOT/tests/test-workflow-tools.sh"
@@ -430,11 +455,15 @@ elif [[ "${CLAUDE_CONTROL_PLANE_BOOTSTRAP_TOOLS:-0}" == "1" ]]; then
 fi
 remove_removed_skills "$TARGET/skills"
 remove_removed_skills "$CODEX_TARGET/skills"
+remove_removed_skill_commands "$TARGET/commands"
 
 mkdir -p "$TARGET/hooks" "$TARGET/scripts" "$TARGET/docs/templates" "$TARGET/skills" "$TARGET/agents" "$TARGET/commands" "$TARGET/rules" "$TARGET/tests/lib" "$TARGET/tests/fixtures"
 copy_dir_contents "$ROOT/hooks" "$TARGET/hooks"
 sync_owned_skills "$ROOT/skills" "$TARGET/skills"
 sync_owned_skills "$ROOT/skills" "$CODEX_TARGET/skills" "$BACKUP/codex-skills"
+mkdir -p "$TARGET/skills/metadata" "$CODEX_TARGET/skills/metadata"
+copy_dir_contents "$ROOT/skills/metadata" "$TARGET/skills/metadata"
+copy_dir_contents "$ROOT/skills/metadata" "$CODEX_TARGET/skills/metadata"
 for agent in "${OWNED_AGENTS[@]}"; do
   cp -- "$ROOT/agents/$agent.md" "$TARGET/agents/$agent.md"
 done

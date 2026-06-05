@@ -34,6 +34,7 @@ const FORBIDDEN_KEYS = new Set([
 ]);
 const EVENT_VALUE_FLAGS = new Set(["--fixture", "--state-dir", "--session", "--run", "--cwd", "--event-kind", "--max-chars", "--input"]);
 const DEFAULT_PRIVATE_PROJECT_NAMES = ["tcg-collector", "agency-tbd", "core-suite", "openclaw-etrnl", "metacards-admin"];
+const DEFAULT_LOCK_STALE_MS = 120_000;
 const configuredPrivateProjectNames = (process.env.ETRNL_STATE_PRIVATE_PROJECT_NAMES || DEFAULT_PRIVATE_PROJECT_NAMES.join(","))
   .split(",")
   .map((value) => value.trim())
@@ -131,6 +132,23 @@ function sleepSync(ms) {
   }
 }
 
+function lockStaleMs() {
+  const raw = Number(process.env.ETRNL_STATE_LOCK_STALE_MS || DEFAULT_LOCK_STALE_MS);
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_LOCK_STALE_MS;
+}
+
+function removeStaleLock(lock) {
+  try {
+    const stat = fs.statSync(lock);
+    if (Date.now() - stat.mtimeMs < lockStaleMs()) return false;
+    fs.rmSync(lock, { recursive: true, force: true });
+    return true;
+  } catch (error) {
+    if (error && typeof error === "object" && error.code === "ENOENT") return true;
+    throw error;
+  }
+}
+
 export function withLock(root, fn) {
   const { lock } = statePaths(root);
   fs.mkdirSync(root, { recursive: true, mode: 0o700 });
@@ -142,6 +160,7 @@ export function withLock(root, fn) {
       break;
     } catch (error) {
       if (!error || typeof error !== "object" || error.code !== "EEXIST") throw error;
+      if (removeStaleLock(lock)) continue;
       sleepSync(25);
     }
   }
@@ -151,6 +170,19 @@ export function withLock(root, fn) {
   } finally {
     fs.rmSync(lock, { recursive: true, force: true });
   }
+}
+
+function hasPrivateAbsolutePathString(value) {
+  const normalized = String(value || "").replace(/\\/g, "/");
+  return /^~($|\/)/.test(normalized) ||
+    /^\/(?:Users|home|mnt|Volumes|private|tmp|var)\//i.test(normalized) ||
+    /^[A-Za-z]:\//.test(normalized);
+}
+
+function hasAbsoluteChangedFile(value) {
+  if (Array.isArray(value)) return value.some(hasAbsoluteChangedFile);
+  if (value && typeof value === "object") return Object.values(value).some(hasAbsoluteChangedFile);
+  return typeof value === "string" && hasPrivateAbsolutePathString(value);
 }
 
 function privacyReject(value, trail = []) {
@@ -165,7 +197,7 @@ function privacyReject(value, trail = []) {
   if (typeof value !== "string") return "";
   if (/sk-(proj-)?[A-Za-z0-9_-]{20,}/.test(value)) return "secret-looking token";
   if (/\.codex\/sessions|\.claude\/projects/.test(value)) return "private transcript path";
-  if (/\/Users\/[^/\s]+/.test(value)) return "private absolute home path";
+  if (hasPrivateAbsolutePathString(value)) return "private absolute path";
   if (privateProjectPattern?.test(value)) return "private project name";
   return "";
 }
@@ -185,7 +217,7 @@ export function normalizeEvent(raw, options = {}) {
     return { ok: false, error: jsonError("SchemaValidationError", `Unsupported eventKind: ${eventKind || "<missing>"}`, "Use one of the documented ETRNL event kinds.") };
   }
   const data = eventData(raw);
-  if (Array.isArray(data.changedFiles) && data.changedFiles.some((file) => path.isAbsolute(String(file)))) {
+  if (hasAbsoluteChangedFile(data.changedFiles)) {
     return { ok: false, error: jsonError("PrivacyRejectError", "changedFiles must contain relative paths only.", "Store only repo-relative paths or counts in ETRNL state.") };
   }
   const reject = privacyReject(data);

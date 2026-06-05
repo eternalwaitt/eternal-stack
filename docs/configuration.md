@@ -16,7 +16,7 @@ Install:
 
 - `CLAUDE_CONTROL_PLANE_STACK_PROFILE=core|full` sets the default install profile when `--profile` is omitted.
 - `CLAUDE_CONTROL_PLANE_ENABLE_STRICT=1` merges strict blocker hooks during install.
-- `./scripts/install.sh` backs up and resets managed `~/.claude/settings.json` to vanilla before applying the selected stack. Use `--preserve-settings` only for a deliberate merge into existing settings.
+- `./scripts/install.sh` backs up and resets managed `~/.claude/settings.json` to a vanilla settings shell before applying the selected stack, while preserving existing `enabledPlugins`. Use `--preserve-settings` only for a deliberate merge into existing settings.
 - `CLAUDE_CONTROL_PLANE_INSTALL_STARTUP=1` overwrites installed `AGENTS.md` and `CLAUDE.md` startup files instead of preserving existing local copies.
 - `CLAUDE_CONTROL_PLANE_BOOTSTRAP_PROJECTS=1` lets a full install initialize or verify project-local `.codegraph` and `.beads` state.
 - `CLAUDE_CONTROL_PLANE_HINDSIGHT_MODE=local-daemon|external-api|docker-server` selects full-profile Hindsight provisioning mode.
@@ -28,7 +28,7 @@ Updater:
 
 - `CLAUDE_CONTROL_PLANE_UPDATE_CHECK=0` disables startup drift checks (enabled by default when unset).
 - `CLAUDE_CONTROL_PLANE_REMOTE_UPDATE_CHECK=1` enables cached upstream checks (disabled by default when unset).
-- `CLAUDE_CONTROL_PLANE_AUTO_UPDATE=1` lets startup repair a stale local install from the recorded source checkout (disabled by default when unset).
+- `CLAUDE_CONTROL_PLANE_AUTO_UPDATE=0` disables automatic local control-plane repair from the recorded source checkout. Local auto-update is enabled by default so stale installs do not stall on a prompt.
 - `CLAUDE_CONTROL_PLANE_UPDATE_INTERVAL_SEC` controls the remote-check cache window; default is `21600` seconds (six hours) when unset.
 - `CLAUDE_CONTROL_PLANE_INSTALL_STATE` and `CLAUDE_CONTROL_PLANE_UPDATE_STATE` override the installed metadata and update cache paths for tests or custom Claude homes.
 

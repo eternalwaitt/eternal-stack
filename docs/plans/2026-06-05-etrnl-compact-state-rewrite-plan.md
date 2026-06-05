@@ -246,8 +246,8 @@ Close every plan outcome through completion reconciliation. Source and staged in
 
 - Use `etrnl-dev-plan` for this plan and readiness gates.
 - Use `Hook Development` guidance for hook event boundaries, sync/async behavior, JSON stdout discipline, and matcher rules.
-- Use `etrnl-execute` when Victor asks to implement this plan.
-- Use `etrnl-parallel` only after task packets are split by the file ownership lanes above.
+- Use `etrnl-dev-execute` when Victor asks to implement this plan.
+- Use `etrnl-dev-parallel` only after task packets are split by the file ownership lanes above.
 - Use `code-simplifier` before final completion because the state layer can overgrow quickly.
 - Use `finding-duplicate-functions` for the migration/projection slices because execution-ledger, context-state, workflow-health, and hook state currently duplicate state concepts.
 - Use `brooks-audit` after implementation if available because this touches control-plane health and failure-mode surfacing.
@@ -424,7 +424,7 @@ Stop conditions:
 
 ## Execution handoff
 
-Use `etrnl-execute` inline for Phase 0 through Phase 2 if implementing serially. Use `etrnl-parallel` only after Group A and Group B define stable schemas and worker packets can be split by file ownership. Parallel workers must not share `workflow-health.mjs`, `execution-ledger.mjs`, `hooks/lib/state.sh`, `settings-audit.mjs`, or install scripts in the same wave.
+Use `etrnl-dev-execute` inline for Phase 0 through Phase 2 if implementing serially. Use `etrnl-dev-parallel` only after Group A and Group B define stable schemas and worker packets can be split by file ownership. Parallel workers must not share `workflow-health.mjs`, `execution-ledger.mjs`, `hooks/lib/state.sh`, `settings-audit.mjs`, or install scripts in the same wave.
 
 Initial execution packet:
 

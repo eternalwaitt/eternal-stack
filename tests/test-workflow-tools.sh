@@ -719,6 +719,32 @@ tool_effectiveness_codex_import_json="$(node "$ROOT/scripts/tool-effectiveness.m
 assert_json_expr "tool-effectiveness codex import sanitizes tool events" "$tool_effectiveness_codex_import_json" '.command == "import-codex" and .dryRun == true and .eventsImported == 2 and (.rejected | length) == 0'
 assert_json_expr "tool-effectiveness codex import preserves explicit outcomes" "$tool_effectiveness_codex_import_json" '(.events[] | select(.tool == "codegraph") | .eligible == true and .toolUsed == true and .usefulWork == true and .downstreamArtifact == true) and (.events[] | select(.tool == "beads") | .eligible == false and .toolUsed == false and .usefulWork == false and .downstreamArtifact == false)'
 assert_command "update shell syntax" bash -n "$ROOT/scripts/update.sh"
+auto_update_source="$TMPROOT/auto-update-source"
+auto_update_home="$TMPROOT/auto-update-home"
+mkdir -p "$auto_update_source/scripts" "$auto_update_home/control-plane"
+printf '%s\n' '#!/usr/bin/env bash' 'exit 0' >"$auto_update_source/scripts/install.sh"
+cat >"$auto_update_source/scripts/update.sh" <<'BASH'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+mkdir -p "$CLAUDE_HOME/control-plane"
+printf 'ran\n' >"$CLAUDE_HOME/auto-update-ran"
+BASH
+chmod +x "$auto_update_source/scripts/install.sh" "$auto_update_source/scripts/update.sh"
+printf '%s\n' '# Changelog' '' '## v0.0.1' >"$auto_update_source/CHANGELOG.md"
+jq -n --arg sourceRoot "$auto_update_source" '{
+  sourceRoot: $sourceRoot,
+  sourceCommit: "unknown",
+  sourceCommitShort: "unknown",
+  sourceVersion: "v0.0.1",
+  sourceFingerprint: "stale",
+  settingsMode: "default"
+}' >"$auto_update_home/control-plane/install.json"
+auto_disabled_json="$(CLAUDE_HOME="$auto_update_home" CODEX_HOME="$TMPROOT/auto-update-codex" CLAUDE_CONTROL_PLANE_HOME="$auto_update_home" CLAUDE_CONTROL_PLANE_AUTO_UPDATE=0 node "$ROOT/scripts/update-check.mjs" --json)"
+assert_json_expr "update-check opt-out reports stale local install" "$auto_disabled_json" '.ok == true and .localUpdateAvailable == true and .autoUpdate == ""'
+assert_no_file "update-check opt-out does not run updater" "$auto_update_home/auto-update-ran"
+auto_default_json="$(CLAUDE_HOME="$auto_update_home" CODEX_HOME="$TMPROOT/auto-update-codex" CLAUDE_CONTROL_PLANE_HOME="$auto_update_home" node "$ROOT/scripts/update-check.mjs" --json)"
+assert_json_expr "update-check auto-runs local updater by default" "$auto_default_json" '.ok == true and .localUpdateAvailable == false and (.autoUpdate | startswith("CONTROL_PLANE_AUTO_UPDATED "))'
+assert_file "update-check default auto ran updater" "$auto_update_home/auto-update-ran"
 assert_command "bootstrap tools shell syntax" bash -n "$ROOT/scripts/bootstrap-tools.sh"
 merge_target="$TMPROOT/settings-target.json"
 merge_template="$TMPROOT/settings-template.json"

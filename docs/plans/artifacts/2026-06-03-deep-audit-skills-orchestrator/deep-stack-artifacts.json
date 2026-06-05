@@ -22,9 +22,9 @@
           "scripts/skill-contract-check.mjs",
           "scripts/prompt-budget-check.mjs",
           "scripts/skill-behavior-smoke.mjs",
-          "skills/etrnl-code-health/SKILL.md",
-          "skills/etrnl-parallel/SKILL.md",
-          "skills/etrnl-execute/SKILL.md"
+          "skills/etrnl-audit-code/SKILL.md",
+          "skills/etrnl-dev-parallel/SKILL.md",
+          "skills/etrnl-dev-execute/SKILL.md"
         ]
       },
       {
@@ -103,9 +103,9 @@
       "tests"
     ],
     "existingAnalogs": [
-      "skills/etrnl-code-health/SKILL.md",
-      "skills/etrnl-parallel/SKILL.md",
-      "skills/etrnl-execute/SKILL.md",
+      "skills/etrnl-audit-code/SKILL.md",
+      "skills/etrnl-dev-parallel/SKILL.md",
+      "skills/etrnl-dev-execute/SKILL.md",
       "scripts/deep-stack-check.mjs",
       "scripts/skill-contract-check.mjs",
       "scripts/prompt-budget-check.mjs",
@@ -123,19 +123,19 @@
     ],
     "decisions": [
       {
-        "surface": "skills/etrnl-deep-audit",
+        "surface": "skills/etrnl-audit",
         "newSurface": true,
-        "reuseDecision": "Create a router skill instead of expanding etrnl-code-health.",
+        "reuseDecision": "Create a router skill instead of expanding etrnl-audit-code.",
         "newSurfaceJustification": "Application deep-audit category orchestration is a distinct workflow from repo health inventory and gate closure."
       },
       {
-        "surface": "skills/etrnl-production-readiness",
+        "surface": "skills/etrnl-audit-production",
         "newSurface": true,
         "reuseDecision": "Create a category skill with reference-backed checks.",
         "newSurfaceJustification": "Production-readiness ownership is broad and needs direct invocation without loading performance details."
       },
       {
-        "surface": "skills/etrnl-performance-audit",
+        "surface": "skills/etrnl-audit-performance",
         "newSurface": true,
         "reuseDecision": "Create a category skill with a six-lane fanout reference.",
         "newSurfaceJustification": "Performance has a different execution model and runtime evidence contract from production readiness."
@@ -289,7 +289,7 @@
       "planItemId": "orchestrator-plan",
       "requestedOutcome": "Write a plan for the thin orchestrator and master audit skills.",
       "classification": "DONE",
-      "evidence": "Plan file covers etrnl-deep-audit, etrnl-production-readiness, and etrnl-performance-audit.",
+      "evidence": "Plan file covers etrnl-audit, etrnl-audit-production, and etrnl-audit-performance.",
       "changedReason": "",
       "acceptedBy": "",
       "impact": "low"
@@ -310,8 +310,8 @@
       "createsNewSurface": true,
       "searchedPaths": ["docs/plans", "skills", "scripts", "docs", "tests"],
       "analogs": [
-        "skills/etrnl-code-health/SKILL.md",
-        "skills/etrnl-parallel/SKILL.md",
+        "skills/etrnl-audit-code/SKILL.md",
+        "skills/etrnl-dev-parallel/SKILL.md",
         "scripts/deep-stack-check.mjs",
         "scripts/skill-contract-check.mjs"
       ],

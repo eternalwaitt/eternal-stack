@@ -17,7 +17,8 @@ const claudeHome = process.env.CLAUDE_HOME || path.join(os.homedir(), ".claude")
 const bootstrapToolsPath = path.join(claudeHome, "scripts", "bootstrap-tools.sh");
 const statePath = process.env.CLAUDE_CONTROL_PLANE_TOOL_STACK_STATE ||
   path.join(claudeHome, "control-plane", "tool-stack-state.json");
-const latestTtlSec = Number(process.env.CLAUDE_CONTROL_PLANE_TOOL_UPDATE_INTERVAL_SEC || 21_600);
+const DEFAULT_LATEST_TTL_SEC = 21_600;
+const latestTtlSec = parsePositiveIntegerEnv("CLAUDE_CONTROL_PLANE_TOOL_UPDATE_INTERVAL_SEC", DEFAULT_LATEST_TTL_SEC);
 const jsonMode = hasFlag("--json");
 const explainMode = hasFlag("--explain");
 const force = hasFlag("--force");
@@ -30,6 +31,15 @@ function usage() {
 }
 
 if (hasFlag("--help") || hasFlag("-h")) usage();
+
+function parsePositiveIntegerEnv(name, fallback) {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const parsed = Number(raw);
+  if (Number.isInteger(parsed) && parsed > 0) return parsed;
+  console.error(`warning: ignoring invalid ${name}=${JSON.stringify(raw)}; using ${fallback}`);
+  return fallback;
+}
 
 function run(command, commandArgs, options = {}) {
   const result = spawnSync(command, commandArgs, {

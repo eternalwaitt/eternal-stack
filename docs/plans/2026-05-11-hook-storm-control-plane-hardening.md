@@ -68,7 +68,7 @@ PreToolUse input
 - `hooks/fixtures/events/`: add scrubbed single-event fixtures for RTK/rg flags, output limiters, repeated verification, Markdown safety-removal, prod `prisma db push`, `veloz db credentials`, read-only subagent packets, and sticky sycophancy.
 - `tests/test-hooks.sh`: add assertions for every new fixture and update existing expectations.
 - `docs/health-stack.md`: document new guard semantics and operator expectations for prod schema/secret commands.
-- `docs/skills.md`: document the expected workflow impact for `etrnl-dev-plan`, `etrnl-execute`, and `etrnl-dev-review`.
+- `docs/skills.md`: document the expected workflow impact for `etrnl-dev-plan`, `etrnl-dev-execute`, and `etrnl-dev-review`.
 - `CHANGELOG.md`: add an unreleased entry because hook behavior and install-visible workflow semantics change.
 - `scripts/doctor.sh`: add checks that replay fixtures and changelog coverage are present.
 
@@ -191,7 +191,7 @@ PreToolUse input
 ## Skill/tool routing
 
 - `etrnl-dev-plan`: used for this file-backed implementation plan.
-- `etrnl-execute`: use for implementation after this plan is accepted.
+- `etrnl-dev-execute`: use for implementation after this plan is accepted.
 - `etrnl-dev-review`: required before any commit/push/deploy of this hook change.
 - `eternal-best-practices`: relevant because prod DB, credential, and finance-domain guard behavior is in scope.
 - `code-simplifier`: run after implementation to prevent hook logic from becoming an unreadable regex pile.
@@ -299,7 +299,7 @@ E2E/EVAL NEEDS
 
 ## Execution handoff
 
-- Use `etrnl-execute` in a single session if implementing locally without parallel agents.
+- Use `etrnl-dev-execute` in a single session if implementing locally without parallel agents.
 - Use parallel agents only if explicitly requested:
   - Worker 1 owns command/repeat state files.
   - Worker 2 owns evidence/edit-safety files.

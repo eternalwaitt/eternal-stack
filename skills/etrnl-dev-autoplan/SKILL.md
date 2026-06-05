@@ -151,7 +151,7 @@ Before finalizing any plan for a capability or feature that competes with or par
    - `review-log.jsonl` when review findings are created
    - `browser-qa-report.json` when UI/browser behavior changes
    - context-save when work is long-running or likely to be resumed
-1. The final plan must pass `node ~/.claude/scripts/deep-stack-check.mjs validate-plan --plan <plan-path>` and `node ~/.claude/scripts/plan-readiness-check.mjs <plan-path>` before `/etrnl-dev-execute` starts. A result that says deep-stack metadata is absent is not a pass for a newly generated final plan; add the bundle and rerun the gate.
+12. The final plan must pass `node ~/.claude/scripts/deep-stack-check.mjs validate-plan --plan <plan-path>` and `node ~/.claude/scripts/plan-readiness-check.mjs <plan-path>` before `/etrnl-dev-execute` starts. A result that says deep-stack metadata is absent is not a pass for a newly generated final plan; add the bundle and rerun the gate.
     Use the exact readiness-compatible headings in the Output section. Do not leave `TODO`, `TBD`, "handle edge cases", "wire it up", or "similar to above" in the plan.
 
 ## Task Packet Drafting

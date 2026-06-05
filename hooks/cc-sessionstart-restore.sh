@@ -98,7 +98,7 @@ WORKFLOW_ISSUE_FILTER='
 '
 if [[ "${CLAUDE_CONTROL_PLANE_UPDATE_CHECK:-1}" != "0" && -f "$SCRIPT_DIR/../scripts/update-check.mjs" ]] && command -v node >/dev/null 2>&1; then
   update_check_cmd=(node "$SCRIPT_DIR/../scripts/update-check.mjs")
-  [[ "${CLAUDE_CONTROL_PLANE_AUTO_UPDATE:-0}" == "1" ]] && update_check_cmd+=(--auto)
+  [[ "${CLAUDE_CONTROL_PLANE_AUTO_UPDATE:-1}" != "0" ]] && update_check_cmd+=(--auto)
   [[ "${CLAUDE_CONTROL_PLANE_REMOTE_UPDATE_CHECK:-0}" == "1" ]] && update_check_cmd+=(--remote)
   update_check_enabled=1
   if ! update_stdout_file="$(mktemp "${TMPDIR:-/tmp}/cc-update-check-out.XXXXXX")"; then

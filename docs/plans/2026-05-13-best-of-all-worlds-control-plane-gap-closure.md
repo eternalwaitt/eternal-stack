@@ -98,7 +98,7 @@ Current code facts:
 
 ## Skill/tool routing
 
-- Use `etrnl-dev-plan` for plan shape and readiness, `etrnl-autoplan` for the review gauntlet, `etrnl-execute` for implementation, `etrnl-dev-review`/CodeRabbit for second-pass review, and `etrnl-qa-browser` for UI artifact evidence.
+- Use `etrnl-dev-plan` for plan shape and readiness, `etrnl-dev-autoplan` for the review gauntlet, `etrnl-dev-execute` for implementation, `etrnl-dev-review`/CodeRabbit for second-pass review, and `etrnl-audit-browser` for UI artifact evidence.
 - Use `node scripts/plan-readiness-check.mjs`, `node scripts/skill-contract-check.mjs`, `node scripts/skill-behavior-smoke.mjs`, `./tests/test-hooks.sh`, `./tests/test-workflow-tools.sh`, and `./scripts/doctor.sh` as deterministic gates.
 
 ## Test plan
@@ -268,10 +268,10 @@ Owner files:
 - `scripts/execution-ledger.mjs`
 - `scripts/workflow-health.mjs`
 - `scripts/plan-readiness-check.mjs`
-- `skills/etrnl-autoplan/SKILL.md`
+- `skills/etrnl-dev-autoplan/SKILL.md`
 - `skills/etrnl-dev-plan/SKILL.md`
-- `skills/etrnl-execute/SKILL.md`
-- `skills/etrnl-qa-browser/SKILL.md`
+- `skills/etrnl-dev-execute/SKILL.md`
+- `skills/etrnl-audit-browser/SKILL.md`
 - `agents/etrnl-executor.md`
 - `agents/etrnl-browser-qa.md`
 - `tests/test-workflow-tools.sh`
@@ -287,8 +287,8 @@ Implementation:
    - `phaseStatus`
 2. Add `execution-ledger.mjs set-phase` and `execution-ledger.mjs record-uat` commands.
 3. Add plan-readiness recognition for optional `Phase`, `Workstream`, and `UAT Gate` sections.
-4. Update `etrnl-autoplan` and `etrnl-dev-plan` to include optional phase/UAT sections when a plan spans multiple sessions, routes, or workstreams.
-5. Update `etrnl-execute` to block phase completion when `uatOpenFindings > 0`.
+4. Update `etrnl-dev-autoplan` and `etrnl-dev-plan` to include optional phase/UAT sections when a plan spans multiple sessions, routes, or workstreams.
+5. Update `etrnl-dev-execute` to block phase completion when `uatOpenFindings > 0`.
 6. Update `workflow-health` to summarize UAT state.
 7. Add fixtures for:
    - plan without phase metadata
@@ -313,8 +313,8 @@ Move browser QA from "report exists" toward inspectable route/viewport/tool evid
 Owner files:
 
 - `scripts/browser-qa-report.mjs`
-- `skills/etrnl-qa-browser/SKILL.md`
-- `skills/etrnl-execute/SKILL.md`
+- `skills/etrnl-audit-browser/SKILL.md`
+- `skills/etrnl-dev-execute/SKILL.md`
 - `agents/etrnl-browser-qa.md`
 - `docs/skills.md`
 - `tests/test-workflow-tools.sh`
@@ -348,8 +348,8 @@ Implementation:
    - console/network summaries are unchecked
    - `consoleErrors` or `failedRequests` are non-numeric
 4. Add `browser-qa-report.mjs migrate <file>` from v1 to v2 draft.
-5. Update `etrnl-qa-browser` to require matrix evidence for UI work.
-6. Update `etrnl-execute` artifact examples to prefer v2 reports. Do not change ledger schema in this phase.
+5. Update `etrnl-audit-browser` to require matrix evidence for UI work.
+6. Update `etrnl-dev-execute` artifact examples to prefer v2 reports. Do not change ledger schema in this phase.
 7. Add installed smoke commands for unchecked fail, checked pass, v2 matrix pass, v2 matrix fail.
 
 Acceptance:
@@ -397,10 +397,10 @@ Fixture shape:
 
 ```json
 {
-  "name": "browser qa prompt routes etrnl-qa-browser",
+  "name": "browser qa prompt routes etrnl-audit-browser",
   "prompt": "run browser QA on the changed routes",
-  "expectedSkills": ["etrnl-qa-browser"],
-  "unexpectedSkills": ["etrnl-execute"]
+  "expectedSkills": ["etrnl-audit-browser"],
+  "unexpectedSkills": ["etrnl-dev-execute"]
 }
 ```
 
@@ -424,8 +424,8 @@ Owner files:
 - `hooks/cc-posttoolbatch-observer.sh`
 - `hooks/cc-stop-verifier.sh`
 - `hooks/lib/state.sh`
-- `skills/etrnl-execute/SKILL.md`
-- `skills/etrnl-parallel/SKILL.md`
+- `skills/etrnl-dev-execute/SKILL.md`
+- `skills/etrnl-dev-parallel/SKILL.md`
 - `agents/etrnl-executor.md`
 - `agents/etrnl-spec-reviewer.md`
 - `agents/etrnl-quality-reviewer.md`

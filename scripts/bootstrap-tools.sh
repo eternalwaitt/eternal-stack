@@ -157,14 +157,10 @@ need_command() {
 
 validate_external_hindsight_url() {
   local url="${1:-}"
-  case "$url" in
-    http://?*|https://?*) ;;
-    *)
-      printf 'bootstrap error: HINDSIGHT_API_URL must be an http(s) URL with a host\n' >&2
-      return 1
-      ;;
-  esac
-  [[ "$url" != "http://" && "$url" != "https://" && "$url" != *" "* ]]
+  if [[ ! "$url" =~ ^https?://[^/[:space:]]+([:/?].*)?$ ]]; then
+    printf 'bootstrap error: HINDSIGHT_API_URL must be an http(s) URL with a host\n' >&2
+    return 1
+  fi
 }
 
 install_codegraph() {
