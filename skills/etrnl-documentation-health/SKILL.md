@@ -29,6 +29,10 @@ Documentation health is never satisfied by prose alone.
 - In `fix`/`execute` mode, remediate every valid item or terminally dispose it as `false_positive_with_evidence`, `accepted_risk_with_owner`, or `blocked` with evidence. Do not leave `open` items in the final state.
 - Baseline, ratchet, waiver, or snapshot creation is not remediation. Use it only when the user explicitly requests it, and record the unresolved item as `blocked` or `accepted_risk_with_owner` with owner, evidence, and reason.
 - Lowering the bar, creating a new baseline, or deferring work cannot be counted as a fix, a health improvement, or a closed finding unless the terminal disposition above is complete.
+- Deterministic docs gates and overall documentation health are separate. A green repo-owned docs gate proves the gate only; it does not prove documentation freshness against code, current runtime, active plans, or renamed architecture.
+- `FINAL_DOC_HEALTH_SCORE: 100/100` requires zero remaining stale docs, misleading docs, outdated claims, and stale active-plan/work-queue docs. Accepted or blocked stale documentation can close the ledger, but it lowers the final score.
+- `FINAL_DOC_HEALTH_SCORE: 100/100` also requires every documentation file in scope to be reviewed or explicitly excluded, plus recent commit and PR/change evidence checked for documentation impact.
+- Historical date stamps are not enough to treat stale text as harmless. A plan, handover, queue, migration note, or runbook is `archive` only when its path, title, or banner clearly marks it non-current and it cannot be mistaken for live architecture or operations.
 
 ## Required Flow
 
@@ -45,15 +49,21 @@ Documentation health is never satisfied by prose alone.
    - If the repo has no JS/TS source surface, write `COMMENT_HEALTH_NOT_APPLICABLE:` with evidence from inventory.
 5. Classify every documentation surface as `canonical`, `secondary`, `stale`, `misleading`, `archive`, `generated`, `duplicate`, `delete_candidate`, or `missing`.
 6. Map each important doc claim to a source of truth: scripts, package manifests, routes, schemas, migrations, tests, hooks, CI, deployment config, typed env modules, or actual installed/runtime state when relevant.
-7. Run deterministic documentation gates when available:
+7. Build a freshness and drift proof before scoring:
+   - Inspect recent local commits with `git log --name-status` and, when GitHub is available for the repo, latest merged/open PRs with `gh pr list`/`gh pr view` or `gh api`; record unavailable GitHub access in `CHECKS_SKIPPED` with the exact command and reason.
+   - Extract renamed systems, removed components, deprecated model names, old domains, old ports, old providers, old env names, old commands, and architecture labels from code, config, recent diffs, and known source-truth docs.
+   - Search docs, AI context, active plans, handovers, queues, runbooks, and comments for those stale references with `rg`; use structural search for code-like references when installed, and record `CHECKS_SKIPPED` when unavailable or not applicable.
+   - Record search terms, hit counts, inspected hits, false positives, fixed hits, and remaining hits.
+   - Count active plan, work-queue, roadmap, handover, migration, and status docs separately because stale current-work docs create high-confidence agent drift.
+8. Run deterministic documentation gates when available:
    - `markdownlint-cli2`, `cspell`, `vale`, link checkers, TypeDoc/API Extractor, or repo-specific docs scripts.
    - For this control plane, include `node scripts/skill-contract-check.mjs`, `tests/test-hooks.sh`, and `scripts/doctor.sh` after any repo-owned skill/docs change.
-8. Create an actionable findings ledger and remediation plan with severity, evidence, disposition, owner/action needed when known, verification, and exact next step.
-9. In `fix`/`execute` mode, patch the smallest canonical surface and remediate every valid finding. Update stale docs instead of adding competing docs. Add local READMEs or comments only where they prevent real misuse.
-10. Terminally dispose unresolved findings before final completion. Allowed terminal non-fixed states are `false_positive_with_evidence`, `accepted_risk_with_owner`, and `blocked`; each needs evidence and owner/action where relevant.
-11. Do not create a baseline, ratchet, waiver, or snapshot as a substitute for remediation unless explicitly requested. If requested, record the unresolved item as `blocked` or `accepted_risk_with_owner` with owner, evidence, and reason.
-12. Rerun validation. Do not claim 100/100 with open findings unless each one is blocked or accepted with owner and evidence.
-13. Final completion is hook-gated. A short narrative such as "docs look healthy" is not valid completion. The final report must include coverage counters, comment-health counters, source-of-truth mapping, documentation classifications, a findings ledger with severity/disposition/verification, skipped-check reasons, and the full scorecard.
+9. Create an actionable findings ledger and remediation plan with severity, evidence, disposition, owner/action needed when known, verification, and exact next step.
+10. In `fix`/`execute` mode, patch the smallest canonical surface and remediate every valid finding. Update stale docs instead of adding competing docs. Add local READMEs or comments only where they prevent real misuse.
+11. Terminally dispose unresolved findings before final completion. Allowed terminal non-fixed states are `false_positive_with_evidence`, `accepted_risk_with_owner`, and `blocked`; each needs evidence and owner/action where relevant.
+12. Do not create a baseline, ratchet, waiver, or snapshot as a substitute for remediation unless explicitly requested. If requested, record the unresolved item as `blocked` or `accepted_risk_with_owner` with owner, evidence, and reason.
+13. Rerun validation. Do not claim 100/100 with stale, misleading, or outdated documentation remaining, even when every remaining item has a terminal owner disposition.
+14. Final completion is hook-gated. A short narrative such as "docs look healthy" is not valid completion. The final report must include coverage counters, freshness and drift counters, comment-health counters, source-of-truth mapping, documentation classifications, a findings ledger with severity/disposition/verification, skipped-check reasons, and the full scorecard.
 
 ## Parallel Subagent Fan-Out
 
@@ -84,6 +94,43 @@ High-priority drift checks:
 - skill/AI docs vs actual skills, hooks, settings, and agent files.
 - changelog vs recent commits, tags, release notes, and shipped behavior.
 - links and paths vs actual files.
+
+## Freshness And Drift Proof
+
+Freshness proof is mandatory for every scored run. Do not infer freshness from a passing lint/link/doc gate.
+
+Required evidence:
+
+- recent-change review covering local commits and GitHub PRs when available, including changed source files, changed docs, merged/open PR context, and docs-impact conclusions;
+- source-truth matrix covering current commands, active architecture, runtime topology, API/data contracts, env/secrets surfaces, install/update/rollback paths, and agent-facing workflow contracts;
+- stale reference search terms derived from current code/config and renamed or removed concepts, not only generic words like `deprecated`;
+- active plan, work-queue, handover, roadmap, migration, and status-doc review with path classifications;
+- explicit disposition for every hit that implies a current architecture, command, provider, model, queue, migration, or runtime that no longer exists.
+
+Required final counters:
+
+- `DOC_CLAIMS_CHECKED:`
+- `RECENT_COMMITS_REVIEWED:`
+- `RECENT_PRS_REVIEWED:`
+- `RECENT_CHANGE_DOC_IMPACT_CHECKS:`
+- `SOURCE_TRUTH_MAPPINGS_REVIEWED:`
+- `STALE_REFERENCE_SEARCHES_RUN:`
+- `OUTDATED_DOC_CLAIMS_FOUND:`
+- `OUTDATED_DOC_CLAIMS_REMAINING:`
+- `STALE_DOCS_FOUND:`
+- `STALE_DOCS_REMAINING:`
+- `MISLEADING_DOCS_FOUND:`
+- `MISLEADING_DOCS_REMAINING:`
+- `ACTIVE_PLAN_QUEUE_DOCS_REVIEWED:`
+- `ACTIVE_PLAN_QUEUE_DOCS_STALE:`
+
+Score rules:
+
+- 100/100 requires all `*_REMAINING` stale/outdated/misleading counters and `ACTIVE_PLAN_QUEUE_DOCS_STALE` to be `0`.
+- 100/100 requires `DOCS_FILES_REVIEWED` to equal `DOCS_FILES_TOTAL` unless excluded paths are listed with reasons outside the total.
+- A run with no stale-reference searches, no checked doc claims, or no source-truth mappings is incomplete no matter how many repo gates passed.
+- A run with no recent commits reviewed or no recent-change docs-impact checks is incomplete. If GitHub PR access is unavailable, record `RECENT_PRS_REVIEWED: 0` and the exact `CHECKS_SKIPPED` reason; do not claim GitHub evidence was reviewed.
+- Accepted risk or blocked stale documentation is allowed as a ledger disposition only. It is not compatible with 100/100 overall documentation health.
 
 ## Comment Health
 
@@ -137,8 +184,9 @@ Before final completion:
 3. List exclusions with evidence, not assumptions.
 4. Run the target repo health stack. If a gate is unavailable, record it in `CHECKS_SKIPPED` with reason.
 5. In `fix`/`execute` mode, rerun the checks that prove edited docs match source behavior and confirm no finding remains `open`.
-6. Report comment-health counters from `documentation-comment-health.mjs` or `COMMENT_HEALTH_NOT_APPLICABLE:` with evidence.
-7. Report scores 1-10 for root clarity, discoverability, freshness, architecture clarity, structure clarity, API/contract docs, runtime docs, ADRs, AI context, comments, onboarding, enforcement, and overall health.
+6. Report freshness and drift counters from the active source-truth review and stale-reference search proof.
+7. Report comment-health counters from `documentation-comment-health.mjs` or `COMMENT_HEALTH_NOT_APPLICABLE:` with evidence.
+8. Report scores 1-10 for root clarity, discoverability, freshness, architecture clarity, structure clarity, API/contract docs, runtime docs, ADRs, AI context, comments, onboarding, enforcement, and overall health.
 
 The stop hook enforces this contract with `documentation-health-ledger-check.mjs`.
 For this control plane, use `node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked` before conclusions and run at least one deterministic docs/skill validation gate before final completion.

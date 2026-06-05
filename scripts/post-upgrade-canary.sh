@@ -11,6 +11,7 @@ fi
 
 required_paths=(
   "commands/email-triage.md"
+  "commands/etrnl-plan.md"
   "hooks/cc-pretooluse-guard.sh"
   "hooks/cc-posttoolbatch-observer.sh"
   "hooks/cc-stop-verifier.sh"
@@ -20,6 +21,7 @@ required_paths=(
   "scripts/bootstrap-tools.sh"
   "scripts/browser-qa-report.mjs"
   "scripts/lib/evidence-trace.mjs"
+  "skills/etrnl-plan/SKILL.md"
   "control-plane/install.json"
 )
 

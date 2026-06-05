@@ -97,6 +97,36 @@ sync_owned_skills() {
   done
 }
 
+install_skill_command_shims() {
+  local target_dir="$1"
+  local command_file skill skill_file tmp
+  mkdir -p "$target_dir"
+  for skill in "${OWNED_SKILLS[@]}"; do
+    skill_file="$ROOT/skills/$skill/SKILL.md"
+    if [[ ! -f "$skill_file" ]]; then
+      printf 'fatal: missing skill source for slash command shim: %s\n' "$skill_file" >&2
+      return 1
+    fi
+    command_file="$target_dir/$skill.md"
+    tmp="$(mktemp "$command_file.tmp.XXXXXX")"
+    {
+      printf '%s\n' '---'
+      printf 'description: Invoke the ETRNL %s workflow.\n' "$skill"
+      printf 'argument-hint: <request>\n'
+      printf '%s\n' '---'
+      printf '\n'
+      printf 'User request: $ARGUMENTS\n\n'
+      printf 'Follow this ETRNL skill contract exactly:\n\n'
+      printf '<etrnl_skill_contract name="%s">\n' "$skill"
+      while IFS= read -r line || [[ -n "$line" ]]; do
+        printf '%s\n' "$line"
+      done <"$skill_file"
+      printf '</etrnl_skill_contract>\n'
+    } >"$tmp"
+    mv -- "$tmp" "$command_file"
+  done
+}
+
 backup_legacy_skills() {
   local target_dir="$1"
   local backup_dir="$2"
@@ -232,6 +262,11 @@ for command_name in "${OWNED_COMMANDS[@]}"; do
     cp -- "$TARGET/commands/$command_name.md" "$BACKUP/commands/$command_name.md"
   fi
 done
+for skill in "${OWNED_SKILLS[@]}"; do
+  if [[ -f "$TARGET/commands/$skill.md" ]]; then
+    cp -- "$TARGET/commands/$skill.md" "$BACKUP/commands/$skill.md"
+  fi
+done
 
 mkdir -p "$BACKUP/skills"
 for skill in "${OWNED_SKILLS[@]}"; do
@@ -287,6 +322,7 @@ done
 for command_name in "${OWNED_COMMANDS[@]}"; do
   cp -- "$ROOT/commands/$command_name.md" "$TARGET/commands/$command_name.md"
 done
+install_skill_command_shims "$TARGET/commands"
 copy_dir_contents "$ROOT/docs" "$TARGET/docs"
 rules_tmp="$TARGET/rules/etrnl.tmp"
 rules_old="$TARGET/rules/etrnl.old"
@@ -436,6 +472,8 @@ verify_install_state() {
   [[ -x "$CODEX_TARGET/scripts/update-check.mjs" ]] || missing+=("codex scripts/update-check.mjs")
   [[ -x "$CODEX_TARGET/scripts/skill-update-prompt.mjs" ]] || missing+=("codex scripts/skill-update-prompt.mjs")
   for file in "${OWNED_SKILLS[@]}"; do
+    [[ -f "$TARGET/skills/$file/SKILL.md" ]] || missing+=("skills/$file/SKILL.md")
+    [[ -f "$TARGET/commands/$file.md" ]] || missing+=("commands/$file.md")
     [[ -f "$CODEX_TARGET/skills/$file/SKILL.md" ]] || missing+=("codex skills/$file/SKILL.md")
   done
   if (( ${#missing[@]} > 0 )); then

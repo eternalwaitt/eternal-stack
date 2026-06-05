@@ -177,6 +177,16 @@ for skill in "${OWNED_SKILLS[@]}"; do
   fi
 done
 
+mkdir -p "$ROOT/commands"
+for skill in "${OWNED_SKILLS[@]}"; do
+  rm -f -- "$ROOT/commands/$skill.md"
+  if [[ -f "$BACKUP/commands/$skill.md" ]]; then
+    cp -- "$BACKUP/commands/$skill.md" "$ROOT/commands/$skill.md"
+    restored+=("commands/$skill.md")
+    restored_count=$((restored_count + 1))
+  fi
+done
+
 mkdir -p "$CODEX_TARGET/skills"
 for skill in "${OWNED_SKILLS[@]}"; do
   rm -rf -- "$CODEX_TARGET/skills/$skill"

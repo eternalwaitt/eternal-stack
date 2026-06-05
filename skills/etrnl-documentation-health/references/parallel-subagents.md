@@ -23,7 +23,8 @@ Use these lanes for no-skips repo documentation audits:
 | API/data/runtime | `etrnl-scout` | routes, schemas, migrations, env, CI, deploy, runbooks | contract/runtime drift matrix |
 | AI context and skills | `etrnl-adversary` | AGENTS, CLAUDE, rules, skills, agents, settings hooks | risky stale agent instructions |
 | Comment health | `etrnl-quality-reviewer` | public exports, contracts, schemas, security/auth, scripts, integrations | useful/missing/noise/stale comment findings |
-| Link/path sweep | `etrnl-scout` | docs plus `fd`/`rg` path references | deleted path, old name, stale command findings |
+| Recent change impact | `etrnl-scout` | recent `git log --name-status`, latest GitHub PRs when available, changed source/docs paths | docs-impact conclusions and stale terms from recent work |
+| Freshness, stale-term, and path sweep | `etrnl-scout` | docs, active plans, handovers, queues, runbooks, AI context, plus `fd`/`rg` path and stale-term references | deleted path, old name, stale command, stale architecture, and remaining-hit findings |
 
 ## Read-Only Packet Template
 
@@ -39,6 +40,8 @@ Use these lanes for no-skips repo documentation audits:
   "forbiddenFiles": ["secrets", "credentials", "private transcripts", "unrelated dirty files"],
   "expectedOutput": {
     "coverage": ["files inspected", "source truths checked"],
+    "recentChangeProof": ["commits reviewed", "PRs reviewed or skipped reason", "doc-impact conclusions"],
+    "freshnessProof": ["stale terms searched", "matches inspected", "false positives", "remaining hits"],
     "findings": ["id", "severity", "path", "evidence", "impact", "recommended_action", "disposition"],
     "skipped": ["check", "reason"]
   },

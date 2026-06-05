@@ -104,6 +104,7 @@ CRITICAL_SCRIPTS=(
 # Drives both the copy loop and the dry-run preflight so they cannot drift.
 # doctor.sh is copied under a different name and validated separately.
 INSTALL_SCRIPTS=(
+  install.sh
   code-health-inventory.mjs
   code-health-ledger-check.mjs
   documentation-comment-health.mjs

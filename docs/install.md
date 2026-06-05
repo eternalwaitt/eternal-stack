@@ -19,7 +19,7 @@ The installer:
 
 - backs up existing Claude settings and `CLAUDE.md`
 - backs up pre-existing repo-owned hooks, skills, and agent files so rollback can restore them or remove newly installed copies
-- copies reusable hooks, hook libraries, fixtures, docs, skills, and ETRNL agent templates
+- copies reusable hooks, hook libraries, fixtures, docs, skills, generated `etrnl-*` slash command shims, and ETRNL agent templates
 - copies control-plane assets:
   - public `AGENTS.md` baseline
   - tiny `CLAUDE.md` wrapper
@@ -32,6 +32,7 @@ The installer:
 - only overwrites existing `AGENTS.md`/`CLAUDE.md` when `CLAUDE_CONTROL_PLANE_INSTALL_STARTUP=1`
 - moves legacy repo-owned skill folders into the install backup before copying `etrnl-*` skills
   - legacy examples: `writing-plans`, `execute-plan`, `etrnl-run-plan`, `eternal-control-writing-plans`, or `eternal-*` control-plane folders
+- installs `~/.claude/commands/etrnl-*.md` slash command shims generated from the matching repo-owned skill contracts
 - installs repo-owned `etrnl-*` agents into `~/.claude/agents/` by default
 - writes `~/.claude/control-plane/install.json` with the source checkout, commit, version, installed source fingerprint, and settings mode
 - installs `~/.claude/scripts/update-check.mjs`, `update.sh`, and `uninstall.sh` so installed Claude sessions can explain, detect, and repair drift from the source checkout

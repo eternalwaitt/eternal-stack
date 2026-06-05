@@ -96,6 +96,12 @@
     "unexpectedSkills": ["etrnl-commit"]
   },
   {
+    "name": "dependency catalog consolidation routes etrnl-deps",
+    "prompt": "consolidate these dependency versions into a workspace catalog",
+    "expectedSkills": ["etrnl-deps"],
+    "unexpectedSkills": ["etrnl-commit"]
+  },
+  {
     "name": "disk cleanup prompt routes etrnl-disk-cleanup",
     "prompt": "free SSD space with a disk cleanup pass",
     "expectedSkills": ["etrnl-disk-cleanup"],

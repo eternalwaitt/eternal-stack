@@ -43,9 +43,9 @@ function git(argsForGit, root) {
 }
 
 function parseReleaseHeading(line) {
-  const match = line.match(/^## (v\d+\.\d+\.\d+) - (\d{4}-\d{2}-\d{2})\s*$/);
+  const match = line.match(/^## (v\d+\.\d+\.\d+)\s*$/);
   if (!match) return null;
-  return { version: match[1], date: match[2] };
+  return { version: match[1] };
 }
 
 function parseReleaseSections(lines) {
@@ -126,7 +126,7 @@ function validateUnreleasedSection(sourceLines) {
   unreleasedEntries = meaningfulLines(sourceLines.slice(unreleasedIndex + 1, nextHeadingIndex));
   topRelease = parseReleaseHeading(sourceLines[nextHeadingIndex]);
   if (!topRelease) {
-    errors.push(`First release heading must look like "## vX.Y.Z - YYYY-MM-DD": ${sourceLines[nextHeadingIndex]}`);
+    errors.push(`First release heading must be a semantic version heading like "## vX.Y.Z": ${sourceLines[nextHeadingIndex]}`);
   }
   return { topRelease, unreleasedEntries, errors };
 }
@@ -147,7 +147,7 @@ function validateGitTagAlignment(root, releaseVersions, topRelease) {
   }
   try {
     if (compareSemver(topRelease.version, latestTag) <= 0) {
-      errors.push(`HEAD has commits after ${latestTag}, but the latest changelog release is still ${topRelease.version}. Cut the next dated release section.`);
+      errors.push(`HEAD has commits after ${latestTag}, but the latest changelog release is still ${topRelease.version}. Cut the next semantic version section.`);
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -194,7 +194,7 @@ const releaseSections = parseReleaseSections(lines);
 const releaseVersions = new Set(releaseSections.map((release) => release.version));
 if (unreleasedEntries.length > 0) {
   const preview = unreleasedEntries.slice(0, 3).join(" | ");
-  errors.push(`CHANGELOG.md has ${unreleasedEntries.length} entries under ## Unreleased: ${preview}. Move them into a dated version section before claiming repo health.`);
+  errors.push(`CHANGELOG.md has ${unreleasedEntries.length} entries under ## Unreleased: ${preview}. Move them into a semantic version section before claiming repo health.`);
 }
 errors.push(...validateGitTagAlignment(root, releaseVersions, topRelease));
 errors.push(...validateUntaggedReleaseDrift(root, releaseSections));

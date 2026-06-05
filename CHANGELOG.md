@@ -2,8 +2,9 @@
 
 ## Unreleased
 
-## v0.1.7 - 2026-06-04
+## v0.2.0
 
+- Tighten `/etrnl-deps` with explicit audit/report read-only modes, catalog-first workspace version consolidation, related-package bundling, rollback command requirements, and dependency report fields.
 - Rename `/etrnl-fix-issue` to `/etrnl-systematic-debugging` and fold in a stricter root-cause workflow with hypothesis ranking, evidence-first reproduction, instrumentation boundaries, failed-fix escalation, and legacy install cleanup.
 - Complete the SkillsMP-driven P1/P2 ETRNL upgrades: add PR preflight, performance baseline, and disk-cleanup manifest helpers; register `/etrnl-security-audit`; add `prod-18-operability-prr`; enforce execution-wave drift, parallel packet critical-path/stop fields, documentation AI-context counters, browser QA trace/video/pageError evidence, and code-health risk hotspots.
 - Sync repo-owned ETRNL skills and Codex runtime helpers into both Claude and Codex homes during install/update, with separate install metadata, rollback cleanup, and install-test coverage for Codex update prompts.
@@ -26,10 +27,11 @@
 - Harden Claude/Codex session reliability: Codex RTK rewrites use `updatedInput`, unsafe `rg` forms proxy through RTK before execution, broad `.codex` scans are blocked, startup context reinjection is bounded, compact recovery records workflow breadcrumbs, and workflow-health reports stale runs, artifacts, UAT state, and next action.
 - Add and harden VIVAZ email-triage workflows: `/email-triage`, `/etrnl-email-reply-quality`, provider-verified Inbox Zero gates, queue-ready-without-mutation support, reply queue completion checks, ML insight routing, draft quality gates, and dry-run/queue-before-verify blockers.
 - Add documentation and code-health gates: `/etrnl-documentation-health`, deterministic comment-health counters, code-health inventory and ledger checks, shared audit exclusions, baseline-only completion blockers, and terminal findings requirements.
+- Tighten `/etrnl-documentation-health` so final reports must prove source-truth freshness with recent commit/PR impact review, stale-reference searches, active plan/work-queue counters, all-docs coverage, and a hard block on `100/100` while stale, misleading, outdated, or unreviewed docs remain.
 - Expand installed control-plane operations: rollback/update metadata, settings audit repair, strict hook templates, install-home doctor coverage, repo-owned agents, skill behavior smoke checks, replay fixtures, browser QA v2 matrix/hash validation, prompt-budget checks, changelog release hygiene, and post-upgrade canaries.
 - Add safety and quality guards for sycophancy, ownership deflection, dangerous filesystem paths, secret/prod commands with signed override tokens, schema migration evidence, output-limiter pipes, large edits, file sprawl, stale verification, repeated failures, and dev-server port collisions.
 
-## v0.1.6 - 2026-05-10
+## v0.1.6
 
 - Namespace repo-owned skills as `etrnl-*` and document the skill map.
 - Add `/etrnl-brainstorm` for design/spec work before implementation planning.

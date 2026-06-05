@@ -2,7 +2,7 @@
 
 ETRNL is the Claude control-plane skill family. Every skill shipped by this repo uses the `etrnl-` prefix so its origin is obvious in slash commands, hook state, and session summaries.
 
-Claude Code personal and project skills use hyphenated command names. If this control plane later ships as a Claude plugin, the plugin namespace can become `etrnl:<skill>`, but the installed skill commands in this repo are `etrnl-*`.
+Claude Code personal and project skills use hyphenated command names. If this control plane later ships as a Claude plugin, the plugin namespace can become `etrnl:<skill>`, but the installed skill commands in this repo are `etrnl-*`. Install materializes `~/.claude/commands/etrnl-*.md` shims from the repo-owned skill contracts so slash invocation works even when Claude Code does not expose `~/.claude/skills` directly.
 
 | Command | Invocation | Purpose |
 | --- | --- | --- |
@@ -19,7 +19,7 @@ Claude Code personal and project skills use hyphenated command names. If this co
 | `/etrnl-review` | Model or user | Reviews code, plans, risks, loose ends, and final pass readiness. |
 | `/etrnl-security-audit` | Model or user | Runs the registered security deep-audit category with exploitable-bug evidence, source/sink tracing, missing-control checks, reachability, confidence, and explicit non-findings. |
 | `/etrnl-commit` | User only | Reviews, verifies, stages, and commits relevant work. |
-| `/etrnl-deps` | User only | Handles targeted dependency maintenance with migration checks. |
+| `/etrnl-deps` | User only | Handles targeted dependency maintenance with migration checks, catalog consolidation, bot PR triage, and rollback evidence. |
 | `/etrnl-email-reply-quality` | Model or user | Checks VIVAZ outgoing email replies for banned dash typography, natural Brazilian Portuguese, AI tells, and humanizer cleanup before approval or send. |
 | `/etrnl-stress-test` | Model or user | Stress-tests architecture, rollout, migration, automation, and safety assumptions. |
 | `/etrnl-execute` | User only | Executes an approved readiness-checked implementation plan end to end with test-first source tasks, run ledger, write-mode implementation subagents for parallel-safe multi-file work, reviews, and verification. |
@@ -85,6 +85,7 @@ These skills are not owned by this repo, but the control plane knows about them 
 | `code-health-inventory.mjs` | `~/.claude/scripts/code-health-inventory.mjs` | Inventories tracked files and classifies audit coverage for no-skips code-health runs. |
 | `code-health-ledger-check.mjs` | `~/.claude/scripts/code-health-ledger-check.mjs` | Blocks code-health completion unless inventory, action-item counters, terminal findings, resolution plan, and final gate evidence are present. |
 | `documentation-comment-health.mjs` | `~/.claude/scripts/documentation-comment-health.mjs` | Inventories exported JS/TS targets and their leading TSDoc/JSDoc coverage so documentation-health runs cannot pass with comment sampling only. |
+| `documentation-health-ledger-check.mjs` | `~/.claude/scripts/documentation-health-ledger-check.mjs` | Blocks documentation-health completion unless coverage, source-truth, freshness/drift, comment, AI-context, terminal-ledger, and validation evidence are present. |
 | `disk-cleanup-manifest.mjs` | `~/.claude/scripts/disk-cleanup-manifest.mjs` | Validates disk-cleanup dry-run manifests with absolute paths, byte estimates, risk tiers, approval requirements, and no recursive `rm` or whole-Trash cleanup. |
 | `merge-settings.mjs` | `~/.claude/scripts/merge-settings.mjs` | Merges control-plane hooks into existing Claude settings without replacing unrelated local configuration. |
 | `plan-readiness-check.mjs` | `~/.claude/scripts/plan-readiness-check.mjs` | Rejects thin plans before they are marked final or executed; final plans require a validated deep-stack artifact bundle unless a legacy transitional flag is explicitly used. |
@@ -113,7 +114,7 @@ These skills are not owned by this repo, but the control plane knows about them 
 | `prompt-budget-check.mjs` | `~/.claude/scripts/prompt-budget-check.mjs` | Fails oversized skills or agents before prompt bloat becomes default context. |
 | `port-guard.mjs` | `~/.claude/scripts/port-guard.mjs` | Checks or picks explicit free local dev-server ports before commands run. |
 | `project-buglog.mjs` | `~/.claude/scripts/project-buglog.mjs` | Records and suggests project-local repeated bug memories with cross-session fingerprints, redaction, file/project JSON output, stale-hint filtering, and no transcript storage. |
-| `changelog-release-check.mjs` | `~/.claude/scripts/changelog-release-check.mjs` | Enforces release hygiene so `Unreleased` does not hide shipped work on `main`. |
+| `changelog-release-check.mjs` | `~/.claude/scripts/changelog-release-check.mjs` | Enforces semantic-version release hygiene so `Unreleased` does not hide shipped work on `main`. |
 | `research-competitor-intel.mjs` | `~/.claude/scripts/research-competitor-intel.mjs` | Validates pinned competitor manifests, evidence rows, parity scorecards, and refresh cadence. |
 | `skill-contract-check.mjs` | `~/.claude/scripts/skill-contract-check.mjs` | Fails when repo-owned skills drift from docs, helper scripts, readiness contracts, directive-language rules, model/context inheritance, SessionStart hints, or installed copies. |
 | `skill-behavior-smoke.mjs` | `~/.claude/scripts/skill-behavior-smoke.mjs` | Runs end-to-end helper smoke checks for the skill behaviors that must fail closed before live use. |

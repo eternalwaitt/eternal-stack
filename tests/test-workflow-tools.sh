@@ -189,14 +189,28 @@ doc_health_shallow_state="$(jq -nc '{requestedSkills:[{value:"etrnl-documentatio
 doc_health_shallow_status="$(jq -cn --argjson state "$doc_health_shallow_state" --arg message "Done, docs look fine." '{state:$state,message:$message}' | node "$ROOT/scripts/documentation-health-ledger-check.mjs")"
 if [[ "$doc_health_shallow_status" == "missing-coverage-counters" ]]; then ok "documentation health checker rejects shallow report"; else not_ok "documentation health checker rejects shallow report: $doc_health_shallow_status"; fi
 
-doc_health_missing_comment_message=$'# Documentation Health Audit\n\n## Documentation Inventory\ncanonical docs and secondary docs classified.\n\n## Findings Ledger\n| severity | source_of_truth | disposition | verification |\n| --- | --- | --- | --- |\n| P2 | scripts/install.sh | fixed | scripts/doctor.sh passed |\n\n## Scorecard\nOverall documentation health: 8/10\n\nDOCS_FILES_TOTAL: 12\nDOCS_FILES_REVIEWED: 12\nSOURCE_FILES_SAMPLED_OR_REVIEWED: 6\nCHECKS_SKIPPED: []\nFINAL_DOC_HEALTH_SCORE: 82/100\n'
+doc_health_missing_comment_message=$'# Documentation Health Audit\n\n## Documentation Inventory\ncanonical docs and secondary docs classified.\n\n## Freshness And Drift Proof\nsource_of_truth matrix checked; stale reference searches covered old architecture names and active plan queues.\n\n## Findings Ledger\n| severity | source_of_truth | disposition | verification |\n| --- | --- | --- | --- |\n| P2 | scripts/install.sh | fixed | scripts/doctor.sh passed |\n\n## Scorecard\nOverall documentation health: 8/10\n\nDOCS_FILES_TOTAL: 12\nDOCS_FILES_REVIEWED: 12\nSOURCE_FILES_SAMPLED_OR_REVIEWED: 6\nRECENT_COMMITS_REVIEWED: 5\nRECENT_PRS_REVIEWED: 2\nRECENT_CHANGE_DOC_IMPACT_CHECKS: 4\nDOC_CLAIMS_CHECKED: 14\nSOURCE_TRUTH_MAPPINGS_REVIEWED: 8\nSTALE_REFERENCE_SEARCHES_RUN: 5\nOUTDATED_DOC_CLAIMS_FOUND: 1\nOUTDATED_DOC_CLAIMS_REMAINING: 0\nSTALE_DOCS_FOUND: 1\nSTALE_DOCS_REMAINING: 0\nMISLEADING_DOCS_FOUND: 0\nMISLEADING_DOCS_REMAINING: 0\nACTIVE_PLAN_QUEUE_DOCS_REVIEWED: 2\nACTIVE_PLAN_QUEUE_DOCS_STALE: 0\nCHECKS_SKIPPED: []\nFINAL_DOC_HEALTH_SCORE: 82/100\n'
 doc_health_missing_comment_status="$(jq -cn --argjson state "$doc_health_shallow_state" --arg message "$doc_health_missing_comment_message" '{state:$state,message:$message}' | node "$ROOT/scripts/documentation-health-ledger-check.mjs")"
 if [[ "$doc_health_missing_comment_status" == "missing-comment-health-counters" ]]; then ok "documentation health checker requires comment counters"; else not_ok "documentation health checker requires comment counters: $doc_health_missing_comment_status"; fi
 
 doc_health_full_state="$(jq -nc '{requestedSkills:[{value:"etrnl-documentation-health",at:"2026-01-01T00:00:00Z"}],successfulCommands:[{value:"node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked",at:"2026-01-01T00:00:01Z"},{value:"node ~/.claude/scripts/documentation-comment-health.mjs --root . --json --include-untracked",at:"2026-01-01T00:00:02Z"},{value:"node ~/.claude/scripts/documentation-health-ledger-check.mjs --report /tmp/doc-health.md",at:"2026-01-01T00:00:03Z"}],verificationRuns:[{value:"node ~/.claude/scripts/documentation-health-ledger-check.mjs --report /tmp/doc-health.md",at:"2026-01-01T00:00:03Z"}]}')"
-doc_health_full_message=$'# Documentation Health Audit\n\n## Documentation Inventory\ncanonical docs and secondary docs classified.\n\n## 10. TSDoc/JSDoc And Comments\nComment Health classified useful, missing, stale, misleading, noise, and wrong-format targets.\n\n## Findings Ledger\n| severity | source_of_truth | disposition | verification |\n| --- | --- | --- | --- |\n| P2 | scripts/install.sh | fixed | scripts/doctor.sh passed |\n\n## Action Items\nAll action items are terminal.\n\n## Resolution Plan\nImmediate fixes are verified.\n\n## Scorecard\nTSDoc/JSDoc/comment health: 8/10\nOverall documentation health: 8/10\n\nDOCS_FILES_TOTAL: 12\nDOCS_FILES_REVIEWED: 12\nSOURCE_FILES_SAMPLED_OR_REVIEWED: 6\nTSDOC_JSDOC_FILES_SCANNED: 4\nCOMMENT_TARGETS_REVIEWED: 9\nCOMMENT_TARGETS_DOCUMENTED: 7\nCOMMENT_TARGETS_MISSING_DOCS: 2\nCOMMENT_TARGETS_WRONG_FORMAT: 0\nAI_CONTEXT_FILES_REVIEWED: 3\nAI_CONTEXT_DRIFT_FINDINGS: 0\nAI_CONTEXT_DUPLICATE_RULE_OWNERS: 0\nAI_CONTEXT_HOT_PATH_LEAKS: 0\nCHECKS_SKIPPED: []\nFINAL_DOC_HEALTH_SCORE: 82/100\n'
+doc_health_missing_freshness_message=$'# Documentation Health Audit\n\n## Documentation Inventory\ncanonical docs and secondary docs classified.\n\n## 10. TSDoc/JSDoc And Comments\nComment Health classified useful, missing, stale, misleading, noise, and wrong-format targets.\n\n## Findings Ledger\n| severity | source_of_truth | disposition | verification |\n| --- | --- | --- | --- |\n| P2 | scripts/install.sh | fixed | scripts/doctor.sh passed |\n\n## Action Items\nAll action items are terminal.\n\n## Resolution Plan\nImmediate fixes are verified.\n\n## Scorecard\nTSDoc/JSDoc/comment health: 8/10\nOverall documentation health: 8/10\n\nDOCS_FILES_TOTAL: 12\nDOCS_FILES_REVIEWED: 12\nSOURCE_FILES_SAMPLED_OR_REVIEWED: 6\nTSDOC_JSDOC_FILES_SCANNED: 4\nCOMMENT_TARGETS_REVIEWED: 9\nCOMMENT_TARGETS_DOCUMENTED: 7\nCOMMENT_TARGETS_MISSING_DOCS: 2\nCOMMENT_TARGETS_WRONG_FORMAT: 0\nAI_CONTEXT_FILES_REVIEWED: 3\nAI_CONTEXT_DRIFT_FINDINGS: 0\nAI_CONTEXT_DUPLICATE_RULE_OWNERS: 0\nAI_CONTEXT_HOT_PATH_LEAKS: 0\nCHECKS_SKIPPED: []\nFINAL_DOC_HEALTH_SCORE: 82/100\n'
+doc_health_missing_freshness_status="$(jq -cn --argjson state "$doc_health_full_state" --arg message "$doc_health_missing_freshness_message" '{state:$state,message:$message}' | node "$ROOT/scripts/documentation-health-ledger-check.mjs")"
+if [[ "$doc_health_missing_freshness_status" == "missing-freshness-counters" ]]; then ok "documentation health checker requires freshness counters"; else not_ok "documentation health checker requires freshness counters: $doc_health_missing_freshness_status"; fi
+
+doc_health_full_message=$'# Documentation Health Audit\n\n## Documentation Inventory\ncanonical docs and secondary docs classified.\n\n## Freshness And Drift Proof\nsource_of_truth matrix checked; stale reference searches covered old architecture names and active plan queues.\n\n## 10. TSDoc/JSDoc And Comments\nComment Health classified useful, missing, stale, misleading, noise, and wrong-format targets.\n\n## Findings Ledger\n| severity | source_of_truth | disposition | verification |\n| --- | --- | --- | --- |\n| P2 | scripts/install.sh | fixed | scripts/doctor.sh passed |\n\n## Action Items\nAll action items are terminal.\n\n## Resolution Plan\nImmediate fixes are verified.\n\n## Scorecard\nTSDoc/JSDoc/comment health: 8/10\nOverall documentation health: 8/10\n\nDOCS_FILES_TOTAL: 12\nDOCS_FILES_REVIEWED: 12\nSOURCE_FILES_SAMPLED_OR_REVIEWED: 6\nRECENT_COMMITS_REVIEWED: 5\nRECENT_PRS_REVIEWED: 2\nRECENT_CHANGE_DOC_IMPACT_CHECKS: 4\nDOC_CLAIMS_CHECKED: 14\nSOURCE_TRUTH_MAPPINGS_REVIEWED: 8\nSTALE_REFERENCE_SEARCHES_RUN: 5\nOUTDATED_DOC_CLAIMS_FOUND: 1\nOUTDATED_DOC_CLAIMS_REMAINING: 0\nSTALE_DOCS_FOUND: 1\nSTALE_DOCS_REMAINING: 0\nMISLEADING_DOCS_FOUND: 0\nMISLEADING_DOCS_REMAINING: 0\nACTIVE_PLAN_QUEUE_DOCS_REVIEWED: 2\nACTIVE_PLAN_QUEUE_DOCS_STALE: 0\nTSDOC_JSDOC_FILES_SCANNED: 4\nCOMMENT_TARGETS_REVIEWED: 9\nCOMMENT_TARGETS_DOCUMENTED: 7\nCOMMENT_TARGETS_MISSING_DOCS: 2\nCOMMENT_TARGETS_WRONG_FORMAT: 0\nAI_CONTEXT_FILES_REVIEWED: 3\nAI_CONTEXT_DRIFT_FINDINGS: 0\nAI_CONTEXT_DUPLICATE_RULE_OWNERS: 0\nAI_CONTEXT_HOT_PATH_LEAKS: 0\nCHECKS_SKIPPED: []\nFINAL_DOC_HEALTH_SCORE: 82/100\n'
 doc_health_full_status="$(jq -cn --argjson state "$doc_health_full_state" --arg message "$doc_health_full_message" '{state:$state,message:$message}' | node "$ROOT/scripts/documentation-health-ledger-check.mjs")"
 if [[ -z "$doc_health_full_status" ]]; then ok "documentation health checker accepts complete report"; else not_ok "documentation health checker accepts complete report: $doc_health_full_status"; fi
+
+doc_health_open_drift_message="${doc_health_full_message/STALE_DOCS_REMAINING: 0/STALE_DOCS_REMAINING: 1}"
+doc_health_open_drift_message="${doc_health_open_drift_message/FINAL_DOC_HEALTH_SCORE: 82/FINAL_DOC_HEALTH_SCORE: 100}"
+doc_health_open_drift_status="$(jq -cn --argjson state "$doc_health_full_state" --arg message "$doc_health_open_drift_message" '{state:$state,message:$message}' | node "$ROOT/scripts/documentation-health-ledger-check.mjs")"
+if [[ "$doc_health_open_drift_status" == "score-100-with-open-drift" ]]; then ok "documentation health checker rejects 100 score with remaining drift"; else not_ok "documentation health checker rejects 100 score with remaining drift: $doc_health_open_drift_status"; fi
+
+doc_health_unreviewed_docs_message="${doc_health_full_message/DOCS_FILES_REVIEWED: 12/DOCS_FILES_REVIEWED: 11}"
+doc_health_unreviewed_docs_message="${doc_health_unreviewed_docs_message/FINAL_DOC_HEALTH_SCORE: 82/FINAL_DOC_HEALTH_SCORE: 100}"
+doc_health_unreviewed_docs_status="$(jq -cn --argjson state "$doc_health_full_state" --arg message "$doc_health_unreviewed_docs_message" '{state:$state,message:$message}' | node "$ROOT/scripts/documentation-health-ledger-check.mjs")"
+if [[ "$doc_health_unreviewed_docs_status" == "score-100-with-unreviewed-docs" ]]; then ok "documentation health checker rejects 100 score with unreviewed docs"; else not_ok "documentation health checker rejects 100 score with unreviewed docs: $doc_health_unreviewed_docs_status"; fi
 
 doc_health_baseline_state="$(jq -nc '{requestedSkills:[{value:"etrnl-documentation-health",at:"2026-01-01T00:00:00Z"}],edits:{"/tmp/example/docs/policy/COMMENT_HEALTH_BASELINE.json":"2026-01-01T00:00:03Z"},successfulCommands:[{value:"node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked",at:"2026-01-01T00:00:01Z"},{value:"node ~/.claude/scripts/documentation-comment-health.mjs --root . --json --include-untracked",at:"2026-01-01T00:00:02Z"},{value:"pnpm docs:comments:baseline",at:"2026-01-01T00:00:03Z"},{value:"node ~/.claude/scripts/documentation-health-ledger-check.mjs --report /tmp/doc-health.md",at:"2026-01-01T00:00:04Z"}],verificationRuns:[{value:"node ~/.claude/scripts/documentation-health-ledger-check.mjs --report /tmp/doc-health.md",at:"2026-01-01T00:00:04Z"}],lastPrompt:"run documentation health"}')"
 doc_health_baseline_message="${doc_health_full_message}"$'\nBaseline written: docs/policy/COMMENT_HEALTH_BASELINE.json\n'
@@ -871,7 +885,7 @@ assert_command "prompt budget owned-only ignores external skills" node "$ROOT/sc
 
 changelog_good="$TMPROOT/changelog-good"
 mkdir -p "$changelog_good"
-printf '%s\n' '# Changelog' '' '## Unreleased' '' '## v0.1.1 - 2026-01-01' '' '- Release note.' >"$changelog_good/CHANGELOG.md"
+printf '%s\n' '# Changelog' '' '## Unreleased' '' '## v0.1.1' '' '- Release note.' >"$changelog_good/CHANGELOG.md"
 assert_command "changelog check accepts empty Unreleased" node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_good" --strict-unreleased
 changelog_missing="$TMPROOT/changelog-missing"
 mkdir -p "$changelog_missing"
@@ -882,11 +896,11 @@ else
 fi
 changelog_comments="$TMPROOT/changelog-comments"
 mkdir -p "$changelog_comments"
-printf '%s\n' '# Changelog' '' '## Unreleased' '' '<!-- hidden note' '- still hidden' '-->' '<!-- inline hidden -->' '<!-->' '<!-- ---->' '## v0.1.1 - 2026-01-01' '' '- Release note.' >"$changelog_comments/CHANGELOG.md"
+printf '%s\n' '# Changelog' '' '## Unreleased' '' '<!-- hidden note' '- still hidden' '-->' '<!-- inline hidden -->' '<!-->' '<!-- ---->' '## v0.1.1' '' '- Release note.' >"$changelog_comments/CHANGELOG.md"
 assert_command "changelog check ignores HTML comments" node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_comments" --strict-unreleased
 changelog_bad="$TMPROOT/changelog-bad"
 mkdir -p "$changelog_bad"
-printf '%s\n' '# Changelog' '' '## Unreleased' '' '- Pending release note.' '' '## v0.1.0 - 2026-01-01' '' '- Previous release.' >"$changelog_bad/CHANGELOG.md"
+printf '%s\n' '# Changelog' '' '## Unreleased' '' '- Pending release note.' '' '## v0.1.0' '' '- Previous release.' >"$changelog_bad/CHANGELOG.md"
 if node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_bad" --strict-unreleased >/dev/null 2>&1; then
   not_ok "changelog check rejects Unreleased entries"
 else
@@ -899,7 +913,7 @@ else
 fi
 changelog_repo="$TMPROOT/changelog-repo"
 mkdir -p "$changelog_repo"
-printf '%s\n' '# Changelog' '' '## Unreleased' '' '## v0.1.0 - 2026-01-01' '' '- Initial release.' >"$changelog_repo/CHANGELOG.md"
+printf '%s\n' '# Changelog' '' '## Unreleased' '' '## v0.1.0' '' '- Initial release.' >"$changelog_repo/CHANGELOG.md"
 git -C "$changelog_repo" init -q -b main
 git -C "$changelog_repo" config user.email "test@example.com"
 git -C "$changelog_repo" config user.name "Test User"
@@ -914,16 +928,16 @@ if node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_repo" >/d
 else
   ok "changelog check requires new release after tag"
 fi
-printf '%s\n' '# Changelog' '' '## Unreleased' '' '## v0.1.1 - 2026-01-01' '' '- Workflow change.' '' '## v0.1.0 - 2026-01-01' '' '- Initial release.' >"$changelog_repo/CHANGELOG.md"
+printf '%s\n' '# Changelog' '' '## Unreleased' '' '## v0.1.1' '' '- Workflow change.' '' '## v0.1.0' '' '- Initial release.' >"$changelog_repo/CHANGELOG.md"
 assert_command "changelog check accepts release after tag" node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_repo"
-printf '%s\n' '# Changelog' '' '## Unreleased' '' '## v0.1.2 - 2026-01-02' '' '- Current pending release.' '' '## v0.1.1 - 2026-01-01' '' '- Untagged older release.' '' '## v0.1.0 - 2026-01-01' '' '- Initial release.' >"$changelog_repo/CHANGELOG.md"
+printf '%s\n' '# Changelog' '' '## Unreleased' '' '## v0.1.2' '' '- Current pending release.' '' '## v0.1.1' '' '- Untagged older release.' '' '## v0.1.0' '' '- Initial release.' >"$changelog_repo/CHANGELOG.md"
 if drift_out="$(node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_repo" 2>&1)"; then
   not_ok "changelog check rejects untagged older release sections"
 else
   assert_contains "changelog check rejects untagged older release sections" "$drift_out" "untagged release sections below the top pending release"
 fi
 git -C "$changelog_repo" tag v0.1.2
-printf '%s\n' '# Changelog' '' '## Unreleased' '' '## v0.1.3 - 2026-01-03' '' '- Current pending release.' '' '## v0.1.2 - 2026-01-02' '' '- Tagged release.' '' '## v0.1.1 - 2026-01-01' '' '- Older untagged release.' '' '## v0.1.0 - 2026-01-01' '' '- Initial release.' >"$changelog_repo/CHANGELOG.md"
+printf '%s\n' '# Changelog' '' '## Unreleased' '' '## v0.1.3' '' '- Current pending release.' '' '## v0.1.2' '' '- Tagged release.' '' '## v0.1.1' '' '- Older untagged release.' '' '## v0.1.0' '' '- Initial release.' >"$changelog_repo/CHANGELOG.md"
 if drift_out="$(node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_repo" 2>&1)"; then
   not_ok "changelog check rejects older untagged sections below a tagged release"
 else
@@ -932,7 +946,7 @@ fi
 
 changelog_malformed_tag="$TMPROOT/changelog-malformed-tag"
 mkdir -p "$changelog_malformed_tag"
-printf '%s\n' '# Changelog' '' '## Unreleased' '' '## v0.1.1 - 2026-01-01' '' '- Release note.' >"$changelog_malformed_tag/CHANGELOG.md"
+printf '%s\n' '# Changelog' '' '## Unreleased' '' '## v0.1.1' '' '- Release note.' >"$changelog_malformed_tag/CHANGELOG.md"
 git -C "$changelog_malformed_tag" init -q -b main
 git -C "$changelog_malformed_tag" config user.email "test@example.com"
 git -C "$changelog_malformed_tag" config user.name "Test User"

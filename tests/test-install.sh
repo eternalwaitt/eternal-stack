@@ -35,6 +35,8 @@ for command_name in "${OWNED_COMMANDS[@]}"; do
 done
 for skill in "${OWNED_SKILLS[@]}"; do
   assert_file "installed Claude skill $skill" "$CLAUDE_HOME/skills/$skill/SKILL.md"
+  assert_file "installed Claude slash command $skill" "$CLAUDE_HOME/commands/$skill.md"
+  assert_contains "installed Claude slash command $skill carries arguments" "$(cat "$CLAUDE_HOME/commands/$skill.md")" 'User request: $ARGUMENTS'
   assert_file "synced Codex skill $skill" "$CODEX_HOME/skills/$skill/SKILL.md"
 done
 assert_no_directory "removed legacy Claude etrnl-fix-issue" "$CLAUDE_HOME/skills/etrnl-fix-issue"
@@ -189,6 +191,7 @@ for agent in etrnl-adversary etrnl-browser-qa etrnl-design-reviewer etrnl-dx-rev
 done
 for skill in "${OWNED_SKILLS[@]}"; do
   assert_no_directory "rollback removed $skill" "$CLAUDE_HOME/skills/$skill"
+  assert_no_file "rollback removed $skill slash command" "$CLAUDE_HOME/commands/$skill.md"
   assert_no_directory "rollback removed Codex $skill" "$CODEX_HOME/skills/$skill"
 done
 assert_no_file "rollback removed Codex update-check helper" "$CODEX_HOME/scripts/update-check.mjs"

@@ -314,6 +314,10 @@ fi
 
 if [[ -d "$ROOT/skills" && -f "$ROOT/docs/skills.md" ]]; then
   skill_check_failed=0
+  installed_root=0
+  if [[ -f "$ROOT/control-plane/install.json" ]]; then
+    installed_root=1
+  fi
   for skill_dir in "${OWNED_SKILLS[@]}"; do
     skill_file="$ROOT/skills/$skill_dir/SKILL.md"
     if [[ ! -f "$skill_file" ]]; then
@@ -341,6 +345,10 @@ if [[ -d "$ROOT/skills" && -f "$ROOT/docs/skills.md" ]]; then
       skill_check_failed=1
     elif ! rg -F "/$skill_dir" "$ROOT/docs/skills.md" >/dev/null; then
       fail "docs/skills.md missing /$skill_dir"
+      skill_check_failed=1
+    fi
+    if [[ "$installed_root" == "1" && ! -f "$ROOT/commands/$skill_dir.md" ]]; then
+      fail "installed slash command missing: $skill_dir"
       skill_check_failed=1
     fi
   done

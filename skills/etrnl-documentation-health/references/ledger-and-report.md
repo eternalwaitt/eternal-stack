@@ -33,6 +33,20 @@ Include these counters in the closeout:
 ```text
 DOCS_FILES_REVIEWED: [n]
 SOURCE_FILES_SAMPLED_OR_REVIEWED: [n]
+RECENT_COMMITS_REVIEWED: [n]
+RECENT_PRS_REVIEWED: [n]
+RECENT_CHANGE_DOC_IMPACT_CHECKS: [n]
+DOC_CLAIMS_CHECKED: [n]
+SOURCE_TRUTH_MAPPINGS_REVIEWED: [n]
+STALE_REFERENCE_SEARCHES_RUN: [n]
+OUTDATED_DOC_CLAIMS_FOUND: [n]
+OUTDATED_DOC_CLAIMS_REMAINING: [n]
+STALE_DOCS_FOUND: [n]
+STALE_DOCS_REMAINING: [n]
+MISLEADING_DOCS_FOUND: [n]
+MISLEADING_DOCS_REMAINING: [n]
+ACTIVE_PLAN_QUEUE_DOCS_REVIEWED: [n]
+ACTIVE_PLAN_QUEUE_DOCS_STALE: [n]
 TSDOC_JSDOC_FILES_SCANNED: [n]
 COMMENT_TARGETS_REVIEWED: [n]
 COMMENT_TARGETS_DOCUMENTED: [n]
@@ -75,6 +89,8 @@ Score 1-10 with evidence for:
 
 A 10 means accurate, current, discoverable, non-duplicative, verified against source, enough for a new contributor or agent to act safely, and guarded by repeatable checks whenever a repeatable check exists.
 
+Do not collapse deterministic enforcement into overall health. A passing docs gate can support the enforcement score, but overall 100/100 also requires all docs in scope reviewed, recent local commit and GitHub PR/change impact evidence checked when available, checked source-truth mappings, stale-reference searches, zero remaining stale/misleading/outdated documentation, and zero stale active plan or work-queue docs.
+
 ## Final Report
 
 Use this structure for audit or gate mode:
@@ -105,6 +121,15 @@ Use this structure for audit or gate mode:
 - archive docs
 - delete candidates
 - missing docs
+
+## 3A. Freshness And Drift Proof
+- recent commits reviewed
+- recent GitHub PRs reviewed or exact unavailable reason
+- recent-change documentation-impact conclusions
+- source-truth mappings checked
+- stale-reference terms searched
+- active plans, work queues, handovers, migrations, and status docs reviewed
+- outdated, stale, misleading, false-positive, fixed, and remaining hits
 
 ## 4. Root Documentation
 - assessment
