@@ -165,7 +165,7 @@ function hotspotScore(file) {
     score += AUDIT_WITH_CARE_WEIGHT;
     reasons.push("audit-with-care");
   }
-  if (!["docs", "test"].includes(file.category) && /(^|\/)(auth|security|payment|billing|tenant|permissions?|webhooks?|migrations?)\b/.test(lower)) {
+  if (!["docs", "test"].includes(file.category) && /(?:^|[/-])(?:auth|security|payment|billing|tenant|permissions?|webhooks?|migrations?)(?:$|[/-])/.test(lower)) {
     score += SENSITIVE_PATH_WEIGHT;
     reasons.push("sensitive path");
   }

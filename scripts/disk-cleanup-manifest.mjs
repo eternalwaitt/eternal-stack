@@ -13,7 +13,8 @@ function readManifest() {
 }
 
 function rows(manifest) {
-  return Array.isArray(manifest) ? manifest : manifest.items;
+  if (Array.isArray(manifest)) return manifest;
+  return Array.isArray(manifest?.items) ? manifest.items : [];
 }
 
 function normalizedCommand(commandText) {
@@ -57,9 +58,13 @@ function validateManifest(manifest) {
     if (typeof item.path !== "string" || !item.path.startsWith("/")) errors.push(`items[${index}].path must be absolute`);
     if (!Number.isFinite(item.estimatedBytes) || item.estimatedBytes < 0) errors.push(`items[${index}].estimatedBytes must be non-negative`);
     if (!ALLOWED_RISK_TIERS.has(item.riskTier)) errors.push(`items[${index}].riskTier must be 1, 2, or 3`);
-    if (!commandReferencesPath(item.cleanupCommand, item.path)) errors.push(`items[${index}].cleanupCommand must reference the specified path`);
-    if (hasRecursiveRm(item.cleanupCommand)) errors.push(`items[${index}].cleanupCommand must not use recursive rm`);
-    if (targetsWholeTrash(item.cleanupCommand)) errors.push(`items[${index}].cleanupCommand must not empty the whole Trash`);
+    if (typeof item.cleanupCommand !== "string" || item.cleanupCommand.trim().length === 0) {
+      errors.push(`items[${index}].cleanupCommand must be a non-empty string`);
+    } else {
+      if (!commandReferencesPath(item.cleanupCommand, item.path)) errors.push(`items[${index}].cleanupCommand must reference the specified path`);
+      if (hasRecursiveRm(item.cleanupCommand)) errors.push(`items[${index}].cleanupCommand must not use recursive rm`);
+      if (targetsWholeTrash(item.cleanupCommand)) errors.push(`items[${index}].cleanupCommand must not empty the whole Trash`);
+    }
     if (item.riskTier >= 2) {
       if (typeof item.requiresApproval !== "boolean") errors.push(`items[${index}].requiresApproval must be a boolean for risk tier 2 or 3`);
       else if (!item.requiresApproval) errors.push(`items[${index}].requiresApproval must be true for risk tier 2 or 3`);
@@ -80,7 +85,7 @@ function validate() {
 
 function summary() {
   const manifest = readManifest();
-  const items = rows(manifest) || [];
+  const items = rows(manifest);
   const totalBytes = items.reduce((sum, item) => sum + (Number(item.estimatedBytes) || 0), 0);
   const byRiskTier = Object.fromEntries([1, 2, 3].map((tier) => [tier, items.filter((item) => item.riskTier === tier).length]));
   console.log(JSON.stringify({ schemaVersion: 1, items: items.length, totalBytes, byRiskTier }, null, 2));

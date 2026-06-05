@@ -130,7 +130,7 @@ Score rules:
 - 100/100 requires `DOCS_FILES_REVIEWED` to equal `DOCS_FILES_TOTAL` unless excluded paths are listed with reasons outside the total.
 - A run with no stale-reference searches, no checked doc claims, or no source-truth mappings is incomplete no matter how many repo gates passed.
 - A run with no recent commits reviewed or no recent-change docs-impact checks is incomplete. If GitHub PR access is unavailable, record `RECENT_PRS_REVIEWED: 0` and the exact `CHECKS_SKIPPED` reason; do not claim GitHub evidence was reviewed.
-- Accepted risk or blocked stale documentation is allowed as a ledger disposition only. It is not compatible with 100/100 overall documentation health.
+- Accepted risk or blocked stale documentation is allowed as a ledger disposition only. It is incompatible with 100/100 overall documentation health.
 
 ## Comment Health
 
@@ -184,9 +184,9 @@ Before final completion:
 3. List exclusions with evidence, not assumptions.
 4. Run the target repo health stack. If a gate is unavailable, record it in `CHECKS_SKIPPED` with reason.
 5. In `fix`/`execute` mode, rerun the checks that prove edited docs match source behavior and confirm no finding remains `open`.
-6. Report freshness and drift counters from the active source-truth review and stale-reference search proof.
-7. Report comment-health counters from `documentation-comment-health.mjs` or `COMMENT_HEALTH_NOT_APPLICABLE:` with evidence.
-8. Report scores 1-10 for root clarity, discoverability, freshness, architecture clarity, structure clarity, API/contract docs, runtime docs, ADRs, AI context, comments, onboarding, enforcement, and overall health.
+6. Include freshness and drift counters from the active source-truth review and stale-reference search proof.
+7. Provide comment-health counters from `documentation-comment-health.mjs` or `COMMENT_HEALTH_NOT_APPLICABLE:` with evidence.
+8. Score 1-10 for root clarity, discoverability, freshness, architecture clarity, structure clarity, API/contract docs, runtime docs, ADRs, AI context, comments, onboarding, enforcement, and overall health.
 
 The stop hook enforces this contract with `documentation-health-ledger-check.mjs`.
 For this control plane, use `node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked` before conclusions and run at least one deterministic docs/skill validation gate before final completion.

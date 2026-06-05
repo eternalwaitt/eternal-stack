@@ -412,7 +412,7 @@ const toolStackState = (root) => {
   if (!check.ok || !check.stdout) {
     return {
       ok: false,
-      error: check.stderr || check.stdout || check.error || "tool-stack-check failed",
+      error: check.stderr || check.stdout || `exit status ${check.status}` || "tool-stack-check failed",
       missingTools: [],
       updatesAvailable: [],
       tools: {},

@@ -395,6 +395,10 @@ printf '%s\n' 'export const built = true' >"$inventory_exclusion_root/dist/out.j
 printf '%s\n' '# security docs' >"$inventory_exclusion_root/docs/security.md"
 printf '%s\n' 'export const generated = true' >"$inventory_exclusion_root/generated/client.ts"
 printf '%s\n' 'test("auth", () => {})' >"$inventory_exclusion_root/tests/auth.test.ts"
+mkdir -p "$inventory_exclusion_root/src/auth-service" "$inventory_exclusion_root/src/service-auth" "$inventory_exclusion_root/src/authored"
+printf '%s\n' 'export const authService = true' >"$inventory_exclusion_root/src/auth-service/index.ts"
+printf '%s\n' 'export const serviceAuth = true' >"$inventory_exclusion_root/src/service-auth/index.ts"
+printf '%s\n' 'export const authored = true' >"$inventory_exclusion_root/src/authored/index.ts"
 printf '%s\n' '{"session":"local"}' >"$inventory_exclusion_root/.claude/state.json"
 printf '%s\n' 'local log' >"$inventory_exclusion_root/logs/run.log"
 printf '%s\n' 'export const out = true' >"$inventory_exclusion_root/out/bundle.js"
@@ -402,8 +406,9 @@ printf '%s\n' 'tool output' >"$inventory_exclusion_root/tool-output/report.txt"
 printf '%s\n' 'export const vendor = true' >"$inventory_exclusion_root/vendor/pkg/index.js"
 git -C "$inventory_exclusion_root" add -f . >/dev/null
 inventory_exclusion_json="$(node "$ROOT/scripts/code-health-inventory.mjs" --json --root="$inventory_exclusion_root")"
-assert_json_expr "code-health inventory lists obvious folders without auditing them" "$inventory_exclusion_json" '([.files[] | select(.path == "src/app.ts" and .auditScope == "audit")] | length) == 1 and ([.files[] | select((.path != "src/app.ts" and .path != "docs/security.md" and .path != "tests/auth.test.ts") and .auditScope != "listed")] | length) == 0 and ([.files[] | select(.path | startswith(".audit/"))][0].category == "excluded")'
+assert_json_expr "code-health inventory lists obvious folders without auditing them" "$inventory_exclusion_json" '([.files[] | select(.path == "src/app.ts" and .auditScope == "audit")] | length) == 1 and ([.files[] | select(((.path | startswith("src/") | not) and .path != "docs/security.md" and .path != "tests/auth.test.ts") and .auditScope != "listed")] | length) == 0 and ([.files[] | select(.path | startswith(".audit/"))][0].category == "excluded")'
 assert_json_expr "code-health inventory keeps doc/test sensitive paths below hotspot threshold" "$inventory_exclusion_json" '([.riskHotspots[] | select(.path == "docs/security.md" or .path == "tests/auth.test.ts")] | length) == 0'
+assert_json_expr "code-health inventory uses segment boundaries for sensitive path tokens" "$inventory_exclusion_json" '([.riskHotspots[] | select(.path == "src/auth-service/index.ts" or .path == "src/service-auth/index.ts")] | length) == 2 and ([.riskHotspots[] | select(.path == "src/authored/index.ts")] | length) == 0'
 assert_command "plan readiness syntax" node --check "$ROOT/scripts/plan-readiness-check.mjs"
 assert_command "deep-stack check syntax" node --check "$ROOT/scripts/deep-stack-check.mjs"
 assert_command "tool-effectiveness syntax" node --check "$ROOT/scripts/tool-effectiveness.mjs"
@@ -449,6 +454,15 @@ else
 fi
 disk_manifest_fixture='{"items":[{"path":"/tmp/cache/file","category":"cache","estimatedBytes":1024,"description":"cache file","whySafe":"rebuildable cache","cleanupCommand":"trash /tmp/cache/file","riskTier":1}]}'
 assert_command "disk cleanup manifest validates fixture" bash -c 'printf "%s\n" "$1" | node "$0/scripts/disk-cleanup-manifest.mjs" validate >/dev/null' "$ROOT" "$disk_manifest_fixture"
+disk_manifest_missing_items='{"schemaVersion":1}'
+disk_missing_summary="$(printf '%s\n' "$disk_manifest_missing_items" | node "$ROOT/scripts/disk-cleanup-manifest.mjs" summary)"
+assert_json_expr "disk cleanup manifest summary tolerates missing items" "$disk_missing_summary" '.items == 0 and .totalBytes == 0'
+disk_manifest_empty_command='{"items":[{"path":"/tmp/cache/file","category":"cache","estimatedBytes":1024,"description":"cache file","whySafe":"rebuildable cache","cleanupCommand":"","riskTier":1}]}'
+if disk_empty_command="$(printf '%s\n' "$disk_manifest_empty_command" | node "$ROOT/scripts/disk-cleanup-manifest.mjs" validate 2>&1)"; then
+  not_ok "disk cleanup manifest rejects empty cleanup command"
+else
+  assert_contains "disk cleanup manifest rejects empty cleanup command" "$disk_empty_command" "must be a non-empty string"
+fi
 disk_manifest_wrong_path='{"items":[{"path":"/tmp/cache/file","category":"cache","estimatedBytes":1024,"description":"cache file","whySafe":"rebuildable cache","cleanupCommand":"trash /tmp/cache/other","riskTier":1}]}'
 if disk_wrong_path="$(printf '%s\n' "$disk_manifest_wrong_path" | node "$ROOT/scripts/disk-cleanup-manifest.mjs" validate 2>&1)"; then
   not_ok "disk cleanup manifest rejects commands targeting another path"
