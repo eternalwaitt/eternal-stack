@@ -224,9 +224,16 @@ cc_prompt_skill_update_note() {
   [[ "${CLAUDE_CONTROL_PLANE_SKILL_UPDATE_CHECK:-1}" != "0" ]] || return 0
   command -v node >/dev/null 2>&1 || return 0
 
-  local state requested_count update_script update_output update_status max_chars
-  state="$(cc_state_read 2>/dev/null || true)"
-  requested_count="$(jq -r '(.requestedSkills // []) | length' <<<"$state" 2>/dev/null || printf '0')"
+  local state requested_count state_status update_script update_output update_status max_chars
+  state_status=0
+  state="$(cc_state_read 2>/dev/null)" || state_status=$?
+  if [[ "$state_status" != "0" || -z "$state" ]]; then
+    requested_count=0
+    cc_state_persist_warning "skill update state read failed status=${state_status} requested_count=${requested_count}" || true
+    printf 'claude-guard warning: skill update state read failed; requested_count=%s\n' "$requested_count" >&2
+  else
+    requested_count="$(jq -r '(.requestedSkills // []) | length' <<<"$state" 2>/dev/null || printf '0')"
+  fi
   [[ "$requested_count" =~ ^[0-9]+$ ]] || requested_count=0
   (( requested_count > 0 )) || return 0
 
