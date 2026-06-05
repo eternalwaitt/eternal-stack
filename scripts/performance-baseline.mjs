@@ -81,6 +81,7 @@ function trend() {
   const before = readTrendReport("--before");
   const after = readTrendReport("--after");
   const beforeByKey = new Map(before.measurements.map((row) => [row.route || row.operation, row]));
+  const afterKeys = new Set(after.measurements.map((row) => row.route || row.operation));
   const comparisons = after.measurements.map((row) => {
     const key = row.route || row.operation;
     const prev = beforeByKey.get(key);
@@ -88,6 +89,11 @@ function trend() {
     const deltaPct = prev && prev.durationMs > 0 ? (deltaMs / prev.durationMs) * 100 : null;
     return { key, beforeMs: prev?.durationMs ?? null, afterMs: row.durationMs, deltaMs, deltaPct };
   });
+  for (const [key, prev] of beforeByKey.entries()) {
+    if (!afterKeys.has(key)) {
+      comparisons.push({ key, beforeMs: prev.durationMs, afterMs: null, deltaMs: null, deltaPct: null, removed: true });
+    }
+  }
   console.log(JSON.stringify({ schemaVersion: 1, command: "trend", comparisons }, null, 2));
 }
 

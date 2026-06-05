@@ -474,7 +474,7 @@ console.log('CONTROL_PLANE_UPDATE_AVAILABLE installed=old source=new version=v0 
 console.log('TOOL_STACK_UPDATE_AVAILABLE codegraph current=0.9.9 latest=1.0.0 run="npm install -g codegraph"');
 JS
 skill_update_prompt="$(jq -cn '{session_id:"fixture-skill-update-prompt",prompt:"/etrnl-plan docs/plans/example.md"}')"
-out="$(CLAUDE_CONTROL_PLANE_SKILL_UPDATE_CHECK=1 CLAUDE_CONTROL_PLANE_UPDATE_CHECK_SCRIPT="$fake_skill_update" run_hook cc-userprompt-router.sh "$skill_update_prompt")"
+out="$(CLAUDE_CONTROL_PLANE_SKILL_UPDATE_CHECK=1 CLAUDE_CONTROL_PLANE_TOOL_UPDATE_CHECK=1 CLAUDE_CONTROL_PLANE_UPDATE_CHECK_SCRIPT="$fake_skill_update" run_hook cc-userprompt-router.sh "$skill_update_prompt")"
 assert_contains "skill prompt checks control-plane updates" "$out" "Skill update check before requested skill"
 assert_contains "skill prompt includes tool-stack update" "$out" "TOOL_STACK_UPDATE_AVAILABLE codegraph"
 assert_contains "skill prompt asks before update" "$out" "ask whether to update/bootstrap now"

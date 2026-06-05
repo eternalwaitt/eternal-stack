@@ -96,13 +96,17 @@ install_beads() {
   fi
   if need_command npm; then
     if confirm_or_skip "Install Beads globally with npm?"; then
-      npm install -g @beads/bd
+      npm install -g @beads/bd || return $?
+    else
+      return 1
     fi
     return 0
   fi
   need_command brew || { printf 'bootstrap error: npm or Homebrew is required to install beads automatically\n' >&2; return 1; }
   if confirm_or_skip "Install Beads globally with Homebrew fallback?"; then
-    brew install beads
+    brew install beads || return $?
+  else
+    return 1
   fi
 }
 
