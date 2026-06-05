@@ -39,7 +39,7 @@ function readTrendReport(flag) {
   const report = readJson(file);
   if (!Array.isArray(report.measurements)) {
     console.error(`performance-baseline trend ${flag} file must contain a measurements array: ${file}`);
-    process.exit(1);
+    process.exit(2);
   }
   return report;
 }

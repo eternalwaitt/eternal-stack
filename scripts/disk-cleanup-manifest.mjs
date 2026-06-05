@@ -65,7 +65,7 @@ function validateManifest(manifest) {
       if (hasRecursiveRm(item.cleanupCommand)) errors.push(`items[${index}].cleanupCommand must not use recursive rm`);
       if (targetsWholeTrash(item.cleanupCommand)) errors.push(`items[${index}].cleanupCommand must not empty the whole Trash`);
     }
-    if (item.riskTier >= 2) {
+    if (item.riskTier === 2 || item.riskTier === 3) {
       if (typeof item.requiresApproval !== "boolean") errors.push(`items[${index}].requiresApproval must be a boolean for risk tier 2 or 3`);
       else if (!item.requiresApproval) errors.push(`items[${index}].requiresApproval must be true for risk tier 2 or 3`);
     }

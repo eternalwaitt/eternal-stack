@@ -24,8 +24,8 @@ This is a category skill, not the full orchestrator. Use `/etrnl-deep-audit` for
 1. Record a next-run baseline artifact when route, bundle, query, or infrastructure measurements exist:
 
 ```bash
-node ~/.claude/scripts/performance-baseline.mjs create < measurements.json > <baseline-json>
-node ~/.claude/scripts/performance-baseline.mjs validate <baseline-json>
+node "${CLAUDE_HOME:-$HOME/.claude}/scripts/performance-baseline.mjs" create < measurements.json > <baseline-json>
+node "${CLAUDE_HOME:-$HOME/.claude}/scripts/performance-baseline.mjs" validate <baseline-json>
 ```
 
    `measurements.json` is produced after route, bundle, query, or infrastructure measurement rows are collected; it must provide the `measurements` array consumed by `performance-baseline.mjs create`.
@@ -33,7 +33,7 @@ node ~/.claude/scripts/performance-baseline.mjs validate <baseline-json>
 1. When a prior baseline exists, record a trend delta before final:
 
 ```bash
-node ~/.claude/scripts/performance-baseline.mjs trend --before <old-baseline> --after <baseline-json> > <trend-json>
+node "${CLAUDE_HOME:-$HOME/.claude}/scripts/performance-baseline.mjs" trend --before <old-baseline> --after <baseline-json> > <trend-json>
 ```
 
 1. Validate standalone output before final with:

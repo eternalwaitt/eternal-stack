@@ -10,7 +10,7 @@ Run the registered `security` deep-audit category with shared worklists and expl
 
 ## Contract
 
-1. Read `scripts/lib/deep-audit-categories.mjs` and verify the `security` registry entry.
+1. Read `scripts/lib/deep-audit-categories.mjs` and verify the `security` registry entry: `id`, name/title, description, worklists, and checks exist; every check has `id` or `checkId`, severity/level, and tags/categories; referenced worklist ids exist. Expected shape: `{ id: "security", worklists: ["sec_inputs"], checks: [{ id: "sec-01-trust-boundary-validation", severity: "P1", tags: ["input"] }] }`.
 2. Use `/etrnl-deep-audit --category security` or create the same artifact envelope locally.
 3. Consume orchestrator worklists only. Do not create category-local inventories after shared worklists exist.
 4. A finding must include source, sink, missing control, exploit sketch, reachability, confidence, impact, and remediation.

@@ -67,9 +67,7 @@ function writeJson(filePath, value) {
 }
 
 function commandPath(command) {
-  const found = run("command", ["-v", command], { timeout: 5000 });
-  if (found.ok && found.stdout) return found.stdout.split(/\n/)[0];
-  const shellFound = run("sh", ["-lc", `command -v ${command}`], { timeout: 5000 });
+  const shellFound = run("sh", ["-c", `command -v ${command}`], { timeout: 5000 });
   return shellFound.ok && shellFound.stdout ? shellFound.stdout.split(/\n/)[0] : "";
 }
 

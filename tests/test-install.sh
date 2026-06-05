@@ -146,24 +146,28 @@ if canary_output="$("$CLAUDE_HOME/scripts/post-upgrade-canary.sh" 2>&1)"; then
 else
   not_ok "post-install: post-upgrade canary failed: $canary_output"
 fi
-metadata_tmp="$CLAUDE_HOME/control-plane/install.json.tmp"
-trap '[[ -n "${metadata_tmp:-}" ]] && rm -f "$metadata_tmp"' EXIT
-jq '.sourceFingerprint = "stale"' "$CLAUDE_HOME/control-plane/install.json" >"$metadata_tmp"
-mv -- "$metadata_tmp" "$CLAUDE_HOME/control-plane/install.json"
-metadata_tmp=""
-trap - EXIT
+(
+  metadata_tmp="$CLAUDE_HOME/control-plane/install.json.tmp"
+  trap '[[ -n "${metadata_tmp:-}" ]] && rm -f "$metadata_tmp"' EXIT
+  jq '.sourceFingerprint = "stale"' "$CLAUDE_HOME/control-plane/install.json" >"$metadata_tmp"
+  mv -- "$metadata_tmp" "$CLAUDE_HOME/control-plane/install.json"
+  metadata_tmp=""
+  trap - EXIT
+)
 if ! stale_update_json="$(node "$CLAUDE_HOME/scripts/update-check.mjs" --json 2>&1)"; then
   not_ok "post-install: stale update-check.mjs failed: $stale_update_json"
   finish_tests
   exit 1
 fi
 assert_json_expr "post-install: stale metadata detects update" "$stale_update_json" '.ok == true and .localUpdateAvailable == true'
-codex_metadata_tmp="$CODEX_HOME/control-plane/install.json.tmp"
-trap '[[ -n "${codex_metadata_tmp:-}" ]] && rm -f "$codex_metadata_tmp"' EXIT
-jq '.sourceFingerprint = "stale"' "$CODEX_HOME/control-plane/install.json" >"$codex_metadata_tmp"
-mv -- "$codex_metadata_tmp" "$CODEX_HOME/control-plane/install.json"
-codex_metadata_tmp=""
-trap - EXIT
+(
+  codex_metadata_tmp="$CODEX_HOME/control-plane/install.json.tmp"
+  trap '[[ -n "${codex_metadata_tmp:-}" ]] && rm -f "$codex_metadata_tmp"' EXIT
+  jq '.sourceFingerprint = "stale"' "$CODEX_HOME/control-plane/install.json" >"$codex_metadata_tmp"
+  mv -- "$codex_metadata_tmp" "$CODEX_HOME/control-plane/install.json"
+  codex_metadata_tmp=""
+  trap - EXIT
+)
 if codex_prompt_text="$(CLAUDE_CONTROL_PLANE_TOOL_UPDATE_CHECK=0 node "$CODEX_HOME/scripts/skill-update-prompt.mjs" --agent codex --skill etrnl-plan 2>&1)"; then
   assert_contains "post-install: stale Codex skill prompt names update" "$codex_prompt_text" "ETRNL_SKILL_UPDATE_AVAILABLE"
   assert_contains "post-install: stale Codex skill prompt names skill" "$codex_prompt_text" "skill=etrnl-plan"
