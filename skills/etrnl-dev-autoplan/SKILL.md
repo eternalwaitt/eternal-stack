@@ -45,7 +45,7 @@ Mandatory stages:
    - Fill blocked skeleton sections with real evidence before finalization.
    - Validate the plan with `node scripts/deep-stack-check.mjs validate-plan --plan <plan-path>` and `node scripts/plan-readiness-check.mjs <plan-path>`.
 9. Convergence:
-   - Close, disprove, downgrade with evidence, or record explicit Victor-accepted risk for every high/blocker finding.
+   - Close, disprove, downgrade with evidence, or record explicit owner-accepted risk for every high/blocker finding.
    - Reconcile requested outcomes against `DONE`, `PARTIAL`, `NOT_DONE`, `CHANGED`, or `BLOCKED`.
 10. Parity scorecard:
    - Add an `## Autoplan parity scorecard` subsection under `## Plan Readiness Report`.

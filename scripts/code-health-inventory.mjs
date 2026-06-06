@@ -10,6 +10,7 @@ let includeUntracked = false;
 let quiet = false;
 let root = process.cwd();
 let rootProvided = false;
+let maxHotspots = 25;
 const DEFAULT_GIT_TIMEOUT_MS = 15_000;
 const DEFAULT_GIT_MAX_BUFFER = 20 * 1024 * 1024;
 const GIT_LIMITS = gitSubprocessLimits({
@@ -19,14 +20,21 @@ const GIT_LIMITS = gitSubprocessLimits({
 const AUDIT_WITH_CARE_WEIGHT = 3;
 const SENSITIVE_PATH_WEIGHT = 3;
 const SENSITIVE_NAME_WEIGHT = 2;
+const GENERIC_ACTION_WEIGHT = 1;
 const AUDITABLE_CATEGORY_WEIGHT = 1;
 const REPORT_THRESHOLD = 4;
-const MAX_FILES_REPORT = 25;
 
 for (const arg of args) {
   if (arg === "--json") json = true;
   else if (arg === "--quiet") quiet = true;
   else if (arg === "--include-untracked") includeUntracked = true;
+  else if (arg === "--max-hotspots") fail("--max-hotspots requires a positive integer value");
+  else if (arg.startsWith("--max-hotspots=")) {
+    const value = arg.slice("--max-hotspots=".length);
+    if (!/^[1-9][0-9]*$/.test(value)) fail("--max-hotspots requires a positive integer");
+    maxHotspots = Number(value);
+    if (!Number.isSafeInteger(maxHotspots)) fail("--max-hotspots is too large");
+  }
   else if (arg.startsWith("--root=")) {
     const value = arg.slice("--root=".length);
     if (!value) fail("--root requires a non-empty path");
@@ -34,9 +42,10 @@ for (const arg of args) {
     rootProvided = true;
   }
   else if (arg === "--help") {
-    console.log("usage: code-health-inventory.mjs [--json] [--quiet] [--include-untracked] [--root=/path]");
+    console.log("usage: code-health-inventory.mjs [--json] [--quiet] [--include-untracked] [--root=/path] [--max-hotspots=N]");
     process.exit(0);
   }
+  else if (arg.startsWith("--")) fail(`unknown option: ${arg}`);
 }
 
 function git(gitArgs, options = {}) {
@@ -171,11 +180,15 @@ function hotspotScore(file) {
     score += SENSITIVE_PATH_WEIGHT;
     reasons.push("sensitive path");
   }
-  // Deliberately broad to catch risky filenames such as router, handler,
-  // middleware, env, secret, token, upload, export, delete, or admin.
-  if (/(?:^|[_./-])(?:schema|router|handler|middleware|env|secret|token|credential|upload|export|delete|admin)(?:$|[_./-])/.test(lower)) {
+  // High-risk filenames receive the full name weight; generic action verbs
+  // remain signals, but by themselves should not rank like auth boundaries.
+  if (/(?:^|[_./-])(?:schema|router|handler|middleware|env|secret|token|credential|upload|admin)(?:$|[_./-])/.test(lower)) {
     score += SENSITIVE_NAME_WEIGHT;
     reasons.push("sensitive name");
+  }
+  if (/(?:^|[_./-])(?:export|delete)(?:$|[_./-])/.test(lower)) {
+    score += GENERIC_ACTION_WEIGHT;
+    reasons.push("generic action name");
   }
   if (["source", "script", "config", "migration"].includes(file.category)) {
     score += AUDITABLE_CATEGORY_WEIGHT;
@@ -211,7 +224,7 @@ const report = {
   riskHotspots: files
     .filter((file) => file.riskHotspot.score >= REPORT_THRESHOLD)
     .sort((left, right) => right.riskHotspot.score - left.riskHotspot.score || left.path.localeCompare(right.path))
-    .slice(0, MAX_FILES_REPORT)
+    .slice(0, maxHotspots)
     .map((file) => ({ path: file.path, score: file.riskHotspot.score, reasons: file.riskHotspot.reasons })),
   files,
 };

@@ -135,7 +135,7 @@ Before finalizing, review the draft for:
   - TypeScript trigger evidence when exported/public contracts, schemas, state machines, DTO boundaries, or reusable type utilities are touched
   - completion reconciliation rows mapping every requested outcome to `DONE`, `PARTIAL`, `NOT_DONE`, `CHANGED`, or `BLOCKED`
   - install proof rows for source gate, staged install, staged doctor/canary, rollback verification, live-install decision, and post-upgrade canary when Tier 3 behavior is touched
-  - findings ledger with high/blocker findings closed, disproven, or explicitly Victor-accepted
+  - findings ledger with high/blocker findings closed, disproven, or explicitly owner-accepted
   - completion audit and Hybrid execution risk tier
   Deep-stack artifacts are required for every newly generated final plan; they are not opt-in metadata.
 
@@ -185,5 +185,5 @@ If the readiness gate fails, patch the plan and rerun it. Do not hand off to `et
 - Do not invent files or APIs without repo evidence.
 - Do not leave placeholders.
 - Do not put `## Immediate First Patch` in a `Status: Final` plan unless `Execution scope: first_patch_only` is intentional and explicitly user-approved.
-- Do not let minimal-diff language narrow an implementation plan. If Victor later asks to "implement the plan", the executor must complete every item inside `Execution scope` or stop with a concrete blocker.
+- Do not let minimal-diff language narrow an implementation plan. If the repository owner later asks to "implement the plan", the executor must complete every item inside `Execution scope` or stop with a concrete blocker.
 - Do not mark `Final` until review findings are fixed and `plan-readiness-check.mjs` passes when available.

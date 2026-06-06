@@ -308,9 +308,10 @@ export function appendEvent(raw, options = {}) {
     const events = readEvents(root);
     const event = { ...normalized.event, eventSeq: normalized.event.eventSeq || nextEventSeq(events, normalized.event) };
     if (!options.dryRun) {
+      const nextEvents = [...events, event];
       fs.mkdirSync(root, { recursive: true, mode: 0o700 });
+      rebuildViews(root, nextEvents);
       fs.appendFileSync(paths.events, `${JSON.stringify(event)}\n`, { mode: 0o600 });
-      rebuildViews(root, [...events, event]);
     }
     return { ok: true, event, statePath: paths.events, dryRun: Boolean(options.dryRun) };
   });
@@ -341,11 +342,12 @@ export function compactHandoff(options = {}) {
   const latestPre = latestEvent(sessionEvents, (event) => event.eventKind === "compact_pre");
   const latestPost = latestEvent(sessionEvents, (event) => event.eventKind === "compact_post");
   const latestCheck = latestEvent(sessionEvents, (event) => event.eventKind === "check" && (event.data.category === "verification" || event.data.verification === true));
-  const compactSeq = Math.max(Number(latestPre?.eventSeq || 0), Number(latestPost?.eventSeq || 0));
+  const latestCompactForSession = Number(latestPre?.eventSeq || 0) > Number(latestPost?.eventSeq || 0) ? latestPre : latestPost;
+  const compactSeq = Number(latestCompactForSession?.eventSeq || 0);
   const checkSeq = Number(latestCheck?.eventSeq || 0);
-  const summary = latestPost?.data.compactSummary || latestPost?.data.summary || "summary_missing";
-  const nextAction = latestPre?.data.nextAction || latestPost?.data.nextAction || "resume from the compact handoff";
-  const task = latestPre?.data.task || latestPost?.data.task || latestPre?.data.plan || "active ETRNL work";
+  const summary = latestCompactForSession?.data.compactSummary || latestCompactForSession?.data.summary || "summary_missing";
+  const nextAction = latestCompactForSession?.data.nextAction || "resume from the compact handoff";
+  const task = latestCompactForSession?.data.task || latestCompactForSession?.data.plan || "active ETRNL work";
   const handoff = {
     sessionId,
     compactEventSeq: compactSeq,
@@ -354,7 +356,7 @@ export function compactHandoff(options = {}) {
     task,
     nextAction,
     summary,
-    lastCompactAt: latestPost?.at || latestPre?.at || "",
+    lastCompactAt: latestCompactForSession?.at || "",
   };
   const text = boundText(`Compact recovery: task=${task} next=${nextAction} verification_stale=${handoff.verificationStale} summary=${summary}`, options.maxChars || 1200);
   return { ok: true, found: true, handoff, latestCompact, text, statePath: statePaths(root).events };

@@ -156,6 +156,25 @@ else
   ok "install excludes Python bytecode"
 fi
 
+full_home="$TMPROOT/full-profile-claude"
+full_codex_home="$TMPROOT/full-profile-codex"
+full_fake_bin="$TMPROOT/full-profile-bin"
+mkdir -p "$full_fake_bin"
+cat >"$full_fake_bin/claude" <<'BASH'
+#!/usr/bin/env bash
+if [[ "$1" == "plugin" && "$2" == "list" ]]; then
+  printf 'hindsight-memory\n'
+fi
+exit 0
+BASH
+cat >"$full_fake_bin/uvx" <<'BASH'
+#!/usr/bin/env bash
+exit 0
+BASH
+chmod +x "$full_fake_bin/claude" "$full_fake_bin/uvx"
+PATH="$full_fake_bin:$PATH" CLAUDE_HOME="$full_home" CODEX_HOME="$full_codex_home" "$ROOT/scripts/install.sh" --profile full --yes --skip-beads --skip-codegraph >/dev/null
+assert_json_expr "full profile install enables Hindsight plugin" "$(jq -c . "$full_home/settings.json")" '.enabledPlugins["hindsight-memory@hindsight"] == true'
+
 # A5: post-install state verification — confirm critical hooks and scripts are present
 for hook_file in "${CRITICAL_HOOKS[@]}"; do
   assert_executable "post-install: ${hook_file} present" "$CLAUDE_HOME/hooks/$hook_file"

@@ -15,7 +15,7 @@ The previous compact path mixed tmp-only hook state, generic companion hooks, as
 
 Use a small append-only ETRNL state stream as the canonical local compact and workflow event substrate.
 
-- JSONL under `~/.claude/control-plane/state` is canonical for the first implementation.
+- `~/.claude/control-plane/state/events.jsonl` is the canonical append-only file for the first implementation; derived files such as `views/compact-handoff.json` are rebuildable and may be deleted/recreated.
 - Hooks append bounded typed events through `scripts/etrnl-state.mjs`.
 - Materialized views under `views/` are rebuildable projections, not source of truth.
 - `SessionStart(source=compact)` is the restore point. It synchronously queries `compact-handoff` and injects only the bounded handoff packet.
@@ -38,6 +38,8 @@ Compact lifecycle hooks must stay local, bounded, and deterministic.
 
 - Allowed: shell envelope, small Node CLI append/query, JSON stdout, file locks, bounded summaries.
 - Rejected: model summarization, raw transcript reads, `claude -p`, hook-triggered `/compact`, Beads CLI, Dolt SQL, long database commands, and broad startup dumps.
+
+Enforcement is split across runtime hook contract validation, `Stop` stale-verification blocking after compact handoff, and CI/code-review checks that keep tracked fixtures and hook contracts aligned.
 
 Failure mode: append/query failures fail open with a short warning unless the explicit setting/install/Stop gate is designed to fail closed.
 

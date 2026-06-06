@@ -18,8 +18,8 @@ Reclaim local disk space with an inspect-first, trash-only workflow.
 4. Only cleanup transient paths: caches, build outputs, logs, package-manager caches, simulator/build artifacts, and explicitly disposable temp files.
 5. Use owner cleanup commands before direct path trashing when they exist, such as `brew cleanup`, package-manager cache clean commands, `go clean -cache`, or Docker prune commands after `docker system df` and explicit confirmation.
 6. Use `trash` for deletion. Do not use `rm -r` or `rm -rf` for cleanup.
-7. Never delete source checkouts, documents, photos, mail stores, keychains, databases, or project data unless Victor explicitly names that exact path and confirms the deletion after seeing the manifest.
-8. Do not empty the whole Trash unless Victor explicitly asks after seeing the current Trash contents and estimated size.
+7. Never delete source checkouts, documents, photos, mail stores, keychains, databases, or project data unless the repository owner explicitly names that exact path and confirms the deletion after seeing the manifest.
+8. Do not empty the whole Trash unless the repository owner explicitly asks after seeing the current Trash contents and estimated size.
 9. After trashing files, rerun `df -h` or the same usage command and report before/after space.
 
 ## Risk Tiers
@@ -30,7 +30,7 @@ Reclaim local disk space with an inspect-first, trash-only workflow.
 
 ## Approved Path Classes
 
-The approved paths below are macOS-oriented because this workflow targets Victor's local Claude/Codex host. On non-macOS systems, skip macOS-only paths such as `$HOME/Library/**`, Xcode `DerivedData`, and `/private/var/folders/**`, or replace them with reviewed platform-specific cache/temp equivalents before building the dry-run manifest.
+The approved paths below are macOS-oriented. `$HOME` resolves to the active host owner; on non-macOS systems, skip macOS-only paths such as `$HOME/Library/**`, Xcode `DerivedData`, and `/private/var/folders/**`, or replace them with reviewed platform-specific cache/temp equivalents before building the dry-run manifest.
 
 - `$HOME/Library/Caches/**`
 - `$HOME/Library/Developer/Xcode/DerivedData/**`

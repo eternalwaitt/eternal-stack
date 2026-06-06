@@ -165,7 +165,7 @@ Before claiming done:
 1. Re-read the original request and plan completion criteria.
 2. Map every requested outcome to changed files and verification evidence.
 3. Run the simplification/dedupe/domain review passes listed by the plan or triggered by changed files.
-4. For deep-stack plans, ensure the completion audit has no high-impact `PARTIAL` or `NOT_DONE` item without explicit Victor acceptance.
+4. For deep-stack plans, ensure the completion audit has no high-impact `PARTIAL` or `NOT_DONE` item without explicit repository-owner acceptance.
 5. Run final project preflight.
 6. Validate required artifacts:
    - `node ~/.claude/scripts/review-log.mjs validate` when review findings were logged.

@@ -361,9 +361,12 @@ if git -C "$ROOT" rev-parse --show-toplevel >/dev/null 2>&1; then
   inventory_quiet_json="$(node "$ROOT/scripts/code-health-inventory.mjs" --json --quiet)"
   assert_json_expr "code-health inventory json quiet emits JSON" "$inventory_quiet_json" '.totalFiles >= 1'
   assert_json_expr "code-health inventory emits measured hotspots" "$inventory_quiet_json" '.riskHotspots | type == "array"'
+  inventory_one_hotspot_json="$(node "$ROOT/scripts/code-health-inventory.mjs" --json --max-hotspots=1)"
+  assert_json_expr "code-health inventory bounds hotspot count from CLI" "$inventory_one_hotspot_json" '.riskHotspots | length <= 1'
 else
   ok "SKIPPED (not in git repo) code-health inventory runs"
   ok "SKIPPED (not in git repo) code-health inventory quiet JSON emits JSON"
+  ok "SKIPPED (not in git repo) code-health inventory max hotspots"
 fi
 inventory_exclusion_root="$TMPROOT/code-health-inventory-exclusions"
 mkdir -p \
@@ -399,6 +402,7 @@ mkdir -p "$inventory_exclusion_root/src/auth-service" "$inventory_exclusion_root
 printf '%s\n' 'export const authService = true' >"$inventory_exclusion_root/src/auth-service/index.ts"
 printf '%s\n' 'export const serviceAuth = true' >"$inventory_exclusion_root/src/service-auth/index.ts"
 printf '%s\n' 'export const authored = true' >"$inventory_exclusion_root/src/authored/index.ts"
+printf '%s\n' 'export const exportOnly = true' >"$inventory_exclusion_root/src/export.ts"
 printf '%s\n' '{"session":"local"}' >"$inventory_exclusion_root/.claude/state.json"
 printf '%s\n' 'local log' >"$inventory_exclusion_root/logs/run.log"
 printf '%s\n' 'export const out = true' >"$inventory_exclusion_root/out/bundle.js"
@@ -409,6 +413,7 @@ inventory_exclusion_json="$(node "$ROOT/scripts/code-health-inventory.mjs" --jso
 assert_json_expr "code-health inventory lists obvious folders without auditing them" "$inventory_exclusion_json" '([.files[] | select(.path == "src/app.ts" and .auditScope == "audit")] | length) == 1 and ([.files[] | select(((.path | startswith("src/") | not) and .path != "docs/security.md" and .path != "tests/auth.test.ts") and .auditScope != "listed")] | length) == 0 and ([.files[] | select(.path | startswith(".audit/"))][0].category == "excluded")'
 assert_json_expr "code-health inventory keeps doc/test sensitive paths below hotspot threshold" "$inventory_exclusion_json" '([.riskHotspots[] | select(.path == "docs/security.md" or .path == "tests/auth.test.ts")] | length) == 0'
 assert_json_expr "code-health inventory uses segment boundaries for sensitive path tokens" "$inventory_exclusion_json" '([.riskHotspots[] | select(.path == "src/auth-service/index.ts" or .path == "src/service-auth/index.ts")] | length) == 2 and ([.riskHotspots[] | select(.path == "src/authored/index.ts")] | length) == 0'
+assert_json_expr "code-health inventory keeps generic action names below hotspot threshold" "$inventory_exclusion_json" '([.riskHotspots[] | select(.path == "src/export.ts")] | length) == 0'
 assert_command "plan readiness syntax" node --check "$ROOT/scripts/plan-readiness-check.mjs"
 assert_command "deep-stack check syntax" node --check "$ROOT/scripts/deep-stack-check.mjs"
 assert_command "tool-effectiveness syntax" node --check "$ROOT/scripts/tool-effectiveness.mjs"
@@ -579,6 +584,13 @@ printf '%s\n' '{"eventKind":"compact_post","sessionId":"newer-compact","at":"202
   | ETRNL_STATE_DIR="$etrnl_latest_dir" node "$ROOT/scripts/etrnl-state.mjs" append --json >/dev/null
 etrnl_latest_json="$(ETRNL_STATE_DIR="$etrnl_latest_dir" node "$ROOT/scripts/etrnl-state.mjs" compact-handoff --latest --json)"
 assert_json_expr "etrnl latest handoff compares timestamps across sessions" "$etrnl_latest_json" '.found == true and .handoff.sessionId == "newer-compact" and (.text | test("summary=newer"))'
+etrnl_single_compact_dir="$TMPROOT/etrnl-state-single-compact"
+printf '%s\n' '{"eventKind":"compact_post","sessionId":"single-compact","at":"2026-06-05T03:00:00Z","data":{"compactSummary":"post summary","nextAction":"post next","task":"post task"}}' \
+  | ETRNL_STATE_DIR="$etrnl_single_compact_dir" node "$ROOT/scripts/etrnl-state.mjs" append --json >/dev/null
+printf '%s\n' '{"eventKind":"compact_pre","sessionId":"single-compact","at":"2026-06-05T04:00:00Z","data":{"summary":"pre summary","nextAction":"pre next","task":"pre task"}}' \
+  | ETRNL_STATE_DIR="$etrnl_single_compact_dir" node "$ROOT/scripts/etrnl-state.mjs" append --json >/dev/null
+etrnl_single_compact_json="$(ETRNL_STATE_DIR="$etrnl_single_compact_dir" node "$ROOT/scripts/etrnl-state.mjs" compact-handoff --session single-compact --json)"
+assert_json_expr "etrnl compact handoff uses one newest compact event" "$etrnl_single_compact_json" '.handoff.task == "pre task" and .handoff.nextAction == "pre next" and .handoff.summary == "pre summary"'
 if ETRNL_STATE_DIR="$etrnl_state_dir" node "$ROOT/scripts/etrnl-state.mjs" stop-status --session fixture-compact --json >/dev/null 2>&1; then
   not_ok "etrnl stop-status blocks stale compact verification"
 else
@@ -1326,6 +1338,12 @@ else
 fi
 doctor_health_json="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" doctor --json --all)"
 assert_json_expr "workflow health doctor reports ledgers" "$doctor_health_json" '.command == "doctor" and .ledgers.total >= 2 and .strictReady == false and any(.runtimeFindings[]; .id == "stale-ledgers")'
+workflow_empty_root="$TMPROOT/workflow-health-empty"
+if CLAUDE_CONTROL_PLANE_RUNS_DIR="$workflow_empty_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$workflow_empty_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" doctor --json >/dev/null; then
+  ok "workflow health doctor exits zero with clean empty state"
+else
+  not_ok "workflow health doctor exits zero with clean empty state"
+fi
 if strict_health_out="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" doctor --json --all --strict 2>&1)"; then
   not_ok "workflow health strict doctor fails on runtime findings"
 else

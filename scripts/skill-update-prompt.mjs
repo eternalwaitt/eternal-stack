@@ -111,8 +111,12 @@ const toolStack = state.toolStack || {};
 const missingTools = Array.isArray(toolStack.missingTools) ? toolStack.missingTools : [];
 const toolUpdates = Array.isArray(toolStack.updatesAvailable) ? toolStack.updatesAvailable : [];
 const updateCommand = state.updateCommand || "";
+function quoteForShell(value) {
+  return `'${String(value).replaceAll("'", "'\\''")}'`;
+}
+
 const bootstrapCommand = state.sourceRoot
-  ? `bash ${path.join(state.sourceRoot, "scripts", "bootstrap-tools.sh")} install --yes`
+  ? `bash ${quoteForShell(path.join(state.sourceRoot, "scripts", "bootstrap-tools.sh"))} install --yes`
   : "";
 const rawLines = [];
 if (state.localUpdateAvailable) {

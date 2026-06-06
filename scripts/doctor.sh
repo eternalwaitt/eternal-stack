@@ -340,7 +340,7 @@ fi
     report_command "hindsight canary green" "hindsight canary red" env HINDSIGHT_CANARY_REQUIRE_HEALTH=1 "$ROOT/scripts/canary-hindsight.sh" --json
   elif hindsight_posture="$("$ROOT/scripts/canary-hindsight.sh" --json 2>/dev/null)"; then
     if jq -e . >/dev/null 2>&1 <<<"$hindsight_posture"; then
-      ok "hindsight posture green: $(jq -r '.mode + \" \" + .health' <<<"$hindsight_posture")"
+      ok "hindsight posture green: $(jq -r '(.mode // "") + " " + (.health // "")' <<<"$hindsight_posture")"
     else
       ok "hindsight posture returned non-JSON output; optional for core/source profile"
     fi

@@ -25,7 +25,7 @@ Create one logical commit at a time after evidence is clean.
 
 ## Message And Commit
 
-1. Match the repo's observed commit style. Use Conventional Commits only when the repo uses it or Victor asks for it.
+1. Match the repo's observed commit style. Use Conventional Commits only when the repo uses it or the repository owner asks for it.
 2. Name the changed behavior, not the tool that made it.
 3. Do not use `--no-verify`.
 4. If hooks fail, fix the cause, rerun the relevant gate, then create the commit.

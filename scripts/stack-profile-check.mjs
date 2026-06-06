@@ -16,8 +16,8 @@ const SECRET_PATTERNS = [
   /\b(?:AKIA|ASIA|OCI)[A-Z0-9]{12,}\b/,
   /BEGIN (?:RSA |EC |OPENSSH |)?PRIVATE KEY/,
   /\?sv=2[0-9-]+.*&sig=[A-Za-z0-9%+/=]+/,
-  /\b[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/,
-  /\b[A-Za-z0-9+/_-]{40,}={0,2}\b/,
+  /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/,
+  /\b(?=[A-Za-z0-9+/_-]{40,}={0,2}\b)(?=[A-Za-z0-9+/_-]*[+/])[A-Za-z0-9+/_-]+={0,2}\b/,
 ];
 
 function usage() {
@@ -53,7 +53,9 @@ function hasPrivateHomePath(value) {
   return /\/Users\/[^/\s]+/i.test(normalized) ||
     /^[A-Za-z]:\/Users\/[^/\s]+/i.test(normalized) ||
     /\/mnt\/[a-z]\/Users\/[^/\s]+/i.test(normalized) ||
-    /\/mnt\/wsl\/[^/\s]+\/Users\/[^/\s]+/i.test(normalized);
+    /\/mnt\/wsl\/[^/\s]+\/Users\/[^/\s]+/i.test(normalized) ||
+    /\/home\/[^/\s]+/i.test(normalized) ||
+    /^\/root(?:\/|$)/i.test(normalized);
 }
 
 function walk(value, trail = [], visit) {

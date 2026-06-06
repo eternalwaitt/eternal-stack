@@ -50,7 +50,7 @@ Use this finding shape for pipeline changes:
 - Avoid direct `${{ github.event.* }}` interpolation inside shell `run:` blocks; pass event data through `env:` and quote it.
 - Give workflows least-privilege `permissions:`.
 - Treat `pull_request_target` with checkout as a security finding unless the workflow proves untrusted code cannot access secrets.
-- Do not skip failing gates to force green. Move the check to the correct lane, fix the repo contract, or record an accepted-risk decision from Victor.
+- Do not skip failing gates to force green. Move the check to the correct lane, fix the repo contract, or record an accepted-risk decision from the repository owner.
 
 ## Required Gate Order
 

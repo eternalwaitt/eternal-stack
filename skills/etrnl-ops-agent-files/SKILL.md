@@ -58,7 +58,7 @@ Reconstruct the active load chain for the target tool before changing load order
 - Cross-tool bridge: `CLAUDE.md` can import `@AGENTS.md`; imports organize files but still load into context unless current product docs document lazy/path-scoped behavior.
 - Current-docs check: when changing semantics, verify current Claude Code memory docs and OpenAI Codex `AGENTS.md` docs first.
 
-Record before/after line count and byte count for every always-loaded file. Treat startup bloat as a regression unless the added text replaces larger duplicated text or Victor approves growth.
+Record before/after line count and byte count for every always-loaded file. Treat startup bloat as a regression unless the added text replaces larger duplicated text or the repository owner approves growth.
 
 ## Agent-File Scorecard
 

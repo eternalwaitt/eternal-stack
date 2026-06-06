@@ -17,7 +17,7 @@
   "targetLabel": "synthetic-app",
   "targetFingerprint": "repo:synthetic-app@missing-coverage",
   "requestedCategories": [
-    "production-readiness"
+    "security"
   ],
   "runArtifactLabel": "missing-coverage-run",
   "worklists": {

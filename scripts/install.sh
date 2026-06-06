@@ -540,7 +540,16 @@ node "$ROOT/scripts/merge-settings.mjs" "$TARGET/settings.json" "$SETTINGS_TEMPL
 node "$ROOT/scripts/settings-audit.mjs" "$TARGET/settings.json" --fix >/dev/null
 if [[ "$PROFILE" == "full" && "$SKIP_HINDSIGHT" != "1" ]]; then
   settings_tmp="$(mktemp "$TARGET/settings.json.tmp.XXXXXX")"
-  jq '.enabledPlugins = (.enabledPlugins // {}) | .enabledPlugins["hindsight-memory@hindsight"] = true' "$TARGET/settings.json" >"$settings_tmp"
+  if ! jq '.enabledPlugins = (.enabledPlugins // {}) | .enabledPlugins["hindsight-memory@hindsight"] = true' "$TARGET/settings.json" >"$settings_tmp"; then
+    rm -f "$settings_tmp"
+    printf 'install error: failed to enable Hindsight plugin in settings.json\n' >&2
+    exit 1
+  fi
+  if [[ ! -s "$settings_tmp" ]]; then
+    rm -f "$settings_tmp"
+    printf 'install error: Hindsight settings update produced an empty file\n' >&2
+    exit 1
+  fi
   install -m 600 "$settings_tmp" "$TARGET/settings.json"
   rm -f "$settings_tmp"
 fi

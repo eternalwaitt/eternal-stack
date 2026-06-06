@@ -20,11 +20,11 @@ This reference is intentionally compact because code excellence reuses the share
 Use shared artifact paths produced by the orchestrator. Baseline commands:
 
 - `code_source`: app and library source files.
-  Command: `fd -e ts -e tsx -e js -e jsx -e py -e rs -e go -e rb -e php -e java -e kt --exclude node_modules --exclude .next --exclude dist`
+Command: `fd --type f -e ts -e tsx -e js -e jsx -e py -e rs -e go -e rb -e php -e java -e kt --exclude node_modules --exclude .next --exclude dist`
 - `code_tests`: test and fixture files.
   Command: `fd 'test|spec|fixture' --type f --exclude node_modules --exclude .next --exclude dist`
 - `code_configs`: build, lint, type, and runtime config.
-  Command: `fd 'package.json|tsconfig.*|eslint.*|oxlint.*|biome.*|vite.*|next.config.*|pytest.ini|Cargo.toml|go.mod'`
+Command: `fd --type f 'package\.json|tsconfig\..*|eslint\..*|oxlint\..*|biome\..*|vite\..*|next\.config\..*|pytest\.ini|Cargo\.toml|go\.mod'`
 
 ## Applicability Discovery
 

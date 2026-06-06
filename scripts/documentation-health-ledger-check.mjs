@@ -251,7 +251,7 @@ function freshnessStatus(message) {
   if (!hasNumericCounters(message, freshnessRequired)) return "missing-freshness-counters";
   if (!hasPositiveCounter(message, "RECENT_COMMITS_REVIEWED")) return "no-recent-commits-reviewed";
   // Require hasPositiveCounter("RECENT_PRS_REVIEWED") or explicit hasAny skip text matching no PRs reviewed, PRs review skipped, or skip PRs review.
-  if (!hasPositiveCounter(message, "RECENT_PRS_REVIEWED") && !hasAny(message, [/no\s*pr?s\s*review(?:ed)?/i, /pr?s review skipped/i, /skip pr?s review/i])) {
+  if (!hasPositiveCounter(message, "RECENT_PRS_REVIEWED") && !hasAny(message, [/no\s*prs?\s*review(?:ed)?/i, /pr?s review skipped/i, /skip pr?s review/i])) {
     return "no-recent-prs-reviewed";
   }
   if (!hasPositiveCounter(message, "RECENT_CHANGE_DOC_IMPACT_CHECKS")) return "no-recent-change-doc-impact-checks";

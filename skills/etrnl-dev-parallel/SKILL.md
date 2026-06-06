@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-parallel`; on update, ask update/snooze/continue.
 
-Use this only as an explicit fanout helper. `/etrnl-dev-execute` is the main orchestrator and owns plan execution, ledger updates, review, integration, and final verification.
+Use this only as an explicit fanout helper. `etrnl-dev-execute` is the main orchestrator and owns plan execution, ledger updates, review, integration, and final verification.
 
 1. Split work by disjoint file ownership.
 2. Construct the full ETRNL task packet as specified in `etrnl-dev-execute`, including task id, lineage id, scope, verification, reviewer, reuse, TDD, deep-stack, risk, and completion fields.

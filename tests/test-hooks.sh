@@ -591,7 +591,7 @@ assert_json_expr "serena scoped bounded search allowed" "$out" '.continue == tru
 email_guard_failure_json="$(jq -cn '{session_id:"fixture-email-guard-failure",tool_name:"Bash",tool_input:{command:"vivaz-email triage guarded-run --account agencia --apply --require-insights"},error:"TRIAGE_GUARD_ML_DISAGREED: ML archive review found 1 disagreement"}')"
 out="$(run_hook cc-posttoolusefailure-diagnose.sh "$email_guard_failure_json")"
 assert_contains "email triage ML disagreement gets recovery diagnostic" "$out" "triage ml-reviews"
-assert_contains "email triage ML disagreement avoids asking Victor" "$out" "not a question for Victor"
+assert_contains "email triage ML disagreement avoids asking repository owner" "$out" "not a question for the repository owner"
 
 rate_event="$(jq -cn '{session_id:"fixture-rate",tool_name:"Bash",tool_input:{command:"rg -n value src"}}')"
 run_hook cc-rate-limiter.sh "$rate_event" >/dev/null || true
@@ -708,7 +708,7 @@ assert_contains "email triage stop requires runtime apply command" "$out" "vivaz
 
 email_triage_ok_state="$TMPROOT/claude-guard-fixture-email-triage-ok.json"
 jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[{command:"vivaz-email triage guarded-run --account agencia --max-inbox 50 --apply --require-insights",at:"2026-01-01T00:00:01Z"}],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[{value:"email-triage",at:"2026-01-01T00:00:00Z"}],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"/email-triage agencia",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$email_triage_ok_state"
-email_triage_ok_queue="# Email Reply Queue"$'\n\n'"Run: triage_fixture_agencia"$'\n'"Account: agencia"$'\n'"Status: verified"$'\n'"Queue mode: reply"$'\n'"Open queue items: 1"$'\n'"All action items: 1"$'\n\n'"### 1. P0 100 - urgent contract"$'\n\n'"Recommended handling: Review draft, then send only after Victor explicitly approves this specific reply."$'\n\n'"## Next Step"$'\n\n'"- Ask Victor to approve/send the exact visible draft, rewrite it, skip it, or show the next item."
+email_triage_ok_queue="# Email Reply Queue"$'\n\n'"Run: triage_fixture_agencia"$'\n'"Account: agencia"$'\n'"Status: verified"$'\n'"Queue mode: reply"$'\n'"Open queue items: 1"$'\n'"All action items: 1"$'\n\n'"### 1. P0 100 - urgent contract"$'\n\n'"Recommended handling: Review draft, then send only after the repository owner explicitly approves this specific reply."$'\n\n'"## Next Step"$'\n\n'"- Ask the repository owner to approve/send the exact visible draft, rewrite it, skip it, or show the next item."
 email_triage_ok_stop="$(jq -cn --arg message "$email_triage_ok_queue" '{session_id:"fixture-email-triage-ok",last_assistant_message:$message,stop_hook_active:false}')"
 out="$(PATH="$TMPROOT/bin:$PATH" run_hook cc-stop-verifier.sh "$email_triage_ok_stop")"
 if [[ -z "$out" ]]; then ok "email triage queue satisfies stop"; else not_ok "email triage queue should pass: $out"; fi
