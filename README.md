@@ -32,17 +32,15 @@ It enforces the work habits that prose cannot reliably enforce:
 ```bash
 git clone <repo>
 cd claude-control-plane
-./scripts/install.sh
+./scripts/install.sh --profile core
 ./scripts/doctor.sh
 ```
 
-The installer backs up `~/.claude`, copies control-plane assets, installs repo-owned ETRNL agents by default, syncs Codex skills/scripts into `~/.codex`, runs hook/workflow tests, repairs settings with `settings-audit.mjs --fix`, and merges the safe observer layer by default.
-The default layer includes prompt routing, prompt expansion, `CLAUDE.md` reinjection, the locked advisory rate limiter, post-tool observation, and session cleanup.
-See [docs/install.md](docs/install.md) for full install/update behavior, including strict mode, `CLAUDE_CONTROL_PLANE_INSTALL_STARTUP`, `AGENTS.md`/`CLAUDE.md`, `docs/skills.md`, `etrnl-*` migration, and companion skill mapping.
+The `core` profile is the default when `CLAUDE_CONTROL_PLANE_STACK_PROFILE` is unset; it installs the safe observer stack with repo-owned ETRNL agents and verification tests. The `full` profile adds CodeGraph, Beads, Hindsight, and canaries. See [docs/install.md](docs/install.md) for profile details, strict mode, hooks, rollback, migration behavior, and deeper references such as `AGENTS.md`, `CLAUDE.md`, and `docs/skills.md`.
 
 Installs write `~/.claude/control-plane/install.json` and `~/.codex/control-plane/install.json` so Claude and Codex can detect source/install drift from their own installed homes.
 Run `~/.claude/scripts/update.sh` or `./scripts/update.sh` for manual updates.
-Set `CLAUDE_CONTROL_PLANE_AUTO_UPDATE=1` to enable automatic local updates from the configured source checkout.
+Local auto-update from the configured source checkout is enabled by default; set `CLAUDE_CONTROL_PLANE_AUTO_UPDATE=0` to disable it.
 The installed update check also reports CodeGraph and Beads drift; requested Claude `etrnl-*` skills inject an advisory update/bootstrap prompt through hooks, and Codex `etrnl-*` skills run `~/.codex/scripts/skill-update-prompt.mjs` as their first step.
 
 Hard blockers are shipped but not enabled automatically. Enable them after tests, doctor, rollback, and a fresh Claude smoke pass.
@@ -67,6 +65,7 @@ node scripts/port-guard.mjs pick --start 3100
 node scripts/settings-audit.mjs ~/.claude/settings.json --json
 node scripts/update-check.mjs --json
 node scripts/tool-stack-check.mjs --explain --project "$PWD"
+node scripts/stack-profile-check.mjs templates/stack-profile.full.json
 scripts/bootstrap-tools.sh check --project "$PWD"
 node scripts/replay-hook-fixtures.mjs
 ```

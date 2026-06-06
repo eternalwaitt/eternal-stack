@@ -244,13 +244,13 @@ for (const skill of ownedSkills) {
   }
 }
 
-const autoplan = path.join(skillsDir, "etrnl-autoplan", "SKILL.md");
-const plan = path.join(skillsDir, "etrnl-plan", "SKILL.md");
+const autoplan = path.join(skillsDir, "etrnl-dev-autoplan", "SKILL.md");
+const plan = path.join(skillsDir, "etrnl-dev-plan", "SKILL.md");
 const autoplanContent = existsSync(autoplan) ? read(autoplan) : "";
 const planContent = existsSync(plan) ? read(plan) : "";
 for (const heading of REQUIRED_PLAN_HEADINGS) {
-  if (autoplanContent && !autoplanContent.includes(heading)) fail(`etrnl-autoplan missing required readiness heading: ${heading}`);
-  if (planContent && !planContent.includes(heading.replace("Status: Final", "Status: Draft"))) fail(`etrnl-plan missing required readiness concept: ${heading}`);
+  if (autoplanContent && !autoplanContent.includes(heading)) fail(`etrnl-dev-autoplan missing required readiness heading: ${heading}`);
+  if (planContent && !planContent.includes(heading.replace("Status: Final", "Status: Draft"))) fail(`etrnl-dev-plan missing required readiness concept: ${heading}`);
 }
 if (planContent) {
   const lines = planContent.split(/\r?\n/);
@@ -262,26 +262,26 @@ if (planContent) {
     hasMandatoryBehavior = true;
     const nearby = lines.slice(Math.max(0, index - 1), Math.min(lines.length, index + 2)).join("\n");
     if (!namedMechanismPattern.test(nearby)) {
-      fail("etrnl-plan missing mandatory-behavior mechanical enforcement contract");
+      fail("etrnl-dev-plan missing mandatory-behavior mechanical enforcement contract");
     }
   }
   if (!hasMandatoryBehavior) {
-    fail("etrnl-plan missing mandatory-behavior mechanical enforcement contract");
+    fail("etrnl-dev-plan missing mandatory-behavior mechanical enforcement contract");
   }
 }
 
-const executePath = path.join(skillsDir, "etrnl-execute", "SKILL.md");
+const executePath = path.join(skillsDir, "etrnl-dev-execute", "SKILL.md");
 if (existsSync(executePath)) {
   const execute = read(executePath);
   const readinessIndex = execute.indexOf("plan-readiness-check.mjs <plan-path>");
   const ledgerIndex = execute.indexOf("execution-ledger.mjs init");
-  if (readinessIndex < 0) fail("etrnl-execute missing direct plan readiness check");
-  if (ledgerIndex < 0) fail("etrnl-execute missing ledger init");
+  if (readinessIndex < 0) fail("etrnl-dev-execute missing direct plan readiness check");
+  if (ledgerIndex < 0) fail("etrnl-dev-execute missing ledger init");
   if (readinessIndex >= 0 && ledgerIndex >= 0 && readinessIndex > ledgerIndex) {
-    fail("etrnl-execute must run plan readiness before ledger startup and edits");
+    fail("etrnl-dev-execute must run plan readiness before ledger startup and edits");
   }
   if (!/If the readiness check fails.*Do not continue into implementation/s.test(execute)) {
-    fail("etrnl-execute missing fail-closed readiness wording");
+    fail("etrnl-dev-execute missing fail-closed readiness wording");
   }
   const executeRequiredConcepts = [
     {
@@ -299,7 +299,7 @@ if (existsSync(executePath)) {
   ];
   for (const concept of executeRequiredConcepts) {
     if (!hasKeywords(execute, concept.keywords)) {
-      fail(`etrnl-execute missing ${concept.label} concept: ${concept.keywords.join(", ")}`);
+      fail(`etrnl-dev-execute missing ${concept.label} concept: ${concept.keywords.join(", ")}`);
     }
   }
 }

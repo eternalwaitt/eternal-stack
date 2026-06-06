@@ -4,7 +4,7 @@ Status: Final
 
 Execution scope: all_phases
 Goal: Make ETRNL's remaining planning, review, TDD, subagent, simplifier, TypeScript, install, and completion-audit promises deterministic enough for low/mid-intelligence agents to follow reliably.
-Evidence: AGENTS.md; skills/etrnl-plan/SKILL.md; skills/etrnl-autoplan/SKILL.md; skills/etrnl-review/SKILL.md; skills/etrnl-execute/SKILL.md; scripts/plan-readiness-check.mjs; scripts/deep-stack-check.mjs; scripts/lib/deep-stack-artifacts.mjs; scripts/agent-task-packet-check.mjs; scripts/execution-ledger.mjs; scripts/execute-evidence-check.mjs; hooks/cc-stop-verifier.sh; hooks/cc-pretooluse-guard.sh; tests/test-workflow-tools.sh; docs/health-stack.md; docs/plans/2026-06-02-etrnl-stack-findings-report.md; sanitized Superpowers/GSD/GStack source snapshots.
+Evidence: AGENTS.md; skills/etrnl-dev-plan/SKILL.md; skills/etrnl-dev-autoplan/SKILL.md; skills/etrnl-dev-review/SKILL.md; skills/etrnl-dev-execute/SKILL.md; scripts/plan-readiness-check.mjs; scripts/deep-stack-check.mjs; scripts/lib/deep-stack-artifacts.mjs; scripts/agent-task-packet-check.mjs; scripts/execution-ledger.mjs; scripts/execute-evidence-check.mjs; hooks/cc-stop-verifier.sh; hooks/cc-pretooluse-guard.sh; tests/test-workflow-tools.sh; docs/health-stack.md; docs/plans/2026-06-02-etrnl-stack-findings-report.md; sanitized Superpowers/GSD/GStack source snapshots.
 Non-goals: Do not vendor GSD, Superpowers, or GStack; do not mutate live ~/.claude or ~/.codex during source implementation; do not add network dependencies for ordinary planning/review/execution; do not weaken existing hooks, tests, or quality gates.
 Deep stack artifacts: docs/plans/artifacts/2026-06-02-etrnl-top-level-gap-closure/deep-stack-artifacts.json
 
@@ -28,12 +28,12 @@ Reuse the existing Hybrid Deep Stack bundle instead of creating separate validat
 - `scripts/deep-stack-check.mjs`: expose section validators for the new artifact fields and keep `validate-plan` as the single operator-facing gate.
 - `scripts/execution-ledger.mjs`: add record/check commands for TDD evidence, simplifier evidence, domain/specialist evidence, completion audit rows, and Tier 3 install gates.
 - `scripts/agent-task-packet-check.mjs`: require reuse/TDD/simplifier/deep-stack fields when write packets create new surfaces or execute non-trivial source tasks.
-- `scripts/execute-evidence-check.mjs`: detect missing simplifier/domain/reuse/TDD evidence from guard state for `/etrnl-execute` source edits.
+- `scripts/execute-evidence-check.mjs`: detect missing simplifier/domain/reuse/TDD evidence from guard state for `/etrnl-dev-execute` source edits.
 - `hooks/cc-stop-verifier.sh`: call the stronger execution evidence checker and block non-trivial completion when new ledger/artifact evidence is missing.
-- `skills/etrnl-plan/SKILL.md`: update final-plan requirements to name review phase records, TDD evidence, reuse binding, advanced TypeScript trigger proof, and completion reconciliation.
-- `skills/etrnl-autoplan/SKILL.md`: make deep review phase records mandatory, not just phase names.
-- `skills/etrnl-review/SKILL.md`: make red/green, simplifier, specialist, TypeScript, and completion-audit checks findings-first review requirements.
-- `skills/etrnl-execute/SKILL.md`: require ledger recording for TDD, simplifier, specialist, completion audit, and Tier 3 install proof before completion.
+- `skills/etrnl-dev-plan/SKILL.md`: update final-plan requirements to name review phase records, TDD evidence, reuse binding, advanced TypeScript trigger proof, and completion reconciliation.
+- `skills/etrnl-dev-autoplan/SKILL.md`: make deep review phase records mandatory, not just phase names.
+- `skills/etrnl-dev-review/SKILL.md`: make red/green, simplifier, specialist, TypeScript, and completion-audit checks findings-first review requirements.
+- `skills/etrnl-dev-execute/SKILL.md`: require ledger recording for TDD, simplifier, specialist, completion audit, and Tier 3 install proof before completion.
 - `agents/etrnl-*.md`: align final outputs with structured completion markers and required summary fields.
 - `docs/skills.md`: document the new deterministic helpers and companion-skill routing.
 - `docs/health-stack.md`: add the new validators and fixtures to required gates.
@@ -92,7 +92,7 @@ Add ledger commands and checks for TDD evidence, simplifier evidence, domain/spe
 
 Extend `execute-evidence-check.mjs` to detect:
 
-- source edits after `/etrnl-execute` without TDD evidence;
+- source edits after `/etrnl-dev-execute` without TDD evidence;
 - non-trivial source edits without simplifier evidence;
 - new source files without reuse binding;
 - TypeScript public/exported/schema/state-machine/DTO-boundary edits without advanced TypeScript disposition;
@@ -106,7 +106,7 @@ Update `cc-stop-verifier.sh` to consume the stronger checker statuses and return
 
 ### Phase 5 - Skill And Agent Contract Alignment
 
-Update `etrnl-plan`, `etrnl-autoplan`, `etrnl-review`, and `etrnl-execute` so their text matches the deterministic evidence model. Update ETRNL agents to output structured completion markers and compact evidence rows that the parent can record.
+Update `etrnl-dev-plan`, `etrnl-dev-autoplan`, `etrnl-dev-review`, and `etrnl-dev-execute` so their text matches the deterministic evidence model. Update ETRNL agents to output structured completion markers and compact evidence rows that the parent can record.
 
 ### Phase 6 - Docs, Health, Changelog, And Coverage
 
@@ -118,9 +118,9 @@ After source implementation is approved and complete, run all source gates. Only
 
 ## Skill/tool routing
 
-- Use `etrnl-plan` for any plan edits.
-- Use `etrnl-review` for findings-first review of the plan and implementation.
-- Use `etrnl-execute` only after Victor explicitly asks to implement.
+- Use `etrnl-dev-plan` for any plan edits.
+- Use `etrnl-dev-review` for findings-first review of the plan and implementation.
+- Use `etrnl-dev-execute` only after Victor explicitly asks to implement.
 - Use `code-simplifier` after source implementation and before final completion.
 - Use `code-review-excellence` for non-trivial source review.
 - Use `finding-duplicate-functions` when helper/validator duplication is touched.
@@ -217,7 +217,7 @@ For source changes, revert only the implementation branch changes made by the ex
 
 ## Execution handoff
 
-Use `etrnl-execute` only after Victor explicitly asks to implement. Because the execution scope is `all_phases`, the executor must complete every phase above or stop with a concrete blocker. Use subagents for parallel-safe disjoint work only after packet validation; use direct parent edits only for single sequential tasks, overlapping write scopes, missing subagent runtime, or explicit user instruction.
+Use `etrnl-dev-execute` only after Victor explicitly asks to implement. Because the execution scope is `all_phases`, the executor must complete every phase above or stop with a concrete blocker. Use subagents for parallel-safe disjoint work only after packet validation; use direct parent edits only for single sequential tasks, overlapping write scopes, missing subagent runtime, or explicit user instruction.
 
 ## Plan Readiness Report
 

@@ -1,0 +1,778 @@
+{
+  "schemaVersion": 1,
+  "artifactType": "deep-stack-plan",
+  "planPath": "docs/plans/2026-06-05-claude-code-memory-hindsight-beads-plan.md",
+  "deepReview": {
+    "status": "passed",
+    "phases": [
+      "ceo",
+      "engineering",
+      "dx",
+      "adversarial",
+      "specialist",
+      "reuse",
+      "simplifier"
+    ],
+    "completedAt": "2026-06-05T16:47:25Z"
+  },
+  "reviewPhases": [
+    {
+      "role": "ceo",
+      "status": "passed",
+      "checkedInputs": [
+        "docs/plans/2026-06-05-claude-code-memory-hindsight-beads-plan.md",
+        "scripts/install.sh dry-run behavior",
+        "scripts/bootstrap-tools.sh install behavior",
+        "current installed Claude settings posture",
+        "current Hindsight and Beads CLI evidence"
+      ],
+      "findingsCount": 5,
+      "openHighCount": 0,
+      "disposition": "Plan now treats the deliverable as a shareable full-stack installer, not just a local memory posture cleanup.",
+      "completedAt": "2026-06-05T16:47:25Z"
+    },
+    {
+      "role": "engineering",
+      "status": "passed",
+      "checkedInputs": [
+        "scripts/settings-audit.mjs",
+        "scripts/install.sh",
+        "scripts/bootstrap-tools.sh",
+        "scripts/lib/skill-lists.sh",
+        "scripts/canary-hindsight.sh",
+        "scripts/tool-stack-check.mjs",
+        "hooks/cc-hindsight-lesson.py",
+        "scripts/etrnl-state.mjs",
+        "scripts/lib/etrnl-state-core.mjs"
+      ],
+      "findingsCount": 7,
+      "openHighCount": 0,
+      "disposition": "Existing installer, bootstrap, audit, canary, tool-stack, and ETRNL state surfaces are reused; full-stack provisioning is profile-driven and gated.",
+      "completedAt": "2026-06-05T16:47:25Z"
+    },
+    {
+      "role": "dx",
+      "status": "passed",
+      "checkedInputs": [
+        "templates/settings.strict.json",
+        "docs/install.md",
+        "docs/configuration.md",
+        "docs/health-stack.md",
+        "README.md",
+        "live Claude settings key summary",
+        "plugin hook inventory"
+      ],
+      "findingsCount": 6,
+      "openHighCount": 0,
+      "disposition": "The plan requires a fresh-user core profile and full profile so install docs cannot overclaim what the scripts actually provision.",
+      "completedAt": "2026-06-05T16:47:25Z"
+    },
+    {
+      "role": "adversarial",
+      "status": "passed",
+      "checkedInputs": [
+        "Hindsight plugin manifest",
+        "Hindsight Claude Code integration docs",
+        "redacted Hindsight config",
+        "bd prime output classes",
+        "install dry-run output",
+        "docs/adr/0002-etrnl-state-and-compact-handoff.md"
+      ],
+      "findingsCount": 8,
+      "openHighCount": 0,
+      "disposition": "Full-stack install must not run third-party setup scripts blindly: Hindsight and Beads are provisioned only behind repo-owned gates and rollback metadata.",
+      "completedAt": "2026-06-05T16:47:25Z"
+    },
+    {
+      "role": "specialist",
+      "status": "passed",
+      "checkedInputs": [
+        "Claude Code hooks documentation",
+        "Claude Code settings documentation",
+        "Hindsight Claude Code integration documentation",
+        "Hindsight daemon and Docker quick-start documentation",
+        "Beads installed CLI behavior"
+      ],
+      "findingsCount": 6,
+      "openHighCount": 0,
+      "disposition": "The plan follows native Claude compaction semantics and chooses explicit Hindsight service modes: local daemon by default, external API or Docker by explicit profile.",
+      "completedAt": "2026-06-05T16:47:25Z"
+    },
+    {
+      "role": "reuse",
+      "status": "passed",
+      "checkedInputs": [
+        "scripts/settings-audit.mjs",
+        "scripts/install.sh",
+        "scripts/bootstrap-tools.sh",
+        "scripts/tool-stack-check.mjs",
+        "scripts/canary-hindsight.sh",
+        "scripts/doctor.sh",
+        "tests/test-install.sh",
+        "tests/test-hooks.sh",
+        "tests/test-workflow-tools.sh"
+      ],
+      "findingsCount": 5,
+      "openHighCount": 0,
+      "disposition": "Plan extends install/bootstrap/profile validators and existing fixtures instead of creating a parallel installer stack.",
+      "completedAt": "2026-06-05T16:47:25Z"
+    },
+    {
+      "role": "simplifier",
+      "status": "passed",
+      "checkedInputs": [
+        "docs/plans/2026-06-05-claude-code-memory-hindsight-beads-plan.md",
+        "docs/install.md",
+        "docs/plans/2026-06-05-etrnl-compact-state-rewrite-plan.md",
+        "scripts/lib/deep-stack-artifacts.mjs"
+      ],
+      "findingsCount": 4,
+      "openHighCount": 0,
+      "disposition": "The plan avoids a full memory rewrite while making install behavior explicit through core and full profiles.",
+      "completedAt": "2026-06-05T16:47:25Z"
+    }
+  ],
+  "sourceManifest": {
+    "sources": [
+      {
+        "sourceId": "control-plane-source",
+        "version": "current",
+        "commit": "0ac32c4ccaecde7815057b82203a7e0b9076acc6",
+        "hash": "sha256:fb83e085dac2b63884922a9603ec402ecb2595b3aec4a7004f2a30e9ccdd5070",
+        "capturedAt": "2026-06-05T16:47:25Z",
+        "refreshCommand": "git rev-parse HEAD && shasum -a 256 scripts/install.sh scripts/bootstrap-tools.sh scripts/lib/skill-lists.sh scripts/canary-hindsight.sh scripts/settings-audit.mjs scripts/tool-stack-check.mjs docs/install.md docs/configuration.md docs/skills.md",
+        "requiredFiles": [
+          "scripts/install.sh",
+          "scripts/bootstrap-tools.sh",
+          "scripts/lib/skill-lists.sh",
+          "hooks/cc-hindsight-lesson.py",
+          "scripts/canary-hindsight.sh",
+          "scripts/settings-audit.mjs",
+          "scripts/tool-stack-check.mjs",
+          "scripts/doctor.sh",
+          "docs/install.md",
+          "docs/adr/0002-etrnl-state-and-compact-handoff.md",
+          "docs/configuration.md",
+          "docs/skills.md"
+        ]
+      },
+      {
+        "sourceId": "plan-source",
+        "version": "shareable-stack-plan",
+        "commit": "0ac32c4ccaecde7815057b82203a7e0b9076acc6",
+        "hash": "sha256:d216ef52970309a3a09ee5b4b350073c03f5a2642b46dc822c6f3cd7cd66241e",
+        "capturedAt": "2026-06-05T16:47:25Z",
+        "refreshCommand": "shasum -a 256 docs/plans/2026-06-05-claude-code-memory-hindsight-beads-plan.md",
+        "requiredFiles": [
+          "docs/plans/2026-06-05-claude-code-memory-hindsight-beads-plan.md"
+        ]
+      },
+      {
+        "sourceId": "installed-claude-memory-posture",
+        "version": "2026-06-05-installed-read-only",
+        "commit": "local-installed-home",
+        "hash": "sha256:f567993ff05c3d31d5221911caae4e219475fbd8be10e1cc2806c598bc48092f",
+        "capturedAt": "2026-06-05T16:21:54Z",
+        "refreshCommand": "jq '{enabledPlugins, autoCompactWindow, hasSkipAutoPermissionPrompt:(has(\"skipAutoPermissionPrompt\")), permissions, hookEvents:(.hooks|keys)}' \"$HOME/.claude/settings.json\" && claude plugin list && scripts/canary-hindsight.sh && jq 'del(.hindsightApiToken)' \"$HOME/.hindsight/claude-code.json\"",
+        "requiredFiles": [
+          "CLAUDE_HOME/settings.json",
+          "CLAUDE_PLUGIN_CACHE/hindsight-memory/0.3.0/hooks/hooks.json",
+          "HINDSIGHT_CONFIG/claude-code.json"
+        ]
+      },
+      {
+        "sourceId": "beads-local-posture",
+        "version": "bd-1.0.5",
+        "commit": "local-beads-state",
+        "hash": "sha256:34b41d1b1320f8d38ee1a88163bbfa8724d92c9569aeb00d6ed488567c73e324",
+        "capturedAt": "2026-06-05T16:21:54Z",
+        "refreshCommand": "bd version && bd status --json && bd setup claude --check && bd setup codex --check && bd memories && bd prime --hook-json --memories-only",
+        "requiredFiles": [
+          ".beads/metadata.json",
+          ".beads/config.yaml"
+        ]
+      },
+      {
+        "sourceId": "upstream-hindsight-release",
+        "version": "v0.7.2",
+        "commit": "github-release",
+        "hash": "sha256:86d5bb8072bec8e463dda598163c6b131b88c14e295574a4bab5bb3f8c0fbee7",
+        "capturedAt": "2026-06-05T16:21:54Z",
+        "refreshCommand": "gh release view --repo vectorize-io/hindsight --json tagName,publishedAt,name,url,isPrerelease,isDraft",
+        "requiredFiles": [
+          "GitHub release vectorize-io/hindsight v0.7.2"
+        ]
+      },
+      {
+        "sourceId": "upstream-hindsight-install-surfaces",
+        "version": "main-2026-06-05",
+        "commit": "github-main",
+        "hash": "sha256:documentation-reviewed",
+        "capturedAt": "2026-06-05T16:47:25Z",
+        "refreshCommand": "gh api repos/vectorize-io/hindsight/git/trees/main?recursive=1 and inspect README, hindsight-integrations/claude-code, plugin manifest, hooks manifest, and daemon code",
+        "requiredFiles": [
+          "Hindsight README quick start",
+          "hindsight-integrations/claude-code/README.md",
+          "hindsight-integrations/claude-code/hooks/hooks.json",
+          "hindsight-integrations/claude-code/.claude-plugin/plugin.json",
+          "hindsight-integrations/claude-code/scripts/lib/daemon.py"
+        ]
+      },
+      {
+        "sourceId": "beads-npm-package",
+        "version": "1.0.5",
+        "commit": "npm-registry",
+        "hash": "sha256:npm-view-beads-1.0.5",
+        "capturedAt": "2026-06-05T16:47:25Z",
+        "refreshCommand": "npm view @beads/bd version dist-tags.latest description repository.url --json",
+        "requiredFiles": [
+          "npm package @beads/bd"
+        ]
+      }
+    ]
+  },
+  "skillMatrix": [
+    {
+      "skill": "etrnl-dev-plan",
+      "status": "required",
+      "trigger": "User invoked etrnl-dev-plan for a file-backed implementation plan.",
+      "evidence": "Plan and artifact were created under docs/plans."
+    },
+    {
+      "skill": "Hook Development",
+      "status": "required",
+      "trigger": "Implementation will inspect and harden Claude lifecycle hooks, plugin hook manifests, and settings audit behavior.",
+      "evidence": "Task groups B, C, D, and E cover hook source inventory, Hindsight canary, lesson hooks, and settings cleanup."
+    },
+    {
+      "skill": "Command Development",
+      "status": "required",
+      "trigger": "Implementation will add or refine install CLI flags, dry-run output, and full-stack profile commands.",
+      "evidence": "Task group A requires install profile commands and deterministic dry-run behavior."
+    },
+    {
+      "skill": "Plugin Settings",
+      "status": "optional",
+      "trigger": "Hindsight remains a third-party Claude plugin, but the control plane owns its install profile, config templates, and canary expectations.",
+      "evidence": "Task group C requires plugin install verification and config materialization without vendoring plugin code."
+    },
+    {
+      "skill": "code-simplifier",
+      "status": "required",
+      "trigger": "Install profiles and memory posture gates can sprawl across install, bootstrap, settings-audit, tool-stack, doctor, and hooks.",
+      "evidence": "Skill routing requires simplifier review after implementation."
+    },
+    {
+      "skill": "finding-duplicate-functions",
+      "status": "optional",
+      "trigger": "Hindsight and Beads checks may duplicate existing tool-stack and settings-audit parsing.",
+      "evidence": "Skill routing marks duplicate review when implementation crosses the shared validators."
+    },
+    {
+      "skill": "brooks-audit",
+      "status": "optional",
+      "trigger": "Control-plane health-stack behavior and installed-home gates may change.",
+      "evidence": "Skill routing marks Brooks as useful when implementation changes broad health-stack enforcement."
+    },
+    {
+      "skill": "eternal-best-practices",
+      "status": "not_applicable",
+      "trigger": "No tenant, auth, money, i18n, Prisma, permission-domain, or soft-delete application policy is changed.",
+      "evidence": "Plan is confined to local Claude Code memory, hooks, settings, and workflow tooling.",
+      "notApplicableRationale": "Domain policy skill is unnecessary for local control-plane memory posture."
+    },
+    {
+      "skill": "typescript-advanced-types",
+      "status": "not_applicable",
+      "trigger": "Planned changes are JavaScript, Python, shell, JSON fixtures, and docs unless implementation unexpectedly expands.",
+      "evidence": "Ordinary syntax and project workflow checks are still required.",
+      "notApplicableRationale": "No exported TypeScript types, API contracts, runtime validation schemas, generated types, state machines, branded IDs, reusable type utilities, or cross-layer DTO boundaries are planned."
+    }
+  ],
+  "reuseInventory": {
+    "searchedPaths": [
+      "scripts",
+      "scripts/lib",
+      "hooks",
+      "hooks/lib",
+      "tests",
+      "tests/fixtures",
+      "docs",
+      "templates"
+    ],
+    "existingAnalogs": [
+      "scripts/install.sh",
+      "scripts/bootstrap-tools.sh",
+      "scripts/lib/skill-lists.sh",
+      "scripts/settings-audit.mjs",
+      "scripts/tool-stack-check.mjs",
+      "scripts/canary-hindsight.sh",
+      "scripts/doctor.sh",
+      "scripts/etrnl-state.mjs",
+      "scripts/lib/etrnl-state-core.mjs",
+      "hooks/cc-hindsight-lesson.py",
+      "tests/test-install.sh",
+      "tests/test-hooks.sh",
+      "tests/test-workflow-tools.sh",
+      "docs/install.md",
+      "templates/settings.strict.json"
+    ],
+    "candidateHelpers": [
+      "scripts/lib/cli-args.mjs",
+      "scripts/lib/env-utils.mjs",
+      "scripts/lib/deep-stack-artifacts.mjs",
+      "hooks/lib/state.sh",
+      "hooks/lib/json.sh",
+      "hooks/lib/paths.sh"
+    ],
+    "candidateTests": [
+      "tests/test-hooks.sh",
+      "tests/test-workflow-tools.sh",
+      "tests/test-install.sh",
+      "node scripts/replay-hook-fixtures.mjs",
+      "node scripts/skill-contract-check.mjs"
+    ],
+    "decisions": [
+      {
+        "newSurface": true,
+        "surface": "templates/stack-profile.core.json and templates/stack-profile.full.json",
+        "decision": "Create public profile manifests so install behavior is versioned, testable, and not hidden in shell branches.",
+        "newSurfaceJustification": "Existing settings templates do not describe package installs, service modes, health checks, skip flags, or rollback expectations."
+      },
+      {
+        "newSurface": true,
+        "surface": "templates/hindsight/claude-code.local-daemon.json and templates/hindsight/claude-code.external.example.json",
+        "decision": "Create token-free Hindsight config templates for full-stack install profiles.",
+        "newSurfaceJustification": "The current local Hindsight config is private runtime state and cannot be copied into a public repo or fresh install."
+      },
+      {
+        "newSurface": true,
+        "surface": "scripts/stack-profile-check.mjs",
+        "decision": "Create only if install/profile validation cannot fit cleanly inside existing install and tool-stack checks.",
+        "newSurfaceJustification": "Fresh-stack profile validation spans settings, packages, plugin state, services, project DBs, and rollback proof; existing single-purpose validators do not own that whole contract."
+      },
+      {
+        "newSurface": true,
+        "surface": "tests/fixtures/stack-install",
+        "decision": "Create synthetic fixtures because existing install fixtures do not model Hindsight plugin provisioning, service modes, or full-stack package bootstrap.",
+        "newSurfaceJustification": "Current fixtures prove core install behavior but not shareable full-stack install semantics."
+      },
+      {
+        "newSurface": true,
+        "surface": "tests/fixtures/memory-posture",
+        "decision": "Create synthetic fixtures because existing fixtures do not model plugin hook manifests, Hindsight config profiles, or Beads prime output classes.",
+        "newSurfaceJustification": "The current test corpus covers settings hooks and ETRNL state, but not outside-settings memory hook posture."
+      },
+      {
+        "newSurface": false,
+        "surface": "scripts/settings-audit.mjs",
+        "decision": "Extend settings-audit rather than create a separate memory-audit command.",
+        "newSurfaceJustification": ""
+      },
+      {
+        "newSurface": false,
+        "surface": "scripts/tool-stack-check.mjs",
+        "decision": "Add Hindsight posture to existing tool-stack checks instead of creating an independent version checker.",
+        "newSurfaceJustification": ""
+      },
+      {
+        "newSurface": false,
+        "surface": "hooks/cc-hindsight-lesson.py",
+        "decision": "Refactor existing lesson export hook to use ETRNL-first persistence rather than adding a new hook.",
+        "newSurfaceJustification": ""
+      }
+    ]
+  },
+  "findings": [
+    {
+      "id": "M1",
+      "severity": "P1",
+      "status": "closed",
+      "summary": "Settings-only audit misses enabled plugin hook sources.",
+      "evidence": "Installed Hindsight plugin manifest contributes SessionStart, UserPromptSubmit, Stop, and SessionEnd hooks outside settings.json.",
+      "resolution": "Group A requires plugin hook inventory and strict failure for unhealthy memory plugins."
+    },
+    {
+      "id": "M2",
+      "severity": "P1",
+      "status": "closed",
+      "summary": "Hindsight is enabled but local configured API is down.",
+      "evidence": "scripts/canary-hindsight.sh fails against http://127.0.0.1:9077 while plugin list shows hindsight-memory enabled.",
+      "resolution": "Group B requires supervisor states and red canary semantics before trusting recall."
+    },
+    {
+      "id": "M3",
+      "severity": "P1",
+      "status": "closed",
+      "summary": "Raw Beads startup output conflicts with ETRNL workflow authority.",
+      "evidence": "bd prime --full instructs default Beads task tracking and session close protocol, while ETRNL owns plans and execution ledgers.",
+      "resolution": "Group E rejects raw prime injection and keeps Beads explicit backlog-only."
+    },
+    {
+      "id": "M4",
+      "severity": "P2",
+      "status": "closed",
+      "summary": "Unsupported live settings keys can alter Claude Code experience outside the harness contract.",
+      "evidence": "Live settings contain autoCompactWindow and skipAutoPermissionPrompt top-level keys.",
+      "resolution": "Group D requires settings cleanup, template validation, staged diff, and rollback proof."
+    },
+    {
+      "id": "M5",
+      "severity": "P2",
+      "status": "closed",
+      "summary": "Hindsight installed plugin version lags upstream release.",
+      "evidence": "Installed plugin is 0.3.0; GitHub latest checked release is v0.7.2 published 2026-06-02.",
+      "resolution": "Group B and verification gates require version reporting and post-upgrade canary."
+    },
+    {
+      "id": "M6",
+      "severity": "P1",
+      "status": "closed",
+      "summary": "Current installer is not a complete shareable full-stack installer.",
+      "evidence": "install dry-run reports core Claude/Codex files and conditional CodeGraph/Beads bootstrap, but no Hindsight plugin/service provisioning and no full profile.",
+      "resolution": "Group A adds core/full profiles, dry-run contract, stack profile validation, staged install tests, and explicit full-stack canaries."
+    },
+    {
+      "id": "M7",
+      "severity": "P1",
+      "status": "closed",
+      "summary": "Noninteractive install can silently skip tool bootstrap.",
+      "evidence": "install.sh skips bootstrap in noninteractive mode unless CLAUDE_CONTROL_PLANE_BOOTSTRAP_TOOLS=1.",
+      "resolution": "Full profile must fail closed on missing Hindsight, Beads, or CodeGraph unless explicit skip flags are supplied."
+    },
+    {
+      "id": "M8",
+      "severity": "P1",
+      "status": "closed",
+      "summary": "Hindsight supports multiple install and service modes that are not represented in this repo's installer.",
+      "evidence": "Upstream supports Claude plugin install, local daemon through uvx hindsight-embed, external API, Docker server, and plugin hooks.",
+      "resolution": "Group C adds mode selection, token-free templates, plugin install verification, service health, and rollback metadata."
+    }
+  ],
+  "completionAudit": [
+    {
+      "item": "plan-file-created",
+      "classification": "DONE",
+      "impact": "high",
+      "evidence": "docs/plans/2026-06-05-claude-code-memory-hindsight-beads-plan.md exists with all required plan sections."
+    },
+    {
+      "item": "current-state-refresh",
+      "classification": "DONE",
+      "impact": "high",
+      "evidence": "Live settings, settings-audit, canary, plugin list, Hindsight release, redacted config, and Beads commands were refreshed before finalizing."
+    },
+    {
+      "item": "authority-decision",
+      "classification": "DONE",
+      "impact": "high",
+      "evidence": "Plan explicitly keeps ETRNL authority, Hindsight supervised semantic recall, and Beads explicit backlog state."
+    },
+    {
+      "item": "shareable-stack-install-scope",
+      "classification": "DONE",
+      "impact": "high",
+      "evidence": "Plan now requires core and full install profiles with Hindsight, Beads, CodeGraph, Claude hooks, Codex skills, config templates, canaries, and rollback proof."
+    }
+  ],
+  "tddEvidence": [
+    {
+      "taskId": "stack-install-profiles",
+      "sourceFiles": [
+        "scripts/install.sh",
+        "scripts/bootstrap-tools.sh",
+        "templates/stack-profile.core.json",
+        "templates/stack-profile.full.json",
+        "tests/test-install.sh",
+        "tests/fixtures/stack-install"
+      ],
+      "status": "not_test_first_possible_with_reason",
+      "rationaleWhenNotTestFirst": "This is a planning artifact; implementation must add the red full-profile dry-run, missing-prerequisite, silent-skip, and rollback fixtures before changing installer behavior."
+    },
+    {
+      "taskId": "hook-source-audit",
+      "sourceFiles": [
+        "scripts/settings-audit.mjs",
+        "tests/fixtures/memory-posture",
+        "tests/test-workflow-tools.sh"
+      ],
+      "status": "not_test_first_possible_with_reason",
+      "rationaleWhenNotTestFirst": "This is a planning artifact; implementation must add the red plugin-hook and risky-settings fixtures before modifying audit logic."
+    },
+    {
+      "taskId": "hindsight-supervisor",
+      "sourceFiles": [
+        "scripts/canary-hindsight.sh",
+        "scripts/tool-stack-check.mjs",
+        "tests/fixtures/memory-posture"
+      ],
+      "status": "not_test_first_possible_with_reason",
+      "rationaleWhenNotTestFirst": "The plan names the red Hindsight API-down, mode-mismatch, unsafe-retention, and version-lag probes to run before implementation."
+    },
+    {
+      "taskId": "etrnl-first-lessons",
+      "sourceFiles": [
+        "hooks/cc-hindsight-lesson.py",
+        "scripts/etrnl-state.mjs",
+        "scripts/lib/etrnl-state-core.mjs",
+        "tests/test-hooks.sh"
+      ],
+      "status": "not_test_first_possible_with_reason",
+      "rationaleWhenNotTestFirst": "The implementation must first add privacy and export-red fixtures proving ETRNL-first behavior before changing the hook."
+    },
+    {
+      "taskId": "beads-boundary",
+      "sourceFiles": [
+        "scripts/lib/etrnl-state-core.mjs",
+        "docs/configuration.md",
+        "docs/skills.md",
+        "tests/test-workflow-tools.sh"
+      ],
+      "status": "not_test_first_possible_with_reason",
+      "rationaleWhenNotTestFirst": "The plan requires red fixtures for raw bd prime rejection and active execution noise before code or doc changes."
+    }
+  ],
+  "completionReconciliation": [
+    {
+      "planItemId": "R1",
+      "requestedOutcome": "Deep dive into Hindsight versus Beads for Claude Code memory.",
+      "classification": "DONE",
+      "impact": "high",
+      "evidence": "Plan evidence separates Hindsight semantic recall from Beads explicit backlog state and cites current installed behavior."
+    },
+    {
+      "planItemId": "R2",
+      "requestedOutcome": "Adversarially find gaps, loose ends, and improvements without reassurance.",
+      "classification": "DONE",
+      "impact": "high",
+      "evidence": "Findings ledger records settings-only audit blind spot, API-down Hindsight, raw Beads conflict, unsupported settings keys, and version lag."
+    },
+    {
+      "planItemId": "R3",
+      "requestedOutcome": "Research hooks, context, auto-compact, PostCompact, Beads, Dolt, and what to keep or lose from ETRNL.",
+      "classification": "DONE",
+      "impact": "high",
+      "evidence": "Plan keeps ETRNL compact state, rejects hook-triggered compact, rejects Beads or Dolt as hook-runtime authority, and adds hook-source inventory."
+    },
+    {
+      "planItemId": "R4",
+      "requestedOutcome": "Compare to what is currently applied in the local Claude Code setup.",
+      "classification": "DONE",
+      "impact": "high",
+      "evidence": "Plan evidence includes live settings keys, enabled plugins, plugin hook manifest, Hindsight canary failure, and Beads setup checks."
+    },
+    {
+      "planItemId": "R5",
+      "requestedOutcome": "Produce an executable plan rather than another surface summary.",
+      "classification": "DONE",
+      "impact": "high",
+      "evidence": "Plan includes task groups, phases, test-first red probes, verification gates, rollback, and execution handoff."
+    },
+    {
+      "planItemId": "R6",
+      "requestedOutcome": "Improve the plan so this repo installs like a shareable stack where a fresh user can provision Hindsight, Beads, hooks, skills, and config.",
+      "classification": "DONE",
+      "impact": "high",
+      "evidence": "Plan now requires core and full install profiles, Hindsight plugin/service provisioning, Beads binary and project DB provisioning without raw hooks, CodeGraph MCP setup, config templates, doctor/canary gates, and rollback proof."
+    }
+  ],
+  "reuseBindings": [
+    {
+      "taskId": "stack-install-profiles",
+      "createsNewSurface": true,
+      "searchedPaths": [
+        "scripts/install.sh",
+        "scripts/bootstrap-tools.sh",
+        "scripts/lib/skill-lists.sh",
+        "tests/test-install.sh",
+        "docs/install.md",
+        "templates/settings.json",
+        "templates/settings.strict.json"
+      ],
+      "analogs": [
+        "current install dry-run branch",
+        "current CodeGraph and Beads bootstrap helper",
+        "current dual Claude/Codex install test coverage"
+      ],
+      "decision": "Add profile manifests and possibly a stack-profile validator while extending existing install/bootstrap scripts.",
+      "newSurfaceJustification": "Current installer has no declarative full-stack contract for Hindsight service mode, Beads policy, CodeGraph MCP, package pins, health checks, or rollback artifacts."
+    },
+    {
+      "taskId": "hindsight-provisioning",
+      "createsNewSurface": true,
+      "searchedPaths": [
+        "scripts/canary-hindsight.sh",
+        "scripts/tool-stack-check.mjs",
+        "scripts/bootstrap-tools.sh",
+        "docs/install.md",
+        "templates"
+      ],
+      "analogs": [
+        "current Hindsight canary",
+        "tool-stack checker optional tool report",
+        "Hindsight upstream Claude Code plugin install docs",
+        "Hindsight local daemon config docs"
+      ],
+      "decision": "Add token-free Hindsight config templates and full-profile provisioning while keeping plugin code third-party.",
+      "newSurfaceJustification": "Current repo can check Hindsight but cannot install, configure, or deploy it for a fresh user."
+    },
+    {
+      "taskId": "hook-source-audit",
+      "createsNewSurface": false,
+      "searchedPaths": [
+        "scripts/settings-audit.mjs",
+        "scripts/skill-contract-check.mjs",
+        "templates/settings.strict.json",
+        "tests/test-workflow-tools.sh"
+      ],
+      "analogs": [
+        "existing settings hook ownership classifier",
+        "skill frontmatter validator",
+        "strict settings template audit fixtures"
+      ],
+      "decision": "Extend settings-audit with plugin and frontmatter hook source visibility."
+    },
+    {
+      "taskId": "memory-posture-fixtures",
+      "createsNewSurface": true,
+      "searchedPaths": [
+        "tests/fixtures",
+        "tests/fixtures/deep-stack",
+        "tests/fixtures/tool-effectiveness",
+        "tests/fixtures/etrnl-state"
+      ],
+      "analogs": [
+        "tool-effectiveness event fixtures",
+        "ETRNL state Beads fixtures",
+        "deep-stack positive and negative fixture pattern"
+      ],
+      "decision": "Create tests/fixtures/memory-posture for plugin manifests, Hindsight configs, and Beads prime outputs.",
+      "newSurfaceJustification": "No existing fixture family models memory plugin posture or raw Beads startup doctrine."
+    },
+    {
+      "taskId": "hindsight-supervisor",
+      "createsNewSurface": false,
+      "searchedPaths": [
+        "scripts/canary-hindsight.sh",
+        "scripts/tool-stack-check.mjs",
+        "scripts/doctor.sh"
+      ],
+      "analogs": [
+        "current Hindsight canary",
+        "tool-stack version checker",
+        "doctor optional tool posture report"
+      ],
+      "decision": "Harden existing canary and tool-stack surfaces instead of creating a new Hindsight command."
+    },
+    {
+      "taskId": "etrnl-first-lessons",
+      "createsNewSurface": false,
+      "searchedPaths": [
+        "hooks/cc-hindsight-lesson.py",
+        "scripts/etrnl-state.mjs",
+        "scripts/lib/etrnl-state-core.mjs",
+        "hooks/cc-pretooluse-guard.sh",
+        "hooks/cc-stop-verifier.sh"
+      ],
+      "analogs": [
+        "existing Hindsight lesson exporter",
+        "ETRNL JSONL append and privacy validation",
+        "existing hook callers"
+      ],
+      "decision": "Refactor the existing lesson exporter to append ETRNL state first, then optional Hindsight export."
+    },
+    {
+      "taskId": "beads-boundary",
+      "createsNewSurface": false,
+      "searchedPaths": [
+        "scripts/bootstrap-tools.sh",
+        "scripts/tool-stack-check.mjs",
+        "docs/plans/2026-06-03-tool-effectiveness-and-beads-pilot-plan.md",
+        "docs/adr/0002-etrnl-state-and-compact-handoff.md",
+        "scripts/lib/etrnl-state-core.mjs",
+        "tests/fixtures/etrnl-state"
+      ],
+      "analogs": [
+        "Beads backlog-only plan",
+        "ADR Beads boundary",
+        "ETRNL state bead-link dry-run fixtures"
+      ],
+      "decision": "Extend existing Beads install/check surfaces while enforcing raw-prime rejection and dry-run bridge tests."
+    },
+    {
+      "taskId": "codegraph-provisioning",
+      "createsNewSurface": false,
+      "searchedPaths": [
+        "scripts/bootstrap-tools.sh",
+        "scripts/tool-stack-check.mjs",
+        "docs/install.md",
+        "tests/test-install.sh"
+      ],
+      "analogs": [
+        "current CodeGraph global install",
+        "current CodeGraph MCP refresh",
+        "current project .codegraph bootstrap"
+      ],
+      "decision": "Reuse bootstrap-tools and tool-stack-check for full-profile CodeGraph provisioning."
+    }
+  ],
+  "typeTriggerEvidence": [],
+  "installProof": {
+    "sourceGate": {
+      "status": "passed",
+      "evidence": "Plan readiness and deep-stack gates are required before execution; live evidence was refreshed read-only."
+    },
+    "stagedInstall": {
+      "status": "not_applicable",
+      "evidence": "This plan does not mutate installed homes; staged install proof is required during implementation before live rollout."
+    },
+    "stagedDoctor": {
+      "status": "not_applicable",
+      "evidence": "Staged doctor and Hindsight canary are required during implementation after staged install."
+    },
+    "rollbackVerification": {
+      "status": "not_applicable",
+      "evidence": "Rollback rehearsal is required during implementation before live settings or plugin mutation."
+    },
+    "liveInstallDecision": {
+      "status": "not_applicable",
+      "evidence": "Live Claude home mutation requires explicit Victor approval after source and staged gates pass."
+    },
+    "postUpgradeCanary": {
+      "status": "not_applicable",
+      "evidence": "Post-upgrade canary is required only after live Hindsight or settings rollout."
+    }
+  },
+    "riskTier": {
+    "tier": 2,
+    "deepReviewPassed": true,
+    "reason": "Planning and source-readiness work is Tier 2; implementation escalates to Tier 3 before live Claude home, plugin, package-manager, service, or project DB mutation.",
+    "requiredArtifacts": [
+      "sourceManifest",
+      "skillMatrix",
+      "reuseInventory",
+      "findings",
+      "completionAudit",
+      "reviewPhases",
+      "tddEvidence",
+      "completionReconciliation",
+      "reuseBindings",
+      "typeTriggerEvidence",
+      "installProof"
+    ],
+    "verificationGate": "node scripts/plan-readiness-check.mjs docs/plans/2026-06-05-claude-code-memory-hindsight-beads-plan.md && tests/test-install.sh && tests/test-hooks.sh && tests/test-workflow-tools.sh && scripts/doctor.sh",
+    "acceptedRisks": [
+      "Final live Hindsight posture still requires staged proof because the current plugin is enabled while its configured API is down.",
+      "Full-profile package and service mutation remains blocked until source tests and rollback rehearsal pass."
+    ]
+  },
+  "typescript": {
+    "ordinaryVerification": "Node syntax checks for modified JavaScript files; Python compile for modified Python hooks; shell and workflow tests for hook scripts; TypeScript project check is not triggered unless implementation touches TypeScript.",
+    "advancedTypes": {
+      "status": "not_applicable",
+      "triggerEvidence": [],
+      "applicableSurfaces": [],
+      "notApplicableRationale": "No exported/public TypeScript types, API contracts, runtime validation schemas, generated types, state machines, branded IDs, reusable type utilities, or cross-layer DTO boundaries are planned."
+    }
+  }
+}

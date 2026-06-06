@@ -11,5 +11,25 @@ cc_json_read_stdin
 cc_json_require_jq || exit 0
 cc_json_valid || exit 0
 cc_state_init
+state="$(cc_state_read)"
+cwd="$(cc_json_get '.cwd')"
+[[ -n "$cwd" ]] || cwd="$(pwd -P)"
+project_fingerprint="$(cc_project_fingerprint "$cwd")"
+event="$(jq -cn \
+  --arg session "$(cc_session_id)" \
+  --arg projectFingerprint "$project_fingerprint" \
+  --argjson state "$state" '
+  {
+    eventKind: "session",
+    sessionId: $session,
+    projectFingerprint: $projectFingerprint,
+    data: {
+      status: "ended",
+      verificationRuns: (($state.verificationRuns // []) | length),
+      compactCount: ($state.compactCount // 0),
+      editCount: (($state.edits // {}) | length)
+    }
+  }')"
+cc_etrnl_state_append_json "$event" || printf 'claude-guard warning: session-end event append failed\n' >&2
 rm -f -- "$(cc_state_file)" 2>/dev/null || true
 rm -rf -- "$(cc_state_lock)" 2>/dev/null || true

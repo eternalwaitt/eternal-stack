@@ -146,8 +146,21 @@ assert_json_expr "posttool observer records codegraph tool signal" "$tool_signal
 assert_json_expr "posttool observer records beads tool signal" "$tool_signal_state" 'any(.toolSignals[]; .tool == "beads" and .toolKind == "beads" and .event == "bash-command")'
 assert_json_expr "posttool observer records before-first-edit signal" "$tool_signal_state" '.toolUseBeforeFirstEdit.codegraph == 1 and .toolUseBeforeFirstEdit.beads == 1'
 
+lesson_home="$TMPROOT/hindsight-lesson-home"
+lesson_state_dir="$TMPROOT/hindsight-lesson-state"
+mkdir -p "$lesson_home"
+HOME="$lesson_home" ETRNL_STATE_DIR="$lesson_state_dir" CLAUDE_GUARD_DISABLE_HINDSIGHT_LESSON=0 CLAUDE_GUARD_FORCE_LESSON_RETAIN=1 python3 "$ROOT/hooks/cc-hindsight-lesson.py"
+lesson_state="$(jq -c . "$lesson_state_dir/events.jsonl")"
+assert_json_expr "hindsight lesson hook records ETRNL lesson first" "$lesson_state" '.eventKind == "lesson" and .data.lessonId == "control-plane/evidence-before-agreement/v1" and .data.exportTarget == "hindsight"'
+assert_no_file "hindsight lesson hook does not write false Hindsight retained stamp without canary" "$lesson_home/.claude/cache/control-plane-lessons/evidence-before-agreement-v1.hindsight.retained"
+private_lesson_home="$TMPROOT/hindsight-private-lesson-home"
+private_lesson_state_dir="$TMPROOT/hindsight-private-lesson-state"
+mkdir -p "$private_lesson_home"
+HOME="$private_lesson_home" ETRNL_STATE_DIR="$private_lesson_state_dir" CLAUDE_GUARD_DISABLE_HINDSIGHT_LESSON=0 CLAUDE_GUARD_FORCE_LESSON_RETAIN=1 CLAUDE_GUARD_HINDSIGHT_LESSON_TEXT="/Users/testuser/.claude/projects/raw-session.json" python3 "$ROOT/hooks/cc-hindsight-lesson.py"
+assert_no_file "hindsight lesson privacy rejection skips ETRNL write" "$private_lesson_state_dir/events.jsonl"
+
 disk_cleanup_state="$TMPROOT/claude-guard-fixture-disk-cleanup.json"
-jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[{value:"etrnl-disk-cleanup",at:"2026-01-01T00:00:00Z"}],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"free SSD space",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$disk_cleanup_state"
+jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[{value:"etrnl-ops-disk-cleanup",at:"2026-01-01T00:00:00Z"}],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"free SSD space",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$disk_cleanup_state"
 disk_cleanup_path="$HOME/Library/Caches/example-cache"
 disk_cleanup_trash="$(jq --arg path "$disk_cleanup_path" '.session_id = "fixture-disk-cleanup" | .tool_input.command = ("trash " + $path)' <<<"$bash_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$disk_cleanup_trash")"
@@ -420,7 +433,7 @@ printf '%s\n' 'Outside secret should not be injected.' >"$TMPROOT/outside.md"
 prompt="$(fixture userpromptsubmit.json | jq --arg cwd "$TMPROOT/example/subdir" '.cwd = $cwd')"
 out="$(HOME="$TMPROOT/home" run_hook cc-userprompt-router.sh "$prompt")"
 assert_json_expr "prompt router emits context" "$out" '.hookSpecificOutput.additionalContext | length > 0'
-assert_contains "prompt router names code review workflow" "$out" "etrnl-review"
+assert_contains "prompt router names code review workflow" "$out" "etrnl-dev-review"
 assert_contains "prompt router reinjects global CLAUDE.md" "$out" "Reuse before create from injected global"
 assert_contains "prompt router expands global AGENTS bridge" "$out" "Global AGENTS bridge was expanded"
 assert_contains "prompt router expands global tilde references" "$out" "Global tilde markdown import was expanded"
@@ -464,25 +477,25 @@ challenge_state="$TMPROOT/claude-guard-fixture-challenge-prompt.json"
 assert_json_expr "challenge prompt recorded" "$(jq -c . "$challenge_state")" '(.evidenceChallenges | length) == 1'
 plan_prompt="$(jq -cn '{session_id:"fixture-plan-prompt",prompt:"write an implementation plan for this repo"}')"
 out="$(run_hook cc-userprompt-router.sh "$plan_prompt")"
-assert_contains "plan prompt routes writing plans" "$out" "etrnl-plan"
+assert_contains "plan prompt routes writing plans" "$out" "etrnl-dev-plan"
 plan_state="$TMPROOT/claude-guard-fixture-plan-prompt.json"
-assert_json_expr "plan skill recorded" "$(jq -c . "$plan_state")" 'any(.requestedSkills[]?.value; . == "etrnl-plan")'
+assert_json_expr "plan skill recorded" "$(jq -c . "$plan_state")" 'any(.requestedSkills[]?.value; . == "etrnl-dev-plan")'
 fake_skill_update="$TMPROOT/fake-skill-update.mjs"
 cat >"$fake_skill_update" <<'JS'
 #!/usr/bin/env node
 console.log('CONTROL_PLANE_UPDATE_AVAILABLE installed=old source=new version=v0 run="~/.claude/scripts/update.sh"');
 console.log('TOOL_STACK_UPDATE_AVAILABLE codegraph current=0.9.9 latest=1.0.0 run="npm install -g codegraph"');
 JS
-skill_update_prompt="$(jq -cn '{session_id:"fixture-skill-update-prompt",prompt:"/etrnl-plan docs/plans/example.md"}')"
-out="$(CLAUDE_CONTROL_PLANE_SKILL_UPDATE_CHECK=1 CLAUDE_CONTROL_PLANE_TOOL_UPDATE_CHECK=1 CLAUDE_CONTROL_PLANE_UPDATE_CHECK_SCRIPT="$fake_skill_update" run_hook cc-userprompt-router.sh "$skill_update_prompt")"
+skill_update_prompt="$(jq -cn '{session_id:"fixture-skill-update-prompt",prompt:"/etrnl-dev-plan docs/plans/example.md"}')"
+out="$(CLAUDE_CONTROL_PLANE_SKILL_UPDATE_CHECK=1 CLAUDE_CONTROL_PLANE_UPDATE_CHECK_SCRIPT="$fake_skill_update" run_hook cc-userprompt-router.sh "$skill_update_prompt")"
 assert_contains "skill prompt checks control-plane updates" "$out" "Skill update check before requested skill"
 assert_contains "skill prompt includes tool-stack update" "$out" "TOOL_STACK_UPDATE_AVAILABLE codegraph"
-assert_contains "skill prompt asks before update" "$out" "ask whether to update/bootstrap now"
+assert_contains "skill prompt names remaining choices only" "$out" "remaining remote/tool-stack choices"
 health_prompt="$(jq -cn '{session_id:"fixture-health-prompt",prompt:"audit the entire codebase with no skips or loose ends"}')"
 out="$(run_hook cc-userprompt-router.sh "$health_prompt")"
-assert_contains "health prompt routes code health" "$out" "etrnl-code-health"
+assert_contains "health prompt routes code health" "$out" "etrnl-audit-code"
 health_state="$TMPROOT/claude-guard-fixture-health-prompt.json"
-assert_json_expr "health skill recorded" "$(jq -c . "$health_state")" 'any(.requestedSkills[]?.value; . == "etrnl-code-health")'
+assert_json_expr "health skill recorded" "$(jq -c . "$health_state")" 'any(.requestedSkills[]?.value; . == "etrnl-audit-code")'
 email_prompt="$(jq -cn '{session_id:"fixture-email-prompt",prompt:"/email-triage agencia"}')"
 out="$(run_hook cc-userprompt-router.sh "$email_prompt")"
 assert_contains "email prompt emits exact guarded command" "$out" "vivaz-email triage guarded-run --account agencia --max-inbox 500 --apply --require-insights"
@@ -493,10 +506,10 @@ email_prompt_state="$TMPROOT/claude-guard-fixture-email-prompt.json"
 assert_json_expr "email triage skill recorded" "$(jq -c . "$email_prompt_state")" 'any(.requestedSkills[]?.value; . == "email-triage")'
 disk_prompt="$(jq -cn '{session_id:"fixture-disk-prompt",prompt:"free SSD space with a disk cleanup pass"}')"
 out="$(run_hook cc-userprompt-router.sh "$disk_prompt")"
-assert_contains "disk cleanup prompt emits trash workflow" "$out" "Use etrnl-disk-cleanup"
+assert_contains "disk cleanup prompt emits trash workflow" "$out" "Use etrnl-ops-disk-cleanup"
 assert_contains "disk cleanup prompt blocks rm" "$out" "Do not use rm -r/rm -rf"
 disk_prompt_state="$TMPROOT/claude-guard-fixture-disk-prompt.json"
-assert_json_expr "disk cleanup skill recorded" "$(jq -c . "$disk_prompt_state")" 'any(.requestedSkills[]?.value; . == "etrnl-disk-cleanup")'
+assert_json_expr "disk cleanup skill recorded" "$(jq -c . "$disk_prompt_state")" 'any(.requestedSkills[]?.value; . == "etrnl-ops-disk-cleanup")'
 advice_prompt="$(jq -cn '{session_id:"fixture-advice-prompt",prompt:"which iPhone should I buy today?"}')"
 out="$(run_hook cc-userprompt-router.sh "$advice_prompt")"
 assert_contains "advice prompt routes source evidence" "$out" "dated URLs/sources"
@@ -514,17 +527,19 @@ for (( i = 0; i < skill_trigger_count; i++ )); do
   run_hook cc-userprompt-router.sh "$case_event" >/dev/null || true
   case_state="$TMPROOT/claude-guard-$case_session.json"
   case_state_json="$(jq -c . "$case_state")"
+  expected_skills="$(jq -r ".[$i].expectedSkills[]?" "$skill_trigger_cases")"
   while IFS= read -r expected_skill; do
     [[ -n "$expected_skill" ]] || continue
     assert_json_expr "skill trigger $case_name records $expected_skill" "$case_state_json" "any(.requestedSkills[]?.value; . == \"$expected_skill\")"
-  done < <(jq -r ".[$i].expectedSkills[]?" "$skill_trigger_cases")
+  done <<<"$expected_skills"
+  unexpected_skills="$(jq -r ".[$i].unexpectedSkills[]?" "$skill_trigger_cases")"
   while IFS= read -r unexpected_skill; do
     [[ -n "$unexpected_skill" ]] || continue
     assert_json_expr "skill trigger $case_name does not record $unexpected_skill" "$case_state_json" "([.requestedSkills[]?.value] | index(\"$unexpected_skill\") | not)"
-  done < <(jq -r ".[$i].unexpectedSkills[]?" "$skill_trigger_cases")
+  done <<<"$unexpected_skills"
 done
 
-skill_json="$(jq -cn '{session_id:"fixture-session",hook_event_name:"UserPromptExpansion",command_name:"etrnl-review"}')"
+skill_json="$(jq -cn '{session_id:"fixture-session",hook_event_name:"UserPromptExpansion",command_name:"etrnl-dev-review"}')"
 run_hook cc-userprompt-expansion.sh "$skill_json" >/dev/null || true
 state_file="$TMPROOT/claude-guard-fixture-session.json"
 assert_json_expr "skill recorded" "$(jq -c . "$state_file")" '(.skillCalls | length) > 0'
@@ -789,18 +804,18 @@ jq -nc '{schemaVersion:1,reads:{},searches:{},edits:{"/tmp/example/src/a.ts":"20
 review_stop="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-review-required",cwd:$root,last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$review_stop")"
 assert_contains "second-pass review required for broad source edits" "$out" "second-pass review"
-jq '.reviewRuns = [{value:"etrnl-review",at:"2026-01-01T00:00:03Z"}]' "$review_state" >"$review_state.tmp" && mv "$review_state.tmp" "$review_state"
+jq '.reviewRuns = [{value:"etrnl-dev-review",at:"2026-01-01T00:00:03Z"}]' "$review_state" >"$review_state.tmp" && mv "$review_state.tmp" "$review_state"
 out="$(run_hook cc-stop-verifier.sh "$review_stop")"
 if [[ -z "$out" ]]; then ok "second-pass review evidence satisfies broad edits"; else not_ok "second-pass review evidence should satisfy broad edits: $out"; fi
 
 requested_state="$TMPROOT/claude-guard-fixture-requested.json"
-jq -nc '{schemaVersion:1,reads:{},searches:{},edits:{},commands:[],failures:[],skillCalls:[],requestedSkills:[{value:"etrnl-plan",at:"2026-01-01T00:00:00Z"}],evidenceChallenges:[],evidenceDisciplineViolations:[],verificationRuns:[{value:"pnpm test",at:"2026-01-01T00:00:01Z"}],newFileSearches:[],lastPrompt:"",lastCompactSummary:"",cwd:"",settingsFingerprint:"",startedAt:""}' >"$requested_state"
+jq -nc '{schemaVersion:1,reads:{},searches:{},edits:{},commands:[],failures:[],skillCalls:[],requestedSkills:[{value:"etrnl-dev-plan",at:"2026-01-01T00:00:00Z"}],evidenceChallenges:[],evidenceDisciplineViolations:[],verificationRuns:[{value:"pnpm test",at:"2026-01-01T00:00:01Z"}],newFileSearches:[],lastPrompt:"",lastCompactSummary:"",cwd:"",settingsFingerprint:"",startedAt:""}' >"$requested_state"
 requested_stop="$(jq -cn '{session_id:"fixture-requested",last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$requested_stop")"
 assert_contains "stop verifier blocks missing requested skill" "$out" "requested skill"
 
 doc_health_state="$TMPROOT/claude-guard-fixture-doc-health.json"
-jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[{value:"node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked",at:"2026-01-01T00:00:01Z"}],failures:[],skillCalls:[{value:"etrnl-documentation-health",at:"2026-01-01T00:00:00Z"}],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[{value:"etrnl-documentation-health",at:"2026-01-01T00:00:00Z"}],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[{value:"node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked",at:"2026-01-01T00:00:01Z"}],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:false,planExecutionRequestedAt:"",lastPrompt:"run documentation health",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$doc_health_state"
+jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[{value:"node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked",at:"2026-01-01T00:00:01Z"}],failures:[],skillCalls:[{value:"etrnl-audit-docs",at:"2026-01-01T00:00:00Z"}],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[{value:"etrnl-audit-docs",at:"2026-01-01T00:00:00Z"}],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[{value:"node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked",at:"2026-01-01T00:00:01Z"}],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:false,planExecutionRequestedAt:"",lastPrompt:"run documentation health",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$doc_health_state"
 doc_health_stop="$(jq -cn '{session_id:"fixture-doc-health",last_assistant_message:"Done, docs look fine.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$doc_health_stop")"
 assert_contains "documentation health blocks shallow completion" "$out" "coverage counters"
@@ -811,14 +826,14 @@ out="$(run_hook cc-stop-verifier.sh "$doc_health_full_stop")"
 if [[ -z "$out" ]]; then ok "documentation health complete report satisfies stop gate"; else not_ok "documentation health complete report should satisfy stop gate: $out"; fi
 
 doc_health_baseline_state="$TMPROOT/claude-guard-fixture-doc-health-baseline.json"
-jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{"/tmp/example/docs/policy/COMMENT_HEALTH_BASELINE.json":"2026-01-01T00:00:03Z"},commands:[],blockedCommands:[],successfulCommands:[{value:"node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked",at:"2026-01-01T00:00:01Z"},{value:"node ~/.claude/scripts/documentation-comment-health.mjs --root . --json --include-untracked",at:"2026-01-01T00:00:02Z"},{value:"pnpm docs:comments:baseline",at:"2026-01-01T00:00:03Z"},{value:"node ~/.claude/scripts/documentation-health-ledger-check.mjs --report /tmp/doc-health.md",at:"2026-01-01T00:00:04Z"}],failures:[],skillCalls:[{value:"etrnl-documentation-health",at:"2026-01-01T00:00:00Z"}],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[{value:"etrnl-documentation-health",at:"2026-01-01T00:00:00Z"}],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[{value:"node ~/.claude/scripts/documentation-health-ledger-check.mjs --report /tmp/doc-health.md",at:"2026-01-01T00:00:04Z"}],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:false,planExecutionRequestedAt:"",lastPrompt:"run documentation health",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$doc_health_baseline_state"
+jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{"/tmp/example/docs/policy/COMMENT_HEALTH_BASELINE.json":"2026-01-01T00:00:03Z"},commands:[],blockedCommands:[],successfulCommands:[{value:"node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked",at:"2026-01-01T00:00:01Z"},{value:"node ~/.claude/scripts/documentation-comment-health.mjs --root . --json --include-untracked",at:"2026-01-01T00:00:02Z"},{value:"pnpm docs:comments:baseline",at:"2026-01-01T00:00:03Z"},{value:"node ~/.claude/scripts/documentation-health-ledger-check.mjs --report /tmp/doc-health.md",at:"2026-01-01T00:00:04Z"}],failures:[],skillCalls:[{value:"etrnl-audit-docs",at:"2026-01-01T00:00:00Z"}],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[{value:"etrnl-audit-docs",at:"2026-01-01T00:00:00Z"}],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[{value:"node ~/.claude/scripts/documentation-health-ledger-check.mjs --report /tmp/doc-health.md",at:"2026-01-01T00:00:04Z"}],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:false,planExecutionRequestedAt:"",lastPrompt:"run documentation health",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$doc_health_baseline_state"
 doc_health_baseline_message="${doc_health_full_message}"$'\nBaseline written: docs/policy/COMMENT_HEALTH_BASELINE.json\n'
 doc_health_baseline_stop="$(jq -cn --arg message "$doc_health_baseline_message" '{session_id:"fixture-doc-health-baseline",last_assistant_message:$message,stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$doc_health_baseline_stop")"
 assert_contains "documentation health blocks baseline-only completion" "$out" "Baseline files quantify existing debt"
 
 code_health_state="$TMPROOT/claude-guard-fixture-code-health.json"
-jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[{value:"node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked",at:"2026-01-01T00:00:01Z"}],failures:[],skillCalls:[{value:"etrnl-code-health",at:"2026-01-01T00:00:00Z"}],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[{value:"etrnl-code-health",at:"2026-01-01T00:00:00Z"}],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[{value:"node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked",at:"2026-01-01T00:00:01Z"}],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:false,planExecutionRequestedAt:"",lastPrompt:"run code health",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$code_health_state"
+jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[{value:"node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked",at:"2026-01-01T00:00:01Z"}],failures:[],skillCalls:[{value:"etrnl-audit-code",at:"2026-01-01T00:00:00Z"}],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[{value:"etrnl-audit-code",at:"2026-01-01T00:00:00Z"}],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[{value:"node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked",at:"2026-01-01T00:00:01Z"}],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:false,planExecutionRequestedAt:"",lastPrompt:"run code health",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$code_health_state"
 code_health_stop="$(jq -cn '{session_id:"fixture-code-health",last_assistant_message:"Done, code looks fine.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$code_health_stop")"
 assert_contains "code health blocks shallow completion" "$out" "coverage counters"
@@ -847,17 +862,17 @@ jq -nc '{
   blockedCommands: [],
   successfulCommands: [],
   failures: [],
-  skillCalls: [{value:"etrnl-execute", at:"2026-01-01T00:00:00Z"}],
+  skillCalls: [{value:"etrnl-dev-execute", at:"2026-01-01T00:00:00Z"}],
   agentCalls: [],
   reviewerAgentCalls: [],
-  requestedSkills: [{value:"etrnl-execute", at:"2026-01-01T00:00:00Z"}],
+  requestedSkills: [{value:"etrnl-dev-execute", at:"2026-01-01T00:00:00Z"}],
   evidenceChallenges: [],
   evidenceDisciplineViolations: [],
   verificationRuns: [{value:"pnpm test", at:"2026-01-01T00:00:02Z"}],
   qualityRuns: [{value:"pnpm test", at:"2026-01-01T00:00:02Z"}],
   testRuns: [{value:"pnpm test", at:"2026-01-01T00:00:02Z"}],
   browserRuns: [],
-  reviewRuns: [{value:"etrnl-review", at:"2026-01-01T00:00:02Z"}],
+  reviewRuns: [{value:"etrnl-dev-review", at:"2026-01-01T00:00:02Z"}],
   newFileSearches: [],
   newSourceFiles: {},
   editCounts: {},
@@ -875,20 +890,20 @@ jq -nc '{
 }' >"$execute_no_agent_state"
 execute_no_agent_stop="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-execute-no-agent",cwd:$root,last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$execute_no_agent_stop")"
-assert_contains "etrnl-execute multi-file source edits require implementation agent" "$out" "implementation subagent"
+assert_contains "etrnl-dev-execute multi-file source edits require implementation agent" "$out" "implementation subagent"
 jq '.agentCalls = [{value:"subagent=etrnl-scout mode=read-only goal=discovery", at:"2026-01-01T00:00:01Z"}]' "$execute_no_agent_state" >"$execute_no_agent_state.tmp" && mv "$execute_no_agent_state.tmp" "$execute_no_agent_state"
 out="$(run_hook cc-stop-verifier.sh "$execute_no_agent_stop")"
 assert_contains "read-only scout does not satisfy implementation gate" "$out" "implementation subagent"
 jq '.agentCalls = [{value:"subagent=etrnl-executor mode=write taskId=T1 lineageId=wave-1.T1 goal=bounded task packetHash=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", at:"2026-01-01T00:00:01Z"}]' "$execute_no_agent_state" >"$execute_no_agent_state.tmp" && mv "$execute_no_agent_state.tmp" "$execute_no_agent_state"
 out="$(run_hook cc-stop-verifier.sh "$execute_no_agent_stop")"
-assert_contains "etrnl-execute implementation without reviewers blocks" "$out" "reviewer subagent"
+assert_contains "etrnl-dev-execute implementation without reviewers blocks" "$out" "reviewer subagent"
 jq '.reviewerAgentCalls = [{value:"subagent=etrnl-spec-reviewer mode=read-only taskId=T1 lineageId=wave-1.T1 goal=spec review packetHash=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", at:"2026-01-01T00:00:02Z"}]' "$execute_no_agent_state" >"$execute_no_agent_state.tmp" && mv "$execute_no_agent_state.tmp" "$execute_no_agent_state"
 out="$(run_hook cc-stop-verifier.sh "$execute_no_agent_stop")"
-assert_contains "etrnl-execute missing quality reviewer blocks" "$out" "reviewer subagent"
+assert_contains "etrnl-dev-execute missing quality reviewer blocks" "$out" "reviewer subagent"
 jq '.reviewerAgentCalls = [{value:"subagent=etrnl-spec-reviewer mode=read-only taskId=T1 lineageId=wave-1.T1 goal=spec review packetHash=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", at:"2026-01-01T00:00:02Z"},{value:"subagent=etrnl-quality-reviewer mode=read-only taskId=T1 lineageId=wave-1.T1 goal=quality review packetHash=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", at:"2026-01-01T00:00:03Z"}]' "$execute_no_agent_state" >"$execute_no_agent_state.tmp" && mv "$execute_no_agent_state.tmp" "$execute_no_agent_state"
 jq '.verificationRuns += [{value:"red_green_verified", at:"2026-01-01T00:00:04Z"}] | .successfulCommands += [{command:"code-simplifier reviewed", at:"2026-01-01T00:00:05Z"}]' "$execute_no_agent_state" >"$execute_no_agent_state.tmp" && mv "$execute_no_agent_state.tmp" "$execute_no_agent_state"
 out="$(run_hook cc-stop-verifier.sh "$execute_no_agent_stop")"
-if [[ -z "$out" ]]; then ok "etrnl-execute implementation plus reviewer agents satisfies stop gate"; else not_ok "etrnl-execute implementation plus reviewer agents should satisfy stop gate: $out"; fi
+if [[ -z "$out" ]]; then ok "etrnl-dev-execute implementation plus reviewer agents satisfies stop gate"; else not_ok "etrnl-dev-execute implementation plus reviewer agents should satisfy stop gate: $out"; fi
 
 sycophancy_stop="$(jq -cn '{session_id:"fixture-session",last_assistant_message:"You are right - I will check.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$sycophancy_stop")"
@@ -911,13 +926,19 @@ assert_contains "posttooluse blocks sycophancy" "$out" "Evidence-before-agreemen
 precompact_json="$(jq -cn '{session_id:"fixture-session",hook_event_name:"PreCompact"}')"
 out="$(run_hook cc-precompact-save.sh "$precompact_json")"
 assert_json_expr "precompact allows after save" "$out" '.continue == true'
+assert_json_expr "precompact writes durable ETRNL state without raw prompt" "$(jq -s -c . "$ETRNL_STATE_DIR/events.jsonl")" 'any(.[]; .eventKind == "compact_pre" and .sessionId == "fixture-session" and (.data | has("lastPrompt") | not))'
 postcompact_json="$(jq -cn '{session_id:"fixture-session",hook_event_name:"PostCompact",summary:"compact persisted"}')"
 run_hook cc-postcompact-record.sh "$postcompact_json" >/dev/null
 assert_json_expr "postcompact records recovery metadata" "$(jq -c . "$TMPROOT/claude-guard-fixture-session.json")" '.lastCompactSummary == "compact persisted" and .lastCompactAt != "" and .compactCount == 1'
+assert_json_expr "postcompact marks durable verification stale" "$(jq -s -c . "$ETRNL_STATE_DIR/events.jsonl")" 'any(.[]; .eventKind == "compact_post" and .sessionId == "fixture-session" and .data.verificationStale == true)'
 session_json="$(jq -cn '{session_id:"fixture-session",hook_event_name:"SessionStart",source:"compact"}')"
 out="$(run_hook cc-sessionstart-restore.sh "$session_json")"
 assert_json_expr "session compact restores context" "$out" '.hookSpecificOutput.additionalContext | test("Compact recovery")'
+assert_json_expr "session compact uses ETRNL handoff fast path" "$out" '.hookSpecificOutput.additionalContext | test("verification_stale=true")'
 assert_contains "session start injects ETRNL skill hint" "$out" "ETRNL skills"
+compact_stale_stop="$(jq -cn '{session_id:"fixture-session",last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$compact_stale_stop")"
+assert_contains "stop verifier blocks stale compact verification" "$out" "Verification is stale after compact"
 
 node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-session-status --plan "$ROOT/hooks/fixtures/plans/good-plan.md" >/dev/null
 node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-session-status --task T1 --title Task --status in_progress
@@ -949,7 +970,7 @@ wrapped_agent_state="$TMPROOT/claude-guard-fixture-task-wrapped-prompt.json"
 assert_json_expr "observer records prompt-wrapped task packet mode" "$(jq -c . "$wrapped_agent_state")" 'any(.agentCalls[]?.value; test("subagent=etrnl-scout") and test("mode=read-only"))'
 
 agent_fallback_state="$TMPROOT/claude-guard-fixture-agent-packet-fallback.json"
-jq -nc '{schemaVersion:4,requestedSkills:[{value:"etrnl-execute",at:"2026-01-01T00:00:00Z"}],planExecutionRequested:true}' >"$agent_fallback_state"
+jq -nc '{schemaVersion:4,requestedSkills:[{value:"etrnl-dev-execute",at:"2026-01-01T00:00:00Z"}],planExecutionRequested:true}' >"$agent_fallback_state"
 bad_agent_prompt='{"packet":{"mode":"write"}} trailing prose'
 agent_packet_bad="$(jq -cn --arg root "$TMPROOT/example" --arg prompt "$bad_agent_prompt" '{session_id:"fixture-agent-packet-fallback",tool_name:"Agent",cwd:$root,tool_input:{subagent_type:"claude",description:"bad packet",prompt:$prompt}}')"
 out="$(run_hook cc-pretooluse-guard.sh "$agent_packet_bad")"

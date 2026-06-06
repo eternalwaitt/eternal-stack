@@ -181,11 +181,11 @@ fi
 node "$ROOT/scripts/execution-ledger.mjs" record-uat --session fixture-uat --artifact "$TMPROOT/browser-qa.json" --open-findings 0
 assert_command "execution ledger accepts closed UAT findings" node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-uat
 
-doc_health_bad_state="$(jq -nc '{requestedSkills:[{value:"etrnl-documentation-health",at:"2026-01-01T00:00:00Z"}],successfulCommands:[],verificationRuns:[] }')"
+doc_health_bad_state="$(jq -nc '{requestedSkills:[{value:"etrnl-audit-docs",at:"2026-01-01T00:00:00Z"}],successfulCommands:[],verificationRuns:[] }')"
 doc_health_bad_status="$(jq -cn --argjson state "$doc_health_bad_state" --arg message "Done, docs look fine." '{state:$state,message:$message}' | node "$ROOT/scripts/documentation-health-ledger-check.mjs")"
 if [[ "$doc_health_bad_status" == "missing-inventory" ]]; then ok "documentation health checker requires inventory"; else not_ok "documentation health checker requires inventory: $doc_health_bad_status"; fi
 
-doc_health_shallow_state="$(jq -nc '{requestedSkills:[{value:"etrnl-documentation-health",at:"2026-01-01T00:00:00Z"}],successfulCommands:[{value:"node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked",at:"2026-01-01T00:00:01Z"}],verificationRuns:[{value:"node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked",at:"2026-01-01T00:00:01Z"}]}')"
+doc_health_shallow_state="$(jq -nc '{requestedSkills:[{value:"etrnl-audit-docs",at:"2026-01-01T00:00:00Z"}],successfulCommands:[{value:"node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked",at:"2026-01-01T00:00:01Z"}],verificationRuns:[{value:"node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked",at:"2026-01-01T00:00:01Z"}]}')"
 doc_health_shallow_status="$(jq -cn --argjson state "$doc_health_shallow_state" --arg message "Done, docs look fine." '{state:$state,message:$message}' | node "$ROOT/scripts/documentation-health-ledger-check.mjs")"
 if [[ "$doc_health_shallow_status" == "missing-coverage-counters" ]]; then ok "documentation health checker rejects shallow report"; else not_ok "documentation health checker rejects shallow report: $doc_health_shallow_status"; fi
 
@@ -193,7 +193,7 @@ doc_health_missing_comment_message=$'# Documentation Health Audit\n\n## Document
 doc_health_missing_comment_status="$(jq -cn --argjson state "$doc_health_shallow_state" --arg message "$doc_health_missing_comment_message" '{state:$state,message:$message}' | node "$ROOT/scripts/documentation-health-ledger-check.mjs")"
 if [[ "$doc_health_missing_comment_status" == "missing-comment-health-counters" ]]; then ok "documentation health checker requires comment counters"; else not_ok "documentation health checker requires comment counters: $doc_health_missing_comment_status"; fi
 
-doc_health_full_state="$(jq -nc '{requestedSkills:[{value:"etrnl-documentation-health",at:"2026-01-01T00:00:00Z"}],successfulCommands:[{value:"node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked",at:"2026-01-01T00:00:01Z"},{value:"node ~/.claude/scripts/documentation-comment-health.mjs --root . --json --include-untracked",at:"2026-01-01T00:00:02Z"},{value:"node ~/.claude/scripts/documentation-health-ledger-check.mjs --report /tmp/doc-health.md",at:"2026-01-01T00:00:03Z"}],verificationRuns:[{value:"node ~/.claude/scripts/documentation-health-ledger-check.mjs --report /tmp/doc-health.md",at:"2026-01-01T00:00:03Z"}]}')"
+doc_health_full_state="$(jq -nc '{requestedSkills:[{value:"etrnl-audit-docs",at:"2026-01-01T00:00:00Z"}],successfulCommands:[{value:"node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked",at:"2026-01-01T00:00:01Z"},{value:"node ~/.claude/scripts/documentation-comment-health.mjs --root . --json --include-untracked",at:"2026-01-01T00:00:02Z"},{value:"node ~/.claude/scripts/documentation-health-ledger-check.mjs --report /tmp/doc-health.md",at:"2026-01-01T00:00:03Z"}],verificationRuns:[{value:"node ~/.claude/scripts/documentation-health-ledger-check.mjs --report /tmp/doc-health.md",at:"2026-01-01T00:00:03Z"}]}')"
 doc_health_missing_freshness_message=$'# Documentation Health Audit\n\n## Documentation Inventory\ncanonical docs and secondary docs classified.\n\n## 10. TSDoc/JSDoc And Comments\nComment Health classified useful, missing, stale, misleading, noise, and wrong-format targets.\n\n## Findings Ledger\n| severity | source_of_truth | disposition | verification |\n| --- | --- | --- | --- |\n| P2 | scripts/install.sh | fixed | scripts/doctor.sh passed |\n\n## Action Items\nAll action items are terminal.\n\n## Resolution Plan\nImmediate fixes are verified.\n\n## Scorecard\nTSDoc/JSDoc/comment health: 8/10\nOverall documentation health: 8/10\n\nDOCS_FILES_TOTAL: 12\nDOCS_FILES_REVIEWED: 12\nSOURCE_FILES_SAMPLED_OR_REVIEWED: 6\nTSDOC_JSDOC_FILES_SCANNED: 4\nCOMMENT_TARGETS_REVIEWED: 9\nCOMMENT_TARGETS_DOCUMENTED: 7\nCOMMENT_TARGETS_MISSING_DOCS: 2\nCOMMENT_TARGETS_WRONG_FORMAT: 0\nAI_CONTEXT_FILES_REVIEWED: 3\nAI_CONTEXT_DRIFT_FINDINGS: 0\nAI_CONTEXT_DUPLICATE_RULE_OWNERS: 0\nAI_CONTEXT_HOT_PATH_LEAKS: 0\nCHECKS_SKIPPED: []\nFINAL_DOC_HEALTH_SCORE: 82/100\n'
 doc_health_missing_freshness_status="$(jq -cn --argjson state "$doc_health_full_state" --arg message "$doc_health_missing_freshness_message" '{state:$state,message:$message}' | node "$ROOT/scripts/documentation-health-ledger-check.mjs")"
 if [[ "$doc_health_missing_freshness_status" == "missing-freshness-counters" ]]; then ok "documentation health checker requires freshness counters"; else not_ok "documentation health checker requires freshness counters: $doc_health_missing_freshness_status"; fi
@@ -212,16 +212,16 @@ doc_health_unreviewed_docs_message="${doc_health_unreviewed_docs_message/FINAL_D
 doc_health_unreviewed_docs_status="$(jq -cn --argjson state "$doc_health_full_state" --arg message "$doc_health_unreviewed_docs_message" '{state:$state,message:$message}' | node "$ROOT/scripts/documentation-health-ledger-check.mjs")"
 if [[ "$doc_health_unreviewed_docs_status" == "score-100-with-unreviewed-docs" ]]; then ok "documentation health checker rejects 100 score with unreviewed docs"; else not_ok "documentation health checker rejects 100 score with unreviewed docs: $doc_health_unreviewed_docs_status"; fi
 
-doc_health_baseline_state="$(jq -nc '{requestedSkills:[{value:"etrnl-documentation-health",at:"2026-01-01T00:00:00Z"}],edits:{"/tmp/example/docs/policy/COMMENT_HEALTH_BASELINE.json":"2026-01-01T00:00:03Z"},successfulCommands:[{value:"node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked",at:"2026-01-01T00:00:01Z"},{value:"node ~/.claude/scripts/documentation-comment-health.mjs --root . --json --include-untracked",at:"2026-01-01T00:00:02Z"},{value:"pnpm docs:comments:baseline",at:"2026-01-01T00:00:03Z"},{value:"node ~/.claude/scripts/documentation-health-ledger-check.mjs --report /tmp/doc-health.md",at:"2026-01-01T00:00:04Z"}],verificationRuns:[{value:"node ~/.claude/scripts/documentation-health-ledger-check.mjs --report /tmp/doc-health.md",at:"2026-01-01T00:00:04Z"}],lastPrompt:"run documentation health"}')"
+doc_health_baseline_state="$(jq -nc '{requestedSkills:[{value:"etrnl-audit-docs",at:"2026-01-01T00:00:00Z"}],edits:{"/tmp/example/docs/policy/COMMENT_HEALTH_BASELINE.json":"2026-01-01T00:00:03Z"},successfulCommands:[{value:"node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked",at:"2026-01-01T00:00:01Z"},{value:"node ~/.claude/scripts/documentation-comment-health.mjs --root . --json --include-untracked",at:"2026-01-01T00:00:02Z"},{value:"pnpm docs:comments:baseline",at:"2026-01-01T00:00:03Z"},{value:"node ~/.claude/scripts/documentation-health-ledger-check.mjs --report /tmp/doc-health.md",at:"2026-01-01T00:00:04Z"}],verificationRuns:[{value:"node ~/.claude/scripts/documentation-health-ledger-check.mjs --report /tmp/doc-health.md",at:"2026-01-01T00:00:04Z"}],lastPrompt:"run documentation health"}')"
 doc_health_baseline_message="${doc_health_full_message}"$'\nBaseline written: docs/policy/COMMENT_HEALTH_BASELINE.json\n'
 doc_health_baseline_status="$(jq -cn --argjson state "$doc_health_baseline_state" --arg message "$doc_health_baseline_message" '{state:$state,message:$message}' | node "$ROOT/scripts/documentation-health-ledger-check.mjs")"
 if [[ "$doc_health_baseline_status" == "baseline-without-remediation" ]]; then ok "documentation health checker rejects baseline-only closure"; else not_ok "documentation health checker rejects baseline-only closure: $doc_health_baseline_status"; fi
 
-code_health_bad_state="$(jq -nc '{requestedSkills:[{value:"etrnl-code-health",at:"2026-01-01T00:00:00Z"}],successfulCommands:[],verificationRuns:[] }')"
+code_health_bad_state="$(jq -nc '{requestedSkills:[{value:"etrnl-audit-code",at:"2026-01-01T00:00:00Z"}],successfulCommands:[],verificationRuns:[] }')"
 code_health_bad_status="$(jq -cn --argjson state "$code_health_bad_state" --arg message "Done, code looks fine." '{state:$state,message:$message}' | node "$ROOT/scripts/code-health-ledger-check.mjs")"
 if [[ "$code_health_bad_status" == "missing-inventory" ]]; then ok "code health checker requires inventory"; else not_ok "code health checker requires inventory: $code_health_bad_status"; fi
 
-code_health_state="$(jq -nc '{requestedSkills:[{value:"etrnl-code-health",at:"2026-01-01T00:00:00Z"}],successfulCommands:[{value:"node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked",at:"2026-01-01T00:00:01Z"},{value:"tests/test-workflow-tools.sh",at:"2026-01-01T00:00:02Z"}],verificationRuns:[{value:"tests/test-workflow-tools.sh",at:"2026-01-01T00:00:02Z"}]}')"
+code_health_state="$(jq -nc '{requestedSkills:[{value:"etrnl-audit-code",at:"2026-01-01T00:00:00Z"}],successfulCommands:[{value:"node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked",at:"2026-01-01T00:00:01Z"},{value:"tests/test-workflow-tools.sh",at:"2026-01-01T00:00:02Z"}],verificationRuns:[{value:"tests/test-workflow-tools.sh",at:"2026-01-01T00:00:02Z"}]}')"
 code_health_shallow_status="$(jq -cn --argjson state "$code_health_state" --arg message "Done, code looks fine." '{state:$state,message:$message}' | node "$ROOT/scripts/code-health-ledger-check.mjs")"
 if [[ "$code_health_shallow_status" == "missing-coverage-counters" ]]; then ok "code health checker rejects shallow report"; else not_ok "code health checker rejects shallow report: $code_health_shallow_status"; fi
 
@@ -413,8 +413,11 @@ assert_command "plan readiness syntax" node --check "$ROOT/scripts/plan-readines
 assert_command "deep-stack check syntax" node --check "$ROOT/scripts/deep-stack-check.mjs"
 assert_command "tool-effectiveness syntax" node --check "$ROOT/scripts/tool-effectiveness.mjs"
 assert_command "tool stack check syntax" node --check "$ROOT/scripts/tool-stack-check.mjs"
+assert_command "stack profile check syntax" node --check "$ROOT/scripts/stack-profile-check.mjs"
 assert_command "skill update prompt syntax" node --check "$ROOT/scripts/skill-update-prompt.mjs"
 assert_command "pr preflight syntax" node --check "$ROOT/scripts/pr-preflight.mjs"
+assert_command "live hook noise report syntax" node --check "$ROOT/scripts/live-hook-noise-report.mjs"
+assert_command "session audit syntax" node --check "$ROOT/scripts/session-audit.mjs"
 assert_command "performance baseline syntax" node --check "$ROOT/scripts/performance-baseline.mjs"
 assert_command "disk cleanup manifest syntax" node --check "$ROOT/scripts/disk-cleanup-manifest.mjs"
 assert_command "pr preflight validates fixture" bash -c 'printf "%s\n" "{\"branch\":\"feature\",\"dirty\":false,\"changedFiles\":[],\"blockers\":[],\"ghAvailable\":false}" | node "$0/scripts/pr-preflight.mjs" validate --json >/dev/null' "$ROOT"
@@ -557,9 +560,41 @@ expect(parsed[5], "single quoted value", "single-quoted branch");
 expect(parsed[6], "plain token", "unquoted escaped space branch");
 expect(parsed[7], "escaped space token", "unquoted multi-escape branch");
 JS
-for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger execute-evidence-check execution-wave-check tool-effectiveness tool-stack-check code-health-ledger-check documentation-comment-health documentation-health-ledger-check review-log project-buglog browser-qa-report context-state workflow-health prompt-budget-check skill-update-prompt changelog-release-check port-guard update-check settings-audit deep-stack-check; do
+for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger etrnl-state execute-evidence-check execution-wave-check tool-effectiveness tool-stack-check stack-profile-check code-health-ledger-check documentation-comment-health documentation-health-ledger-check review-log project-buglog browser-qa-report context-state live-hook-noise-report session-audit workflow-health prompt-budget-check skill-update-prompt changelog-release-check port-guard update-check settings-audit deep-stack-check; do
   assert_command "$script syntax" node --check "$ROOT/scripts/$script.mjs"
 done
+assert_command "core stack profile check passes" node "$ROOT/scripts/stack-profile-check.mjs" "$ROOT/templates/stack-profile.core.json"
+assert_command "full stack profile check passes" node "$ROOT/scripts/stack-profile-check.mjs" "$ROOT/templates/stack-profile.full.json"
+assert_command "etrnl state core syntax" node --check "$ROOT/scripts/lib/etrnl-state-core.mjs"
+assert_command "etrnl state fixtures validate" node "$ROOT/scripts/etrnl-state.mjs" validate --fixtures "$ROOT/tests/fixtures/etrnl-state"
+etrnl_state_dir="$TMPROOT/etrnl-state-cli"
+ETRNL_STATE_DIR="$etrnl_state_dir" node "$ROOT/scripts/etrnl-state.mjs" append --fixture "$ROOT/tests/fixtures/etrnl-state/compact-pre.json" --json >/dev/null
+ETRNL_STATE_DIR="$etrnl_state_dir" node "$ROOT/scripts/etrnl-state.mjs" append --fixture "$ROOT/tests/fixtures/etrnl-state/compact-post.json" --json >/dev/null
+etrnl_handoff_json="$(ETRNL_STATE_DIR="$etrnl_state_dir" node "$ROOT/scripts/etrnl-state.mjs" compact-handoff --session fixture-compact --json)"
+assert_json_expr "etrnl compact handoff marks stale verification" "$etrnl_handoff_json" '.found == true and .handoff.verificationStale == true and (.text | test("verification_stale=true"))'
+etrnl_latest_dir="$TMPROOT/etrnl-state-latest"
+printf '%s\n' '{"eventKind":"compact_post","sessionId":"older-compact","at":"2026-06-05T01:00:00Z","data":{"compactSummary":"older"}}' \
+  | ETRNL_STATE_DIR="$etrnl_latest_dir" node "$ROOT/scripts/etrnl-state.mjs" append --json >/dev/null
+printf '%s\n' '{"eventKind":"compact_post","sessionId":"newer-compact","at":"2026-06-05T02:00:00Z","data":{"compactSummary":"newer"}}' \
+  | ETRNL_STATE_DIR="$etrnl_latest_dir" node "$ROOT/scripts/etrnl-state.mjs" append --json >/dev/null
+etrnl_latest_json="$(ETRNL_STATE_DIR="$etrnl_latest_dir" node "$ROOT/scripts/etrnl-state.mjs" compact-handoff --latest --json)"
+assert_json_expr "etrnl latest handoff compares timestamps across sessions" "$etrnl_latest_json" '.found == true and .handoff.sessionId == "newer-compact" and (.text | test("summary=newer"))'
+if ETRNL_STATE_DIR="$etrnl_state_dir" node "$ROOT/scripts/etrnl-state.mjs" stop-status --session fixture-compact --json >/dev/null 2>&1; then
+  not_ok "etrnl stop-status blocks stale compact verification"
+else
+  ok "etrnl stop-status blocks stale compact verification"
+fi
+ETRNL_STATE_DIR="$etrnl_state_dir" node "$ROOT/scripts/etrnl-state.mjs" append --fixture "$ROOT/tests/fixtures/etrnl-state/check-verification.json" --json >/dev/null
+assert_command "etrnl stop-status allows fresh verification" env ETRNL_STATE_DIR="$etrnl_state_dir" node "$ROOT/scripts/etrnl-state.mjs" stop-status --session fixture-compact --json
+etrnl_privacy_json="$(node "$ROOT/scripts/etrnl-state.mjs" append --fixture "$ROOT/tests/fixtures/etrnl-state/privacy-raw-prompt.json" --dry-run --json 2>/dev/null || true)"
+assert_json_expr "etrnl state privacy rejects raw prompt" "$etrnl_privacy_json" '.ok == false and .code == "PrivacyRejectError" and .diagnosticCommand != ""'
+beads_state_dir="$TMPROOT/etrnl-state-beads"
+ETRNL_STATE_DIR="$beads_state_dir" node "$ROOT/scripts/etrnl-state.mjs" append --fixture "$ROOT/tests/fixtures/etrnl-state/beads-backlog.json" --json >/dev/null
+ETRNL_STATE_DIR="$beads_state_dir" node "$ROOT/scripts/etrnl-state.mjs" append --fixture "$ROOT/tests/fixtures/etrnl-state/beads-active-execution-noise.json" --json >/dev/null
+beads_bridge_json="$(ETRNL_STATE_DIR="$beads_state_dir" node "$ROOT/scripts/etrnl-state.mjs" bead-link --dry-run --json)"
+assert_json_expr "etrnl beads bridge is backlog-only dry-run" "$beads_bridge_json" '.dryRun == true and .wouldRunBd == false and .backlogCandidates == 1 and .activeExecutionNoise == 1'
+beads_prime_json="$(printf '%s\n' 'Beads doctrine: default task tracking. Do not use TodoWrite. Session close protocol.' | node "$ROOT/scripts/etrnl-state.mjs" bead-prime-audit --json 2>/dev/null || true)"
+assert_json_expr "etrnl rejects raw Beads prime doctrine" "$beads_prime_json" '.allowed == false and (.prohibited | index("beads-default-task-tracking") != null) and (.prohibited | index("beads-todowrite-doctrine") != null)'
 tool_stack_bin="$TMPROOT/tool-stack-bin"
 mkdir -p "$tool_stack_bin"
 cat >"$tool_stack_bin/codegraph" <<'BASH'
@@ -598,13 +633,49 @@ if [[ "$1 $2 $3" == "info beads --json=v2" ]]; then
 fi
 exit 1
 BASH
-chmod +x "$tool_stack_bin/codegraph" "$tool_stack_bin/bd" "$tool_stack_bin/npm" "$tool_stack_bin/brew"
+cat >"$tool_stack_bin/claude" <<'BASH'
+#!/usr/bin/env bash
+if [[ "$1 $2" == "plugin list" ]]; then
+  printf 'hindsight-memory@hindsight 0.7.1\n'
+  exit 0
+fi
+exit 1
+BASH
+chmod +x "$tool_stack_bin/codegraph" "$tool_stack_bin/bd" "$tool_stack_bin/npm" "$tool_stack_bin/brew" "$tool_stack_bin/claude"
 node_bin="$(command -v node)"
-tool_stack_json="$(PATH="$tool_stack_bin:/usr/bin:/bin" CLAUDE_HOME="$TMPROOT/tool-stack-home" CLAUDE_CONTROL_PLANE_TOOL_STACK_STATE="$TMPROOT/tool-stack-state.json" "$node_bin" "$ROOT/scripts/tool-stack-check.mjs" --json --force)"
+mkdir -p "$TMPROOT/tool-stack-home" "$TMPROOT/tool-stack-hindsight"
+cat >"$TMPROOT/tool-stack-home/settings.json" <<'JSON'
+{"enabledPlugins":{"hindsight-memory@hindsight":true}}
+JSON
+cat >"$TMPROOT/tool-stack-hindsight/claude-code.json" <<'JSON'
+{
+  "hindsightApiUrl": "",
+  "apiPort": 9077,
+  "dynamicBankId": true,
+  "dynamicBankGranularity": ["agent", "project"],
+  "recallContextTurns": 3,
+  "recallTypes": ["observation"],
+  "retainToolCalls": false,
+  "retainTranscripts": false,
+  "recallPromptPreamble": "Fresh repo/runtime evidence overrides memory."
+}
+JSON
+tool_stack_json="$(PATH="$tool_stack_bin:/usr/bin:/bin" CLAUDE_HOME="$TMPROOT/tool-stack-home" HINDSIGHT_HOME="$TMPROOT/tool-stack-hindsight" CLAUDE_CONTROL_PLANE_TOOL_STACK_STATE="$TMPROOT/tool-stack-state.json" "$node_bin" "$ROOT/scripts/tool-stack-check.mjs" --json --force)"
 assert_json_expr "tool stack checker detects codegraph update" "$tool_stack_json" '.tools.codegraph.installed == true and .tools.codegraph.currentVersion == "0.9.9" and .tools.codegraph.latestVersion == "1.0.0" and .tools.codegraph.updateAvailable == true'
 assert_json_expr "tool stack checker keeps beads current" "$tool_stack_json" '.tools.beads.installed == true and .tools.beads.currentVersion == "1.0.5" and .tools.beads.updateAvailable == false'
-tool_stack_text="$(PATH="$tool_stack_bin:/usr/bin:/bin" CLAUDE_HOME="$TMPROOT/tool-stack-home" CLAUDE_CONTROL_PLANE_TOOL_STACK_STATE="$TMPROOT/tool-stack-state.json" "$node_bin" "$ROOT/scripts/tool-stack-check.mjs" --force)"
+assert_json_expr "tool stack checker reports Hindsight plugin posture" "$tool_stack_json" '.tools.hindsight.pluginEnabled == true and .tools.hindsight.pluginInstalled == true and .tools.hindsight.ok == true and .tools.hindsight.mode == "local-daemon"'
+tool_stack_text="$(PATH="$tool_stack_bin:/usr/bin:/bin" CLAUDE_HOME="$TMPROOT/tool-stack-home" HINDSIGHT_HOME="$TMPROOT/tool-stack-hindsight" CLAUDE_CONTROL_PLANE_TOOL_STACK_STATE="$TMPROOT/tool-stack-state.json" "$node_bin" "$ROOT/scripts/tool-stack-check.mjs" --force)"
 assert_contains "tool stack checker text advertises update" "$tool_stack_text" "TOOL_STACK_UPDATE_AVAILABLE codegraph"
+hindsight_canary_json="$(PATH="$tool_stack_bin:/usr/bin:/bin" "$ROOT/scripts/canary-hindsight.sh" --settings "$TMPROOT/tool-stack-home/settings.json" --config "$TMPROOT/tool-stack-hindsight/claude-code.json" --json)"
+assert_json_expr "hindsight canary passes local daemon config without live health" "$hindsight_canary_json" '.ok == true and .mode == "local-daemon" and .health == "health-skipped"'
+hindsight_bad_config="$TMPROOT/tool-stack-hindsight/bad-claude-code.json"
+jq '.retainToolCalls = true' "$TMPROOT/tool-stack-hindsight/claude-code.json" >"$hindsight_bad_config"
+hindsight_bad_json="$(PATH="$tool_stack_bin:/usr/bin:/bin" "$ROOT/scripts/canary-hindsight.sh" --settings "$TMPROOT/tool-stack-home/settings.json" --config "$hindsight_bad_config" --json 2>/dev/null || true)"
+assert_json_expr "hindsight canary rejects unsafe retention" "$hindsight_bad_json" '.ok == false and .code == "config-unsafe"'
+hindsight_transcripts_config="$TMPROOT/tool-stack-hindsight/transcripts-claude-code.json"
+jq '.retainTranscripts = true' "$TMPROOT/tool-stack-hindsight/claude-code.json" >"$hindsight_transcripts_config"
+hindsight_transcripts_json="$(PATH="$tool_stack_bin:/usr/bin:/bin" "$ROOT/scripts/canary-hindsight.sh" --settings "$TMPROOT/tool-stack-home/settings.json" --config "$hindsight_transcripts_config" --json 2>/dev/null || true)"
+assert_json_expr "hindsight canary rejects unsafe transcript retention" "$hindsight_transcripts_json" '.ok == false and .code == "config-unsafe"'
 tool_effectiveness_fixtures_json="$(node "$ROOT/scripts/tool-effectiveness.mjs" summarize --fixtures "$ROOT/tests/fixtures/tool-effectiveness" --json)"
 assert_command "tool-effectiveness fixtures validate" node "$ROOT/scripts/tool-effectiveness.mjs" validate-fixtures --fixtures "$ROOT/tests/fixtures/tool-effectiveness"
 assert_json_expr "tool-effectiveness codegraph keep verdict" "$tool_effectiveness_fixtures_json" '.tools.codegraph.verdict == "keep" and .tools.codegraph.evidence.eligibleSessions >= 5'
@@ -653,6 +724,32 @@ tool_effectiveness_codex_import_json="$(node "$ROOT/scripts/tool-effectiveness.m
 assert_json_expr "tool-effectiveness codex import sanitizes tool events" "$tool_effectiveness_codex_import_json" '.command == "import-codex" and .dryRun == true and .eventsImported == 2 and (.rejected | length) == 0'
 assert_json_expr "tool-effectiveness codex import preserves explicit outcomes" "$tool_effectiveness_codex_import_json" '(.events[] | select(.tool == "codegraph") | .eligible == true and .toolUsed == true and .usefulWork == true and .downstreamArtifact == true) and (.events[] | select(.tool == "beads") | .eligible == false and .toolUsed == false and .usefulWork == false and .downstreamArtifact == false)'
 assert_command "update shell syntax" bash -n "$ROOT/scripts/update.sh"
+auto_update_source="$TMPROOT/auto-update-source"
+auto_update_home="$TMPROOT/auto-update-home"
+mkdir -p "$auto_update_source/scripts" "$auto_update_home/control-plane"
+printf '%s\n' '#!/usr/bin/env bash' 'exit 0' >"$auto_update_source/scripts/install.sh"
+cat >"$auto_update_source/scripts/update.sh" <<'BASH'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+mkdir -p "$CLAUDE_HOME/control-plane"
+printf 'ran\n' >"$CLAUDE_HOME/auto-update-ran"
+BASH
+chmod +x "$auto_update_source/scripts/install.sh" "$auto_update_source/scripts/update.sh"
+printf '%s\n' '# Changelog' '' '## v0.0.1' >"$auto_update_source/CHANGELOG.md"
+jq -n --arg sourceRoot "$auto_update_source" '{
+  sourceRoot: $sourceRoot,
+  sourceCommit: "unknown",
+  sourceCommitShort: "unknown",
+  sourceVersion: "v0.0.1",
+  sourceFingerprint: "stale",
+  settingsMode: "default"
+}' >"$auto_update_home/control-plane/install.json"
+auto_disabled_json="$(CLAUDE_HOME="$auto_update_home" CODEX_HOME="$TMPROOT/auto-update-codex" CLAUDE_CONTROL_PLANE_HOME="$auto_update_home" CLAUDE_CONTROL_PLANE_AUTO_UPDATE=0 node "$ROOT/scripts/update-check.mjs" --json)"
+assert_json_expr "update-check opt-out reports stale local install" "$auto_disabled_json" '.ok == true and .localUpdateAvailable == true and .autoUpdate == ""'
+assert_no_file "update-check opt-out does not run updater" "$auto_update_home/auto-update-ran"
+auto_default_json="$(CLAUDE_HOME="$auto_update_home" CODEX_HOME="$TMPROOT/auto-update-codex" CLAUDE_CONTROL_PLANE_HOME="$auto_update_home" node "$ROOT/scripts/update-check.mjs" --json)"
+assert_json_expr "update-check auto-runs local updater by default" "$auto_default_json" '.ok == true and .localUpdateAvailable == false and (.autoUpdate | startswith("CONTROL_PLANE_AUTO_UPDATED "))'
+assert_file "update-check default auto ran updater" "$auto_update_home/auto-update-ran"
 assert_command "bootstrap tools shell syntax" bash -n "$ROOT/scripts/bootstrap-tools.sh"
 merge_target="$TMPROOT/settings-target.json"
 merge_template="$TMPROOT/settings-template.json"
@@ -673,8 +770,35 @@ assert_json_expr "merge-settings orders rtk rg compat before pretool guard" "$(j
 settings_audit_target="$TMPROOT/settings-audit-target.json"
 settings_audit_home="$TMPROOT/settings-audit-home"
 settings_audit_project="$TMPROOT/settings-audit-project"
-mkdir -p "$settings_audit_home/.claude/hooks" "$settings_audit_project/.claude/hooks"
+mkdir -p "$settings_audit_home/.claude/hooks" "$settings_audit_home/.claude/plugins/cache/hindsight-memory/0.7.1/hooks" "$settings_audit_home/.hindsight" "$settings_audit_project/.claude/hooks"
 printf '%s\n' '#!/usr/bin/env bash' '# rtk-hook-version: 3' >"$settings_audit_home/.claude/hooks/rtk-rewrite.sh"
+for required_hook in cc-sessionstart-restore.sh cc-precompact-save.sh cc-postcompact-record.sh cc-stop-verifier.sh; do
+  printf '%s\n' '#!/usr/bin/env bash' 'exit 0' >"$settings_audit_home/.claude/hooks/$required_hook"
+  chmod +x "$settings_audit_home/.claude/hooks/$required_hook"
+done
+cat >"$settings_audit_home/.claude/plugins/cache/hindsight-memory/0.7.1/hooks/hooks.json" <<'JSON'
+{
+  "name": "hindsight-memory",
+  "hooks": {
+    "SessionStart": [{"hooks": [{"type": "command", "command": "python3 hooks/session_start.py"}]}],
+    "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "python3 hooks/recall.py"}]}],
+    "Stop": [{"hooks": [{"type": "command", "command": "python3 hooks/retain.py", "async": true}]}]
+  }
+}
+JSON
+cat >"$settings_audit_home/.hindsight/claude-code.json" <<'JSON'
+{
+  "hindsightApiUrl": "",
+  "apiPort": 9077,
+  "dynamicBankId": true,
+  "dynamicBankGranularity": ["agent", "project"],
+  "recallContextTurns": 3,
+  "recallTypes": ["observation"],
+  "retainToolCalls": false,
+  "retainTranscripts": false,
+  "recallPromptPreamble": "Fresh repo/runtime evidence overrides memory."
+}
+JSON
 cat >"$settings_audit_project/.claude/hooks/check-context-and-handoff.sh" <<'BASH'
 #!/usr/bin/env bash
 jq -cn --arg text "context" '{
@@ -701,6 +825,48 @@ settings_audit_report="$(HOME="$settings_audit_home" node "$ROOT/scripts/setting
 assert_json_expr "settings-audit reports stale rtk rewrite conflict" "$settings_audit_report" 'any(.after.conflictingHooks[]?; .id == "rtk-rewrite" and .hook == "rtk-rewrite.sh")'
 assert_json_expr "settings-audit reports legacy cli toolkit conflict" "$settings_audit_report" 'any(.after.conflictingHooks[]?; .id == "legacy-cli-toolkit" and .hook == "enforce-cli-toolkit.sh")'
 assert_json_expr "settings-audit reports unknown external hooks" "$settings_audit_report" 'any(.after.externalHooks[]?; .owner == "unknown-external" and .hook == "custom-local-guard.sh")'
+assert_json_expr "settings-audit reports plugin hook manifests" "$settings_audit_report" 'any(.after.pluginHookManifests[]?; .plugin == "hindsight-memory" and .eventName == "UserPromptSubmit")'
+assert_json_expr "settings-audit reports memory plugin hooks" "$settings_audit_report" 'any(.after.memoryPluginHooks[]?; .plugin == "hindsight-memory" and .eventName == "Stop" and .async == true)'
+settings_audit_bad_home="$TMPROOT/settings-audit-bad-home"
+settings_audit_bad_target="$TMPROOT/settings-audit-bad-target.json"
+mkdir -p "$settings_audit_bad_home/.claude/plugins/cache/bad-plugin/0.0.1/hooks"
+printf '%s\n' '{"hooks":' >"$settings_audit_bad_home/.claude/plugins/cache/bad-plugin/0.0.1/hooks/hooks.json"
+printf '%s\n' '{"hooks":{}}' >"$settings_audit_bad_target"
+settings_audit_bad_report="$(HOME="$settings_audit_bad_home" node "$ROOT/scripts/settings-audit.mjs" "$settings_audit_bad_target" --json 2>/dev/null || true)"
+assert_json_expr "settings-audit rejects corrupt plugin hook manifest" "$settings_audit_bad_report" '.ok == false and any(.after.manifestErrors[]?; .plugin == "bad-plugin")'
+settings_audit_memory_target="$TMPROOT/settings-audit-memory-target.json"
+cat >"$settings_audit_memory_target" <<'JSON'
+{
+  "enabledPlugins": {
+    "hindsight-memory@hindsight": true
+  },
+  "autoCompactWindow": 400000,
+  "skipAutoPermissionPrompt": true,
+  "hooks": {
+    "SessionStart": [{"hooks": [{"type": "command", "command": "bash ~/.claude/hooks/cc-sessionstart-restore.sh"}]}],
+    "PreCompact": [{"hooks": [{"type": "command", "command": "bash ~/.claude/hooks/cc-precompact-save.sh"}]}],
+    "PostCompact": [{"hooks": [{"type": "command", "command": "bash ~/.claude/hooks/cc-postcompact-record.sh"}]}],
+    "Stop": [{"hooks": [{"type": "command", "command": "bash ~/.claude/hooks/cc-stop-verifier.sh"}]}]
+  }
+}
+JSON
+mkdir -p "$settings_audit_home/.claude/skills/frontmatter-hook"
+cat >"$settings_audit_home/.claude/skills/frontmatter-hook/SKILL.md" <<'MD'
+---
+name: frontmatter-hook
+hooks: []
+---
+# Frontmatter Hook
+MD
+settings_audit_memory_report="$(HOME="$settings_audit_home" node "$ROOT/scripts/settings-audit.mjs" "$settings_audit_memory_target" --strict-conflicts --json 2>/dev/null || true)"
+assert_json_expr "settings-audit strict rejects risky top-level settings" "$settings_audit_memory_report" '.ok == false and any(.after.riskyTopLevelSettings[]?; .key == "autoCompactWindow") and any(.after.riskyTopLevelSettings[]?; .key == "skipAutoPermissionPrompt")'
+assert_json_expr "settings-audit reports Hindsight memory posture" "$settings_audit_memory_report" 'any(.after.memoryPluginPosture[]?; .plugin == "hindsight-memory@hindsight" and .status == "healthy-config" and .mode == "local-daemon")'
+assert_json_expr "settings-audit reports frontmatter hook declarations" "$settings_audit_memory_report" 'any(.after.frontmatterHookDeclarations[]?; .key == "hooks")'
+settings_audit_async_target="$TMPROOT/settings-audit-async.json"
+printf '%s\n' '{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"bash ~/.claude/hooks/cc-sessionstart-restore.sh","async":true}]}],"PreCompact":[{"hooks":[{"type":"command","command":"bash ~/.claude/hooks/suggest-compact.sh"}]}]}}' >"$settings_audit_async_target"
+settings_audit_async_report="$(HOME="$settings_audit_home" node "$ROOT/scripts/settings-audit.mjs" "$settings_audit_async_target" --strict-conflicts --json 2>/dev/null || true)"
+assert_json_expr "settings-audit strict rejects async compact restore" "$settings_audit_async_report" '.ok == false and any(.after.syncExpectationIssues[]?; .id == "compact-restore-sync")'
+assert_json_expr "settings-audit strict classifies compact companion noise" "$settings_audit_async_report" 'any(.after.conflictingHooks[]?; .id == "compact-companion-noise" and .hook == "suggest-compact.sh")'
 settings_audit_quoted_target="$TMPROOT/settings-audit-quoted-target.json"
 # shellcheck disable=SC2016
 printf '%s\n' '{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"bash '\''$HOME/.claude/hooks/check-context-and-handoff.sh'\''"},{"type":"command","command":"bash \"~/.claude/hooks/check-context-and-handoff.sh\""}]}]}}' >"$settings_audit_quoted_target"
@@ -1109,6 +1275,18 @@ assert_contains "context restore command works" "$context_restore" "stale="
 stale_context="$(node "$ROOT/scripts/context-state.mjs" save --id fixture-stale-context --title "Stale" --saved-at "2000-01-01T00:00:00Z")"
 context_summary="$(node "$ROOT/scripts/context-state.mjs" show "$stale_context" --stale-hours 1)"
 assert_contains "context restore detects stale context" "$context_summary" "stale=true"
+session_scan_root="$TMPROOT/session-scan"
+mkdir -p "$session_scan_root/claude/projects/project-a" "$session_scan_root/codex/rollout_summaries"
+printf '%s\n' \
+  '{"message":{"content":[{"type":"hook_non_blocking_error","hookName":"stale-hook","message":"/Users/example/old/path failed"}]}}' \
+  '{"message":{"content":[{"type":"hook_blocking_error","hookName":"guard","stderr":"blocked for test@example.com"}]}}' \
+  >"$session_scan_root/claude/projects/project-a/session.jsonl"
+printf '%s\n' '{"event_msg":"CodeRabbit lint hook stale tooling warning"}' >"$session_scan_root/codex/rollout_summaries/session.jsonl"
+live_hook_json="$(node "$ROOT/scripts/live-hook-noise-report.mjs" --root "$session_scan_root/claude" --since-days 30 --json)"
+assert_json_expr "live hook report counts blocking and non-blocking errors" "$live_hook_json" '.counts.nonBlocking == 1 and .counts.blocking == 1 and .topHooks[0].count >= 1'
+assert_json_expr "live hook report redacts private paths and emails" "$live_hook_json" '((.topReasons | tostring) | contains("/Users/example") | not) and ((.topReasons | tostring) | contains("test@example.com") | not)'
+session_audit_json="$(node "$ROOT/scripts/session-audit.mjs" --claude-root "$session_scan_root/claude" --codex-memory-root "$session_scan_root/codex" --since-days 30 --json)"
+assert_json_expr "session audit combines claude hooks and codex memory signals" "$session_audit_json" '.claude.counts.blocking == 1 and .codexMemory.filesScanned == 1 and any(.codexMemory.keywordHits[]; .keyword == "CodeRabbit")'
 wave_json="$(printf '{"useWorktrees":true,"submodules":["vendor/lib"],"plans":[{"id":"T1","wave":1,"files":["src/a.ts"]},{"id":"T2","wave":1,"files":["src/a.ts"]},{"id":"T3","wave":2,"files":["vendor/lib/x.ts"]}]}' | node "$ROOT/scripts/execution-wave-check.mjs")"
 assert_json_expr "wave overlap disables parallel" "$wave_json" '.waves[0].parallelSafe == false'
 assert_json_expr "submodule task not worktree eligible" "$wave_json" '.waves[1].plans[0].worktreeEligible == false'
@@ -1165,12 +1343,12 @@ assert_contains "workflow health status text reports next action" "$uat_status_t
 empty_health="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/missing-runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs")"
 assert_contains "workflow health reports artifacts without ledger dir" "$empty_health" "reviewLog entries=0"
 
-autoplan_meta="$(jq -c . "$ROOT/skills/metadata/etrnl-autoplan.json")"
+autoplan_meta="$(jq -c . "$ROOT/skills/metadata/etrnl-dev-autoplan.json")"
 assert_json_expr "autoplan includes CEO review" "$autoplan_meta" '.ownerReview == "CEO/founder review"'
 assert_json_expr "autoplan includes DX review" "$autoplan_meta" '.dxReview == "DX review"'
 assert_json_expr "autoplan includes adversarial review" "$autoplan_meta" '.adversarialReview == true'
 assert_json_expr "autoplan includes max completeness" "$autoplan_meta" '.completeness == "10/10"'
-execute_meta="$(jq -c . "$ROOT/skills/metadata/etrnl-execute.json")"
+execute_meta="$(jq -c . "$ROOT/skills/metadata/etrnl-dev-execute.json")"
 assert_json_expr "execute includes wave execution" "$execute_meta" '.executionMode == "wave-based execution"'
 assert_json_expr "execute includes subagent ownership rule" "$execute_meta" '.ownershipRule == "do not duplicate"'
 assert_json_expr "execute includes spot-check fallback" "$execute_meta" '.fallback == "spot-check"'
@@ -1408,22 +1586,22 @@ else
   assert_contains "agent packet rejects deep-stack contract without write scope" "$bad_deep_packet_no_scope_out" "deepStackArtifacts"
 fi
 packet_hash_64="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-execute_missing_tdd_state="$(jq -cn --arg hash "$packet_hash_64" '{requestedSkills:[{value:"etrnl-execute",at:"2026-01-01T00:00:00Z"}],edits:{"src/app.ts":"2026-01-01T00:00:01Z"},agentCalls:[{value:("subagent=etrnl-executor mode=write taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:02Z"}],reviewerAgentCalls:[{value:("subagent=etrnl-spec-reviewer taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:03Z"},{value:("subagent=etrnl-quality-reviewer taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:04Z"}]}')"
+execute_missing_tdd_state="$(jq -cn --arg hash "$packet_hash_64" '{requestedSkills:[{value:"etrnl-dev-execute",at:"2026-01-01T00:00:00Z"}],edits:{"src/app.ts":"2026-01-01T00:00:01Z"},agentCalls:[{value:("subagent=etrnl-executor mode=write taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:02Z"}],reviewerAgentCalls:[{value:("subagent=etrnl-spec-reviewer taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:03Z"},{value:("subagent=etrnl-quality-reviewer taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:04Z"}]}')"
 execute_missing_tdd_status="$(node "$ROOT/scripts/execute-evidence-check.mjs" <<<"$execute_missing_tdd_state")"
 if [[ "$execute_missing_tdd_status" == "missing-tdd-evidence" ]]; then ok "execute evidence checker blocks missing TDD"; else not_ok "execute evidence checker blocks missing TDD: $execute_missing_tdd_status"; fi
-execute_missing_type_state="$(jq -cn --arg hash "$packet_hash_64" '{requestedSkills:[{value:"etrnl-execute",at:"2026-01-01T00:00:00Z"}],edits:{"src/api/types.ts":"2026-01-01T00:00:01Z"},agentCalls:[{value:("subagent=etrnl-executor mode=write taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:02Z"}],reviewerAgentCalls:[{value:("subagent=etrnl-spec-reviewer taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:03Z"},{value:("subagent=etrnl-quality-reviewer taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:04Z"}],tddEvidenceRuns:[{value:"red_green_verified",at:"2026-01-01T00:00:05Z"}]}')"
+execute_missing_type_state="$(jq -cn --arg hash "$packet_hash_64" '{requestedSkills:[{value:"etrnl-dev-execute",at:"2026-01-01T00:00:00Z"}],edits:{"src/api/types.ts":"2026-01-01T00:00:01Z"},agentCalls:[{value:("subagent=etrnl-executor mode=write taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:02Z"}],reviewerAgentCalls:[{value:("subagent=etrnl-spec-reviewer taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:03Z"},{value:("subagent=etrnl-quality-reviewer taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:04Z"}],tddEvidenceRuns:[{value:"red_green_verified",at:"2026-01-01T00:00:05Z"}]}')"
 execute_missing_type_status="$(node "$ROOT/scripts/execute-evidence-check.mjs" <<<"$execute_missing_type_state")"
 if [[ "$execute_missing_type_status" == "missing-type-review" ]]; then ok "execute evidence checker blocks missing TypeScript review"; else not_ok "execute evidence checker blocks missing TypeScript review: $execute_missing_type_status"; fi
-execute_missing_install_state="$(jq -cn --arg hash "$packet_hash_64" '{requestedSkills:[{value:"etrnl-execute",at:"2026-01-01T00:00:00Z"}],edits:{"hooks/cc-stop-verifier.sh":"2026-01-01T00:00:01Z"},agentCalls:[{value:("subagent=etrnl-executor mode=write taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:02Z"}],reviewerAgentCalls:[{value:("subagent=etrnl-spec-reviewer taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:03Z"},{value:("subagent=etrnl-quality-reviewer taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:04Z"}],tddEvidenceRuns:[{value:"red_green_verified",at:"2026-01-01T00:00:05Z"}]}')"
+execute_missing_install_state="$(jq -cn --arg hash "$packet_hash_64" '{requestedSkills:[{value:"etrnl-dev-execute",at:"2026-01-01T00:00:00Z"}],edits:{"hooks/cc-stop-verifier.sh":"2026-01-01T00:00:01Z"},agentCalls:[{value:("subagent=etrnl-executor mode=write taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:02Z"}],reviewerAgentCalls:[{value:("subagent=etrnl-spec-reviewer taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:03Z"},{value:("subagent=etrnl-quality-reviewer taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:04Z"}],tddEvidenceRuns:[{value:"red_green_verified",at:"2026-01-01T00:00:05Z"}]}')"
 execute_missing_install_status="$(node "$ROOT/scripts/execute-evidence-check.mjs" <<<"$execute_missing_install_state")"
 if [[ "$execute_missing_install_status" == "missing-install-proof" ]]; then ok "execute evidence checker blocks missing install proof"; else not_ok "execute evidence checker blocks missing install proof: $execute_missing_install_status"; fi
-execute_docs_install_state="$(jq -cn '{requestedSkills:[{value:"etrnl-execute",at:"2026-01-01T00:00:00Z"}],edits:{"AGENTS.md":"2026-01-01T00:00:01Z"}}')"
+execute_docs_install_state="$(jq -cn '{requestedSkills:[{value:"etrnl-dev-execute",at:"2026-01-01T00:00:00Z"}],edits:{"AGENTS.md":"2026-01-01T00:00:01Z"}}')"
 execute_docs_install_status="$(node "$ROOT/scripts/execute-evidence-check.mjs" <<<"$execute_docs_install_state")"
 if [[ "$execute_docs_install_status" == "missing-install-proof" ]]; then ok "execute evidence checker blocks install-home edits without source files"; else not_ok "execute evidence checker blocks install-home edits without source files: $execute_docs_install_status"; fi
-execute_docs_install_ok_state="$(jq -cn '{requestedSkills:[{value:"etrnl-execute",at:"2026-01-01T00:00:00Z"}],edits:{"AGENTS.md":"2026-01-01T00:00:01Z"},installProofRuns:[{value:"staged install passed",at:"2026-01-01T00:00:05Z"}]}')"
+execute_docs_install_ok_state="$(jq -cn '{requestedSkills:[{value:"etrnl-dev-execute",at:"2026-01-01T00:00:00Z"}],edits:{"AGENTS.md":"2026-01-01T00:00:01Z"},installProofRuns:[{value:"staged install passed",at:"2026-01-01T00:00:05Z"}]}')"
 execute_docs_install_ok_status="$(node "$ROOT/scripts/execute-evidence-check.mjs" <<<"$execute_docs_install_ok_state")"
 if [[ -z "$execute_docs_install_ok_status" ]]; then ok "execute evidence checker accepts install proof for install-home edits"; else not_ok "execute evidence checker accepts install proof for install-home edits: $execute_docs_install_ok_status"; fi
-execute_full_state="$(jq -cn --arg hash "$packet_hash_64" '{requestedSkills:[{value:"etrnl-execute",at:"2026-01-01T00:00:00Z"},{value:"typescript-advanced-types",at:"2026-01-01T00:00:05Z"}],edits:{"src/api/types.ts":"2026-01-01T00:00:01Z","src/app.ts":"2026-01-01T00:00:01Z"},agentCalls:[{value:("subagent=etrnl-executor mode=write taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:02Z"}],reviewerAgentCalls:[{value:("subagent=etrnl-spec-reviewer taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:03Z"},{value:("subagent=etrnl-quality-reviewer taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:04Z"}],tddEvidenceRuns:[{value:"red_green_verified",at:"2026-01-01T00:00:05Z"}],simplifierRuns:[{value:"code-simplifier reviewed",at:"2026-01-01T00:00:06Z"}],typeReviewRuns:[{value:"advanced types reviewed",at:"2026-01-01T00:00:07Z"}]}')"
+execute_full_state="$(jq -cn --arg hash "$packet_hash_64" '{requestedSkills:[{value:"etrnl-dev-execute",at:"2026-01-01T00:00:00Z"},{value:"typescript-advanced-types",at:"2026-01-01T00:00:05Z"}],edits:{"src/api/types.ts":"2026-01-01T00:00:01Z","src/app.ts":"2026-01-01T00:00:01Z"},agentCalls:[{value:("subagent=etrnl-executor mode=write taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:02Z"}],reviewerAgentCalls:[{value:("subagent=etrnl-spec-reviewer taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:03Z"},{value:("subagent=etrnl-quality-reviewer taskid=t1 lineageid=wave-1.t1 packethash=" + $hash),at:"2026-01-01T00:00:04Z"}],tddEvidenceRuns:[{value:"red_green_verified",at:"2026-01-01T00:00:05Z"}],simplifierRuns:[{value:"code-simplifier reviewed",at:"2026-01-01T00:00:06Z"}],typeReviewRuns:[{value:"advanced types reviewed",at:"2026-01-01T00:00:07Z"}]}')"
 execute_full_status="$(node "$ROOT/scripts/execute-evidence-check.mjs" <<<"$execute_full_state")"
 if [[ -z "$execute_full_status" ]]; then ok "execute evidence checker accepts complete evidence"; else not_ok "execute evidence checker accepts complete evidence: $execute_full_status"; fi
 if node "$ROOT/scripts/agent-task-packet-check.mjs" --template >/dev/null 2>&1; then

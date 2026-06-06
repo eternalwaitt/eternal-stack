@@ -40,7 +40,7 @@ Non-goals: No changes to `mimo-finance` application features; no weakening of sa
 - `hooks/lib/state.sh`: add warning fingerprints so the same advisory message is not repeated every batch.
 - `hooks/lib/command-classifiers.sh`: add canonical command helpers for output limiters, modern CLI wrappers, verification commands, and directory-read alternatives.
 - `scripts/agent-task-packet-check.mjs`: add a copy-ready packet template in denials and support a smaller read-only packet contract.
-- `skills/etrnl-autoplan/SKILL.md`: require valid subagent packet shape before outside-voice or worker fan-out.
+- `skills/etrnl-dev-autoplan/SKILL.md`: require valid subagent packet shape before outside-voice or worker fan-out.
 - `scripts/plan-readiness-check.mjs`: optionally emit machine-readable fix suggestions for missing readiness sections.
 - `tests/test-hooks.sh`: add regression coverage for every transcript-derived hook failure.
 - `tests/test-install.sh`: assert installed settings are deduped and installed-home doctor has all fixture/helper dependencies.
@@ -127,27 +127,27 @@ Quick win: removes the repeated `EISDIR` failures seen in the `mimo-finance` pla
 
 ### Group F: Subagent Packet Builder
 
-Owner files: `scripts/agent-task-packet-check.mjs`, `skills/etrnl-autoplan/SKILL.md`, `hooks/fixtures/events/pretooluse-task-*.json`, `tests/test-hooks.sh`.
+Owner files: `scripts/agent-task-packet-check.mjs`, `skills/etrnl-dev-autoplan/SKILL.md`, `hooks/fixtures/events/pretooluse-task-*.json`, `tests/test-hooks.sh`.
 
 Steps:
 1. Add `scripts/agent-task-packet-check.mjs --template read-only` and `--template write`.
 2. Include required fields in the denial output, formatted as copy-ready markdown.
 3. For read-only review agents, require goal, cwd, context summary, read set, forbidden files, expected output, timeout, retry policy, no-revert statement, and WebSearch guidance.
 4. For write-capable agents, keep write scope and verification command mandatory.
-5. Update `skills/etrnl-autoplan/SKILL.md` so outside-voice fan-out builds packets from the helper template.
+5. Update `skills/etrnl-dev-autoplan/SKILL.md` so outside-voice fan-out builds packets from the helper template.
 6. Add a regression case matching the `mimo-finance` denial.
 
 Quick win: Claude can recover from packet denials without inventing a new packet shape each time.
 
 ### Group G: Plan Readiness Repair Hints
 
-Owner files: `scripts/plan-readiness-check.mjs`, `scripts/lib/plan-headings.mjs`, `tests/test-workflow-tools.sh`, `skills/etrnl-autoplan/SKILL.md`.
+Owner files: `scripts/plan-readiness-check.mjs`, `scripts/lib/plan-headings.mjs`, `tests/test-workflow-tools.sh`, `skills/etrnl-dev-autoplan/SKILL.md`.
 
 Steps:
 1. Add `--explain` mode that maps each failure to exact text to add.
 2. For missing Failure modes, suggest `- Failure modes: PASS|WARN|FAIL - <reason>`.
 3. For missing Verdict, suggest a standalone `## Verdict` heading or `Verdict:` line depending on current checker rules.
-4. Update `etrnl-autoplan` instructions to run `--json --explain` before retrying.
+4. Update `etrnl-dev-autoplan` instructions to run `--json --explain` before retrying.
 5. Prevent repeated identical readiness-check commands after the plan has changed by including file mtime or content hash in repeat detection.
 
 Quick win: readiness failures become one edit, not inspect-script-then-retry.
@@ -219,8 +219,8 @@ Quick win: removes non-blocking `mv: ... No such file or directory` warnings dur
 
 ### Phase 5: Skill updates
 
-1. Update `etrnl-autoplan` to use packet templates and plan-readiness explain mode.
-2. Update `etrnl-plan` to treat design-spec approval and implementation-plan readiness as separate gates.
+1. Update `etrnl-dev-autoplan` to use packet templates and plan-readiness explain mode.
+2. Update `etrnl-dev-plan` to treat design-spec approval and implementation-plan readiness as separate gates.
 3. Add skill behavior smoke cases for packet creation and readiness repair.
 4. Gate: `node scripts/skill-behavior-smoke.mjs --root .`.
 
@@ -235,9 +235,9 @@ Quick win: removes non-blocking `mv: ... No such file or directory` warnings dur
 
 ## Skill/tool routing
 
-- Use `etrnl-plan` for plan updates and readiness checks.
-- Use `etrnl-execute` after this plan is accepted.
-- Use `etrnl-review` before commit or push because hook semantics affect every Claude Code session.
+- Use `etrnl-dev-plan` for plan updates and readiness checks.
+- Use `etrnl-dev-execute` after this plan is accepted.
+- Use `etrnl-dev-review` before commit or push because hook semantics affect every Claude Code session.
 - Use `investigate` posture for fixture extraction: evidence first, hypothesis second.
 - Use `bash-defensive-patterns` when editing shell hooks.
 - Use `ast-grep` only for structural code scans; use `rtk grep` or `rg` for plain text.
@@ -362,7 +362,7 @@ node ~/.claude/scripts/update-check.mjs --json
 - Settings dedupe rollback: restore the installer backup under `~/.claude/backups/control-plane-install-*`, then run installed doctor.
 - Hook-output rollback: revert `cc-posttoolbatch-observer.sh`, `cc-posttoolusefailure-diagnose.sh`, and `state.sh`; run hook tests.
 - Command-classifier rollback: revert `cc-pretooluse-guard.sh` and `hooks/lib/command-classifiers.sh`; run guard fixtures.
-- Skill rollback: revert `skills/etrnl-autoplan/SKILL.md` and skill smoke tests.
+- Skill rollback: revert `skills/etrnl-dev-autoplan/SKILL.md` and skill smoke tests.
 - Installed-home rollback: run `~/.claude/scripts/rollback-local.sh` when available, then reinstall the previous known-good commit.
 
 ## Execution handoff

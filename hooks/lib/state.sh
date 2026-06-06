@@ -4,7 +4,7 @@
 # [hook event]
 #    |
 #    v
-# [init + migrate to v4; v3 was an internal-only schema during hook hardening]
+# [init + migrate to v5; v3 was an internal-only schema during hook hardening]
 #    |
 #    v
 # [apply event mutations]
@@ -12,6 +12,8 @@
 #    v
 # [persist once under lock]
 #    |
+#    +--> tmp cache fields for legacy compatibility
+#    +--> ETRNL JSONL state for durable compact handoff
 #    +--> commands[] (attempts)
 #    +--> successfulCommands[] / blockedCommands[]
 #    +--> editGeneration / commandLastEditGeneration
@@ -19,6 +21,51 @@
 
 cc_state_dir() {
   printf '%s\n' "${CLAUDE_GUARD_STATE_DIR:-${TMPDIR:-/tmp}}"
+}
+
+cc_etrnl_state_script() {
+  printf '%s/scripts/etrnl-state.mjs\n' "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd -P)"
+}
+
+cc_project_fingerprint() {
+  local cwd="${1:-$(pwd -P)}"
+  node -e '
+const crypto = require("node:crypto");
+const path = require("node:path");
+const resolved = path.resolve(process.argv[1] || "unknown");
+process.stdout.write(crypto.createHash("sha256").update(resolved).digest("hex").slice(0, 16));
+' "$cwd" 2>/dev/null || printf 'unknown-project'
+}
+
+cc_etrnl_state_available() {
+  command -v node >/dev/null 2>&1 && [[ -f "$(cc_etrnl_state_script)" ]]
+}
+
+cc_etrnl_state_append_json() {
+  local payload="$1"
+  local output status
+  # Durable ETRNL writes are best-effort for observer hooks: this helper logs
+  # failures and returns non-zero so callers can choose fail-open or fail-closed.
+  if ! cc_etrnl_state_available; then
+    printf 'claude-guard warning: ETRNL state append unavailable\n' >&2
+    return 1
+  fi
+  status=0
+  output="$(node "$(cc_etrnl_state_script)" append --json --cwd "$(pwd -P)" <<<"$payload" 2>&1 >/dev/null)" || status=$?
+  if [[ "$status" != "0" ]]; then
+    printf 'claude-guard warning: ETRNL state append failed (exit %s): %s\n' "$status" "${output%%$'\n'*}" >&2
+    return "$status"
+  fi
+}
+
+cc_etrnl_state_compact_handoff_json() {
+  local session_id="$1"
+  local max_chars="${2:-1200}"
+  if [[ ! "$max_chars" =~ ^[0-9]+$ ]] || (( max_chars <= 0 )); then
+    max_chars=1200
+  fi
+  cc_etrnl_state_available || return 1
+  node "$(cc_etrnl_state_script)" compact-handoff --session "$session_id" --json --max-chars "$max_chars"
 }
 
 cc_session_id() {

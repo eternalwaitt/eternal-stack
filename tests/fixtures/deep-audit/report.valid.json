@@ -1,20 +1,23 @@
 {
   "schemaVersion": 1,
   "auditId": "deep-audit-valid",
-  "categoryRegistryVersion": "2026-06-04.1",
+  "categoryRegistryVersion": "2026-06-05.1",
   "registeredCategories": [
+    "code-excellence",
+    "ui-ux-product",
     "production-readiness",
     "security",
-    "performance"
+    "performance",
+    "shared-reuse",
+    "repo-hygiene",
+    "tooling-ecosystem"
   ],
   "knownUnimplementedCategories": [
-    "ux-accessibility",
     "api-data",
-    "docs",
     "payments",
     "privacy-compliance"
   ],
-  "coverageStatement": "Coverage: all_registered categories completed: production-readiness, security, performance. Known not-yet-registered audit domains: ux-accessibility, api-data, docs, payments, privacy-compliance. This is not a claim that every possible audit domain has run.",
+  "coverageStatement": "Coverage: all_registered categories completed: code-excellence, ui-ux-product, production-readiness, security, performance, shared-reuse, repo-hygiene, tooling-ecosystem. Known not-yet-registered audit domains: api-data, payments, privacy-compliance. This is not a claim that every possible audit domain has run.",
   "targetLabel": "synthetic-app",
   "targetFingerprint": "repo:synthetic-app@abcdef1",
   "requestedCategories": "all_registered",
@@ -199,9 +202,242 @@
       "count": 1,
       "sha256": "sha256:sec_dependencies",
       "artifactLabel": "sec-dependencies"
+    },
+    "code_source_files": {
+      "count": 1,
+      "sha256": "sha256:code_source_files",
+      "artifactLabel": "code-source-files"
+    },
+    "code_tests": {
+      "count": 1,
+      "sha256": "sha256:code_tests",
+      "artifactLabel": "code-tests"
+    },
+    "code_types": {
+      "count": 1,
+      "sha256": "sha256:code_types",
+      "artifactLabel": "code-types"
+    },
+    "code_error_paths": {
+      "count": 1,
+      "sha256": "sha256:code_error_paths",
+      "artifactLabel": "code-error-paths"
+    },
+    "code_boundaries": {
+      "count": 1,
+      "sha256": "sha256:code_boundaries",
+      "artifactLabel": "code-boundaries"
+    },
+    "code_architecture": {
+      "count": 1,
+      "sha256": "sha256:code_architecture",
+      "artifactLabel": "code-architecture"
+    },
+    "ux_routes": {
+      "count": 1,
+      "sha256": "sha256:ux_routes",
+      "artifactLabel": "ux-routes"
+    },
+    "ux_components": {
+      "count": 1,
+      "sha256": "sha256:ux_components",
+      "artifactLabel": "ux-components"
+    },
+    "ux_states": {
+      "count": 1,
+      "sha256": "sha256:ux_states",
+      "artifactLabel": "ux-states"
+    },
+    "ux_styles": {
+      "count": 1,
+      "sha256": "sha256:ux_styles",
+      "artifactLabel": "ux-styles"
+    },
+    "ux_copy": {
+      "count": 1,
+      "sha256": "sha256:ux_copy",
+      "artifactLabel": "ux-copy"
+    },
+    "ux_accessibility": {
+      "count": 1,
+      "sha256": "sha256:ux_accessibility",
+      "artifactLabel": "ux-accessibility"
+    },
+    "reuse_source_files": {
+      "count": 1,
+      "sha256": "sha256:reuse_source_files",
+      "artifactLabel": "reuse-source-files"
+    },
+    "reuse_components": {
+      "count": 1,
+      "sha256": "sha256:reuse_components",
+      "artifactLabel": "reuse-components"
+    },
+    "reuse_helpers": {
+      "count": 1,
+      "sha256": "sha256:reuse_helpers",
+      "artifactLabel": "reuse-helpers"
+    },
+    "reuse_modules": {
+      "count": 1,
+      "sha256": "sha256:reuse_modules",
+      "artifactLabel": "reuse-modules"
+    },
+    "reuse_tests": {
+      "count": 1,
+      "sha256": "sha256:reuse_tests",
+      "artifactLabel": "reuse-tests"
+    },
+    "reuse_duplicate_candidates": {
+      "count": 1,
+      "sha256": "sha256:reuse_duplicate_candidates",
+      "artifactLabel": "reuse-duplicate-candidates"
+    },
+    "repo_tracked_files": {
+      "count": 1,
+      "sha256": "sha256:repo_tracked_files",
+      "artifactLabel": "repo-tracked-files"
+    },
+    "repo_docs_entrypoints": {
+      "count": 1,
+      "sha256": "sha256:repo_docs_entrypoints",
+      "artifactLabel": "repo-docs-entrypoints"
+    },
+    "repo_generated_artifacts": {
+      "count": 1,
+      "sha256": "sha256:repo_generated_artifacts",
+      "artifactLabel": "repo-generated-artifacts"
+    },
+    "repo_ignored_files": {
+      "count": 1,
+      "sha256": "sha256:repo_ignored_files",
+      "artifactLabel": "repo-ignored-files"
+    },
+    "repo_metadata": {
+      "count": 1,
+      "sha256": "sha256:repo_metadata",
+      "artifactLabel": "repo-metadata"
+    },
+    "tool_scripts": {
+      "count": 1,
+      "sha256": "sha256:tool_scripts",
+      "artifactLabel": "tool-scripts"
+    },
+    "tool_package_manifests": {
+      "count": 1,
+      "sha256": "sha256:tool_package_manifests",
+      "artifactLabel": "tool-package-manifests"
+    },
+    "tool_lint_format": {
+      "count": 1,
+      "sha256": "sha256:tool_lint_format",
+      "artifactLabel": "tool-lint-format"
+    },
+    "tool_tests": {
+      "count": 1,
+      "sha256": "sha256:tool_tests",
+      "artifactLabel": "tool-tests"
+    },
+    "tool_ci": {
+      "count": 1,
+      "sha256": "sha256:tool_ci",
+      "artifactLabel": "tool-ci"
+    },
+    "tool_bootstrap": {
+      "count": 1,
+      "sha256": "sha256:tool_bootstrap",
+      "artifactLabel": "tool-bootstrap"
     }
   },
   "categoryReports": [
+    {
+      "categoryId": "code-excellence",
+      "status": "clean",
+      "consumedWorklistHashes": {
+        "code_source_files": "sha256:code_source_files",
+        "code_tests": "sha256:code_tests",
+        "code_types": "sha256:code_types",
+        "code_error_paths": "sha256:code_error_paths",
+        "code_boundaries": "sha256:code_boundaries",
+        "code_architecture": "sha256:code_architecture"
+      },
+      "checks": [
+        {
+          "checkId": "code-01-correctness-invariants",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Correctness invariants - 0 findings"
+        },
+        {
+          "checkId": "code-02-type-contracts",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Type and schema contracts - 0 findings"
+        },
+        {
+          "checkId": "code-03-error-handling",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Error handling and failure clarity - 0 findings"
+        },
+        {
+          "checkId": "code-04-architecture-boundaries",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Architecture boundaries - 0 findings"
+        },
+        {
+          "checkId": "code-05-test-signal",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Test signal and regression coverage - 0 findings"
+        },
+        {
+          "checkId": "code-06-complexity-debt",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Complexity, dead code, and stale abstractions - 0 findings"
+        }
+      ]
+    },
+    {
+      "categoryId": "ui-ux-product",
+      "status": "clean",
+      "consumedWorklistHashes": {
+        "ux_routes": "sha256:ux_routes",
+        "ux_components": "sha256:ux_components",
+        "ux_states": "sha256:ux_states",
+        "ux_styles": "sha256:ux_styles",
+        "ux_copy": "sha256:ux_copy",
+        "ux_accessibility": "sha256:ux_accessibility"
+      },
+      "checks": [
+        {
+          "checkId": "ux-01-primary-flows",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Primary product flows - 0 findings"
+        },
+        {
+          "checkId": "ux-02-information-hierarchy",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Information hierarchy and scanning - 0 findings"
+        },
+        {
+          "checkId": "ux-03-states-feedback",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: States, feedback, and empty paths - 0 findings"
+        },
+        {
+          "checkId": "ux-04-accessibility",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Accessibility and keyboard paths - 0 findings"
+        },
+        {
+          "checkId": "ux-05-responsive-visual-polish",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Responsive visual polish - 0 findings"
+        },
+        {
+          "checkId": "ux-06-product-copy",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Product copy and trust cues - 0 findings"
+        }
+      ]
+    },
     {
       "categoryId": "production-readiness",
       "status": "clean",
@@ -521,6 +757,122 @@
           "confirmedClean": "CONFIRMED_CLEAN: Infrastructure and network performance - 0 findings"
         }
       ]
+    },
+    {
+      "categoryId": "shared-reuse",
+      "status": "clean",
+      "consumedWorklistHashes": {
+        "reuse_source_files": "sha256:reuse_source_files",
+        "reuse_components": "sha256:reuse_components",
+        "reuse_helpers": "sha256:reuse_helpers",
+        "reuse_modules": "sha256:reuse_modules",
+        "reuse_tests": "sha256:reuse_tests",
+        "reuse_duplicate_candidates": "sha256:reuse_duplicate_candidates"
+      },
+      "checks": [
+        {
+          "checkId": "reuse-01-existing-surfaces",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Existing reusable surfaces - 0 findings"
+        },
+        {
+          "checkId": "reuse-02-duplication-hotspots",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Duplication hotspots - 0 findings"
+        },
+        {
+          "checkId": "reuse-03-abstraction-fit",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Abstraction fit and ownership - 0 findings"
+        },
+        {
+          "checkId": "reuse-04-test-and-contract-reuse",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Reusable tests and contracts - 0 findings"
+        },
+        {
+          "checkId": "reuse-05-new-surface-justification",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: New surface justification - 0 findings"
+        }
+      ]
+    },
+    {
+      "categoryId": "repo-hygiene",
+      "status": "clean",
+      "consumedWorklistHashes": {
+        "repo_tracked_files": "sha256:repo_tracked_files",
+        "repo_docs_entrypoints": "sha256:repo_docs_entrypoints",
+        "repo_generated_artifacts": "sha256:repo_generated_artifacts",
+        "repo_ignored_files": "sha256:repo_ignored_files",
+        "repo_metadata": "sha256:repo_metadata"
+      },
+      "checks": [
+        {
+          "checkId": "repo-01-entrypoints",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Repository entrypoints - 0 findings"
+        },
+        {
+          "checkId": "repo-02-file-organization",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: File organization and ownership - 0 findings"
+        },
+        {
+          "checkId": "repo-03-generated-artifacts",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Generated artifacts and cache drift - 0 findings"
+        },
+        {
+          "checkId": "repo-04-config-consistency",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Config consistency - 0 findings"
+        },
+        {
+          "checkId": "repo-05-public-private-boundary",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Public/private boundary - 0 findings"
+        }
+      ]
+    },
+    {
+      "categoryId": "tooling-ecosystem",
+      "status": "clean",
+      "consumedWorklistHashes": {
+        "tool_scripts": "sha256:tool_scripts",
+        "tool_package_manifests": "sha256:tool_package_manifests",
+        "tool_lint_format": "sha256:tool_lint_format",
+        "tool_tests": "sha256:tool_tests",
+        "tool_ci": "sha256:tool_ci",
+        "tool_bootstrap": "sha256:tool_bootstrap"
+      },
+      "checks": [
+        {
+          "checkId": "tool-01-local-setup",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Local setup and bootstrap - 0 findings"
+        },
+        {
+          "checkId": "tool-02-command-parity",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Command parity across local and CI - 0 findings"
+        },
+        {
+          "checkId": "tool-03-lint-format-type-gates",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Lint, format, and type gates - 0 findings"
+        },
+        {
+          "checkId": "tool-04-test-developer-loop",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Test developer loop - 0 findings"
+        },
+        {
+          "checkId": "tool-05-upgrade-rollback",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Upgrade, update, and rollback paths - 0 findings"
+        }
+      ]
     }
   ],
   "laneReceipts": [
@@ -640,9 +992,14 @@
     }
   ],
   "confirmedClean": [
+    "code-excellence",
+    "ui-ux-product",
     "production-readiness",
     "security",
-    "performance"
+    "performance",
+    "shared-reuse",
+    "repo-hygiene",
+    "tooling-ecosystem"
   ],
   "checksSkipped": [],
   "findings": [],

@@ -3,6 +3,7 @@ import { existsSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
+import { beadLinkDryRun, compactHandoff } from "./lib/etrnl-state-core.mjs";
 
 const args = process.argv.slice(2);
 const KNOWN_COMMANDS = new Set(["summary", "status", "doctor", "prune"]);
@@ -199,6 +200,44 @@ function effectivenessStats() {
   };
 }
 
+function compactStats() {
+  try {
+    const handoff = compactHandoff({ latest: true });
+    return {
+      found: handoff.found,
+      staleVerification: Boolean(handoff.handoff?.verificationStale),
+      sessionId: handoff.handoff?.sessionId || "",
+      compactEventSeq: handoff.handoff?.compactEventSeq || 0,
+      latestVerificationEventSeq: handoff.handoff?.latestVerificationEventSeq || 0,
+      preview: handoff.text || "",
+    };
+  } catch (error) {
+    return {
+      found: false,
+      staleVerification: false,
+      sessionId: "",
+      compactEventSeq: 0,
+      latestVerificationEventSeq: 0,
+      preview: "",
+      projectionError: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+function beadStats() {
+  const defaults = { backlogCandidates: 0, activeExecutionNoise: 0, wouldRunBd: false };
+  try {
+    const bridge = beadLinkDryRun();
+    return {
+      backlogCandidates: Number(bridge.backlogCandidates || 0),
+      activeExecutionNoise: Number(bridge.activeExecutionNoise || 0),
+      wouldRunBd: bridge.wouldRunBd === true,
+    };
+  } catch (error) {
+    return { ...defaults, projectionError: error instanceof Error ? error.message : String(error) };
+  }
+}
+
 function reviewSummary(verboseMode = false) {
   const stats = reviewStats();
   const summary = stats.malformedDetails.length > 0
@@ -329,6 +368,8 @@ function buildStatus(ledgers, ledgerParseErrors = []) {
       latest: artifactLatest,
       stale: isStaleArtifactTime(artifactLatest),
     },
+    compact: compactStats(),
+    beads: beadStats(),
     nextAction: nextAction(runStatus),
   };
   if (!scopedView && (effectiveness.events > 0 || effectiveness.malformed > 0)) {
@@ -367,6 +408,8 @@ function buildDoctor(ledgers, ledgerParseErrors) {
     effectiveness: scopedView
       ? { events: 0, malformed: 0, stalePilotWindows: 0, scopedOut: true }
       : { events: effectiveness.events, malformed: effectiveness.malformed, stalePilotWindows: 0 },
+    compact: compactStats(),
+    beads: beadStats(),
     activeRunId: latestLedger(ledgers)?.runId || "",
     nextAction: prunable.length > 0 ? "run workflow-health prune --dry-run first, then prune without --dry-run" : "none",
   };
@@ -376,6 +419,8 @@ function renderDoctorText(doctor) {
   return [
     `workflowDoctor ledgers=${doctor.ledgers.total} malformed=${doctor.ledgers.malformed} stale=${doctor.ledgers.stale} prunable=${doctor.ledgers.prunable}`,
     `workflowDoctor effectivenessEvents=${doctor.effectiveness.events} effectivenessMalformed=${doctor.effectiveness.malformed}`,
+    `workflowDoctor compactFound=${doctor.compact.found} compactStaleVerification=${doctor.compact.staleVerification}`,
+    `workflowDoctor beadsBacklogCandidates=${doctor.beads.backlogCandidates} beadsActiveExecutionNoise=${doctor.beads.activeExecutionNoise}`,
     `workflowDoctor activeRun=${doctor.activeRunId || "none"} nextAction=${doctor.nextAction}`,
   ].join("\n");
 }
@@ -409,6 +454,7 @@ function renderStatusText(status) {
     `workflowStatus activeRun=${status.activeRunId || "none"} unfinished=${status.unfinishedTasks} blocked=${status.blockedTasks} failedChecks=${status.failedChecks}`,
     `workflowStatus missingArtifacts=${missing} staleRuns=${status.staleRuns} browserQa=${status.browserQa.reports} contexts=${status.contexts.saved}`,
     `workflowStatus phase=${status.phase.id || "none"} workstream=${status.phase.workstreamId || "none"} uatOpenFindings=${status.uat.openFindings}`,
+    `workflowStatus compactFound=${status.compact.found} compactStaleVerification=${status.compact.staleVerification}`,
     `workflowStatus nextAction=${status.nextAction}`,
   ];
   if (status.effectiveness) {

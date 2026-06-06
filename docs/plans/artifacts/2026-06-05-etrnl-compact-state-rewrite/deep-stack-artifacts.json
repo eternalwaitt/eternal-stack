@@ -1,0 +1,524 @@
+{
+  "schemaVersion": 1,
+  "artifactType": "deep-stack-plan",
+  "planPath": "docs/plans/2026-06-05-etrnl-compact-state-rewrite-plan.md",
+  "deepReview": {
+    "status": "passed",
+    "phases": [
+      "ceo",
+      "engineering",
+      "dx",
+      "adversarial",
+      "specialist",
+      "reuse",
+      "simplifier"
+    ],
+    "completedAt": "2026-06-05T04:45:00Z"
+  },
+  "reviewPhases": [
+    {
+      "role": "ceo",
+      "status": "passed",
+      "checkedInputs": [
+        "docs/plans/2026-06-05-etrnl-compact-state-rewrite-plan.md",
+        "docs/plans/2026-06-03-tool-effectiveness-and-beads-pilot-plan.md",
+        "current six-agent adversarial compact state review"
+      ],
+      "findingsCount": 2,
+      "openHighCount": 0,
+      "disposition": "Scope is intentionally all phases because the verified problem spans source hooks, installed settings, Beads boundary, and rollback proof.",
+      "completedAt": "2026-06-05T04:45:00Z"
+    },
+    {
+      "role": "engineering",
+      "status": "passed",
+      "checkedInputs": [
+        "hooks/cc-sessionstart-restore.sh",
+        "hooks/cc-precompact-save.sh",
+        "hooks/cc-postcompact-record.sh",
+        "hooks/lib/state.sh",
+        "scripts/execution-ledger.mjs",
+        "scripts/context-state.mjs",
+        "scripts/workflow-health.mjs",
+        "scripts/settings-audit.mjs",
+        "scripts/update-check.mjs"
+      ],
+      "findingsCount": 4,
+      "openHighCount": 0,
+      "disposition": "Existing ledgers and workflow-health are reused; canonical state is introduced as a compatibility layer with JSONL truth before optional adapters.",
+      "completedAt": "2026-06-05T04:45:00Z"
+    },
+    {
+      "role": "dx",
+      "status": "passed",
+      "checkedInputs": [
+        "templates/settings.strict.json",
+        "scripts/install.sh",
+        "scripts/update-check.mjs",
+        "scripts/settings-audit.mjs",
+        "tests/test-install.sh"
+      ],
+      "findingsCount": 3,
+      "openHighCount": 0,
+      "disposition": "Plan requires recorded and observed installed state to be reported separately so live drift cannot look green.",
+      "completedAt": "2026-06-05T04:45:00Z"
+    },
+    {
+      "role": "adversarial",
+      "status": "passed",
+      "checkedInputs": [
+        ".beads/README.md",
+        ".beads/metadata.json",
+        "docs/plans/2026-06-03-tool-effectiveness-and-beads-pilot-plan.md",
+        "current Beads and Dolt adversarial review"
+      ],
+      "findingsCount": 5,
+      "openHighCount": 0,
+      "disposition": "Raw Beads authority and hook-hot-path Dolt use are rejected; Beads is backlog-only and Dolt is optional projection only.",
+      "completedAt": "2026-06-05T04:45:00Z"
+    },
+    {
+      "role": "specialist",
+      "status": "passed",
+      "checkedInputs": [
+        "Claude Code hook documentation",
+        "Hook Development skill",
+        "templates/settings.strict.json",
+        "current installed hook settings observation"
+      ],
+      "findingsCount": 3,
+      "openHighCount": 0,
+      "disposition": "Plan follows the supported lifecycle: PreCompact save, PostCompact record, synchronous SessionStart compact rehydrate.",
+      "completedAt": "2026-06-05T04:45:00Z"
+    },
+    {
+      "role": "reuse",
+      "status": "passed",
+      "checkedInputs": [
+        "scripts/execution-ledger.mjs",
+        "scripts/context-state.mjs",
+        "scripts/workflow-health.mjs",
+        "scripts/tool-effectiveness.mjs",
+        "hooks/lib/state.sh",
+        "tests/test-hooks.sh",
+        "tests/test-workflow-tools.sh"
+      ],
+      "findingsCount": 2,
+      "openHighCount": 0,
+      "disposition": "Plan reuses existing CLIs and tests as facades and projections instead of replacing them wholesale.",
+      "completedAt": "2026-06-05T04:45:00Z"
+    },
+    {
+      "role": "simplifier",
+      "status": "passed",
+      "checkedInputs": [
+        "docs/plans/2026-06-05-etrnl-compact-state-rewrite-plan.md",
+        "scripts/lib/deep-stack-artifacts.mjs",
+        "skills/etrnl-dev-plan/references/plan-review-checklist.md"
+      ],
+      "findingsCount": 2,
+      "openHighCount": 0,
+      "disposition": "Plan avoids hook-triggered compact, raw transcript replay, Beads as active ledger, and default Dolt dependency in lifecycle hooks.",
+      "completedAt": "2026-06-05T04:45:00Z"
+    }
+  ],
+  "sourceManifest": {
+    "sources": [
+      {
+        "sourceId": "claude-control-plane-source",
+        "version": "v0.2.0",
+        "commit": "0ac32c4ccaecde7815057b82203a7e0b9076acc6",
+        "hash": "sha256:c5bd5e2bffd28e7b2f0cf4413668e162c12b4644d743963af2620476fec1a777",
+        "capturedAt": "2026-06-05T04:33:00Z",
+        "refreshCommand": "git rev-parse HEAD && shasum -a 256 hooks/cc-sessionstart-restore.sh",
+        "requiredFiles": [
+          "hooks/cc-sessionstart-restore.sh",
+          "hooks/cc-precompact-save.sh",
+          "hooks/cc-postcompact-record.sh",
+          "hooks/lib/state.sh",
+          "scripts/execution-ledger.mjs",
+          "scripts/context-state.mjs",
+          "scripts/workflow-health.mjs",
+          "scripts/settings-audit.mjs",
+          "scripts/update-check.mjs",
+          "templates/settings.strict.json"
+        ]
+      },
+      {
+        "sourceId": "research-and-beads-boundary",
+        "version": "2026-06-05-plan-inputs",
+        "commit": "0ac32c4ccaecde7815057b82203a7e0b9076acc6",
+        "hash": "sha256:5dc189932bcec131e3203fa61237046a2571cf9a257c26de0dcd456e06be8c75",
+        "capturedAt": "2026-06-05T04:33:00Z",
+        "refreshCommand": "node scripts/research-competitor-intel.mjs validate-manifest --manifest docs/research/top10-lock.json && node scripts/research-competitor-intel.mjs validate-evidence --evidence docs/research/capability-evidence.json",
+        "requiredFiles": [
+          "docs/research/2026-06-03-starred-agent-stack-map.md",
+          "docs/research/top10-lock.json",
+          "docs/research/capability-evidence.json",
+          "docs/plans/2026-06-03-tool-effectiveness-and-beads-pilot-plan.md",
+          ".beads/README.md",
+          ".beads/metadata.json"
+        ]
+      }
+    ]
+  },
+  "skillMatrix": [
+    {
+      "skill": "etrnl-dev-plan",
+      "status": "required",
+      "trigger": "User invoked etrnl-dev-plan for implementation planning.",
+      "evidence": "Plan file and deep-stack artifact were created under docs/plans."
+    },
+    {
+      "skill": "Hook Development",
+      "status": "required",
+      "trigger": "Plan changes PreCompact, PostCompact, SessionStart, Stop, SessionEnd, and installed hook settings.",
+      "evidence": "Hook lifecycle constraints are represented in task groups D, E, and G."
+    },
+    {
+      "skill": "code-simplifier",
+      "status": "required",
+      "trigger": "New state layer and compatibility adapters risk accidental complexity.",
+      "evidence": "Skill routing requires simplifier before final completion."
+    },
+    {
+      "skill": "finding-duplicate-functions",
+      "status": "optional",
+      "trigger": "Execution ledger, context-state, workflow-health, hook state, and tool-effectiveness duplicate state concepts.",
+      "evidence": "Skill routing requires this pass for migration and projection slices when available."
+    },
+    {
+      "skill": "brooks-audit",
+      "status": "optional",
+      "trigger": "Control-plane health and failure-mode surfacing are touched.",
+      "evidence": "Skill routing marks Brooks as useful after implementation if installed."
+    },
+    {
+      "skill": "eternal-best-practices",
+      "status": "not_applicable",
+      "trigger": "No tenant, money, auth, i18n, Prisma, permissions, or soft-delete domain policy is changed.",
+      "evidence": "Plan remains in control-plane hook and workflow infrastructure."
+    },
+    {
+      "skill": "typescript-advanced-types",
+      "status": "not_applicable",
+      "trigger": "This plan touches JavaScript and shell infrastructure, not TypeScript public contracts.",
+      "evidence": "Ordinary syntax and workflow checks remain required.",
+      "notApplicableRationale": "No exported TypeScript types, API contracts, runtime validation schemas, state machines, branded IDs, reusable type utilities, or cross-layer DTO boundaries are planned."
+    }
+  ],
+  "reuseInventory": {
+    "searchedPaths": [
+      "hooks",
+      "hooks/lib",
+      "scripts",
+      "scripts/lib",
+      "tests",
+      "docs/plans",
+      "docs/research",
+      "skills"
+    ],
+    "existingAnalogs": [
+      "hooks/lib/state.sh",
+      "scripts/execution-ledger.mjs",
+      "scripts/context-state.mjs",
+      "scripts/workflow-health.mjs",
+      "scripts/tool-effectiveness.mjs",
+      "scripts/settings-audit.mjs",
+      "scripts/update-check.mjs",
+      "tests/test-hooks.sh",
+      "tests/test-workflow-tools.sh",
+      "tests/test-install.sh"
+    ],
+    "candidateHelpers": [
+      "scripts/lib/cli-args.mjs",
+      "scripts/lib/evidence-trace.mjs",
+      "scripts/lib/env-utils.mjs",
+      "scripts/lib/deep-stack-artifacts.mjs",
+      "hooks/lib/json.sh",
+      "hooks/lib/paths.sh",
+      "hooks/lib/verification.sh"
+    ],
+    "candidateTests": [
+      "tests/test-hooks.sh",
+      "tests/test-workflow-tools.sh",
+      "tests/test-install.sh",
+      "node scripts/replay-hook-fixtures.mjs"
+    ],
+    "decisions": [
+      {
+        "newSurface": true,
+        "surface": "scripts/etrnl-state.mjs",
+        "decision": "Create a narrow canonical state CLI because existing ledgers, context saves, hook tmp state, and effectiveness events are separate islands.",
+        "newSurfaceJustification": "A compatibility facade cannot provide one durable compact handoff and stale-verification view without a shared state contract."
+      },
+      {
+        "newSurface": true,
+        "surface": "scripts/lib/etrnl-state-core.mjs",
+        "decision": "Create shared core logic to keep hooks and CLIs from duplicating schema, validation, privacy, locks, and materialized views.",
+        "newSurfaceJustification": "Putting this inside one existing CLI would force unrelated scripts to depend on execution-ledger or workflow-health internals."
+      },
+      {
+        "newSurface": true,
+        "surface": "docs/adr/0002-etrnl-state-and-compact-handoff.md",
+        "decision": "Add an ADR because this changes state authority and Beads/Dolt boundaries.",
+        "newSurfaceJustification": "The decision needs durable public explanation separate from a dated implementation plan."
+      }
+    ]
+  },
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "P1",
+      "status": "closed",
+      "summary": "Manual compact reminder is not context-aware and wastes tokens.",
+      "evidence": "Plan removes compact reminder from repo-owned installed path and adds settings audit coverage.",
+      "resolution": "Covered by Group D and Group G."
+    },
+    {
+      "id": "F2",
+      "severity": "P1",
+      "status": "closed",
+      "summary": "Installed compact restore is async even though compact rehydration must be immediate.",
+      "evidence": "Plan requires synchronous SessionStart compact restore and install test coverage.",
+      "resolution": "Covered by Group D and Group G."
+    },
+    {
+      "id": "F3",
+      "severity": "P1",
+      "status": "closed",
+      "summary": "Beads raw task authority conflicts with ETRNL execution authority.",
+      "evidence": "Plan rejects raw Beads startup injection and keeps Beads backlog-only.",
+      "resolution": "Covered by Group F."
+    },
+    {
+      "id": "F4",
+      "severity": "P2",
+      "status": "closed",
+      "summary": "Tool-effectiveness live data is empty and cannot yet drive state decisions.",
+      "evidence": "Plan treats effectiveness as a projection and fixes persistence separately.",
+      "resolution": "Covered by Groups C and H."
+    }
+  ],
+  "completionAudit": [
+    {
+      "item": "compact-state-plan",
+      "classification": "DONE",
+      "impact": "high",
+      "evidence": "Plan covers compact lifecycle, state substrate, Beads boundary, Dolt boundary, install/update drift, rollback, and verification gates."
+    },
+    {
+      "item": "adversarial-review-incorporation",
+      "classification": "DONE",
+      "impact": "high",
+      "evidence": "Plan includes both anti-Beads-runtime and Dolt-as-optional-projection positions, resolving them with hook-hot-path constraints."
+    },
+    {
+      "item": "source-and-installed-surfaces",
+      "classification": "DONE",
+      "impact": "high",
+      "evidence": "Plan explicitly includes staged install, update-check, settings-audit, rollback, and live install approval."
+    }
+  ],
+  "tddEvidence": [
+    {
+      "taskId": "state-core",
+      "sourceFiles": [
+        "scripts/etrnl-state.mjs",
+        "scripts/lib/etrnl-state-core.mjs",
+        "tests/fixtures/etrnl-state"
+      ],
+      "status": "not_test_first_possible_with_reason",
+      "rationaleWhenNotTestFirst": "This is a planning artifact; implementation must add the red fixture commands listed in the Test-first execution plan before source code is written."
+    },
+    {
+      "taskId": "compact-hooks",
+      "sourceFiles": [
+        "hooks/cc-precompact-save.sh",
+        "hooks/cc-postcompact-record.sh",
+        "hooks/cc-sessionstart-restore.sh",
+        "tests/test-hooks.sh"
+      ],
+      "status": "not_test_first_possible_with_reason",
+      "rationaleWhenNotTestFirst": "Plan names the exact failing compact and SessionStart fixtures; red-green evidence is required during implementation."
+    },
+    {
+      "taskId": "install-drift",
+      "sourceFiles": [
+        "scripts/settings-audit.mjs",
+        "scripts/update-check.mjs",
+        "scripts/install.sh",
+        "tests/test-install.sh"
+      ],
+      "status": "not_test_first_possible_with_reason",
+      "rationaleWhenNotTestFirst": "Plan names the exact async SessionStart and mode-mismatch fixtures; red-green evidence is required during implementation."
+    }
+  ],
+  "completionReconciliation": [
+    {
+      "planItemId": "R1",
+      "requestedOutcome": "Research hooks system, context, auto compact, and post compact behavior.",
+      "classification": "DONE",
+      "impact": "high",
+      "evidence": "Plan evidence cites Claude hook docs, current source hooks, installed settings, and compact lifecycle task groups."
+    },
+    {
+      "planItemId": "R2",
+      "requestedOutcome": "Explain why Beads, why Dolt, and why not.",
+      "classification": "DONE",
+      "impact": "high",
+      "evidence": "Plan keeps Beads backlog-only and Dolt optional projection-only with server-mode/custom-table constraints."
+    },
+    {
+      "planItemId": "R3",
+      "requestedOutcome": "Decide what to keep and lose from ETRNL.",
+      "classification": "DONE",
+      "impact": "high",
+      "evidence": "Plan keeps ledgers, workflow-health, context-state intent, strict hooks, and install gates while dropping noisy compact reminders and tmp-only canonical state."
+    },
+    {
+      "planItemId": "R4",
+      "requestedOutcome": "Use adversarial review and orthogonal expert findings.",
+      "classification": "DONE",
+      "impact": "high",
+      "evidence": "Artifact review phases include CEO, engineering, DX, adversarial, specialist, reuse, and simplifier dispositions."
+    },
+    {
+      "planItemId": "R5",
+      "requestedOutcome": "Produce an executable implementation plan.",
+      "classification": "DONE",
+      "impact": "high",
+      "evidence": "Plan includes file map, task groups, slices, phases, routing, test-first plan, failure modes, rollback, and verification gates."
+    }
+  ],
+  "reuseBindings": [
+    {
+      "taskId": "state-core",
+      "createsNewSurface": true,
+      "searchedPaths": [
+        "hooks/lib/state.sh",
+        "scripts/execution-ledger.mjs",
+        "scripts/context-state.mjs",
+        "scripts/workflow-health.mjs",
+        "scripts/tool-effectiveness.mjs"
+      ],
+      "analogs": [
+        "execution-ledger atomic file locking",
+        "context-state local artifact storage",
+        "workflow-health projections",
+        "tool-effectiveness event schema"
+      ],
+      "decision": "Create ETRNL state core and keep existing CLIs as compatibility surfaces.",
+      "newSurfaceJustification": "No existing single surface owns compact handoff, stale verification, typed context entries, tool signals, and Beads links."
+    },
+    {
+      "taskId": "compact-hooks",
+      "createsNewSurface": false,
+      "searchedPaths": [
+        "hooks/cc-precompact-save.sh",
+        "hooks/cc-postcompact-record.sh",
+        "hooks/cc-sessionstart-restore.sh",
+        "templates/settings.strict.json",
+        "tests/test-hooks.sh"
+      ],
+      "analogs": [
+        "existing compact pre-save hook",
+        "existing compact post-record hook",
+        "existing compact restore hook"
+      ],
+      "decision": "Rewrite existing hooks instead of adding a parallel compact hook family."
+    },
+    {
+      "taskId": "install-drift",
+      "createsNewSurface": false,
+      "searchedPaths": [
+        "scripts/settings-audit.mjs",
+        "scripts/update-check.mjs",
+        "scripts/install.sh",
+        "tests/test-install.sh",
+        "templates/settings.strict.json"
+      ],
+      "analogs": [
+        "settings-audit external hook classifier",
+        "update-check settingsMode inference",
+        "install dual-home sync tests"
+      ],
+      "decision": "Extend existing install and audit surfaces rather than creating a separate installed-state checker."
+    },
+    {
+      "taskId": "beads-bridge",
+      "createsNewSurface": true,
+      "searchedPaths": [
+        "docs/plans/2026-06-03-tool-effectiveness-and-beads-pilot-plan.md",
+        "scripts/tool-effectiveness.mjs",
+        "skills/etrnl-ops-agent-files/SKILL.md",
+        ".beads/README.md"
+      ],
+      "analogs": [
+        "tool-effectiveness Beads noise classification",
+        "agent-files Beads boundary note",
+        "Beads pilot backlog-only decision"
+      ],
+      "decision": "Create explicit Beads bridge command under ETRNL state instead of using raw bd prime or active execution mirroring.",
+      "newSurfaceJustification": "The bridge needs deterministic dry-run, metadata markers, and duplicate-truth checks that Beads issue commands do not provide."
+    }
+  ],
+  "typeTriggerEvidence": [],
+  "installProof": {
+    "sourceGate": {
+      "status": "passed",
+      "evidence": "Research manifest and evidence validators passed; artifact and plan readiness gates are part of finalization."
+    },
+    "stagedInstall": {
+      "status": "not_applicable",
+      "evidence": "This plan does not mutate installed homes; staged install is required during implementation before live rollout."
+    },
+    "stagedDoctor": {
+      "status": "not_applicable",
+      "evidence": "Staged doctor is required during implementation after staged install."
+    },
+    "rollbackVerification": {
+      "status": "not_applicable",
+      "evidence": "Rollback rehearsal is required during implementation before live install."
+    },
+    "liveInstallDecision": {
+      "status": "not_applicable",
+      "evidence": "Live install requires explicit Victor approval after staged evidence is clean."
+    },
+    "postUpgradeCanary": {
+      "status": "not_applicable",
+      "evidence": "Post-upgrade canary is required after live install, not during planning."
+    }
+  },
+  "riskTier": {
+    "tier": 2,
+    "deepReviewPassed": true,
+    "reason": "Tier 2 for planning and source implementation readiness; implementation escalates to Tier 3 before live installed-home mutation because compact hooks affect active Claude sessions.",
+    "requiredArtifacts": [
+      "sourceManifest",
+      "skillMatrix",
+      "reuseInventory",
+      "findings",
+      "completionAudit",
+      "reviewPhases",
+      "tddEvidence",
+      "completionReconciliation",
+      "reuseBindings",
+      "typeTriggerEvidence",
+      "installProof"
+    ],
+    "verificationGate": "tests/test-hooks.sh && tests/test-workflow-tools.sh && tests/test-install.sh && scripts/doctor.sh",
+    "acceptedRisks": [
+      "Real Claude auto-compact cannot be forced deterministically from source tests; implementation must use lifecycle fixtures plus manual compact smoke before live install."
+    ]
+  },
+  "typescript": {
+    "ordinaryVerification": "node --check for modified JavaScript files; shell syntax checks for modified hook scripts; project TypeScript check remains not applicable unless implementation touches TypeScript.",
+    "advancedTypes": {
+      "status": "not_applicable",
+      "triggerEvidence": [],
+      "applicableSurfaces": [],
+      "notApplicableRationale": "No TypeScript public contract or advanced type surface is planned."
+    }
+  }
+}

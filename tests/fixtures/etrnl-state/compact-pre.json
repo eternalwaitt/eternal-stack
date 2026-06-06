@@ -1,0 +1,14 @@
+{
+  "eventKind": "compact_pre",
+  "sessionId": "fixture-compact",
+  "cwd": "/tmp/fixture-project",
+  "data": {
+    "trigger": "auto",
+    "task": "compact recovery fixture",
+    "nextAction": "run workflow tools",
+    "verificationRuns": 1,
+    "changedFiles": [
+      "scripts/etrnl-state.mjs"
+    ]
+  }
+}

@@ -9,6 +9,9 @@ const fix = args.includes("--fix");
 const json = args.includes("--json");
 const strictConflicts = args.includes("--strict-conflicts");
 const settingsPath = args.find((arg) => !arg.startsWith("--"));
+const configuredMaxWalkDepth = Number(process.env.CLAUDE_CONTROL_PLANE_SETTINGS_AUDIT_MAX_DEPTH || "8");
+const maxWalkDepth = Number.isFinite(configuredMaxWalkDepth) && configuredMaxWalkDepth >= 0 ? configuredMaxWalkDepth : 8;
+const walkDepthWarnings = new Set();
 
 if (!settingsPath) {
   console.error("usage: settings-audit.mjs <settings.json> [--fix] [--json] [--strict-conflicts]");
@@ -16,7 +19,33 @@ if (!settingsPath) {
 }
 
 const homeDir = os.homedir();
+const envClaudeHome = process.env.CLAUDE_HOME ? path.resolve(process.env.CLAUDE_HOME) : "";
+const settingsAbsPath = path.resolve(settingsPath);
+const settingsIsTemplate = settingsAbsPath.includes(`${path.sep}templates${path.sep}`);
+const configuredClaudeHome = envClaudeHome && settingsAbsPath === path.join(envClaudeHome, "settings.json")
+  ? envClaudeHome
+  : path.basename(settingsAbsPath) === "settings.json" && path.basename(path.dirname(settingsAbsPath)) === ".claude" && !settingsIsTemplate
+    ? path.dirname(settingsAbsPath)
+    : path.join(homeDir, ".claude");
 const matcherOrder = ["Bash", "Read", "Edit", "Write", "MultiEdit", "WebSearch", "Task", "TaskCreate", "Agent"];
+const hookEventNames = new Set([
+  "PreToolUse",
+  "PostToolUse",
+  "PostToolUseFailure",
+  "PostToolBatch",
+  "UserPromptSubmit",
+  "UserPromptExpansion",
+  "SessionStart",
+  "SessionEnd",
+  "PreCompact",
+  "PostCompact",
+  "Stop",
+  "SubagentStop",
+]);
+const riskyTopLevelSettings = new Map([
+  ["autoCompactWindow", "unsupported top-level compact tuning; let Claude Code own native auto-compact unless a documented setting exists"],
+  ["skipAutoPermissionPrompt", "unsupported top-level permission bypass; keep permission behavior stock unless a documented harness permission needs it"],
+]);
 
 const readJson = (path) => {
   try {
@@ -147,7 +176,10 @@ const hookBasename = (command) => {
 const hookPath = (command) => {
   const match = hookCommandMatch(command);
   if (!match) return "";
-  const root = match.root === "~" || match.root === "$HOME" || match.root === "${HOME}" ? homeDir : match.root;
+  if (match.root === "~" || match.root === "$HOME" || match.root === "${HOME}") {
+    return path.join(configuredClaudeHome, "hooks", match.hook);
+  }
+  const root = match.root;
   return path.join(root, ".claude", "hooks", match.hook);
 };
 
@@ -174,6 +206,12 @@ const rtkRewriteHasRgProxyGuard = (command) => {
 };
 
 const conflictForHook = (basename, command, eventName, matcher) => {
+  if (eventName === "PreCompact" && ["suggest-compact.sh", "pre-compact-context.sh", "log-compact-event.sh", "pre-compact-backup.sh"].includes(basename)) {
+    return {
+      id: "compact-companion-noise",
+      reason: "compact companion hook competes with native Claude compaction recovery; keep PreCompact limited to repo-owned cc-precompact-save.sh unless explicitly accepted",
+    };
+  }
   if (basename === "rtk-rewrite.sh") {
     if (rtkRewriteHasRgProxyGuard(command)) return null;
     return {
@@ -196,11 +234,222 @@ const conflictForHook = (basename, command, eventName, matcher) => {
   return null;
 };
 
+const requiredHooks = [
+  { eventName: "SessionStart", hook: "cc-sessionstart-restore.sh", mustBeSync: true },
+  { eventName: "PreCompact", hook: "cc-precompact-save.sh", mustBeSync: true },
+  { eventName: "PostCompact", hook: "cc-postcompact-record.sh", mustBeSync: true },
+  { eventName: "Stop", hook: "cc-stop-verifier.sh", mustBeSync: true },
+];
+
+const hookRows = (settings) => Object.entries(settings.hooks ?? {}).flatMap(([eventName, groups]) =>
+  (groups ?? []).flatMap((group) =>
+    (group.hooks ?? []).map((hook) => ({
+      eventName,
+      matcher: group.matcher ?? "*",
+      hook,
+      command: String(hook.command ?? "").trim(),
+      basename: hookBasename(hook.command),
+    })),
+  ),
+);
+
+const executableMode = (file) => {
+  try {
+    return fs.statSync(file).mode & 0o111 ? "executable" : "not-executable";
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") return "missing";
+    return "unreadable";
+  }
+};
+
+function walkDir(root, visitor, depth = 0) {
+  if (!root || !fs.existsSync(root)) return;
+  if (depth > maxWalkDepth) {
+    walkDepthWarnings.add(root);
+    return;
+  }
+  let entries = [];
+  try {
+    entries = fs.readdirSync(root, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    const fullPath = path.join(root, entry.name);
+    if (entry.isDirectory()) {
+      walkDir(fullPath, visitor, depth + 1);
+    } else {
+      visitor(fullPath);
+    }
+  }
+}
+
+function collectCommandObjects(node, rows, context) {
+  if (!node || typeof node !== "object") return;
+  if (typeof node.command === "string") {
+    rows.push({
+      ...context,
+      command: canonicalCommand(node.command),
+      async: node.async === true,
+    });
+  }
+  if (Array.isArray(node)) {
+    for (const child of node) collectCommandObjects(child, rows, context);
+    return;
+  }
+  for (const [key, child] of Object.entries(node)) {
+    const nextContext = hookEventNames.has(key) ? { ...context, eventName: key } : context;
+    collectCommandObjects(child, rows, nextContext);
+  }
+}
+
+function pluginNameFromManifestPath(file) {
+  const parts = file.split(path.sep);
+  const cacheIndex = parts.lastIndexOf("cache");
+  if (cacheIndex >= 0 && parts[cacheIndex + 1]) return parts[cacheIndex + 1];
+  return path.basename(path.dirname(file));
+}
+
+function collectPluginHookManifests() {
+  const roots = [
+    path.join(configuredClaudeHome, "plugins"),
+    path.join(configuredClaudeHome, "plugins", "cache"),
+  ];
+  const seen = new Set();
+  const rows = [];
+  for (const root of roots) {
+    walkDir(root, (file) => {
+      if (path.basename(file) !== "hooks.json" || seen.has(file)) return;
+      seen.add(file);
+      let manifest;
+      try {
+        manifest = readJson(file);
+      } catch (error) {
+        rows.push({
+          manifestPath: file,
+          plugin: pluginNameFromManifestPath(file),
+          eventName: "",
+          command: "",
+          async: false,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return;
+      }
+      const plugin = manifest.name || manifest.id || manifest.plugin || pluginNameFromManifestPath(file);
+      collectCommandObjects(manifest.hooks ?? manifest, rows, {
+        manifestPath: file,
+        plugin: String(plugin),
+        eventName: "",
+      });
+    });
+  }
+  return rows;
+}
+
+function collectRiskyTopLevel(settings) {
+  return [...riskyTopLevelSettings.entries()]
+    .filter(([key]) => Object.prototype.hasOwnProperty.call(settings, key))
+    .map(([key, reason]) => ({
+      key,
+      id: "unsupported-top-level-setting",
+      reason,
+      valueType: typeof settings[key],
+    }));
+}
+
+function collectFrontmatterHookDeclarations() {
+  const roots = [
+    path.join(configuredClaudeHome, "skills"),
+    path.join(configuredClaudeHome, "agents"),
+  ];
+  const rows = [];
+  for (const root of roots) {
+    walkDir(root, (file) => {
+      if (!/\.(md|markdown)$/i.test(file)) return;
+      let body = "";
+      try {
+        body = fs.readFileSync(file, "utf8");
+      } catch {
+        return;
+      }
+      const match = body.match(/^---\n([\s\S]*?)\n---/);
+      if (!match) return;
+      for (const line of match[1].split(/\n/)) {
+        const key = line.split(":")[0]?.trim();
+        if (/^(hooks?|hook-events?|pluginHooks)$/i.test(key)) {
+          rows.push({ file, key, id: "frontmatter-hook-declaration" });
+        }
+      }
+    });
+  }
+  return rows;
+}
+
+function hindsightConfigPath() {
+  const defaultHindsightHome = path.join(path.dirname(configuredClaudeHome), ".hindsight");
+  const hindsightHome = process.env.HINDSIGHT_HOME ? path.resolve(process.env.HINDSIGHT_HOME) : defaultHindsightHome;
+  return path.join(hindsightHome, "claude-code.json");
+}
+
+function collectMemoryPluginPosture(settings) {
+  const enabledPlugins = settings.enabledPlugins && typeof settings.enabledPlugins === "object" ? settings.enabledPlugins : {};
+  const rows = [];
+  if (enabledPlugins["hindsight-memory@hindsight"] === true) {
+    const configPath = hindsightConfigPath();
+    const row = {
+      plugin: "hindsight-memory@hindsight",
+      enabled: true,
+      configPath,
+      status: "healthy-config",
+      issues: [],
+      mode: "unknown",
+    };
+    if (!fs.existsSync(configPath)) {
+      row.status = "unhealthy";
+      row.issues.push("missing Hindsight config");
+    } else {
+      try {
+        const config = readJson(configPath);
+        row.mode = config.hindsightApiUrl ? "external-api" : "local-daemon";
+        if (config.dynamicBankId !== true) row.issues.push("dynamicBankId must be true");
+        if (JSON.stringify(config.dynamicBankGranularity) !== JSON.stringify(["agent", "project"])) row.issues.push("dynamicBankGranularity must be [agent,project]");
+        if (Number(config.recallContextTurns) > 3) row.issues.push("recallContextTurns must be <= 3");
+        if (config.retainToolCalls !== false) row.issues.push("retainToolCalls must be false");
+        if (!String(config.recallPromptPreamble || "").includes("Fresh repo/runtime evidence overrides memory")) row.issues.push("fresh-evidence preamble missing");
+        if (row.issues.length > 0) row.status = "unhealthy";
+      } catch (error) {
+        row.status = "unhealthy";
+        row.issues.push(error instanceof Error ? error.message : String(error));
+      }
+    }
+    rows.push(row);
+  }
+  return rows;
+}
+
 function collectIssues(settings) {
+  walkDepthWarnings.clear();
   const duplicateHooks = [];
   const legacyHooks = [];
   const externalHooks = [];
   const conflictingHooks = [];
+  const missingRequiredHooks = [];
+  const syncExpectationIssues = [];
+  const executableIssues = [];
+  const pluginHookManifests = settingsIsTemplate ? [] : collectPluginHookManifests();
+  const manifestErrors = pluginHookManifests.filter((row) => row.error);
+  const memoryPluginHooks = pluginHookManifests.filter((row) => /hindsight|memory|recall|retain/i.test(`${row.plugin} ${row.command}`));
+  const pluginRows = pluginHookManifests
+    .filter((row) => row.command && row.eventName)
+    .map((row) => ({
+      ...row,
+      matcher: row.matcher ?? "*",
+      hook: { async: row.async === true },
+      basename: hookBasename(row.command),
+    }));
+  const riskyTopLevelIssues = collectRiskyTopLevel(settings);
+  const frontmatterHookDeclarations = settingsIsTemplate ? [] : collectFrontmatterHookDeclarations();
+  const memoryPluginPosture = settingsIsTemplate ? [] : collectMemoryPluginPosture(settings);
   for (const [eventName, groups] of Object.entries(settings.hooks ?? {})) {
     const seen = [];
     for (const group of groups ?? []) {
@@ -239,7 +488,82 @@ function collectIssues(settings) {
       }
     }
   }
-  return { duplicateHooks, legacyHooks, externalHooks, conflictingHooks };
+  for (const row of pluginRows) {
+    if (!row.basename) continue;
+    const owner = hookOwner(row.basename);
+    const external = {
+      eventName: row.eventName,
+      matcher: row.matcher,
+      command: row.command,
+      hook: row.basename,
+      owner,
+      plugin: row.plugin,
+      manifestPath: row.manifestPath,
+    };
+    const conflict = conflictForHook(row.basename, row.command, row.eventName, row.matcher);
+    if (conflict) conflictingHooks.push({ ...external, ...conflict });
+    for (const required of requiredHooks) {
+      if (row.eventName !== required.eventName || row.basename !== required.hook) continue;
+      if (required.mustBeSync && row.async === true) {
+        syncExpectationIssues.push({
+          eventName: row.eventName,
+          matcher: row.matcher,
+          hook: row.basename,
+          id: "plugin-required-hook-async",
+          reason: `${row.basename} from plugin ${row.plugin} must be synchronous if it registers the compact recovery hook`,
+        });
+      }
+    }
+    const file = hookPath(row.command);
+    if (owner === "repo-owned" && file) {
+      const mode = executableMode(file);
+      if (mode !== "executable") {
+        executableIssues.push({ eventName: row.eventName, hook: row.basename, file, id: "plugin-hook-not-executable", mode, plugin: row.plugin });
+      }
+    }
+  }
+  const rows = hookRows(settings);
+  for (const required of requiredHooks) {
+    const matches = rows.filter((row) => row.eventName === required.eventName && row.basename === required.hook);
+    if (matches.length === 0) {
+      missingRequiredHooks.push({ eventName: required.eventName, hook: required.hook, id: "required-hook-missing" });
+      continue;
+    }
+    for (const row of matches) {
+      if (required.mustBeSync && row.hook.async === true) {
+        syncExpectationIssues.push({
+          eventName: row.eventName,
+          matcher: row.matcher,
+          hook: row.basename,
+          id: "compact-restore-sync",
+          reason: `${row.basename} must run synchronously for compact recovery`,
+        });
+      }
+      if (!settingsIsTemplate) {
+        const file = hookPath(row.command);
+        const mode = executableMode(file);
+        if (mode !== "executable") {
+          executableIssues.push({ eventName: row.eventName, hook: row.basename, file, id: "hook-not-executable", mode });
+        }
+      }
+    }
+  }
+  return {
+    duplicateHooks,
+    legacyHooks,
+    externalHooks,
+    conflictingHooks,
+    missingRequiredHooks,
+    syncExpectationIssues,
+    executableIssues,
+    pluginHookManifests,
+    manifestErrors,
+    walkDepthWarnings: [...walkDepthWarnings],
+    memoryPluginHooks,
+    riskyTopLevelSettings: riskyTopLevelIssues,
+    frontmatterHookDeclarations,
+    memoryPluginPosture,
+  };
 }
 
 function rewriteKnownHooks(settings) {
@@ -296,8 +620,19 @@ if (fix) {
   fs.renameSync(tempPath, settingsPath);
 }
 const after = collectIssues(settings);
+const strictOk = after.conflictingHooks.length === 0
+  && after.missingRequiredHooks.length === 0
+  && after.syncExpectationIssues.length === 0
+  && after.executableIssues.length === 0
+  && after.manifestErrors.length === 0
+  && after.riskyTopLevelSettings.length === 0
+  && after.memoryPluginPosture.every((row) => row.status !== "unhealthy");
 const result = {
-  ok: after.duplicateHooks.length === 0 && after.legacyHooks.length === 0 && (!strictConflicts || after.conflictingHooks.length === 0),
+  ok: after.duplicateHooks.length === 0
+    && after.legacyHooks.length === 0
+    && after.manifestErrors.length === 0
+    && (!strictConflicts || strictOk),
+  strictOk,
   fixed: fix,
   strictConflicts,
   before,
@@ -314,6 +649,15 @@ if (json) {
   for (const conflict of after.conflictingHooks) {
     console.log(`warning: conflicting external hook ${conflict.eventName} ${conflict.matcher}: ${conflict.command} (${conflict.reason})`);
   }
+  for (const risky of after.riskyTopLevelSettings) {
+    console.log(`warning: risky top-level setting ${risky.key}: ${risky.reason}`);
+  }
+  for (const root of after.walkDepthWarnings) {
+    console.log(`warning: settings audit max depth reached at ${root}; set CLAUDE_CONTROL_PLANE_SETTINGS_AUDIT_MAX_DEPTH to scan deeper`);
+  }
+  if (after.pluginHookManifests.length > 0) {
+    console.log(`info: ${after.pluginHookManifests.length} plugin hook(s) visible outside settings.json`);
+  }
   const unknownCount = after.externalHooks.filter((hook) => hook.owner === "unknown-external").length;
   if (unknownCount > 0) {
     console.log(`warning: ${unknownCount} unknown external hook(s) present; inspect --json output before blaming repo-owned control-plane hooks`);
@@ -326,8 +670,32 @@ if (json) {
   for (const legacy of after.legacyHooks) {
     console.error(`- legacy rate limiter ${legacy.eventName} ${legacy.matcher}: ${legacy.command}`);
   }
+  for (const manifest of after.manifestErrors) {
+    console.error(`- plugin hook manifest unreadable ${manifest.manifestPath}: ${manifest.error}`);
+  }
   for (const conflict of after.conflictingHooks) {
     console.error(`- conflicting external hook ${conflict.eventName} ${conflict.matcher}: ${conflict.command} (${conflict.reason})`);
+  }
+  for (const missing of after.missingRequiredHooks) {
+    console.error(`- missing required hook ${missing.eventName}: ${missing.hook}`);
+  }
+  for (const issue of after.syncExpectationIssues) {
+    console.error(`- sync expectation ${issue.eventName} ${issue.matcher}: ${issue.reason}`);
+  }
+  for (const issue of after.executableIssues) {
+    console.error(`- hook executable issue ${issue.eventName}: ${issue.hook} ${issue.mode} at ${issue.file}`);
+  }
+  for (const risky of after.riskyTopLevelSettings) {
+    console.error(`- risky top-level setting ${risky.key}: ${risky.reason}`);
+  }
+  for (const declaration of after.frontmatterHookDeclarations) {
+    console.error(`- frontmatter hook declaration ${declaration.key}: ${declaration.file}`);
+  }
+  for (const posture of after.memoryPluginPosture.filter((row) => row.status === "unhealthy")) {
+    console.error(`- memory plugin unhealthy ${posture.plugin}: ${posture.issues.join("; ")}`);
+  }
+  for (const root of after.walkDepthWarnings) {
+    console.error(`- settings audit max depth reached at ${root}; set CLAUDE_CONTROL_PLANE_SETTINGS_AUDIT_MAX_DEPTH to scan deeper`);
   }
 }
 

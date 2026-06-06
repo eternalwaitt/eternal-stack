@@ -38,6 +38,7 @@ function norm(value) {
     .replace(/^etrnl-/, "")
     .replace(/\s+/g, "-");
   const aliases = new Map([
+    ["audit-code", CODE_HEALTH_SKILL],
     ["repo-health", CODE_HEALTH_SKILL],
     ["codebase-health", CODE_HEALTH_SKILL],
     ["health", CODE_HEALTH_SKILL],

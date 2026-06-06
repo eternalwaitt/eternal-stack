@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "artifact": "phase-0-baseline-sanitized",
+  "plan": "docs/plans/2026-06-05-etrnl-compact-state-rewrite-plan.md",
+  "capturedAt": "2026-06-05T14:38:41Z",
+  "refreshedAt": "2026-06-05T15:01:05Z",
+  "sanitization": {
+    "rawSettingsJsonStored": false,
+    "rawPromptsStored": false,
+    "transcriptPathsStored": false,
+    "secretValuesStored": false,
+    "homeDirectoryPathsStored": false
+  },
+  "sourceCheckout": {
+    "branch": "codex/tool-stack-update-checkers",
+    "baseBranch": "main",
+    "preImplementationDirtySummary": [
+      "untracked compact-state plan",
+      "untracked compact-state artifact directory"
+    ],
+    "liveInstallMutated": false
+  },
+  "beads": {
+    "statusCommand": "bd status --json",
+    "status": "not_configured",
+    "summary": {
+      "totalIssues": 0,
+      "openIssues": 0,
+      "blockedIssues": 0,
+      "inProgressIssues": 0
+    },
+    "claudeSetupCheck": {
+      "status": "not_configured",
+      "sanitizedFinding": "no Beads hooks installed"
+    },
+    "codexSetupCheck": {
+      "status": "not_configured",
+      "sanitizedFinding": "repo-local Beads Codex skill missing"
+    }
+  },
+  "installedClaudeSettings": {
+    "settingsAuditCommand": "node scripts/settings-audit.mjs $CLAUDE_HOME/settings.json --json",
+    "status": "passed",
+    "missingRequiredHooks": 0,
+    "syncExpectationIssues": [
+      {
+        "id": "compact-restore-sync",
+        "hook": "cc-sessionstart-restore.sh",
+        "finding": "installed compact restore was async"
+      }
+    ],
+    "compactCompanionNoise": [
+      "log-compact-event.sh",
+      "pre-compact-context.sh",
+      "pre-compact-backup.sh"
+    ],
+    "otherCompactCompanionsObserved": [
+      "suggest-compact.sh"
+    ]
+  },
+  "sourceTemplates": {
+    "strictTemplateAudit": {
+      "command": "node scripts/settings-audit.mjs templates/settings.strict.json --strict-conflicts --json",
+      "status": "passed"
+    },
+    "defaultTemplateAudit": {
+      "command": "node scripts/settings-audit.mjs templates/settings.json --strict-conflicts --json",
+      "status": "passed"
+    }
+  },
+  "updateCheck": {
+    "command": "node scripts/update-check.mjs --json",
+    "status": "passed",
+    "installedCommitShort": "0ac32c4ccaec",
+    "sourceCommitShort": "0ac32c4ccaec",
+    "installedVersion": "v0.2.0",
+    "sourceVersion": "v0.2.0",
+    "sourceDirty": true,
+    "recordedSettingsMode": "default",
+    "observedSettingsMode": "strict",
+    "settingsModeMismatch": true,
+    "staleInstalledScriptCountAfterSourceEdits": 9,
+    "toolStack": {
+      "codegraph": "installed-current",
+      "beads": "installed-current"
+    }
+  }
+}

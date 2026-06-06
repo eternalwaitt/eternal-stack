@@ -34,6 +34,7 @@ function norm(value) {
   const aliases = new Map([
     ["writing-plans", "plan"],
     ["code-review", "review"],
+    ["dev-execute", "execute"],
     ["execute-plan", "execute"],
     ["run-plan", "execute"],
     ["parallel-fan-out", "parallel"],

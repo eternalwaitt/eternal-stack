@@ -24,11 +24,11 @@ Scope:
 | --- | --- | --- | --- | --- |
 | P0 | `rtk-ai/rtk` | adopt | Deterministic command rewrite/truncation already aligns with current RTK-first direction. | `codex-rtk-pre-tool-use.sh`, doctor/install/test parity |
 | P0 | `colbymchenry/codegraph` | adopt optional | Best local code-index MCP: adaptive output caps, FTS5/SQLite graph, line-numbered explore output, tool allowlist. | optional MCP companion, code-health/research docs |
-| P0 | `github/spec-kit` | steal/adopt gates | Strongest spec -> plan -> tasks -> implement pipeline; better task/checklist executability gates than section checks. | `plan-readiness-check.mjs`, `etrnl-plan`, `etrnl-execute` |
+| P0 | `GitHub/spec-kit` | steal/adopt gates | Strongest spec -> plan -> tasks -> implement pipeline; better task/checklist executability gates than section checks. | `plan-readiness-check.mjs`, `etrnl-dev-plan`, `etrnl-dev-execute` |
 | P0 | `Chachamaru127/claude-code-harness` | steal | Sprint contract, worker AGENTS hash proof, quality gates, test tamper checks, review plateau detection. | `execution-ledger.mjs`, `workflow-health.mjs`, `browser-qa-report.mjs`, Stop verifier |
 | P0 | `infinri/Writ` | steal | Phase-gated writes, mandatory-vs-retrieved rules, mechanical-enforcement requirement for mandatory rules. | `skill-contract-check.mjs`, PreTool/Stop hooks |
 | P1 | `gsd-build/get-shit-done` | adopt as benchmark | Closest workflow benchmark: `.planning` state, phase gates, context monitor, command router. | execution ledger, context breadcrumbs, workflow health |
-| P1 | `millionco/react-doctor` | adopt optional | Concrete React-specific JSON/CI diagnostics and changed-file scan gate. | optional `etrnl-test`/`etrnl-code-health` tool |
+| P1 | `millionco/react-doctor` | adopt optional | Concrete React-specific JSON/CI diagnostics and changed-file scan gate. | optional `etrnl-dev-test`/`etrnl-audit-code` tool |
 | P1 | `hyhmrright/brooks-lint` | map/adopt companion | Strong review finding form: Symptom -> Source -> Consequence -> Remedy; configurable risk taxonomy. | existing `brooks-audit` companion mapping |
 | P1 | `bytedance/deer-flow` | steal primitives | Subagent limits, prompt-security tests, skill archive install safety, MCP session lifecycle. | `agent-task-packet-check.mjs`, `doctor.sh`, `skill-contract-check.mjs` |
 | P1 | `humanlayer/12-factor-agents` | adopt principles | Event-thread state, pause/resume, compact-error retry limits, typed human approval. | `context-state.mjs`, guard override, failure hooks |
@@ -162,6 +162,17 @@ Keep those in the canonical competitor lock until intentionally refreshed. Use t
 - Beads value is counted only for durable backlog, dependency, claim, blocker, or discovered-follow-up state before planning, before a resumed task, or between ETRNL runs. Beads use that duplicates an active execution ledger is noise.
 - Weekly decisions come from `tool-effectiveness.mjs summarize --since-days 7 --all --projects-config "$HOME/.claude/control-plane/tool-effectiveness/projects.json" --json`, not manual transcript review.
 - Verdicts are advisory during the first week unless fixture/schema/privacy gates fail. Public tracked files may include only synthetic project-registry examples; real continuous-project paths stay local.
+
+## 2026-06-05 Compact Context Decisions
+
+The compact-state rewrite carries forward these patterns:
+
+- Steal bounded handoff structure from `claude-code-harness`, `Writ`, and `oh-my-claudecode`: the recovery packet is current task, last safe state, next action, and stale verification, not a broad memory replay.
+- Keep Claude native compaction as the trigger. Do not build a second compactor based on tool counts or context guesses.
+- Use local append-only ETRNL JSONL for compact lifecycle state. It is cheaper and more reversible than starting with Beads, Dolt, vector stores, or model summarization in hook hot paths.
+- Treat companion compact hooks as rejected-by-default unless explicitly accepted: `suggest-compact.sh`, `pre-compact-context.sh`, `log-compact-event.sh`, and `pre-compact-backup.sh` can add noise or timing ambiguity.
+- Count Beads value only when it records backlog, blockers, dependencies, claims, or discovered follow-ups outside active ETRNL execution. Duplicating current tasks, phases, checks, or compact packets is noise.
+- Keep Dolt as a future projection option only after JSONL state proves a query bottleneck.
 
 ## Non-Adoption Notes
 

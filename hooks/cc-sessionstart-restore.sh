@@ -57,6 +57,32 @@ fi
 cc_state_update --arg cwd "$cwd" ".cwd = \$cwd"
 
 skill_hint="$(get_etrnl_skill_hint)"
+if [[ "$source_name" == "compact" ]]; then
+  # Compact recovery stays deterministic: inject only the bounded handoff and
+  # skill hint, not advisory workflow/update/learning projections.
+  if handoff_json="$(cc_etrnl_state_compact_handoff_json "$(cc_session_id)" 2>/dev/null)" \
+    && jq -e '.found == true and ((.text // "") | length > 0)' >/dev/null 2>&1 <<<"$handoff_json"; then
+    msg="$(jq -r '.text' <<<"$handoff_json")"
+    msg="$msg"$'\n'"$skill_hint"
+    msg="$(printf '%s' "$msg" | trim_chars 1200)"
+    cc_json_emit_context "SessionStart" "$msg"
+    exit 0
+  fi
+  state="$(cc_state_read)"
+  if jq -e '((.lastCompactSummary // "") | length) > 0' >/dev/null 2>&1 <<<"$state"; then
+    msg="$(jq -r --arg hint "$skill_hint" '
+      "Compact recovery: "
+      + (.lastCompactSummary // "no saved summary")
+      + (if ((.lastCompactAt // "") | length) > 0 then " (last compact: " + .lastCompactAt + ", count: " + ((.compactCount // 0) | tostring) + ")" else "" end)
+      + "\n"
+      + $hint
+    ' <<<"$state")"
+    msg="$(printf '%s' "$msg" | trim_chars 1200)"
+    cc_json_emit_context "SessionStart" "$msg"
+    exit 0
+  fi
+  exit 0
+fi
 update_hint=""
 workflow_status_hint=""
 workflow_status_json=""
@@ -72,7 +98,7 @@ WORKFLOW_ISSUE_FILTER='
 '
 if [[ "${CLAUDE_CONTROL_PLANE_UPDATE_CHECK:-1}" != "0" && -f "$SCRIPT_DIR/../scripts/update-check.mjs" ]] && command -v node >/dev/null 2>&1; then
   update_check_cmd=(node "$SCRIPT_DIR/../scripts/update-check.mjs")
-  [[ "${CLAUDE_CONTROL_PLANE_AUTO_UPDATE:-0}" == "1" ]] && update_check_cmd+=(--auto)
+  [[ "${CLAUDE_CONTROL_PLANE_AUTO_UPDATE:-1}" != "0" ]] && update_check_cmd+=(--auto)
   [[ "${CLAUDE_CONTROL_PLANE_REMOTE_UPDATE_CHECK:-0}" == "1" ]] && update_check_cmd+=(--remote)
   update_check_enabled=1
   if ! update_stdout_file="$(mktemp "${TMPDIR:-/tmp}/cc-update-check-out.XXXXXX")"; then
@@ -189,40 +215,19 @@ if [[ "${CLAUDE_CONTROL_PLANE_LEARNING_STARTUP_HINTS:-}" != "0" \
     fi
   fi
 fi
-state="$(cc_state_read)"
-if [[ "$source_name" == "compact" ]]; then
-  msg="$(jq -r --arg hint "$skill_hint" '
-    "Compact recovery: "
-    + (.lastCompactSummary // "no saved summary")
-    + (if ((.lastCompactAt // "") | length) > 0 then " (last compact: " + .lastCompactAt + ", count: " + ((.compactCount // 0) | tostring) + ")" else "" end)
-    + "\n"
-    + $hint
-  ' <<<"$state")"
-  if [[ -n "$workflow_status_hint" ]]; then
-    msg="$msg"$'\n'"$workflow_status_hint"
-  fi
-  if [[ -n "$update_hint" ]]; then
-    msg="$msg"$'\n'"$update_hint"
-  fi
-  if [[ -n "$learning_hint" ]]; then
-    msg="$msg"$'\n'"$learning_hint"
-  fi
-  msg="$(printf '%s' "$msg" | trim_chars 1200)"
-else
-  msg="Control-plane guard active. Fresh evidence beats memory. Cwd: $cwd"
-  if [[ -n "$branch" ]]; then
-    msg="$msg. Git: $branch, dirty files: ${dirty:-0}"
-  fi
-  msg="$msg. $skill_hint"
-  if [[ -n "$workflow_status_hint" ]]; then
-    msg="$msg $workflow_status_hint"
-  fi
-  if [[ -n "$update_hint" ]]; then
-    msg="$msg Update: $update_hint"
-  fi
-  if [[ -n "$learning_hint" ]]; then
-    msg="$msg $learning_hint"
-  fi
-  msg="$(printf '%s' "$msg" | trim_chars 1500)"
+msg="Control-plane guard active. Fresh evidence beats memory. Cwd: $cwd"
+if [[ -n "$branch" ]]; then
+  msg="$msg. Git: $branch, dirty files: ${dirty:-0}"
 fi
+msg="$msg. $skill_hint"
+if [[ -n "$workflow_status_hint" ]]; then
+  msg="$msg $workflow_status_hint"
+fi
+if [[ -n "$update_hint" ]]; then
+  msg="$msg Update: $update_hint"
+fi
+if [[ -n "$learning_hint" ]]; then
+  msg="$msg $learning_hint"
+fi
+msg="$(printf '%s' "$msg" | trim_chars 1500)"
 cc_json_emit_context "SessionStart" "$msg"

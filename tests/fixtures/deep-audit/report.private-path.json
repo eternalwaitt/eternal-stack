@@ -14,7 +14,7 @@
     "payments",
     "privacy-compliance"
   ],
-  "coverageStatement": "Coverage: production-readiness. Known not-yet-registered audit domains: ux-accessibility, api-data, docs, payments, privacy-compliance.",
+  "coverageStatement": "Coverage: audit blocked due to privacy violation (private path). Requested: production-readiness. Known not-yet-registered audit domains: ux-accessibility, api-data, docs, payments, privacy-compliance.",
   "targetLabel": "synthetic-app",
   "targetFingerprint": "repo:synthetic-app@private-path",
   "requestedCategories": [

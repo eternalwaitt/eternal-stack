@@ -33,7 +33,7 @@ Assumptions: Research artifacts remain valid until 2026-06-10 (nextScan date). N
 - `hooks/cc-pretooluse-guard.sh:461` — agent packet enforcement via `node scripts/agent-task-packet-check.mjs`
 - `hooks/cc-posttooluse-sycophancy.sh`, `hooks/cc-stop-verifier.sh` — enforcement hooks
 - `tests/test-hooks.sh` — 100 checks, all passing
-- `skills/etrnl-plan/SKILL.md` — reference format for all skill rewrites
+- `skills/etrnl-dev-plan/SKILL.md` — reference format for all skill rewrites
 
 ## NOT in scope
 
@@ -41,7 +41,7 @@ Assumptions: Research artifacts remain valid until 2026-06-10 (nextScan date). N
 - Rebuilding Wave 0 research artifacts (already validated complete)
 - UI or frontend work
 - Wave 3.5 post-M1: superiority benchmark harness, docs/troubleshooting.md
-- P1/P2 skill rewrites (etrnl-brainstorm, etrnl-systematic-debugging, etrnl-parallel, etrnl-qa-browser, etrnl-stress-test and P2 group) — deferred to M2
+- P1/P2 skill rewrites (etrnl-dev-brainstorm, etrnl-systematic-debugging, etrnl-dev-parallel, etrnl-audit-browser, etrnl-dev-stress-test and P2 group) — deferred to M2
 
 ## File map
 
@@ -54,12 +54,12 @@ Assumptions: Research artifacts remain valid until 2026-06-10 (nextScan date). N
 - `docs/health-stack.md` — modify: document validator additions (`replay-hook-fixtures`, `skill-contract-check`, `skill-behavior-smoke`) and doctor coverage
 
 **Track B — P0 Skill Rewrites (read current, rewrite):**
-- `skills/etrnl-autoplan/SKILL.md` — rewrite: add inputs/outputs, research_flow hook_enforced, planning_depth
-- `skills/etrnl-code-health/SKILL.md` — rewrite: add tdd_enforcement hook_enforced
-- `skills/etrnl-execute/SKILL.md` — rewrite: add verification_gates hardening
-- `skills/etrnl-plan/SKILL.md` — rewrite: add research_flow hook_enforced, planning_depth
-- `skills/etrnl-review/SKILL.md` — rewrite: add research_flow + tdd_enforcement hook_enforced
-- `skills/etrnl-test/SKILL.md` — rewrite: add tdd_enforcement hook_enforced
+- `skills/etrnl-dev-autoplan/SKILL.md` — rewrite: add inputs/outputs, research_flow hook_enforced, planning_depth
+- `skills/etrnl-audit-code/SKILL.md` — rewrite: add tdd_enforcement hook_enforced
+- `skills/etrnl-dev-execute/SKILL.md` — rewrite: add verification_gates hardening
+- `skills/etrnl-dev-plan/SKILL.md` — rewrite: add research_flow hook_enforced, planning_depth
+- `skills/etrnl-dev-review/SKILL.md` — rewrite: add research_flow + tdd_enforcement hook_enforced
+- `skills/etrnl-dev-test/SKILL.md` — rewrite: add tdd_enforcement hook_enforced
 - `docs/skills.md` — modify: sync rewritten skill contracts and execution expectations
 
 **Track C — Agent Contract Hardening:**
@@ -70,7 +70,7 @@ Assumptions: Research artifacts remain valid until 2026-06-10 (nextScan date). N
 **Read-only (reference):**
 - `docs/research/parity-scorecard.json` — read: gap analysis per skill
 - `docs/research/etrnl-parity-backlog.md` — read: P0 priority ordering
-- `skills/etrnl-plan/SKILL.md` — read: canonical format for skill rewrites
+- `skills/etrnl-dev-plan/SKILL.md` — read: canonical format for skill rewrites
 
 ## Task groups
 
@@ -82,12 +82,12 @@ Assumptions: Research artifacts remain valid until 2026-06-10 (nextScan date). N
 - A5: Add install verification test to `tests/test-install.sh`
 
 **Group 2 — Track B (parallel across skills, each independent):**
-- B1: Rewrite `skills/etrnl-autoplan/SKILL.md`
-- B2: Rewrite `skills/etrnl-code-health/SKILL.md`
-- B3: Rewrite `skills/etrnl-execute/SKILL.md`
-- B4: Rewrite `skills/etrnl-plan/SKILL.md`
-- B5: Rewrite `skills/etrnl-review/SKILL.md`
-- B6: Rewrite `skills/etrnl-test/SKILL.md`
+- B1: Rewrite `skills/etrnl-dev-autoplan/SKILL.md`
+- B2: Rewrite `skills/etrnl-audit-code/SKILL.md`
+- B3: Rewrite `skills/etrnl-dev-execute/SKILL.md`
+- B4: Rewrite `skills/etrnl-dev-plan/SKILL.md`
+- B5: Rewrite `skills/etrnl-dev-review/SKILL.md`
+- B6: Rewrite `skills/etrnl-dev-test/SKILL.md`
 
 **Group 3 — Track C (sequential within track):**
 - C1: Add disjoint-ownership check to `scripts/agent-task-packet-check.mjs`
@@ -108,7 +108,7 @@ This section intentionally stays brief to avoid duplicating gate/phase definitio
 
 ## Skill/tool routing
 
-- `etrnl-execute` — orchestrates this plan
+- `etrnl-dev-execute` — orchestrates this plan
 - `etrnl-scout` — read-only discovery before any risky skill edits
 - `etrnl-quality-reviewer` — post-implementation review of each Track B skill rewrite
 - `code-simplifier` — run after Track B before final scoring (if installed)
@@ -158,12 +158,12 @@ Canonical rollback instructions are maintained in `### Rollback Path` under `## 
 
 ## Execution handoff
 
-Use `etrnl-execute` inline (this session). Phases 1, 2, and 3 run in parallel across tracks. Within each track, sub-tasks run sequentially per the dependency graph. Do not use `etrnl-parallel` unless the user explicitly requests agent fan-out across tracks.
+Use `etrnl-dev-execute` inline (this session). Phases 1, 2, and 3 run in parallel across tracks. Within each track, sub-tasks run sequentially per the dependency graph. Do not use `etrnl-dev-parallel` unless the user explicitly requests agent fan-out across tracks.
 
 ## Plan Readiness Report
 
 - Scope Challenge: Research Wave 0 artifacts are complete and validated — no rebuild needed. Smallest change set is 3 parallel tracks (A: 5 tasks, B: 6 tasks, C: 4 tasks). No distribution, data migration, or live-install scope beyond install.sh verification.
-- Architecture Review: Enforcement via hooks (pretooluse guard) + scripts (agent-task-packet-check.mjs). Skill rewrites follow etrnl-plan canonical format. No new architectural surfaces. Rollback path is git revert per commit.
+- Architecture Review: Enforcement via hooks (pretooluse guard) + scripts (agent-task-packet-check.mjs). Skill rewrites follow etrnl-dev-plan canonical format. No new architectural surfaces. Rollback path is git revert per commit.
 - Code Quality Review: All changes are targeted modifications to existing files. No new abstractions. Skill rewrites follow existing format. Guard hint injection is additive only. No cross-file duplication introduced.
 - Test Review: Primary gates are hook tests (100 existing + new), skill-contract-check, skill-behavior-smoke, and install tests. All gates are deterministic CLI commands. No browser QA required.
 - Performance Review: Guard hook runs on every tool use — hint injection adds one string append per block; negligible. Agent packet check adds two new validations (ownership, no-revert) — O(1) JSON field check each.
@@ -418,12 +418,12 @@ Target: ETRNL P0 skills (autoplan, code-health, execute, plan, review, test) are
 
 | Skill | Capability Gap | Current Level | Target Level |
 |---|---|---|---|
-| etrnl-autoplan | research_flow, planning_depth | prompt_only | hook_enforced |
-| etrnl-code-health | tdd_enforcement | prompt_only | hook_enforced |
-| etrnl-execute | verification_gates | prompt_only | test_enforced |
-| etrnl-plan | research_flow, planning_depth | prompt_only | hook_enforced |
-| etrnl-review | research_flow, tdd_enforcement | prompt_only | hook_enforced |
-| etrnl-test | tdd_enforcement | prompt_only | test_enforced |
+| etrnl-dev-autoplan | research_flow, planning_depth | prompt_only | hook_enforced |
+| etrnl-audit-code | tdd_enforcement | prompt_only | hook_enforced |
+| etrnl-dev-execute | verification_gates | prompt_only | test_enforced |
+| etrnl-dev-plan | research_flow, planning_depth | prompt_only | hook_enforced |
+| etrnl-dev-review | research_flow, tdd_enforcement | prompt_only | hook_enforced |
+| etrnl-dev-test | tdd_enforcement | prompt_only | test_enforced |
 
 ### Missing Technical Specs (Blockers for Execution)
 
@@ -541,23 +541,23 @@ Verification: `bash tests/test-hooks.sh` PASSED (currently 100/100)
 Owner files: `skills/etrnl-{autoplan,code-health,execute,plan,review,test}/SKILL.md`
 Verification: `node scripts/skill-contract-check.mjs` + `node scripts/skill-behavior-smoke.mjs`
 
-Each rewrite must add (etrnl-plan format per `skills/etrnl-plan/SKILL.md`):
+Each rewrite must add (etrnl-dev-plan format per `skills/etrnl-dev-plan/SKILL.md`):
 - Explicit Inputs / Outputs section
 - Deterministic execution flow (numbered steps)
 - Verification gate per phase
 - Failure / rollback expectations
 - Hook references (which hooks enforce which steps)
-- research_flow → hook_enforced (etrnl-autoplan, etrnl-plan, etrnl-review)
-- tdd_enforcement → hook_enforced (etrnl-code-health, etrnl-review, etrnl-test)
+- research_flow → hook_enforced (etrnl-dev-autoplan, etrnl-dev-plan, etrnl-dev-review)
+- tdd_enforcement → hook_enforced (etrnl-audit-code, etrnl-dev-review, etrnl-dev-test)
 
 | Task | Skill | Key Gap |
 |---|---|---|
-| B1 | etrnl-autoplan | research_flow=0, planning_depth upgrade |
-| B2 | etrnl-code-health | tdd_enforcement=0 |
-| B3 | etrnl-execute | verification_gates hardening |
-| B4 | etrnl-plan | research_flow=0, planning_depth upgrade |
-| B5 | etrnl-review | research_flow=0, tdd_enforcement=0 |
-| B6 | etrnl-test | tdd_enforcement=0 |
+| B1 | etrnl-dev-autoplan | research_flow=0, planning_depth upgrade |
+| B2 | etrnl-audit-code | tdd_enforcement=0 |
+| B3 | etrnl-dev-execute | verification_gates hardening |
+| B4 | etrnl-dev-plan | research_flow=0, planning_depth upgrade |
+| B5 | etrnl-dev-review | research_flow=0, tdd_enforcement=0 |
+| B6 | etrnl-dev-test | tdd_enforcement=0 |
 
 ### Track C — Agent Contract Hardening
 

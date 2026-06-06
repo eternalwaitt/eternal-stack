@@ -32,12 +32,18 @@ optional_command() {
 report_command() {
   local present_msg="$1"
   local failure_msg="$2"
-  local output
+  local output_file
   shift 2
-  if output="$("$@" 2>&1)"; then
+  output_file="$(mktemp "${TMPDIR:-/tmp}/control-plane-doctor.XXXXXX")"
+  cleanup_report_command() {
+    rm -f "$output_file"
+    trap - RETURN
+  }
+  trap cleanup_report_command RETURN
+  if "$@" >"$output_file" 2>&1; then
     ok "$present_msg"
-  elif [[ -n "$output" ]]; then
-    fail "$failure_msg: $output"
+  elif [[ -s "$output_file" ]]; then
+    fail "$failure_msg: $(tail -n 40 "$output_file")"
   else
     fail "$failure_msg"
   fi
@@ -238,7 +244,7 @@ if [[ -f "$ROOT/scripts/codex-rtk-pre-tool-use.sh" ]]; then
 else
   fail "codex RTK hook script missing"
 fi
-for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger execute-evidence-check execution-wave-check tool-effectiveness tool-stack-check code-health-ledger-check documentation-comment-health documentation-health-ledger-check review-log project-buglog browser-qa-report context-state workflow-health prompt-budget-check skill-contract-check skill-behavior-smoke skill-update-prompt disk-cleanup-manifest performance-baseline pr-preflight changelog-release-check port-guard update-check research-competitor-intel settings-audit; do
+for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger etrnl-state execute-evidence-check execution-wave-check tool-effectiveness tool-stack-check stack-profile-check code-health-ledger-check documentation-comment-health documentation-health-ledger-check review-log project-buglog browser-qa-report context-state live-hook-noise-report session-audit workflow-health prompt-budget-check skill-contract-check skill-behavior-smoke skill-update-prompt disk-cleanup-manifest performance-baseline pr-preflight changelog-release-check port-guard update-check research-competitor-intel settings-audit; do
   if [[ -f "$ROOT/scripts/$script.mjs" ]]; then
     report_command "$script syntax valid" "$script syntax invalid" node --check "$ROOT/scripts/$script.mjs"
   else
@@ -248,6 +254,14 @@ done
 if [[ -d "$ROOT/tests/fixtures/tool-effectiveness" ]]; then
   report_command "tool-effectiveness fixtures valid" "tool-effectiveness fixtures invalid" node "$ROOT/scripts/tool-effectiveness.mjs" validate-fixtures --fixtures "$ROOT/tests/fixtures/tool-effectiveness"
   report_command "tool-effectiveness fixture summary runs" "tool-effectiveness fixture summary failed" node "$ROOT/scripts/tool-effectiveness.mjs" summarize --fixtures "$ROOT/tests/fixtures/tool-effectiveness" --json
+fi
+if [[ -d "$ROOT/tests/fixtures/etrnl-state" ]]; then
+  report_command "etrnl-state fixtures valid" "etrnl-state fixtures invalid" node "$ROOT/scripts/etrnl-state.mjs" validate --fixtures "$ROOT/tests/fixtures/etrnl-state"
+  report_command "etrnl-state compact doctor runs" "etrnl-state compact doctor failed" node "$ROOT/scripts/etrnl-state.mjs" doctor --compact --explain
+fi
+if [[ -f "$ROOT/templates/stack-profile.core.json" && -f "$ROOT/templates/stack-profile.full.json" ]]; then
+  report_command "core stack profile valid" "core stack profile invalid" node "$ROOT/scripts/stack-profile-check.mjs" "$ROOT/templates/stack-profile.core.json"
+  report_command "full stack profile valid" "full stack profile invalid" node "$ROOT/scripts/stack-profile-check.mjs" "$ROOT/templates/stack-profile.full.json"
 fi
 for hook_file in "${CRITICAL_HOOKS[@]}"; do
   if [[ -f "$ROOT/hooks/$hook_file" ]]; then
@@ -302,7 +316,10 @@ else
 fi
 
 if [[ -f "$ROOT/templates/settings.json" && -f "$ROOT/templates/settings.strict.json" ]]; then
-  report_command "settings templates valid" "settings template invalid" jq empty "$ROOT/templates/settings.json" "$ROOT/templates/settings.strict.json"
+  report_command "settings templates valid" "settings template invalid" jq empty "$ROOT/templates/settings.json" "$ROOT/templates/settings.strict.json" "$ROOT/templates/settings.local.example.json"
+  if [[ -f "$ROOT/templates/hindsight/claude-code.local-daemon.json" && -f "$ROOT/templates/hindsight/claude-code.external.example.json" ]]; then
+    report_command "hindsight config templates valid" "hindsight config template invalid" jq empty "$ROOT/templates/hindsight/claude-code.local-daemon.json" "$ROOT/templates/hindsight/claude-code.external.example.json"
+  fi
   report_command "settings default audit clean" "settings default audit failed" node "$ROOT/scripts/settings-audit.mjs" "$ROOT/templates/settings.json" --strict-conflicts
   report_command "settings strict audit clean" "settings strict audit failed" node "$ROOT/scripts/settings-audit.mjs" "$ROOT/templates/settings.strict.json" --strict-conflicts
   if jq -e '.hooks.PreToolUse and .hooks.PostToolUse and .hooks.PostToolUseFailure and .hooks.Stop and .hooks.SubagentStop and .hooks.PreCompact and .hooks.PostCompact' "$ROOT/templates/settings.strict.json" >/dev/null; then
@@ -315,6 +332,21 @@ elif [[ -f "$ROOT/settings.json" ]]; then
   report_command "installed settings audit clean" "installed settings audit failed" node "$ROOT/scripts/settings-audit.mjs" "$ROOT/settings.json" --strict-conflicts
 else
   ok "settings template check skipped outside source checkout"
+fi
+
+stack_profile=""
+if [[ -f "$ROOT/control-plane/install.json" ]]; then
+  stack_profile="$(jq -r '.stackProfile // ""' "$ROOT/control-plane/install.json" 2>/dev/null || true)"
+fi
+  if [[ -x "$ROOT/scripts/canary-hindsight.sh" ]]; then
+    report_command "hindsight canary syntax valid" "hindsight canary syntax invalid" bash -n "$ROOT/scripts/canary-hindsight.sh"
+    if [[ "$stack_profile" == "full" || "${CLAUDE_CONTROL_PLANE_REQUIRE_HINDSIGHT:-0}" == "1" ]]; then
+      report_command "hindsight canary green" "hindsight canary red" env HINDSIGHT_CANARY_REQUIRE_HEALTH=1 "$ROOT/scripts/canary-hindsight.sh" --json
+  elif hindsight_posture="$("$ROOT/scripts/canary-hindsight.sh" --json 2>/dev/null)"; then
+    ok "hindsight posture green: $(jq -r '.mode + \" \" + .health' <<<"$hindsight_posture")"
+  else
+    ok "hindsight posture red but optional for core/source profile"
+  fi
 fi
 
 if [[ -d "$ROOT/skills" && -f "$ROOT/docs/skills.md" ]]; then
@@ -357,9 +389,9 @@ if [[ -d "$ROOT/skills" && -f "$ROOT/docs/skills.md" ]]; then
       skill_check_failed=1
     fi
   done
-  for skill_dir in "${LEGACY_SKILLS[@]}"; do
+  for skill_dir in "${REMOVED_SKILLS[@]}"; do
     if [[ -d "$ROOT/skills/$skill_dir" ]]; then
-      fail "legacy repo-owned skill still installed: $skill_dir"
+      fail "removed repo-owned skill still installed: $skill_dir"
       skill_check_failed=1
     fi
   done

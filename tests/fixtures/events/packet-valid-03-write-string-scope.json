@@ -7,7 +7,7 @@
       "taskId": "T3",
       "lineageId": "wave-1.T3",
       "goal": "update CHANGELOG with M-one release notes",
-      "contextSummary": "etrnl-commit task; write scope is CHANGELOG.md only",
+      "contextSummary": "etrnl-dev-commit task; write scope is CHANGELOG.md only",
       "cwd": "/repo",
       "scope": "CHANGELOG.md",
       "readSet": ["CHANGELOG.md", "docs/plans"],

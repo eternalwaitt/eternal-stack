@@ -300,8 +300,7 @@ const countInstalledAgents = () => {
   return countInstalledEntries(agentsDir, "installed agents", (entry) => entry.isFile() && /^etrnl-.*\.md$/.test(entry.name));
 };
 
-const settingsMode = (installState) => {
-  if (installState.settingsMode) return installState.settingsMode;
+const observedSettingsMode = () => {
   const settingsPath = path.join(controlHome, "settings.json");
   if (!fs.existsSync(settingsPath)) return "missing";
   try {
@@ -333,11 +332,10 @@ const settingsMode = (installState) => {
     ].every((token) => commands.some((command) => command.includes(token)));
     const hasStrictOnlyHook = [
       "cc-pretooluse-guard.sh",
-      "cc-stop-verifier.sh",
       "cc-posttoolusefailure-diagnose.sh",
       "cc-subagentstop-record.sh",
-      "cc-precompact-save.sh",
-      "cc-postcompact-record.sh",
+      "cc-posttooluse-quality.sh",
+      "cc-posttooluse-sycophancy.sh",
     ].some((token) => commands.some((command) => command.includes(token)));
     if (hasStrictOnlyHook) return "strict";
     return hasAllDefaultHooks ? "default" : "custom";
@@ -369,13 +367,19 @@ const staleInstalledScripts = (root) => {
 
 const driftSummary = (root, source, installState) => {
   const staleScripts = staleInstalledScripts(root);
+  const recordedSettingsMode = installState.settingsMode || "unknown";
+  const observedMode = observedSettingsMode();
+  const summarySettingsMode = observedMode === "missing" ? recordedSettingsMode : observedMode;
   return {
     sourceDirty: source.sourceDirty,
     installedCommit: installState.sourceCommit || "unknown",
     sourceCommit: source.sourceCommit,
     installedSkillCount: countInstalledSkills(),
     installedAgentCount: countInstalledAgents(),
-    settingsMode: settingsMode(installState),
+    settingsMode: summarySettingsMode,
+    recordedSettingsMode,
+    observedSettingsMode: observedMode,
+    settingsModeMismatch: recordedSettingsMode !== "unknown" && observedMode !== "missing" && recordedSettingsMode !== observedMode,
     staleInstalledScripts: {
       count: staleScripts.length,
       files: staleScripts.slice(0, 20),
@@ -391,7 +395,7 @@ const printExplain = (result) => {
   console.log(`Source dirty: ${result.sourceDirty ? "yes" : "no"}`);
   console.log(`Installed skills: ${result.drift.installedSkillCount}`);
   console.log(`Installed agents: ${result.drift.installedAgentCount}`);
-  console.log(`Settings mode: ${result.drift.settingsMode}`);
+  console.log(`Settings mode: recorded=${result.drift.recordedSettingsMode} observed=${result.drift.observedSettingsMode} mismatch=${result.drift.settingsModeMismatch ? "yes" : "no"}`);
   console.log(`Stale installed scripts: ${result.drift.staleInstalledScripts.count}`);
   if (result.toolStack) {
     console.log(`Tool stack missing: ${result.toolStack.missingTools.join(", ") || "none"}`);
@@ -464,7 +468,7 @@ const jsonOutput = hasFlag("--json");
 const explainOutput = hasFlag("--explain");
 const force = hasFlag("--force");
 const remoteEnabled = hasFlag("--remote") || process.env.CLAUDE_CONTROL_PLANE_REMOTE_UPDATE_CHECK === "1";
-const autoEnabled = hasFlag("--auto") || process.env.CLAUDE_CONTROL_PLANE_AUTO_UPDATE === "1";
+const autoEnabled = hasFlag("--auto") || process.env.CLAUDE_CONTROL_PLANE_AUTO_UPDATE !== "0";
 const installState = readJson(installStatePath, null);
 
 if (!installState?.sourceRoot) {
@@ -522,9 +526,13 @@ if (autoEnabled && localUpdateAvailable) {
   if (!fs.existsSync(updateScriptPath)) {
     autoUpdate = `CONTROL_PLANE_AUTO_UPDATE_FAILED missing update script: ${updateScriptPath}`;
   } else {
+    const updateEnv = {
+      CLAUDE_HOME: process.env.CLAUDE_HOME || (installState.settingsMode === "codex" ? path.join(os.homedir(), ".claude") : controlHome),
+      CODEX_HOME: process.env.CODEX_HOME || (installState.settingsMode === "codex" ? controlHome : path.join(os.homedir(), ".codex")),
+    };
     const update = run("bash", [updateScriptPath], {
-      env: { CLAUDE_HOME: controlHome },
-      timeout: 60_000,
+      env: updateEnv,
+      timeout: 180_000,
     });
     autoSucceeded = update.ok;
     autoUpdate = update.ok

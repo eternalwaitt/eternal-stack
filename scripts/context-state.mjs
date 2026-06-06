@@ -3,10 +3,12 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
+import { appendEvent, stableHash } from "./lib/etrnl-state-core.mjs";
 import { gitSubprocessLimits } from "./lib/env-utils.mjs";
 
 const args = process.argv.slice(2);
 const command = args[0] ?? "help";
+const dryRun = args.includes("--dry-run");
 const staleHours = Number(argValue("--stale-hours", process.env.ETRNL_CONTEXT_STALE_HOURS || "24"));
 const DEFAULT_GIT_TIMEOUT_MS = 5_000;
 const DEFAULT_GIT_MAX_BUFFER = 5 * 1024 * 1024;
@@ -63,9 +65,45 @@ function contextErrors(context) {
   if (!context.contextId) errors.push("contextId is required");
   if (!context.savedAt) errors.push("savedAt is required");
   if (context.savedAt && Number.isNaN(Date.parse(context.savedAt))) errors.push("savedAt must be an ISO timestamp");
-  if (!Array.isArray(context.modifiedFiles)) errors.push("modifiedFiles must be an array");
+  if (!Number.isFinite(Number(context.modifiedFileCount ?? 0))) errors.push("modifiedFileCount must be numeric");
   if (!Array.isArray(context.remainingWork)) errors.push("remainingWork must be an array");
   return errors;
+}
+
+function normalizeContext(context) {
+  const normalized = { ...context };
+  if (normalized.schemaVersion !== 1) {
+    normalized.schemaVersion = 1;
+  }
+  if (Array.isArray(normalized.modifiedFiles)) {
+    normalized.modifiedFileCount = normalized.modifiedFiles.length;
+    delete normalized.modifiedFiles;
+  } else if (!Number.isFinite(Number(normalized.modifiedFileCount ?? 0))) {
+    normalized.modifiedFileCount = 0;
+  }
+  for (const key of ["decisions", "blockers", "remainingWork", "verification"]) {
+    if (!Array.isArray(normalized[key])) {
+      normalized[key] = [];
+    }
+  }
+  return normalized;
+}
+
+function appendContextEntries(context, appendDryRun = false) {
+  const base = {
+    sessionId: context.contextId,
+    cwd: process.cwd(),
+  };
+  const rows = [
+    ...context.decisions.map((value) => ({ entryType: "decision", value })),
+    ...context.blockers.map((value) => ({ entryType: "blocker", value })),
+    ...context.remainingWork.map((value) => ({ entryType: "next_action", value })),
+    ...context.verification.map((value) => ({ entryType: "fact", value })),
+  ];
+  for (const row of rows) {
+    const result = appendEvent({ ...base, eventKind: "context_entry", data: row }, { dryRun: appendDryRun });
+    if (!result.ok) throw new Error(result.error.message);
+  }
 }
 
 function save() {
@@ -74,10 +112,13 @@ function save() {
     schemaVersion: 1,
     contextId: argValue("--id", `context-${Date.now()}`),
     title,
-    cwd: process.cwd(),
+    projectFingerprint: stableHash(process.cwd()),
     branch: gitOutput(["branch", "--show-current"]),
     head: gitOutput(["rev-parse", "--short", "HEAD"]),
-    modifiedFiles: gitOutput(["status", "--short"]).split(/\n/).filter(Boolean),
+    modifiedFileCount: (() => {
+      const output = gitOutput(["status", "--short"]);
+      return output.startsWith("unavailable:") ? 0 : output.split(/\n/).filter(Boolean).length;
+    })(),
     decisions: allValues("--decision"),
     blockers: allValues("--blocker"),
     remainingWork: allValues("--remaining"),
@@ -90,13 +131,19 @@ function save() {
     process.exit(1);
   }
   const file = path.join(contextDir(), `${context.contextId}.json`);
+  if (dryRun) {
+    appendContextEntries(context, true);
+    console.log(`dry-run: would write ${file}`);
+    return;
+  }
   mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
   writeFileSync(file, `${JSON.stringify(context, null, 2)}\n`, { mode: 0o600 });
+  appendContextEntries(context, false);
   console.log(file);
 }
 
 function readContext(file) {
-  const context = JSON.parse(readFileSync(file, "utf8"));
+  const context = normalizeContext(JSON.parse(readFileSync(file, "utf8")));
   const errors = contextErrors(context);
   if (errors.length > 0) throw new Error(errors.join("; "));
   return context;
@@ -111,7 +158,7 @@ function show() {
   const context = readContext(file);
   console.log(`# ${context.title}`);
   console.log(`branch=${context.branch} head=${context.head} savedAt=${context.savedAt} stale=${isStale(context)}`);
-  console.log(`modified=${context.modifiedFiles.length} remaining=${context.remainingWork.length} blockers=${context.blockers.length}`);
+  console.log(`modified=${context.modifiedFileCount ?? 0} remaining=${context.remainingWork.length} blockers=${context.blockers.length}`);
 }
 
 function list() {

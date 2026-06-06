@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { homedir } from "node:os";
 import path from "node:path";
+import { compactHandoff, readEvents } from "./lib/etrnl-state-core.mjs";
 
 const args = process.argv.slice(2);
 const command = args.find((arg) => !arg.startsWith("--")) || "help";
@@ -58,7 +59,10 @@ function parseJsonFile(file) {
 function privacyReason(value) {
   const text = JSON.stringify(value);
   if (/(promptText|rawPrompt|transcriptText|toolResultBody|messageText)"/.test(text)) return "raw-text-field";
-  if (/sk-(proj-)?[A-Za-z0-9_-]{20,}/.test(text)) return "secret-looking-token";
+  // Match common API keys, bearer tokens, cloud access keys, and PEM private keys before import.
+  if (/sk-(proj-|ant-)?[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9_]{20,}|glpat-[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9-]{20,}|npm_[A-Za-z0-9]{20,}|\b(?:AKIA|ASIA|OCI)[A-Z0-9]{12,}\b|Bearer\s+[A-Za-z0-9._-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----/i.test(text)) return "secret-looking-token";
+  if (/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.test(text)) return "private-identity";
+  if (/(postgres|mysql|mongodb|redis):\/\/[^/\s:@]+:[^@\s]+@/i.test(text)) return "credential-url";
   if (/\/Users\/victorpenter\b/.test(text)) return "private-home-path";
   if (/\.codex\/sessions|\.claude\/projects/.test(text)) return "private-transcript-path";
   if (/\b(tcg-collector|agency-tbd|core-suite|openclaw-etrnl|metacards-admin)\b/.test(text)) return "private-project-name";
@@ -182,6 +186,34 @@ function eventsFromLive() {
       if (normalized.rejected) rejected.push({ file: item.file, line: item.line, reason: normalized.reason, tool: item.value.tool || item.value.toolId || item.value.name || "" });
       else events.push(normalized);
     }
+  }
+  try {
+    for (const event of readEvents()) {
+      if (event.eventKind === "tool_signal") {
+        const normalized = normalizeEvent({ ...event.data, projectHash: event.projectFingerprint, eligible: true, toolUsed: true, usefulWork: true, downstreamArtifact: true, at: event.at }, "etrnl-state");
+        if (!normalized.rejected) events.push(normalized);
+      }
+    }
+    const handoff = compactHandoff({ latest: true });
+    if (handoff.found) {
+      const normalized = normalizeEvent({
+        tool: "compact-handoff",
+        toolKind: "compact-handoff",
+        eligible: true,
+        toolUsed: true,
+        usefulWork: true,
+        downstreamArtifact: true,
+        verificationRecovered: handoff.handoff && !handoff.handoff.verificationStale,
+        projectHash: handoff.latestCompact?.projectFingerprint || "compact",
+        at: handoff.handoff?.lastCompactAt || new Date(0).toISOString(),
+      }, "etrnl-state");
+      if (!normalized.rejected) events.push(normalized);
+    }
+  } catch (error) {
+    // Live ETRNL state is optional for effectiveness summaries.
+    const message = error instanceof Error ? error.message : String(error);
+    const level = /ENOENT|not found|missing|unavailable/i.test(message) ? "notice" : "warning";
+    console.error(`tool-effectiveness ${level}: live ETRNL state skipped: ${message}`);
   }
   const stateDir = process.env.CLAUDE_GUARD_STATE_DIR || "";
   if (stateDir && existsSync(stateDir)) {
@@ -325,7 +357,11 @@ function importCodex() {
       else events.push(normalized);
     }
   }
-  emit({ schemaVersion: 1, command: "import-codex", dryRun, eventsImported: events.length, rejected, ...(dryRun ? { events } : {}) });
+  if (!dryRun && events.length > 0) {
+    mkdirSync(path.dirname(DEFAULT_EVENTS_FILE), { recursive: true, mode: 0o700 });
+    appendFileSync(DEFAULT_EVENTS_FILE, `${events.map((event) => JSON.stringify(event)).join("\n")}\n`, { mode: 0o600 });
+  }
+  emit({ schemaVersion: 1, command: "import-codex", dryRun, eventsImported: events.length, rejected, output: dryRun ? "" : DEFAULT_EVENTS_FILE, ...(dryRun ? { events } : {}) });
 }
 
 try {

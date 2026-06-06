@@ -7,7 +7,7 @@ Execution scope: all_phases
 Deep stack artifacts: docs/plans/artifacts/2026-06-03-tool-effectiveness-and-beads-pilot/deep-stack-artifacts.json
 Goal: Add automatic local evidence that shows whether CodeGraph, Beads, and stolen hook patterns reduce coding friction or add noise.
 Non-goals: No remote telemetry, no private transcript upload, no replacement for ETRNL plans or execution ledgers, no default Beads rollout to every repo before pilot evidence, and no weakening of existing hook or doctor gates.
-Evidence: AGENTS.md; docs/configuration.md; docs/control-plane-coverage.md; docs/guards.md; docs/health-stack.md; docs/research/2026-06-03-starred-agent-stack-map.md; docs/research/top10-lock.json; docs/research/capability-evidence.json; scripts/execution-ledger.mjs; scripts/workflow-health.mjs; scripts/doctor.sh; hooks/cc-posttoolbatch-observer.sh; hooks/lib/state.sh; skills/etrnl-plan/SKILL.md; skills/etrnl-autoplan/SKILL.md; skills/etrnl-execute/SKILL.md; `node scripts/research-competitor-intel.mjs validate-manifest --manifest docs/research/top10-lock.json`; `node scripts/research-competitor-intel.mjs validate-evidence --evidence docs/research/capability-evidence.json`.
+Evidence: AGENTS.md; docs/configuration.md; docs/control-plane-coverage.md; docs/guards.md; docs/health-stack.md; docs/research/2026-06-03-starred-agent-stack-map.md; docs/research/top10-lock.json; docs/research/capability-evidence.json; scripts/execution-ledger.mjs; scripts/workflow-health.mjs; scripts/doctor.sh; hooks/cc-posttoolbatch-observer.sh; hooks/lib/state.sh; skills/etrnl-dev-plan/SKILL.md; skills/etrnl-dev-autoplan/SKILL.md; skills/etrnl-dev-execute/SKILL.md; `node scripts/research-competitor-intel.mjs validate-manifest --manifest docs/research/top10-lock.json`; `node scripts/research-competitor-intel.mjs validate-evidence --evidence docs/research/capability-evidence.json`.
 Assumptions: Beads is a durable backlog and dependency ledger, not an execution ledger; GitHub issues are not currently used as task truth; all continuous projects are in scope for the Beads pilot through a local untracked project registry; CodeGraph is globally installed and repo-local indexes are initialized only for pilot repos; Codex and Claude usage must both be measurable; effectiveness data stays local, sanitized, advisory-only for the first week, and automated enough that Victor can revisit later without manual log reading.
 
 ## What already exists
@@ -17,7 +17,7 @@ Assumptions: Beads is a durable backlog and dependency ledger, not an execution 
 - `scripts/execution-ledger.mjs` already stores run-scoped events, tasks, phases, agents, checks, artifacts, TDD evidence, simplifier evidence, specialist evidence, install proof, and completion audit rows.
 - `scripts/workflow-health.mjs` already summarizes ledgers by cwd, session, project, stale status, missing artifacts, failed checks, browser-QA reports, contexts, review logs, and next action.
 - `scripts/doctor.sh`, `tests/test-hooks.sh`, `tests/test-workflow-tools.sh`, and `node scripts/replay-hook-fixtures.mjs` already provide deterministic source gates for hooks and workflow tooling.
-- `etrnl-plan`, `etrnl-autoplan`, and `etrnl-execute` already define a complete plan-to-execution loop with readiness checks, execution ledgers, task packets, phase gates, review artifacts, and final verification.
+- `etrnl-dev-plan`, `etrnl-dev-autoplan`, and `etrnl-dev-execute` already define a complete plan-to-execution loop with readiness checks, execution ledgers, task packets, phase gates, review artifacts, and final verification.
 - `docs/research/2026-06-03-starred-agent-stack-map.md` already classifies CodeGraph as the strongest local code graph MCP candidate and Beads as a durable work-state candidate.
 
 Existing evidence flow:
@@ -29,7 +29,7 @@ Claude/Codex tool calls
 cc-posttoolbatch-observer.sh / Codex local session importer
   |
   +-- per-session guard state
-  +-- execution ledgers and artifacts during etrnl-execute
+  +-- execution ledgers and artifacts during etrnl-dev-execute
   |
   v
 workflow-health.mjs / doctor.sh
@@ -81,7 +81,7 @@ keep / enforce / repo-specific / remove-watch verdict
 - `tests/test-hooks.sh`: cover observer classification for MCP CodeGraph calls, Beads calls, and ignored unrelated MCP calls.
 - `docs/health-stack.md`: document the effectiveness checker and its weekly review command.
 - `docs/configuration.md`: document local-only paths, env vars, retention knobs, and privacy boundaries.
-- `docs/skills.md`: document how the measurement layer fits `etrnl-plan`, `etrnl-autoplan`, and `etrnl-execute`, and that Beads owns backlog/dependency state only.
+- `docs/skills.md`: document how the measurement layer fits `etrnl-dev-plan`, `etrnl-dev-autoplan`, and `etrnl-dev-execute`, and that Beads owns backlog/dependency state only.
 - `templates/tool-effectiveness-projects.example.json`: tracked schema example for the local continuous-project registry, with synthetic aliases only.
 - `docs/research/2026-06-03-starred-agent-stack-map.md`: append the pilot measurement criteria and Beads decision boundary, without changing existing evidence rows.
 - `CHANGELOG.md`: record CodeGraph global install support, CodeGraph ignore hygiene, and planned effectiveness instrumentation.
@@ -120,7 +120,7 @@ Verification: `node scripts/workflow-health.mjs status --json`, `node scripts/wo
 
 Owner: product/workflow decision owner.
 Dependencies: Group C verdict schema and a config-driven list of continuous-work projects.
-Acceptance criteria: docs define Beads as durable backlog, dependency, claim, blocker, and discovered-follow-up state; docs explicitly prohibit Beads from replacing `etrnl-plan`, `etrnl-autoplan`, `etrnl-execute`, execution ledgers, or any future external issue tracker; the first pilot includes all continuous-work projects through `~/.claude/control-plane/tool-effectiveness/projects.json`; the tracked template contains only synthetic project aliases and no Victor-specific paths; the list can be updated without code changes.
+Acceptance criteria: docs define Beads as durable backlog, dependency, claim, blocker, and discovered-follow-up state; docs explicitly prohibit Beads from replacing `etrnl-dev-plan`, `etrnl-dev-autoplan`, `etrnl-dev-execute`, execution ledgers, or any future external issue tracker; the first pilot includes all continuous-work projects through `~/.claude/control-plane/tool-effectiveness/projects.json`; the tracked template contains only synthetic project aliases and no Victor-specific paths; the list can be updated without code changes.
 Verification: `node scripts/tool-effectiveness.mjs summarize --tool beads --since-days 7 --projects-config "$HOME/.claude/control-plane/tool-effectiveness/projects.json" --json` after pilot data exists; before pilot data exists, fixture replay proves useful and noisy Beads cases are classified separately.
 
 ### Group F - Documentation, Rollout, And Final Gate
@@ -204,9 +204,9 @@ CodeGraph-specific value is counted when it is used before source edits for impa
 
 ## Skill/tool routing
 
-- Use `etrnl-plan` for this plan and readiness gate.
-- Use `etrnl-autoplan` only if Victor asks for a deeper execution-ready expansion after answering pilot questions.
-- Use `etrnl-execute` when Victor explicitly asks to implement the finalized plan.
+- Use `etrnl-dev-plan` for this plan and readiness gate.
+- Use `etrnl-dev-autoplan` only if Victor asks for a deeper execution-ready expansion after answering pilot questions.
+- Use `etrnl-dev-execute` when Victor explicitly asks to implement the finalized plan.
 - Use CodeGraph for implementation discovery after the next agent restart exposes the MCP tools, or use the `codegraph` CLI status when MCP is unavailable.
 - Use `code-simplifier` during implementation review if available because the aggregator can easily become overbuilt.
 - Use `finding-duplicate-functions` if effectiveness summarization duplicates workflow-health parsing.
@@ -286,7 +286,7 @@ Green: Implement schema, hook recording, and aggregator behavior until each fixt
 
 ## Execution handoff
 
-Use `etrnl-execute` after Victor explicitly asks to implement this plan. The executor should start with Group A fixtures, then implement in dependency order. Multiple pilot repo installs for Beads belong in the rollout phase after source gates pass and should be driven from the local continuous-project config list.
+Use `etrnl-dev-execute` after Victor explicitly asks to implement this plan. The executor should start with Group A fixtures, then implement in dependency order. Multiple pilot repo installs for Beads belong in the rollout phase after source gates pass and should be driven from the local continuous-project config list.
 
 ## Autoplan Review Report
 

@@ -84,7 +84,7 @@ node scripts/changelog-release-check.mjs
 
 Status: Complete; see `## Implementation Status`.
 
-Owner files: `scripts/browser-qa-report.mjs`, `scripts/post-upgrade-canary.sh`, `skills/etrnl-qa-browser/SKILL.md`, `agents/etrnl-browser-qa.md`, `docs/health-stack.md`, `docs/troubleshooting.md`, `tests/test-workflow-tools.sh`, `tests/test-install.sh`.
+Owner files: `scripts/browser-qa-report.mjs`, `scripts/post-upgrade-canary.sh`, `skills/etrnl-audit-browser/SKILL.md`, `agents/etrnl-browser-qa.md`, `docs/health-stack.md`, `docs/troubleshooting.md`, `tests/test-workflow-tools.sh`, `tests/test-install.sh`.
 
 Implementation:
 
@@ -133,18 +133,18 @@ Acceptance:
 node scripts/skill-contract-check.mjs --root .
 ```
 
-Rollback: keep the v2 reader additive and preserve v1 read compatibility. For current `/etrnl-execute` runs, missing structured evidence must fail closed; string evidence is legacy compatibility, not a pass for new execution.
+Rollback: keep the v2 reader additive and preserve v1 read compatibility. For current `/etrnl-dev-execute` runs, missing structured evidence must fail closed; string evidence is legacy compatibility, not a pass for new execution.
 
 ## Phase 3: Reviewer Binding Stop Gates
 
 Status: Complete; see `## Implementation Status`.
 
-Owner files: `hooks/cc-stop-verifier.sh`, `scripts/execution-ledger.mjs`, `scripts/agent-task-packet-check.mjs`, `skills/etrnl-execute/SKILL.md`, `agents/etrnl-executor.md`, `agents/etrnl-spec-reviewer.md`, `agents/etrnl-quality-reviewer.md`, `tests/test-hooks.sh`, `tests/test-workflow-tools.sh`.
+Owner files: `hooks/cc-stop-verifier.sh`, `scripts/execution-ledger.mjs`, `scripts/agent-task-packet-check.mjs`, `skills/etrnl-dev-execute/SKILL.md`, `agents/etrnl-executor.md`, `agents/etrnl-spec-reviewer.md`, `agents/etrnl-quality-reviewer.md`, `tests/test-hooks.sh`, `tests/test-workflow-tools.sh`.
 
 Implementation:
 
-1. For multi-file source edits after `/etrnl-execute`, require v2 ledger evidence for the current run: write-mode `etrnl-executor`, matching `taskId`, matching `packetHash`, bound `etrnl-spec-reviewer`, bound `etrnl-quality-reviewer`, and reviews after executor completion.
-2. If no active v2 ledger exists for a current `/etrnl-execute`, fail closed with a clear setup/ledger-init fix. Preserve the current string-based gate only for legacy runs outside `/etrnl-execute` and report `legacy` mode explicitly.
+1. For multi-file source edits after `/etrnl-dev-execute`, require v2 ledger evidence for the current run: write-mode `etrnl-executor`, matching `taskId`, matching `packetHash`, bound `etrnl-spec-reviewer`, bound `etrnl-quality-reviewer`, and reviews after executor completion.
+2. If no active v2 ledger exists for a current `/etrnl-dev-execute`, fail closed with a clear setup/ledger-init fix. Preserve the current string-based gate only for legacy runs outside `/etrnl-dev-execute` and report `legacy` mode explicitly.
 3. Add tests for wrong task, wrong packet hash, reviewer-before-executor, and valid bound reviews.
 
 Acceptance:
@@ -161,7 +161,7 @@ Rollback: revert Stop gate to current string evidence path. Keep v2 recording if
 
 Status: Complete; see `## Implementation Status`.
 
-Owner files: `scripts/execution-ledger.mjs`, `scripts/workflow-health.mjs`, `scripts/plan-readiness-check.mjs`, `skills/etrnl-autoplan/SKILL.md`, `skills/etrnl-plan/SKILL.md`, `skills/etrnl-execute/SKILL.md`, `skills/etrnl-qa-browser/SKILL.md`, `tests/test-workflow-tools.sh`.
+Owner files: `scripts/execution-ledger.mjs`, `scripts/workflow-health.mjs`, `scripts/plan-readiness-check.mjs`, `skills/etrnl-dev-autoplan/SKILL.md`, `skills/etrnl-dev-plan/SKILL.md`, `skills/etrnl-dev-execute/SKILL.md`, `skills/etrnl-audit-browser/SKILL.md`, `tests/test-workflow-tools.sh`.
 
 Implementation:
 
@@ -337,7 +337,7 @@ CLAUDE_HOME="$_STRICT_HOME" "$_STRICT_HOME/scripts/doctor-control-plane.sh"
 
 - Browser QA provenance: reject complete v2 reports without real, fresh, in-root screenshot evidence.
 - Evidence lineage: bind write packets, implementation agents, reviewers, and ledger records through stable task and packet identity.
-- Stop-gate binding: require correct executor and reviewer evidence for multi-file `/etrnl-execute` completion.
+- Stop-gate binding: require correct executor and reviewer evidence for multi-file `/etrnl-dev-execute` completion.
 - Phase and UAT state: prevent one mutable phase slot from overwriting longer multi-phase runs.
 - Workflow-health scoping: keep current project/session status from being polluted by unrelated stale ledgers.
 - Session learning hints: surface top local repeated failures only when gated, redacted, scoped, capped, and debounced.
@@ -356,12 +356,12 @@ CLAUDE_HOME="$_STRICT_HOME" "$_STRICT_HOME/scripts/doctor-control-plane.sh"
 
 ## Skill/tool routing
 
-- Use `/etrnl-plan` or this plan file as the planning artifact.
+- Use `/etrnl-dev-plan` or this plan file as the planning artifact.
 - Use `/autoplan` for strategy, engineering, and DX review before execution.
-- Use `/etrnl-execute` only after `plan-readiness-check.mjs` passes.
+- Use `/etrnl-dev-execute` only after `plan-readiness-check.mjs` passes.
 - Use `etrnl-executor` for write-mode implementation packets when parallel-safe or multi-file work is involved.
 - Use `etrnl-spec-reviewer` and `etrnl-quality-reviewer` after implementation evidence is recorded.
-- Use `etrnl-qa-browser` only for browser QA reports that include validated artifact evidence.
+- Use `etrnl-audit-browser` only for browser QA reports that include validated artifact evidence.
 - Use RTK-wrapped git/search commands in this repo when hooks require them.
 
 ## Test plan
@@ -391,7 +391,7 @@ CODE PATH COVERAGE
 ## Failure modes
 
 - False browser QA proof passes without a real screenshot. Mitigation: artifact-root, existence, size, freshness, hash, and provenance checks plus installed canary.
-- Unrelated subagent or reviewer call satisfies `/etrnl-execute` completion. Mitigation: taskId, lineageId, packetHash, executor, reviewer, and time-order binding.
+- Unrelated subagent or reviewer call satisfies `/etrnl-dev-execute` completion. Mitigation: taskId, lineageId, packetHash, executor, reviewer, and time-order binding.
 - Phase/UAT state is overwritten by later work. Mitigation: phase records with stable IDs and completion checks across all non-terminal/open UAT states.
 - SessionStart surfaces stale work from another cwd/session. Mitigation: default scoped workflow-health status and explicit `--all`.
 - Learning hints leak sensitive context or become noisy. Mitigation: opt-in or failure-triggered injection, strict redaction, top-3 cap, max chars, freshness, and session debounce.
@@ -500,7 +500,7 @@ Gate response: the implementation may proceed in dev mode while preserving final
 
 | Sub-problem | Existing code to reuse | Reuse assessment |
 | --- | --- | --- |
-| Browser QA evidence | `scripts/browser-qa-report.mjs`, `scripts/post-upgrade-canary.sh`, `tests/test-workflow-tools.sh`, `tests/test-install.sh`, `agents/etrnl-browser-qa.md`, `skills/etrnl-qa-browser/SKILL.md` | Reuse. Add artifact-root, hash, freshness, and path-safety validation here rather than new tooling. |
+| Browser QA evidence | `scripts/browser-qa-report.mjs`, `scripts/post-upgrade-canary.sh`, `tests/test-workflow-tools.sh`, `tests/test-install.sh`, `agents/etrnl-browser-qa.md`, `skills/etrnl-audit-browser/SKILL.md` | Reuse. Add artifact-root, hash, freshness, and path-safety validation here rather than new tooling. |
 | Task packets and reviewer contracts | `scripts/agent-task-packet-check.mjs`, `tests/fixtures/events/packet-*`, `hooks/cc-pretooluse-guard.sh` | Reuse. Extend packet validation to require `taskId`, `lineageId`, and packet hash for write mode. |
 | Execution ledgers | `scripts/execution-ledger.mjs`, `scripts/workflow-health.mjs`, `hooks/cc-sessionstart-restore.sh` | Reuse, but refactor toward append-only event receipts before adding more mutable top-level fields. |
 | Stop gates | `hooks/cc-stop-verifier.sh`, `hooks/cc-posttoolbatch-observer.sh`, `hooks/cc-subagentstop-record.sh`, `hooks/lib/state.sh` | Reuse. Stop should consume structured evidence when available and keep string evidence as legacy-only fallback. |
@@ -609,7 +609,7 @@ Strategy review consensus:
 | Failure mode | Severity | Why it matters | Gate |
 | --- | --- | --- | --- |
 | False visual QA evidence passes because screenshot file is missing. | Critical | User trusts a QA report that did not inspect a real rendered state. | Browser QA fixture and post-upgrade canary. |
-| Unrelated reviewer/subagent call satisfies completion. | Critical | `etrnl-execute` can claim reviewed work without task binding. | Structured packet hash + task lineage + Stop gate. |
+| Unrelated reviewer/subagent call satisfies completion. | Critical | `etrnl-dev-execute` can claim reviewed work without task binding. | Structured packet hash + task lineage + Stop gate. |
 | Unrelated stale run pollutes SessionStart. | High | Claude starts a new session with wrong next action. | `workflow-health status --cwd/--session` fixture. |
 | Final plan fails readiness checker. | High | Execution starts from an artifact the repo would reject elsewhere. | `plan-readiness-check` before implementation. |
 | Docs/changelog claim `done` before installed proof. | High | Shareable repo trust erodes. | Source gates + installed-home gates before release docs. |
@@ -630,7 +630,7 @@ Test plan artifact: local gstack project artifact `main-eng-review-test-plan-202
 | Sub-problem | Code evidence | Finding | Decision |
 | --- | --- | --- | --- |
 | Browser QA proof | `scripts/browser-qa-report.mjs` validates v2 matrix shape/status/counts but not screenshot file existence, hash, freshness, or root containment. | Real P0. Complete reports can still cite fake visual proof. | Keep Phase 1 first and make `screenshotSha256` mandatory for complete reports. |
-| Agent/reviewer lineage | `hooks/cc-posttoolbatch-observer.sh` records strings; `hooks/cc-stop-verifier.sh` counts string matches. | Real P0. Unrelated or early reviewer evidence can satisfy completion. | Require structured v2 trace evidence for current `/etrnl-execute`; strings are legacy only. |
+| Agent/reviewer lineage | `hooks/cc-posttoolbatch-observer.sh` records strings; `hooks/cc-stop-verifier.sh` counts string matches. | Real P0. Unrelated or early reviewer evidence can satisfy completion. | Require structured v2 trace evidence for current `/etrnl-dev-execute`; strings are legacy only. |
 | Packet identity | `scripts/agent-task-packet-check.mjs` write packet validation omits `taskId`, `lineageId`, and canonical packet hash. | High. The plan depends on identity fields that the packet checker does not yet require. | Add identity requirements before reviewer binding. |
 | Phase/UAT state | `scripts/execution-ledger.mjs` writes one top-level phase/UAT slot. | High. Later phases can overwrite earlier UAT state. | Make `phases[]` a projection over the evidence trace, with legacy aliases. |
 | Workflow status | `scripts/workflow-health.mjs` loads all ledgers and selects latest; SessionStart calls it unscoped. | High. Current project can inherit stale state from another cwd/session. | Add scoped filters and require `--all` for global status. |
@@ -643,7 +643,7 @@ Reviewer A findings:
 
 - Plan readiness passes, but phases 2-5 should not execute as separate state patches.
 - Ledger writes need an atomic or append-only event writer before evidence becomes authoritative.
-- Current `/etrnl-execute` should fail closed without v2 evidence; upgrade hints are too soft.
+- Current `/etrnl-dev-execute` should fail closed without v2 evidence; upgrade hints are too soft.
 - The plan file had local absolute paths that should not enter the public repo.
 - Browser screenshots need mandatory hash and route/viewport/target binding, not optional hashes.
 
@@ -705,7 +705,7 @@ Project bug memory
 | `browser-qa-report.mjs validate` | complete v2 screenshot file required | Matrix status/count tests only | missing, out-of-root, empty, stale, hash-mismatch, valid hash fixtures |
 | `browser-qa-report.mjs hash` | returns SHA-256 for artifact | None | hash command fixture and installed canary |
 | `agent-task-packet-check.mjs` | write packet identity required | reviewer contract fixtures | missing `taskId`, missing/invalid `lineageId`, canonical hash |
-| `execution-ledger.mjs` | v2 trace/event writer | v1 ledger and UAT tests | legacy read, v2 append, concurrent record, malformed pointer, current `/etrnl-execute` fail-closed |
+| `execution-ledger.mjs` | v2 trace/event writer | v1 ledger and UAT tests | legacy read, v2 append, concurrent record, malformed pointer, current `/etrnl-dev-execute` fail-closed |
 | `cc-posttoolbatch-observer.sh` | structured Agent/Task recording | string agent/reviewer tests | task/packet/lineage extraction and legacy string preservation |
 | `cc-stop-verifier.sh` | bound executor/reviewer evidence | string implementation/reviewer tests | wrong task, wrong hash, reviewer before executor, valid bound reviewers |
 | `execution-ledger.mjs` phase commands | phase projections from events | single top-level phase/UAT | multiple phases, open UAT blocks, legacy top-level alias |
@@ -719,7 +719,7 @@ Project bug memory
 | --- | --- | --- | --- | --- |
 | Complete browser report cites a missing screenshot. | Missing today | Validator currently passes | Silent false proof | Critical |
 | Concurrent subagent stops overwrite ledger evidence. | Missing today | No lock/append helper today | Silent lost review/agent record | Critical |
-| Unrelated reviewer satisfies `/etrnl-execute`. | Missing today | String gate passes too broadly | Silent false completion | Critical |
+| Unrelated reviewer satisfies `/etrnl-dev-execute`. | Missing today | String gate passes too broadly | Silent false completion | Critical |
 | Workflow status shows another cwd/session. | Missing today | No real scoping today | Misleading SessionStart hint | High |
 | Phase 2 overwrites Phase 1 UAT state. | Missing today | One mutable slot today | Silent lost UAT blocker | High |
 | Project learning hint leaks home path or raw cwd. | Partial today | Redaction incomplete for cwd output | Privacy leak in startup context | High |
@@ -834,7 +834,7 @@ Reviewer B findings:
 | Prerequisites | Missing tools surface during/after mutation. | Add preflight before any install mutation. |
 | Install | `~/.claude` mutation feels risky. | Document sandbox `CLAUDE_HOME` path and backup location. |
 | Verify | Doctor exists, expected outputs are scattered. | Add expected pass signals and mode matrix. |
-| First behavior | No single hello-world workflow. | Add one `/etrnl-plan` or workflow-health smoke path. |
+| First behavior | No single hello-world workflow. | Add one `/etrnl-dev-plan` or workflow-health smoke path. |
 | Strict mode | Opt-in exists but fresh smoke is undefined. | Add strict isolated smoke gate. |
 | Failure | Troubleshooting is list-based, not error-to-fix. | Standardize error shape and docs links. |
 | Upgrade | Update exists, dirty checkout refusal is good. | Add failure recovery and backup selection walkthrough. |
@@ -924,7 +924,7 @@ Overall DX: 6/10 current, 7/10 if checklist items land.
 | 7 | Strategy | Recommend browser QA P0 remains in scope. | Mechanical | Completeness | Live probe proves missing screenshots pass. | Defer browser QA provenance. |
 | 8 | Strategy | Treat dev-context correction as premise gate approval to continue. | Mechanical | Bias toward action | The execution context allows implementation to proceed while release proof remains gated. | Pause again for the same premise gate. |
 | 9 | Engineering | Select one local evidence trace contract as the Phase 2 architecture and keep original phases as delivery slices. | Mechanical | Explicit over clever | Strategy, engineering, and DX reviews all found the same identity problem across phases 2-5. | Add separate state models for lineage, phases, workflow, and hints. |
-| 10 | Eng | Make missing v2 evidence fail closed for current `/etrnl-execute`. | Mechanical | No silent fallback | String evidence can be unrelated; current execution needs bound task and packet evidence. | Treat missing v2 evidence as upgrade hint. |
+| 10 | Eng | Make missing v2 evidence fail closed for current `/etrnl-dev-execute`. | Mechanical | No silent fallback | String evidence can be unrelated; current execution needs bound task and packet evidence. | Treat missing v2 evidence as upgrade hint. |
 | 11 | Eng | Require `screenshotSha256` for complete v2 browser QA reports. | Mechanical | Evidence first | File existence alone proves little; route/viewport/target-bound hash prevents fake or stale screenshots. | Keep screenshot hash optional for complete reports. |
 | 12 | Eng | Add atomic locked event writing before relying on concurrent agent/reviewer evidence. | Mechanical | Correctness before breadth | Direct read-modify-write JSON can lose concurrent subagent records. | Add record-agent/review on top of unlocked writes. |
 | 13 | DX | Add sandbox quickstart, install preflight, mode matrix, and rollback walkthrough to the hardening scope. | Mechanical | Reduce first-run friction | New developers need proof before mutating their real Claude home. | Keep docs as terse command lists. |

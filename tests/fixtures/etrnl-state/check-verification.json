@@ -1,0 +1,10 @@
+{
+  "eventKind": "check",
+  "sessionId": "fixture-compact",
+  "cwd": "/tmp/fixture-project",
+  "data": {
+    "category": "verification",
+    "command": "tests/test-workflow-tools.sh",
+    "status": "passed"
+  }
+}

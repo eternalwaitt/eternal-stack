@@ -39,7 +39,7 @@ const emit = (result) => {
   );
   if (result.summary) console.log(result.summary);
   if (result.rawUpdateOutput) console.log(result.rawUpdateOutput);
-  console.log("Before using this skill, tell the user the update/bootstrap choices and ask to update now, snooze, or continue.");
+  console.log("Before using this skill, tell the user only about pending remote or tool-stack updates; local control-plane repair was checked without mutating this process.");
 };
 
 if (!fs.existsSync(updateScript)) {
@@ -59,11 +59,12 @@ if (!fs.existsSync(updateScript)) {
 
 const update = spawnSync(process.execPath, [updateScript, "--json"], {
   encoding: "utf8",
-  timeout: 30_000,
+  // Startup runs can include git and tool-stack probes; keep this bounded but above slow-network fetches.
+  timeout: 180_000,
   env: {
     ...process.env,
-    CLAUDE_CONTROL_PLANE_AUTO_UPDATE: "0",
     CLAUDE_CONTROL_PLANE_HOME: controlHome,
+    CLAUDE_CONTROL_PLANE_AUTO_UPDATE: "0",
   },
 });
 

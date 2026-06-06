@@ -30,7 +30,7 @@ Evidence: scripts/plan-readiness-check.mjs.
 
 ## Skill/tool routing
 
-- Use etrnl-plan.
+- Use etrnl-dev-plan.
 
 ## Test plan
 

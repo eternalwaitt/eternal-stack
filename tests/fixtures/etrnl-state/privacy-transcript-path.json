@@ -1,0 +1,10 @@
+{
+  "expectReject": true,
+  "event": {
+    "eventKind": "compact_post",
+    "sessionId": "fixture-privacy",
+    "data": {
+      "transcript_path": ".claude/projects/private/session.jsonl"
+    }
+  }
+}
