@@ -3,7 +3,9 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+/** Current durable ETRNL state event schema version written to local JSONL state. */
 export const SCHEMA_VERSION = 1;
+/** Event kinds accepted by the ETRNL state normalizer before append. */
 export const EVENT_KINDS = new Set([
   "session",
   "run",
@@ -33,20 +35,29 @@ const FORBIDDEN_KEYS = new Set([
   "messageText",
 ]);
 const EVENT_VALUE_FLAGS = new Set(["--fixture", "--state-dir", "--session", "--run", "--cwd", "--event-kind", "--max-chars", "--input"]);
-const DEFAULT_PRIVATE_PROJECT_NAMES = ["tcg-collector", "agency-tbd", "core-suite", "openclaw-etrnl", "metacards-admin"];
 const DEFAULT_LOCK_STALE_MS = 120_000;
-const configuredPrivateProjectNames = (process.env.ETRNL_STATE_PRIVATE_PROJECT_NAMES || DEFAULT_PRIVATE_PROJECT_NAMES.join(","))
+const configuredPrivateProjectNames = (process.env.ETRNL_STATE_PRIVATE_PROJECT_NAMES || "")
   .split(",")
   .map((value) => value.trim())
   .filter(Boolean);
 const privateProjectPattern = configuredPrivateProjectNames.length > 0
   ? new RegExp(`\\b(${configuredPrivateProjectNames.map(escapeRegex).join("|")})\\b`)
   : null;
+const SECRET_PATTERNS = [
+  /sk-(proj-|ant-)?[A-Za-z0-9_-]{20,}/,
+  /ghp_[A-Za-z0-9_]{20,}/,
+  /glpat-[A-Za-z0-9_-]{20,}/,
+  /xox[baprs]-[A-Za-z0-9-]{20,}/,
+  /npm_[A-Za-z0-9]{20,}/,
+  /AKIA[A-Z0-9]{16}/,
+  /BEGIN (?:RSA |EC |OPENSSH |)?PRIVATE KEY/,
+];
 
 function escapeRegex(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/** Read a CLI flag value from argv-style tokens, supporting `--flag value` and `--flag=value`. */
 export function flagValue(args, flag, fallback = "") {
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
@@ -56,6 +67,7 @@ export function flagValue(args, flag, fallback = "") {
   return fallback;
 }
 
+/** Collect positional CLI arguments while skipping known flags that consume values. */
 export function collectPositionals(args) {
   const out = [];
   for (let index = 0; index < args.length; index += 1) {
@@ -69,10 +81,12 @@ export function collectPositionals(args) {
   return out;
 }
 
+/** Resolve the local ETRNL state root from an explicit path, environment, or Claude home default. */
 export function stateRoot(explicit = "") {
   return path.resolve(explicit || process.env.ETRNL_STATE_DIR || process.env.CLAUDE_CONTROL_PLANE_STATE_DIR || path.join(process.env.CLAUDE_HOME || path.join(os.homedir(), ".claude"), "control-plane", "state"));
 }
 
+/** Build all filesystem paths owned by the local ETRNL state store for a root. */
 export function statePaths(root = stateRoot()) {
   return {
     root,
@@ -91,14 +105,17 @@ function readJson(file, fallback = null) {
   }
 }
 
+/** Produce a short stable hash for privacy-preserving project and packet fingerprints. */
 export function stableHash(value) {
   return crypto.createHash("sha256").update(String(value || "unknown")).digest("hex").slice(0, 16);
 }
 
+/** Return an ISO timestamp without millisecond noise for stable event records. */
 export function nowIso() {
   return new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 }
 
+/** Build a machine-readable ETRNL state error with a diagnostic command. */
 export function jsonError(code, message, action, extra = {}) {
   return {
     ok: false,
@@ -110,10 +127,12 @@ export function jsonError(code, message, action, extra = {}) {
   };
 }
 
+/** Normalize a session id so it is safe for local event records and lookup keys. */
 export function cleanSessionId(value = "") {
   return String(value || process.env.CLAUDE_SESSION_ID || "default").replace(/[^A-Za-z0-9_.-]/g, "_");
 }
 
+/** Read and parse the append-only event log, failing with line context on corrupt JSONL. */
 export function readEvents(root = stateRoot()) {
   const file = statePaths(root).events;
   if (!fs.existsSync(file)) return [];
@@ -169,6 +188,7 @@ function removeStaleLock(lock) {
   }
 }
 
+/** Run a synchronous critical section under the state store lock directory. */
 export function withLock(root, fn) {
   const { lock } = statePaths(root);
   fs.mkdirSync(root, { recursive: true, mode: 0o700 });
@@ -218,7 +238,7 @@ function privacyReject(value, trail = []) {
     return "";
   }
   if (typeof value !== "string") return "";
-  if (/sk-(proj-|ant-)?[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9_]{20,}|glpat-[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9-]{20,}|npm_[A-Za-z0-9]{20,}|AKIA[A-Z0-9]{16}|BEGIN (?:RSA |EC |OPENSSH |)?PRIVATE KEY/.test(value)) return "secret-looking token";
+  if (SECRET_PATTERNS.some((pattern) => pattern.test(value))) return "secret-looking token";
   if (/\.codex\/sessions|\.claude\/projects/.test(value)) return "private transcript path";
   if (hasPrivateAbsolutePathString(value)) return "private absolute path";
   if (privateProjectPattern?.test(value)) return "private project name";
@@ -234,6 +254,7 @@ function eventData(raw) {
   return data;
 }
 
+/** Validate, privacy-check, and normalize a raw event before append. */
 export function normalizeEvent(raw, options = {}) {
   const eventKind = String(raw.eventKind || raw.kind || options.eventKind || "").trim();
   if (!EVENT_KINDS.has(eventKind)) {
@@ -277,6 +298,7 @@ function nextEventSeq(events, event) {
     .reduce((max, item) => Math.max(max, Number(item.eventSeq || 0)), 0) + 1;
 }
 
+/** Append a normalized event to local state and rebuild derived views unless dry-run is set. */
 export function appendEvent(raw, options = {}) {
   const root = stateRoot(options.stateDir);
   const normalized = normalizeEvent(raw, options);
@@ -286,9 +308,10 @@ export function appendEvent(raw, options = {}) {
     const events = readEvents(root);
     const event = { ...normalized.event, eventSeq: normalized.event.eventSeq || nextEventSeq(events, normalized.event) };
     if (!options.dryRun) {
+      const nextEvents = [...events, event];
       fs.mkdirSync(root, { recursive: true, mode: 0o700 });
+      rebuildViews(root, nextEvents);
       fs.appendFileSync(paths.events, `${JSON.stringify(event)}\n`, { mode: 0o600 });
-      rebuildViews(root, [...events, event]);
     }
     return { ok: true, event, statePath: paths.events, dryRun: Boolean(options.dryRun) };
   });
@@ -302,6 +325,7 @@ function latestEvent(events, predicate) {
   })[0] || null;
 }
 
+/** Build the latest compact handoff packet and verification-staleness signal. */
 export function compactHandoff(options = {}) {
   const root = stateRoot(options.stateDir);
   const events = options.events || readEvents(root);
@@ -318,11 +342,12 @@ export function compactHandoff(options = {}) {
   const latestPre = latestEvent(sessionEvents, (event) => event.eventKind === "compact_pre");
   const latestPost = latestEvent(sessionEvents, (event) => event.eventKind === "compact_post");
   const latestCheck = latestEvent(sessionEvents, (event) => event.eventKind === "check" && (event.data.category === "verification" || event.data.verification === true));
-  const compactSeq = Math.max(Number(latestPre?.eventSeq || 0), Number(latestPost?.eventSeq || 0));
+  const latestCompactForSession = Number(latestPre?.eventSeq || 0) > Number(latestPost?.eventSeq || 0) ? latestPre : latestPost;
+  const compactSeq = Number(latestCompactForSession?.eventSeq || 0);
   const checkSeq = Number(latestCheck?.eventSeq || 0);
-  const summary = latestPost?.data.compactSummary || latestPost?.data.summary || "summary_missing";
-  const nextAction = latestPre?.data.nextAction || latestPost?.data.nextAction || "resume from the compact handoff";
-  const task = latestPre?.data.task || latestPost?.data.task || latestPre?.data.plan || "active ETRNL work";
+  const summary = latestCompactForSession?.data.compactSummary || latestCompactForSession?.data.summary || "summary_missing";
+  const nextAction = latestCompactForSession?.data.nextAction || "resume from the compact handoff";
+  const task = latestCompactForSession?.data.task || latestCompactForSession?.data.plan || "active ETRNL work";
   const handoff = {
     sessionId,
     compactEventSeq: compactSeq,
@@ -331,12 +356,13 @@ export function compactHandoff(options = {}) {
     task,
     nextAction,
     summary,
-    lastCompactAt: latestPost?.at || latestPre?.at || "",
+    lastCompactAt: latestCompactForSession?.at || "",
   };
   const text = boundText(`Compact recovery: task=${task} next=${nextAction} verification_stale=${handoff.verificationStale} summary=${summary}`, options.maxChars || 1200);
   return { ok: true, found: true, handoff, latestCompact, text, statePath: statePaths(root).events };
 }
 
+/** Return the Stop-hook status derived from compact handoff verification freshness. */
 export function stopStatus(options = {}) {
   const handoff = compactHandoff(options);
   const stale = Boolean(handoff.handoff?.verificationStale);
@@ -348,15 +374,18 @@ export function stopStatus(options = {}) {
   };
 }
 
+/** Rebuild derived state views from the append-only event log. */
 export function rebuildViews(root = stateRoot(), events = readEvents(root)) {
   const latest = compactHandoff({ stateDir: root, events, latest: true });
   writeAtomic(statePaths(root).compactView, `${JSON.stringify(latest, null, 2)}\n`);
 }
 
+/** Bound text by Unicode code points for compact handoff and hook output. */
 export function boundText(value, maxChars = 1200) {
   return Array.from(String(value || "")).slice(0, Number(maxChars) || 1200).join("");
 }
 
+/** Validate every JSON fixture in a directory against state event normalization rules. */
 export function validateFixtureDir(dir) {
   const errors = [];
   const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((file) => file.endsWith(".json")).sort() : [];
@@ -371,6 +400,7 @@ export function validateFixtureDir(dir) {
   return { ok: errors.length === 0, files: files.length, errors };
 }
 
+/** Count ETRNL context events that would be projected into Beads backlog state. */
 export function beadLinkDryRun(options = {}) {
   const events = readEvents(stateRoot(options.stateDir));
   const candidates = events.filter((event) => event.eventKind === "context_entry" && ["blocker", "dependency", "follow_up", "claim"].includes(event.data.entryType));
@@ -378,6 +408,7 @@ export function beadLinkDryRun(options = {}) {
   return { ok: true, dryRun: true, backlogCandidates: candidates.length, activeExecutionNoise: noise, wouldRunBd: false };
 }
 
+/** Detect raw Beads startup doctrine that must not be injected into ETRNL sessions. */
 export function beadPrimeAudit(text = "") {
   const body = String(text || "");
   const prohibited = [

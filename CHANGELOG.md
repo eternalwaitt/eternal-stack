@@ -4,8 +4,10 @@
 
 ## v0.2.0
 
+- Harden public control-plane health checks with config-driven private project redaction, strict workflow runtime doctor mode, clean `shellcheck -x` coverage, and updated documentation for the new runtime health flags. `workflow-health.mjs doctor` now exits non-zero when the doctor payload is unhealthy, so callers that capture doctor output should guard the command substitution instead of assuming success.
 - Rename repo-owned ETRNL skills to the canonical `etrnl-dev-*`, `etrnl-audit-*`, `etrnl-ops-*`, and `etrnl-comm-*` taxonomy and remove old slash alias routing.
 - Expand the deep-audit registry to code excellence, UI/UX/product, production, security, performance, shared reuse, repo hygiene, and tooling ecosystem.
+- Register `etrnl-audit-repo` and `etrnl-audit-tooling` in `scripts/lib/deep-audit-categories.mjs`, with health-stack docs for repo hygiene and tooling-ecosystem audit coverage.
 - Add first-class audit skills for excellence, UX, reuse, repo hygiene, and tooling.
 - Reset managed Claude Code `settings.json` to vanilla during install after backing it up, then apply the selected control-plane stack; add `--preserve-settings` for deliberate merge-in-place installs.
 - Add shareable `core` and `full` stack install profiles with profile manifests, Hindsight config templates, profile validation, full-profile bootstrap flags, Hindsight plugin/config posture checks, ETRNL-first lesson retention, and raw Beads doctrine rejection.

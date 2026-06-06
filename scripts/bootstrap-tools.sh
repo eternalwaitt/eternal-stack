@@ -168,8 +168,12 @@ need_command() {
 
 validate_external_hindsight_url() {
   local url="${1:-}"
-  if [[ ! "$url" =~ ^https?://[^/[:space:]]+([:/?].*)?$ ]]; then
+  if [[ ! "$url" =~ ^https?:// ]]; then
     printf 'bootstrap error: HINDSIGHT_API_URL must be an http(s) URL with a host\n' >&2
+    return 1
+  fi
+  if [[ ! "$url" =~ ^https?://((([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)(\.([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?))*|([0-9]{1,3}\.){3}[0-9]{1,3}|\[[0-9A-Fa-f:.]+\])(:[0-9]{1,5})?)(/.*)?$ ]]; then
+    printf 'bootstrap error: HINDSIGHT_API_URL host is not valid\n' >&2
     return 1
   fi
 }
@@ -283,12 +287,14 @@ install_hindsight() {
   confirm_status=0
   confirm_required "install Hindsight plugin and write local Hindsight config" || confirm_status=$?
   [[ "$confirm_status" == "0" ]] || return "$confirm_status"
-  plugin_list="$(claude plugin list 2>/dev/null || true)"
-  if [[ "$plugin_list" != *"hindsight-memory"* ]]; then
+  plugin_list="$(claude plugin list --json 2>/dev/null || claude plugin list 2>/dev/null || true)"
+  if jq -e 'if type == "array" then any(.[]; .name == "hindsight-memory") else false end' <<<"$plugin_list" >/dev/null 2>&1; then
+    printf 'ok: Hindsight plugin already installed\n'
+  elif [[ "$plugin_list" =~ (^|[[:space:]])hindsight-memory([[:space:]]|$) ]]; then
+    printf 'ok: Hindsight plugin already installed\n'
+  else
     claude plugin marketplace add vectorize-io/hindsight
     claude plugin install hindsight-memory
-  else
-    printf 'ok: Hindsight plugin already installed\n'
   fi
   mkdir -p "$hindsight_home"
   config_tmp="$(mktemp "$config_target.tmp.XXXXXX")"
@@ -308,7 +314,7 @@ install_hindsight() {
 
 bootstrap_project() {
   local project="$1"
-  local lock acquired confirm_status
+  local lock acquired confirm_status lock_retries lock_sleep attempt
   [[ -n "$project" ]] || return 0
   project="$(cd -- "$project" 2>/dev/null && pwd -P)" || { printf 'bootstrap error: project path not found: %s\n' "$project" >&2; return 1; }
   if [[ "$SKIP_CODEGRAPH" != "1" && "$DRY_RUN" == "1" ]]; then
@@ -316,12 +322,17 @@ bootstrap_project() {
   elif [[ "$SKIP_CODEGRAPH" != "1" ]] && need_command codegraph; then
     lock="$project/.codegraph-bootstrap.lock"
     acquired=0
-    for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+    lock_retries="${CODEGRAPH_LOCK_RETRIES:-20}"
+    lock_sleep="${CODEGRAPH_LOCK_BASE_SLEEP:-0.25}"
+    [[ "$lock_retries" =~ ^[0-9]+$ ]] || lock_retries=20
+    [[ "$lock_sleep" =~ ^[0-9]+([.][0-9]+)?$ ]] || lock_sleep=0.25
+    for ((attempt = 1; attempt <= lock_retries; attempt += 1)); do
       if mkdir "$lock" 2>/dev/null; then
         acquired=1
         break
       fi
-      sleep 0.25
+      sleep "$lock_sleep"
+      lock_sleep="$(awk -v value="$lock_sleep" 'BEGIN { next=value*2; if (next > 2) next=2; printf "%.2f", next }')"
     done
     [[ "$acquired" == "1" ]] || { printf 'bootstrap error: timed out waiting for CodeGraph project lock: %s\n' "$lock" >&2; return 1; }
     if [[ ! -d "$project/.codegraph" ]]; then

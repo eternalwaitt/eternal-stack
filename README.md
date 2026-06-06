@@ -36,7 +36,7 @@ cd claude-control-plane
 ./scripts/doctor.sh
 ```
 
-The `core` profile is the default when `CLAUDE_CONTROL_PLANE_STACK_PROFILE` is unset; it installs the safe observer stack with repo-owned ETRNL agents and verification tests. The `full` profile adds CodeGraph, Beads, Hindsight, and canaries. See [docs/install.md](docs/install.md) for profile details, strict mode, hooks, rollback, migration behavior, and deeper references such as `AGENTS.md`, `CLAUDE.md`, and `docs/skills.md`.
+The `core` profile is the default when `CLAUDE_CONTROL_PLANE_STACK_PROFILE` is unset; it installs the safe observer stack with repo-owned ETRNL agents and verification tests. The `full` profile adds CodeGraph, Beads, Hindsight, and canaries. See [docs/install.md](docs/install.md) for profile details, strict mode, hooks, rollback, migration behavior, and deeper references such as `AGENTS.md`, `templates/CLAUDE.md`, and `docs/skills.md`.
 
 Installs write `~/.claude/control-plane/install.json` and `~/.codex/control-plane/install.json` so Claude and Codex can detect source/install drift from their own installed homes.
 Run `~/.claude/scripts/update.sh` or `./scripts/update.sh` for manual updates.

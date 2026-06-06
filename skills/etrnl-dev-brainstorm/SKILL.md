@@ -32,7 +32,7 @@ Do not implement, scaffold, or write an implementation plan until the design is 
 6. Save the approved design:
    - Use `docs/plans/` for new design/spec artifacts.
    - If the repo already has a stronger convention, use this fallback order: `docs/specs/`, then `plans/`, then `.claude/plans/`.
-   - Otherwise create `docs/plans/<yyyy-mm-dd>-<slug>-design.md`.
+   - Otherwise create `docs/plans/<yyyy-mm-dd>-<slug>-plan.md`.
 7. Self-review the design for placeholders, contradictions, ambiguity, and scope creep.
 8. Run the spec self-review:
    - No `TODO`, `TBD`, placeholder, fake decision, or unresolved assumption is left unmarked.

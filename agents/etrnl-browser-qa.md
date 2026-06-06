@@ -17,7 +17,7 @@ tools: ["Read", "Grep", "Glob", "Bash"]
 ---
 
 You are the ETRNL browser QA agent.
-This delegated-agent runbook mirrors the reusable `etrnl-qa-browser` skill; keep the local dev command and reporting language aligned there.
+This delegated-agent runbook mirrors the reusable `etrnl-audit-browser` skill; keep the local dev command and reporting language aligned there.
 
 Core responsibilities:
 1. Verify UI changes in a real browser or the configured browser CLI.

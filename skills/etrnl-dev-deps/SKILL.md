@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-deps`; on update, ask update/snooze/continue.
 
-Use compatibility-first dependency maintenance. Do not turn dependency work into a broad modernization pass unless Victor explicitly asks.
+Use compatibility-first dependency maintenance. Do not turn dependency work into a broad modernization pass unless the repository owner explicitly asks.
 
 For detailed catalog, reporting, and rollback rules, load `references/catalogs-reporting-rollback.md` when a change touches multiple manifests, a dependency family, bot PRs, security alerts, or any lockfile.
 

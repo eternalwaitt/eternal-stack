@@ -101,16 +101,41 @@ function trend() {
   console.log(JSON.stringify({ schemaVersion: 1, command: "trend", comparisons }, null, 2));
 }
 
-function create() {
+function readJsonFromStdin() {
+  if (process.stdin.isTTY) return Promise.resolve({});
+  return new Promise((resolve, reject) => {
+    let input = "";
+    const timeoutMs = Number(process.env.CLAUDE_CONTROL_PLANE_STDIN_TIMEOUT_MS || "5000");
+    const timer = setTimeout(() => {
+      reject(new Error("stdin did not close; pipe JSON and close stdin/EOF"));
+    }, Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 5000);
+    process.stdin.setEncoding("utf8");
+    process.stdin.on("data", (chunk) => {
+      input += chunk;
+    });
+    process.stdin.on("error", (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
+    process.stdin.on("end", () => {
+      clearTimeout(timer);
+      try {
+        resolve(JSON.parse(input || "{}"));
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
+}
+
+async function create() {
   let input = {};
-  if (!process.stdin.isTTY) {
-    try {
-      input = JSON.parse(readFileSync(0, "utf8") || "{}");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.error(`performance-baseline invalid JSON from stdin: ${message}`);
-      process.exit(2);
-    }
+  try {
+    input = await readJsonFromStdin();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`performance-baseline invalid JSON from stdin or missing EOF: ${message}`);
+    process.exit(2);
   }
   const nextCommand = argValue(args, "--next-command", "");
   const report = {
@@ -133,7 +158,13 @@ function create() {
     console.error(issues.join("\n"));
     process.exit(1);
   }
-  mkdirSync(baselinesDir(), { recursive: true, mode: 0o700 });
+  const previousUmask = process.umask(0o077);
+  try {
+    mkdirSync(path.dirname(baselinesDir()), { recursive: true, mode: 0o700 });
+    mkdirSync(baselinesDir(), { recursive: true, mode: 0o700 });
+  } finally {
+    process.umask(previousUmask);
+  }
   const file = argValue(args, "--path", path.join(baselinesDir(), `${report.baselineId}.json`));
   writeFileSync(file, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
   console.log(file);
@@ -142,7 +173,7 @@ function create() {
 try {
   if (command === "validate") validate();
   else if (command === "trend") trend();
-  else if (command === "create") create();
+  else if (command === "create") await create();
   else {
     console.error("usage: performance-baseline.mjs create|validate|trend");
     process.exit(2);

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
+import path from "node:path";
 
 const command = process.argv[2] || "validate";
 const REQUIRED_FIELDS = ["path", "category", "estimatedBytes", "description", "whySafe", "cleanupCommand", "riskTier"];
@@ -25,7 +26,8 @@ function commandReferencesPath(commandText, itemPath) {
   const commandString = normalizedCommand(commandText);
   const pathString = String(itemPath || "");
   if (!pathString) return false;
-  return commandString.includes(pathString);
+  const escapedPath = pathString.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[\\s"';&|])${escapedPath}($|[\\s"';&|])`).test(commandString);
 }
 
 function hasRecursiveRm(commandText) {
@@ -33,18 +35,26 @@ function hasRecursiveRm(commandText) {
   // Detects recursive rm after normalizing escaped spaces: optional path prefix,
   // rm command boundary, arbitrary args, then -r/-R or --recursive.
   // Matches "rm -rf /tmp/a"; does not match "trash /tmp/a".
-  return /(^|[\s;&|])(?:\/[^\s;&|]+\/)?rm\s+(?:[^\n;&|]*\s+)*(?:-[A-Za-z]*[rR][A-Za-z]*|--recursive)\b/i.test(commandString);
+  return /(^|[\s;&|])(?:\/[^\s;&|]+\/)?rm\s*(?:[^\n;&|]*\s+)*(?:-[A-Za-z]*[rR][A-Za-z]*|--recursive)/i.test(commandString);
 }
 
 function targetsWholeTrash(commandText) {
   const commandString = normalizedCommand(commandText);
-  // Trash roots: macOS ~/.Trash, Linux ~/.local/share/Trash, and absolute /.Trash.
-  // The branches catch "empty trash", trash commands naming a trash root, and
-  // rm commands targeting one. Matches "trash ~/.Trash"; not "trash /tmp/a".
+  // Covers common Trash utilities that can target a whole trash root:
+  // trash/trash-put/gio trash/gvfs-trash, Finder osascript moves, and rm.
   const trashPath = /(?:~|\$HOME)\/\.Trash|(?:~|\$HOME)\/\.local\/share\/Trash|\b\/\.Trash\b/i;
   return /empty\s+trash/i.test(commandString)
-    || (/\btrash\b/i.test(commandString) && trashPath.test(commandString))
+    || (/\b(?:trash|trash-put|gvfs-trash)\b/i.test(commandString) && trashPath.test(commandString))
+    || (/\bgio\s+trash\b/i.test(commandString) && trashPath.test(commandString))
+    || (/\bosascript\b/i.test(commandString) && /Finder|Trash/i.test(commandString) && trashPath.test(commandString))
     || (/(^|[\s;&|])(?:\/[^\s;&|]+\/)?rm(?:\s+|$)/i.test(commandString) && trashPath.test(commandString));
+}
+
+function isSafeAbsolutePath(value) {
+  if (typeof value !== "string" || !value.startsWith("/")) return false;
+  if (value.includes("\u0000") || value.startsWith("//")) return false;
+  if (value.split("/").includes("..")) return false;
+  return path.posix.normalize(value) === value;
 }
 
 function validateManifest(manifest) {
@@ -55,7 +65,7 @@ function validateManifest(manifest) {
     for (const field of REQUIRED_FIELDS) {
       if (!(field in item)) errors.push(`items[${index}].${field} is required`);
     }
-    if (typeof item.path !== "string" || !item.path.startsWith("/")) errors.push(`items[${index}].path must be absolute`);
+    if (!isSafeAbsolutePath(item.path)) errors.push(`items[${index}].path must be absolute`);
     if (typeof item.estimatedBytes !== "number" || !Number.isFinite(item.estimatedBytes) || item.estimatedBytes < 0) errors.push(`items[${index}].estimatedBytes must be a non-negative number`);
     if (!ALLOWED_RISK_TIERS.has(item.riskTier)) errors.push(`items[${index}].riskTier must be 1, 2, or 3`);
     if (typeof item.cleanupCommand !== "string" || item.cleanupCommand.trim().length === 0) {

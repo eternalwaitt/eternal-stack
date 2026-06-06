@@ -17,6 +17,7 @@ if (unknownCommand) {
 }
 const command = positionalArgs.find((arg) => KNOWN_COMMANDS.has(arg)) || "summary";
 const jsonMode = args.includes("--json");
+const strictRuntime = args.includes("--strict") || process.env.ETRNL_WORKFLOW_HEALTH_STRICT === "1";
 const base = process.env.CLAUDE_CONTROL_PLANE_RUNS_DIR
   || path.join(process.env.CLAUDE_HOME || path.join(homedir(), ".claude"), "control-plane", "runs");
 const artifactBase = process.env.CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR
@@ -390,9 +391,23 @@ function prunableLedger(ledger) {
 function buildDoctor(ledgers, ledgerParseErrors) {
   const prunable = ledgers.filter(prunableLedger);
   const effectiveness = effectivenessStats();
+  const compact = compactStats();
+  const beads = beadStats();
+  const review = reviewStats();
+  const staleLedgerCount = ledgers.filter(staleRun).length;
+  const runtimeFindings = [];
+  if (ledgerParseErrors.length > 0) runtimeFindings.push({ id: "malformed-ledgers", count: ledgerParseErrors.length });
+  if (staleLedgerCount > 0) runtimeFindings.push({ id: "stale-ledgers", count: staleLedgerCount });
+  if (effectiveness.malformed > 0) runtimeFindings.push({ id: "malformed-effectiveness-events", count: effectiveness.malformed });
+  if (compact.staleVerification) runtimeFindings.push({ id: "stale-compact-verification", count: 1 });
+  if (review.malformed > 0) runtimeFindings.push({ id: "malformed-review-log", count: review.malformed });
+  if (review.unresolved > 0) runtimeFindings.push({ id: "unresolved-review-log", count: review.unresolved });
   return {
     schemaVersion: 1,
     command: "doctor",
+    ok: !strictRuntime || runtimeFindings.length === 0,
+    strict: strictRuntime,
+    strictReady: runtimeFindings.length === 0,
     filters: {
       cwd: cwdFilter,
       session: sessionFilter,
@@ -402,14 +417,20 @@ function buildDoctor(ledgers, ledgerParseErrors) {
     ledgers: {
       total: ledgers.length,
       malformed: ledgerParseErrors.length,
-      stale: ledgers.filter(staleRun).length,
+      stale: staleLedgerCount,
       prunable: prunable.length,
     },
     effectiveness: scopedView
       ? { events: 0, malformed: 0, stalePilotWindows: 0, scopedOut: true }
       : { events: effectiveness.events, malformed: effectiveness.malformed, stalePilotWindows: 0 },
-    compact: compactStats(),
-    beads: beadStats(),
+    reviewLog: {
+      entries: review.entries,
+      unresolved: review.unresolved,
+      malformed: review.malformed,
+    },
+    compact,
+    beads,
+    runtimeFindings,
     activeRunId: latestLedger(ledgers)?.runId || "",
     nextAction: prunable.length > 0 ? "run workflow-health prune --dry-run first, then prune without --dry-run" : "none",
   };
@@ -419,8 +440,10 @@ function renderDoctorText(doctor) {
   return [
     `workflowDoctor ledgers=${doctor.ledgers.total} malformed=${doctor.ledgers.malformed} stale=${doctor.ledgers.stale} prunable=${doctor.ledgers.prunable}`,
     `workflowDoctor effectivenessEvents=${doctor.effectiveness.events} effectivenessMalformed=${doctor.effectiveness.malformed}`,
+    `workflowDoctor reviewLogEntries=${doctor.reviewLog.entries} reviewLogUnresolved=${doctor.reviewLog.unresolved} reviewLogMalformed=${doctor.reviewLog.malformed}`,
     `workflowDoctor compactFound=${doctor.compact.found} compactStaleVerification=${doctor.compact.staleVerification}`,
     `workflowDoctor beadsBacklogCandidates=${doctor.beads.backlogCandidates} beadsActiveExecutionNoise=${doctor.beads.activeExecutionNoise}`,
+    `workflowDoctor strictReady=${doctor.strictReady} runtimeFindings=${doctor.runtimeFindings.map((finding) => `${finding.id}:${finding.count}`).join(",") || "none"}`,
     `workflowDoctor activeRun=${doctor.activeRunId || "none"} nextAction=${doctor.nextAction}`,
   ].join("\n");
 }
@@ -468,7 +491,7 @@ if (!existsSync(base)) {
     const doctor = buildDoctor([], []);
     if (jsonMode) emitJson(doctor);
     else console.log(renderDoctorText(doctor));
-    process.exit(0);
+    process.exit(doctor.ok ? 0 : 1);
   }
   if (command === "prune") {
     runPrune([]);
@@ -499,7 +522,7 @@ if (files.length === 0) {
     const doctor = buildDoctor([], []);
     if (jsonMode) emitJson(doctor);
     else console.log(renderDoctorText(doctor));
-    process.exit(0);
+    process.exit(doctor.ok ? 0 : 1);
   }
   if (command === "prune") {
     runPrune([]);
@@ -525,7 +548,7 @@ if (command === "doctor") {
   const doctor = buildDoctor(selectedLedgers, ledgerParseErrors);
   if (jsonMode) emitJson(doctor);
   else console.log(renderDoctorText(doctor));
-  process.exit(0);
+  process.exit(doctor.ok ? 0 : 1);
 }
 
 if (command === "prune") {

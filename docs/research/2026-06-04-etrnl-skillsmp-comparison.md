@@ -55,7 +55,7 @@ Result: source, Claude-home, and Codex-home ETRNL skills match right now.
 - Repeated wording: every skill has the same Codex update-prompt line. This is intentional but contributes prompt budget; keep it until the updater has a lower-bloat hook path.
 - Under-enforced behavior: `etrnl-dev-debug`, `etrnl-dev-pr`, and `etrnl-dev-commit` rely on prose only and lack helper-level preflight; quick wins can strengthen directive text, helper scripts belong in P1.
 - Prompt-budget risks: `etrnl-dev-execute`, `etrnl-dev-autoplan`, and `etrnl-dev-plan` are already large. Additions there must stay short; move extended examples to references or validators.
-- Category coverage gap: `etrnl-audit` registers only `production-readiness` and `performance`; security, UX/accessibility, API/data, docs, payments, and privacy/compliance remain known-unimplemented.
+- Category coverage gap as of the pre-implementation scan on 2026-06-04: `etrnl-audit` registered only `production-readiness` and `performance`; security, UX/accessibility, API/data, docs, payments, and privacy/compliance remained known-unimplemented. The later P2 entry "Register a security deep-audit category" records the security category completion.
 - Production readiness gap: app-level code checks are strong; operational PRR evidence is not registered as a check.
 - Browser QA gap: skill text requires v2 artifacts, but smoke coverage still exercises simpler/legacy behavior.
 - Context gap: context save/restore are privacy-safe but lack typed taxonomy and duplicate/noise guidance.

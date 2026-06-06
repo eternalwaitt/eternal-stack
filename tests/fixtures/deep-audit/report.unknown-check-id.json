@@ -14,7 +14,7 @@
     "payments",
     "privacy-compliance"
   ],
-  "coverageStatement": "Coverage: production-readiness. Known not-yet-registered audit domains: ux-accessibility, api-data, docs, payments, privacy-compliance.",
+  "coverageStatement": "Coverage: production-readiness, security. Known not-yet-registered audit domains: ux-accessibility, api-data, docs, payments, privacy-compliance.",
   "targetLabel": "synthetic-app",
   "targetFingerprint": "repo:synthetic-app@unknown-check-id",
   "requestedCategories": [

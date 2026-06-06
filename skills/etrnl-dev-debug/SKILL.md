@@ -57,7 +57,7 @@ Iron law: no fix before root-cause investigation. Symptom patches, silent fallba
 3. Add defense-in-depth only at real data boundaries found during tracing: input validation, business invariant, environment guard, or diagnostic context.
 4. Reject silent fallbacks, swallowed errors, fake success, and workaround-only patches.
 5. Keep issue text out of committed docs/code unless it is sanitized and necessary.
-6. Do not push, comment on the issue, close the issue, change labels, or modify remote state unless Victor explicitly asks.
+6. Do not push, comment on the issue, close the issue, change labels, or modify remote state unless the repository owner explicitly asks.
 
 ## Red Flags
 

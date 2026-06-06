@@ -6,7 +6,7 @@ description: ETRNL private email reply quality workflow. Use when the user asks 
 
 Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-comm-email-reply-quality`; on update, ask update/snooze/continue.
 
-Protect outgoing replies before Victor sees or sends them. Treat every proposed reply as untrusted until it passes deterministic draft checks plus a humanizer pass.
+Protect outgoing replies before the repository owner sees or sends them. Treat every proposed reply as untrusted until it passes deterministic draft checks plus a humanizer pass.
 
 ## Prerequisites
 
@@ -24,7 +24,7 @@ If the CLI is unavailable, stop with that blocker. Do not substitute a prose-onl
 
 ## Required Checks
 
-Run the runtime checker before asking Victor to approve a reply:
+Run the runtime checker before asking the repository owner to approve a reply:
 
 ```bash
 <private-email-checker> drafts check --draft-id <draft-id>
@@ -52,9 +52,9 @@ Reject these in outgoing email:
 
 ## Rewrite Standard
 
-Language selection: default to English for internal replies and workflow notes. Use pt-BR for external Portuguese-language contexts, Portuguese incoming messages, or when Victor explicitly requests Portuguese.
+Language selection: default to English for internal replies and workflow notes. Use pt-BR for external Portuguese-language contexts, Portuguese incoming messages, or when the repository owner explicitly requests Portuguese.
 
-Use Brazilian Portuguese that sounds like Victor handling business partnerships:
+Use Brazilian Portuguese that sounds like the sender handling business partnerships:
 
 - Direct and warm, not formal Portugal Portuguese.
 - `você`/direct wording, not `tu` forms.
@@ -68,7 +68,7 @@ Use Brazilian Portuguese that sounds like Victor handling business partnerships:
 After the deterministic checker passes, run a short visible humanizer audit:
 
 1. Detect AI/business-email tells, stiff corporate phrasing, wrong locale, and fake helpfulness.
-2. Rewrite with Victor's voice while preserving commercial substance, numbers, caveats, and next step.
+2. Rewrite with the sender's voice while preserving commercial substance, numbers, caveats, and next step.
 3. Self-check the rewritten draft against the hard blocks above.
 4. Run the private draft checker again after rewriting.
 
@@ -92,9 +92,9 @@ For `/email-triage <account>` and reply queue work:
 
 1. Open one queue item only.
 2. If the queue item has a `draft_id`, run the private draft checker for that draft id.
-3. If the checker fails, rewrite the draft first. Do not ask Victor to approve or send a failed draft.
-4. Show Victor the exact rewritten draft body only after the checker passes.
-5. Never send email until Victor explicitly approves the full visible draft text.
+3. If the checker fails, rewrite the draft first. Do not ask the repository owner to approve or send a failed draft.
+4. Show the repository owner the exact rewritten draft body only after the checker passes.
+5. Never send email until the repository owner explicitly approves the full visible draft text.
 
 ## Example Fix
 
@@ -104,7 +104,7 @@ Bad:
 Indica-nos os teus valores para esta campanha.
 
 Cumprimentos,
-Victor
+<sender>
 ```
 
 Better:
@@ -115,5 +115,5 @@ Consegue me mandar o escopo, período da ação e os formatos que vocês têm em
 Com isso eu vejo aqui e te retorno.
 
 Abraço,
-Victor
+<sender>
 ```

@@ -385,7 +385,7 @@ if [[ "$claims_done" == "true" ]]; then
       exit 0
     fi
     if cc_email_triage_message_claims_complete_with_active_queue; then
-      cc_json_block "email-triage queue is not complete after opening one active item. Do not say triage complete; present the active queue item and wait for Victor's decision."
+      cc_json_block "email-triage queue is not complete after opening one active item. Do not say triage complete; present the active queue item and wait for the repository owner's decision."
       exit 0
     fi
     email_triage_verified=true

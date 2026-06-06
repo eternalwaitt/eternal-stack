@@ -1,10 +1,12 @@
 # Hook Storm Control Plane Hardening Implementation Plan
 
-Status: Final
+Status: Archived historical plan; not an active execution plan.
+Execution scope: none.
+Test-first execution plan: Not applicable; this document records a shipped historical hardening plan.
 
-Goal: Turn the VIVAZ and MIMO hook-storm transcripts into deterministic guard fixes that preserve useful enforcement without trapping Claude in repeated blocked-tool loops or allowing prod-data hazards.
-Non-goals: No redesign of Claude Code itself; no RTK Rust implementation unless the local hook can safely avoid bad rewrites; no immediate patching of VIVAZ or MIMO application code; no migration of non-Hindsight memory systems.
-Evidence: `skills/etrnl-dev-plan/SKILL.md`, `scripts/plan-readiness-check.mjs`, `hooks/cc-pretooluse-guard.sh`, `hooks/cc-posttooluse-sycophancy.sh`, `hooks/cc-stop-verifier.sh`, `hooks/cc-posttoolbatch-observer.sh`, `hooks/lib/code-patterns.sh`, `hooks/lib/state.sh`, `scripts/agent-task-packet-check.mjs`, `hooks/fixtures/plans/good-plan.md`, VIVAZ transcript `14c676c0-0894-40b9-b26a-8c15d1286447`, and MIMO transcript `6506f7cd-4330-4d83-8850-b286fc23c16d`.
+Goal: Turn two scrubbed hook-storm transcript cases into deterministic guard fixes that preserve useful enforcement without trapping Claude in repeated blocked-tool loops or allowing prod-data hazards.
+Non-goals: No redesign of Claude Code itself; no RTK Rust implementation unless the local hook can safely avoid bad rewrites; no immediate patching of source-project application code; no migration of non-Hindsight memory systems.
+Evidence: `skills/etrnl-dev-plan/SKILL.md`, `scripts/plan-readiness-check.mjs`, `hooks/cc-pretooluse-guard.sh`, `hooks/cc-posttooluse-sycophancy.sh`, `hooks/cc-stop-verifier.sh`, `hooks/cc-posttoolbatch-observer.sh`, `hooks/lib/code-patterns.sh`, `hooks/lib/state.sh`, `scripts/agent-task-packet-check.mjs`, `hooks/fixtures/plans/good-plan.md`, and two minimized scrubbed transcript-derived cases.
 Assumptions: The goal is to improve the shareable `claude-control-plane` repo and its installed `~/.claude` copy through the normal install/update path after verification.
 
 ## Hook pipeline (ASCII)
@@ -108,7 +110,7 @@ PreToolUse input
 
 - **Group G: Replay tests, docs, doctor, changelog**
   - Owns fixtures, `tests/test-hooks.sh`, `scripts/doctor.sh`, docs, and changelog.
-  - Adds sanitized VIVAZ/MIMO regression cases.
+  - Adds sanitized source-project regression cases.
   - Verifies installed and repo-local behavior.
 
 ## Phases
@@ -203,7 +205,7 @@ PreToolUse input
 
 CODE PATH COVERAGE
 - `tests/test-hooks.sh`: add cases for allowed output-limit pipelines, denied primary legacy CLI, allowed verification rerun after edit generation changes, denied repeated non-verification commands with no state change, Markdown plan safety-removal bypass, source safety-removal still denied, read-only subagent reduced packet, write-agent full packet denial, prod `prisma db push` denial, and secret-command denial.
-- `scripts/replay-hook-fixtures.mjs`: assert VIVAZ and MIMO minimized events produce expected allow/warn/deny outcomes.
+- `scripts/replay-hook-fixtures.mjs`: assert minimized source-project events produce expected allow/warn/deny outcomes.
 - `scripts/plan-readiness-check.mjs docs/plans/2026-05-11-hook-storm-control-plane-hardening.md`: plan shape stays valid.
 - `scripts/doctor.sh`: overall repo health and changelog/tag checks.
 
@@ -275,7 +277,7 @@ E2E/EVAL NEEDS
   - Stop condition: any regression in existing guard behavior.
 
 - `node scripts/replay-hook-fixtures.mjs`
-  - Expected: all VIVAZ/MIMO replay fixtures match allow/warn/deny expectations.
+  - Expected: all source-project replay fixtures match allow/warn/deny expectations.
   - Stop condition: any hook-storm replay remains blocked incorrectly or any prod/secret replay is allowed.
 
 - `scripts/doctor.sh`
@@ -309,7 +311,7 @@ E2E/EVAL NEEDS
 
 ## Plan Readiness Report
 
-- Scope Challenge: The scope is bounded to guard behavior proven faulty by VIVAZ and MIMO transcripts. It avoids app fixes, RTK internals unless necessary, and private transcript vendoring. The smallest useful release is hook classifier/state changes plus replay fixtures, docs, doctor, and changelog.
+- Scope Challenge: The scope is bounded to guard behavior proven faulty by scrubbed source-project transcripts. It avoids app fixes, RTK internals unless necessary, and private transcript vendoring. The smallest useful release is hook classifier/state changes plus replay fixtures, docs, doctor, and changelog.
 - Architecture Review: Changes stay in existing hook architecture: Bash policy in `cc-pretooluse-guard.sh`, patterns in `code-patterns.sh`, session state in `state.sh`, stop policy in `cc-stop-verifier.sh`, and deterministic tests in `tests/test-hooks.sh`. Prod/secret protection is added before execution, not after completion.
 - Code Quality Review: The plan avoids one giant regex by introducing named classifiers and fixture-driven tests. It calls for code-simplifier review to keep shell logic readable and duplicate-function review if classifiers duplicate logic.
 - Test Review: The test plan covers command policy, evidence stickiness, edit safety, subagent packet proportionality, prod schema guards, secret-output guards, existing regression behavior, and temporary-home install health.

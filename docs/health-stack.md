@@ -2,6 +2,11 @@
 
 Use this stack when running `etrnl-audit-code` in this repo.
 
+## Deep-Audit Skills
+
+- `etrnl-audit-repo`: repo hygiene audit for organization, generated artifacts, dead files, and public-boundary drift; see `docs/skills.md` and `scripts/lib/deep-audit-categories.mjs`.
+- `etrnl-audit-tooling`: tooling-ecosystem audit for `tool-01` through `tool-05`, covering local setup, formatter/lint/test gates, CI parity, hook/tool drift, and developer workflow reliability; see `docs/skills.md` and `scripts/lib/deep-audit-categories.mjs`.
+
 ## Required Gates
 
 ```bash
@@ -90,6 +95,7 @@ node scripts/workflow-health.mjs
 node scripts/workflow-health.mjs status
 node scripts/workflow-health.mjs status --json
 node scripts/workflow-health.mjs doctor --json --all
+node scripts/workflow-health.mjs doctor --json --all --strict
 node scripts/workflow-health.mjs prune --older-than-days 30 --dry-run --all
 node scripts/tool-effectiveness.mjs summarize --since-days 7 --all --projects-config "$HOME/.claude/control-plane/tool-effectiveness/projects.json" --json
 node scripts/tool-effectiveness.mjs doctor --json
@@ -120,7 +126,7 @@ node scripts/update-check.mjs --explain
 scripts/post-upgrade-canary.sh
 ```
 
-- `scripts/workflow-health.mjs` reads run ledgers in parallel with `ETRNL_LEDGER_READ_CONCURRENCY` (default `8`, capped at `12` for constrained systems). `workflow-health.mjs status` is the concise text surface used by SessionStart hints; `status --json` is the machine-readable surface for active run id, unfinished work, missing artifacts, browser/context freshness, phase/UAT state, stale run count, and the next deterministic action.
+- `scripts/workflow-health.mjs` reads run ledgers in parallel with `ETRNL_LEDGER_READ_CONCURRENCY` (default `8`, capped at `12` for constrained systems). `workflow-health.mjs status` is the concise text surface used by SessionStart hints; `status --json` is the machine-readable surface for active run id, unfinished work, missing artifacts, browser/context freshness, phase/UAT state, stale run count, and the next deterministic action. Use `workflow-health.mjs doctor --strict` or `ETRNL_WORKFLOW_HEALTH_STRICT=1` when live runtime findings must fail closed instead of remaining diagnostic.
 - `tool-effectiveness.mjs` summarizes sanitized local tool events into deterministic `keep`, `enforce`, `repo-specific`, `remove-watch`, or `insufficient-data` verdicts. It reads hook tool-signal state, optional local event artifacts, and explicit Codex imports; it rejects raw prompts, transcript text, secrets, private transcript paths, and tracked private project names. Use the seven-day `summarize` command above to revisit CodeGraph, Beads, and stolen hook patterns without manual log reading.
 - `etrnl-state.mjs` is the canonical local state helper for compact lifecycle and small workflow events. It writes append-only JSONL under `~/.claude/control-plane/state`, rebuilds compact handoff views, rejects raw prompts/transcripts/private paths/secrets before append, and exposes `compact-handoff`, `stop-status`, `doctor`, `bead-link`, and `bead-prime-audit`. Hook hot paths may use bounded state appends and queries only.
 - `tool-stack-check.mjs` is the installed health surface for CodeGraph, Beads, and Hindsight plugin posture. `update-check.mjs` includes its missing/update signals, and `cc-userprompt-router.sh` uses that combined update signal to ask before requested `etrnl-*` skill invocations when CodeGraph, Beads, or repo-owned skills are stale.
@@ -150,6 +156,7 @@ scripts/post-upgrade-canary.sh
 - Documentation-health reports must include freshness/drift counters for recent commits reviewed, recent GitHub PRs reviewed or skipped with reason, recent-change docs-impact checks, checked doc claims, source-truth mappings, stale-reference searches, remaining outdated/stale/misleading docs, and active plan/work-queue stale docs; `100/100` is invalid while any docs in scope are unreviewed or any remaining-drift counter is nonzero.
 
 Doctor reports installed hooks and agents, strict/observer mode, ledger and artifact directories, stale runs, unresolved review findings, browser/context artifact counts, prompt-budget drift, settings-audit external hook inventory, and optional Codex/Gemini/browser/design tool availability. Missing optional tools are reported as `not installed`; they are not hard failures unless a plan explicitly requires them.
+`execution-wave-check.mjs` JSON output includes `schemaVersion`, `waves`, and `drift`. `drift` reports added/removed plans, wave changes, and order-insensitive file membership changes. With `--strict`, the command fails when any wave has `parallelSafe === false` or when `drift.length > 0`.
 It also enforces changelog release hygiene: `## Unreleased` must stay empty on every branch, all entries belong under a semantic version section, and post-tag commits require the first version section to advance beyond the latest git tag.
 Research artifacts record real extraction timestamps (`generatedAt`, `lastValidated`, `nextScan`) so staleness checks and refresh cadence remain auditable and current.
 `docs/research/top10-lock.json` is a committed reproducibility snapshot (includes `schemaVersion`) and is regenerated intentionally using `node scripts/research-competitor-intel.mjs extract --manifest docs/research/top10-lock.json --repos-root <repos-dir> --out docs/research/capability-evidence.json --write-manifest` when refreshing the competitor lock set.

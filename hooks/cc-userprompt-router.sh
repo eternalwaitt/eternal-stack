@@ -255,7 +255,36 @@ cc_prompt_skill_update_note() {
   [[ -r "$update_script" ]] || return 0
 
   update_status=0
-  update_output="$(CLAUDE_CONTROL_PLANE_AUTO_UPDATE=0 node "$update_script" 2>/dev/null)" || update_status=$?
+  local update_timeout
+  update_timeout="${CLAUDE_CONTROL_PLANE_SKILL_UPDATE_TIMEOUT_SEC:-5}"
+  if [[ ! "$update_timeout" =~ ^[0-9]+$ ]] || (( update_timeout <= 0 )); then
+    update_timeout=5
+  fi
+  if command -v timeout >/dev/null 2>&1; then
+    update_output="$(CLAUDE_CONTROL_PLANE_AUTO_UPDATE=0 timeout "${update_timeout}s" node "$update_script" 2>/dev/null)" || update_status=$?
+  else
+    local update_output_file update_pid update_elapsed
+    update_output_file="$(mktemp "${TMPDIR:-/tmp}/cc-skill-update.XXXXXX")"
+    update_status=124
+    CLAUDE_CONTROL_PLANE_AUTO_UPDATE=0 node "$update_script" >"$update_output_file" 2>/dev/null &
+    update_pid=$!
+    update_elapsed=0
+    while kill -0 "$update_pid" >/dev/null 2>&1; do
+      if (( update_elapsed >= update_timeout )); then
+        kill "$update_pid" >/dev/null 2>&1 || true
+        wait "$update_pid" >/dev/null 2>&1 || true
+        break
+      fi
+      sleep 1
+      update_elapsed=$((update_elapsed + 1))
+    done
+    if ! kill -0 "$update_pid" >/dev/null 2>&1; then
+      update_status=0
+      wait "$update_pid" >/dev/null 2>&1 || update_status=$?
+    fi
+    update_output="$(cat "$update_output_file")"
+    rm -f "$update_output_file"
+  fi
   [[ "$update_status" == "0" ]] || return 0
   [[ "$update_output" =~ (CONTROL_PLANE_UPDATE_AVAILABLE|CONTROL_PLANE_REMOTE_UPDATE_AVAILABLE|TOOL_STACK_UPDATE_AVAILABLE|TOOL_STACK_MISSING) ]] || return 0
 

@@ -50,7 +50,7 @@ For non-trivial plan, autoplan, or review work:
 - Run CEO, engineering, DX, adversarial, specialist, reuse, simplifier, and findings convergence.
 - Verify `reviewPhases[]`, `tddEvidence[]`, `completionReconciliation[]`, `reuseBindings[]`, `typeTriggerEvidence[]`, and `installProof` when the artifact declares them required.
 - Keep execution risk tiers out of planning shortcuts. Tiers apply only after deep review passes.
-- Block completion while any high/blocker finding is open, unless Victor explicitly accepts the risk.
+- Block completion while any high/blocker finding is open, unless the repository owner explicitly accepts the risk.
 - Review completion with a `DONE`, `PARTIAL`, `NOT_DONE`, `CHANGED`, or `BLOCKED` audit when an implementation plan exists.
 - Verify that source manifests are sanitized and do not include `/tmp`, home paths, transcripts, account material, or secrets.
 

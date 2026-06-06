@@ -361,9 +361,12 @@ if git -C "$ROOT" rev-parse --show-toplevel >/dev/null 2>&1; then
   inventory_quiet_json="$(node "$ROOT/scripts/code-health-inventory.mjs" --json --quiet)"
   assert_json_expr "code-health inventory json quiet emits JSON" "$inventory_quiet_json" '.totalFiles >= 1'
   assert_json_expr "code-health inventory emits measured hotspots" "$inventory_quiet_json" '.riskHotspots | type == "array"'
+  inventory_one_hotspot_json="$(node "$ROOT/scripts/code-health-inventory.mjs" --json --max-hotspots=1)"
+  assert_json_expr "code-health inventory bounds hotspot count from CLI" "$inventory_one_hotspot_json" '.riskHotspots | length <= 1'
 else
   ok "SKIPPED (not in git repo) code-health inventory runs"
   ok "SKIPPED (not in git repo) code-health inventory quiet JSON emits JSON"
+  ok "SKIPPED (not in git repo) code-health inventory max hotspots"
 fi
 inventory_exclusion_root="$TMPROOT/code-health-inventory-exclusions"
 mkdir -p \
@@ -399,6 +402,7 @@ mkdir -p "$inventory_exclusion_root/src/auth-service" "$inventory_exclusion_root
 printf '%s\n' 'export const authService = true' >"$inventory_exclusion_root/src/auth-service/index.ts"
 printf '%s\n' 'export const serviceAuth = true' >"$inventory_exclusion_root/src/service-auth/index.ts"
 printf '%s\n' 'export const authored = true' >"$inventory_exclusion_root/src/authored/index.ts"
+printf '%s\n' 'export const exportOnly = true' >"$inventory_exclusion_root/src/export.ts"
 printf '%s\n' '{"session":"local"}' >"$inventory_exclusion_root/.claude/state.json"
 printf '%s\n' 'local log' >"$inventory_exclusion_root/logs/run.log"
 printf '%s\n' 'export const out = true' >"$inventory_exclusion_root/out/bundle.js"
@@ -409,6 +413,7 @@ inventory_exclusion_json="$(node "$ROOT/scripts/code-health-inventory.mjs" --jso
 assert_json_expr "code-health inventory lists obvious folders without auditing them" "$inventory_exclusion_json" '([.files[] | select(.path == "src/app.ts" and .auditScope == "audit")] | length) == 1 and ([.files[] | select(((.path | startswith("src/") | not) and .path != "docs/security.md" and .path != "tests/auth.test.ts") and .auditScope != "listed")] | length) == 0 and ([.files[] | select(.path | startswith(".audit/"))][0].category == "excluded")'
 assert_json_expr "code-health inventory keeps doc/test sensitive paths below hotspot threshold" "$inventory_exclusion_json" '([.riskHotspots[] | select(.path == "docs/security.md" or .path == "tests/auth.test.ts")] | length) == 0'
 assert_json_expr "code-health inventory uses segment boundaries for sensitive path tokens" "$inventory_exclusion_json" '([.riskHotspots[] | select(.path == "src/auth-service/index.ts" or .path == "src/service-auth/index.ts")] | length) == 2 and ([.riskHotspots[] | select(.path == "src/authored/index.ts")] | length) == 0'
+assert_json_expr "code-health inventory keeps generic action names below hotspot threshold" "$inventory_exclusion_json" '([.riskHotspots[] | select(.path == "src/export.ts")] | length) == 0'
 assert_command "plan readiness syntax" node --check "$ROOT/scripts/plan-readiness-check.mjs"
 assert_command "deep-stack check syntax" node --check "$ROOT/scripts/deep-stack-check.mjs"
 assert_command "tool-effectiveness syntax" node --check "$ROOT/scripts/tool-effectiveness.mjs"
@@ -420,7 +425,7 @@ assert_command "live hook noise report syntax" node --check "$ROOT/scripts/live-
 assert_command "session audit syntax" node --check "$ROOT/scripts/session-audit.mjs"
 assert_command "performance baseline syntax" node --check "$ROOT/scripts/performance-baseline.mjs"
 assert_command "disk cleanup manifest syntax" node --check "$ROOT/scripts/disk-cleanup-manifest.mjs"
-assert_command "pr preflight validates fixture" bash -c 'printf "%s\n" "{\"branch\":\"feature\",\"dirty\":false,\"changedFiles\":[],\"blockers\":[],\"ghAvailable\":false}" | node "$0/scripts/pr-preflight.mjs" validate --json >/dev/null' "$ROOT"
+assert_command "pr preflight validates fixture" bash -c "printf '%s\n' '{\"branch\":\"feature\",\"dirty\":false,\"changedFiles\":[],\"blockers\":[],\"ghAvailable\":false}' | node \"\$0/scripts/pr-preflight.mjs\" validate --json >/dev/null" "$ROOT"
 if pr_invalid_json="$(printf '{' | node "$ROOT/scripts/pr-preflight.mjs" validate --json 2>&1)"; then
   not_ok "pr preflight reports invalid JSON"
 else
@@ -463,8 +468,13 @@ if perf_invalid_json="$(printf '{' | node "$ROOT/scripts/performance-baseline.mj
 else
   assert_contains "performance baseline reports invalid JSON" "$perf_invalid_json" "invalid JSON from stdin"
 fi
+if perf_stdin_timeout="$(CLAUDE_CONTROL_PLANE_STDIN_TIMEOUT_MS=1 node "$ROOT/scripts/performance-baseline.mjs" create < <(sleep 0.05) 2>&1)"; then
+  not_ok "performance baseline fails when stdin does not close"
+else
+  assert_contains "performance baseline fails when stdin does not close" "$perf_stdin_timeout" "missing EOF"
+fi
 disk_manifest_fixture='{"items":[{"path":"/tmp/cache/file","category":"cache","estimatedBytes":1024,"description":"cache file","whySafe":"rebuildable cache","cleanupCommand":"trash /tmp/cache/file","riskTier":1}]}'
-assert_command "disk cleanup manifest validates fixture" bash -c 'printf "%s\n" "$1" | node "$0/scripts/disk-cleanup-manifest.mjs" validate >/dev/null' "$ROOT" "$disk_manifest_fixture"
+assert_command "disk cleanup manifest validates fixture" bash -c "printf '%s\n' \"\$1\" | node \"\$0/scripts/disk-cleanup-manifest.mjs\" validate >/dev/null" "$ROOT" "$disk_manifest_fixture"
 disk_manifest_missing_items='{"schemaVersion":1}'
 disk_missing_summary="$(printf '%s\n' "$disk_manifest_missing_items" | node "$ROOT/scripts/disk-cleanup-manifest.mjs" summary)"
 assert_json_expr "disk cleanup manifest summary tolerates missing items" "$disk_missing_summary" '.items == 0 and .totalBytes == 0'
@@ -486,11 +496,23 @@ if disk_recursive="$(printf '%s\n' "$disk_manifest_recursive" | node "$ROOT/scri
 else
   assert_contains "disk cleanup manifest rejects recursive rm variants" "$disk_recursive" "must not use recursive rm"
 fi
+disk_manifest_glued_recursive='{"items":[{"path":"/tmp/cache/file","category":"cache","estimatedBytes":1024,"description":"cache file","whySafe":"rebuildable cache","cleanupCommand":"/bin/rm-Rf /tmp/cache/file","riskTier":1}]}'
+if disk_glued_recursive="$(printf '%s\n' "$disk_manifest_glued_recursive" | node "$ROOT/scripts/disk-cleanup-manifest.mjs" validate 2>&1)"; then
+  not_ok "disk cleanup manifest rejects glued recursive rm variants"
+else
+  assert_contains "disk cleanup manifest rejects glued recursive rm variants" "$disk_glued_recursive" "must not use recursive rm"
+fi
 disk_manifest_trash='{"items":[{"path":"/tmp/cache/file","category":"cache","estimatedBytes":1024,"description":"cache file","whySafe":"rebuildable cache","cleanupCommand":"trash ~/.Trash /tmp/cache/file","riskTier":1}]}'
 if disk_trash="$(printf '%s\n' "$disk_manifest_trash" | node "$ROOT/scripts/disk-cleanup-manifest.mjs" validate 2>&1)"; then
   not_ok "disk cleanup manifest rejects whole Trash cleanup"
 else
   assert_contains "disk cleanup manifest rejects whole Trash cleanup" "$disk_trash" "must not empty the whole Trash"
+fi
+disk_manifest_denormalized_path='{"items":[{"path":"/tmp/cache/../file","category":"cache","estimatedBytes":1024,"description":"cache file","whySafe":"rebuildable cache","cleanupCommand":"trash /tmp/cache/../file","riskTier":1}]}'
+if disk_denormalized_path="$(printf '%s\n' "$disk_manifest_denormalized_path" | node "$ROOT/scripts/disk-cleanup-manifest.mjs" validate 2>&1)"; then
+  not_ok "disk cleanup manifest rejects denormalized absolute paths"
+else
+  assert_contains "disk cleanup manifest rejects denormalized absolute paths" "$disk_denormalized_path" "path must be absolute"
 fi
 assert_command "deep-stack artifact library syntax" node --check "$ROOT/scripts/lib/deep-stack-artifacts.mjs"
 assert_command "deep-audit artifact check syntax" node --check "$ROOT/scripts/deep-audit-artifact-check.mjs"
@@ -579,6 +601,13 @@ printf '%s\n' '{"eventKind":"compact_post","sessionId":"newer-compact","at":"202
   | ETRNL_STATE_DIR="$etrnl_latest_dir" node "$ROOT/scripts/etrnl-state.mjs" append --json >/dev/null
 etrnl_latest_json="$(ETRNL_STATE_DIR="$etrnl_latest_dir" node "$ROOT/scripts/etrnl-state.mjs" compact-handoff --latest --json)"
 assert_json_expr "etrnl latest handoff compares timestamps across sessions" "$etrnl_latest_json" '.found == true and .handoff.sessionId == "newer-compact" and (.text | test("summary=newer"))'
+etrnl_single_compact_dir="$TMPROOT/etrnl-state-single-compact"
+printf '%s\n' '{"eventKind":"compact_post","sessionId":"single-compact","at":"2026-06-05T03:00:00Z","data":{"compactSummary":"post summary","nextAction":"post next","task":"post task"}}' \
+  | ETRNL_STATE_DIR="$etrnl_single_compact_dir" node "$ROOT/scripts/etrnl-state.mjs" append --json >/dev/null
+printf '%s\n' '{"eventKind":"compact_pre","sessionId":"single-compact","at":"2026-06-05T04:00:00Z","data":{"summary":"pre summary","nextAction":"pre next","task":"pre task"}}' \
+  | ETRNL_STATE_DIR="$etrnl_single_compact_dir" node "$ROOT/scripts/etrnl-state.mjs" append --json >/dev/null
+etrnl_single_compact_json="$(ETRNL_STATE_DIR="$etrnl_single_compact_dir" node "$ROOT/scripts/etrnl-state.mjs" compact-handoff --session single-compact --json)"
+assert_json_expr "etrnl compact handoff uses one newest compact event" "$etrnl_single_compact_json" '.handoff.task == "pre task" and .handoff.nextAction == "pre next" and .handoff.summary == "pre summary"'
 if ETRNL_STATE_DIR="$etrnl_state_dir" node "$ROOT/scripts/etrnl-state.mjs" stop-status --session fixture-compact --json >/dev/null 2>&1; then
   not_ok "etrnl stop-status blocks stale compact verification"
 else
@@ -588,6 +617,8 @@ ETRNL_STATE_DIR="$etrnl_state_dir" node "$ROOT/scripts/etrnl-state.mjs" append -
 assert_command "etrnl stop-status allows fresh verification" env ETRNL_STATE_DIR="$etrnl_state_dir" node "$ROOT/scripts/etrnl-state.mjs" stop-status --session fixture-compact --json
 etrnl_privacy_json="$(node "$ROOT/scripts/etrnl-state.mjs" append --fixture "$ROOT/tests/fixtures/etrnl-state/privacy-raw-prompt.json" --dry-run --json 2>/dev/null || true)"
 assert_json_expr "etrnl state privacy rejects raw prompt" "$etrnl_privacy_json" '.ok == false and .code == "PrivacyRejectError" and .diagnosticCommand != ""'
+etrnl_private_project_json="$(printf '%s\n' '{"eventKind":"lesson","sessionId":"fixture-privacy","data":{"content":"fixture-secret-project must stay local"}}' | ETRNL_STATE_PRIVATE_PROJECT_NAMES="fixture-secret-project" node "$ROOT/scripts/etrnl-state.mjs" append --dry-run --json 2>/dev/null || true)"
+assert_json_expr "etrnl state private project names are local config" "$etrnl_private_project_json" '.ok == false and .code == "PrivacyRejectError" and (.message | test("private project name"))'
 beads_state_dir="$TMPROOT/etrnl-state-beads"
 ETRNL_STATE_DIR="$beads_state_dir" node "$ROOT/scripts/etrnl-state.mjs" append --fixture "$ROOT/tests/fixtures/etrnl-state/beads-backlog.json" --json >/dev/null
 ETRNL_STATE_DIR="$beads_state_dir" node "$ROOT/scripts/etrnl-state.mjs" append --fixture "$ROOT/tests/fixtures/etrnl-state/beads-active-execution-noise.json" --json >/dev/null
@@ -699,6 +730,7 @@ jq -n '{
   events: (
     [range(0;5) | {
       tool: "leaky-tool",
+      project: (if . == 0 then "fixture-secret-project" else "" end),
       projectHash: "privacy-project",
       eligible: true,
       toolUsed: true,
@@ -713,11 +745,19 @@ jq -n '{
     + [{
       tool: "leaky-tool",
       promptText: "raw prompt must be rejected"
+    }, {
+      tool: "leaky-tool",
+      cwd: "/home/example/private-repo"
+    }, {
+      tool: "leaky-tool",
+      cwd: "C:\\Users\\Example\\private-repo"
     }]
   )
 }' >"$tool_effectiveness_privacy_root/events.json"
 tool_effectiveness_privacy_json="$(node "$ROOT/scripts/tool-effectiveness.mjs" summarize --fixtures "$tool_effectiveness_privacy_root" --json)"
-assert_json_expr "tool-effectiveness privacy rejects downgrade tool" "$tool_effectiveness_privacy_json" '."tools"."leaky-tool".verdict == "remove-watch" and ."tools"."leaky-tool".evidence.privacyRejectCount == 1'
+assert_json_expr "tool-effectiveness privacy rejects downgrade tool" "$tool_effectiveness_privacy_json" '."tools"."leaky-tool".verdict == "remove-watch" and ."tools"."leaky-tool".evidence.privacyRejectCount == 3'
+tool_effectiveness_project_privacy_json="$(ETRNL_TOOL_EFFECTIVENESS_PRIVATE_PROJECT_NAMES="fixture-secret-project" node "$ROOT/scripts/tool-effectiveness.mjs" summarize --fixtures "$tool_effectiveness_privacy_root" --json)"
+assert_json_expr "tool-effectiveness private project names are local config" "$tool_effectiveness_project_privacy_json" '.totals.rejected == 4 and ."tools"."leaky-tool".evidence.privacyRejectCount == 4'
 tool_effectiveness_baseline_json="$(node "$ROOT/scripts/tool-effectiveness.mjs" baseline --since-days 7 --fixtures "$ROOT/tests/fixtures/tool-effectiveness" --json)"
 assert_json_expr "tool-effectiveness baseline emits tool medians" "$tool_effectiveness_baseline_json" '.command == "baseline" and .byTool.codegraph.medianReadSearchCount >= 0'
 tool_effectiveness_codex_import_json="$(node "$ROOT/scripts/tool-effectiveness.mjs" import-codex --fixtures "$ROOT/tests/fixtures/tool-effectiveness/codex" --dry-run --json)"
@@ -868,8 +908,11 @@ settings_audit_async_report="$(HOME="$settings_audit_home" node "$ROOT/scripts/s
 assert_json_expr "settings-audit strict rejects async compact restore" "$settings_audit_async_report" '.ok == false and any(.after.syncExpectationIssues[]?; .id == "compact-restore-sync")'
 assert_json_expr "settings-audit strict classifies compact companion noise" "$settings_audit_async_report" 'any(.after.conflictingHooks[]?; .id == "compact-companion-noise" and .hook == "suggest-compact.sh")'
 settings_audit_quoted_target="$TMPROOT/settings-audit-quoted-target.json"
-# shellcheck disable=SC2016
-printf '%s\n' '{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"bash '\''$HOME/.claude/hooks/check-context-and-handoff.sh'\''"},{"type":"command","command":"bash \"~/.claude/hooks/check-context-and-handoff.sh\""}]}]}}' >"$settings_audit_quoted_target"
+jq -n \
+  --arg literal_home "bash '\$HOME/.claude/hooks/check-context-and-handoff.sh'" \
+  --arg quoted_tilde 'bash "~/.claude/hooks/check-context-and-handoff.sh"' \
+  '{hooks:{Stop:[{hooks:[{type:"command",command:$literal_home},{type:"command",command:$quoted_tilde}]}]}}' \
+  >"$settings_audit_quoted_target"
 settings_audit_quoted_report="$(HOME="$settings_audit_home" node "$ROOT/scripts/settings-audit.mjs" "$settings_audit_quoted_target" --json)"
 assert_json_expr "settings-audit ignores single-quoted HOME hook paths" "$settings_audit_quoted_report" '([.after.conflictingHooks[]? | select(.id == "invalid-stop-context-handoff")] | length) == 0'
 assert_json_expr "settings-audit ignores double-quoted tilde hook paths" "$settings_audit_quoted_report" '([.after.externalHooks[]? | select(.hook == "check-context-and-handoff.sh")] | length) == 0'
@@ -880,8 +923,7 @@ cat >"$settings_audit_literal_target" <<'JSON'
 {"hooks":{"PostToolUse":[{"hooks":[{"type":"command","command":"bash '$HOME/.claude/hooks/rate-limiter.sh'"}]}]}}
 JSON
 HOME="$settings_audit_home" node "$ROOT/scripts/settings-audit.mjs" "$settings_audit_literal_target" --fix
-# shellcheck disable=SC2016
-assert_json_expr "settings-audit preserves single-quoted HOME rate limiter literal" "$(jq -c . "$settings_audit_literal_target")" '(.hooks.PostToolUse[0].hooks[0].command | contains("$HOME/.claude/hooks/rate-limiter.sh"))'
+assert_json_expr "settings-audit preserves single-quoted HOME rate limiter literal" "$(jq -c . "$settings_audit_literal_target")" "(.hooks.PostToolUse[0].hooks[0].command | contains(\"\$HOME/.claude/hooks/rate-limiter.sh\"))"
 assert_json_expr "settings-audit does not rewrite single-quoted HOME rate limiter literal" "$(jq -c . "$settings_audit_literal_target")" '([.hooks.PostToolUse[].hooks[].command | select(test("cc-rate-limiter"))] | length) == 0'
 settings_audit_strict_status=0
 HOME="$settings_audit_home" node "$ROOT/scripts/settings-audit.mjs" "$settings_audit_target" --strict-conflicts >/dev/null 2>&1 || settings_audit_strict_status=$?
@@ -1277,20 +1319,25 @@ context_summary="$(node "$ROOT/scripts/context-state.mjs" show "$stale_context" 
 assert_contains "context restore detects stale context" "$context_summary" "stale=true"
 session_scan_root="$TMPROOT/session-scan"
 mkdir -p "$session_scan_root/claude/projects/project-a" "$session_scan_root/codex/rollout_summaries"
+sample_provider_token="sk_live_$(printf '1%.0s' {1..24})"
 printf '%s\n' \
   '{"message":{"content":[{"type":"hook_non_blocking_error","hookName":"stale-hook","message":"/Users/example/old/path failed"}]}}' \
   '{"message":{"content":[{"type":"hook_blocking_error","hookName":"guard","stderr":"blocked for test@example.com"}]}}' \
+  "$(jq -nc --arg token "$sample_provider_token" '{"message":{"content":[{"type":"hook_blocking_error","hookName":"guard","stderr":("blocked C:\\Users\\Example\\secret token " + $token)}]}}')" \
   >"$session_scan_root/claude/projects/project-a/session.jsonl"
 printf '%s\n' '{"event_msg":"CodeRabbit lint hook stale tooling warning"}' >"$session_scan_root/codex/rollout_summaries/session.jsonl"
 live_hook_json="$(node "$ROOT/scripts/live-hook-noise-report.mjs" --root "$session_scan_root/claude" --since-days 30 --json)"
-assert_json_expr "live hook report counts blocking and non-blocking errors" "$live_hook_json" '.counts.nonBlocking == 1 and .counts.blocking == 1 and .topHooks[0].count >= 1'
+assert_json_expr "live hook report counts blocking and non-blocking errors" "$live_hook_json" '.counts.nonBlocking == 1 and .counts.blocking == 2 and .topHooks[0].count >= 1'
 assert_json_expr "live hook report redacts private paths and emails" "$live_hook_json" '((.topReasons | tostring) | contains("/Users/example") | not) and ((.topReasons | tostring) | contains("test@example.com") | not)'
+assert_json_expr "live hook report redacts Windows paths and provider tokens" "$live_hook_json" '((.topReasons | tostring) | contains("C:\\Users") | not) and ((.topReasons | tostring) | contains("sk_live_123") | not)'
 session_audit_json="$(node "$ROOT/scripts/session-audit.mjs" --claude-root "$session_scan_root/claude" --codex-memory-root "$session_scan_root/codex" --since-days 30 --json)"
-assert_json_expr "session audit combines claude hooks and codex memory signals" "$session_audit_json" '.claude.counts.blocking == 1 and .codexMemory.filesScanned == 1 and any(.codexMemory.keywordHits[]; .keyword == "CodeRabbit")'
+assert_json_expr "session audit combines claude hooks and codex memory signals" "$session_audit_json" '.claude.counts.blocking == 2 and .codexMemory.filesScanned == 1 and any(.codexMemory.keywordHits[]; .keyword == "CodeRabbit")'
 wave_json="$(printf '{"useWorktrees":true,"submodules":["vendor/lib"],"plans":[{"id":"T1","wave":1,"files":["src/a.ts"]},{"id":"T2","wave":1,"files":["src/a.ts"]},{"id":"T3","wave":2,"files":["vendor/lib/x.ts"]}]}' | node "$ROOT/scripts/execution-wave-check.mjs")"
 assert_json_expr "wave overlap disables parallel" "$wave_json" '.waves[0].parallelSafe == false'
 assert_json_expr "submodule task not worktree eligible" "$wave_json" '.waves[1].plans[0].worktreeEligible == false'
 assert_contains "wave heartbeat emitted" "$wave_json" "[checkpoint]"
+wave_help="$(node "$ROOT/scripts/execution-wave-check.mjs" --help)"
+assert_contains "wave checker documents strict drift behavior" "$wave_help" "With --strict"
 wave_drift_json="$(printf '{"previousPlans":[{"id":"T1","wave":1,"files":["src/a.ts"]}],"plans":[{"id":"T1","wave":1,"files":["src/b.ts"]}]}' | node "$ROOT/scripts/execution-wave-check.mjs")"
 assert_json_expr "wave drift reports changed files" "$wave_drift_json" '.drift[0].type == "files_changed"'
 wave_reordered_json="$(printf '{"previousPlans":[{"id":"T1","wave":1,"files":["src/b.ts","src/a.ts"]}],"plans":[{"id":"T1","wave":1,"files":["src/a.ts","src/b.ts"]}]}' | node "$ROOT/scripts/execution-wave-check.mjs")"
@@ -1318,7 +1365,18 @@ else
   assert_contains "workflow health unknown command reason" "$workflow_unknown_out" "Unknown workflow-health command"
 fi
 doctor_health_json="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" doctor --json --all)"
-assert_json_expr "workflow health doctor reports ledgers" "$doctor_health_json" '.command == "doctor" and .ledgers.total >= 2'
+assert_json_expr "workflow health doctor reports ledgers" "$doctor_health_json" '.command == "doctor" and .ledgers.total >= 2 and .strictReady == false and any(.runtimeFindings[]; .id == "stale-ledgers")'
+workflow_empty_root="$TMPROOT/workflow-health-empty"
+if CLAUDE_CONTROL_PLANE_RUNS_DIR="$workflow_empty_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$workflow_empty_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" doctor --json >/dev/null; then
+  ok "workflow health doctor exits zero with clean empty state"
+else
+  not_ok "workflow health doctor exits zero with clean empty state"
+fi
+if strict_health_out="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" doctor --json --all --strict 2>&1)"; then
+  not_ok "workflow health strict doctor fails on runtime findings"
+else
+  assert_json_expr "workflow health strict doctor fails on runtime findings" "$strict_health_out" '.ok == false and .strict == true and any(.runtimeFindings[]; .id == "stale-ledgers")'
+fi
 mkdir -p "$health_root/artifacts/tool-effectiveness"
 printf '%s\n' '{"schemaVersion":1,"tool":"codegraph","eligible":true,"toolUsed":true,"usedBeforeFirstEdit":true}' >"$health_root/artifacts/tool-effectiveness/events.jsonl"
 effectiveness_status_json="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" status --json --all)"
@@ -1344,10 +1402,10 @@ empty_health="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/missing-runs" CLAUDE
 assert_contains "workflow health reports artifacts without ledger dir" "$empty_health" "reviewLog entries=0"
 
 autoplan_meta="$(jq -c . "$ROOT/skills/metadata/etrnl-dev-autoplan.json")"
-assert_json_expr "autoplan includes CEO review" "$autoplan_meta" '.ownerReview == "CEO/founder review"'
-assert_json_expr "autoplan includes DX review" "$autoplan_meta" '.dxReview == "DX review"'
-assert_json_expr "autoplan includes adversarial review" "$autoplan_meta" '.adversarialReview == true'
-assert_json_expr "autoplan includes max completeness" "$autoplan_meta" '.completeness == "10/10"'
+assert_json_expr "autoplan includes review execution mode" "$autoplan_meta" '(.executionMode | test("CEO")) and (.executionMode | test("DX")) and (.executionMode | test("adversarial"))'
+assert_json_expr "autoplan includes ownership rule" "$autoplan_meta" '.ownershipRule == "reuse existing helpers and docs before adding plan surfaces"'
+assert_json_expr "autoplan includes test discipline" "$autoplan_meta" '.testDiscipline == "deterministic plan-readiness and deep-stack gates"'
+assert_json_expr "autoplan includes deep stack artifacts" "$autoplan_meta" '.deepStackArtifacts == true'
 execute_meta="$(jq -c . "$ROOT/skills/metadata/etrnl-dev-execute.json")"
 assert_json_expr "execute includes wave execution" "$execute_meta" '.executionMode == "wave-based execution"'
 assert_json_expr "execute includes subagent ownership rule" "$execute_meta" '.ownershipRule == "do not duplicate"'

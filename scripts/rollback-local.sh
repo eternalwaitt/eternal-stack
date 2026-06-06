@@ -166,6 +166,9 @@ if (( restore_count > 0 )); then
 fi
 trap - EXIT
 
+# Restore command markdown once because OWNED_SKILLS, OWNED_COMMANDS, and
+# Claude/Codex restore paths can overlap; restored_command_names skips
+# duplicates while restored[] and restored_count record actual restorations.
 restore_command_once() {
   local command_name seen
   command_name="$1"

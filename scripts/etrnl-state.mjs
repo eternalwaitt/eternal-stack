@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// Exit codes: 0 success, 1 stale verification after compact, 2 invalid input/runtime error.
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -26,6 +27,7 @@ const cwd = cwdFlag || process.cwd();
 const session = flagValue(args, "--session");
 const run = flagValue(args, "--run");
 const eventKind = flagValue(args, "--event-kind");
+const USAGE = "usage: etrnl-state.mjs append|validate|compact-handoff|doctor|stop-status|export|import-legacy|bead-link|bead-prime-audit|purge [--json]";
 
 function emit(value) {
   if (jsonMode || typeof value !== "string") console.log(JSON.stringify(value, null, 2));
@@ -46,7 +48,10 @@ function readStdin() {
   try {
     return fs.readFileSync(0, "utf8").trim();
   } catch (error) {
-    if (error && typeof error === "object" && "code" in error && ["EAGAIN", "EWOULDBLOCK"].includes(error.code)) return "";
+    if (error && typeof error === "object" && "code" in error && ["EAGAIN", "EWOULDBLOCK"].includes(error.code)) {
+      console.error(`warning: stdin read returned ${error.code}; treating input as empty`);
+      return "";
+    }
     fail(jsonError("StdinReadError", "Failed to read JSON from stdin.", error instanceof Error ? error.message : String(error)), 2);
   }
 }
@@ -150,7 +155,7 @@ function commandDoctor() {
 function commandStopStatus() {
   const result = stopStatus({ stateDir, session, latest: args.includes("--latest") || !session });
   emit(jsonMode ? result : result.blockReason);
-  if (result.staleVerificationAfterCompact) process.exit(1);
+  if (result.staleVerificationAfterCompact) fail("stale verification after compact", 1);
 }
 
 function commandExport() {
@@ -218,11 +223,11 @@ try {
   else if (command === "bead-prime-audit") commandBeadPrimeAudit();
   else if (command === "purge") commandPurge();
   else if (command === "help") {
-    console.log("usage: etrnl-state.mjs append|validate|compact-handoff|doctor|stop-status|export|import-legacy|bead-link|bead-prime-audit|purge [--json]");
+    console.log(USAGE);
     process.exit(0);
   }
   else {
-    console.error("usage: etrnl-state.mjs append|validate|compact-handoff|doctor|stop-status|export|import-legacy|bead-link|bead-prime-audit|purge [--json]");
+    console.error(USAGE);
     process.exit(2);
   }
 } catch (error) {

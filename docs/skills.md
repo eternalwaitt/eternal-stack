@@ -87,6 +87,7 @@ These skills are not owned by this repo, but the control plane knows about them 
 | `i18n-localization` | External domain skill | Locale and translation review for user-facing internationalized surfaces. |
 | `stripe-best-practices` | External payment skill | Stripe payment and billing review when installed. |
 | `abacatepay-integration` | External payment skill | AbacatePay payment integration review when installed. |
+| `ci-cd` | External/ci-cd companion skill | CI helper scripts such as `audit_github_actions.py` referenced by `skills/etrnl-dev-ci/SKILL.md`. |
 | `code-simplifier` | External skill | Clarity and simplification pass before final scoring/completion. |
 | `finding-duplicate-functions` | External skill | Dedupe review for repeated logic and consolidation work. |
 | `brooks-audit` | External/local skill | Brooks review/audit/debt/test/health/sweep modes where installed. |

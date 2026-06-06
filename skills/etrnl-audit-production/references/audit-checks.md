@@ -49,12 +49,12 @@ Use these ids and generated files in the shared artifact directory:
 | Worklist id | Contents | Baseline command |
 | --- | --- | --- |
 | `prod_pages` | routed page files | `fd -g 'page.tsx' --exclude node_modules --exclude .next` |
-| `prod_procedures` | internal API procedure files | `rg "createProcedure\|publicProcedure\|protectedProcedure\|router\\(" --type ts -g '!**/generated/**' -l` |
+| `prod_procedures` | internal API procedure files | `rg "createProcedure|publicProcedure|protectedProcedure|router\\(" --type ts -g '!**/generated/**' -l` |
 | `prod_routes` | route handler files | `fd -g 'route.ts' --exclude node_modules --exclude .next` |
 | `prod_actions` | server action files | `rg "'use server'" --type ts -g '!**/generated/**' -l` |
-| `prod_webhooks` | webhook handlers | route handler worklist filtered for webhook handling |
-| `prod_queues` | worker and queue files | `rg "new Worker\|new Queue\|createWorker\|inngest\\.createFunction" --type ts -g '!**/generated/**' -l` |
-| `prod_crons` | cron and scheduled work | `rg "cron\|schedule\|vercel.*cron" --type ts -g '!**/generated/**' -g '!**/*.test.*' -l` |
+| `prod_webhooks` | webhook handlers | `fd -g 'route.ts' --exclude node_modules --exclude .next | xargs rg -l 'webhook|stripe|abacatepay|mercadopago|svix'` |
+| `prod_queues` | worker and queue files | `rg "new Worker|new Queue|createWorker|inngest\\.createFunction" --type ts -g '!**/generated/**' -l` |
+| `prod_crons` | cron and scheduled work | `rg "cron|schedule|vercel.*cron" --type ts -g '!**/generated/**' -g '!**/*.test.*' -l` |
 | `prod_notifications` | notification send sites | `rg -e sendEmail -e sendSMS -e sendWhatsApp -e sendPush -e sendNotification -e notify --type ts -g '!**/generated/**' -g '!**/*.test.*' -l` |
 | `prod_uploads` | upload and object-storage handlers | `rg -e upload -e putObject -e presign --type ts -g '!**/generated/**' -g '!**/*.test.*' -l` |
 | `prod_exports` | export features | `rg -e 'export.*csv' -e 'export.*pdf' -e createObjectURL -e '\\.xlsx' --type ts -g '!**/generated/**' -l` |

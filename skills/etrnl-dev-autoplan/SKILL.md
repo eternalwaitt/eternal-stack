@@ -45,7 +45,7 @@ Mandatory stages:
    - Fill blocked skeleton sections with real evidence before finalization.
    - Validate the plan with `node scripts/deep-stack-check.mjs validate-plan --plan <plan-path>` and `node scripts/plan-readiness-check.mjs <plan-path>`.
 9. Convergence:
-   - Close, disprove, downgrade with evidence, or record explicit Victor-accepted risk for every high/blocker finding.
+   - Close, disprove, downgrade with evidence, or record explicit owner-accepted risk for every high/blocker finding.
    - Reconcile requested outcomes against `DONE`, `PARTIAL`, `NOT_DONE`, `CHANGED`, or `BLOCKED`.
 10. Parity scorecard:
    - Add an `## Autoplan parity scorecard` subsection under `## Plan Readiness Report`.
@@ -146,12 +146,12 @@ Before finalizing any plan for a capability or feature that competes with or par
    - consensus or disagreement
    - artifact needed, if any
    - final gate category: none, taste, premise, destructive, user challenge
-11. Include artifact requirements for execution:
+1. Include artifact requirements for execution:
    - `Deep stack artifacts: <path>` for every non-trivial final plan
    - `review-log.jsonl` when review findings are created
    - `browser-qa-report.json` when UI/browser behavior changes
    - context-save when work is long-running or likely to be resumed
-12. The final plan must pass `node ~/.claude/scripts/deep-stack-check.mjs validate-plan --plan <plan-path>` and `node ~/.claude/scripts/plan-readiness-check.mjs <plan-path>` before `/etrnl-dev-execute` starts. A result that says deep-stack metadata is absent is not a pass for a newly generated final plan; add the bundle and rerun the gate.
+1. The final plan must pass `node ~/.claude/scripts/deep-stack-check.mjs validate-plan --plan <plan-path>` and `node ~/.claude/scripts/plan-readiness-check.mjs <plan-path>` before `/etrnl-dev-execute` starts. A result that says deep-stack metadata is absent is not a pass for a newly generated final plan; add the bundle and rerun the gate.
     Use the exact readiness-compatible headings in the Output section. Do not leave `TODO`, `TBD`, "handle edge cases", "wire it up", or "similar to above" in the plan.
 
 ## Task Packet Drafting

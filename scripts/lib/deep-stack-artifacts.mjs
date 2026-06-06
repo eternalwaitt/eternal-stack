@@ -121,7 +121,7 @@ export function createSkeleton(planPath, outDir) {
       stagedInstall: { status: "not_applicable", evidence: "staged install not requested yet" },
       stagedDoctor: { status: "not_applicable", evidence: "staged doctor not requested yet" },
       rollbackVerification: { status: "not_applicable", evidence: "rollback proof not requested yet" },
-      liveInstallDecision: { status: "not_applicable", evidence: "live install requires explicit Victor request" },
+      liveInstallDecision: { status: "not_applicable", evidence: "live install requires an explicit repository-owner request" },
       postUpgradeCanary: { status: "not_applicable", evidence: "canary not requested yet" },
     },
     riskTier: {
@@ -223,7 +223,7 @@ export function validateBundle(artifact, options = {}) {
   const context = {
     artifactPath: options.artifactPath || "<artifact>",
     planPath: options.planPath || artifact?.planPath || "",
-    requiredAcceptor: options.requiredAcceptor || "Victor",
+    requiredAcceptor: options.requiredAcceptor || "repository owner",
   };
   if (!artifact || typeof artifact !== "object" || Array.isArray(artifact)) {
     return { ok: false, errors: [error("DEEP_ARTIFACT_INVALID_JSON", context.artifactPath, "$", "Artifact must be a JSON object.", "Replace it with a deep-stack artifact object.")] };
@@ -336,9 +336,9 @@ export function validateFindings(findings, context = {}, errors = []) {
     const severity = String(finding?.severity || "").toLowerCase();
     const status = String(finding?.status || "open").toLowerCase();
     if (HIGH_SEVERITIES.has(severity) && !TERMINAL_FINDING_STATUSES.has(status)) {
-      errors.push(error("FINDING_OPEN_HIGH", context.artifactPath, `findings[${index}]`, "High/blocker findings cannot remain open.", "Fix, disprove, close, or record explicit Victor risk acceptance."));
+      errors.push(error("FINDING_OPEN_HIGH", context.artifactPath, `findings[${index}]`, "High/blocker findings cannot remain open.", "Fix, disprove, close, or record explicit repository-owner risk acceptance."));
     }
-    const requiredAcceptor = context.requiredAcceptor || "Victor";
+    const requiredAcceptor = context.requiredAcceptor || "repository owner";
     const acceptedBy = String(finding?.acceptedBy || "").toLowerCase();
     if (status === "accepted" && !acceptedBy.includes(requiredAcceptor.toLowerCase())) {
       errors.push(error("FINDING_ACCEPTANCE_OWNER", context.artifactPath, `findings[${index}].acceptedBy`, `Accepted findings require explicit ${requiredAcceptor} acceptance.`, `Set acceptedBy to ${requiredAcceptor} with evidence of the decision.`));
@@ -361,7 +361,7 @@ export function validateCompletion(completionAudit, context = {}, errors = []) {
       errors.push(error("COMPLETION_CLASSIFICATION", context.artifactPath, `completionAudit[${index}].classification`, "Completion classification is invalid.", "Use DONE, PARTIAL, NOT_DONE, or CHANGED."));
     }
     const highImpact = String(item?.impact || "").toLowerCase() === "high";
-    const requiredAcceptor = context.requiredAcceptor || "Victor";
+    const requiredAcceptor = context.requiredAcceptor || "repository owner";
     const acceptedBy = String(item?.acceptedBy || "").toLowerCase();
     if (highImpact && ["PARTIAL", "NOT_DONE"].includes(item?.classification) && !acceptedBy.includes(requiredAcceptor.toLowerCase())) {
       errors.push(error("COMPLETION_HIGH_IMPACT_OPEN", context.artifactPath, `completionAudit[${index}]`, `High-impact PARTIAL/NOT_DONE items require ${requiredAcceptor} acceptance.`, `Complete the plan item or record acceptedBy: ${requiredAcceptor} with accepted risk evidence.`));
@@ -507,7 +507,7 @@ export function validateCompletionReconciliation(completionReconciliation, riskT
     const highImpact = String(row?.impact || "").toLowerCase() === "high";
     if (highImpact && ["PARTIAL", "NOT_DONE", "BLOCKED"].includes(row?.classification)) {
       const acceptedBy = String(row?.acceptedBy || "").toLowerCase();
-      const requiredAcceptor = context.requiredAcceptor || "Victor";
+      const requiredAcceptor = context.requiredAcceptor || "repository owner";
       if (!acceptedBy.includes(requiredAcceptor.toLowerCase())) {
         errors.push(error("COMPLETION_RECONCILIATION_HIGH_IMPACT_OPEN", context.artifactPath, `completionReconciliation[${index}]`, `High-impact incomplete reconciliation rows require ${requiredAcceptor} acceptance.`, `Complete the item or record acceptedBy: ${requiredAcceptor} with explicit risk acceptance.`));
       }
