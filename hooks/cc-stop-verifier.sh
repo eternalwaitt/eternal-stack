@@ -331,7 +331,14 @@ if [[ "$claims_done" == "true" ]]; then
     stop_status_json=""
     stop_err=""
     stop_err_file="$(mktemp "${TMPDIR:-/tmp}/cc-stop-status.XXXXXX")"
-    if ! stop_status_json="$(timeout 5 node "$(cc_etrnl_state_script)" stop-status --session "$(cc_session_id)" --json 2>"$stop_err_file")"; then
+    timeout_cmd=()
+    if command -v timeout >/dev/null 2>&1; then
+      timeout_cmd=(timeout 5)
+    elif command -v gtimeout >/dev/null 2>&1; then
+      timeout_cmd=(gtimeout 5)
+    fi
+    stop_status_cmd=("${timeout_cmd[@]}" node "$(cc_etrnl_state_script)" stop-status --session "$(cc_session_id)" --json)
+    if ! stop_status_json="$("${stop_status_cmd[@]}" 2>"$stop_err_file")"; then
       stop_err="$(head -n 1 "$stop_err_file" 2>/dev/null || true)"
       stop_reason="ETRNL stop-status check failed. Verification is stale after compact."
       [[ -z "$stop_err" ]] || stop_reason="$stop_reason $stop_err"

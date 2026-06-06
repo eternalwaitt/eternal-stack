@@ -17,7 +17,7 @@
     "payments",
     "privacy-compliance"
   ],
-  "coverageStatement": "Coverage: selected categories completed: production-readiness. Known not-yet-registered audit domains: api-data, payments, privacy-compliance. This is not a claim that every possible audit domain has run.",
+  "coverageStatement": "Coverage: production-readiness partially completed (source-limited: 17/18 checks blocked, 1 check passed). Known not-yet-registered audit domains: api-data, payments, privacy-compliance. This is not a claim that every possible audit domain has run.",
   "targetLabel": "synthetic-app",
   "targetFingerprint": "repo:synthetic-app@source-limited",
   "requestedCategories": [

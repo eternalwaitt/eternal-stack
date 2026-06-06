@@ -160,6 +160,23 @@ sync_owned_skills() {
   done
 }
 
+sync_skill_support_dir() {
+  local source_dir="$1"
+  local target_dir="$2"
+  local backup_dir="$3"
+  local support_name="$4"
+  if [[ ! -d "$source_dir/$support_name" ]]; then
+    printf 'fatal: missing skill support directory %s\n' "$source_dir/$support_name" >&2
+    return 1
+  fi
+  mkdir -p "$target_dir" "$backup_dir"
+  if [[ -d "$target_dir/$support_name" ]]; then
+    cp -R -- "$target_dir/${support_name:?}" "$backup_dir/${support_name:?}"
+  fi
+  rm -rf -- "$target_dir/${support_name:?}"
+  cp -R -- "$source_dir/${support_name:?}" "$target_dir/${support_name:?}"
+}
+
 install_skill_command_shims() {
   local target_dir="$1"
   local command_file skill skill_file tmp
@@ -461,6 +478,8 @@ mkdir -p "$TARGET/hooks" "$TARGET/scripts" "$TARGET/docs/templates" "$TARGET/ski
 copy_dir_contents "$ROOT/hooks" "$TARGET/hooks"
 sync_owned_skills "$ROOT/skills" "$TARGET/skills"
 sync_owned_skills "$ROOT/skills" "$CODEX_TARGET/skills" "$BACKUP/codex-skills"
+sync_skill_support_dir "$ROOT/skills" "$TARGET/skills" "$BACKUP/skills" common
+sync_skill_support_dir "$ROOT/skills" "$CODEX_TARGET/skills" "$BACKUP/codex-skills" common
 mkdir -p "$TARGET/skills/metadata" "$CODEX_TARGET/skills/metadata"
 copy_dir_contents "$ROOT/skills/metadata" "$TARGET/skills/metadata"
 copy_dir_contents "$ROOT/skills/metadata" "$CODEX_TARGET/skills/metadata"
@@ -638,6 +657,8 @@ verify_install_state() {
     [[ -f "$TARGET/commands/$file.md" ]] || missing+=("commands/$file.md")
     [[ -f "$CODEX_TARGET/skills/$file/SKILL.md" ]] || missing+=("codex skills/$file/SKILL.md")
   done
+  [[ -f "$TARGET/skills/common/typescript-triggers.md" ]] || missing+=("skills/common/typescript-triggers.md")
+  [[ -f "$CODEX_TARGET/skills/common/typescript-triggers.md" ]] || missing+=("codex skills/common/typescript-triggers.md")
   if (( ${#missing[@]} > 0 )); then
     printf 'install error: post-install verification failed — missing files:\n' >&2
     printf '  %s\n' "${missing[@]}" >&2

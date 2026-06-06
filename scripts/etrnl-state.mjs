@@ -159,7 +159,12 @@ function commandExport() {
 function commandImportLegacy() {
   const input = flagValue(args, "--input", flagValue(args, "--file"));
   if (!input) fail(jsonError("MissingLegacyInput", "import-legacy requires --input <file>.", "Pass a legacy guard-state JSON file."), 2);
-  const legacy = JSON.parse(fs.readFileSync(input, "utf8"));
+  let legacy;
+  try {
+    legacy = JSON.parse(fs.readFileSync(input, "utf8"));
+  } catch (error) {
+    fail(jsonError("InvalidLegacyJSON", `Failed to parse legacy file: ${input}`, error instanceof Error ? error.message : String(error)), 2);
+  }
   const legacyCwd = cwd || (typeof legacy.cwd === "string" && legacy.cwd.trim() ? legacy.cwd : process.cwd());
   const event = {
     eventKind: "context_entry",

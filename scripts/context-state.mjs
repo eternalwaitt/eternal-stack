@@ -70,29 +70,21 @@ function contextErrors(context) {
   return errors;
 }
 
-function normalizeContext(context, file = "") {
-  let changed = false;
+function normalizeContext(context) {
   const normalized = { ...context };
   if (normalized.schemaVersion !== 1) {
     normalized.schemaVersion = 1;
-    changed = true;
   }
   if (Array.isArray(normalized.modifiedFiles)) {
     normalized.modifiedFileCount = normalized.modifiedFiles.length;
     delete normalized.modifiedFiles;
-    changed = true;
   } else if (!Number.isFinite(Number(normalized.modifiedFileCount ?? 0))) {
     normalized.modifiedFileCount = 0;
-    changed = true;
   }
   for (const key of ["decisions", "blockers", "remainingWork", "verification"]) {
     if (!Array.isArray(normalized[key])) {
       normalized[key] = [];
-      changed = true;
     }
-  }
-  if (changed && file) {
-    writeFileSync(file, `${JSON.stringify(normalized, null, 2)}\n`, { mode: 0o600 });
   }
   return normalized;
 }
@@ -151,7 +143,7 @@ function save() {
 }
 
 function readContext(file) {
-  const context = normalizeContext(JSON.parse(readFileSync(file, "utf8")), file);
+  const context = normalizeContext(JSON.parse(readFileSync(file, "utf8")));
   const errors = contextErrors(context);
   if (errors.length > 0) throw new Error(errors.join("; "));
   return context;

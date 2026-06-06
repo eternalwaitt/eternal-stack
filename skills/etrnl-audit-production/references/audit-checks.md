@@ -247,7 +247,7 @@ CHECKS_SKIPPED: <check id> - worklist <worklist id> - reason: <blocker>
 Not-applicable rows use:
 
 ```text
-not_applicable: <check id> - gate: <applicability gate> - evidence: <source evidence>
+NOT_APPLICABLE: <check id> - gate: <applicability gate> - evidence: <source evidence>
 ```
 
 ## Synthesis
@@ -260,5 +260,5 @@ The category summary contains:
 - worst production risks;
 - quick fixes that require one small source patch;
 - systemic fixes that require design or runtime decisions;
-- `CONFIRMED_CLEAN`, `CHECKS_SKIPPED`, `not_applicable`, and source-limited blocker rows;
+- `CONFIRMED_CLEAN`, `CHECKS_SKIPPED`, `NOT_APPLICABLE`, and source-limited blocker rows;
 - exact artifact validation command and result.

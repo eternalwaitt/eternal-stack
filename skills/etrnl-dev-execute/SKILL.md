@@ -99,6 +99,7 @@ Completion means every item inside the plan's `Execution scope` is verified or e
    - `finding-duplicate-functions` when reducing duplication or consolidating repeated logic.
    - `code-simplifier` after implementation and before final scoring/completion.
    - `brooks-audit` when the plan or project expects Brooks health.
+   - If a triggered companion skill is unavailable, record the missing skill, impact, and compensating check in the ledger before continuing.
 
 ## Verification
 
@@ -136,6 +137,9 @@ Required report fields:
 - `schemaVersion: 2`, `reportId`, `routes`, `viewports`, `status`, `consoleSummary`, `networkSummary`, `matrix`, and `provenance`.
 - `provenance.tool`, `provenance.targetUrl`, `provenance.command`, and fresh ISO `provenance.capturedAt`.
 - One `matrix` row for every `route` and `viewport` combination when `status` is `complete`.
+- Top-level `status` is `complete`, `partial`, or `failed`.
+- `routes` and `viewports` are non-empty arrays when `status` is `complete`.
+- When `status` is not `complete`, `matrix` is allowed to be partial or empty.
 
 Required complete-row fields:
 
@@ -143,42 +147,7 @@ Required complete-row fields:
 - For non-skipped rows: `screenshot` under the artifact root and matching `screenshotSha256`.
 - Conditional metadata belongs in row fields such as `browser`, `browserVersion`, `device`, `platform`, `testCaseId`, `sessionId`, and `environment`; keep names stable if a CSV export is used.
 
-Passing JSON shape:
-
-```json
-{
-  "schemaVersion": 2,
-  "reportId": "browser-qa-home",
-  "routes": ["/"],
-  "viewports": ["desktop"],
-  "status": "complete",
-  "consoleSummary": "checked console logs",
-  "networkSummary": "checked network panel",
-  "provenance": {
-    "tool": "playwright-cli",
-    "targetUrl": "http://127.0.0.1:4173",
-    "command": "playwright-cli screenshot",
-    "capturedAt": "2026-05-13T20:00:00Z"
-  },
-  "matrix": [{
-    "route": "/",
-    "viewport": "desktop",
-    "status": "passed",
-    "screenshot": "home-desktop.png",
-    "screenshotSha256": "<sha256>",
-    "capturedAt": "2026-05-13T20:00:00Z",
-    "consoleErrors": 0,
-    "failedRequests": 0,
-    "browser": "chromium",
-    "browserVersion": "stable",
-    "device": "desktop",
-    "platform": "darwin",
-    "testCaseId": "home-desktop"
-  }]
-}
-```
-
-Failing examples: missing `screenshotSha256`, a screenshot outside the artifact root, stale `capturedAt`, duplicate `route`/`viewport` rows, or a `complete` report without every route/viewport combination. Store paths under `control-plane/artifacts/browser-qa/` or pass `--artifact-root` explicitly, then validate with `node ~/.claude/scripts/browser-qa-report.mjs validate <report-path> --artifact-root <root>`.
+Reject reports with missing `screenshotSha256`, screenshots outside the artifact root, stale `capturedAt`, duplicate `route`/`viewport` rows, or a `complete` report without every route/viewport combination. Store paths under `control-plane/artifacts/browser-qa/` or pass `--artifact-root`, then validate with `node ~/.claude/scripts/browser-qa-report.mjs validate <report-path> --artifact-root <root>`.
 
 ## Verification Gates (hardened)
 

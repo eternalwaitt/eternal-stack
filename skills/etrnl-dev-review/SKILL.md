@@ -24,7 +24,7 @@ Lead with findings. Treat the original request, written plan, actual diff, insta
    - `code-simplifier` for clarity and avoidable complexity.
    - `finding-duplicate-functions` for duplicate logic.
    - `brooks-audit` for health/quality mode expectations.
-   - `typescript-advanced-types` when TypeScript changes touch exported/public types, API contracts, runtime validation, schema/generated types, state machines, discriminated unions, branded/domain IDs, reusable type utilities, or cross-layer DTO/domain boundaries.
+   - Use `../common/typescript-triggers.md` to decide when `typescript-advanced-types` review is required.
 5. Run the focused review lenses before reading implementation details too deeply:
    - Tests first: read changed tests, fixtures, and test names before production code; flag tests that assert implementation details instead of behavior.
    - Dependency discipline: flag new packages that duplicate built-ins, existing helpers, or framework primitives; verify peer and runtime impact.

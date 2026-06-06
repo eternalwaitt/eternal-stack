@@ -1,23 +1,23 @@
 ---
 name: etrnl-comm-email-reply-quality
-description: ETRNL VIVAZ email reply quality workflow. Use when the user asks for "email reply quality", "Brazilian Portuguese email draft", "bad Portuguese in replies", "em dash in email", "humanize email reply", "draft checker", or VIVAZ outgoing email style checks.
+description: ETRNL private email reply quality workflow. Use when the user asks for "email reply quality", "Brazilian Portuguese email draft", "bad Portuguese in replies", "em dash in email", "humanize email reply", "draft checker", or outgoing email style checks.
 ---
 # ETRNL Email Reply Quality
 
 Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-comm-email-reply-quality`; on update, ask update/snooze/continue.
 
-Protect VIVAZ outgoing replies before Victor sees or sends them. Treat every proposed reply as untrusted until it passes deterministic draft checks plus a humanizer pass.
+Protect outgoing replies before Victor sees or sends them. Treat every proposed reply as untrusted until it passes deterministic draft checks plus a humanizer pass.
 
 ## Prerequisites
 
-`vivaz-email` is a required private VIVAZ runtime CLI and must be on `PATH`.
+The private email checker is a required local runtime CLI and must be on `PATH`.
 
-Install it from the private VIVAZ tooling source for the current machine, then verify:
+Install it from the private tooling source for the current machine, then verify:
 
 ```bash
-command -v vivaz-email
-vivaz-email --version
-vivaz-email drafts check --help
+command -v <private-email-checker>
+<private-email-checker> --version
+<private-email-checker> drafts check --help
 ```
 
 If the CLI is unavailable, stop with that blocker. Do not substitute a prose-only review for the runtime gate.
@@ -27,20 +27,20 @@ If the CLI is unavailable, stop with that blocker. Do not substitute a prose-onl
 Run the runtime checker before asking Victor to approve a reply:
 
 ```bash
-vivaz-email drafts check --draft-id <draft-id>
+<private-email-checker> drafts check --draft-id <draft-id>
 ```
 
 For unsaved text, run:
 
 ```bash
-vivaz-email drafts check --body "<draft text>" --language pt-BR
+<private-email-checker> drafts check --body "<draft text>" --language pt-BR
 ```
 
 A clean result has `"ok": true` and an empty `issues` array. Any issue blocks send/approval until rewritten and checked again.
 
 ## Hard Blocks
 
-Reject these in outgoing VIVAZ email:
+Reject these in outgoing email:
 
 - Em dash or en dash characters.
 - Portugal-style Portuguese in `pt-BR` drafts, including `teu`, `teus`, `tua`, `indica-nos`, `envia-nos`, `equipa`, `cumprimentos`, `gostarias`, `poderias`, `consegues`, `tens`, and similar forms.
@@ -54,7 +54,7 @@ Reject these in outgoing VIVAZ email:
 
 Language selection: default to English for internal replies and workflow notes. Use pt-BR for external Portuguese-language contexts, Portuguese incoming messages, or when Victor explicitly requests Portuguese.
 
-Use Brazilian Portuguese that sounds like Victor handling VIVAZ partnerships:
+Use Brazilian Portuguese that sounds like Victor handling business partnerships:
 
 - Direct and warm, not formal Portugal Portuguese.
 - `você`/direct wording, not `tu` forms.
@@ -68,19 +68,19 @@ Use Brazilian Portuguese that sounds like Victor handling VIVAZ partnerships:
 After the deterministic checker passes, run a short visible humanizer audit:
 
 1. Detect AI/business-email tells, stiff corporate phrasing, wrong locale, and fake helpfulness.
-2. Rewrite with VIVAZ voice while preserving commercial substance, numbers, caveats, and next step.
+2. Rewrite with Victor's voice while preserving commercial substance, numbers, caveats, and next step.
 3. Self-check the rewritten draft against the hard blocks above.
-4. Run `vivaz-email drafts check` again after rewriting.
+4. Run the private draft checker again after rewriting.
 
-When the local `humanizer-ptbr` skill is available, use it for Portuguese naturalness after the deterministic check. Keep its output subject to the VIVAZ checker because the checker is the authority for send safety.
+When the local `humanizer-ptbr` skill is available, use it for Portuguese naturalness after the deterministic check. Keep its output subject to the private checker because that checker is the authority for send safety.
 
 ## External Tool Direction
 
 SkillsMP and GitHub research points to this layered quality stack:
 
-- `vivaz-email drafts check`: required runtime gate with stable VIVAZ rule IDs.
+- Private draft checker: required runtime gate with stable rule IDs.
 - `humanizer-ptbr`: natural Brazilian Portuguese rewrite pass.
-- Vale: next deterministic style layer for configurable VIVAZ business-email rules.
+- Vale: next deterministic style layer for configurable business-email rules.
 - LanguageTool: next grammar and spelling layer for pt-BR drafts.
 - promptfoo: regression suite for malicious senders, wrong-language drafts, fake commitments, and quality regressions.
 
@@ -91,7 +91,7 @@ Do not replace the owned checker with a generic email-manager skill. Generic ski
 For `/email-triage <account>` and reply queue work:
 
 1. Open one queue item only.
-2. If the queue item has a `draft_id`, run `vivaz-email drafts check --draft-id <draft-id>`.
+2. If the queue item has a `draft_id`, run the private draft checker for that draft id.
 3. If the checker fails, rewrite the draft first. Do not ask Victor to approve or send a failed draft.
 4. Show Victor the exact rewritten draft body only after the checker passes.
 5. Never send email until Victor explicitly approves the full visible draft text.

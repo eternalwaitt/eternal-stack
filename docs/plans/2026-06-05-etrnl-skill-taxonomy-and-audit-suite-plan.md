@@ -6,7 +6,7 @@ Execution scope: all_phases
 Goal: Rename and expand the ETRNL skill surface into a mechanically enforced taxonomy while turning the seven audit prompts into first-class improved audit skills where they are not already covered.
 Non-goals: No live install into Claude or Codex homes during planning; no fallback command names or wrapper commands; no wholesale import of SkillsMP skills; no target-application audits or downstream app remediation.
 Evidence: AGENTS.md; docs/skills.md; docs/research/2026-06-04-etrnl-skillsmp-comparison.md; scripts/lib/skill-lists.sh; hooks/lib/skill-hints.sh; hooks/cc-userprompt-router.sh; scripts/skill-contract-check.mjs; scripts/skill-behavior-smoke.mjs; scripts/prompt-budget-check.mjs; scripts/deep-audit-artifact-check.mjs; scripts/lib/deep-audit-categories.mjs; tests/fixtures/skill-triggering/cases.json; tests/test-hooks.sh; tests/test-install.sh; tests/test-workflow-tools.sh; current user request for `etrnl-audit-<audit-type>` and `etrnl-dev-plan`-style naming; current SkillsMP API search results from 2026-06-05; prior SkillsMP comparison report from 2026-06-04.
-Deep stack artifacts: artifacts/2026-06-05-etrnl-skill-taxonomy-and-audit-suite/deep-stack-artifacts.json
+Deep stack artifacts: docs/plans/artifacts/2026-06-05-etrnl-skill-taxonomy-and-audit-suite/deep-stack-artifacts.json
 
 ## What already exists
 
@@ -37,7 +37,7 @@ Families:
 - `etrnl-dev-*`: development workflow skills that create, plan, execute, review, test, debug, PR, commit, or maintain source work.
 - `etrnl-audit-*`: evidence-led audits, QA checks, and health categories. A single orchestrator is `etrnl-audit`; individual audit types are `etrnl-audit-<type>`.
 - `etrnl-ops-*`: local operator/control-plane maintenance, context, install/update, disk, settings, and agent-file workflows.
-- `etrnl-comm-*`: communication-quality workflows that are not normal software delivery, currently VIVAZ email reply quality.
+- `etrnl-comm-*`: communication-quality workflows that are not normal software delivery, currently private email reply quality.
 
 Rules:
 
@@ -62,7 +62,7 @@ Proposed canonical mapping:
 | `etrnl-deps` | `etrnl-dev-deps` | dev | Dependency maintenance and bot PR triage. |
 | `etrnl-ops-disk-cleanup` | `etrnl-ops-disk-cleanup` | ops | Local disk cleanup. |
 | `etrnl-documentation-health` | `etrnl-audit-docs` | audit | Documentation health category/specialist. |
-| `etrnl-email-reply-quality` | `etrnl-comm-email-reply-quality` | comm | VIVAZ outgoing email quality. |
+| `etrnl-email-reply-quality` | `etrnl-comm-email-reply-quality` | comm | Private outgoing email quality. |
 | `etrnl-execute` | `etrnl-dev-execute` | dev | Plan execution. |
 | `etrnl-systematic-debugging` | `etrnl-dev-debug` | dev | Root-cause debugging. |
 | `etrnl-parallel` | `etrnl-dev-parallel` | dev | Explicit parallel fanout helper. |
@@ -125,7 +125,7 @@ Verification: `node scripts/skill-contract-check.mjs` fails on a fixture or synt
 Owner: install/update owner.
 Dependencies: Group A taxonomy.
 Acceptance criteria: canonical skill directories install into Claude and Codex homes; managed old slash command shims and old installed repo-owned skill directories are removed; rollback restores the previous managed backup without removing unrelated local files.
-Verification: `tests/test-install.sh`, `scripts/doctor.sh`, and `node scripts/skill-contract-check.mjs --installed --claude-home /Users/victorpenter/.claude` plus the Codex-home equivalent.
+Verification: `tests/test-install.sh`, `scripts/doctor.sh`, and `node scripts/skill-contract-check.mjs --installed --claude-home "$HOME/.claude"` plus the Codex-home equivalent.
 
 ### Group C - Dev Flow Rename
 

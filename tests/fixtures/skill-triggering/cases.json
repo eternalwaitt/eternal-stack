@@ -121,7 +121,7 @@
   },
   {
     "name": "email reply quality prompt routes etrnl-comm-email-reply-quality",
-    "prompt": "check this VIVAZ email reply for bad Brazilian Portuguese, em dashes, and AI tells",
+    "prompt": "run email reply quality on this Brazilian Portuguese draft for em dashes and AI tells",
     "expectedSkills": ["etrnl-comm-email-reply-quality"],
     "unexpectedSkills": ["etrnl-dev-commit"]
   },

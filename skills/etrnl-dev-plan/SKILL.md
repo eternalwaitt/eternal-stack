@@ -139,11 +139,16 @@ Before finalizing, review the draft for:
   - completion audit and Hybrid execution risk tier
   Deep-stack artifacts are required for every newly generated final plan; they are not opt-in metadata.
 
-If a companion skill is unavailable, do not silently continue. Record the missing skill, impact, and next step under `## Plan Readiness Report` -> `Unresolved questions`. A missing domain-sensitive `eternal-best-practices` pass blocks finalization unless the user accepts the risk; `code-simplifier`, `finding-duplicate-functions`, and `brooks-audit` are omitted only when unavailable or irrelevant, and the report must say why.
+If a companion skill is unavailable, do not silently continue. Record the missing skill, impact, and next step under `## Plan Readiness Report` -> `Unresolved questions`.
+
+Companion skill enforcement:
+
+- `eternal-best-practices` for auth, money, tenant, i18n, Prisma, soft-delete, permissions, and domain policy: a missing pass blocks finalization unless the user explicitly accepts the risk because these are critical security and data boundaries.
+- `code-simplifier`, `finding-duplicate-functions`, and `brooks-audit`: omit only when unavailable or irrelevant, and the report must document why.
 
 ## Advanced TypeScript Policy
 
-Every TypeScript plan records the ordinary TypeScript verification command. Require `typescript-advanced-types` only when the plan touches exported/public types, API contracts, runtime validation, schema/generated types, state machines, discriminated unions, branded/domain IDs, reusable type utilities, or cross-layer DTO/domain boundaries. Otherwise record `typescript-advanced-types: not_applicable` with rationale.
+Every TypeScript plan records the ordinary TypeScript verification command. Use `../common/typescript-triggers.md` for advanced TypeScript review trigger conditions. Otherwise record `typescript-advanced-types: not_applicable` with rationale.
 
 Use `references/plan-review-checklist.md` for the detailed review rubric when the plan is non-trivial.
 

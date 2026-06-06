@@ -86,6 +86,7 @@ jq -e '
   and (.recallContextTurns == 3)
   and ((.recallTypes | index("observation")) != null)
   and (.retainToolCalls == false)
+  and (.retainTranscripts == false)
   and (.recallPromptPreamble | test("Fresh repo/runtime evidence overrides memory"))
   ' "$config" >/dev/null || {
   emit_fail "config-unsafe" "Hindsight config does not match strict control-plane profile"

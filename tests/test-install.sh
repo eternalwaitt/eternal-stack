@@ -77,6 +77,8 @@ for skill in "${OWNED_SKILLS[@]}"; do
   assert_contains "installed Claude slash command $skill carries arguments" "$(cat "$CLAUDE_HOME/commands/$skill.md")" 'User request: $ARGUMENTS'
   assert_file "synced Codex skill $skill" "$CODEX_HOME/skills/$skill/SKILL.md"
 done
+assert_file "installed Claude common skill reference" "$CLAUDE_HOME/skills/common/typescript-triggers.md"
+assert_file "synced Codex common skill reference" "$CODEX_HOME/skills/common/typescript-triggers.md"
 assert_no_directory "removed legacy Claude etrnl-fix-issue" "$CLAUDE_HOME/skills/etrnl-fix-issue"
 assert_no_directory "removed legacy Codex etrnl-fix-issue" "$CODEX_HOME/skills/etrnl-fix-issue"
 assert_no_file "removed legacy Claude etrnl-fix-issue command" "$CLAUDE_HOME/commands/etrnl-fix-issue.md"
@@ -258,6 +260,8 @@ for skill in "${OWNED_SKILLS[@]}"; do
   assert_no_file "rollback removed $skill slash command" "$CLAUDE_HOME/commands/$skill.md"
   assert_no_directory "rollback removed Codex $skill" "$CODEX_HOME/skills/$skill"
 done
+assert_no_directory "rollback removed Claude common skill reference" "$CLAUDE_HOME/skills/common"
+assert_no_directory "rollback removed Codex common skill reference" "$CODEX_HOME/skills/common"
 assert_no_file "rollback removed Codex update-check helper" "$CODEX_HOME/scripts/update-check.mjs"
 assert_no_file "rollback removed Codex skill update prompt helper" "$CODEX_HOME/scripts/skill-update-prompt.mjs"
 assert_no_file "rollback removed Codex install metadata" "$CODEX_HOME/control-plane/install.json"

@@ -21,7 +21,7 @@ Claude Code personal and project skills use hyphenated command names. If this co
 | `/etrnl-audit-security` | Model or user | Runs the registered security deep-audit category with exploitable-bug evidence, source/sink tracing, missing-control checks, reachability, confidence, and explicit non-findings. |
 | `/etrnl-dev-commit` | User only | Reviews, verifies, stages, and commits relevant work. |
 | `/etrnl-dev-deps` | User only | Handles targeted dependency maintenance with migration checks, catalog consolidation, bot PR triage, and rollback evidence. |
-| `/etrnl-comm-email-reply-quality` | Model or user | Checks VIVAZ outgoing email replies for banned dash typography, natural Brazilian Portuguese, AI tells, and humanizer cleanup before approval or send. |
+| `/etrnl-comm-email-reply-quality` | Model or user | Checks private outgoing email replies for banned dash typography, natural Brazilian Portuguese, AI tells, and humanizer cleanup before approval or send. |
 | `/etrnl-dev-stress-test` | Model or user | Stress-tests architecture, rollout, migration, automation, and safety assumptions. |
 | `/etrnl-dev-execute` | User only | Executes an approved readiness-checked implementation plan end to end with test-first source tasks, run ledger, write-mode implementation subagents for parallel-safe multi-file work, reviews, and verification. |
 | `/etrnl-dev-debug` | User only | Debugs bugs, failing tests, CI failures, production issues, tracked issues, and unexpected behavior through root-cause evidence before fixes. |
@@ -41,7 +41,7 @@ Claude Code personal and project skills use hyphenated command names. If this co
 
 | Command | Invocation | Purpose |
 | --- | --- | --- |
-| `/email-triage <account>` | User only | Runs VIVAZ email triage in two phases: first archive/label every current INBOX item and provider-verify Inbox Zero with `vivaz-email triage guarded-run --account <account> --max-inbox 500 --apply --require-insights`, then render one action/reply queue item only after `triage verify` reports `inbox_zero_verified: true`, `inbox_count: 0`, and either `gmail_mutated: true` or `queue_ready_without_mutation: true`; visible reply drafts require `vivaz-email drafts check --draft-id <draft-id>` before approval. |
+| `/email-triage <account>` | User only | Runs private email triage in two phases: first archive/label every current INBOX item and provider-verify Inbox Zero with the local private email CLI, then render one action/reply queue item only after verification reports `inbox_zero_verified: true`, `inbox_count: 0`, and either `gmail_mutated: true` or `queue_ready_without_mutation: true`; visible reply drafts require the local draft checker before approval. |
 
 ## Deep Audit Skills
 

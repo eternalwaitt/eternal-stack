@@ -202,6 +202,12 @@ for skill in "${OWNED_SKILLS[@]}"; do
     restored_count=$((restored_count + 1))
   fi
 done
+rm -rf -- "$ROOT/skills/common"
+if [[ -d "$BACKUP/skills/common" ]]; then
+  cp -R -- "$BACKUP/skills/common" "$ROOT/skills/common"
+  restored+=("skills/common")
+  restored_count=$((restored_count + 1))
+fi
 
 mkdir -p "$ROOT/commands"
 for skill in "${OWNED_SKILLS[@]}"; do
@@ -217,6 +223,12 @@ for skill in "${OWNED_SKILLS[@]}"; do
     restored_count=$((restored_count + 1))
   fi
 done
+rm -rf -- "$CODEX_TARGET/skills/common"
+if [[ -d "$BACKUP/codex-skills/common" ]]; then
+  cp -R -- "$BACKUP/codex-skills/common" "$CODEX_TARGET/skills/common"
+  restored+=("codex-skills/common")
+  restored_count=$((restored_count + 1))
+fi
 
 mkdir -p "$CODEX_TARGET/scripts" "$CODEX_TARGET/scripts/lib"
 for script in "${INSTALL_SCRIPTS[@]}"; do

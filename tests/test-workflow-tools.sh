@@ -656,6 +656,7 @@ cat >"$TMPROOT/tool-stack-hindsight/claude-code.json" <<'JSON'
   "recallContextTurns": 3,
   "recallTypes": ["observation"],
   "retainToolCalls": false,
+  "retainTranscripts": false,
   "recallPromptPreamble": "Fresh repo/runtime evidence overrides memory."
 }
 JSON
@@ -671,6 +672,10 @@ hindsight_bad_config="$TMPROOT/tool-stack-hindsight/bad-claude-code.json"
 jq '.retainToolCalls = true' "$TMPROOT/tool-stack-hindsight/claude-code.json" >"$hindsight_bad_config"
 hindsight_bad_json="$(PATH="$tool_stack_bin:/usr/bin:/bin" "$ROOT/scripts/canary-hindsight.sh" --settings "$TMPROOT/tool-stack-home/settings.json" --config "$hindsight_bad_config" --json 2>/dev/null || true)"
 assert_json_expr "hindsight canary rejects unsafe retention" "$hindsight_bad_json" '.ok == false and .code == "config-unsafe"'
+hindsight_transcripts_config="$TMPROOT/tool-stack-hindsight/transcripts-claude-code.json"
+jq '.retainTranscripts = true' "$TMPROOT/tool-stack-hindsight/claude-code.json" >"$hindsight_transcripts_config"
+hindsight_transcripts_json="$(PATH="$tool_stack_bin:/usr/bin:/bin" "$ROOT/scripts/canary-hindsight.sh" --settings "$TMPROOT/tool-stack-home/settings.json" --config "$hindsight_transcripts_config" --json 2>/dev/null || true)"
+assert_json_expr "hindsight canary rejects unsafe transcript retention" "$hindsight_transcripts_json" '.ok == false and .code == "config-unsafe"'
 tool_effectiveness_fixtures_json="$(node "$ROOT/scripts/tool-effectiveness.mjs" summarize --fixtures "$ROOT/tests/fixtures/tool-effectiveness" --json)"
 assert_command "tool-effectiveness fixtures validate" node "$ROOT/scripts/tool-effectiveness.mjs" validate-fixtures --fixtures "$ROOT/tests/fixtures/tool-effectiveness"
 assert_json_expr "tool-effectiveness codegraph keep verdict" "$tool_effectiveness_fixtures_json" '.tools.codegraph.verdict == "keep" and .tools.codegraph.evidence.eligibleSessions >= 5'
@@ -790,6 +795,7 @@ cat >"$settings_audit_home/.hindsight/claude-code.json" <<'JSON'
   "recallContextTurns": 3,
   "recallTypes": ["observation"],
   "retainToolCalls": false,
+  "retainTranscripts": false,
   "recallPromptPreamble": "Fresh repo/runtime evidence overrides memory."
 }
 JSON

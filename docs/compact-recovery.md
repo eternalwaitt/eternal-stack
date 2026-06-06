@@ -45,7 +45,7 @@ CLAUDE_CONTROL_PLANE_HOME="$CLAUDE_HOME" node "$CLAUDE_HOME/scripts/update-check
 "$CLAUDE_HOME/scripts/rollback-local.sh" --dry-run
 ```
 
-The staged `settings.json` should include synchronous `cc-sessionstart-restore.sh`, `PreCompact` `cc-precompact-save.sh`, `PostCompact` `cc-postcompact-record.sh`, and `Stop` `cc-stop-verifier.sh`. It should not include compact reminder/context companion hooks unless they are explicitly accepted outside this rollout.
+The staged `settings.json` should include synchronous `cc-sessionstart-restore.sh`, `PreCompact` `cc-precompact-save.sh`, `PostCompact` `cc-postcompact-record.sh`, and `Stop` `cc-stop-verifier.sh`. It should not include additional compact-related hooks, such as reminder injectors or context dump hooks, unless they have been approved through a separate ADR or install plan.
 
 ## Manual Compact Smoke
 

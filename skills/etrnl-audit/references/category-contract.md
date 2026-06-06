@@ -68,7 +68,7 @@ Use an empty hashed worklist when a surface is absent. Absence alone never prove
 
 Artifact labels replace absolute filesystem paths. Keep target roots, temporary directories, emails, tokens, API keys, passwords, and private-key material out of tracked artifacts.
 
-Category reports and lane receipts copy the shared hashes into `consumedWorklistHashes`. A category report that sets any local inventory flag (`localInventoryCreated`, `localInventory`, or `createdLocalInventory`) when shared worklists exist fails validation. Use `localInventoryCreated` as the canonical field name.
+Category reports and lane receipts copy the shared hashes into `consumedWorklistHashes`. A category report that sets the canonical `localInventoryCreated` field when shared worklists exist fails validation. Deprecated aliases `localInventory` and `createdLocalInventory` are also rejected.
 
 ## Category Reports
 
