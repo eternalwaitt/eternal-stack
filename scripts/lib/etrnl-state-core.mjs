@@ -141,6 +141,18 @@ function removeStaleLock(lock) {
   try {
     const stat = fs.statSync(lock);
     if (Date.now() - stat.mtimeMs < lockStaleMs()) return false;
+    const owner = readJson(path.join(lock, "owner.json"), null);
+    const pid = Number(owner?.pid || 0);
+    if (pid > 0) {
+      try {
+        process.kill(pid, 0);
+        fs.utimesSync(lock, new Date(), new Date());
+        return false;
+      } catch (error) {
+        if (!error || typeof error !== "object" || !["ESRCH", "EPERM"].includes(error.code)) throw error;
+        if (error.code === "EPERM") return false;
+      }
+    }
     fs.rmSync(lock, { recursive: true, force: true });
     return true;
   } catch (error) {
@@ -156,6 +168,7 @@ export function withLock(root, fn) {
   for (let attempt = 0; attempt < 50; attempt += 1) {
     try {
       fs.mkdirSync(lock, { mode: 0o700 });
+      fs.writeFileSync(path.join(lock, "owner.json"), `${JSON.stringify({ pid: process.pid, at: nowIso() })}\n`, { mode: 0o600 });
       acquired = true;
       break;
     } catch (error) {

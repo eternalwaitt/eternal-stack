@@ -136,4 +136,6 @@ node scripts/deep-audit-artifact-check.mjs validate-fixtures
 node scripts/deep-audit-artifact-check.mjs validate-registry --root .
 node scripts/prompt-budget-check.mjs .
 node scripts/skill-contract-check.mjs
+bash tests/test-hooks.sh
+bash scripts/doctor.sh
 ```

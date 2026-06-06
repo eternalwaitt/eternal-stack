@@ -336,7 +336,7 @@ validate_source_install_inputs() {
     printf '  %s\n' "${missing[@]}" >&2
     return 1
   fi
-  node "$ROOT/scripts/stack-profile-check.mjs" "$PROFILE_MANIFEST" >/dev/null
+  node "$ROOT/scripts/stack-profile-check.mjs" "$PROFILE_MANIFEST"
 }
 
 if [[ "$DRY_RUN" == "1" ]]; then

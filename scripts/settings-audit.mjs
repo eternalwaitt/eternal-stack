@@ -448,7 +448,7 @@ function collectIssues(settings) {
     }));
   const riskyTopLevelIssues = collectRiskyTopLevel(settings);
   const frontmatterHookDeclarations = settingsIsTemplate ? [] : collectFrontmatterHookDeclarations();
-  const memoryPluginPosture = collectMemoryPluginPosture(settings);
+  const memoryPluginPosture = settingsIsTemplate ? [] : collectMemoryPluginPosture(settings);
   for (const [eventName, groups] of Object.entries(settings.hooks ?? {})) {
     const seen = [];
     for (const group of groups ?? []) {

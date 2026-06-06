@@ -68,7 +68,7 @@ function runHookNoise() {
     return JSON.parse(result.stdout);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return { error: `hook noise JSON parse failed: ${message}` };
+    return { error: redact(`hook noise JSON parse failed: ${message}`) };
   }
 }
 

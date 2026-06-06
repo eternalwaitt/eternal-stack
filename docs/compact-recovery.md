@@ -10,7 +10,7 @@ Run these from the source checkout:
 node scripts/etrnl-state.mjs validate --fixtures tests/fixtures/etrnl-state
 node scripts/etrnl-state.mjs append --fixture tests/fixtures/etrnl-state/compact-pre.json --dry-run --json
 node scripts/etrnl-state.mjs compact-handoff --session fixture-compact --json
-node scripts/settings-audit.mjs templates/settings.json --strict-conflicts --json
+node scripts/settings-audit.mjs templates/settings.strict.json --strict-conflicts --json
 tests/test-hooks.sh
 ```
 

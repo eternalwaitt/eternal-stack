@@ -665,11 +665,11 @@ assert_json_expr "tool stack checker keeps beads current" "$tool_stack_json" '.t
 assert_json_expr "tool stack checker reports Hindsight plugin posture" "$tool_stack_json" '.tools.hindsight.pluginEnabled == true and .tools.hindsight.pluginInstalled == true and .tools.hindsight.ok == true and .tools.hindsight.mode == "local-daemon"'
 tool_stack_text="$(PATH="$tool_stack_bin:/usr/bin:/bin" CLAUDE_HOME="$TMPROOT/tool-stack-home" HINDSIGHT_HOME="$TMPROOT/tool-stack-hindsight" CLAUDE_CONTROL_PLANE_TOOL_STACK_STATE="$TMPROOT/tool-stack-state.json" "$node_bin" "$ROOT/scripts/tool-stack-check.mjs" --force)"
 assert_contains "tool stack checker text advertises update" "$tool_stack_text" "TOOL_STACK_UPDATE_AVAILABLE codegraph"
-hindsight_canary_json="$("$ROOT/scripts/canary-hindsight.sh" --settings "$TMPROOT/tool-stack-home/settings.json" --config "$TMPROOT/tool-stack-hindsight/claude-code.json" --json)"
+hindsight_canary_json="$(PATH="$tool_stack_bin:/usr/bin:/bin" "$ROOT/scripts/canary-hindsight.sh" --settings "$TMPROOT/tool-stack-home/settings.json" --config "$TMPROOT/tool-stack-hindsight/claude-code.json" --json)"
 assert_json_expr "hindsight canary passes local daemon config without live health" "$hindsight_canary_json" '.ok == true and .mode == "local-daemon" and .health == "health-skipped"'
 hindsight_bad_config="$TMPROOT/tool-stack-hindsight/bad-claude-code.json"
 jq '.retainToolCalls = true' "$TMPROOT/tool-stack-hindsight/claude-code.json" >"$hindsight_bad_config"
-hindsight_bad_json="$("$ROOT/scripts/canary-hindsight.sh" --settings "$TMPROOT/tool-stack-home/settings.json" --config "$hindsight_bad_config" --json 2>/dev/null || true)"
+hindsight_bad_json="$(PATH="$tool_stack_bin:/usr/bin:/bin" "$ROOT/scripts/canary-hindsight.sh" --settings "$TMPROOT/tool-stack-home/settings.json" --config "$hindsight_bad_config" --json 2>/dev/null || true)"
 assert_json_expr "hindsight canary rejects unsafe retention" "$hindsight_bad_json" '.ok == false and .code == "config-unsafe"'
 tool_effectiveness_fixtures_json="$(node "$ROOT/scripts/tool-effectiveness.mjs" summarize --fixtures "$ROOT/tests/fixtures/tool-effectiveness" --json)"
 assert_command "tool-effectiveness fixtures validate" node "$ROOT/scripts/tool-effectiveness.mjs" validate-fixtures --fixtures "$ROOT/tests/fixtures/tool-effectiveness"

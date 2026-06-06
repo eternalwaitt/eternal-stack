@@ -92,7 +92,7 @@
     ]
   },
   "rollback": {
-    "metadata": "control-plane/install.json",
+    "installMetadataTarget": "~/.claude/control-plane/install.json",
     "required": true,
     "ownedServiceRecords": [
       "hindsight"

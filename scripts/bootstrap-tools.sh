@@ -12,6 +12,7 @@ SKIP_CODEGRAPH=0
 SKIP_BEADS=0
 SKIP_HINDSIGHT=0
 DRY_RUN=0
+CONFIRM_SKIPPED=64
 PROFILE="${CLAUDE_CONTROL_PLANE_STACK_PROFILE:-core}"
 HINDSIGHT_MODE="${CLAUDE_CONTROL_PLANE_HINDSIGHT_MODE:-local-daemon}"
 
@@ -148,7 +149,17 @@ confirm_required() {
     printf 'bootstrap error: full profile requires approved action: %s\n' "$prompt" >&2
     return 1
   fi
-  return 1
+  return "$CONFIRM_SKIPPED"
+}
+
+confirm_or_core_skip() {
+  local prompt="$1" status
+  status=0
+  confirm_required "$prompt" || status=$?
+  if [[ "$status" == "$CONFIRM_SKIPPED" ]]; then
+    return "$CONFIRM_SKIPPED"
+  fi
+  return "$status"
 }
 
 need_command() {
@@ -164,7 +175,7 @@ validate_external_hindsight_url() {
 }
 
 install_codegraph() {
-  local npm_status
+  local npm_status confirm_status
   if [[ "$SKIP_CODEGRAPH" == "1" ]]; then
     printf 'skipped: CodeGraph (--skip-codegraph)\n'
     return 0
@@ -178,7 +189,10 @@ install_codegraph() {
     printf 'ok: codegraph available (%s)\n' "$(codegraph --version 2>/dev/null || printf unknown)"
   else
     need_command npm || { printf 'bootstrap error: npm is required to install codegraph\n' >&2; return 1; }
-    confirm_required "install CodeGraph globally with npm" || return 1
+    confirm_status=0
+    confirm_or_core_skip "install CodeGraph globally with npm" || confirm_status=$?
+    [[ "$confirm_status" == "$CONFIRM_SKIPPED" ]] && return 0
+    [[ "$confirm_status" == "0" ]] || return "$confirm_status"
     npm_status=0
     npm install -g @colbymchenry/codegraph || npm_status=$?
     if [[ "$npm_status" != "0" ]]; then
@@ -188,13 +202,16 @@ install_codegraph() {
     need_command codegraph || { printf 'bootstrap error: codegraph binary not found after npm install\n' >&2; return 1; }
   fi
   if need_command codegraph; then
-    confirm_required "install/refresh CodeGraph MCP config for supported agents" || return 1
+    confirm_status=0
+    confirm_or_core_skip "install/refresh CodeGraph MCP config for supported agents" || confirm_status=$?
+    [[ "$confirm_status" == "$CONFIRM_SKIPPED" ]] && return 0
+    [[ "$confirm_status" == "0" ]] || return "$confirm_status"
     codegraph install --target all --location global --yes
   fi
 }
 
 install_beads() {
-  local npm_status
+  local npm_status confirm_status
   if [[ "$SKIP_BEADS" == "1" ]]; then
     printf 'skipped: Beads (--skip-beads)\n'
     return 0
@@ -208,7 +225,10 @@ install_beads() {
     return 0
   fi
   if need_command npm; then
-    confirm_required "install Beads globally with npm" || return 1
+    confirm_status=0
+    confirm_or_core_skip "install Beads globally with npm" || confirm_status=$?
+    [[ "$confirm_status" == "$CONFIRM_SKIPPED" ]] && return 0
+    [[ "$confirm_status" == "0" ]] || return "$confirm_status"
     npm_status=0
     npm install -g @beads/bd || npm_status=$?
     if [[ "$npm_status" != "0" ]]; then
@@ -219,12 +239,15 @@ install_beads() {
     return 0
   fi
   need_command brew || { printf 'bootstrap error: npm or Homebrew is required to install beads automatically\n' >&2; return 1; }
-  confirm_required "install Beads globally with Homebrew fallback" || return 1
+  confirm_status=0
+  confirm_or_core_skip "install Beads globally with Homebrew fallback" || confirm_status=$?
+  [[ "$confirm_status" == "$CONFIRM_SKIPPED" ]] && return 0
+  [[ "$confirm_status" == "0" ]] || return "$confirm_status"
   brew install beads
 }
 
 install_hindsight() {
-  local claude_home hindsight_home config_target template plugin_list config_tmp api_url
+  local claude_home hindsight_home config_target template plugin_list config_tmp api_url confirm_status
   if [[ "$SKIP_HINDSIGHT" == "1" ]]; then
     printf 'skipped: Hindsight (--skip-hindsight)\n'
     return 0
@@ -256,6 +279,9 @@ install_hindsight() {
   elif [[ "$HINDSIGHT_MODE" == "docker-server" ]]; then
     need_command docker || { printf 'bootstrap error: docker-server Hindsight mode requires docker; use another mode or --skip-hindsight if intentional\n' >&2; return 1; }
   fi
+  confirm_status=0
+  confirm_required "install Hindsight plugin and write local Hindsight config" || confirm_status=$?
+  [[ "$confirm_status" == "0" ]] || return "$confirm_status"
   plugin_list="$(claude plugin list 2>/dev/null || true)"
   if [[ "$plugin_list" != *"hindsight-memory"* ]]; then
     claude plugin marketplace add vectorize-io/hindsight
@@ -281,7 +307,7 @@ install_hindsight() {
 
 bootstrap_project() {
   local project="$1"
-  local lock acquired
+  local lock acquired confirm_status
   [[ -n "$project" ]] || return 0
   project="$(cd -- "$project" 2>/dev/null && pwd -P)" || { printf 'bootstrap error: project path not found: %s\n' "$project" >&2; return 1; }
   if [[ "$SKIP_CODEGRAPH" != "1" && "$DRY_RUN" == "1" ]]; then
@@ -298,7 +324,13 @@ bootstrap_project() {
     done
     [[ "$acquired" == "1" ]] || { printf 'bootstrap error: timed out waiting for CodeGraph project lock: %s\n' "$lock" >&2; return 1; }
     if [[ ! -d "$project/.codegraph" ]]; then
-      confirm_required "initialize CodeGraph index in $project" || { rmdir "$lock" 2>/dev/null || true; return 1; }
+      confirm_status=0
+      confirm_or_core_skip "initialize CodeGraph index in $project" || confirm_status=$?
+      if [[ "$confirm_status" == "$CONFIRM_SKIPPED" ]]; then
+        rmdir "$lock" 2>/dev/null || true
+        return 0
+      fi
+      [[ "$confirm_status" == "0" ]] || { rmdir "$lock" 2>/dev/null || true; return "$confirm_status"; }
       codegraph init "$project" || { rmdir "$lock" 2>/dev/null || true; return 1; }
     else
       # Non-fatal: an existing index may be temporarily locked or stale; status still gives operators the next repair step.
@@ -310,7 +342,10 @@ bootstrap_project() {
     printf 'dry-run: would initialize or verify Beads database in %s without raw setup hooks\n' "$project"
   elif [[ "$SKIP_BEADS" != "1" ]] && need_command bd; then
     if [[ ! -d "$project/.beads" ]]; then
-      confirm_required "bootstrap Beads database in $project" || return 1
+      confirm_status=0
+      confirm_or_core_skip "bootstrap Beads database in $project" || confirm_status=$?
+      [[ "$confirm_status" == "$CONFIRM_SKIPPED" ]] && return 0
+      [[ "$confirm_status" == "0" ]] || return "$confirm_status"
       bd -C "$project" bootstrap --yes
     else
       bd -C "$project" bootstrap --yes || bd -C "$project" status || true

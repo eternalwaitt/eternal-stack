@@ -27,6 +27,16 @@ cc_etrnl_state_script() {
   printf '%s/scripts/etrnl-state.mjs\n' "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 }
 
+cc_project_fingerprint() {
+  local cwd="${1:-$(pwd -P)}"
+  node -e '
+const crypto = require("node:crypto");
+const path = require("node:path");
+const resolved = path.resolve(process.argv[1] || "unknown");
+process.stdout.write(crypto.createHash("sha256").update(resolved).digest("hex").slice(0, 16));
+' "$cwd" 2>/dev/null || printf 'unknown-project'
+}
+
 cc_etrnl_state_available() {
   command -v node >/dev/null 2>&1 && [[ -f "$(cc_etrnl_state_script)" ]]
 }

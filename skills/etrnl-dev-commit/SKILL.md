@@ -5,7 +5,7 @@ disable-model-invocation: true
 ---
 # Commit
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-commit`; on update, ask update/snooze/continue.
+Codex startup: after install, run `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-commit`; in the source checkout the helper lives at `scripts/skill-update-prompt.mjs`. On update, ask update/snooze/continue.
 
 Create one logical commit at a time after evidence is clean.
 
