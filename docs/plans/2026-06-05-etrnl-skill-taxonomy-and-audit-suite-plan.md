@@ -132,7 +132,7 @@ Verification: `tests/test-install.sh`, `scripts/doctor.sh`, and `node scripts/sk
 Owner: dev-workflow skill owner.
 Dependencies: Groups A and B.
 Acceptance criteria: plan, execute, review, test, debug, PR, commit, CI, deps, brainstorm, autoplan, parallel, and stress-test skills exist under `etrnl-dev-*`; old names do not route; references inside skill bodies and docs point to canonical names.
-Verification: `node scripts/skill-behavior-smoke.mjs`, `node scripts/prompt-budget-check.mjs --owned-only`, and targeted trigger fixtures for `etrnl-dev-plan`, old `etrnl-dev-plan` rejection, `etrnl-dev-execute`, and old `etrnl-execute` rejection.
+Verification: `node scripts/skill-behavior-smoke.mjs`, `node scripts/prompt-budget-check.mjs --owned-only`, and targeted trigger fixtures for `etrnl-dev-plan`, old `etrnl-plan` rejection, `etrnl-dev-execute`, and old `etrnl-execute` rejection.
 
 ### Group D - Audit Family Rename
 

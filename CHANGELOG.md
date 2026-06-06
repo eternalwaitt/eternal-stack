@@ -4,7 +4,9 @@
 
 ## v0.2.0
 
-- Rename repo-owned ETRNL skills to the canonical `etrnl-dev-*`, `etrnl-audit-*`, `etrnl-ops-*`, and `etrnl-comm-*` taxonomy; remove old slash alias routing; expand the deep-audit registry to code excellence, UI/UX/product, production, security, performance, shared reuse, repo hygiene, and tooling ecosystem; add first-class audit skills for excellence, UX, reuse, repo hygiene, and tooling.
+- Rename repo-owned ETRNL skills to the canonical `etrnl-dev-*`, `etrnl-audit-*`, `etrnl-ops-*`, and `etrnl-comm-*` taxonomy and remove old slash alias routing.
+- Expand the deep-audit registry to code excellence, UI/UX/product, production, security, performance, shared reuse, repo hygiene, and tooling ecosystem.
+- Add first-class audit skills for excellence, UX, reuse, repo hygiene, and tooling.
 - Reset managed Claude Code `settings.json` to vanilla during install after backing it up, then apply the selected control-plane stack; add `--preserve-settings` for deliberate merge-in-place installs.
 - Add shareable `core` and `full` stack install profiles with profile manifests, Hindsight config templates, profile validation, full-profile bootstrap flags, Hindsight plugin/config posture checks, ETRNL-first lesson retention, and raw Beads doctrine rejection.
 - Add the ETRNL compact state layer with append-only local JSONL events, bounded `compact-handoff` recovery, stale-verification Stop checks, privacy-reject fixtures, staged install assertions for synchronous compact restore, and explicit Beads backlog-only/Dolt projection boundaries.

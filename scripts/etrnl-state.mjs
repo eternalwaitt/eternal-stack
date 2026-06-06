@@ -87,11 +87,13 @@ function commandValidate() {
 }
 
 function commandCompactHandoff() {
+  const maxCharsCandidate = Number(flagValue(args, "--max-chars", "1200"));
+  const maxChars = Number.isFinite(maxCharsCandidate) && maxCharsCandidate > 0 ? maxCharsCandidate : 1200;
   const result = compactHandoff({
     stateDir,
     session,
     latest: args.includes("--latest") || !session,
-    maxChars: Number(flagValue(args, "--max-chars", "1200")),
+    maxChars,
   });
   emit(jsonMode ? result : result.text);
 }

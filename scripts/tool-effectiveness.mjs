@@ -356,7 +356,7 @@ function importCodex() {
   }
   if (!dryRun && events.length > 0) {
     mkdirSync(path.dirname(DEFAULT_EVENTS_FILE), { recursive: true, mode: 0o700 });
-    for (const event of events) appendFileSync(DEFAULT_EVENTS_FILE, `${JSON.stringify(event)}\n`, { mode: 0o600 });
+    appendFileSync(DEFAULT_EVENTS_FILE, `${events.map((event) => JSON.stringify(event)).join("\n")}\n`, { mode: 0o600 });
     chmodSync(path.dirname(DEFAULT_EVENTS_FILE), 0o700);
     chmodSync(DEFAULT_EVENTS_FILE, 0o600);
   }

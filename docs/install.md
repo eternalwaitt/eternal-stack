@@ -60,6 +60,10 @@ The installer:
 - merges strict blocker hooks, including `PreToolUse`, `Stop`, and `SubagentStop`, only when `CLAUDE_CONTROL_PLANE_ENABLE_STRICT=1`
 - records the evidence-before-agreement lesson to ETRNL state first, then exports it to Hindsight only when the Hindsight canary is green
 
+### Hindsight Marketplace Access
+
+The full profile installs Hindsight through the Claude CLI marketplace identifier `vectorize-io/hindsight`. That requires marketplace access in the active Claude CLI account. Without that access, the Hindsight install step can fail before plugin configuration is written. Use `--skip-hindsight` when marketplace access is unavailable or when you intentionally want CodeGraph/Beads without Hindsight.
+
 Post-install verification:
 
 ```bash

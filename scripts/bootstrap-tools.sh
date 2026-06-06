@@ -274,7 +274,9 @@ install_hindsight() {
   install -m 600 "$config_tmp" "$config_target"
   rm -f "$config_tmp"
   mkdir -p "$claude_home/control-plane"
-  printf '{"hindsight":{"mode":"%s","config":"%s","ownedBy":"claude-control-plane"}}\n' "$HINDSIGHT_MODE" "$config_target" >"$claude_home/control-plane/full-stack-services.json"
+  jq -n --arg mode "$HINDSIGHT_MODE" --arg config "$config_target" \
+    '{hindsight:{mode:$mode,config:$config,ownedBy:"claude-control-plane"}}' \
+    >"$claude_home/control-plane/full-stack-services.json"
 }
 
 bootstrap_project() {
@@ -299,6 +301,7 @@ bootstrap_project() {
       confirm_required "initialize CodeGraph index in $project" || { rmdir "$lock" 2>/dev/null || true; return 1; }
       codegraph init "$project" || { rmdir "$lock" 2>/dev/null || true; return 1; }
     else
+      # Non-fatal: an existing index may be temporarily locked or stale; status still gives operators the next repair step.
       codegraph sync "$project" || codegraph status "$project" || true
     fi
     rmdir "$lock" 2>/dev/null || true
@@ -314,8 +317,10 @@ bootstrap_project() {
     fi
   fi
   if [[ "$DRY_RUN" != "1" ]]; then
-    node "$ROOT/scripts/tool-stack-check.mjs" --project "$project" --json >/dev/null || {
+    local check_output
+    check_output="$(node "$ROOT/scripts/tool-stack-check.mjs" --project "$project" --json 2>&1)" || {
       printf 'bootstrap error: project tool-stack validation failed: %s\n' "$project" >&2
+      printf '%s\n' "$check_output" >&2
       return 1
     }
   fi

@@ -22,7 +22,7 @@
   },
   "beads": {
     "statusCommand": "bd status --json",
-    "status": "passed",
+    "status": "failed",
     "summary": {
       "totalIssues": 0,
       "openIssues": 0,

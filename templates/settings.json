@@ -6,7 +6,7 @@
           {
             "type": "command",
             "command": "bash ~/.claude/hooks/cc-sessionstart-restore.sh",
-            "timeout": 10
+            "timeout": 20
           }
         ]
       }

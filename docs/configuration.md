@@ -28,7 +28,7 @@ Updater:
 
 - `CLAUDE_CONTROL_PLANE_UPDATE_CHECK=0` disables startup drift checks (enabled by default when unset).
 - `CLAUDE_CONTROL_PLANE_REMOTE_UPDATE_CHECK=1` enables cached upstream checks (disabled by default when unset).
-- `CLAUDE_CONTROL_PLANE_AUTO_UPDATE=0` disables automatic local control-plane repair from the recorded source checkout. Local auto-update is enabled by default so stale installs do not stall on a prompt.
+- `CLAUDE_CONTROL_PLANE_AUTO_UPDATE`: unset means local auto-update is enabled from the recorded source checkout; set `CLAUDE_CONTROL_PLANE_AUTO_UPDATE=0` to disable automatic local control-plane repair.
 - `CLAUDE_CONTROL_PLANE_UPDATE_INTERVAL_SEC` controls the remote-check cache window; default is `21600` seconds (six hours) when unset.
 - `CLAUDE_CONTROL_PLANE_INSTALL_STATE` and `CLAUDE_CONTROL_PLANE_UPDATE_STATE` override the installed metadata and update cache paths for tests or custom Claude homes.
 

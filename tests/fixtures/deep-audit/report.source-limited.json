@@ -270,11 +270,7 @@
   ],
   "laneReceipts": [],
   "confirmedClean": [
-    {
-      "categoryId": "production-readiness",
-      "checkId": "prod-18-operability-prr",
-      "summary": "CONFIRMED_CLEAN: Operability PRR - 0 findings"
-    }
+    "production-readiness/prod-18-operability-prr"
   ],
   "checksSkipped": [],
   "findings": [],

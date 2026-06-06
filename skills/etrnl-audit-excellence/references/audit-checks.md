@@ -5,6 +5,30 @@
 - Registry source: `scripts/lib/deep-audit-categories.mjs`
 - Report envelope: same schema used by `etrnl-audit`
 
+This reference is intentionally compact because code excellence reuses the shared code-health inventory, deep-audit envelope, and lane receipt rules instead of defining category-local inventory formats.
+
+## Evidence Rules
+
+- Generate shared worklists before analysis and record each worklist with `path`, `count`, `sha256`, and generation command.
+- Read every file in the selected worklists. Sampling blocks completion.
+- Store check rows with exact `checkId`, status, evidence summary, and source-limited blocker when runtime or auth evidence is unavailable.
+- Use `CONFIRMED_CLEAN` only when the relevant worklist has been inspected and no finding remains.
+- Keep local absolute paths, account names, secrets, transcript excerpts, and private memory content out of tracked artifacts.
+
+## Worklists
+
+Use shared artifact paths produced by the orchestrator. Baseline commands:
+
+| Worklist id | Contents | Baseline command |
+| --- | --- | --- |
+| `code_source` | app and library source files | `fd -e ts -e tsx -e js -e jsx -e py -e rs -e go -e rb -e php -e java -e kt --exclude node_modules --exclude .next --exclude dist` |
+| `code_tests` | test and fixture files | `fd 'test|spec|fixture' --type f --exclude node_modules --exclude .next --exclude dist` |
+| `code_configs` | build, lint, type, and runtime config | `fd 'package.json|tsconfig.*|eslint.*|oxlint.*|biome.*|vite.*|next.config.*|pytest.ini|Cargo.toml|go.mod'` |
+
+## Applicability Discovery
+
+Record language/runtime, framework, test runner, type/schema tools, package boundaries, public API surfaces, and generated/vendor exclusions before running checks.
+
 ## Checks
 
 1. `code-01-correctness-invariants`: trace domain invariants, edge cases, and regression evidence.

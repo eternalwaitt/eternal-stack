@@ -243,7 +243,7 @@ function curlHealth(url) {
   return { ok: result.ok, error: result.ok ? "" : result.stderr || result.error || "health-check-failed" };
 }
 
-function githubLatestRelease(repo, cacheKeyId) {
+function githubLatestRelease(cache, repo, cacheKeyId) {
   let latestVersion = latestFromCache(cache, cacheKeyId);
   if (latestVersion) return { version: latestVersion, error: "" };
   const gh = commandPath("gh");
@@ -280,7 +280,7 @@ function hindsightStatus() {
   }
   const apiHealth = apiUrl ? curlHealth(apiUrl) : { ok: true, skipped: true, reason: mode === "local-daemon" ? "local daemon starts on demand; use canary for live port check" : "no api url configured" };
   if (pluginEnabled && apiUrl && !apiHealth.ok) issues.push(`Hindsight API health failed: ${apiHealth.error}`);
-  const latest = githubLatestRelease("vectorize-io/hindsight", "hindsight");
+  const latest = githubLatestRelease(cache, "vectorize-io/hindsight", "hindsight");
   return {
     id: "hindsight",
     kind: "claude-plugin",
@@ -295,7 +295,7 @@ function hindsightStatus() {
     currentVersion: "",
     latestVersion: latest.version,
     latestError: latest.error,
-	    ok: !pluginEnabled || (pluginInstalled && configExists && issues.length === 0 && apiHealth.ok),
+    ok: !pluginEnabled || (pluginInstalled && configExists && issues.length === 0 && apiHealth.ok),
     issues,
     warnings,
     strictChecks: hindsightStrictChecks,

@@ -9,7 +9,7 @@ Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --sk
 
 Maintain instruction files as routing/configuration surfaces, not memory stores.
 
-This repo-owned skill is the control-plane maintenance workflow for installed Claude/Codex startup files, templates, hooks, and runtime injection. The companion `etrnl-ops-agent-files` skill remains an external/general agent-file review surface; when both are installed, use `etrnl-ops-agent-files` for this repo's source/install contract and use the companion only for broader non-control-plane audits.
+This repo-owned `etrnl-ops-agent-files` skill is the control-plane maintenance workflow for installed Claude/Codex startup files, templates, hooks, and runtime injection. Use any external agent-file review skill only for broader non-control-plane audits.
 
 ## Target Scope
 

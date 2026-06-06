@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
 import { readdirSync, readFileSync, statSync } from "node:fs";
+import os from "node:os";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { argValue } from "./lib/cli-args.mjs";
@@ -19,7 +20,8 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 
 function expandHome(value) {
   if (!value.startsWith("~")) return value;
-  return `${process.env.HOME || ""}${value.slice(1)}`;
+  const home = process.env.HOME || process.env.USERPROFILE || os.homedir() || "/tmp";
+  return `${home}${value.slice(1)}`;
 }
 
 function redact(value) {

@@ -255,7 +255,7 @@ const executableMode = (file) => {
   try {
     return fs.statSync(file).mode & 0o111 ? "executable" : "not-executable";
   } catch (error) {
-    if (error && typeof error === "object" && error.code === "ENOENT") return "missing";
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") return "missing";
     return "unreadable";
   }
 };
@@ -435,7 +435,7 @@ function collectIssues(settings) {
   const pluginHookManifests = settingsIsTemplate ? [] : collectPluginHookManifests();
   const manifestErrors = pluginHookManifests.filter((row) => row.error);
   const memoryPluginHooks = pluginHookManifests.filter((row) => /hindsight|memory|recall|retain/i.test(`${row.plugin} ${row.command}`));
-  const riskyTopLevelSettings = collectRiskyTopLevel(settings);
+  const riskyTopLevelIssues = collectRiskyTopLevel(settings);
   const frontmatterHookDeclarations = settingsIsTemplate ? [] : collectFrontmatterHookDeclarations();
   const memoryPluginPosture = collectMemoryPluginPosture(settings);
   for (const [eventName, groups] of Object.entries(settings.hooks ?? {})) {
@@ -514,7 +514,7 @@ function collectIssues(settings) {
     manifestErrors,
     walkDepthWarnings: [...walkDepthWarnings],
     memoryPluginHooks,
-    riskyTopLevelSettings,
+    riskyTopLevelSettings: riskyTopLevelIssues,
     frontmatterHookDeclarations,
     memoryPluginPosture,
   };
@@ -600,7 +600,7 @@ if (json) {
   if (fix && (before.duplicateHooks.length > 0 || before.legacyHooks.length > 0)) {
     console.log(`fixed: duplicates=${before.duplicateHooks.length} legacyRateLimiters=${before.legacyHooks.length}`);
   }
-    for (const conflict of after.conflictingHooks) {
+  for (const conflict of after.conflictingHooks) {
     console.log(`warning: conflicting external hook ${conflict.eventName} ${conflict.matcher}: ${conflict.command} (${conflict.reason})`);
   }
   for (const risky of after.riskyTopLevelSettings) {
@@ -636,7 +636,7 @@ if (json) {
   for (const issue of after.syncExpectationIssues) {
     console.error(`- sync expectation ${issue.eventName} ${issue.matcher}: ${issue.reason}`);
   }
-    for (const issue of after.executableIssues) {
+  for (const issue of after.executableIssues) {
     console.error(`- hook executable issue ${issue.eventName}: ${issue.hook} ${issue.mode} at ${issue.file}`);
   }
   for (const risky of after.riskyTopLevelSettings) {

@@ -36,11 +36,11 @@ cd claude-control-plane
 ./scripts/doctor.sh
 ```
 
-The `core` profile installs the safe observer stack with repo-owned ETRNL agents and verification tests; the `full` profile adds CodeGraph, Beads, Hindsight, and canaries. See [docs/install.md](docs/install.md) for profile details, strict mode, hooks, rollback, migration behavior, and deeper references such as `AGENTS.md`, `CLAUDE.md`, and `docs/skills.md`.
+The `core` profile is the default when `CLAUDE_CONTROL_PLANE_STACK_PROFILE` is unset; it installs the safe observer stack with repo-owned ETRNL agents and verification tests. The `full` profile adds CodeGraph, Beads, Hindsight, and canaries. See [docs/install.md](docs/install.md) for profile details, strict mode, hooks, rollback, migration behavior, and deeper references such as `AGENTS.md`, `CLAUDE.md`, and `docs/skills.md`.
 
 Installs write `~/.claude/control-plane/install.json` and `~/.codex/control-plane/install.json` so Claude and Codex can detect source/install drift from their own installed homes.
 Run `~/.claude/scripts/update.sh` or `./scripts/update.sh` for manual updates.
-Set `CLAUDE_CONTROL_PLANE_AUTO_UPDATE=1` to enable automatic local updates from the configured source checkout.
+Local auto-update from the configured source checkout is enabled by default; set `CLAUDE_CONTROL_PLANE_AUTO_UPDATE=0` to disable it.
 The installed update check also reports CodeGraph and Beads drift; requested Claude `etrnl-*` skills inject an advisory update/bootstrap prompt through hooks, and Codex `etrnl-*` skills run `~/.codex/scripts/skill-update-prompt.mjs` as their first step.
 
 Hard blockers are shipped but not enabled automatically. Enable them after tests, doctor, rollback, and a fresh Claude smoke pass.

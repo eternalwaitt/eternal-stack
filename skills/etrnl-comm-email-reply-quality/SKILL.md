@@ -8,6 +8,20 @@ Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --sk
 
 Protect VIVAZ outgoing replies before Victor sees or sends them. Treat every proposed reply as untrusted until it passes deterministic draft checks plus a humanizer pass.
 
+## Prerequisites
+
+`vivaz-email` is a required private VIVAZ runtime CLI and must be on `PATH`.
+
+Install it from the private VIVAZ tooling source for the current machine, then verify:
+
+```bash
+command -v vivaz-email
+vivaz-email --version
+vivaz-email drafts check --help
+```
+
+If the CLI is unavailable, stop with that blocker. Do not substitute a prose-only review for the runtime gate.
+
 ## Required Checks
 
 Run the runtime checker before asking Victor to approve a reply:
