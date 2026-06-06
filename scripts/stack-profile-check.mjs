@@ -6,6 +6,19 @@ const args = process.argv.slice(2);
 const jsonMode = args.includes("--json");
 const hindsightOnly = args.includes("--hindsight");
 const profilePath = args.find((arg) => !arg.startsWith("--"));
+const LIFECYCLE_REQUIRED_HOOKS = ["cc-sessionstart-restore.sh", "cc-precompact-save.sh", "cc-postcompact-record.sh", "cc-stop-verifier.sh"];
+const SECRET_PATTERNS = [
+  /sk-(proj-|ant-)?[A-Za-z0-9_-]{20,}/,
+  /ghp_[A-Za-z0-9_]{20,}/,
+  /glpat-[A-Za-z0-9_-]{20,}/,
+  /xox[baprs]-[A-Za-z0-9-]{20,}/,
+  /npm_[A-Za-z0-9]{20,}/,
+  /\b(?:AKIA|ASIA|OCI)[A-Z0-9]{12,}\b/,
+  /BEGIN (?:RSA |EC |OPENSSH |)?PRIVATE KEY/,
+  /\?sv=2[0-9-]+.*&sig=[A-Za-z0-9%+/=]+/,
+  /\b[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/,
+  /\b[A-Za-z0-9+/_-]{40,}={0,2}\b/,
+];
 
 function usage() {
   console.error("usage: stack-profile-check.mjs <profile.json> [--json] [--hindsight]");
@@ -32,14 +45,15 @@ function asArray(value) {
 }
 
 function hasSecretLookingText(value) {
-  return /sk-(proj-|ant-)?[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9_]{20,}|glpat-[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9-]{20,}|npm_[A-Za-z0-9]{20,}|AKIA[A-Z0-9]{16}|BEGIN (?:RSA |EC |OPENSSH |)?PRIVATE KEY/.test(String(value));
+  return SECRET_PATTERNS.some((pattern) => pattern.test(String(value)));
 }
 
 function hasPrivateHomePath(value) {
   const normalized = String(value).replace(/\\/g, "/");
   return /\/Users\/[^/\s]+/i.test(normalized) ||
     /^[A-Za-z]:\/Users\/[^/\s]+/i.test(normalized) ||
-    /\/mnt\/[a-z]\/Users\/[^/\s]+/i.test(normalized);
+    /\/mnt\/[a-z]\/Users\/[^/\s]+/i.test(normalized) ||
+    /\/mnt\/wsl\/[^/\s]+\/Users\/[^/\s]+/i.test(normalized);
 }
 
 function walk(value, trail = [], visit) {
@@ -62,7 +76,10 @@ function validate(profile, file) {
   if (profile.rollback?.required !== true) errors.push("rollback.required must be true");
   if (component("etrnl").enabled !== true) errors.push("components.etrnl.enabled must be true");
 
-  for (const hook of ["cc-sessionstart-restore.sh", "cc-precompact-save.sh", "cc-postcompact-record.sh", "cc-stop-verifier.sh"]) {
+  if (typeof component("etrnl").requiredHooksIntent !== "string" || component("etrnl").requiredHooksIntent.trim().length === 0) {
+    errors.push("components.etrnl.requiredHooksIntent is required");
+  }
+  for (const hook of LIFECYCLE_REQUIRED_HOOKS) {
     if (!asArray(component("etrnl").requiredHooks).includes(hook)) {
       errors.push(`components.etrnl.requiredHooks missing ${hook}`);
     }

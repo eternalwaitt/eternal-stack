@@ -3,7 +3,8 @@
   "sessionId": "fixture-compact",
   "cwd": "/tmp/fixture-project",
   "data": {
-    "category": "verification",
+    "category": "tooling-ecosystem",
+    "verification": true,
     "command": "tests/test-workflow-tools.sh",
     "status": "passed"
   }

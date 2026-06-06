@@ -105,6 +105,7 @@ function create() {
   let input = {};
   if (!process.stdin.isTTY) {
     try {
+      // File descriptor 0 is stdin; this CLI reads small piped JSON payloads synchronously.
       input = JSON.parse(readFileSync(0, "utf8") || "{}");
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

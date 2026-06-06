@@ -26,6 +26,7 @@ const cwd = cwdFlag || process.cwd();
 const session = flagValue(args, "--session");
 const run = flagValue(args, "--run");
 const eventKind = flagValue(args, "--event-kind");
+const USAGE = "usage: etrnl-state.mjs append|validate|compact-handoff|doctor|stop-status|export|import-legacy|bead-link|bead-prime-audit|purge [--json]";
 
 function emit(value) {
   if (jsonMode || typeof value !== "string") console.log(JSON.stringify(value, null, 2));
@@ -218,11 +219,11 @@ try {
   else if (command === "bead-prime-audit") commandBeadPrimeAudit();
   else if (command === "purge") commandPurge();
   else if (command === "help") {
-    console.log("usage: etrnl-state.mjs append|validate|compact-handoff|doctor|stop-status|export|import-legacy|bead-link|bead-prime-audit|purge [--json]");
+    console.log(USAGE);
     process.exit(0);
   }
   else {
-    console.error("usage: etrnl-state.mjs append|validate|compact-handoff|doctor|stop-status|export|import-legacy|bead-link|bead-prime-audit|purge [--json]");
+    console.error(USAGE);
     process.exit(2);
   }
 } catch (error) {

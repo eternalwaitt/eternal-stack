@@ -39,4 +39,4 @@ Record language/runtime, framework, test runner, type/schema tools, package boun
 5. `code-05-test-signal`: map tests to changed or risky source paths.
 6. `code-06-complexity-debt`: identify dead code, stale abstractions, nested logic, and avoidable complexity.
 
-Every row ends as `finding`, `CONFIRMED_CLEAN`, `CHECKS_SKIPPED`, `NOT_APPLICABLE`, or `source_limited`.
+Every row ends as `finding`, `confirmed_clean`, `checks_skipped`, `not_applicable`, or `source_limited`.

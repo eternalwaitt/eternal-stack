@@ -25,7 +25,8 @@ function commandReferencesPath(commandText, itemPath) {
   const commandString = normalizedCommand(commandText);
   const pathString = String(itemPath || "");
   if (!pathString) return false;
-  return commandString.includes(pathString);
+  const escapedPath = pathString.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[\\s"';&|])${escapedPath}($|[\\s"';&|])`).test(commandString);
 }
 
 function hasRecursiveRm(commandText) {

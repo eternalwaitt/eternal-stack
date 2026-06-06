@@ -1,9 +1,9 @@
 # ETRNL Skill Taxonomy And Audit Suite Implementation Plan
 
-Status: Final
+Status: Archived/Completed
 
-Execution scope: all_phases
-Goal: Rename and expand the ETRNL skill surface into a mechanically enforced taxonomy while turning the seven audit prompts into first-class improved audit skills where they are not already covered.
+Execution scope: none; migration completed and source inventory now uses canonical identifiers.
+Goal: Historical plan that renamed and expanded the ETRNL skill surface into a mechanically enforced taxonomy while turning the seven audit prompts into first-class improved audit skills where they are not already covered.
 Non-goals: No live install into Claude or Codex homes during planning; no fallback command names or wrapper commands; no wholesale import of SkillsMP skills; no target-application audits or downstream app remediation.
 Evidence: AGENTS.md; docs/skills.md; docs/research/2026-06-04-etrnl-skillsmp-comparison.md; scripts/lib/skill-lists.sh; hooks/lib/skill-hints.sh; hooks/cc-userprompt-router.sh; scripts/skill-contract-check.mjs; scripts/skill-behavior-smoke.mjs; scripts/prompt-budget-check.mjs; scripts/deep-audit-artifact-check.mjs; scripts/lib/deep-audit-categories.mjs; tests/fixtures/skill-triggering/cases.json; tests/test-hooks.sh; tests/test-install.sh; tests/test-workflow-tools.sh; current user request for `etrnl-audit-<audit-type>` and `etrnl-dev-plan`-style naming; current SkillsMP API search results from 2026-06-05; prior SkillsMP comparison report from 2026-06-04.
 Deep stack artifacts: docs/plans/artifacts/2026-06-05-etrnl-skill-taxonomy-and-audit-suite/deep-stack-artifacts.json
@@ -46,9 +46,9 @@ Rules:
 - Dev-flow names should read as commands: `etrnl-dev-plan`, `etrnl-dev-execute`, `etrnl-dev-review`, `etrnl-dev-test`.
 - Old command names are removed from source, docs, router fixtures, and installed homes during the implementation. Tests must fail if an old repo-owned command remains available after the migration.
 
-Proposed canonical mapping:
+Completed canonical mapping:
 
-| Current skill | Canonical skill | Family | Notes |
+| Former skill | Canonical skill | Family | Notes |
 | --- | --- | --- | --- |
 | `etrnl-agent-files` | `etrnl-ops-agent-files` | ops | AI context and agent instruction maintenance. |
 | `etrnl-autoplan` | `etrnl-dev-autoplan` | dev | Keep separate from manual plan until behavior can merge safely. |

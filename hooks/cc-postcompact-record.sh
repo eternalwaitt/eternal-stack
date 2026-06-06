@@ -16,7 +16,7 @@ summary="$(cc_json_get '.summary // .compact_summary')"
 summary_present=1
 if [[ -z "$summary" ]]; then
   printf 'claude-guard warning: compact summary missing from event; recording placeholder only\n' >&2
-  summary="summary_missing"
+  summary="compact_summary_missing"
   summary_present=0
 fi
 now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"

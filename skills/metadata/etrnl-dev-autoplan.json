@@ -1,9 +1,9 @@
 {
   "skill": "etrnl-dev-autoplan",
-  "ownerReview": "CEO/founder review",
-  "dxReview": "DX review",
-  "adversarialReview": true,
-  "completeness": "10/10",
-  "deepStack": "hybrid",
-  "executionTiering": "after-deep-review-only"
+  "executionMode": "file-backed planning with CEO/DX/adversarial review",
+  "ownershipRule": "reuse existing helpers and docs before adding plan surfaces",
+  "fallback": "research-pending handoff with explicit blockers",
+  "testDiscipline": "deterministic plan-readiness and deep-stack gates",
+  "riskTiering": "after-deep-review-only",
+  "deepStackArtifacts": true
 }

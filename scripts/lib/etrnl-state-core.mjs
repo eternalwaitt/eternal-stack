@@ -43,6 +43,15 @@ const configuredPrivateProjectNames = (process.env.ETRNL_STATE_PRIVATE_PROJECT_N
 const privateProjectPattern = configuredPrivateProjectNames.length > 0
   ? new RegExp(`\\b(${configuredPrivateProjectNames.map(escapeRegex).join("|")})\\b`)
   : null;
+const SECRET_PATTERNS = [
+  /sk-(proj-|ant-)?[A-Za-z0-9_-]{20,}/,
+  /ghp_[A-Za-z0-9_]{20,}/,
+  /glpat-[A-Za-z0-9_-]{20,}/,
+  /xox[baprs]-[A-Za-z0-9-]{20,}/,
+  /npm_[A-Za-z0-9]{20,}/,
+  /AKIA[A-Z0-9]{16}/,
+  /BEGIN (?:RSA |EC |OPENSSH |)?PRIVATE KEY/,
+];
 
 function escapeRegex(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -229,7 +238,7 @@ function privacyReject(value, trail = []) {
     return "";
   }
   if (typeof value !== "string") return "";
-  if (/sk-(proj-|ant-)?[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9_]{20,}|glpat-[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9-]{20,}|npm_[A-Za-z0-9]{20,}|AKIA[A-Z0-9]{16}|BEGIN (?:RSA |EC |OPENSSH |)?PRIVATE KEY/.test(value)) return "secret-looking token";
+  if (SECRET_PATTERNS.some((pattern) => pattern.test(value))) return "secret-looking token";
   if (/\.codex\/sessions|\.claude\/projects/.test(value)) return "private transcript path";
   if (hasPrivateAbsolutePathString(value)) return "private absolute path";
   if (privateProjectPattern?.test(value)) return "private project name";

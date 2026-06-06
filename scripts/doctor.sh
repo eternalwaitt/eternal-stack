@@ -336,10 +336,14 @@ if [[ -f "$ROOT/control-plane/install.json" ]]; then
 fi
   if [[ -x "$ROOT/scripts/canary-hindsight.sh" ]]; then
     report_command "hindsight canary syntax valid" "hindsight canary syntax invalid" bash -n "$ROOT/scripts/canary-hindsight.sh"
-    if [[ "$stack_profile" == "full" || "${CLAUDE_CONTROL_PLANE_REQUIRE_HINDSIGHT:-0}" == "1" ]]; then
-      report_command "hindsight canary green" "hindsight canary red" env HINDSIGHT_CANARY_REQUIRE_HEALTH=1 "$ROOT/scripts/canary-hindsight.sh" --json
+  if [[ "$stack_profile" == "full" || "${CLAUDE_CONTROL_PLANE_REQUIRE_HINDSIGHT:-0}" == "1" ]]; then
+    report_command "hindsight canary green" "hindsight canary red" env HINDSIGHT_CANARY_REQUIRE_HEALTH=1 "$ROOT/scripts/canary-hindsight.sh" --json
   elif hindsight_posture="$("$ROOT/scripts/canary-hindsight.sh" --json 2>/dev/null)"; then
-    ok "hindsight posture green: $(jq -r '.mode + \" \" + .health' <<<"$hindsight_posture")"
+    if jq -e . >/dev/null 2>&1 <<<"$hindsight_posture"; then
+      ok "hindsight posture green: $(jq -r '.mode + \" \" + .health' <<<"$hindsight_posture")"
+    else
+      ok "hindsight posture returned non-JSON output; optional for core/source profile"
+    fi
   else
     ok "hindsight posture red but optional for core/source profile"
   fi

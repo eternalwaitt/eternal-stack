@@ -69,16 +69,21 @@ const update = spawnSync(process.execPath, [updateScript, "--json"], {
 });
 
 if (update.status !== 0 || !update.stdout.trim()) {
+  const timedOut = update.error?.code === "ETIMEDOUT"
+    || update.signal === "SIGTERM"
+    || (update.error && /timed out/i.test(String(update.error.message || update.error)));
   emit({
     ok: false,
     promptNeeded: true,
     agent,
     skill,
     controlHome,
-    reason: "update-check-failed",
+    reason: timedOut ? "update-check-timeout" : "update-check-failed",
     updateCommand: "",
     bootstrapCommand: "",
-    summary: (update.stderr || update.stdout || "update-check failed").replace(/\s+/g, " ").trim().slice(0, 300),
+    summary: timedOut
+      ? "update-check timed out after 180s"
+      : (update.stderr || update.stdout || "update-check failed").replace(/\s+/g, " ").trim().slice(0, 300),
   });
   process.exit(0);
 }

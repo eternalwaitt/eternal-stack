@@ -1356,10 +1356,10 @@ empty_health="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/missing-runs" CLAUDE
 assert_contains "workflow health reports artifacts without ledger dir" "$empty_health" "reviewLog entries=0"
 
 autoplan_meta="$(jq -c . "$ROOT/skills/metadata/etrnl-dev-autoplan.json")"
-assert_json_expr "autoplan includes CEO review" "$autoplan_meta" '.ownerReview == "CEO/founder review"'
-assert_json_expr "autoplan includes DX review" "$autoplan_meta" '.dxReview == "DX review"'
-assert_json_expr "autoplan includes adversarial review" "$autoplan_meta" '.adversarialReview == true'
-assert_json_expr "autoplan includes max completeness" "$autoplan_meta" '.completeness == "10/10"'
+assert_json_expr "autoplan includes review execution mode" "$autoplan_meta" '(.executionMode | test("CEO")) and (.executionMode | test("DX")) and (.executionMode | test("adversarial"))'
+assert_json_expr "autoplan includes ownership rule" "$autoplan_meta" '.ownershipRule == "reuse existing helpers and docs before adding plan surfaces"'
+assert_json_expr "autoplan includes test discipline" "$autoplan_meta" '.testDiscipline == "deterministic plan-readiness and deep-stack gates"'
+assert_json_expr "autoplan includes deep stack artifacts" "$autoplan_meta" '.deepStackArtifacts == true'
 execute_meta="$(jq -c . "$ROOT/skills/metadata/etrnl-dev-execute.json")"
 assert_json_expr "execute includes wave execution" "$execute_meta" '.executionMode == "wave-based execution"'
 assert_json_expr "execute includes subagent ownership rule" "$execute_meta" '.ownershipRule == "do not duplicate"'

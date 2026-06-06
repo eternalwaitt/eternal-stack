@@ -19,6 +19,11 @@ const configuredPrivateProjectNames = (process.env.ETRNL_TOOL_EFFECTIVENESS_PRIV
 const privateProjectPattern = configuredPrivateProjectNames.length > 0
   ? new RegExp(`\\b(${configuredPrivateProjectNames.map(escapeRegex).join("|")})\\b`)
   : null;
+/**
+ * Secret-looking payloads rejected before import: OpenAI/Anthropic keys, GitHub/GitLab tokens,
+ * Slack/npm tokens, cloud access keys, Bearer tokens, and PEM private keys.
+ */
+const SECRET_PATTERN = /sk-(proj-|ant-)?[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9_]{20,}|glpat-[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9-]{20,}|npm_[A-Za-z0-9]{20,}|\b(?:AKIA|ASIA|OCI)[A-Z0-9]{12,}\b|Bearer\s+[A-Za-z0-9._-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----/i;
 const sinceDays = Number(flagValue("--since-days", "0"));
 const cwdFilter = flagValue("--cwd");
 const projectFilter = flagValue("--project");
@@ -70,8 +75,7 @@ function parseJsonFile(file) {
 function privacyReason(value) {
   const text = JSON.stringify(value);
   if (/(promptText|rawPrompt|transcriptText|toolResultBody|messageText)"/.test(text)) return "raw-text-field";
-  // Match common API keys, bearer tokens, cloud access keys, and PEM private keys before import.
-  if (/sk-(proj-|ant-)?[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9_]{20,}|glpat-[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9-]{20,}|npm_[A-Za-z0-9]{20,}|\b(?:AKIA|ASIA|OCI)[A-Z0-9]{12,}\b|Bearer\s+[A-Za-z0-9._-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----/i.test(text)) return "secret-looking-token";
+  if (SECRET_PATTERN.test(text)) return "secret-looking-token";
   if (/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.test(text)) return "private-identity";
   if (/(postgres|mysql|mongodb|redis):\/\/[^/\s:@]+:[^@\s]+@/i.test(text)) return "credential-url";
   if (/\/Users\/[^/"\s]+/.test(text)) return "private-home-path";

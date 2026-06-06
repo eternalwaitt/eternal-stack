@@ -22,6 +22,7 @@ const homeDir = os.homedir();
 const envClaudeHome = process.env.CLAUDE_HOME ? path.resolve(process.env.CLAUDE_HOME) : "";
 const settingsAbsPath = path.resolve(settingsPath);
 const settingsIsTemplate = settingsAbsPath.includes(`${path.sep}templates${path.sep}`);
+// Precedence: matching envClaudeHome/settingsAbsPath, inferred .claude settingsPath when not settingsIsTemplate, then homeDir default.
 const configuredClaudeHome = envClaudeHome && settingsAbsPath === path.join(envClaudeHome, "settings.json")
   ? envClaudeHome
   : path.basename(settingsAbsPath) === "settings.json" && path.basename(path.dirname(settingsAbsPath)) === ".claude" && !settingsIsTemplate
