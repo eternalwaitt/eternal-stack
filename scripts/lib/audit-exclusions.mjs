@@ -47,7 +47,7 @@ const generatedOrFixtureDirs = new Set([
 
 function normalizedSegments(filePath) {
   return String(filePath)
-    .replaceAll("\\", "/")
+    .replace(/\\/g, "/")
     .split("/")
     .map((segment) => segment.trim().toLowerCase())
     .filter(Boolean);

@@ -257,6 +257,9 @@ cc_prompt_skill_update_note() {
   update_status=0
   local update_timeout
   update_timeout="${CLAUDE_CONTROL_PLANE_SKILL_UPDATE_TIMEOUT_SEC:-5}"
+  if [[ ! "$update_timeout" =~ ^[0-9]+$ ]] || (( update_timeout <= 0 )); then
+    update_timeout=5
+  fi
   if command -v timeout >/dev/null 2>&1; then
     update_output="$(CLAUDE_CONTROL_PLANE_AUTO_UPDATE=0 timeout "${update_timeout}s" node "$update_script" 2>/dev/null)" || update_status=$?
   else

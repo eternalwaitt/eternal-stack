@@ -251,14 +251,14 @@ function freshnessStatus(message) {
   if (!hasNumericCounters(message, freshnessRequired)) return "missing-freshness-counters";
   if (!hasPositiveCounter(message, "RECENT_COMMITS_REVIEWED")) return "no-recent-commits-reviewed";
   // Require hasPositiveCounter("RECENT_PRS_REVIEWED") or explicit hasAny skip text matching no PRs reviewed, PRs review skipped, or skip PRs review.
-  if (!hasPositiveCounter(message, "RECENT_PRS_REVIEWED") && !hasAny(message, [/no\s*prs?\s*review(?:ed)?/i, /pr?s review skipped/i, /skip pr?s review/i])) {
+  if (!hasPositiveCounter(message, "RECENT_PRS_REVIEWED") && !hasAny(message, [/no\s*prs?\s*review(?:ed)?/i, /prs? review skipped/i, /skip prs? review/i])) {
     return "no-recent-prs-reviewed";
   }
   if (!hasPositiveCounter(message, "RECENT_CHANGE_DOC_IMPACT_CHECKS")) return "no-recent-change-doc-impact-checks";
   if (!hasPositiveCounter(message, "DOC_CLAIMS_CHECKED")) return "no-doc-claims-checked";
   if (!hasPositiveCounter(message, "SOURCE_TRUTH_MAPPINGS_REVIEWED")) return "no-source-truth-mappings";
   if (!hasPositiveCounter(message, "STALE_REFERENCE_SEARCHES_RUN")) return "missing-stale-reference-searches";
-  if (!hasAny(message, [/freshness (?:and|&)? drift/i, /drift sweep/i, /stale reference search/i])) {
+  if (!hasAny(message, [/freshness(?: (?:and|&))? drift/i, /drift sweep/i, /stale reference search/i])) {
     return "missing-freshness-drift-section";
   }
 

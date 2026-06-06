@@ -12,6 +12,10 @@ const TS_TRIGGER_PATH_RE = /\.(ts|tsx)$/i;
 const TS_TRIGGER_NAME_RE = /(^|\/)(types?|schemas?|dto|contract|api|state-machine|state|validators?|models?)\.(ts|tsx)$|\/(types?|schemas?|dto|contracts?|api|state-machines?|validators?|models?)\//i;
 const INSTALL_TRIGGER_RE = /(^|\/)(hooks|templates|skills|agents|scripts)\/|(^|\/)AGENTS\.md$|(^|\/)CLAUDE\.md$|settings.*\.json$/i;
 
+// criticalPath and stopCondition are packet orchestration metadata. This
+// checker verifies post-execution evidence binding through task/lineage/hash
+// markers instead of interpreting those planning fields directly.
+
 function readState() {
   const raw = readFileSync(0, "utf8").trim();
   if (!raw) return {};

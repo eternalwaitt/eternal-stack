@@ -468,6 +468,11 @@ if perf_invalid_json="$(printf '{' | node "$ROOT/scripts/performance-baseline.mj
 else
   assert_contains "performance baseline reports invalid JSON" "$perf_invalid_json" "invalid JSON from stdin"
 fi
+if perf_stdin_timeout="$(CLAUDE_CONTROL_PLANE_STDIN_TIMEOUT_MS=1 node "$ROOT/scripts/performance-baseline.mjs" create < <(sleep 0.05) 2>&1)"; then
+  not_ok "performance baseline fails when stdin does not close"
+else
+  assert_contains "performance baseline fails when stdin does not close" "$perf_stdin_timeout" "missing EOF"
+fi
 disk_manifest_fixture='{"items":[{"path":"/tmp/cache/file","category":"cache","estimatedBytes":1024,"description":"cache file","whySafe":"rebuildable cache","cleanupCommand":"trash /tmp/cache/file","riskTier":1}]}'
 assert_command "disk cleanup manifest validates fixture" bash -c "printf '%s\n' \"\$1\" | node \"\$0/scripts/disk-cleanup-manifest.mjs\" validate >/dev/null" "$ROOT" "$disk_manifest_fixture"
 disk_manifest_missing_items='{"schemaVersion":1}'
@@ -491,11 +496,23 @@ if disk_recursive="$(printf '%s\n' "$disk_manifest_recursive" | node "$ROOT/scri
 else
   assert_contains "disk cleanup manifest rejects recursive rm variants" "$disk_recursive" "must not use recursive rm"
 fi
+disk_manifest_glued_recursive='{"items":[{"path":"/tmp/cache/file","category":"cache","estimatedBytes":1024,"description":"cache file","whySafe":"rebuildable cache","cleanupCommand":"/bin/rm-Rf /tmp/cache/file","riskTier":1}]}'
+if disk_glued_recursive="$(printf '%s\n' "$disk_manifest_glued_recursive" | node "$ROOT/scripts/disk-cleanup-manifest.mjs" validate 2>&1)"; then
+  not_ok "disk cleanup manifest rejects glued recursive rm variants"
+else
+  assert_contains "disk cleanup manifest rejects glued recursive rm variants" "$disk_glued_recursive" "must not use recursive rm"
+fi
 disk_manifest_trash='{"items":[{"path":"/tmp/cache/file","category":"cache","estimatedBytes":1024,"description":"cache file","whySafe":"rebuildable cache","cleanupCommand":"trash ~/.Trash /tmp/cache/file","riskTier":1}]}'
 if disk_trash="$(printf '%s\n' "$disk_manifest_trash" | node "$ROOT/scripts/disk-cleanup-manifest.mjs" validate 2>&1)"; then
   not_ok "disk cleanup manifest rejects whole Trash cleanup"
 else
   assert_contains "disk cleanup manifest rejects whole Trash cleanup" "$disk_trash" "must not empty the whole Trash"
+fi
+disk_manifest_denormalized_path='{"items":[{"path":"/tmp/cache/../file","category":"cache","estimatedBytes":1024,"description":"cache file","whySafe":"rebuildable cache","cleanupCommand":"trash /tmp/cache/../file","riskTier":1}]}'
+if disk_denormalized_path="$(printf '%s\n' "$disk_manifest_denormalized_path" | node "$ROOT/scripts/disk-cleanup-manifest.mjs" validate 2>&1)"; then
+  not_ok "disk cleanup manifest rejects denormalized absolute paths"
+else
+  assert_contains "disk cleanup manifest rejects denormalized absolute paths" "$disk_denormalized_path" "path must be absolute"
 fi
 assert_command "deep-stack artifact library syntax" node --check "$ROOT/scripts/lib/deep-stack-artifacts.mjs"
 assert_command "deep-audit artifact check syntax" node --check "$ROOT/scripts/deep-audit-artifact-check.mjs"
@@ -1296,20 +1313,25 @@ context_summary="$(node "$ROOT/scripts/context-state.mjs" show "$stale_context" 
 assert_contains "context restore detects stale context" "$context_summary" "stale=true"
 session_scan_root="$TMPROOT/session-scan"
 mkdir -p "$session_scan_root/claude/projects/project-a" "$session_scan_root/codex/rollout_summaries"
+sample_provider_token="sk_live_$(printf '1%.0s' {1..24})"
 printf '%s\n' \
   '{"message":{"content":[{"type":"hook_non_blocking_error","hookName":"stale-hook","message":"/Users/example/old/path failed"}]}}' \
   '{"message":{"content":[{"type":"hook_blocking_error","hookName":"guard","stderr":"blocked for test@example.com"}]}}' \
+  "$(jq -nc --arg token "$sample_provider_token" '{"message":{"content":[{"type":"hook_blocking_error","hookName":"guard","stderr":("blocked C:\\Users\\Example\\secret token " + $token)}]}}')" \
   >"$session_scan_root/claude/projects/project-a/session.jsonl"
 printf '%s\n' '{"event_msg":"CodeRabbit lint hook stale tooling warning"}' >"$session_scan_root/codex/rollout_summaries/session.jsonl"
 live_hook_json="$(node "$ROOT/scripts/live-hook-noise-report.mjs" --root "$session_scan_root/claude" --since-days 30 --json)"
-assert_json_expr "live hook report counts blocking and non-blocking errors" "$live_hook_json" '.counts.nonBlocking == 1 and .counts.blocking == 1 and .topHooks[0].count >= 1'
+assert_json_expr "live hook report counts blocking and non-blocking errors" "$live_hook_json" '.counts.nonBlocking == 1 and .counts.blocking == 2 and .topHooks[0].count >= 1'
 assert_json_expr "live hook report redacts private paths and emails" "$live_hook_json" '((.topReasons | tostring) | contains("/Users/example") | not) and ((.topReasons | tostring) | contains("test@example.com") | not)'
+assert_json_expr "live hook report redacts Windows paths and provider tokens" "$live_hook_json" '((.topReasons | tostring) | contains("C:\\Users") | not) and ((.topReasons | tostring) | contains("sk_live_123") | not)'
 session_audit_json="$(node "$ROOT/scripts/session-audit.mjs" --claude-root "$session_scan_root/claude" --codex-memory-root "$session_scan_root/codex" --since-days 30 --json)"
-assert_json_expr "session audit combines claude hooks and codex memory signals" "$session_audit_json" '.claude.counts.blocking == 1 and .codexMemory.filesScanned == 1 and any(.codexMemory.keywordHits[]; .keyword == "CodeRabbit")'
+assert_json_expr "session audit combines claude hooks and codex memory signals" "$session_audit_json" '.claude.counts.blocking == 2 and .codexMemory.filesScanned == 1 and any(.codexMemory.keywordHits[]; .keyword == "CodeRabbit")'
 wave_json="$(printf '{"useWorktrees":true,"submodules":["vendor/lib"],"plans":[{"id":"T1","wave":1,"files":["src/a.ts"]},{"id":"T2","wave":1,"files":["src/a.ts"]},{"id":"T3","wave":2,"files":["vendor/lib/x.ts"]}]}' | node "$ROOT/scripts/execution-wave-check.mjs")"
 assert_json_expr "wave overlap disables parallel" "$wave_json" '.waves[0].parallelSafe == false'
 assert_json_expr "submodule task not worktree eligible" "$wave_json" '.waves[1].plans[0].worktreeEligible == false'
 assert_contains "wave heartbeat emitted" "$wave_json" "[checkpoint]"
+wave_help="$(node "$ROOT/scripts/execution-wave-check.mjs" --help)"
+assert_contains "wave checker documents strict drift behavior" "$wave_help" "With --strict"
 wave_drift_json="$(printf '{"previousPlans":[{"id":"T1","wave":1,"files":["src/a.ts"]}],"plans":[{"id":"T1","wave":1,"files":["src/b.ts"]}]}' | node "$ROOT/scripts/execution-wave-check.mjs")"
 assert_json_expr "wave drift reports changed files" "$wave_drift_json" '.drift[0].type == "files_changed"'
 wave_reordered_json="$(printf '{"previousPlans":[{"id":"T1","wave":1,"files":["src/b.ts","src/a.ts"]}],"plans":[{"id":"T1","wave":1,"files":["src/a.ts","src/b.ts"]}]}' | node "$ROOT/scripts/execution-wave-check.mjs")"

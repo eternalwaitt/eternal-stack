@@ -26,8 +26,13 @@ function homePath() {
 
 function redact(value) {
   return String(value || "")
-    .replaceAll(homePath(), "~")
+    .replace(new RegExp(homePath().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"), "~")
     .replace(/\/Users\/[^/\s]+/g, "/Users/<user>")
+    .replace(/[A-Za-z]:\\Users\\[^\\\s]+/g, "<windows_path>")
+    .replace(/\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g, "<token>")
+    .replace(/\b(?:sk_live_|sk_test_|sk-proj-|sk-ant-)[A-Za-z0-9_-]{12,}\b/g, "<api_key>")
+    .replace(/\b(?:AKIA|ASIA)[A-Z0-9]{12,}\b/g, "<api_key>")
+    .replace(/\b[0-9a-f]{32,64}\b/gi, "<hex_id>")
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "<email>")
     .slice(0, 220);
 }

@@ -28,7 +28,8 @@ event="$(jq -cn \
   --arg summary "$summary" \
   '{eventKind:"compact_post",sessionId:$session,cwd:$cwd,data:{compactSummary:$summary,verificationStale:true}}')"
 if ! cc_etrnl_state_append_json "$event"; then
-  printf 'claude-guard warning: compact post-state write failed; continuing with legacy cache only\n' >&2
+  printf 'claude-guard warning: ETRNL_POSTCOMPACT_STATE_WRITE_FAILED compact post-state write failed; continuing with legacy cache only\n' >&2
+  cc_state_update '.etrnlStateWriteFailures = ((.etrnlStateWriteFailures // 0) + 1)' || true
 fi
 if [[ "$summary_present" == "1" ]]; then
   cc_state_update --arg summary "$summary" --arg now "$now" \

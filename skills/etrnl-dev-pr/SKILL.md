@@ -18,6 +18,18 @@ Prepare, update, and close the pull request loop only after local evidence, remo
 5. Run the repo preflight and smoke checks that prove the PR body claims.
 6. When the helper is installed, run `node ~/.claude/scripts/pr-preflight.mjs status --json` before creating or updating the PR, and run `node ~/.claude/scripts/pr-preflight.mjs validate --json` before claiming PR readiness.
 
+Install or refresh the helper from this repo when it is missing or stale:
+
+```bash
+mkdir -p ~/.claude/scripts
+cp scripts/pr-preflight.mjs ~/.claude/scripts/pr-preflight.mjs
+chmod +x ~/.claude/scripts/pr-preflight.mjs
+node ~/.claude/scripts/pr-preflight.mjs status --json
+node ~/.claude/scripts/pr-preflight.mjs validate --json
+```
+
+Re-run the copy step after source updates unless `scripts/install.sh` already refreshed the installed helper.
+
 ## PR Body
 
 1. Use the repo PR template when present.

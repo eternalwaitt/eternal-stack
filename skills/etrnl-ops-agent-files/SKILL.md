@@ -24,7 +24,7 @@ Before recommending edits, declare:
 
 If the user asks for "all levels", "all sublevels", "startup files", "Claude and Codex sessions", or does not name a narrow file, inspect every applicable level in the active load chain. Do not propose pruning `AGENTS.md`, `CLAUDE.md`, rules, or overlays from one repo until nested/closer files, imported markdown, installed copies, and runtime-injected context for the target have also been inventoried.
 
-When the cwd is a workspace root or parent directory such as `~/Github`, do not treat the absence of `CLAUDE.md` or `AGENTS.md` in that parent as "global-only" evidence. First enumerate child git repos and workspace folders, then sample or inventory their root and nested agent files. Report the target set explicitly, including any repos skipped for size, access, or safety.
+When the cwd is a workspace root or parent directory such as `~/GitHub`, do not treat the absence of `CLAUDE.md` or `AGENTS.md` in that parent as "global-only" evidence. First enumerate child git repos and workspace folders, then sample or inventory their root and nested agent files. Report the target set explicitly, including any repos skipped for size, access, or safety.
 
 For monorepos and workspaces, walk downward from the target root for nested agent files:
 

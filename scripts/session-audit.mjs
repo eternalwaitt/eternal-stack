@@ -9,6 +9,7 @@ import { argValue } from "./lib/cli-args.mjs";
 const args = process.argv.slice(2);
 const json = args.includes("--json");
 const sinceDays = Number(argValue(args, "--since-days", "3")) || 3;
+const maxMemoryFiles = Number(argValue(args, "--max-memory-files", "500")) || 500;
 const claudeRoot = expandHome(argValue(args, "--claude-root", process.env.CLAUDE_HOME || "~/.claude"));
 const codexMemoryRoot = expandHome(argValue(args, "--codex-memory-root", "~/.codex/memories"));
 const keywords = argValue(args, "--keywords", "hook,skill,CodeRabbit,lint,typecheck,tooling,CI,stale,warning,deploy")
@@ -25,8 +26,9 @@ function expandHome(value) {
 }
 
 function redact(value) {
+  const home = process.env.HOME || "\u0000";
   return String(value || "")
-    .replaceAll(process.env.HOME || "\u0000", "~")
+    .replace(new RegExp(home.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"), "~")
     .replace(/\/Users\/[^/\s]+/g, "/Users/<user>")
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "<email>");
 }
@@ -74,7 +76,7 @@ function runHookNoise() {
 
 function scanCodexMemory() {
   const rolloutDir = join(codexMemoryRoot, "rollout_summaries");
-  const files = listFiles(rolloutDir, ".jsonl").filter(recent);
+  const files = listFiles(rolloutDir, ".jsonl").filter(recent).slice(0, maxMemoryFiles);
   const hits = new Map(keywords.map((keyword) => [keyword, 0]));
   let linesScanned = 0;
   for (const file of files) {

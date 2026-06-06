@@ -169,7 +169,7 @@ def main() -> int:
             if not event:
                 return 0
             event_path.write_text(json.dumps(event, sort_keys=True))
-        if canary_green() and retain_lesson(load_config(), event):
+        if not should_skip(hindsight_stamp_path) and canary_green() and retain_lesson(load_config(), event):
             hindsight_stamp_path.write_text(time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
     except (OSError, ValueError, json.JSONDecodeError, urllib.error.URLError, TimeoutError, subprocess.SubprocessError):
         return 0

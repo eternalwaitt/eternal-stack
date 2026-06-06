@@ -113,9 +113,20 @@ cc_etrnl_record_tool_signal() {
     --arg tool_kind "$tool_kind" \
     --arg event "$event" \
     '{eventKind:"tool_signal",sessionId:$session,cwd:$cwd,data:{tool:$tool,toolKind:$tool_kind,event:$event}}' 2>/dev/null)"; then
-    payload='{"eventKind":"tool_signal","sessionId":"unknown","cwd":"","data":{"tool":"","toolKind":"","event":"json_encode_failed"}}'
+    payload="$(printf '{"eventKind":"tool_signal","sessionId":"unknown","cwd":"","data":{"tool":%s,"toolKind":%s,"event":%s,"encodingError":"json_encode_failed"}}' \
+      "$(printf '%s' "$tool" | jq -Rs .)" \
+      "$(printf '%s' "$tool_kind" | jq -Rs .)" \
+      "$(printf '%s' "$event" | jq -Rs .)")"
   fi
   cc_etrnl_state_append_json "$payload" || true
+}
+
+record_tool_signal() {
+  local tool="$1"
+  local tool_kind="$2"
+  local event="$3"
+  cc_state_batch_append_tool_signal "$tool" "$tool_kind" "$event" || true
+  cc_etrnl_record_tool_signal "$tool" "$tool_kind" "$event" || true
 }
 
 call_succeeded() {
@@ -262,12 +273,10 @@ record_tool() {
       fi
       cc_state_batch_append_command_success "$command"
       if [[ "$command" =~ (^|[[:space:];&|])(codegraph)([[:space:]]|$) ]]; then
-        cc_state_batch_append_tool_signal codegraph codegraph bash-command || true
-        cc_etrnl_record_tool_signal codegraph codegraph bash-command || true
+        record_tool_signal codegraph codegraph bash-command
       fi
       if [[ "$command" =~ (^|[[:space:];&|])(beads|bd)([[:space:]]|$) ]]; then
-        cc_state_batch_append_tool_signal beads beads bash-command || true
-        cc_etrnl_record_tool_signal beads beads bash-command || true
+        record_tool_signal beads beads bash-command
       fi
       if [[ "$command" =~ (^|[[:space:]])(rg|fd|sg|rtk[[:space:]]+grep|git[[:space:]]+grep)([[:space:]]|$) ]]; then
         cc_state_batch_mark_path searches "$command"
@@ -327,15 +336,13 @@ record_tool() {
         return 0
       fi
       cc_state_batch_mark_path searches "$name"
-      cc_state_batch_append_tool_signal codegraph codegraph mcp-call || true
-      cc_etrnl_record_tool_signal codegraph codegraph mcp-call || true
+      record_tool_signal codegraph codegraph mcp-call
       ;;
     mcp__beads*|beads*)
       if [[ "$succeeded" != "true" ]]; then
         return 0
       fi
-      cc_state_batch_append_tool_signal beads beads mcp-call || true
-      cc_etrnl_record_tool_signal beads beads mcp-call || true
+      record_tool_signal beads beads mcp-call
       ;;
   esac
 }

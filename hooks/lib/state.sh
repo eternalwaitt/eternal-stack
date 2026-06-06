@@ -61,11 +61,21 @@ cc_etrnl_state_append_json() {
 cc_etrnl_state_compact_handoff_json() {
   local session_id="$1"
   local max_chars="${2:-1200}"
+  local output status
   if [[ ! "$max_chars" =~ ^[0-9]+$ ]] || (( max_chars <= 0 )); then
     max_chars=1200
   fi
-  cc_etrnl_state_available || return 1
-  node "$(cc_etrnl_state_script)" compact-handoff --session "$session_id" --json --max-chars "$max_chars"
+  if ! cc_etrnl_state_available; then
+    printf 'claude-guard warning: ETRNL compact-handoff unavailable for session=%s\n' "$session_id" >&2
+    return 1
+  fi
+  status=0
+  output="$(node "$(cc_etrnl_state_script)" compact-handoff --session "$session_id" --json --max-chars "$max_chars" 2>&1)" || status=$?
+  if [[ "$status" != "0" ]]; then
+    printf 'claude-guard warning: ETRNL compact-handoff failed for session=%s (exit %s): %s\n' "$session_id" "$status" "${output%%$'\n'*}" >&2
+    return "$status"
+  fi
+  printf '%s\n' "$output"
 }
 
 cc_session_id() {

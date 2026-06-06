@@ -58,10 +58,9 @@ emit_ok() {
 health_check() {
   local url="$1"
   if command -v rtk >/dev/null 2>&1; then
-    rtk proxy curl -fsS --max-time 2 "$url" >/dev/null
-  else
-    curl -fsS --max-time 2 "$url" >/dev/null
+    rtk proxy curl -fsS --max-time 2 "$url" >/dev/null 2>/dev/null && return 0
   fi
+  curl -fsS --max-time 2 "$url" >/dev/null
 }
 
 if [[ ! -f "$settings" ]]; then
@@ -78,6 +77,10 @@ fi
 
 if [[ ! -f "$config" ]]; then
   emit_fail "config-missing" "missing Hindsight config: $config"
+fi
+
+if jq -e '.retainTranscripts != false' "$config" >/dev/null; then
+  emit_fail "config-unsafe" "retainTranscripts must be false"
 fi
 
 jq -e '

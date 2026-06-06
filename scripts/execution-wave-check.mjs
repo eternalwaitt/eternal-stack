@@ -3,6 +3,29 @@ import { readFileSync } from "node:fs";
 
 const args = process.argv.slice(2);
 const strict = args.includes("--strict");
+const help = args.includes("--help") || args.includes("-h");
+
+function usage() {
+  console.log(`usage: execution-wave-check.mjs [--strict] < plan-waves.json
+
+Reads JSON from stdin. Input may be an array of plans or an object with:
+  plans: [{ id, wave, files }]
+  previousPlans: optional prior plan set for drift checks
+  submodules: optional paths that are not worktree eligible
+  useWorktrees: set false to disable worktree eligibility
+
+Output JSON:
+  schemaVersion: 1
+  waves: per-wave parallelSafe, overlaps, heartbeat, plans
+  drift: added/removed plans, wave changes, and order-insensitive file changes
+
+With --strict, exits 1 when any wave is not parallelSafe or drift is non-empty.`);
+}
+
+if (help) {
+  usage();
+  process.exit(0);
+}
 
 function readInput() {
   const raw = readFileSync(0, "utf8").trim();

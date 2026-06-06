@@ -112,7 +112,7 @@ const missingTools = Array.isArray(toolStack.missingTools) ? toolStack.missingTo
 const toolUpdates = Array.isArray(toolStack.updatesAvailable) ? toolStack.updatesAvailable : [];
 const updateCommand = state.updateCommand || "";
 function quoteForShell(value) {
-  return `'${String(value).replaceAll("'", "'\\''")}'`;
+  return `'${String(value).replace(/'/g, "'\\''")}'`;
 }
 
 const bootstrapCommand = state.sourceRoot

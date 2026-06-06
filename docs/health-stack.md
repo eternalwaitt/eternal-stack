@@ -2,6 +2,11 @@
 
 Use this stack when running `etrnl-audit-code` in this repo.
 
+## Deep-Audit Skills
+
+- `etrnl-audit-repo`: repo hygiene audit for organization, generated artifacts, dead files, and public-boundary drift; see `docs/skills.md` and `scripts/lib/deep-audit-categories.mjs`.
+- `etrnl-audit-tooling`: tooling-ecosystem audit for `tool-01` through `tool-05`, covering local setup, formatter/lint/test gates, CI parity, hook/tool drift, and developer workflow reliability; see `docs/skills.md` and `scripts/lib/deep-audit-categories.mjs`.
+
 ## Required Gates
 
 ```bash
@@ -151,6 +156,7 @@ scripts/post-upgrade-canary.sh
 - Documentation-health reports must include freshness/drift counters for recent commits reviewed, recent GitHub PRs reviewed or skipped with reason, recent-change docs-impact checks, checked doc claims, source-truth mappings, stale-reference searches, remaining outdated/stale/misleading docs, and active plan/work-queue stale docs; `100/100` is invalid while any docs in scope are unreviewed or any remaining-drift counter is nonzero.
 
 Doctor reports installed hooks and agents, strict/observer mode, ledger and artifact directories, stale runs, unresolved review findings, browser/context artifact counts, prompt-budget drift, settings-audit external hook inventory, and optional Codex/Gemini/browser/design tool availability. Missing optional tools are reported as `not installed`; they are not hard failures unless a plan explicitly requires them.
+`execution-wave-check.mjs` JSON output includes `schemaVersion`, `waves`, and `drift`. `drift` reports added/removed plans, wave changes, and order-insensitive file membership changes. With `--strict`, the command fails when any wave has `parallelSafe === false` or when `drift.length > 0`.
 It also enforces changelog release hygiene: `## Unreleased` must stay empty on every branch, all entries belong under a semantic version section, and post-tag commits require the first version section to advance beyond the latest git tag.
 Research artifacts record real extraction timestamps (`generatedAt`, `lastValidated`, `nextScan`) so staleness checks and refresh cadence remain auditable and current.
 `docs/research/top10-lock.json` is a committed reproducibility snapshot (includes `schemaVersion`) and is regenerated intentionally using `node scripts/research-competitor-intel.mjs extract --manifest docs/research/top10-lock.json --repos-root <repos-dir> --out docs/research/capability-evidence.json --write-manifest` when refreshing the competitor lock set.

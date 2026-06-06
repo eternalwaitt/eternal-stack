@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// Exit codes: 0 success, 1 stale verification after compact, 2 invalid input/runtime error.
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -47,7 +48,10 @@ function readStdin() {
   try {
     return fs.readFileSync(0, "utf8").trim();
   } catch (error) {
-    if (error && typeof error === "object" && "code" in error && ["EAGAIN", "EWOULDBLOCK"].includes(error.code)) return "";
+    if (error && typeof error === "object" && "code" in error && ["EAGAIN", "EWOULDBLOCK"].includes(error.code)) {
+      console.error(`warning: stdin read returned ${error.code}; treating input as empty`);
+      return "";
+    }
     fail(jsonError("StdinReadError", "Failed to read JSON from stdin.", error instanceof Error ? error.message : String(error)), 2);
   }
 }
@@ -151,7 +155,7 @@ function commandDoctor() {
 function commandStopStatus() {
   const result = stopStatus({ stateDir, session, latest: args.includes("--latest") || !session });
   emit(jsonMode ? result : result.blockReason);
-  if (result.staleVerificationAfterCompact) process.exit(1);
+  if (result.staleVerificationAfterCompact) fail("stale verification after compact", 1);
 }
 
 function commandExport() {

@@ -1,20 +1,23 @@
 {
   "schemaVersion": 1,
   "auditId": "invalid-category",
-  "categoryRegistryVersion": "2026-06-04.1",
+  "categoryRegistryVersion": "2026-06-05.1",
   "registeredCategories": [
+    "code-excellence",
+    "ui-ux-product",
     "production-readiness",
     "security",
-    "performance"
+    "performance",
+    "shared-reuse",
+    "repo-hygiene",
+    "tooling-ecosystem"
   ],
   "knownUnimplementedCategories": [
-    "ux-accessibility",
     "api-data",
-    "docs",
     "payments",
     "privacy-compliance"
   ],
-  "coverageStatement": "Coverage: unknown-category.",
+  "coverageStatement": "Coverage: unknown-category. Known not-yet-registered audit domains: api-data, payments, privacy-compliance.",
   "targetLabel": "synthetic-app",
   "targetFingerprint": "repo:synthetic-app@invalid-category",
   "requestedCategories": [
@@ -72,5 +75,6 @@
   "synthesis": {
     "status": "source_limited"
   },
-  "verification": []
+  "verification": [],
+  "_fixtureIntent": "This fixture intentionally triggers CATEGORY_UNKNOWN through requestedCategories including unknown-category. selectedCategories() drops invalid requests, so the structural worklists are present only to keep the envelope realistic and are not consumed."
 }

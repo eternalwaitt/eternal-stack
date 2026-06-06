@@ -19,6 +19,11 @@ const LOCK_SLEEP = new Int32Array(new SharedArrayBuffer(4));
 const args = process.argv.slice(2);
 const command = args[0] ?? "help";
 
+// Packet fields such as criticalPath and stopCondition are validated by
+// agent-task-packet-check.mjs and retained as reviewer/operator metadata.
+// This ledger records execution evidence; it does not schedule subtasks or
+// evaluate packet stop conditions at runtime.
+
 const argValue = (flag, fallback = "") => readArgValue(args, flag, fallback);
 
 function runsDir() {
