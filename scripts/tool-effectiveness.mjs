@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { appendFileSync, chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { homedir } from "node:os";
 import path from "node:path";
@@ -59,7 +59,9 @@ function parseJsonFile(file) {
 function privacyReason(value) {
   const text = JSON.stringify(value);
   if (/(promptText|rawPrompt|transcriptText|toolResultBody|messageText)"/.test(text)) return "raw-text-field";
-  if (/sk-(proj-)?[A-Za-z0-9_-]{20,}/.test(text)) return "secret-looking-token";
+  if (/sk-(proj-|ant-)?[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9_]{20,}|glpat-[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9-]{20,}|npm_[A-Za-z0-9]{20,}|\b(?:AKIA|ASIA|OCI)[A-Z0-9]{12,}\b|Bearer\s+[A-Za-z0-9._-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----/i.test(text)) return "secret-looking-token";
+  if (/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.test(text)) return "private-identity";
+  if (/(postgres|mysql|mongodb|redis):\/\/[^/\s:@]+:[^@\s]+@/i.test(text)) return "credential-url";
   if (/\/Users\/victorpenter\b/.test(text)) return "private-home-path";
   if (/\.codex\/sessions|\.claude\/projects/.test(text)) return "private-transcript-path";
   if (/\b(tcg-collector|agency-tbd|core-suite|openclaw-etrnl|metacards-admin)\b/.test(text)) return "private-project-name";
@@ -357,8 +359,6 @@ function importCodex() {
   if (!dryRun && events.length > 0) {
     mkdirSync(path.dirname(DEFAULT_EVENTS_FILE), { recursive: true, mode: 0o700 });
     appendFileSync(DEFAULT_EVENTS_FILE, `${events.map((event) => JSON.stringify(event)).join("\n")}\n`, { mode: 0o600 });
-    chmodSync(path.dirname(DEFAULT_EVENTS_FILE), 0o700);
-    chmodSync(DEFAULT_EVENTS_FILE, 0o600);
   }
   emit({ schemaVersion: 1, command: "import-codex", dryRun, eventsImported: events.length, rejected, output: dryRun ? "" : DEFAULT_EVENTS_FILE, ...(dryRun ? { events } : {}) });
 }

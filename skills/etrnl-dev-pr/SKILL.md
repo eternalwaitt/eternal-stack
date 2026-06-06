@@ -12,7 +12,7 @@ Prepare, update, and close the pull request loop only after local evidence, remo
 ## Preflight
 
 1. Inspect branch, default branch, upstream, dirty state, staged files, and untracked files.
-2. Reuse an existing open PR for the branch when one exists. Do not create duplicates.
+2. Check for an existing open PR with `gh pr view` or `gh pr list --head <branch>` before creating. Reuse the existing PR when found. Do not create duplicates.
 3. Confirm GitHub auth and remote URL before calling `gh`.
 4. Review the diff for secrets, unrelated changes, generated noise, and files outside the requested scope.
 5. Run the repo preflight and smoke checks that prove the PR body claims.

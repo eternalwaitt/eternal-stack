@@ -22,7 +22,7 @@ Before fixing any failing test or writing new tests:
 
 After fixing: run the full test suite (not just the changed tests) to confirm no regressions. A narrowed run is only allowed as a preview; the full suite is required before done.
 
-`hooks/cc-stop-verifier.sh` enforces this completion gate by blocking completion when edits exist but no test verification run is recorded.
+`hooks/cc-stop-verifier.sh` enforces this completion gate by blocking completion when quality, test, stale-verification, or required review evidence is missing for edited work.
 
 ## Required Flow
 

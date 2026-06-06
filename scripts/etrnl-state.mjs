@@ -160,10 +160,11 @@ function commandImportLegacy() {
   const input = flagValue(args, "--input", flagValue(args, "--file"));
   if (!input) fail(jsonError("MissingLegacyInput", "import-legacy requires --input <file>.", "Pass a legacy guard-state JSON file."), 2);
   const legacy = JSON.parse(fs.readFileSync(input, "utf8"));
+  const legacyCwd = cwd || (typeof legacy.cwd === "string" && legacy.cwd.trim() ? legacy.cwd : process.cwd());
   const event = {
     eventKind: "context_entry",
     sessionId: session || legacy.sessionId || "legacy",
-    cwd,
+    cwd: legacyCwd,
     data: {
       entryType: "legacy_guard_summary",
       verificationRuns: Array.isArray(legacy.verificationRuns) ? legacy.verificationRuns.length : 0,
@@ -171,7 +172,7 @@ function commandImportLegacy() {
       activePlan: legacy.activePlanPath ? path.basename(String(legacy.activePlanPath)) : "",
     },
   };
-  const result = appendEvent(event, { stateDir, dryRun: args.includes("--dry-run"), session, cwd });
+  const result = appendEvent(event, { stateDir, dryRun: args.includes("--dry-run"), session, cwd: legacyCwd });
   if (!result.ok) fail(result.error);
   emit(jsonMode ? result : `ok: imported legacy guard summary seq=${result.event.eventSeq}`);
 }
@@ -210,6 +211,10 @@ try {
   else if (command === "bead-link") commandBeadLink();
   else if (command === "bead-prime-audit") commandBeadPrimeAudit();
   else if (command === "purge") commandPurge();
+  else if (command === "help") {
+    console.log("usage: etrnl-state.mjs append|validate|compact-handoff|doctor|stop-status|export|import-legacy|bead-link|bead-prime-audit|purge [--json]");
+    process.exit(0);
+  }
   else {
     console.error("usage: etrnl-state.mjs append|validate|compact-handoff|doctor|stop-status|export|import-legacy|bead-link|bead-prime-audit|purge [--json]");
     process.exit(2);

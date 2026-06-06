@@ -263,8 +263,8 @@ taxonomy contract
 ## Verification gates
 
 - `node scripts/skill-contract-check.mjs`
-- `node scripts/skill-contract-check.mjs --installed --claude-home /Users/victorpenter/.claude`
-- `node scripts/skill-contract-check.mjs --installed --claude-home /Users/victorpenter/.codex`
+- `node scripts/skill-contract-check.mjs --installed --claude-home "$HOME/.claude"`
+- `node scripts/skill-contract-check.mjs --installed --claude-home "$HOME/.codex"`
 - `node scripts/prompt-budget-check.mjs --owned-only`
 - `node scripts/skill-behavior-smoke.mjs`
 - `node scripts/deep-audit-artifact-check.mjs validate-registry --root .`

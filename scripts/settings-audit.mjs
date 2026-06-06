@@ -307,7 +307,7 @@ function pluginNameFromManifestPath(file) {
   const parts = file.split(path.sep);
   const cacheIndex = parts.lastIndexOf("cache");
   if (cacheIndex >= 0 && parts[cacheIndex + 1]) return parts[cacheIndex + 1];
-  return path.basename(path.dirname(path.dirname(file)));
+  return path.basename(path.dirname(file));
 }
 
 function collectPluginHookManifests() {
@@ -428,6 +428,7 @@ function collectMemoryPluginPosture(settings) {
 }
 
 function collectIssues(settings) {
+  walkDepthWarnings.clear();
   const duplicateHooks = [];
   const legacyHooks = [];
   const externalHooks = [];

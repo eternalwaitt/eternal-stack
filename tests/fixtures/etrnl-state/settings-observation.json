@@ -1,6 +1,7 @@
 {
   "eventKind": "settings_observation",
   "sessionId": "fixture-settings",
+  "cwd": "/tmp/fixture-project",
   "data": {
     "recordedSettingsMode": "default",
     "observedSettingsMode": "strict",

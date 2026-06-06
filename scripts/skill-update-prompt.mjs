@@ -39,7 +39,7 @@ const emit = (result) => {
   );
   if (result.summary) console.log(result.summary);
   if (result.rawUpdateOutput) console.log(result.rawUpdateOutput);
-  console.log("Before using this skill, tell the user only about remaining remote/tool-stack choices that could not be auto-updated locally.");
+  console.log("Before using this skill, tell the user only about pending remote or tool-stack updates; local control-plane repair was checked without mutating this process.");
 };
 
 if (!fs.existsSync(updateScript)) {
@@ -63,6 +63,7 @@ const update = spawnSync(process.execPath, [updateScript, "--json"], {
   env: {
     ...process.env,
     CLAUDE_CONTROL_PLANE_HOME: controlHome,
+    CLAUDE_CONTROL_PLANE_AUTO_UPDATE: "0",
   },
 });
 

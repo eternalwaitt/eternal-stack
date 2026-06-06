@@ -24,8 +24,8 @@ This is a category skill, not the full orchestrator. Use `/etrnl-audit` for `all
 1. Record a next-run baseline artifact when route, bundle, query, or infrastructure measurements exist:
 
 ```bash
-node ~/.claude/scripts/performance-baseline.mjs create < measurements.json > <baseline-json>
-node ~/.claude/scripts/performance-baseline.mjs validate <baseline-json>
+node "${CLAUDE_CONTROL_PLANE_HOME:-$HOME/.claude}/scripts/performance-baseline.mjs" create < measurements.json > <baseline-json>
+node "${CLAUDE_CONTROL_PLANE_HOME:-$HOME/.claude}/scripts/performance-baseline.mjs" validate <baseline-json>
 ```
 
 1. Validate standalone output before final with:

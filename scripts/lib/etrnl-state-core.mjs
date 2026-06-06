@@ -83,6 +83,14 @@ export function statePaths(root = stateRoot()) {
   };
 }
 
+function readJson(file, fallback = null) {
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch {
+    return fallback;
+  }
+}
+
 export function stableHash(value) {
   return crypto.createHash("sha256").update(String(value || "unknown")).digest("hex").slice(0, 16);
 }
@@ -194,7 +202,9 @@ function hasPrivateAbsolutePathString(value) {
 
 function hasAbsoluteChangedFile(value) {
   if (Array.isArray(value)) return value.some(hasAbsoluteChangedFile);
-  if (value && typeof value === "object") return Object.values(value).some(hasAbsoluteChangedFile);
+  if (value && typeof value === "object") {
+    return Object.entries(value).some(([key, child]) => hasPrivateAbsolutePathString(key) || hasAbsoluteChangedFile(child));
+  }
   return typeof value === "string" && hasPrivateAbsolutePathString(value);
 }
 
@@ -295,9 +305,10 @@ function latestEvent(events, predicate) {
 export function compactHandoff(options = {}) {
   const root = stateRoot(options.stateDir);
   const events = options.events || readEvents(root);
+  const requestedSession = cleanSessionId(options.session);
   const selected = options.latest
     ? events
-    : events.filter((event) => !options.session || event.sessionId === cleanSessionId(options.session));
+    : events.filter((event) => requestedSession && event.sessionId === requestedSession);
   const latestCompact = latestEvent(selected, (event) => event.eventKind === "compact_pre" || event.eventKind === "compact_post");
   if (!latestCompact) {
     return { ok: true, found: false, handoff: null, text: "", statePath: statePaths(root).events };

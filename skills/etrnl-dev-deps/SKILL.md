@@ -1,6 +1,6 @@
 ---
 name: etrnl-dev-deps
-description: ETRNL control-plane dependency maintenance workflow for Claude Code. Use only when the user explicitly asks to update dependencies, audit dependencies, handle Dependabot/Renovate PRs, fix security dependency alerts, or consolidate dependency versions; hidden from model auto-invocation.
+description: Dependency maintenance workflow for updates, audits, bot PR triage, security fixes, and version consolidation.
 disable-model-invocation: true
 ---
 # Deps
@@ -30,7 +30,7 @@ For detailed catalog, reporting, and rollback rules, load `references/catalogs-r
 8. Consolidate repeated external dependency versions into the repo's existing catalog or central version surface before updating scattered manifest literals. For pnpm workspaces, use `pnpm-workspace.yaml` `catalog` or named `catalogs` entries and `catalog:`/`catalog:<name>` manifest references instead of diverging package-level versions. For Yarn workspaces, use workspace constraints or the established central versions surface. For npm workspaces, keep version ranges consistent across package manifests or use the repo's root-level version policy.
 9. Keep intentionally divergent versions explicit. Document the reason when a package cannot share the catalog because of framework, runtime, peer, or migration constraints.
 10. Install dependencies with the repo package manager. Do not hand-edit lockfiles except for conflict resolution that the package manager cannot produce.
-11. Run Knip through the repo's configured command when available: check `package.json` scripts first, then use the project package manager (`npm run knip`, `pnpm knip`, `yarn knip`) or the repo's equivalent to detect unused dependencies, exports, files, and unused catalog entries.
+11. When Knip is configured, run it through the repo's configured command: check `package.json` scripts first, then use the project package manager (`npm run knip`, `pnpm knip`, `yarn knip`) or the repo's equivalent to detect unused dependencies, exports, files, and unused catalog entries. If Knip is unavailable, skip this check and document the limitation.
 12. Fail on unused production dependencies. Record unused devDependencies for review by default; fail on unused devDependencies only when repo config sets `failOnUnusedDevDependencies` or `failOnAllKnipFindings`.
 13. Use targeted upgrades. Broad upgrades require explicit user request, security evidence, or compatibility evidence.
 14. Do not run `npm audit fix --force`, major upgrades, package-manager migration commands, global installs, or dependency removals without explicit approval.

@@ -12,7 +12,11 @@ function usage() {
   process.exit(2);
 }
 
-if (!profilePath || args.includes("--help") || args.includes("-h")) usage();
+if (args.includes("--help") || args.includes("-h")) {
+  console.log("usage: stack-profile-check.mjs <profile.json> [--json] [--hindsight]");
+  process.exit(0);
+}
+if (!profilePath) usage();
 
 function readJson(file) {
   try {
@@ -55,7 +59,7 @@ function validate(profile, file) {
   if (profile.schemaVersion !== 1) errors.push("schemaVersion must be 1");
   if (!["core", "full"].includes(profile.profile)) errors.push("profile must be core or full");
   if (!profile.installCommand || typeof profile.installCommand !== "string") errors.push("installCommand is required");
-  if (!profile.rollback?.required) errors.push("rollback.required must be true");
+  if (profile.rollback?.required !== true) errors.push("rollback.required must be true");
   if (component("etrnl").enabled !== true) errors.push("components.etrnl.enabled must be true");
 
   for (const hook of ["cc-sessionstart-restore.sh", "cc-precompact-save.sh", "cc-postcompact-record.sh", "cc-stop-verifier.sh"]) {
