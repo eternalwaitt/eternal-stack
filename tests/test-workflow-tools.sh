@@ -745,13 +745,19 @@ jq -n '{
     + [{
       tool: "leaky-tool",
       promptText: "raw prompt must be rejected"
+    }, {
+      tool: "leaky-tool",
+      cwd: "/home/example/private-repo"
+    }, {
+      tool: "leaky-tool",
+      cwd: "C:\\Users\\Example\\private-repo"
     }]
   )
 }' >"$tool_effectiveness_privacy_root/events.json"
 tool_effectiveness_privacy_json="$(node "$ROOT/scripts/tool-effectiveness.mjs" summarize --fixtures "$tool_effectiveness_privacy_root" --json)"
-assert_json_expr "tool-effectiveness privacy rejects downgrade tool" "$tool_effectiveness_privacy_json" '."tools"."leaky-tool".verdict == "remove-watch" and ."tools"."leaky-tool".evidence.privacyRejectCount == 1'
+assert_json_expr "tool-effectiveness privacy rejects downgrade tool" "$tool_effectiveness_privacy_json" '."tools"."leaky-tool".verdict == "remove-watch" and ."tools"."leaky-tool".evidence.privacyRejectCount == 3'
 tool_effectiveness_project_privacy_json="$(ETRNL_TOOL_EFFECTIVENESS_PRIVATE_PROJECT_NAMES="fixture-secret-project" node "$ROOT/scripts/tool-effectiveness.mjs" summarize --fixtures "$tool_effectiveness_privacy_root" --json)"
-assert_json_expr "tool-effectiveness private project names are local config" "$tool_effectiveness_project_privacy_json" '.totals.rejected == 2 and ."tools"."leaky-tool".evidence.privacyRejectCount == 2'
+assert_json_expr "tool-effectiveness private project names are local config" "$tool_effectiveness_project_privacy_json" '.totals.rejected == 4 and ."tools"."leaky-tool".evidence.privacyRejectCount == 4'
 tool_effectiveness_baseline_json="$(node "$ROOT/scripts/tool-effectiveness.mjs" baseline --since-days 7 --fixtures "$ROOT/tests/fixtures/tool-effectiveness" --json)"
 assert_json_expr "tool-effectiveness baseline emits tool medians" "$tool_effectiveness_baseline_json" '.command == "baseline" and .byTool.codegraph.medianReadSearchCount >= 0'
 tool_effectiveness_codex_import_json="$(node "$ROOT/scripts/tool-effectiveness.mjs" import-codex --fixtures "$ROOT/tests/fixtures/tool-effectiveness/codex" --dry-run --json)"

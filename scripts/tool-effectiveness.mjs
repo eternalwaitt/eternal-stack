@@ -24,6 +24,8 @@ const privateProjectPattern = configuredPrivateProjectNames.length > 0
  * Slack/npm tokens, cloud access keys, Bearer tokens, and PEM private keys.
  */
 const SECRET_PATTERN = /sk-(proj-|ant-)?[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9_]{20,}|glpat-[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9-]{20,}|npm_[A-Za-z0-9]{20,}|\b(?:AKIA|ASIA|OCI)[A-Z0-9]{12,}\b|Bearer\s+[A-Za-z0-9._-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----/i;
+const PRIVATE_HOME_PATH_PATTERN = /(?:\/Users\/[^/"\s]+|\/home\/[^/"\s]+|\/root(?:\/|["\s]|$)|[A-Za-z]:\\\\Users\\\\[^\\/"\s]+)/;
+const PRIVATE_TRANSCRIPT_PATH_PATTERN = /(?:\.codex\/sessions|\.claude\/projects|\.codex\\\\sessions|\.claude\\\\projects)/;
 const sinceDays = Number(flagValue("--since-days", "0"));
 const cwdFilter = flagValue("--cwd");
 const projectFilter = flagValue("--project");
@@ -78,8 +80,8 @@ function privacyReason(value) {
   if (SECRET_PATTERN.test(text)) return "secret-looking-token";
   if (/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.test(text)) return "private-identity";
   if (/(postgres|mysql|mongodb|redis):\/\/[^/\s:@]+:[^@\s]+@/i.test(text)) return "credential-url";
-  if (/\/Users\/[^/"\s]+/.test(text)) return "private-home-path";
-  if (/\.codex\/sessions|\.claude\/projects/.test(text)) return "private-transcript-path";
+  if (PRIVATE_HOME_PATH_PATTERN.test(text)) return "private-home-path";
+  if (PRIVATE_TRANSCRIPT_PATH_PATTERN.test(text)) return "private-transcript-path";
   if (privateProjectPattern?.test(text)) return "private-project-name";
   return "";
 }
