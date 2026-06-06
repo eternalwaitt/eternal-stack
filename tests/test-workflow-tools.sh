@@ -189,14 +189,28 @@ doc_health_shallow_state="$(jq -nc '{requestedSkills:[{value:"etrnl-documentatio
 doc_health_shallow_status="$(jq -cn --argjson state "$doc_health_shallow_state" --arg message "Done, docs look fine." '{state:$state,message:$message}' | node "$ROOT/scripts/documentation-health-ledger-check.mjs")"
 if [[ "$doc_health_shallow_status" == "missing-coverage-counters" ]]; then ok "documentation health checker rejects shallow report"; else not_ok "documentation health checker rejects shallow report: $doc_health_shallow_status"; fi
 
-doc_health_missing_comment_message=$'# Documentation Health Audit\n\n## Documentation Inventory\ncanonical docs and secondary docs classified.\n\n## Findings Ledger\n| severity | source_of_truth | disposition | verification |\n| --- | --- | --- | --- |\n| P2 | scripts/install.sh | fixed | scripts/doctor.sh passed |\n\n## Scorecard\nOverall documentation health: 8/10\n\nDOCS_FILES_TOTAL: 12\nDOCS_FILES_REVIEWED: 12\nSOURCE_FILES_SAMPLED_OR_REVIEWED: 6\nCHECKS_SKIPPED: []\nFINAL_DOC_HEALTH_SCORE: 82/100\n'
+doc_health_missing_comment_message=$'# Documentation Health Audit\n\n## Documentation Inventory\ncanonical docs and secondary docs classified.\n\n## Freshness And Drift Proof\nsource_of_truth matrix checked; stale reference searches covered old architecture names and active plan queues.\n\n## Findings Ledger\n| severity | source_of_truth | disposition | verification |\n| --- | --- | --- | --- |\n| P2 | scripts/install.sh | fixed | scripts/doctor.sh passed |\n\n## Scorecard\nOverall documentation health: 8/10\n\nDOCS_FILES_TOTAL: 12\nDOCS_FILES_REVIEWED: 12\nSOURCE_FILES_SAMPLED_OR_REVIEWED: 6\nRECENT_COMMITS_REVIEWED: 5\nRECENT_PRS_REVIEWED: 2\nRECENT_CHANGE_DOC_IMPACT_CHECKS: 4\nDOC_CLAIMS_CHECKED: 14\nSOURCE_TRUTH_MAPPINGS_REVIEWED: 8\nSTALE_REFERENCE_SEARCHES_RUN: 5\nOUTDATED_DOC_CLAIMS_FOUND: 1\nOUTDATED_DOC_CLAIMS_REMAINING: 0\nSTALE_DOCS_FOUND: 1\nSTALE_DOCS_REMAINING: 0\nMISLEADING_DOCS_FOUND: 0\nMISLEADING_DOCS_REMAINING: 0\nACTIVE_PLAN_QUEUE_DOCS_REVIEWED: 2\nACTIVE_PLAN_QUEUE_DOCS_STALE: 0\nCHECKS_SKIPPED: []\nFINAL_DOC_HEALTH_SCORE: 82/100\n'
 doc_health_missing_comment_status="$(jq -cn --argjson state "$doc_health_shallow_state" --arg message "$doc_health_missing_comment_message" '{state:$state,message:$message}' | node "$ROOT/scripts/documentation-health-ledger-check.mjs")"
 if [[ "$doc_health_missing_comment_status" == "missing-comment-health-counters" ]]; then ok "documentation health checker requires comment counters"; else not_ok "documentation health checker requires comment counters: $doc_health_missing_comment_status"; fi
 
 doc_health_full_state="$(jq -nc '{requestedSkills:[{value:"etrnl-documentation-health",at:"2026-01-01T00:00:00Z"}],successfulCommands:[{value:"node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked",at:"2026-01-01T00:00:01Z"},{value:"node ~/.claude/scripts/documentation-comment-health.mjs --root . --json --include-untracked",at:"2026-01-01T00:00:02Z"},{value:"node ~/.claude/scripts/documentation-health-ledger-check.mjs --report /tmp/doc-health.md",at:"2026-01-01T00:00:03Z"}],verificationRuns:[{value:"node ~/.claude/scripts/documentation-health-ledger-check.mjs --report /tmp/doc-health.md",at:"2026-01-01T00:00:03Z"}]}')"
-doc_health_full_message=$'# Documentation Health Audit\n\n## Documentation Inventory\ncanonical docs and secondary docs classified.\n\n## 10. TSDoc/JSDoc And Comments\nComment Health classified useful, missing, stale, misleading, noise, and wrong-format targets.\n\n## Findings Ledger\n| severity | source_of_truth | disposition | verification |\n| --- | --- | --- | --- |\n| P2 | scripts/install.sh | fixed | scripts/doctor.sh passed |\n\n## Action Items\nAll action items are terminal.\n\n## Resolution Plan\nImmediate fixes are verified.\n\n## Scorecard\nTSDoc/JSDoc/comment health: 8/10\nOverall documentation health: 8/10\n\nDOCS_FILES_TOTAL: 12\nDOCS_FILES_REVIEWED: 12\nSOURCE_FILES_SAMPLED_OR_REVIEWED: 6\nTSDOC_JSDOC_FILES_SCANNED: 4\nCOMMENT_TARGETS_REVIEWED: 9\nCOMMENT_TARGETS_DOCUMENTED: 7\nCOMMENT_TARGETS_MISSING_DOCS: 2\nCOMMENT_TARGETS_WRONG_FORMAT: 0\nCHECKS_SKIPPED: []\nFINAL_DOC_HEALTH_SCORE: 82/100\n'
+doc_health_missing_freshness_message=$'# Documentation Health Audit\n\n## Documentation Inventory\ncanonical docs and secondary docs classified.\n\n## 10. TSDoc/JSDoc And Comments\nComment Health classified useful, missing, stale, misleading, noise, and wrong-format targets.\n\n## Findings Ledger\n| severity | source_of_truth | disposition | verification |\n| --- | --- | --- | --- |\n| P2 | scripts/install.sh | fixed | scripts/doctor.sh passed |\n\n## Action Items\nAll action items are terminal.\n\n## Resolution Plan\nImmediate fixes are verified.\n\n## Scorecard\nTSDoc/JSDoc/comment health: 8/10\nOverall documentation health: 8/10\n\nDOCS_FILES_TOTAL: 12\nDOCS_FILES_REVIEWED: 12\nSOURCE_FILES_SAMPLED_OR_REVIEWED: 6\nTSDOC_JSDOC_FILES_SCANNED: 4\nCOMMENT_TARGETS_REVIEWED: 9\nCOMMENT_TARGETS_DOCUMENTED: 7\nCOMMENT_TARGETS_MISSING_DOCS: 2\nCOMMENT_TARGETS_WRONG_FORMAT: 0\nAI_CONTEXT_FILES_REVIEWED: 3\nAI_CONTEXT_DRIFT_FINDINGS: 0\nAI_CONTEXT_DUPLICATE_RULE_OWNERS: 0\nAI_CONTEXT_HOT_PATH_LEAKS: 0\nCHECKS_SKIPPED: []\nFINAL_DOC_HEALTH_SCORE: 82/100\n'
+doc_health_missing_freshness_status="$(jq -cn --argjson state "$doc_health_full_state" --arg message "$doc_health_missing_freshness_message" '{state:$state,message:$message}' | node "$ROOT/scripts/documentation-health-ledger-check.mjs")"
+if [[ "$doc_health_missing_freshness_status" == "missing-freshness-counters" ]]; then ok "documentation health checker requires freshness counters"; else not_ok "documentation health checker requires freshness counters: $doc_health_missing_freshness_status"; fi
+
+doc_health_full_message=$'# Documentation Health Audit\n\n## Documentation Inventory\ncanonical docs and secondary docs classified.\n\n## Freshness And Drift Proof\nsource_of_truth matrix checked; stale reference searches covered old architecture names and active plan queues.\n\n## 10. TSDoc/JSDoc And Comments\nComment Health classified useful, missing, stale, misleading, noise, and wrong-format targets.\n\n## Findings Ledger\n| severity | source_of_truth | disposition | verification |\n| --- | --- | --- | --- |\n| P2 | scripts/install.sh | fixed | scripts/doctor.sh passed |\n\n## Action Items\nAll action items are terminal.\n\n## Resolution Plan\nImmediate fixes are verified.\n\n## Scorecard\nTSDoc/JSDoc/comment health: 8/10\nOverall documentation health: 8/10\n\nDOCS_FILES_TOTAL: 12\nDOCS_FILES_REVIEWED: 12\nSOURCE_FILES_SAMPLED_OR_REVIEWED: 6\nRECENT_COMMITS_REVIEWED: 5\nRECENT_PRS_REVIEWED: 2\nRECENT_CHANGE_DOC_IMPACT_CHECKS: 4\nDOC_CLAIMS_CHECKED: 14\nSOURCE_TRUTH_MAPPINGS_REVIEWED: 8\nSTALE_REFERENCE_SEARCHES_RUN: 5\nOUTDATED_DOC_CLAIMS_FOUND: 1\nOUTDATED_DOC_CLAIMS_REMAINING: 0\nSTALE_DOCS_FOUND: 1\nSTALE_DOCS_REMAINING: 0\nMISLEADING_DOCS_FOUND: 0\nMISLEADING_DOCS_REMAINING: 0\nACTIVE_PLAN_QUEUE_DOCS_REVIEWED: 2\nACTIVE_PLAN_QUEUE_DOCS_STALE: 0\nTSDOC_JSDOC_FILES_SCANNED: 4\nCOMMENT_TARGETS_REVIEWED: 9\nCOMMENT_TARGETS_DOCUMENTED: 7\nCOMMENT_TARGETS_MISSING_DOCS: 2\nCOMMENT_TARGETS_WRONG_FORMAT: 0\nAI_CONTEXT_FILES_REVIEWED: 3\nAI_CONTEXT_DRIFT_FINDINGS: 0\nAI_CONTEXT_DUPLICATE_RULE_OWNERS: 0\nAI_CONTEXT_HOT_PATH_LEAKS: 0\nCHECKS_SKIPPED: []\nFINAL_DOC_HEALTH_SCORE: 82/100\n'
 doc_health_full_status="$(jq -cn --argjson state "$doc_health_full_state" --arg message "$doc_health_full_message" '{state:$state,message:$message}' | node "$ROOT/scripts/documentation-health-ledger-check.mjs")"
 if [[ -z "$doc_health_full_status" ]]; then ok "documentation health checker accepts complete report"; else not_ok "documentation health checker accepts complete report: $doc_health_full_status"; fi
+
+doc_health_open_drift_message="${doc_health_full_message/STALE_DOCS_REMAINING: 0/STALE_DOCS_REMAINING: 1}"
+doc_health_open_drift_message="${doc_health_open_drift_message/FINAL_DOC_HEALTH_SCORE: 82/FINAL_DOC_HEALTH_SCORE: 100}"
+doc_health_open_drift_status="$(jq -cn --argjson state "$doc_health_full_state" --arg message "$doc_health_open_drift_message" '{state:$state,message:$message}' | node "$ROOT/scripts/documentation-health-ledger-check.mjs")"
+if [[ "$doc_health_open_drift_status" == "score-100-with-open-drift" ]]; then ok "documentation health checker rejects 100 score with remaining drift"; else not_ok "documentation health checker rejects 100 score with remaining drift: $doc_health_open_drift_status"; fi
+
+doc_health_unreviewed_docs_message="${doc_health_full_message/DOCS_FILES_REVIEWED: 12/DOCS_FILES_REVIEWED: 11}"
+doc_health_unreviewed_docs_message="${doc_health_unreviewed_docs_message/FINAL_DOC_HEALTH_SCORE: 82/FINAL_DOC_HEALTH_SCORE: 100}"
+doc_health_unreviewed_docs_status="$(jq -cn --argjson state "$doc_health_full_state" --arg message "$doc_health_unreviewed_docs_message" '{state:$state,message:$message}' | node "$ROOT/scripts/documentation-health-ledger-check.mjs")"
+if [[ "$doc_health_unreviewed_docs_status" == "score-100-with-unreviewed-docs" ]]; then ok "documentation health checker rejects 100 score with unreviewed docs"; else not_ok "documentation health checker rejects 100 score with unreviewed docs: $doc_health_unreviewed_docs_status"; fi
 
 doc_health_baseline_state="$(jq -nc '{requestedSkills:[{value:"etrnl-documentation-health",at:"2026-01-01T00:00:00Z"}],edits:{"/tmp/example/docs/policy/COMMENT_HEALTH_BASELINE.json":"2026-01-01T00:00:03Z"},successfulCommands:[{value:"node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked",at:"2026-01-01T00:00:01Z"},{value:"node ~/.claude/scripts/documentation-comment-health.mjs --root . --json --include-untracked",at:"2026-01-01T00:00:02Z"},{value:"pnpm docs:comments:baseline",at:"2026-01-01T00:00:03Z"},{value:"node ~/.claude/scripts/documentation-health-ledger-check.mjs --report /tmp/doc-health.md",at:"2026-01-01T00:00:04Z"}],verificationRuns:[{value:"node ~/.claude/scripts/documentation-health-ledger-check.mjs --report /tmp/doc-health.md",at:"2026-01-01T00:00:04Z"}],lastPrompt:"run documentation health"}')"
 doc_health_baseline_message="${doc_health_full_message}"$'\nBaseline written: docs/policy/COMMENT_HEALTH_BASELINE.json\n'
@@ -346,6 +360,7 @@ if git -C "$ROOT" rev-parse --show-toplevel >/dev/null 2>&1; then
   assert_command "code-health inventory runs" node "$ROOT/scripts/code-health-inventory.mjs" --json
   inventory_quiet_json="$(node "$ROOT/scripts/code-health-inventory.mjs" --json --quiet)"
   assert_json_expr "code-health inventory json quiet emits JSON" "$inventory_quiet_json" '.totalFiles >= 1'
+  assert_json_expr "code-health inventory emits measured hotspots" "$inventory_quiet_json" '.riskHotspots | type == "array"'
 else
   ok "SKIPPED (not in git repo) code-health inventory runs"
   ok "SKIPPED (not in git repo) code-health inventory quiet JSON emits JSON"
@@ -362,6 +377,8 @@ mkdir -p \
   "$inventory_exclusion_root/logs" \
   "$inventory_exclusion_root/node_modules/pkg" \
   "$inventory_exclusion_root/out" \
+  "$inventory_exclusion_root/docs" \
+  "$inventory_exclusion_root/tests" \
   "$inventory_exclusion_root/src" \
   "$inventory_exclusion_root/tool-output" \
   "$inventory_exclusion_root/vendor/pkg"
@@ -375,7 +392,13 @@ printf '%s\n' 'export const cache = true' >"$inventory_exclusion_root/.cache/cac
 printf '%s\n' 'export const builtMore = true' >"$inventory_exclusion_root/build/out.js"
 printf '%s\n' 'local cache' >"$inventory_exclusion_root/cache/run.log"
 printf '%s\n' 'export const built = true' >"$inventory_exclusion_root/dist/out.js"
+printf '%s\n' '# security docs' >"$inventory_exclusion_root/docs/security.md"
 printf '%s\n' 'export const generated = true' >"$inventory_exclusion_root/generated/client.ts"
+printf '%s\n' 'test("auth", () => {})' >"$inventory_exclusion_root/tests/auth.test.ts"
+mkdir -p "$inventory_exclusion_root/src/auth-service" "$inventory_exclusion_root/src/service-auth" "$inventory_exclusion_root/src/authored"
+printf '%s\n' 'export const authService = true' >"$inventory_exclusion_root/src/auth-service/index.ts"
+printf '%s\n' 'export const serviceAuth = true' >"$inventory_exclusion_root/src/service-auth/index.ts"
+printf '%s\n' 'export const authored = true' >"$inventory_exclusion_root/src/authored/index.ts"
 printf '%s\n' '{"session":"local"}' >"$inventory_exclusion_root/.claude/state.json"
 printf '%s\n' 'local log' >"$inventory_exclusion_root/logs/run.log"
 printf '%s\n' 'export const out = true' >"$inventory_exclusion_root/out/bundle.js"
@@ -383,10 +406,89 @@ printf '%s\n' 'tool output' >"$inventory_exclusion_root/tool-output/report.txt"
 printf '%s\n' 'export const vendor = true' >"$inventory_exclusion_root/vendor/pkg/index.js"
 git -C "$inventory_exclusion_root" add -f . >/dev/null
 inventory_exclusion_json="$(node "$ROOT/scripts/code-health-inventory.mjs" --json --root="$inventory_exclusion_root")"
-assert_json_expr "code-health inventory lists obvious folders without auditing them" "$inventory_exclusion_json" '([.files[] | select(.path == "src/app.ts" and .auditScope == "audit")] | length) == 1 and ([.files[] | select(.path != "src/app.ts")] | all(.auditScope == "listed")) and ([.files[] | select(.path | startswith(".audit/"))][0].category == "excluded")'
+assert_json_expr "code-health inventory lists obvious folders without auditing them" "$inventory_exclusion_json" '([.files[] | select(.path == "src/app.ts" and .auditScope == "audit")] | length) == 1 and ([.files[] | select(((.path | startswith("src/") | not) and .path != "docs/security.md" and .path != "tests/auth.test.ts") and .auditScope != "listed")] | length) == 0 and ([.files[] | select(.path | startswith(".audit/"))][0].category == "excluded")'
+assert_json_expr "code-health inventory keeps doc/test sensitive paths below hotspot threshold" "$inventory_exclusion_json" '([.riskHotspots[] | select(.path == "docs/security.md" or .path == "tests/auth.test.ts")] | length) == 0'
+assert_json_expr "code-health inventory uses segment boundaries for sensitive path tokens" "$inventory_exclusion_json" '([.riskHotspots[] | select(.path == "src/auth-service/index.ts" or .path == "src/service-auth/index.ts")] | length) == 2 and ([.riskHotspots[] | select(.path == "src/authored/index.ts")] | length) == 0'
 assert_command "plan readiness syntax" node --check "$ROOT/scripts/plan-readiness-check.mjs"
 assert_command "deep-stack check syntax" node --check "$ROOT/scripts/deep-stack-check.mjs"
 assert_command "tool-effectiveness syntax" node --check "$ROOT/scripts/tool-effectiveness.mjs"
+assert_command "tool stack check syntax" node --check "$ROOT/scripts/tool-stack-check.mjs"
+assert_command "skill update prompt syntax" node --check "$ROOT/scripts/skill-update-prompt.mjs"
+assert_command "pr preflight syntax" node --check "$ROOT/scripts/pr-preflight.mjs"
+assert_command "performance baseline syntax" node --check "$ROOT/scripts/performance-baseline.mjs"
+assert_command "disk cleanup manifest syntax" node --check "$ROOT/scripts/disk-cleanup-manifest.mjs"
+assert_command "pr preflight validates fixture" bash -c 'printf "%s\n" "{\"branch\":\"feature\",\"dirty\":false,\"changedFiles\":[],\"blockers\":[],\"ghAvailable\":false}" | node "$0/scripts/pr-preflight.mjs" validate --json >/dev/null' "$ROOT"
+if pr_invalid_json="$(printf '{' | node "$ROOT/scripts/pr-preflight.mjs" validate --json 2>&1)"; then
+  not_ok "pr preflight reports invalid JSON"
+else
+  assert_contains "pr preflight reports invalid JSON" "$pr_invalid_json" "invalid JSON input"
+fi
+pr_preflight_repo="$TMPROOT/pr-preflight-repo"
+mkdir -p "$pr_preflight_repo"
+git -C "$pr_preflight_repo" init -q -b main
+git -C "$pr_preflight_repo" config user.email "test@example.com"
+git -C "$pr_preflight_repo" config user.name "Test User"
+printf '%s\n' '# Changelog' >"$pr_preflight_repo/CHANGELOG.md"
+git -C "$pr_preflight_repo" add CHANGELOG.md
+git -C "$pr_preflight_repo" commit -qm "initial"
+printf '%s\n' '# Changelog' 'changed' >"$pr_preflight_repo/CHANGELOG.md"
+printf '%s\n' 'scratch' >"$pr_preflight_repo/untracked.txt"
+mkdir -p "$pr_preflight_repo/docs"
+git -C "$pr_preflight_repo" mv CHANGELOG.md docs/CHANGELOG.md
+pr_preflight_status_json="$(cd "$pr_preflight_repo" && node "$ROOT/scripts/pr-preflight.mjs" status --json)"
+assert_json_expr "pr preflight preserves modified path names" "$pr_preflight_status_json" '.changedFiles == ["docs/CHANGELOG.md"]'
+assert_json_expr "pr preflight separates untracked files" "$pr_preflight_status_json" '.dirty == true and .untrackedFiles == ["untracked.txt"]'
+perf_baseline_fixture="$TMPROOT/performance-baseline.json"
+printf '%s\n' '{"schemaVersion":1,"baselineId":"base","targetLabel":"fixture","measurements":[{"route":"/","durationMs":100,"responseBytes":1000,"capturedAt":"2026-01-01T00:00:00Z"},{"route":"/removed","durationMs":75,"responseBytes":500,"capturedAt":"2026-01-01T00:00:00Z"}],"nextRun":{"command":"pnpm bench","thresholds":{"maxRegressionPct":20}}}' >"$perf_baseline_fixture"
+assert_command "performance baseline validates fixture" node "$ROOT/scripts/performance-baseline.mjs" validate "$perf_baseline_fixture"
+perf_created_path="$(printf '%s\n' '{"baselineId":"created","targetLabel":"fixture","measurements":[{"route":"/created","durationMs":50,"capturedAt":"2026-01-01T00:00:00Z"}]}' | CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$TMPROOT/artifacts" node "$ROOT/scripts/performance-baseline.mjs" create)"
+assert_file "performance baseline create writes report without nextRun" "$perf_created_path"
+assert_command "performance baseline create output validates" node "$ROOT/scripts/performance-baseline.mjs" validate "$perf_created_path"
+assert_json_expr "performance baseline create omits empty nextRun" "$(cat "$perf_created_path")" 'has("nextRun") | not'
+perf_baseline_after="$TMPROOT/performance-baseline-after.json"
+printf '%s\n' '{"schemaVersion":1,"baselineId":"after","targetLabel":"fixture","measurements":[{"route":"/","durationMs":125,"responseBytes":1000,"capturedAt":"2026-01-01T00:01:00Z"}],"nextRun":{"command":"pnpm bench","thresholds":{"maxRegressionPct":20}}}' >"$perf_baseline_after"
+perf_trend_json="$(node "$ROOT/scripts/performance-baseline.mjs" trend --before "$perf_baseline_fixture" --after "$perf_baseline_after")"
+assert_json_expr "performance baseline trend reports delta" "$perf_trend_json" '.comparisons[0].deltaMs == 25'
+assert_json_expr "performance baseline trend reports removed rows" "$perf_trend_json" 'any(.comparisons[]; .key == "/removed" and .removed == true and .beforeMs == 75 and .afterMs == null)'
+if perf_missing_file="$(node "$ROOT/scripts/performance-baseline.mjs" validate "$TMPROOT/missing-performance-baseline.json" 2>&1)"; then
+  not_ok "performance baseline validate reports missing file"
+else
+  assert_contains "performance baseline validate reports missing file" "$perf_missing_file" "performance-baseline validate: file not found"
+fi
+if perf_invalid_json="$(printf '{' | node "$ROOT/scripts/performance-baseline.mjs" create 2>&1)"; then
+  not_ok "performance baseline reports invalid JSON"
+else
+  assert_contains "performance baseline reports invalid JSON" "$perf_invalid_json" "invalid JSON from stdin"
+fi
+disk_manifest_fixture='{"items":[{"path":"/tmp/cache/file","category":"cache","estimatedBytes":1024,"description":"cache file","whySafe":"rebuildable cache","cleanupCommand":"trash /tmp/cache/file","riskTier":1}]}'
+assert_command "disk cleanup manifest validates fixture" bash -c 'printf "%s\n" "$1" | node "$0/scripts/disk-cleanup-manifest.mjs" validate >/dev/null' "$ROOT" "$disk_manifest_fixture"
+disk_manifest_missing_items='{"schemaVersion":1}'
+disk_missing_summary="$(printf '%s\n' "$disk_manifest_missing_items" | node "$ROOT/scripts/disk-cleanup-manifest.mjs" summary)"
+assert_json_expr "disk cleanup manifest summary tolerates missing items" "$disk_missing_summary" '.items == 0 and .totalBytes == 0'
+disk_manifest_empty_command='{"items":[{"path":"/tmp/cache/file","category":"cache","estimatedBytes":1024,"description":"cache file","whySafe":"rebuildable cache","cleanupCommand":"","riskTier":1}]}'
+if disk_empty_command="$(printf '%s\n' "$disk_manifest_empty_command" | node "$ROOT/scripts/disk-cleanup-manifest.mjs" validate 2>&1)"; then
+  not_ok "disk cleanup manifest rejects empty cleanup command"
+else
+  assert_contains "disk cleanup manifest rejects empty cleanup command" "$disk_empty_command" "must be a non-empty string"
+fi
+disk_manifest_wrong_path='{"items":[{"path":"/tmp/cache/file","category":"cache","estimatedBytes":1024,"description":"cache file","whySafe":"rebuildable cache","cleanupCommand":"trash /tmp/cache/other","riskTier":1}]}'
+if disk_wrong_path="$(printf '%s\n' "$disk_manifest_wrong_path" | node "$ROOT/scripts/disk-cleanup-manifest.mjs" validate 2>&1)"; then
+  not_ok "disk cleanup manifest rejects commands targeting another path"
+else
+  assert_contains "disk cleanup manifest rejects commands targeting another path" "$disk_wrong_path" "must reference the specified path"
+fi
+disk_manifest_recursive='{"items":[{"path":"/tmp/cache/file","category":"cache","estimatedBytes":1024,"description":"cache file","whySafe":"rebuildable cache","cleanupCommand":"/bin/rm -Rf /tmp/cache/file","riskTier":1}]}'
+if disk_recursive="$(printf '%s\n' "$disk_manifest_recursive" | node "$ROOT/scripts/disk-cleanup-manifest.mjs" validate 2>&1)"; then
+  not_ok "disk cleanup manifest rejects recursive rm variants"
+else
+  assert_contains "disk cleanup manifest rejects recursive rm variants" "$disk_recursive" "must not use recursive rm"
+fi
+disk_manifest_trash='{"items":[{"path":"/tmp/cache/file","category":"cache","estimatedBytes":1024,"description":"cache file","whySafe":"rebuildable cache","cleanupCommand":"trash ~/.Trash /tmp/cache/file","riskTier":1}]}'
+if disk_trash="$(printf '%s\n' "$disk_manifest_trash" | node "$ROOT/scripts/disk-cleanup-manifest.mjs" validate 2>&1)"; then
+  not_ok "disk cleanup manifest rejects whole Trash cleanup"
+else
+  assert_contains "disk cleanup manifest rejects whole Trash cleanup" "$disk_trash" "must not empty the whole Trash"
+fi
 assert_command "deep-stack artifact library syntax" node --check "$ROOT/scripts/lib/deep-stack-artifacts.mjs"
 assert_command "deep-audit artifact check syntax" node --check "$ROOT/scripts/deep-audit-artifact-check.mjs"
 assert_command "deep-audit category registry syntax" node --check "$ROOT/scripts/lib/deep-audit-categories.mjs"
@@ -409,6 +511,10 @@ deep_audit_token_body="abcdefghijklmnopqrstuvwxyz123456"
 jq --arg token "$deep_audit_token_prefix$deep_audit_token_body" '.findings = [{"evidence": ("redaction fixture " + $token)}]' "$ROOT/tests/fixtures/deep-audit/report.production-valid.json" >"$deep_audit_private_token_fixture"
 deep_audit_private_token_json="$(node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$deep_audit_private_token_fixture" --json 2>/dev/null || true)"
 assert_json_expr "deep-audit private token redaction catches sk-proj" "$deep_audit_private_token_json" 'any(.errors[]; .errorCode == "PRIVATE_STRING")'
+security_missing_evidence_fixture="$TMPROOT/deep-audit-security-missing-evidence.json"
+jq '.categoryReports |= map(if .categoryId == "security" then (.checks[0].nonFindings = {}) else . end)' "$ROOT/tests/fixtures/deep-audit/report.valid.json" >"$security_missing_evidence_fixture"
+security_missing_evidence_json="$(node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$security_missing_evidence_fixture" --json 2>/dev/null || true)"
+assert_json_expr "deep-audit security clean rows require non-findings" "$security_missing_evidence_json" 'any(.errors[]; .errorCode == "SECURITY_NON_FINDING_FIELD_MISSING" or .errorCode == "SECURITY_NON_FINDINGS_MISSING")'
 assert_command "cli arg parser edge cases" node --input-type=module <<'JS'
 import { argValue } from "./scripts/lib/cli-args.mjs";
 const expect = (actual, expected, label) => {
@@ -451,9 +557,54 @@ expect(parsed[5], "single quoted value", "single-quoted branch");
 expect(parsed[6], "plain token", "unquoted escaped space branch");
 expect(parsed[7], "escaped space token", "unquoted multi-escape branch");
 JS
-for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger execute-evidence-check execution-wave-check tool-effectiveness code-health-ledger-check documentation-comment-health documentation-health-ledger-check review-log project-buglog browser-qa-report context-state workflow-health prompt-budget-check changelog-release-check port-guard update-check settings-audit deep-stack-check; do
+for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger execute-evidence-check execution-wave-check tool-effectiveness tool-stack-check code-health-ledger-check documentation-comment-health documentation-health-ledger-check review-log project-buglog browser-qa-report context-state workflow-health prompt-budget-check skill-update-prompt changelog-release-check port-guard update-check settings-audit deep-stack-check; do
   assert_command "$script syntax" node --check "$ROOT/scripts/$script.mjs"
 done
+tool_stack_bin="$TMPROOT/tool-stack-bin"
+mkdir -p "$tool_stack_bin"
+cat >"$tool_stack_bin/codegraph" <<'BASH'
+#!/usr/bin/env bash
+if [[ "$1" == "--version" ]]; then
+  printf 'codegraph 0.9.9\n'
+  exit 0
+fi
+exit 0
+BASH
+cat >"$tool_stack_bin/bd" <<'BASH'
+#!/usr/bin/env bash
+if [[ "$1" == "version" ]]; then
+  printf 'bd version 1.0.5 (fixture)\n'
+  exit 0
+fi
+exit 0
+BASH
+cat >"$tool_stack_bin/npm" <<'BASH'
+#!/usr/bin/env bash
+if [[ "$1 $2 $3" == "view @colbymchenry/codegraph version" ]]; then
+  printf '1.0.0\n'
+  exit 0
+fi
+if [[ "$1 $2 $3" == "view @beads/bd version" ]]; then
+  printf '1.0.5\n'
+  exit 0
+fi
+exit 1
+BASH
+cat >"$tool_stack_bin/brew" <<'BASH'
+#!/usr/bin/env bash
+if [[ "$1 $2 $3" == "info beads --json=v2" ]]; then
+  printf '{"formulae":[{"name":"beads","versions":{"stable":"1.0.5"}}]}\n'
+  exit 0
+fi
+exit 1
+BASH
+chmod +x "$tool_stack_bin/codegraph" "$tool_stack_bin/bd" "$tool_stack_bin/npm" "$tool_stack_bin/brew"
+node_bin="$(command -v node)"
+tool_stack_json="$(PATH="$tool_stack_bin:/usr/bin:/bin" CLAUDE_HOME="$TMPROOT/tool-stack-home" CLAUDE_CONTROL_PLANE_TOOL_STACK_STATE="$TMPROOT/tool-stack-state.json" "$node_bin" "$ROOT/scripts/tool-stack-check.mjs" --json --force)"
+assert_json_expr "tool stack checker detects codegraph update" "$tool_stack_json" '.tools.codegraph.installed == true and .tools.codegraph.currentVersion == "0.9.9" and .tools.codegraph.latestVersion == "1.0.0" and .tools.codegraph.updateAvailable == true'
+assert_json_expr "tool stack checker keeps beads current" "$tool_stack_json" '.tools.beads.installed == true and .tools.beads.currentVersion == "1.0.5" and .tools.beads.updateAvailable == false'
+tool_stack_text="$(PATH="$tool_stack_bin:/usr/bin:/bin" CLAUDE_HOME="$TMPROOT/tool-stack-home" CLAUDE_CONTROL_PLANE_TOOL_STACK_STATE="$TMPROOT/tool-stack-state.json" "$node_bin" "$ROOT/scripts/tool-stack-check.mjs" --force)"
+assert_contains "tool stack checker text advertises update" "$tool_stack_text" "TOOL_STACK_UPDATE_AVAILABLE codegraph"
 tool_effectiveness_fixtures_json="$(node "$ROOT/scripts/tool-effectiveness.mjs" summarize --fixtures "$ROOT/tests/fixtures/tool-effectiveness" --json)"
 assert_command "tool-effectiveness fixtures validate" node "$ROOT/scripts/tool-effectiveness.mjs" validate-fixtures --fixtures "$ROOT/tests/fixtures/tool-effectiveness"
 assert_json_expr "tool-effectiveness codegraph keep verdict" "$tool_effectiveness_fixtures_json" '.tools.codegraph.verdict == "keep" and .tools.codegraph.evidence.eligibleSessions >= 5'
@@ -502,6 +653,7 @@ tool_effectiveness_codex_import_json="$(node "$ROOT/scripts/tool-effectiveness.m
 assert_json_expr "tool-effectiveness codex import sanitizes tool events" "$tool_effectiveness_codex_import_json" '.command == "import-codex" and .dryRun == true and .eventsImported == 2 and (.rejected | length) == 0'
 assert_json_expr "tool-effectiveness codex import preserves explicit outcomes" "$tool_effectiveness_codex_import_json" '(.events[] | select(.tool == "codegraph") | .eligible == true and .toolUsed == true and .usefulWork == true and .downstreamArtifact == true) and (.events[] | select(.tool == "beads") | .eligible == false and .toolUsed == false and .usefulWork == false and .downstreamArtifact == false)'
 assert_command "update shell syntax" bash -n "$ROOT/scripts/update.sh"
+assert_command "bootstrap tools shell syntax" bash -n "$ROOT/scripts/bootstrap-tools.sh"
 merge_target="$TMPROOT/settings-target.json"
 merge_template="$TMPROOT/settings-template.json"
 printf '%s\n' "{\"hooks\":{\"SessionStart\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/cc-sessionstart-restore.sh\",\"timeout\":5}]},{\"hooks\":[{\"type\":\"command\",\"command\":\"bash $HOME/.claude/hooks/cc-sessionstart-restore.sh\",\"timeout\":7}]}],\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"bash $HOME/.claude/hooks/cc-stop-verifier.sh\",\"timeout\":5}]},{\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/cc-stop-verifier.sh\",\"timeout\":10}]},{\"hooks\":[{\"type\":\"command\",\"command\":\"bash /tmp$HOME/.claude/hooks/not-real.sh\",\"timeout\":1}]}]}}" >"$merge_target"
@@ -550,6 +702,7 @@ assert_json_expr "settings-audit reports stale rtk rewrite conflict" "$settings_
 assert_json_expr "settings-audit reports legacy cli toolkit conflict" "$settings_audit_report" 'any(.after.conflictingHooks[]?; .id == "legacy-cli-toolkit" and .hook == "enforce-cli-toolkit.sh")'
 assert_json_expr "settings-audit reports unknown external hooks" "$settings_audit_report" 'any(.after.externalHooks[]?; .owner == "unknown-external" and .hook == "custom-local-guard.sh")'
 settings_audit_quoted_target="$TMPROOT/settings-audit-quoted-target.json"
+# shellcheck disable=SC2016
 printf '%s\n' '{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"bash '\''$HOME/.claude/hooks/check-context-and-handoff.sh'\''"},{"type":"command","command":"bash \"~/.claude/hooks/check-context-and-handoff.sh\""}]}]}}' >"$settings_audit_quoted_target"
 settings_audit_quoted_report="$(HOME="$settings_audit_home" node "$ROOT/scripts/settings-audit.mjs" "$settings_audit_quoted_target" --json)"
 assert_json_expr "settings-audit ignores single-quoted HOME hook paths" "$settings_audit_quoted_report" '([.after.conflictingHooks[]? | select(.id == "invalid-stop-context-handoff")] | length) == 0'
@@ -561,6 +714,7 @@ cat >"$settings_audit_literal_target" <<'JSON'
 {"hooks":{"PostToolUse":[{"hooks":[{"type":"command","command":"bash '$HOME/.claude/hooks/rate-limiter.sh'"}]}]}}
 JSON
 HOME="$settings_audit_home" node "$ROOT/scripts/settings-audit.mjs" "$settings_audit_literal_target" --fix
+# shellcheck disable=SC2016
 assert_json_expr "settings-audit preserves single-quoted HOME rate limiter literal" "$(jq -c . "$settings_audit_literal_target")" '(.hooks.PostToolUse[0].hooks[0].command | contains("$HOME/.claude/hooks/rate-limiter.sh"))'
 assert_json_expr "settings-audit does not rewrite single-quoted HOME rate limiter literal" "$(jq -c . "$settings_audit_literal_target")" '([.hooks.PostToolUse[].hooks[].command | select(test("cc-rate-limiter"))] | length) == 0'
 settings_audit_strict_status=0
@@ -759,7 +913,7 @@ assert_command "prompt budget owned-only ignores external skills" node "$ROOT/sc
 
 changelog_good="$TMPROOT/changelog-good"
 mkdir -p "$changelog_good"
-printf '%s\n' '# Changelog' '' '## Unreleased' '' '## v0.1.1 - 2026-01-01' '' '- Release note.' >"$changelog_good/CHANGELOG.md"
+printf '%s\n' '# Changelog' '' '## Unreleased' '' '## v0.1.1' '' '- Release note.' >"$changelog_good/CHANGELOG.md"
 assert_command "changelog check accepts empty Unreleased" node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_good" --strict-unreleased
 changelog_missing="$TMPROOT/changelog-missing"
 mkdir -p "$changelog_missing"
@@ -770,19 +924,20 @@ else
 fi
 changelog_comments="$TMPROOT/changelog-comments"
 mkdir -p "$changelog_comments"
-printf '%s\n' '# Changelog' '' '## Unreleased' '' '<!-- hidden note' '- still hidden' '-->' '<!-- inline hidden -->' '<!-->' '<!-- ---->' '## v0.1.1 - 2026-01-01' '' '- Release note.' >"$changelog_comments/CHANGELOG.md"
+printf '%s\n' '# Changelog' '' '## Unreleased' '' '<!-- hidden note' '- still hidden' '-->' '<!-- inline hidden -->' '<!-->' '<!-- ---->' '## v0.1.1' '' '- Release note.' >"$changelog_comments/CHANGELOG.md"
 assert_command "changelog check ignores HTML comments" node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_comments" --strict-unreleased
 changelog_bad="$TMPROOT/changelog-bad"
 mkdir -p "$changelog_bad"
-printf '%s\n' '# Changelog' '' '## Unreleased' '' '- Pending release note.' '' '## v0.1.0 - 2026-01-01' '' '- Previous release.' >"$changelog_bad/CHANGELOG.md"
+printf '%s\n' '# Changelog' '' '## Unreleased' '' '- Pending release note.' '' '## v0.1.0' '' '- Previous release.' >"$changelog_bad/CHANGELOG.md"
 if node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_bad" --strict-unreleased >/dev/null 2>&1; then
   not_ok "changelog check rejects Unreleased entries"
 else
   ok "changelog check rejects Unreleased entries"
 fi
+assert_command "changelog check allows Unreleased entries with allow flag" node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_bad" --allow-unreleased
 changelog_repo="$TMPROOT/changelog-repo"
 mkdir -p "$changelog_repo"
-printf '%s\n' '# Changelog' '' '## Unreleased' '' '## v0.1.0 - 2026-01-01' '' '- Initial release.' >"$changelog_repo/CHANGELOG.md"
+printf '%s\n' '# Changelog' '' '## Unreleased' '' '## v0.1.0' '' '- Initial release.' >"$changelog_repo/CHANGELOG.md"
 git -C "$changelog_repo" init -q -b main
 git -C "$changelog_repo" config user.email "test@example.com"
 git -C "$changelog_repo" config user.name "Test User"
@@ -797,16 +952,16 @@ if node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_repo" >/d
 else
   ok "changelog check requires new release after tag"
 fi
-printf '%s\n' '# Changelog' '' '## Unreleased' '' '## v0.1.1 - 2026-01-01' '' '- Workflow change.' '' '## v0.1.0 - 2026-01-01' '' '- Initial release.' >"$changelog_repo/CHANGELOG.md"
+printf '%s\n' '# Changelog' '' '## Unreleased' '' '## v0.1.1' '' '- Workflow change.' '' '## v0.1.0' '' '- Initial release.' >"$changelog_repo/CHANGELOG.md"
 assert_command "changelog check accepts release after tag" node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_repo"
-printf '%s\n' '# Changelog' '' '## Unreleased' '' '## v0.1.2 - 2026-01-02' '' '- Current pending release.' '' '## v0.1.1 - 2026-01-01' '' '- Untagged older release.' '' '## v0.1.0 - 2026-01-01' '' '- Initial release.' >"$changelog_repo/CHANGELOG.md"
+printf '%s\n' '# Changelog' '' '## Unreleased' '' '## v0.1.2' '' '- Current pending release.' '' '## v0.1.1' '' '- Untagged older release.' '' '## v0.1.0' '' '- Initial release.' >"$changelog_repo/CHANGELOG.md"
 if drift_out="$(node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_repo" 2>&1)"; then
   not_ok "changelog check rejects untagged older release sections"
 else
   assert_contains "changelog check rejects untagged older release sections" "$drift_out" "untagged release sections below the top pending release"
 fi
 git -C "$changelog_repo" tag v0.1.2
-printf '%s\n' '# Changelog' '' '## Unreleased' '' '## v0.1.3 - 2026-01-03' '' '- Current pending release.' '' '## v0.1.2 - 2026-01-02' '' '- Tagged release.' '' '## v0.1.1 - 2026-01-01' '' '- Older untagged release.' '' '## v0.1.0 - 2026-01-01' '' '- Initial release.' >"$changelog_repo/CHANGELOG.md"
+printf '%s\n' '# Changelog' '' '## Unreleased' '' '## v0.1.3' '' '- Current pending release.' '' '## v0.1.2' '' '- Tagged release.' '' '## v0.1.1' '' '- Older untagged release.' '' '## v0.1.0' '' '- Initial release.' >"$changelog_repo/CHANGELOG.md"
 if drift_out="$(node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_repo" 2>&1)"; then
   not_ok "changelog check rejects older untagged sections below a tagged release"
 else
@@ -815,7 +970,7 @@ fi
 
 changelog_malformed_tag="$TMPROOT/changelog-malformed-tag"
 mkdir -p "$changelog_malformed_tag"
-printf '%s\n' '# Changelog' '' '## Unreleased' '' '## v0.1.1 - 2026-01-01' '' '- Release note.' >"$changelog_malformed_tag/CHANGELOG.md"
+printf '%s\n' '# Changelog' '' '## Unreleased' '' '## v0.1.1' '' '- Release note.' >"$changelog_malformed_tag/CHANGELOG.md"
 git -C "$changelog_malformed_tag" init -q -b main
 git -C "$changelog_malformed_tag" config user.email "test@example.com"
 git -C "$changelog_malformed_tag" config user.name "Test User"
@@ -923,6 +1078,18 @@ else
 fi
 qa_report_v2="$(node "$ROOT/scripts/browser-qa-report.mjs" create --path "$TMPROOT/browser-qa-v2.json" --artifact-root "$TMPROOT" --schema-version 2 --routes "/" --viewports "desktop,mobile" --target-url "http://127.0.0.1:4173" --tool "playwright-cli" --provenance "$qa_provenance" --matrix "$qa_v2_matrix" --console "checked console logs" --network "checked network panel" --status complete)"
 assert_command "browser QA v2 report validates" node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_report_v2" --artifact-root "$TMPROOT"
+printf '%s\n' "trace bytes" >"$TMPROOT/home.trace.zip"
+printf '%s\n' "video bytes" >"$TMPROOT/home.webm"
+trace_hash="$(node "$ROOT/scripts/browser-qa-report.mjs" hash "$TMPROOT/home.trace.zip")"
+video_hash="$(node "$ROOT/scripts/browser-qa-report.mjs" hash "$TMPROOT/home.webm")"
+qa_trace_matrix="$(jq -cn \
+  --arg capturedAt "$qa_captured_at" \
+  --arg desktopHash "$desktop_hash" \
+  --arg traceHash "$trace_hash" \
+  --arg videoHash "$video_hash" \
+  '[{"route":"/","viewport":"desktop","status":"passed","screenshot":"desktop-home.png","screenshotSha256":$desktopHash,"trace":"home.trace.zip","traceSha256":$traceHash,"video":"home.webm","videoSha256":$videoHash,"pageErrors":[],"capturedAt":$capturedAt,"consoleErrors":0,"failedRequests":0}]')"
+qa_report_trace="$(node "$ROOT/scripts/browser-qa-report.mjs" create --path "$TMPROOT/browser-qa-trace.json" --artifact-root "$TMPROOT" --schema-version 2 --routes "/" --viewports "desktop" --target-url "http://127.0.0.1:4173" --tool "playwright-cli" --provenance "$qa_provenance" --matrix "$qa_trace_matrix" --console "checked console logs" --network "checked network panel" --status complete)"
+assert_command "browser QA v2 trace video pageErrors validate" node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_report_trace" --artifact-root "$TMPROOT"
 qa_migrated="$(node "$ROOT/scripts/browser-qa-report.mjs" migrate "$qa_report" --path "$TMPROOT/browser-qa-migrated.json")"
 assert_command "browser QA migrate emits valid v2 draft" node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_migrated"
 assert_json_expr "browser QA migrated report is v2" "$(jq -c . "$qa_migrated")" '.schemaVersion == 2 and (.matrix | length) == 2'
@@ -946,6 +1113,10 @@ wave_json="$(printf '{"useWorktrees":true,"submodules":["vendor/lib"],"plans":[{
 assert_json_expr "wave overlap disables parallel" "$wave_json" '.waves[0].parallelSafe == false'
 assert_json_expr "submodule task not worktree eligible" "$wave_json" '.waves[1].plans[0].worktreeEligible == false'
 assert_contains "wave heartbeat emitted" "$wave_json" "[checkpoint]"
+wave_drift_json="$(printf '{"previousPlans":[{"id":"T1","wave":1,"files":["src/a.ts"]}],"plans":[{"id":"T1","wave":1,"files":["src/b.ts"]}]}' | node "$ROOT/scripts/execution-wave-check.mjs")"
+assert_json_expr "wave drift reports changed files" "$wave_drift_json" '.drift[0].type == "files_changed"'
+wave_reordered_json="$(printf '{"previousPlans":[{"id":"T1","wave":1,"files":["src/b.ts","src/a.ts"]}],"plans":[{"id":"T1","wave":1,"files":["src/a.ts","src/b.ts"]}]}' | node "$ROOT/scripts/execution-wave-check.mjs")"
+assert_json_expr "wave drift ignores file order" "$wave_reordered_json" '.drift | length == 0'
 health_root="$TMPROOT/health"
 mkdir -p "$health_root/runs"
 printf '%s\n' '{"schemaVersion":1,"runId":"stale-run","updatedAt":"2000-01-01T00:00:00Z","tasks":[{"id":"T1","status":"in_progress"}],"agents":[],"checks":[]}' >"$health_root/runs/stale-run.json"
@@ -1165,6 +1336,7 @@ assert_json_expr "plan readiness recognizes optional phase metadata" "$phase_pla
 agent_template="$(node "$ROOT/scripts/agent-task-packet-check.mjs" --template write)"
 assert_json_expr "agent packet template includes write scope" "$agent_template" '.packet.writeScope[0] | length > 0'
 assert_json_expr "agent packet template includes reviewer contract" "$agent_template" '(.packet.reviewers | index("etrnl-spec-reviewer")) != null and .packet.specReviewRequired == true and .packet.qualityReviewRequired == true'
+assert_json_expr "agent packet template includes critical stop fields" "$agent_template" '(.packet.criticalPath | length) > 0 and (.packet.stopCondition | length) > 0'
 deep_packet="$(
   jq -cn '
     {

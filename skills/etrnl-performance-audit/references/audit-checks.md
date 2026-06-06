@@ -203,6 +203,8 @@ Include these sections in the category report:
 - Top 5 Highest-Impact Changes ranked by user impact.
 - Coverage Report with counters for completed lanes, completed checks, skipped checks, clean checks, React Compiler status, audited queries/pages/handlers, HTTP-measured routes, dynamic fixtures created and blocked, fixture cleanup, cold/warm checks, max page bytes, oversized routes, broken routes, and loading coverage.
 - Next Run Input with prior fixes, known-good routes, and targeted skipped checks.
+- Persisted Baseline with `baselineId`, `targetLabel`, measurement rows, thresholds, and `nextRun.command`; validate it with `node ~/.claude/scripts/performance-baseline.mjs validate <baseline-json>`.
+- Trend Delta when a prior baseline exists; compute it with `node ~/.claude/scripts/performance-baseline.mjs trend --before <old-baseline> --after <new-baseline>`.
 
 ## Artifact Rows
 

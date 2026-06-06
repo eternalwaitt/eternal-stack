@@ -50,6 +50,8 @@ if (templateIndex !== -1) {
       simplifierEvidence: "code-simplifier evidence row or not applicable for tiny/no-source work",
       integrationOwner: "parent agent",
       expectedDiffShape: "Small patch within writeScope plus tests/docs needed for the change.",
+      criticalPath: "What must finish before integration can proceed.",
+      stopCondition: "Stop when verification fails, scope widens, or the packet cannot be completed safely.",
       maxConcurrentLanes: 1,
       nativeChildAgents: "forbidden",
       parentChildDrain: "No child agents spawned by worker.",
@@ -103,6 +105,8 @@ const fieldAliases = new Map([
   ["simplifier_evidence", "simplifierEvidence"],
   ["integration_owner", "integrationOwner"],
   ["expected_diff_shape", "expectedDiffShape"],
+  ["critical_path", "criticalPath"],
+  ["stop_condition", "stopCondition"],
   ["max_concurrent_lanes", "maxConcurrentLanes"],
   ["native_child_agents", "nativeChildAgents"],
   ["parent_child_drain", "parentChildDrain"],
@@ -248,7 +252,7 @@ for (const key of ["specReviewRequired", "qualityReviewRequired", "simplifierRev
   }
 }
 
-const nonEmptyStringFields = ["integrationOwner", "expectedDiffShape", "tddEvidence", "reuseArtifact", "simplifierEvidence", "completionReceipt", "parentChildDrain"];
+const nonEmptyStringFields = ["integrationOwner", "expectedDiffShape", "criticalPath", "stopCondition", "tddEvidence", "reuseArtifact", "simplifierEvidence", "completionReceipt", "parentChildDrain"];
 for (const key of nonEmptyStringFields) {
   if (key in packet && (typeof packet[key] !== "string" || packet[key].trim().length === 0)) {
     violations.push(`${key} must be a non-empty string`);
@@ -373,6 +377,8 @@ if (mode === "write" && "writeScope" in packet && "forbiddenPaths" in packet) {
     if (packet.qualityReviewRequired !== true) missing.push("qualityReviewRequired");
     if (!("integrationOwner" in packet)) missing.push("integrationOwner");
     if (!("expectedDiffShape" in packet)) missing.push("expectedDiffShape");
+    if (!("criticalPath" in packet)) missing.push("criticalPath");
+    if (!("stopCondition" in packet)) missing.push("stopCondition");
     validateMaxConcurrentLanes(packet, waveSize, missing, violations);
     validateNativeChildAgentPolicy(packet, missing, violations);
     if (packet.completionReceiptRequired !== true) missing.push("completionReceiptRequired");

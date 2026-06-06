@@ -136,8 +136,18 @@ function counterValue(message, label) {
   return match ? Number.parseInt(match[1], 10) : null;
 }
 
+function scoreValue(message) {
+  const match = message.match(/^FINAL_DOC_HEALTH_SCORE:\s*(\d+)\/100\b/im);
+  return match ? Number.parseInt(match[1], 10) : null;
+}
+
 function hasNumericCounters(message, labels) {
   return labels.every((label) => Number.isInteger(counterValue(message, label)));
+}
+
+function hasPositiveCounter(message, label) {
+  const value = counterValue(message, label);
+  return Number.isInteger(value) && value > 0;
 }
 
 function normalizeDisposition(value) {
@@ -220,6 +230,47 @@ function baselineEvidenceStatus(state, message, commands, requestedAt) {
   return "baseline-without-remediation";
 }
 
+function freshnessStatus(message) {
+  const freshnessRequired = [
+    "RECENT_COMMITS_REVIEWED",
+    "RECENT_PRS_REVIEWED",
+    "RECENT_CHANGE_DOC_IMPACT_CHECKS",
+    "DOC_CLAIMS_CHECKED",
+    "SOURCE_TRUTH_MAPPINGS_REVIEWED",
+    "STALE_REFERENCE_SEARCHES_RUN",
+    "OUTDATED_DOC_CLAIMS_FOUND",
+    "OUTDATED_DOC_CLAIMS_REMAINING",
+    "STALE_DOCS_FOUND",
+    "STALE_DOCS_REMAINING",
+    "MISLEADING_DOCS_FOUND",
+    "MISLEADING_DOCS_REMAINING",
+    "ACTIVE_PLAN_QUEUE_DOCS_REVIEWED",
+    "ACTIVE_PLAN_QUEUE_DOCS_STALE",
+  ];
+  if (!hasNumericCounters(message, freshnessRequired)) return "missing-freshness-counters";
+  if (!hasPositiveCounter(message, "RECENT_COMMITS_REVIEWED")) return "no-recent-commits-reviewed";
+  // Require hasPositiveCounter("RECENT_PRS_REVIEWED") or explicit hasAny skip text matching no PRs reviewed, PRs review skipped, or skip PRs review.
+  if (!hasPositiveCounter(message, "RECENT_PRS_REVIEWED") && !hasAny(message, [/no\s*pr?s\s*review(?:ed)?/i, /pr?s review skipped/i, /skip pr?s review/i])) {
+    return "no-recent-prs-reviewed";
+  }
+  if (!hasPositiveCounter(message, "RECENT_CHANGE_DOC_IMPACT_CHECKS")) return "no-recent-change-doc-impact-checks";
+  if (!hasPositiveCounter(message, "DOC_CLAIMS_CHECKED")) return "no-doc-claims-checked";
+  if (!hasPositiveCounter(message, "SOURCE_TRUTH_MAPPINGS_REVIEWED")) return "no-source-truth-mappings";
+  if (!hasPositiveCounter(message, "STALE_REFERENCE_SEARCHES_RUN")) return "missing-stale-reference-searches";
+  if (!hasAny(message, [/freshness (?:and|&)? drift/i, /drift sweep/i, /stale reference search/i])) {
+    return "missing-freshness-drift-section";
+  }
+
+  const remainingDrift = [
+    "OUTDATED_DOC_CLAIMS_REMAINING",
+    "STALE_DOCS_REMAINING",
+    "MISLEADING_DOCS_REMAINING",
+    "ACTIVE_PLAN_QUEUE_DOCS_STALE",
+  ].some((label) => (counterValue(message, label) || 0) > 0);
+  if (scoreValue(message) === 100 && remainingDrift) return "score-100-with-open-drift";
+  return "";
+}
+
 function reportStatus(message) {
   if (!message.trim()) return "missing-report";
   if (!hasNumericCounters(message, ["DOCS_FILES_TOTAL", "DOCS_FILES_REVIEWED"])) {
@@ -243,9 +294,32 @@ function reportStatus(message) {
   if (!commentHealthNotApplicable && !hasNumericCounters(message, commentHealthRequired)) {
     return "missing-comment-health-counters";
   }
+  const aiContextNotApplicable = /AI_CONTEXT_NOT_APPLICABLE:/i.test(message);
+  const aiContextRequired = [
+    "AI_CONTEXT_FILES_REVIEWED",
+    "AI_CONTEXT_DRIFT_FINDINGS",
+    "AI_CONTEXT_DUPLICATE_RULE_OWNERS",
+    "AI_CONTEXT_HOT_PATH_LEAKS",
+  ];
+  if (!aiContextNotApplicable && !hasNumericCounters(message, aiContextRequired)) {
+    return "missing-ai-context-counters";
+  }
 
   const sourceTruth = [/source[_ -]of[_ -]truth/i, /source of truth/i];
   if (!hasAny(message, sourceTruth)) return "missing-source-truth";
+
+  const freshness = freshnessStatus(message);
+  if (freshness) return freshness;
+  const docsTotal = counterValue(message, "DOCS_FILES_TOTAL");
+  const docsReviewed = counterValue(message, "DOCS_FILES_REVIEWED");
+  if (
+    scoreValue(message) === 100
+    && Number.isInteger(docsTotal)
+    && Number.isInteger(docsReviewed)
+    && docsReviewed < docsTotal
+  ) {
+    return "score-100-with-unreviewed-docs";
+  }
 
   const ledger = ledgerStatus(message);
   if (ledger) return ledger;

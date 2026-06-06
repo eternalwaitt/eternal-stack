@@ -5,9 +5,11 @@ disable-model-invocation: true
 ---
 # ETRNL Execute
 
-Execute an approved plan end to end. Create a local run ledger, fan out bounded implementation subagents for parallel-safe work, review worker output, run verification, and continue through mechanical phases without asking the user to continue.
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-execute`; on update, ask update/snooze/continue.
 
-When the user asks to execute or implement a plan, completion means every item inside the plan's `Execution scope` is verified or explicitly blocked. Do not silently choose the first phase, first patch, safest subset, MVP, or a shorter path. Partial execution is allowed only when the plan says `Execution scope: first_patch_only` or the user explicitly narrows the request in the current turn.
+Execute an approved plan end to end. Ledger, subagents, review, verify; continue mechanical phases unless safety/privacy/clarification triggers.
+
+Completion means every item inside the plan's `Execution scope` is verified or explicitly blocked. Do not silently choose the first phase, first patch, safest subset, MVP, or a shorter path. Partial execution is allowed only when the plan says `Execution scope: first_patch_only` or the user explicitly narrows the current turn.
 
 ## Startup
 
@@ -39,7 +41,7 @@ When the user asks to execute or implement a plan, completion means every item i
 
 ## Execution
 
-1. Continue through the approved plan without asking between mechanical phases.
+1. Continue without asking between mechanical phases unless safety/privacy/clarification triggers.
    - Treat `Execution scope: all_phases` as a hard contract to execute the full plan. If the plan has no `Execution scope`, stop and patch the plan before editing.
 2. Ask the user only for destructive actions, scope expansion, missing credentials, conflicting user edits, repeated stalls, or subjective product/taste decisions.
 3. Group tasks by dependency and write scope. Execute dependent work sequentially; dispatch independent read-only review or disjoint write work to fresh subagents.
@@ -75,7 +77,7 @@ When the user asks to execute or implement a plan, completion means every item i
    - retry policy
    - do-not-revert instruction
    - WebSearch policy
-   - for parallel or multi-file write scopes: `reviewers`, `specReviewRequired`, `qualityReviewRequired`, `integrationOwner`, `expectedDiffShape`, `waveId`, `waveSize`, `maxConcurrentLanes`, `nativeChildAgents`, `completionReceiptRequired`, and `completionReceipt`
+   - for parallel or multi-file write scopes: `reviewers`, `specReviewRequired`, `qualityReviewRequired`, `integrationOwner`, `expectedDiffShape`, `criticalPath`, `stopCondition`, `waveId`, `waveSize`, `maxConcurrentLanes`, `nativeChildAgents`, `completionReceiptRequired`, and `completionReceipt`
    - set `nativeChildAgents` to `forbidden`, `modeled`, or `not_applicable`; if set to `modeled`, add `parentChildDrain` with the child-agent drain and merge protocol
    - for new surfaces: `createsNewSurface`, `reuseArtifact`, and `newSurfaceJustification`
    - for TDD-required source work: `tddRequired` and `tddEvidence`

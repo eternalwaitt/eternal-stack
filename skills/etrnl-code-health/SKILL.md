@@ -4,6 +4,8 @@ description: ETRNL control-plane master code-health router. Use when the user as
 ---
 # ETRNL Code Health
 
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-code-health`; on update, ask update/snooze/continue.
+
 Run code health as a closed-loop audit, not as a vague lint pass. Route to deterministic tools first, then companion skills, then fixes only when explicitly requested.
 
 ## Modes
@@ -33,6 +35,7 @@ Do not mark a finding `fixed` based on inspection alone. Require a passing gate 
    - Use `node ~/.claude/scripts/code-health-inventory.mjs --json` when installed.
    - If not installed, use `node scripts/code-health-inventory.mjs --json` inside the repository being audited.
    - Use `--json` for any programmatic parsing; plain `git ls-files` is only a last-resort list and must be converted into the coverage ledger before reporting coverage.
+   - Preserve inventory `riskHotspots` rows emitted by the helper. Treat them as deterministic prioritization inputs for review order, not as findings by themselves.
    - Classify every tracked file by source, test, docs, config, script, migration, fixture/generated, or asset.
    - List vendor, dependency, build output, cache, generated, fixture, local agent state, worktree, log, and audit-artifact paths as explicit exclusions with reasons. Do not audit them as source, docs, config, or action items.
    - Run external tools with ignore/exclude settings for the same exclusions before trusting their finding counts.

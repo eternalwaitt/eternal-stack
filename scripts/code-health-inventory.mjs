@@ -16,6 +16,12 @@ const GIT_LIMITS = gitSubprocessLimits({
   timeoutMs: DEFAULT_GIT_TIMEOUT_MS,
   maxBufferBytes: DEFAULT_GIT_MAX_BUFFER,
 });
+const AUDIT_WITH_CARE_WEIGHT = 3;
+const SENSITIVE_PATH_WEIGHT = 3;
+const SENSITIVE_NAME_WEIGHT = 2;
+const AUDITABLE_CATEGORY_WEIGHT = 1;
+const REPORT_THRESHOLD = 4;
+const MAX_FILES_REPORT = 25;
 
 for (const arg of args) {
   if (arg === "--json") json = true;
@@ -151,10 +157,34 @@ function increment(map, key) {
   map[key] = (map[key] ?? 0) + 1;
 }
 
+function hotspotScore(file) {
+  let score = 0;
+  const reasons = [];
+  const lower = file.path.toLowerCase();
+  if (file.auditScope === "audit-with-care") {
+    score += AUDIT_WITH_CARE_WEIGHT;
+    reasons.push("audit-with-care");
+  }
+  if (!["docs", "test"].includes(file.category) && /(?:^|[/-])(?:auth|security|payment|billing|tenant|permissions?|webhooks?|migrations?)(?:$|[/-])/.test(lower)) {
+    score += SENSITIVE_PATH_WEIGHT;
+    reasons.push("sensitive path");
+  }
+  if (/(?:^|[_./-])(?:schema|router|handler|middleware|env|secret|token|credential|upload|export|delete|admin)(?:$|[_./-])/.test(lower)) {
+    score += SENSITIVE_NAME_WEIGHT;
+    reasons.push("sensitive name");
+  }
+  if (["source", "script", "config", "migration"].includes(file.category)) {
+    score += AUDITABLE_CATEGORY_WEIGHT;
+    reasons.push("auditable code/config");
+  }
+  return { score, reasons };
+}
+
 const files = gitFiles().map((file) => {
   const ext = path.extname(file).toLowerCase() || "[none]";
   const item = classify(file);
-  return { path: file, ext, ...item };
+  const base = { path: file, ext, ...item };
+  return { ...base, riskHotspot: hotspotScore(base) };
 });
 
 const byCategory = {};
@@ -174,6 +204,11 @@ const report = {
   listedOnlyFiles: files.filter((file) => file.auditScope === "listed").length,
   byCategory,
   byExtension,
+  riskHotspots: files
+    .filter((file) => file.riskHotspot.score >= REPORT_THRESHOLD)
+    .sort((left, right) => right.riskHotspot.score - left.riskHotspot.score || left.path.localeCompare(right.path))
+    .slice(0, MAX_FILES_REPORT)
+    .map((file) => ({ path: file.path, score: file.riskHotspot.score, reasons: file.riskHotspot.reasons })),
   files,
 };
 

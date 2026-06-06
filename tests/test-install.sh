@@ -22,6 +22,9 @@ fi
 assert_no_directory "install dry-run does not create Claude home" "$dry_run_home"
 assert_no_directory "install dry-run does not create Codex home" "$dry_run_codex_home"
 
+mkdir -p "$CLAUDE_HOME/skills/etrnl-fix-issue" "$CODEX_HOME/skills/etrnl-fix-issue"
+printf 'legacy claude skill\n' >"$CLAUDE_HOME/skills/etrnl-fix-issue/SKILL.md"
+printf 'legacy codex skill\n' >"$CODEX_HOME/skills/etrnl-fix-issue/SKILL.md"
 "$ROOT/scripts/install.sh" >/dev/null
 
 for agent in etrnl-adversary etrnl-browser-qa etrnl-design-reviewer etrnl-dx-reviewer etrnl-executor etrnl-investigator etrnl-quality-reviewer etrnl-scout etrnl-spec-reviewer; do
@@ -32,8 +35,12 @@ for command_name in "${OWNED_COMMANDS[@]}"; do
 done
 for skill in "${OWNED_SKILLS[@]}"; do
   assert_file "installed Claude skill $skill" "$CLAUDE_HOME/skills/$skill/SKILL.md"
+  assert_file "installed Claude slash command $skill" "$CLAUDE_HOME/commands/$skill.md"
+  assert_contains "installed Claude slash command $skill carries arguments" "$(cat "$CLAUDE_HOME/commands/$skill.md")" 'User request: $ARGUMENTS'
   assert_file "synced Codex skill $skill" "$CODEX_HOME/skills/$skill/SKILL.md"
 done
+assert_no_directory "removed legacy Claude etrnl-fix-issue" "$CLAUDE_HOME/skills/etrnl-fix-issue"
+assert_no_directory "removed legacy Codex etrnl-fix-issue" "$CODEX_HOME/skills/etrnl-fix-issue"
 if cmp -s "$CLAUDE_HOME/skills/etrnl-autoplan/SKILL.md" "$CODEX_HOME/skills/etrnl-autoplan/SKILL.md"; then
   ok "Claude and Codex autoplan skills match"
 else
@@ -57,9 +64,18 @@ assert_executable "installed skill behavior smoke helper" "$CLAUDE_HOME/scripts/
 assert_executable "installed changelog release helper" "$CLAUDE_HOME/scripts/changelog-release-check.mjs"
 assert_executable "installed port guard helper" "$CLAUDE_HOME/scripts/port-guard.mjs"
 assert_executable "installed update check helper" "$CLAUDE_HOME/scripts/update-check.mjs"
+assert_executable "installed skill update prompt helper" "$CLAUDE_HOME/scripts/skill-update-prompt.mjs"
+assert_executable "installed tool stack check helper" "$CLAUDE_HOME/scripts/tool-stack-check.mjs"
+assert_executable "installed tool bootstrap helper" "$CLAUDE_HOME/scripts/bootstrap-tools.sh"
 assert_executable "installed codex RTK pre-tool hook" "$CLAUDE_HOME/scripts/codex-rtk-pre-tool-use.sh"
 assert_executable "installed update helper" "$CLAUDE_HOME/scripts/update.sh"
 assert_executable "installed uninstall helper" "$CLAUDE_HOME/scripts/uninstall.sh"
+assert_file "installed Codex metadata" "$CODEX_HOME/control-plane/install.json"
+assert_executable "installed Codex update check helper" "$CODEX_HOME/scripts/update-check.mjs"
+assert_executable "installed Codex skill update prompt helper" "$CODEX_HOME/scripts/skill-update-prompt.mjs"
+assert_executable "installed Codex tool stack check helper" "$CODEX_HOME/scripts/tool-stack-check.mjs"
+assert_executable "installed Codex bootstrap helper" "$CODEX_HOME/scripts/bootstrap-tools.sh"
+assert_file "installed Codex script library" "$CODEX_HOME/scripts/lib/skill-lists.sh"
 assert_executable "installed workflow tool tests" "$CLAUDE_HOME/hooks/test-workflow-tools.sh"
 assert_file "installed test harness" "$CLAUDE_HOME/hooks/lib/test-harness.sh"
 assert_file "installed busy-port helper" "$CLAUDE_HOME/tests/lib/busy-port-server.mjs"
@@ -105,6 +121,20 @@ assert_json_expr "post-install: drift reports installed skills" "$update_json" "
 assert_json_expr "post-install: drift reports installed agents" "$update_json" ".drift.installedAgentCount >= ${#OWNED_AGENTS[@]}"
 assert_json_expr "post-install: drift reports settings mode" "$update_json" '.drift.settingsMode == "default"'
 assert_json_expr "post-install: drift reports fresh scripts" "$update_json" '.drift.staleInstalledScripts.count == 0'
+if ! codex_update_json="$(CLAUDE_CONTROL_PLANE_TOOL_UPDATE_CHECK=0 node "$CODEX_HOME/scripts/update-check.mjs" --json 2>&1)"; then
+  not_ok "post-install: Codex update-check.mjs failed: $codex_update_json"
+  finish_tests
+  exit 1
+fi
+assert_json_expr "post-install: Codex update check is clean" "$codex_update_json" '.ok == true and .localUpdateAvailable == false'
+assert_json_expr "post-install: Codex drift reports installed skills" "$codex_update_json" ".drift.installedSkillCount >= ${#OWNED_SKILLS[@]}"
+assert_json_expr "post-install: Codex drift reports settings mode" "$codex_update_json" '.drift.settingsMode == "codex"'
+if ! codex_prompt_json="$(CLAUDE_CONTROL_PLANE_TOOL_UPDATE_CHECK=0 node "$CODEX_HOME/scripts/skill-update-prompt.mjs" --agent codex --skill etrnl-plan --json 2>&1)"; then
+  not_ok "post-install: Codex skill update prompt failed: $codex_prompt_json"
+  finish_tests
+  exit 1
+fi
+assert_json_expr "post-install: Codex skill prompt is quiet when current" "$codex_prompt_json" '.ok == true and .promptNeeded == false and .agent == "codex" and .skill == "etrnl-plan"'
 if explain_out="$(node "$CLAUDE_HOME/scripts/update-check.mjs" --explain 2>&1)"; then
   assert_contains "post-install: update explain names installed commit" "$explain_out" "Installed commit"
   assert_contains "post-install: update explain names stale scripts" "$explain_out" "Stale installed scripts"
@@ -116,18 +146,34 @@ if canary_output="$("$CLAUDE_HOME/scripts/post-upgrade-canary.sh" 2>&1)"; then
 else
   not_ok "post-install: post-upgrade canary failed: $canary_output"
 fi
-metadata_tmp="$CLAUDE_HOME/control-plane/install.json.tmp"
-trap '[[ -n "${metadata_tmp:-}" ]] && rm -f "$metadata_tmp"' EXIT
-jq '.sourceFingerprint = "stale"' "$CLAUDE_HOME/control-plane/install.json" >"$metadata_tmp"
-mv -- "$metadata_tmp" "$CLAUDE_HOME/control-plane/install.json"
-metadata_tmp=""
-trap - EXIT
+(
+  metadata_tmp="$CLAUDE_HOME/control-plane/install.json.tmp"
+  trap '[[ -n "${metadata_tmp:-}" ]] && rm -f "$metadata_tmp"' EXIT
+  jq '.sourceFingerprint = "stale"' "$CLAUDE_HOME/control-plane/install.json" >"$metadata_tmp"
+  mv -- "$metadata_tmp" "$CLAUDE_HOME/control-plane/install.json"
+  metadata_tmp=""
+  trap - EXIT
+)
 if ! stale_update_json="$(node "$CLAUDE_HOME/scripts/update-check.mjs" --json 2>&1)"; then
   not_ok "post-install: stale update-check.mjs failed: $stale_update_json"
   finish_tests
   exit 1
 fi
 assert_json_expr "post-install: stale metadata detects update" "$stale_update_json" '.ok == true and .localUpdateAvailable == true'
+(
+  codex_metadata_tmp="$CODEX_HOME/control-plane/install.json.tmp"
+  trap '[[ -n "${codex_metadata_tmp:-}" ]] && rm -f "$codex_metadata_tmp"' EXIT
+  jq '.sourceFingerprint = "stale"' "$CODEX_HOME/control-plane/install.json" >"$codex_metadata_tmp"
+  mv -- "$codex_metadata_tmp" "$CODEX_HOME/control-plane/install.json"
+  codex_metadata_tmp=""
+  trap - EXIT
+)
+if codex_prompt_text="$(CLAUDE_CONTROL_PLANE_TOOL_UPDATE_CHECK=0 node "$CODEX_HOME/scripts/skill-update-prompt.mjs" --agent codex --skill etrnl-plan 2>&1)"; then
+  assert_contains "post-install: stale Codex skill prompt names update" "$codex_prompt_text" "ETRNL_SKILL_UPDATE_AVAILABLE"
+  assert_contains "post-install: stale Codex skill prompt names skill" "$codex_prompt_text" "skill=etrnl-plan"
+else
+  not_ok "post-install: stale Codex skill prompt failed: $codex_prompt_text"
+fi
 
 pre_rollback_settings="$(cksum "$CLAUDE_HOME/settings.json")"
 if "$CLAUDE_HOME/scripts/rollback-local.sh" --dry-run >/dev/null; then
@@ -149,8 +195,14 @@ for agent in etrnl-adversary etrnl-browser-qa etrnl-design-reviewer etrnl-dx-rev
 done
 for skill in "${OWNED_SKILLS[@]}"; do
   assert_no_directory "rollback removed $skill" "$CLAUDE_HOME/skills/$skill"
+  assert_no_file "rollback removed $skill slash command" "$CLAUDE_HOME/commands/$skill.md"
   assert_no_directory "rollback removed Codex $skill" "$CODEX_HOME/skills/$skill"
 done
+assert_no_file "rollback removed Codex update-check helper" "$CODEX_HOME/scripts/update-check.mjs"
+assert_no_file "rollback removed Codex skill update prompt helper" "$CODEX_HOME/scripts/skill-update-prompt.mjs"
+assert_no_file "rollback removed Codex tool stack check helper" "$CODEX_HOME/scripts/tool-stack-check.mjs"
+assert_no_file "rollback removed Codex bootstrap helper" "$CODEX_HOME/scripts/bootstrap-tools.sh"
+assert_no_file "rollback removed Codex install metadata" "$CODEX_HOME/control-plane/install.json"
 for command_name in "${OWNED_COMMANDS[@]}"; do
   assert_no_file "rollback removed $command_name command" "$CLAUDE_HOME/commands/$command_name.md"
 done

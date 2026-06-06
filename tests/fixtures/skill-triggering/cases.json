@@ -36,6 +36,12 @@
     "unexpectedSkills": ["etrnl-code-health"]
   },
   {
+    "name": "security audit prompt routes etrnl-security-audit",
+    "prompt": "run a security audit for exploitable bugs, injection sinks, authz, secret handling, and CSRF",
+    "expectedSkills": ["etrnl-security-audit"],
+    "unexpectedSkills": ["etrnl-code-health"]
+  },
+  {
     "name": "all registered prompt routes etrnl-deep-audit",
     "prompt": "run all_registered deep audit lanes across all levels and sublevels",
     "expectedSkills": ["etrnl-deep-audit"],
@@ -72,6 +78,30 @@
     "unexpectedSkills": ["etrnl-pr"]
   },
   {
+    "name": "dependabot prompt routes etrnl-deps",
+    "prompt": "handle this Dependabot PR and verify the dependency update",
+    "expectedSkills": ["etrnl-deps"],
+    "unexpectedSkills": ["etrnl-commit"]
+  },
+  {
+    "name": "renovate grouped PR routes etrnl-deps",
+    "prompt": "review the Renovate grouped PR for package updates",
+    "expectedSkills": ["etrnl-deps"],
+    "unexpectedSkills": ["etrnl-commit"]
+  },
+  {
+    "name": "security dependency alert routes etrnl-deps",
+    "prompt": "fix the security dependency alert and run the upgrade checks",
+    "expectedSkills": ["etrnl-deps"],
+    "unexpectedSkills": ["etrnl-commit"]
+  },
+  {
+    "name": "dependency catalog consolidation routes etrnl-deps",
+    "prompt": "consolidate these dependency versions into a workspace catalog",
+    "expectedSkills": ["etrnl-deps"],
+    "unexpectedSkills": ["etrnl-commit"]
+  },
+  {
     "name": "disk cleanup prompt routes etrnl-disk-cleanup",
     "prompt": "free SSD space with a disk cleanup pass",
     "expectedSkills": ["etrnl-disk-cleanup"],
@@ -90,9 +120,15 @@
     "unexpectedSkills": ["etrnl-commit"]
   },
   {
-    "name": "fix issue prompt routes etrnl-fix-issue",
+    "name": "fix issue prompt routes etrnl-systematic-debugging",
     "prompt": "reproduce and fix issue #123",
-    "expectedSkills": ["etrnl-fix-issue"],
+    "expectedSkills": ["etrnl-systematic-debugging"],
+    "unexpectedSkills": ["etrnl-plan"]
+  },
+  {
+    "name": "systematic debugging prompt routes etrnl-systematic-debugging",
+    "prompt": "use systematic debugging to investigate the failing login test root cause",
+    "expectedSkills": ["etrnl-systematic-debugging"],
     "unexpectedSkills": ["etrnl-plan"]
   },
   {
@@ -135,6 +171,18 @@
     "name": "pr prompt routes etrnl-pr",
     "prompt": "prepare a pull request with verification evidence",
     "expectedSkills": ["etrnl-pr"],
+    "unexpectedSkills": ["etrnl-commit"]
+  },
+  {
+    "name": "pr ci prompt routes etrnl-pr and etrnl-ci-cd",
+    "prompt": "keep PR CI green and fetch failing check logs",
+    "expectedSkills": ["etrnl-pr", "etrnl-ci-cd"],
+    "unexpectedSkills": ["etrnl-commit"]
+  },
+  {
+    "name": "copilot review comments route pr and review",
+    "prompt": "address Copilot review comments on my PR with evidence",
+    "expectedSkills": ["etrnl-pr", "etrnl-review"],
     "unexpectedSkills": ["etrnl-commit"]
   },
   {

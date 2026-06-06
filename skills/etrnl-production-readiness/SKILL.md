@@ -4,6 +4,8 @@ description: ETRNL deep-audit category skill for production readiness. Use when 
 ---
 # ETRNL Production Readiness
 
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-production-readiness`; on update, ask update/snooze/continue.
+
 Run the production-readiness deep-audit category against a target application. This category is read-only unless the user explicitly asks for fixes.
 
 ## Startup
@@ -17,7 +19,7 @@ Run the production-readiness deep-audit category against a target application. T
 ## Hard Rules
 
 - Process full worklists. Sampling blocks completion.
-- Execute registered checks in order from `prod-01-state-coverage` through `prod-17-error-boundaries`.
+- Execute registered checks in order from `prod-01-state-coverage` through `prod-18-operability-prr`.
 - Inspect file contents before marking a check complete. Match counts alone are not evidence.
 - Record `CONFIRMED_CLEAN` for every completed check with zero findings.
 - Log `CHECKS_SKIPPED` with check id, worklist id, and reason when source evidence, credentials, runtime access, or context budget blocks completion.

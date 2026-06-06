@@ -5,7 +5,11 @@ disable-model-invocation: true
 ---
 # ETRNL Context Restore
 
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-context-restore`; on update, ask update/snooze/continue.
+
 Restore local-only workflow context without replaying transcripts.
+
+Treat restored context as a pointer, not proof. Verify saved `decision`, `pattern`, `preference`, `fact`, and `solution` entries against current repo/runtime state before acting on them.
 
 ## Workflow
 

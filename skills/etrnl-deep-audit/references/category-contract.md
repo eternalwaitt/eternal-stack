@@ -93,6 +93,8 @@ Valid check statuses:
 
 Use `CHECKS_SKIPPED` in final synthesis for skipped checks. Use `not_applicable` only after the registry applicability gate is proven false for the target.
 
+Security category finding rows must include `source`, `sink`, `missingControl`, `exploit`, `reachability`, `confidence`, `impact`, and `remediation`. Security clean rows must include `nonFindings.checkedSources`, `nonFindings.checkedSinks`, `nonFindings.controlsObserved`, `nonFindings.unreachableReason`, and `nonFindings.validationEvidence`.
+
 ## Fanout Receipts
 
 Fanout categories require one lane receipt for every registered lane. Each receipt includes:
@@ -110,8 +112,8 @@ Lane receipts consume the shared category worklist hashes. Fanout lanes do not r
 For `all_registered`, emit:
 
 ```text
-Coverage: all_registered categories completed: production-readiness, performance.
-Known not-yet-registered audit domains: security, ux-accessibility, api-data, docs, payments, privacy-compliance.
+Coverage: all_registered categories completed: production-readiness, security, performance.
+Known not-yet-registered audit domains: ux-accessibility, api-data, docs, payments, privacy-compliance.
 This is not a claim that every possible audit domain has run.
 ```
 

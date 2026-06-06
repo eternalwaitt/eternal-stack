@@ -43,9 +43,9 @@ function git(argsForGit, root) {
 }
 
 function parseReleaseHeading(line) {
-  const match = line.match(/^## (v\d+\.\d+\.\d+) - (\d{4}-\d{2}-\d{2})\s*$/);
+  const match = line.match(/^## (v\d+\.\d+\.\d+)\s*$/);
   if (!match) return null;
-  return { version: match[1], date: match[2] };
+  return { version: match[1] };
 }
 
 function parseReleaseSections(lines) {
@@ -108,13 +108,6 @@ function meaningfulLines(sourceLines) {
   return sourceLines.filter((line) => stripHtmlComments(line, state).trim() !== "");
 }
 
-function currentBranch(root) {
-  if (process.env.GITHUB_REF_NAME) return process.env.GITHUB_REF_NAME;
-  if (process.env.BRANCH_NAME) return process.env.BRANCH_NAME;
-  const branch = git(["rev-parse", "--abbrev-ref", "HEAD"], root);
-  return branch.ok ? branch.stdout : "";
-}
-
 function validateUnreleasedSection(sourceLines) {
   const errors = [];
   const unreleasedIndex = sourceLines.findIndex((line) => line.trim() === "## Unreleased");
@@ -133,12 +126,12 @@ function validateUnreleasedSection(sourceLines) {
   unreleasedEntries = meaningfulLines(sourceLines.slice(unreleasedIndex + 1, nextHeadingIndex));
   topRelease = parseReleaseHeading(sourceLines[nextHeadingIndex]);
   if (!topRelease) {
-    errors.push(`First release heading must look like "## vX.Y.Z - YYYY-MM-DD": ${sourceLines[nextHeadingIndex]}`);
+    errors.push(`First release heading must be a semantic version heading like "## vX.Y.Z": ${sourceLines[nextHeadingIndex]}`);
   }
   return { topRelease, unreleasedEntries, errors };
 }
 
-function validateGitTagAlignment(root, releaseVersions, topRelease, strictUnreleased) {
+function validateGitTagAlignment(root, releaseVersions, topRelease) {
   const errors = [];
   const inGit = git(["rev-parse", "--is-inside-work-tree"], root);
   if (!inGit.ok || inGit.stdout !== "true") return errors;
@@ -149,12 +142,12 @@ function validateGitTagAlignment(root, releaseVersions, topRelease, strictUnrele
   }
   const head = git(["rev-parse", "HEAD"], root);
   const tagCommit = git(["rev-parse", `${latestTag}^{}`], root);
-  if (!topRelease || !strictUnreleased || !head.ok || !tagCommit.ok || head.stdout === tagCommit.stdout) {
+  if (!topRelease || !head.ok || !tagCommit.ok || head.stdout === tagCommit.stdout) {
     return errors;
   }
   try {
     if (compareSemver(topRelease.version, latestTag) <= 0) {
-      errors.push(`HEAD has commits after ${latestTag}, but the latest changelog release is still ${topRelease.version}. Cut the next dated release section.`);
+      errors.push(`HEAD has commits after ${latestTag}, but the latest changelog release is still ${topRelease.version}. Cut the next semantic version section.`);
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -184,9 +177,8 @@ function validateUntaggedReleaseDrift(root, releaseSections) {
 }
 
 const root = path.resolve(argValue("--root", path.join(scriptDir, "..")));
+const allowUnreleased = args.includes("--allow-unreleased") && !args.includes("--strict-unreleased");
 const changelogPath = path.join(root, "CHANGELOG.md");
-const allowUnreleased = args.includes("--allow-unreleased");
-const forceStrictUnreleased = args.includes("--strict-unreleased");
 let lines = [];
 try {
   lines = readFileSync(changelogPath, "utf8").split(/\r?\n/);
@@ -201,14 +193,11 @@ const { topRelease, unreleasedEntries } = unreleasedResult;
 errors.push(...unreleasedResult.errors);
 const releaseSections = parseReleaseSections(lines);
 const releaseVersions = new Set(releaseSections.map((release) => release.version));
-const inGit = git(["rev-parse", "--is-inside-work-tree"], root);
-const branch = inGit.ok && inGit.stdout === "true" ? currentBranch(root) : "";
-const strictUnreleased = forceStrictUnreleased || (!allowUnreleased && (branch === "main" || branch === "master"));
-if (strictUnreleased && unreleasedEntries.length > 0) {
+if (unreleasedEntries.length > 0 && !allowUnreleased) {
   const preview = unreleasedEntries.slice(0, 3).join(" | ");
-  errors.push(`CHANGELOG.md has ${unreleasedEntries.length} entries under ## Unreleased on the release branch: ${preview}. Move them into a dated release section before claiming repo health.`);
+  errors.push(`CHANGELOG.md has ${unreleasedEntries.length} entries under ## Unreleased: ${preview}. Move them into a semantic version section before claiming repo health.`);
 }
-errors.push(...validateGitTagAlignment(root, releaseVersions, topRelease, strictUnreleased));
+errors.push(...validateGitTagAlignment(root, releaseVersions, topRelease));
 errors.push(...validateUntaggedReleaseDrift(root, releaseSections));
 
 if (errors.length > 0) fail(errors);
@@ -218,5 +207,5 @@ console.log(`latest release section ${releaseLabel}`);
 if (unreleasedEntries.length === 0) {
   console.log("unreleased section empty");
 } else {
-  console.log(`unreleased entries allowed on branch ${branch || "unknown"}`);
+  console.log("unreleased section has entries");
 }

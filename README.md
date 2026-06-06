@@ -36,13 +36,14 @@ cd claude-control-plane
 ./scripts/doctor.sh
 ```
 
-The installer backs up `~/.claude`, copies control-plane assets, installs repo-owned ETRNL agents by default, runs hook/workflow tests, repairs settings with `settings-audit.mjs --fix`, and merges the safe observer layer by default.
+The installer backs up `~/.claude`, copies control-plane assets, installs repo-owned ETRNL agents by default, syncs Codex skills/scripts into `~/.codex`, runs hook/workflow tests, repairs settings with `settings-audit.mjs --fix`, and merges the safe observer layer by default.
 The default layer includes prompt routing, prompt expansion, `CLAUDE.md` reinjection, the locked advisory rate limiter, post-tool observation, and session cleanup.
 See [docs/install.md](docs/install.md) for full install/update behavior, including strict mode, `CLAUDE_CONTROL_PLANE_INSTALL_STARTUP`, `AGENTS.md`/`CLAUDE.md`, `docs/skills.md`, `etrnl-*` migration, and companion skill mapping.
 
-Installs write `~/.claude/control-plane/install.json` so Claude startup can detect source/install drift.
+Installs write `~/.claude/control-plane/install.json` and `~/.codex/control-plane/install.json` so Claude and Codex can detect source/install drift from their own installed homes.
 Run `~/.claude/scripts/update.sh` or `./scripts/update.sh` for manual updates.
 Set `CLAUDE_CONTROL_PLANE_AUTO_UPDATE=1` to enable automatic local updates from the configured source checkout.
+The installed update check also reports CodeGraph and Beads drift; requested Claude `etrnl-*` skills inject an advisory update/bootstrap prompt through hooks, and Codex `etrnl-*` skills run `~/.codex/scripts/skill-update-prompt.mjs` as their first step.
 
 Hard blockers are shipped but not enabled automatically. Enable them after tests, doctor, rollback, and a fresh Claude smoke pass.
 For local strict rollout, run `CLAUDE_CONTROL_PLANE_ENABLE_STRICT=1 ./scripts/install.sh`.
@@ -65,6 +66,8 @@ node scripts/context-state.mjs list
 node scripts/port-guard.mjs pick --start 3100
 node scripts/settings-audit.mjs ~/.claude/settings.json --json
 node scripts/update-check.mjs --json
+node scripts/tool-stack-check.mjs --explain --project "$PWD"
+scripts/bootstrap-tools.sh check --project "$PWD"
 node scripts/replay-hook-fixtures.mjs
 ```
 

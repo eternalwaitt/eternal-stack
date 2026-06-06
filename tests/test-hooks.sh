@@ -467,6 +467,17 @@ out="$(run_hook cc-userprompt-router.sh "$plan_prompt")"
 assert_contains "plan prompt routes writing plans" "$out" "etrnl-plan"
 plan_state="$TMPROOT/claude-guard-fixture-plan-prompt.json"
 assert_json_expr "plan skill recorded" "$(jq -c . "$plan_state")" 'any(.requestedSkills[]?.value; . == "etrnl-plan")'
+fake_skill_update="$TMPROOT/fake-skill-update.mjs"
+cat >"$fake_skill_update" <<'JS'
+#!/usr/bin/env node
+console.log('CONTROL_PLANE_UPDATE_AVAILABLE installed=old source=new version=v0 run="~/.claude/scripts/update.sh"');
+console.log('TOOL_STACK_UPDATE_AVAILABLE codegraph current=0.9.9 latest=1.0.0 run="npm install -g codegraph"');
+JS
+skill_update_prompt="$(jq -cn '{session_id:"fixture-skill-update-prompt",prompt:"/etrnl-plan docs/plans/example.md"}')"
+out="$(CLAUDE_CONTROL_PLANE_SKILL_UPDATE_CHECK=1 CLAUDE_CONTROL_PLANE_TOOL_UPDATE_CHECK=1 CLAUDE_CONTROL_PLANE_UPDATE_CHECK_SCRIPT="$fake_skill_update" run_hook cc-userprompt-router.sh "$skill_update_prompt")"
+assert_contains "skill prompt checks control-plane updates" "$out" "Skill update check before requested skill"
+assert_contains "skill prompt includes tool-stack update" "$out" "TOOL_STACK_UPDATE_AVAILABLE codegraph"
+assert_contains "skill prompt asks before update" "$out" "ask whether to update/bootstrap now"
 health_prompt="$(jq -cn '{session_id:"fixture-health-prompt",prompt:"audit the entire codebase with no skips or loose ends"}')"
 out="$(run_hook cc-userprompt-router.sh "$health_prompt")"
 assert_contains "health prompt routes code health" "$out" "etrnl-code-health"
@@ -794,7 +805,7 @@ doc_health_stop="$(jq -cn '{session_id:"fixture-doc-health",last_assistant_messa
 out="$(run_hook cc-stop-verifier.sh "$doc_health_stop")"
 assert_contains "documentation health blocks shallow completion" "$out" "coverage counters"
 jq '.successfulCommands += [{value:"node ~/.claude/scripts/documentation-comment-health.mjs --root . --json --include-untracked",at:"2026-01-01T00:00:02Z"},{value:"node ~/.claude/scripts/documentation-health-ledger-check.mjs --report /tmp/doc-health.md",at:"2026-01-01T00:00:03Z"}] | .verificationRuns += [{value:"node ~/.claude/scripts/documentation-health-ledger-check.mjs --report /tmp/doc-health.md",at:"2026-01-01T00:00:03Z"}]' "$doc_health_state" >"$doc_health_state.tmp" && mv "$doc_health_state.tmp" "$doc_health_state"
-doc_health_full_message=$'Done.\n\n# Documentation Health Audit\n\n## Documentation Inventory\ncanonical docs and secondary docs classified.\n\n## 10. TSDoc/JSDoc And Comments\nComment Health classified useful, missing, stale, misleading, noise, and wrong-format targets.\n\n## Findings Ledger\n| severity | source_of_truth | disposition | verification |\n| --- | --- | --- | --- |\n| P2 | scripts/install.sh | fixed | scripts/doctor.sh passed |\n\n## Action Items\nAll action items are terminal.\n\n## Resolution Plan\nImmediate fixes are verified.\n\n## Scorecard\nTSDoc/JSDoc/comment health: 8/10\nOverall documentation health: 8/10\n\nDOCS_FILES_TOTAL: 12\nDOCS_FILES_REVIEWED: 12\nSOURCE_FILES_SAMPLED_OR_REVIEWED: 6\nTSDOC_JSDOC_FILES_SCANNED: 4\nCOMMENT_TARGETS_REVIEWED: 9\nCOMMENT_TARGETS_DOCUMENTED: 7\nCOMMENT_TARGETS_MISSING_DOCS: 2\nCOMMENT_TARGETS_WRONG_FORMAT: 0\nCHECKS_SKIPPED: []\nFINAL_DOC_HEALTH_SCORE: 82/100\n'
+doc_health_full_message=$'Done.\n\n# Documentation Health Audit\n\n## Documentation Inventory\ncanonical docs and secondary docs classified.\n\n## Freshness And Drift Proof\nsource_of_truth matrix checked; stale reference searches covered old architecture names and active plan queues.\n\n## 10. TSDoc/JSDoc And Comments\nComment Health classified useful, missing, stale, misleading, noise, and wrong-format targets.\n\n## Findings Ledger\n| severity | source_of_truth | disposition | verification |\n| --- | --- | --- | --- |\n| P2 | scripts/install.sh | fixed | scripts/doctor.sh passed |\n\n## Action Items\nAll action items are terminal.\n\n## Resolution Plan\nImmediate fixes are verified.\n\n## Scorecard\nTSDoc/JSDoc/comment health: 8/10\nOverall documentation health: 8/10\n\nDOCS_FILES_TOTAL: 12\nDOCS_FILES_REVIEWED: 12\nSOURCE_FILES_SAMPLED_OR_REVIEWED: 6\nRECENT_COMMITS_REVIEWED: 5\nRECENT_PRS_REVIEWED: 2\nRECENT_CHANGE_DOC_IMPACT_CHECKS: 4\nDOC_CLAIMS_CHECKED: 14\nSOURCE_TRUTH_MAPPINGS_REVIEWED: 8\nSTALE_REFERENCE_SEARCHES_RUN: 5\nOUTDATED_DOC_CLAIMS_FOUND: 1\nOUTDATED_DOC_CLAIMS_REMAINING: 0\nSTALE_DOCS_FOUND: 1\nSTALE_DOCS_REMAINING: 0\nMISLEADING_DOCS_FOUND: 0\nMISLEADING_DOCS_REMAINING: 0\nACTIVE_PLAN_QUEUE_DOCS_REVIEWED: 2\nACTIVE_PLAN_QUEUE_DOCS_STALE: 0\nTSDOC_JSDOC_FILES_SCANNED: 4\nCOMMENT_TARGETS_REVIEWED: 9\nCOMMENT_TARGETS_DOCUMENTED: 7\nCOMMENT_TARGETS_MISSING_DOCS: 2\nCOMMENT_TARGETS_WRONG_FORMAT: 0\nAI_CONTEXT_FILES_REVIEWED: 3\nAI_CONTEXT_DRIFT_FINDINGS: 0\nAI_CONTEXT_DUPLICATE_RULE_OWNERS: 0\nAI_CONTEXT_HOT_PATH_LEAKS: 0\nCHECKS_SKIPPED: []\nFINAL_DOC_HEALTH_SCORE: 82/100\n'
 doc_health_full_stop="$(jq -cn --arg message "$doc_health_full_message" '{session_id:"fixture-doc-health",last_assistant_message:$message,stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$doc_health_full_stop")"
 if [[ -z "$out" ]]; then ok "documentation health complete report satisfies stop gate"; else not_ok "documentation health complete report should satisfy stop gate: $out"; fi

@@ -72,7 +72,7 @@ Tasks:
 
 1. Save this plan.
 2. Add coverage rows as each layer lands.
-3. Keep `CHANGELOG.md` under the current dated release section; leave `Unreleased` empty unless release policy changes.
+3. Keep `CHANGELOG.md` under the current semantic version section; leave `Unreleased` empty unless release policy changes.
 
 Gate:
 

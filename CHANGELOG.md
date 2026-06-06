@@ -2,14 +2,18 @@
 
 ## Unreleased
 
-- Sync repo-owned ETRNL skills into both Claude and Codex homes during install/update, with rollback cleanup and install-test coverage that checks matching `/etrnl-autoplan` copies.
+## v0.2.0
+
+- Tighten `/etrnl-deps` with explicit audit/report read-only modes, catalog-first workspace version consolidation, related-package bundling, rollback command requirements, and dependency report fields.
+- Rename `/etrnl-fix-issue` to `/etrnl-systematic-debugging` and fold in a stricter root-cause workflow with hypothesis ranking, evidence-first reproduction, instrumentation boundaries, failed-fix escalation, and legacy install cleanup.
+- Complete the SkillsMP-driven P1/P2 ETRNL upgrades: add PR preflight, performance baseline, and disk-cleanup manifest helpers; register `/etrnl-security-audit`; add `prod-18-operability-prr`; enforce execution-wave drift, parallel packet critical-path/stop fields, documentation AI-context counters, browser QA trace/video/pageError evidence, and code-health risk hotspots.
+- Sync repo-owned ETRNL skills and Codex runtime helpers into both Claude and Codex homes during install/update, with separate install metadata, rollback cleanup, and install-test coverage for Codex update prompts.
 - Harden `/etrnl-autoplan` against shallow fast-plan runs with an explicit depth contract, full review/subagent/research parity requirements, deterministic final gates, and a required autoplan parity scorecard.
 - Remove hard `model:`/`effort:` routing from repo-owned `etrnl-*` skills and enforce active-model inheritance in `skill-contract-check.mjs` to prevent slash-skill invocations from taking the wrong context-entitlement path.
-- Add `/etrnl-deep-audit`, `/etrnl-production-readiness`, and `/etrnl-performance-audit` as registered deep-audit skills with a shared category registry, artifact validator, fixture suite, and install/test coverage.
-- Add `/etrnl-ci-cd` as a canonical repo-owned skill and wire it into owned-skill install/discovery, prompt routing, trigger fixtures, docs, and parity-scorecard coverage.
-- Add local tool-effectiveness measurement for CodeGraph, Beads, Codex imports, and hook-pattern signals, including deterministic keep/drop verdict fixtures, workflow-health projection, and a synthetic continuous-project config template.
-
-## v0.1.7 - 2026-06-03
+- Register `/etrnl-deep-audit`, `/etrnl-production-readiness`, `/etrnl-performance-audit`, and `/etrnl-security-audit` as deep-audit skills with a shared category registry, artifact validator, fixture suite, and install/test coverage.
+- Wire `/etrnl-ci-cd` into owned-skill install/discovery, prompt routing, trigger fixtures, docs, and parity-scorecard coverage as a canonical repo-owned skill.
+- Introduce local tool-effectiveness measurement for CodeGraph, Beads, Codex imports, and hook-pattern signals, including deterministic keep/drop verdict fixtures, workflow-health projection, and a synthetic continuous-project config template.
+- Enable CodeGraph/Beads bootstrap and update checks, including global MCP refresh, optional project-local `.codegraph`/`.beads` initialization, installed tool-stack health reporting, and per-skill advisory update prompts before requested `etrnl-*` skills run.
 
 - Improve stop-hook completion classification so paused production handoffs and other explicit non-final status updates do not get blocked as unverified completion claims.
 - Repair hook ergonomics around context and large edits: settings audit now removes legacy Stop handoff monitors that emit invalid context output, and the large-change guard honors recorded plan artifacts such as `.rulebook/PLANS.md`.
@@ -23,10 +27,11 @@
 - Harden Claude/Codex session reliability: Codex RTK rewrites use `updatedInput`, unsafe `rg` forms proxy through RTK before execution, broad `.codex` scans are blocked, startup context reinjection is bounded, compact recovery records workflow breadcrumbs, and workflow-health reports stale runs, artifacts, UAT state, and next action.
 - Add and harden VIVAZ email-triage workflows: `/email-triage`, `/etrnl-email-reply-quality`, provider-verified Inbox Zero gates, queue-ready-without-mutation support, reply queue completion checks, ML insight routing, draft quality gates, and dry-run/queue-before-verify blockers.
 - Add documentation and code-health gates: `/etrnl-documentation-health`, deterministic comment-health counters, code-health inventory and ledger checks, shared audit exclusions, baseline-only completion blockers, and terminal findings requirements.
+- Tighten `/etrnl-documentation-health` so final reports must prove source-truth freshness with recent commit/PR impact review, stale-reference searches, active plan/work-queue counters, all-docs coverage, and a hard block on `100/100` while stale, misleading, outdated, or unreviewed docs remain.
 - Expand installed control-plane operations: rollback/update metadata, settings audit repair, strict hook templates, install-home doctor coverage, repo-owned agents, skill behavior smoke checks, replay fixtures, browser QA v2 matrix/hash validation, prompt-budget checks, changelog release hygiene, and post-upgrade canaries.
 - Add safety and quality guards for sycophancy, ownership deflection, dangerous filesystem paths, secret/prod commands with signed override tokens, schema migration evidence, output-limiter pipes, large edits, file sprawl, stale verification, repeated failures, and dev-server port collisions.
 
-## v0.1.6 - 2026-05-10
+## v0.1.6
 
 - Namespace repo-owned skills as `etrnl-*` and document the skill map.
 - Add `/etrnl-brainstorm` for design/spec work before implementation planning.

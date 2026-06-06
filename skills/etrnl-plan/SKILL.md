@@ -8,6 +8,8 @@ paths:
 ---
 # ETRNL Writing Plans
 
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-plan`; on update, ask update/snooze/continue.
+
 Create a plan file, review it, improve it, then finalize it. Do not put the full plan in chat unless the user explicitly asks for chat-only output.
 
 ## Flow
@@ -72,6 +74,8 @@ node ~/.claude/scripts/deep-stack-check.mjs validate-plan --plan <plan-path>
 - `## NOT in scope`: considered work that is explicitly deferred, with one-line rationale.
 - `## File map`: exact files to create/modify/read, with each file's responsibility.
 - `## Task groups`: group related tasks so one worker can keep context; each group lists `Owner:`, `Dependencies:`, `Acceptance criteria:`, and `Verification:`; mark independent groups eligible for parallel execution.
+- `## Task sizing and slices`: use vertical slices that produce testable behavior; split any task that touches more than 8 files, crosses unrelated subsystems, or lacks one clear verification command.
+  Sizing note: `more than 8 files` is a control-plane heuristic from prior repo-hardening runs, not a universal limit. Other skill docs must point to this line when they reuse the threshold, and repos with smaller ownership boundaries must tighten it.
 - `## Phases`: setup, implementation, tests, docs, rollout, rollback, verification, completion criteria.
 - `## Skill/tool routing`: list required workflow skills and companion review passes.
 - `## Test plan`: code paths, user flows, error states, regressions, E2E/eval needs, and exact test files/commands.
@@ -98,6 +102,7 @@ Before finalizing, review the draft for:
 - Vague steps, placeholders, TODOs, or "handle edge cases" without details.
 - Missing file paths, missing commands, or undefined functions/types.
 - Tasks that cross too many subsystems and must be split.
+- Oversized tasks: more than 8 files, more than 2 unrelated subsystems, or no single verification command.
 - Risky actions without rollback or verification.
 - Missing architecture, code quality, test, performance, failure-mode, or parallelization review.
 - Missing test-first execution plan. A non-trivial implementation plan must name the red test/probe before code changes and the green gate after implementation.

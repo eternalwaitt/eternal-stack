@@ -5,11 +5,15 @@ disable-model-invocation: true
 ---
 # Parallel Fan-Out
 
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-parallel`; on update, ask update/snooze/continue.
+
 Use this only as an explicit fanout helper. `/etrnl-execute` is the main orchestrator and owns plan execution, ledger updates, review, integration, and final verification.
 
 1. Split work by disjoint file ownership.
 2. Assign the full ETRNL task packet: goal, context summary, exact scope, cwd/project context, read set, write scope or read-only, forbidden files, expected output, verification command, model tier, timeout, retry policy, no-revert instruction, and WebSearch policy.
-   - Parallel or multi-file write packets include `waveId`, `waveSize`, `maxConcurrentLanes`, `nativeChildAgents`, `completionReceiptRequired`, and `completionReceipt`.
+   - Parallel or multi-file write packets include `expectedDiffShape`, `criticalPath`, `stopCondition`, `waveId`, `waveSize`, `maxConcurrentLanes`, `nativeChildAgents`, `completionReceiptRequired`, and `completionReceipt`.
+   - `criticalPath` is a non-empty string naming the priority lane or scheduling reason; `stopCondition` is a non-empty string naming the condition that halts later waves.
+   - Good `criticalPath` values name the actual dependency, such as `schema before handlers`, `shared helper before UI`, or `auth contract before routes`; good `stopCondition` values name an observable halt, such as `stop on contract mismatch`, `stop when verification fails`, or `stop on overlapping writes`.
    - `maxConcurrentLanes` is capped at `6`; `waveSize` cannot exceed it.
    - `nativeChildAgents` is `forbidden`, `modeled`, or `not_applicable`. `modeled` requires `parentChildDrain`.
    - Completion receipts name changed files, verification commands, result status, blockers, and follow-up ownership.

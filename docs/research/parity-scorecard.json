@@ -289,6 +289,32 @@
       "targetMilestone": "M2"
     },
     {
+      "etrnlSkill": "etrnl-security-audit",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 2,
+        "research_flow": 2,
+        "subagent_orchestration": 1,
+        "parallelism_safety": 1,
+        "verification_gates": 3,
+        "rollback_guardrails": 1,
+        "telemetry_proactive": 1
+      },
+      "gaps": [
+        {
+          "capability": "rollback_guardrails",
+          "target": "attach fix validation and rollback evidence to security remediation runs after read-only audit findings are accepted",
+          "ownerSurface": "skill:etrnl-security-audit",
+          "sourceRows": [
+            "shipyard:rollback_guardrails",
+            "get-shit-done:rollback_guardrails"
+          ]
+        }
+      ],
+      "priority": "P2",
+      "targetMilestone": "M3"
+    },
+    {
       "etrnlSkill": "etrnl-deps",
       "capabilityScores": {
         "tdd_enforcement": 1,
@@ -411,7 +437,7 @@
       "targetMilestone": "M1"
     },
     {
-      "etrnlSkill": "etrnl-fix-issue",
+      "etrnlSkill": "etrnl-systematic-debugging",
       "capabilityScores": {
         "tdd_enforcement": 0,
         "planning_depth": 2,
@@ -426,7 +452,7 @@
         {
           "capability": "tdd_enforcement",
           "target": "require failing test reference before fix implementation for skill/hook regressions",
-          "ownerSurface": "skill:etrnl-fix-issue",
+          "ownerSurface": "skill:etrnl-systematic-debugging",
           "sourceRows": [
             "superpowers:tdd_enforcement",
             "get-shit-done:tdd_enforcement"

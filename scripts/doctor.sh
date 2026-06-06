@@ -131,6 +131,11 @@ PY
 for dep in jq git node rg fd; do
   require_command "$dep"
 done
+if [[ -f "$ROOT/scripts/bootstrap-tools.sh" ]]; then
+  report_command "bootstrap-tools syntax valid" "bootstrap-tools syntax invalid" bash -n "$ROOT/scripts/bootstrap-tools.sh"
+else
+  fail "bootstrap-tools script missing"
+fi
 optional_command sg "sg available" "sg unavailable; live hooks fail open"
 
 if [[ -f "$ROOT/hooks/lib/skill-hints.sh" ]]; then
@@ -233,7 +238,7 @@ if [[ -f "$ROOT/scripts/codex-rtk-pre-tool-use.sh" ]]; then
 else
   fail "codex RTK hook script missing"
 fi
-for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger execute-evidence-check execution-wave-check tool-effectiveness code-health-ledger-check documentation-comment-health documentation-health-ledger-check review-log project-buglog browser-qa-report context-state workflow-health prompt-budget-check skill-contract-check skill-behavior-smoke changelog-release-check port-guard update-check research-competitor-intel settings-audit; do
+for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger execute-evidence-check execution-wave-check tool-effectiveness tool-stack-check code-health-ledger-check documentation-comment-health documentation-health-ledger-check review-log project-buglog browser-qa-report context-state workflow-health prompt-budget-check skill-contract-check skill-behavior-smoke skill-update-prompt disk-cleanup-manifest performance-baseline pr-preflight changelog-release-check port-guard update-check research-competitor-intel settings-audit; do
   if [[ -f "$ROOT/scripts/$script.mjs" ]]; then
     report_command "$script syntax valid" "$script syntax invalid" node --check "$ROOT/scripts/$script.mjs"
   else
@@ -314,6 +319,10 @@ fi
 
 if [[ -d "$ROOT/skills" && -f "$ROOT/docs/skills.md" ]]; then
   skill_check_failed=0
+  installed_root=0
+  if [[ -f "$ROOT/control-plane/install.json" ]]; then
+    installed_root=1
+  fi
   for skill_dir in "${OWNED_SKILLS[@]}"; do
     skill_file="$ROOT/skills/$skill_dir/SKILL.md"
     if [[ ! -f "$skill_file" ]]; then
@@ -341,6 +350,10 @@ if [[ -d "$ROOT/skills" && -f "$ROOT/docs/skills.md" ]]; then
       skill_check_failed=1
     elif ! rg -F "/$skill_dir" "$ROOT/docs/skills.md" >/dev/null; then
       fail "docs/skills.md missing /$skill_dir"
+      skill_check_failed=1
+    fi
+    if [[ "$installed_root" == "1" && ! -f "$ROOT/commands/$skill_dir.md" ]]; then
+      fail "installed slash command missing: $skill_dir"
       skill_check_failed=1
     fi
   done

@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 const args = process.argv.slice(2);
 const hasFlag = (flag) => args.includes(flag);
@@ -31,13 +32,22 @@ const TRACKED_PATHS = [
 
 const EXCLUDED_DIRS = new Set([".git", "node_modules", "__pycache__", ".serena"]);
 
-const claudeHome = process.env.CLAUDE_HOME || path.join(os.homedir(), ".claude");
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const scriptParent = path.dirname(scriptDir);
+const scriptInstalledHome = fs.existsSync(path.join(scriptParent, "control-plane", "install.json")) ? scriptParent : "";
+const envHome = process.env.CLAUDE_HOME || process.env.CODEX_HOME || "";
+const controlHome =
+  process.env.CLAUDE_CONTROL_PLANE_HOME ||
+  process.env.CONTROL_PLANE_HOME ||
+  scriptInstalledHome ||
+  envHome ||
+  path.join(os.homedir(), ".claude");
 const installStatePath =
   process.env.CLAUDE_CONTROL_PLANE_INSTALL_STATE ||
-  path.join(claudeHome, "control-plane", "install.json");
+  path.join(controlHome, "control-plane", "install.json");
 const updateStatePath =
   process.env.CLAUDE_CONTROL_PLANE_UPDATE_STATE ||
-  path.join(claudeHome, "control-plane", "update-state.json");
+  path.join(controlHome, "control-plane", "update-state.json");
 
 const run = (command, commandArgs, options = {}) => {
   const result = spawnSync(command, commandArgs, {
@@ -256,6 +266,13 @@ const printText = (result) => {
   if (result.autoUpdate) {
     console.log(result.autoUpdate);
   }
+  for (const tool of Object.values(result.toolStack?.tools || {})) {
+    if (tool.updateAvailable) {
+      console.log(`TOOL_STACK_UPDATE_AVAILABLE ${tool.id} current=${tool.currentVersion} latest=${tool.latestVersion} run="${tool.updateCommand}"`);
+    } else if (!tool.installed) {
+      console.log(`TOOL_STACK_MISSING ${tool.id} install="${tool.installCommand}"`);
+    }
+  }
 };
 
 const countInstalledEntries = (dir, label, predicate) => {
@@ -274,18 +291,18 @@ const countInstalledEntries = (dir, label, predicate) => {
 };
 
 const countInstalledSkills = () => {
-  const skillsDir = path.join(claudeHome, "skills");
+  const skillsDir = path.join(controlHome, "skills");
   return countInstalledEntries(skillsDir, "installed skills", (entry) => entry.isDirectory() && entry.name.startsWith("etrnl-"));
 };
 
 const countInstalledAgents = () => {
-  const agentsDir = path.join(claudeHome, "agents");
+  const agentsDir = path.join(controlHome, "agents");
   return countInstalledEntries(agentsDir, "installed agents", (entry) => entry.isFile() && /^etrnl-.*\.md$/.test(entry.name));
 };
 
 const settingsMode = (installState) => {
   if (installState.settingsMode) return installState.settingsMode;
-  const settingsPath = path.join(claudeHome, "settings.json");
+  const settingsPath = path.join(controlHome, "settings.json");
   if (!fs.existsSync(settingsPath)) return "missing";
   try {
     const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
@@ -331,7 +348,7 @@ const settingsMode = (installState) => {
 
 const staleInstalledScripts = (root) => {
   const sourceScripts = path.join(root, "scripts");
-  const installedScripts = path.join(claudeHome, "scripts");
+  const installedScripts = path.join(controlHome, "scripts");
   if (!fs.existsSync(sourceScripts) || !fs.existsSync(installedScripts)) return [];
   const sourceOnly = new Set(["scripts/install.sh"]);
   const renamed = new Map([["scripts/doctor.sh", "scripts/doctor-control-plane.sh"]]);
@@ -343,7 +360,7 @@ const staleInstalledScripts = (root) => {
     .filter((relPath) => {
       const installedRelPath = renamed.get(relPath) || relPath;
       const sourceFile = path.join(root, relPath);
-      const installedFile = path.join(claudeHome, installedRelPath);
+      const installedFile = path.join(controlHome, installedRelPath);
       if (!fs.existsSync(installedFile)) return true;
       return fs.readFileSync(sourceFile).compare(fs.readFileSync(installedFile)) !== 0;
     })
@@ -368,7 +385,7 @@ const driftSummary = (root, source, installState) => {
 };
 
 const printExplain = (result) => {
-  console.log(`Claude control-plane update check: ${result.updateAvailable ? "update available" : "current"}`);
+  console.log(`ETRNL control-plane update check: ${result.updateAvailable ? "update available" : "current"}`);
   console.log(`Installed commit: ${result.installedCommitShort}`);
   console.log(`Source commit: ${result.sourceCommitShort}`);
   console.log(`Source dirty: ${result.sourceDirty ? "yes" : "no"}`);
@@ -376,10 +393,36 @@ const printExplain = (result) => {
   console.log(`Installed agents: ${result.drift.installedAgentCount}`);
   console.log(`Settings mode: ${result.drift.settingsMode}`);
   console.log(`Stale installed scripts: ${result.drift.staleInstalledScripts.count}`);
+  if (result.toolStack) {
+    console.log(`Tool stack missing: ${result.toolStack.missingTools.join(", ") || "none"}`);
+    console.log(`Tool stack updates: ${result.toolStack.updatesAvailable.join(", ") || "none"}`);
+  }
   if (result.localUpdateAvailable) {
     console.log(`Next action: ${result.updateCommand}`);
   } else {
     console.log("Next action: none");
+  }
+};
+
+const toolStackState = (root) => {
+  if (process.env.CLAUDE_CONTROL_PLANE_TOOL_UPDATE_CHECK === "0") return null;
+  const script = path.join(root, "scripts", "tool-stack-check.mjs");
+  if (!fs.existsSync(script)) return null;
+  const check = run(process.execPath, [script, "--json"], { timeout: 25_000 });
+  if (!check.ok || !check.stdout) {
+    return {
+      ok: false,
+      error: check.stderr || check.stdout || `exit status ${check.status}` || "tool-stack-check failed",
+      missingTools: [],
+      updatesAvailable: [],
+      tools: {},
+    };
+  }
+  try {
+    return JSON.parse(check.stdout);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    return { ok: false, error: detail, missingTools: [], updatesAvailable: [], tools: {} };
   }
 };
 
@@ -427,7 +470,7 @@ const installState = readJson(installStatePath, null);
 if (!installState?.sourceRoot) {
   const result = { ok: false, updateAvailable: false, warning: "install-metadata-missing" };
   if (jsonOutput) console.log(JSON.stringify(result, null, 2));
-  else if (explainOutput) console.log("Claude control-plane update check: install metadata missing");
+  else if (explainOutput) console.log("ETRNL control-plane update check: install metadata missing");
   else printText(result);
   process.exit(0);
 }
@@ -436,7 +479,7 @@ const root = path.resolve(installState.sourceRoot);
 if (!fs.existsSync(path.join(root, "scripts", "install.sh"))) {
   const result = { ok: false, updateAvailable: false, warning: "source-root-missing" };
   if (jsonOutput) console.log(JSON.stringify(result, null, 2));
-  else if (explainOutput) console.log("Claude control-plane update check: source root missing");
+  else if (explainOutput) console.log("ETRNL control-plane update check: source root missing");
   else printText(result);
   process.exit(0);
 }
@@ -451,7 +494,8 @@ const commitChanged = Boolean(
 );
 const localUpdateAvailable = source.sourceFingerprint !== installedFingerprint || commitChanged;
 const updateCommand = `bash ${path.join(root, "scripts", "update.sh")}`;
-const justUpdatedPath = path.join(claudeHome, "control-plane", "just-updated.json");
+const toolStack = toolStackState(root);
+const justUpdatedPath = path.join(controlHome, "control-plane", "just-updated.json");
 cleanupJustUpdatedClaims(justUpdatedPath);
 const justUpdatedClaimPath = `${justUpdatedPath}.claim-${process.pid}-${Date.now()}`;
 let justUpdated = null;
@@ -479,7 +523,7 @@ if (autoEnabled && localUpdateAvailable) {
     autoUpdate = `CONTROL_PLANE_AUTO_UPDATE_FAILED missing update script: ${updateScriptPath}`;
   } else {
     const update = run("bash", [updateScriptPath], {
-      env: { CLAUDE_HOME: claudeHome },
+      env: { CLAUDE_HOME: controlHome },
       timeout: 60_000,
     });
     autoSucceeded = update.ok;
@@ -491,7 +535,7 @@ if (autoEnabled && localUpdateAvailable) {
 
 const result = {
   ok: true,
-  updateAvailable: (!autoSucceeded && localUpdateAvailable) || Boolean(remote?.updateAvailable),
+  updateAvailable: (!autoSucceeded && localUpdateAvailable) || Boolean(remote?.updateAvailable) || Boolean(toolStack?.updatesAvailable?.length) || Boolean(toolStack?.missingTools?.length),
   localUpdateAvailable: !autoSucceeded && localUpdateAvailable,
   installedCommit: installState.sourceCommit || "unknown",
   installedCommitShort: installState.sourceCommitShort || "unknown",
@@ -507,6 +551,7 @@ const result = {
   remote,
   justUpdated,
   autoUpdate,
+  toolStack,
   drift: driftSummary(root, source, installState),
 };
 

@@ -56,6 +56,14 @@ if [[ -z "${CRITICAL_HOOKS+x}" || "${#CRITICAL_HOOKS[@]}" -eq 0 ]]; then
   printf 'CRITICAL_HOOKS is missing from %s/scripts/lib/skill-lists.sh\n' "$ROOT" >&2
   exit 1
 fi
+if [[ -z "${INSTALL_SCRIPTS+x}" || "${#INSTALL_SCRIPTS[@]}" -eq 0 ]]; then
+  printf 'INSTALL_SCRIPTS is missing from %s/scripts/lib/skill-lists.sh\n' "$ROOT" >&2
+  exit 1
+fi
+if [[ -z "${CRITICAL_SCRIPTS+x}" || "${#CRITICAL_SCRIPTS[@]}" -eq 0 ]]; then
+  printf 'CRITICAL_SCRIPTS is missing from %s/scripts/lib/skill-lists.sh\n' "$ROOT" >&2
+  exit 1
+fi
 
 latest_backup() {
   local candidate latest
@@ -97,6 +105,7 @@ cleanup_restore_temps() {
 
 restored=()
 restored_count=0
+restored_command_names=()
 restore_files=()
 temp_files=()
 restore_count=0
@@ -157,6 +166,23 @@ if (( restore_count > 0 )); then
 fi
 trap - EXIT
 
+restore_command_once() {
+  local command_name seen
+  command_name="$1"
+  if (( ${#restored_command_names[@]} > 0 )); then
+    for seen in "${restored_command_names[@]}"; do
+      [[ "$seen" == "$command_name" ]] && return 0
+    done
+  fi
+  restored_command_names+=("$command_name")
+  rm -f -- "$ROOT/commands/$command_name.md"
+  if [[ -f "$BACKUP/commands/$command_name.md" ]]; then
+    cp -- "$BACKUP/commands/$command_name.md" "$ROOT/commands/$command_name.md"
+    restored+=("commands/$command_name.md")
+    restored_count=$((restored_count + 1))
+  fi
+}
+
 mkdir -p "$ROOT/agents"
 for agent in "${OWNED_AGENTS[@]}"; do
   rm -f -- "$ROOT/agents/$agent.md"
@@ -177,6 +203,11 @@ for skill in "${OWNED_SKILLS[@]}"; do
   fi
 done
 
+mkdir -p "$ROOT/commands"
+for skill in "${OWNED_SKILLS[@]}"; do
+  restore_command_once "$skill"
+done
+
 mkdir -p "$CODEX_TARGET/skills"
 for skill in "${OWNED_SKILLS[@]}"; do
   rm -rf -- "$CODEX_TARGET/skills/$skill"
@@ -187,14 +218,38 @@ for skill in "${OWNED_SKILLS[@]}"; do
   fi
 done
 
-mkdir -p "$ROOT/commands"
-for command_name in "${OWNED_COMMANDS[@]}"; do
-  rm -f -- "$ROOT/commands/$command_name.md"
-  if [[ -f "$BACKUP/commands/$command_name.md" ]]; then
-    cp -- "$BACKUP/commands/$command_name.md" "$ROOT/commands/$command_name.md"
-    restored+=("commands/$command_name.md")
+mkdir -p "$CODEX_TARGET/scripts" "$CODEX_TARGET/scripts/lib"
+for script in "${INSTALL_SCRIPTS[@]}"; do
+  rm -f -- "$CODEX_TARGET/scripts/$script"
+  if [[ -f "$BACKUP/codex-scripts/$script" ]]; then
+    cp -- "$BACKUP/codex-scripts/$script" "$CODEX_TARGET/scripts/$script"
+    restored+=("codex-scripts/$script")
     restored_count=$((restored_count + 1))
   fi
+done
+for script in "${CRITICAL_SCRIPTS[@]}"; do
+  if [[ "$script" == lib/* ]]; then
+    rm -f -- "$CODEX_TARGET/scripts/$script"
+    if [[ -f "$BACKUP/codex-scripts/$script" ]]; then
+      mkdir -p "$CODEX_TARGET/scripts/$(dirname -- "$script")"
+      cp -- "$BACKUP/codex-scripts/$script" "$CODEX_TARGET/scripts/$script"
+      restored+=("codex-scripts/$script")
+      restored_count=$((restored_count + 1))
+    fi
+  fi
+done
+for script in doctor.sh doctor-control-plane.sh; do
+  rm -f -- "$CODEX_TARGET/scripts/$script"
+  if [[ -f "$BACKUP/codex-scripts/$script" || -L "$BACKUP/codex-scripts/$script" ]]; then
+    cp -P -- "$BACKUP/codex-scripts/$script" "$CODEX_TARGET/scripts/$script"
+    restored+=("codex-scripts/$script")
+    restored_count=$((restored_count + 1))
+  fi
+done
+rm -f -- "$CODEX_TARGET/control-plane/install.json" "$CODEX_TARGET/control-plane/update-state.json" "$CODEX_TARGET/control-plane/just-updated.json"
+
+for command_name in "${OWNED_COMMANDS[@]}"; do
+  restore_command_once "$command_name"
 done
 
 mkdir -p "$ROOT/hooks"

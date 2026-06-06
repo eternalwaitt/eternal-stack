@@ -34,6 +34,30 @@ Assign exactly one primary status to every documentation file:
 
 Record path, audience, owner/scope, freshness evidence, source-of-truth relationship, and action required.
 
+## Freshness And Source-Truth Drift
+
+Every scored run must prove freshness against current source truth. Passing Markdown lint, link checks, comment counters, or a repo-owned docs gate is enforcement evidence, not freshness evidence.
+
+Start with recent change evidence:
+
+- local commits: inspect recent `git log --name-status`, especially code, config, migration, runtime, API, hook, skill, and command changes;
+- GitHub PRs: when `gh` access is available for the repo, inspect latest merged and open PRs, changed files, titles, descriptions, labels, and review notes for documentation-impact clues;
+- docs-impact conclusions: for each relevant recent change, record whether docs were already updated, stale docs were found, no docs were required, or the check is source-limited with reason.
+
+Build a source-truth matrix with checked claims for:
+
+- current architecture names, component names, model names, provider names, package names, app names, and service names;
+- install, update, rollback, test, build, lint, deploy, doctor, and local-run commands;
+- runtime topology, domains, ports, queues, workers, jobs, storage buckets, databases, vector/search indexes, OCR/ML pipelines, and external integrations;
+- API contracts, route/RPC names, schema names, env vars, secret locations, migrations, and generated surfaces;
+- AI-facing workflow claims in AGENTS, CLAUDE, skills, prompts, hooks, settings, and rule files.
+
+Derive stale-reference search terms from the matrix, recent commits, GitHub PRs when available, and recent rename/remove evidence. Search documentation, AI context, comments, active plans, work queues, handovers, migrations, and runbooks. Record term, command or search method, matches, inspected hits, fixed hits, false positives, and remaining hits.
+
+Treat stale labels such as old model names, split architecture names, deprecated service names, old queues, old domains, and removed commands as findings when they imply current state. Mark them `archive` only when the path or heading clearly says the document is historical and the stale wording cannot steer current work.
+
+Old untouched docs are not exempt. Every documentation file in scope must be reviewed or explicitly excluded with reason. If an old doc still describes a current system, validate its claims against source truth. If it describes obsolete behavior, mark it `archive`, `stale`, `misleading`, `superseded`, or `delete_candidate` and add the action to the ledger.
+
 ## Root Documentation
 
 Root docs must orient and link, not become a dumping ground. Check whether they answer:
@@ -97,11 +121,21 @@ Check architecture, stack/versions, commands, folder boundaries, coding rules, t
 
 Treat stale AI context as high severity because agents will confidently repeat it.
 
+Additional drift checks:
+
+- dead imports: every `@path.md`, markdown import, and generated context reference resolves;
+- zero-match globs: every documented path glob matches at least one current file or records an absent-surface rationale;
+- hot-path leakage: volatile current-session facts, active todo state, transcripts, credentials, local account details, and private memory content stay out of always-loaded files;
+- duplicate rule owners: repeated policy text across AGENTS, CLAUDE, rules, skills, and docs has one canonical owner;
+- command drift: every documented mandatory command exists and runs or has a source-limited blocker.
+
 ## Plans And Work Queues
 
 Find planning folders, queues, roadmaps, RFCs, specs, and active work docs. Classify as `active`, `completed`, `stale`, `superseded`, `archive`, or `delete_candidate`.
 
 Active plan areas must not become graveyards. Completed plans move to archive or deletion according to repo policy. Active queues must point to current priorities.
+
+Review handover docs, migration notes, status reports, and work queues even when they live outside `docs/plans/`. A date in the filename does not make the doc safe. If it names removed architecture or old runtime behavior without an archive banner, classify it as stale or misleading and add it to the ledger.
 
 ## Required Documentation System
 

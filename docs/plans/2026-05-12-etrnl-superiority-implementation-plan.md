@@ -41,7 +41,7 @@ Assumptions: Research artifacts remain valid until 2026-06-10 (nextScan date). N
 - Rebuilding Wave 0 research artifacts (already validated complete)
 - UI or frontend work
 - Wave 3.5 post-M1: superiority benchmark harness, docs/troubleshooting.md
-- P1/P2 skill rewrites (etrnl-brainstorm, etrnl-fix-issue, etrnl-parallel, etrnl-qa-browser, etrnl-stress-test and P2 group) — deferred to M2
+- P1/P2 skill rewrites (etrnl-brainstorm, etrnl-systematic-debugging, etrnl-parallel, etrnl-qa-browser, etrnl-stress-test and P2 group) — deferred to M2
 
 ## File map
 

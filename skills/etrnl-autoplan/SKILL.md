@@ -4,6 +4,8 @@ description: ETRNL control-plane planning companion for Claude Code. Use when th
 ---
 # ETRNL Autoplan
 
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-autoplan`; on update, ask update/snooze/continue.
+
 Create execution-ready plans for `/etrnl-execute`. Do not implement the plan.
 
 Default to completeness 10/10 for non-trivial work. Do not offer fast, reduced, MVP, or partial paths unless the user explicitly asks for a spike, prototype, or quick pass.
@@ -37,6 +39,7 @@ Mandatory stages:
 7. Test-first and verification design:
    - Include red/green proof for source tasks, fixture coverage for workflow tasks, browser evidence for UI tasks, and install/canary gates for control-plane runtime changes.
    - Name exact commands and expected pass conditions in `## Verification gates`.
+   - Use vertical slices for implementation tasks. Split any task that touches more than 8 files, crosses unrelated subsystems, or lacks one clear verification command.
 8. Artifact creation:
    - Create the deep-stack artifact bundle with `node scripts/deep-stack-check.mjs create --plan <plan-path> --out <artifact-dir>`.
    - Fill blocked skeleton sections with real evidence before finalization.

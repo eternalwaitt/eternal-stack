@@ -382,6 +382,8 @@ const parallelTaskPacket = {
       qualityReviewRequired: true,
       integrationOwner: "parent agent",
       expectedDiffShape: "Two bounded script updates plus focused tests.",
+      criticalPath: "scripts/a.mjs before scripts/b.mjs integration.",
+      stopCondition: "Stop when overlap, failed verification, or missing reviewer evidence appears.",
       waveId: "wave-1",
       waveSize: 2,
       parallelSafe: true,

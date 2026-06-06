@@ -29,6 +29,8 @@
       "qualityReviewRequired": true,
       "integrationOwner": "parent agent",
       "expectedDiffShape": "two-script patch plus focused workflow tests",
+      "criticalPath": "workflow scripts before docs",
+      "stopCondition": "stop when verification fails or write scope expands",
       "waveId": "wave-1",
       "waveSize": 2,
       "parallelSafe": true,

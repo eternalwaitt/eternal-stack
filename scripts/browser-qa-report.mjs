@@ -93,7 +93,11 @@ function hasV2Input(input) {
 }
 
 function screenshotHash(row) {
-  return row.screenshotSha256 || row.screenshotHash || row.sha256 || "";
+  return evidenceHash(row, "screenshot", true);
+}
+
+function evidenceHash(row, field, includeLegacySha = false) {
+  return row[`${field}Sha256`] || row[`${field}Hash`] || (includeLegacySha ? row.sha256 : "") || "";
 }
 
 function matrixKey(route, viewport) {
@@ -204,6 +208,30 @@ function reportErrors(report, options = {}) {
             }
             if (!row.capturedAt || !isFreshIso(row.capturedAt, maxAgeMs())) {
               errors.push(`matrix[${index}].capturedAt must be a fresh ISO timestamp`);
+            }
+            for (const field of ["trace", "video"]) {
+              const artifact = String(row[field] || "").trim();
+              if (!artifact) continue;
+              const contained = resolveContainedPath(root, artifact);
+              if (!contained.ok) {
+                errors.push(`matrix[${index}].${field} invalid: ${contained.error}`);
+                continue;
+              }
+              const info = fileInfo(contained.path);
+              if (!info.isFile || info.size <= 0) {
+                errors.push(`matrix[${index}].${field} must be a non-empty file`);
+                continue;
+              }
+              const expectedHash = evidenceHash(row, field);
+              if (!expectedHash) {
+                errors.push(`matrix[${index}].${field}Sha256 is required when ${field} is present`);
+              } else if (fileSha256(contained.path) !== expectedHash) {
+                errors.push(`matrix[${index}].${field}Sha256 does not match ${field} file`);
+              }
+            }
+            if (row.pageErrors !== undefined) {
+              if (!Array.isArray(row.pageErrors)) errors.push(`matrix[${index}].pageErrors must be an array when provided`);
+              else if (row.status === "passed" && row.pageErrors.length > 0) errors.push(`matrix[${index}].pageErrors must be empty for passed rows`);
             }
           }
         }

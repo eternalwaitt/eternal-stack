@@ -90,10 +90,89 @@ sync_owned_skills() {
   fi
   for skill in "${OWNED_SKILLS[@]}"; do
     if [[ -n "$backup_dir" && -d "$target_dir/$skill" ]]; then
-      cp -R -- "$target_dir/$skill" "$backup_dir/$skill"
+      cp -R -- "$target_dir/${skill:?}" "$backup_dir/${skill:?}"
     fi
-    rm -rf -- "$target_dir/$skill"
-    cp -R -- "$source_dir/$skill" "$target_dir/$skill"
+    rm -rf -- "$target_dir/${skill:?}"
+    cp -R -- "$source_dir/${skill:?}" "$target_dir/${skill:?}"
+  done
+}
+
+install_skill_command_shims() {
+  local target_dir="$1"
+  local command_file skill skill_file tmp
+  mkdir -p "$target_dir"
+  for skill in "${OWNED_SKILLS[@]}"; do
+    skill_file="$ROOT/skills/$skill/SKILL.md"
+    if [[ ! -f "$skill_file" ]]; then
+      printf 'fatal: missing skill source for slash command shim: %s\n' "$skill_file" >&2
+      return 1
+    fi
+    command_file="$target_dir/$skill.md"
+    tmp="$(mktemp "$command_file.tmp.XXXXXX")"
+    {
+      printf '%s\n' '---'
+      printf 'description: Invoke the ETRNL %s workflow.\n' "$skill"
+      printf 'argument-hint: <request>\n'
+      printf '%s\n' '---'
+      printf '\n'
+      printf 'User request: $ARGUMENTS\n\n'
+      printf 'Follow this ETRNL skill contract exactly:\n\n'
+      printf '<etrnl_skill_contract name="%s">\n' "$skill"
+      while IFS= read -r line || [[ -n "$line" ]]; do
+        printf '%s\n' "$line"
+      done <"$skill_file"
+      printf '</etrnl_skill_contract>\n'
+    } >"$tmp"
+    mv -- "$tmp" "$command_file"
+  done
+}
+
+backup_legacy_skills() {
+  local target_dir="$1"
+  local backup_dir="$2"
+  local moved=0
+  local skill
+  for skill in "${LEGACY_SKILLS[@]}"; do
+    if [[ -d "$target_dir/$skill" ]]; then
+      mkdir -p "$backup_dir"
+      cp -R -- "$target_dir/${skill:?}" "$backup_dir/${skill:?}"
+      moved=1
+    fi
+  done
+  printf '%s\n' "$moved"
+}
+
+remove_legacy_skills() {
+  local target_dir="$1"
+  local skill
+  for skill in "${LEGACY_SKILLS[@]}"; do
+    if [[ -d "$target_dir/$skill" ]]; then
+      rm -rf -- "$target_dir/${skill:?}"
+    fi
+  done
+}
+
+copy_control_scripts() {
+  local target_home="$1"
+  local script
+  mkdir -p "$target_home/scripts"
+  cp -- "$ROOT/scripts/doctor.sh" "$target_home/scripts/doctor-control-plane.sh"
+  ln -sf -- "doctor-control-plane.sh" "$target_home/scripts/doctor.sh"
+  for script in "${INSTALL_SCRIPTS[@]}"; do
+    cp -- "$ROOT/scripts/$script" "$target_home/scripts/$script"
+  done
+  mkdir -p "$target_home/scripts/lib"
+  copy_dir_contents "$ROOT/scripts/lib" "$target_home/scripts/lib"
+}
+
+chmod_control_scripts() {
+  local target_home="$1"
+  local script
+  chmod +x "$target_home/scripts/"*.sh
+  for script in "$target_home/scripts/"*.mjs; do
+    if [[ -f "$script" ]] && IFS= read -r first_line <"$script" && [[ "$first_line" == "#!"* ]]; then
+      chmod +x "$script"
+    fi
   done
 }
 
@@ -144,7 +223,8 @@ validate_source_install_inputs() {
 if [[ "$DRY_RUN" == "1" ]]; then
   validate_source_install_inputs
   printf 'Dry run: would install Claude control plane files into %s\n' "$TARGET"
-  printf 'Dry run: would sync ETRNL skills into %s/skills\n' "$CODEX_TARGET"
+  printf 'Dry run: would install Codex skill/runtime files into %s\n' "$CODEX_TARGET"
+  printf 'Dry run: would bootstrap CodeGraph/Beads when interactive or CLAUDE_CONTROL_PLANE_BOOTSTRAP_TOOLS=1\n'
   printf 'Dry run: would create backup at %s\n' "$BACKUP"
   printf 'Dry run: registered hooks template would be %s\n' "$SETTINGS_TEMPLATE"
   exit 0
@@ -184,6 +264,11 @@ for command_name in "${OWNED_COMMANDS[@]}"; do
     cp -- "$TARGET/commands/$command_name.md" "$BACKUP/commands/$command_name.md"
   fi
 done
+for skill in "${OWNED_SKILLS[@]}"; do
+  if [[ -f "$TARGET/commands/$skill.md" ]]; then
+    cp -- "$TARGET/commands/$skill.md" "$BACKUP/commands/$skill.md"
+  fi
+done
 
 mkdir -p "$BACKUP/skills"
 for skill in "${OWNED_SKILLS[@]}"; do
@@ -191,21 +276,47 @@ for skill in "${OWNED_SKILLS[@]}"; do
     cp -R -- "$TARGET/skills/$skill" "$BACKUP/skills/$skill"
   fi
 done
-legacy_moved=0
-for skill in "${LEGACY_SKILLS[@]}"; do
-  if [[ -d "$TARGET/skills/$skill" ]]; then
-    cp -R -- "$TARGET/skills/$skill" "$BACKUP/skills/$skill"
-    legacy_moved=1
+mkdir -p "$BACKUP/codex-scripts" "$BACKUP/codex-scripts/lib"
+for script in doctor.sh doctor-control-plane.sh; do
+  if [[ -f "$CODEX_TARGET/scripts/$script" || -L "$CODEX_TARGET/scripts/$script" ]]; then
+    cp -P -- "$CODEX_TARGET/scripts/$script" "$BACKUP/codex-scripts/$script"
   fi
 done
-# Source tests must pass before LEGACY_SKILLS are removed from $TARGET/skills.
+for script in "${INSTALL_SCRIPTS[@]}"; do
+  if [[ -f "$CODEX_TARGET/scripts/$script" ]]; then
+    cp -- "$CODEX_TARGET/scripts/$script" "$BACKUP/codex-scripts/$script"
+  fi
+done
+for script in "${CRITICAL_SCRIPTS[@]}"; do
+  if [[ "$script" == lib/* && -f "$CODEX_TARGET/scripts/$script" ]]; then
+    cp -- "$CODEX_TARGET/scripts/$script" "$BACKUP/codex-scripts/$script"
+  fi
+done
+legacy_moved=0
+if [[ "$(backup_legacy_skills "$TARGET/skills" "$BACKUP/skills")" == "1" ]]; then
+  legacy_moved=1
+fi
+if [[ "$(backup_legacy_skills "$CODEX_TARGET/skills" "$BACKUP/codex-skills")" == "1" ]]; then
+  legacy_moved=1
+fi
+# Source tests must pass before LEGACY_SKILLS are removed from installed skill homes.
 "$ROOT/tests/test-hooks.sh"
 "$ROOT/tests/test-workflow-tools.sh"
-for skill in "${LEGACY_SKILLS[@]}"; do
-  if [[ -d "$TARGET/skills/$skill" ]]; then
-    rm -rf -- "$TARGET/skills/$skill"
+if [[ "${CLAUDE_CONTROL_PLANE_BOOTSTRAP_TOOLS:-1}" != "0" ]]; then
+  if [[ -t 0 || "${CLAUDE_CONTROL_PLANE_BOOTSTRAP_TOOLS:-}" == "1" ]]; then
+    bootstrap_args=(install --yes)
+    if [[ "${CLAUDE_CONTROL_PLANE_BOOTSTRAP_PROJECTS:-0}" == "1" ]]; then
+      bootstrap_args+=(--project "$ROOT")
+    else
+      bootstrap_args+=(--skip-project)
+    fi
+    "$ROOT/scripts/bootstrap-tools.sh" "${bootstrap_args[@]}"
+  else
+    printf 'Tool bootstrap skipped in non-interactive install. Run: %s/scripts/bootstrap-tools.sh install --yes --project %q\n' "$ROOT" "$ROOT"
   fi
-done
+fi
+remove_legacy_skills "$TARGET/skills"
+remove_legacy_skills "$CODEX_TARGET/skills"
 
 mkdir -p "$TARGET/hooks" "$TARGET/scripts" "$TARGET/docs/templates" "$TARGET/skills" "$TARGET/agents" "$TARGET/commands" "$TARGET/rules" "$TARGET/tests/lib" "$TARGET/tests/fixtures"
 copy_dir_contents "$ROOT/hooks" "$TARGET/hooks"
@@ -217,6 +328,7 @@ done
 for command_name in "${OWNED_COMMANDS[@]}"; do
   cp -- "$ROOT/commands/$command_name.md" "$TARGET/commands/$command_name.md"
 done
+install_skill_command_shims "$TARGET/commands"
 copy_dir_contents "$ROOT/docs" "$TARGET/docs"
 rules_tmp="$TARGET/rules/etrnl.tmp"
 rules_old="$TARGET/rules/etrnl.old"
@@ -249,19 +361,11 @@ ln -sf -- "../tests/test-hooks.sh" "$TARGET/hooks/test-hooks.sh"
 ln -sf -- "../tests/test-workflow-tools.sh" "$TARGET/hooks/test-workflow-tools.sh"
 mkdir -p "$TARGET/hooks/lib"
 ln -sf -- "../../tests/lib/harness.sh" "$TARGET/hooks/lib/test-harness.sh"
-cp -- "$ROOT/scripts/doctor.sh" "$TARGET/scripts/doctor-control-plane.sh"
-ln -sf -- "doctor-control-plane.sh" "$TARGET/scripts/doctor.sh"
-for script in "${INSTALL_SCRIPTS[@]}"; do
-  cp -- "$ROOT/scripts/$script" "$TARGET/scripts/$script"
-done
-mkdir -p "$TARGET/scripts/lib"
-copy_dir_contents "$ROOT/scripts/lib" "$TARGET/scripts/lib"
+copy_control_scripts "$TARGET"
+copy_control_scripts "$CODEX_TARGET"
 chmod +x "$TARGET/hooks/test-hooks.sh" "$TARGET/hooks/test-workflow-tools.sh" "$TARGET/tests/test-hooks.sh" "$TARGET/tests/test-workflow-tools.sh" "$TARGET/scripts/"*.sh
-for script in "$TARGET/scripts/"*.mjs; do
-  if [[ -f "$script" ]] && IFS= read -r first_line <"$script" && [[ "$first_line" == "#!"* ]]; then
-    chmod +x "$script"
-  fi
-done
+chmod_control_scripts "$TARGET"
+chmod_control_scripts "$CODEX_TARGET"
 
 node "$ROOT/scripts/merge-settings.mjs" "$TARGET/settings.json" "$SETTINGS_TEMPLATE"
 node "$ROOT/scripts/settings-audit.mjs" "$TARGET/settings.json" --fix >/dev/null
@@ -270,6 +374,8 @@ if [[ "$legacy_rules_present" == "1" ]]; then
 fi
 
 write_install_metadata() {
+  local install_home="$1"
+  local install_settings_mode="$2"
   local commit branch dirty fingerprint version metadata_tmp source_git_available settings_mode
   local fingerprint_stderr_file version_stderr_file update_check_error
   local git_output
@@ -319,9 +425,9 @@ write_install_metadata() {
     return 1
   fi
   rm -f "$version_stderr_file"
-  mkdir -p "$TARGET/control-plane"
-  metadata_tmp="$(mktemp "$TARGET/control-plane/install.json.tmp.XXXXXX")"
-  settings_mode="$(settings_mode_for_template "$SETTINGS_TEMPLATE")"
+  mkdir -p "$install_home/control-plane"
+  metadata_tmp="$(mktemp "$install_home/control-plane/install.json.tmp.XXXXXX")"
+  settings_mode="$install_settings_mode"
   jq -n \
     --arg sourceRoot "$ROOT" \
     --arg sourceCommit "$commit" \
@@ -334,10 +440,11 @@ write_install_metadata() {
     --argjson sourceGitAvailable "$source_git_available" \
     --argjson sourceDirty "$dirty" \
     '{sourceRoot:$sourceRoot,sourceCommit:$sourceCommit,sourceCommitShort:$sourceCommitShort,sourceBranch:$sourceBranch,sourceGitAvailable:$sourceGitAvailable,sourceDirty:$sourceDirty,sourceFingerprint:$sourceFingerprint,sourceVersion:$sourceVersion,settingsMode:$settingsMode,installedAt:$installedAt}' >"$metadata_tmp"
-  install -m 600 "$metadata_tmp" "$TARGET/control-plane/install.json"
+  install -m 600 "$metadata_tmp" "$install_home/control-plane/install.json"
   rm -f "$metadata_tmp"
 }
-write_install_metadata
+write_install_metadata "$TARGET" "$(settings_mode_for_template "$SETTINGS_TEMPLATE")"
+write_install_metadata "$CODEX_TARGET" "codex"
 
 is_declared_indexed_array() {
   local name="$1"
@@ -367,7 +474,12 @@ verify_install_state() {
   [[ -f "$TARGET/settings.json" ]] || missing+=("settings.json")
   [[ -f "$TARGET/control-plane/install.json" ]] || missing+=("control-plane/install.json")
   [[ -x "$TARGET/scripts/update.sh" ]] || missing+=("scripts/update.sh")
+  [[ -f "$CODEX_TARGET/control-plane/install.json" ]] || missing+=("codex control-plane/install.json")
+  [[ -x "$CODEX_TARGET/scripts/update-check.mjs" ]] || missing+=("codex scripts/update-check.mjs")
+  [[ -x "$CODEX_TARGET/scripts/skill-update-prompt.mjs" ]] || missing+=("codex scripts/skill-update-prompt.mjs")
   for file in "${OWNED_SKILLS[@]}"; do
+    [[ -f "$TARGET/skills/$file/SKILL.md" ]] || missing+=("skills/$file/SKILL.md")
+    [[ -f "$TARGET/commands/$file.md" ]] || missing+=("commands/$file.md")
     [[ -f "$CODEX_TARGET/skills/$file/SKILL.md" ]] || missing+=("codex skills/$file/SKILL.md")
   done
   if (( ${#missing[@]} > 0 )); then
@@ -380,7 +492,7 @@ verify_install_state
 CLAUDE_HOME="$TARGET" "$TARGET/scripts/post-upgrade-canary.sh"
 
 printf 'Installed Claude control plane files. Backup: %s\n' "$BACKUP"
-printf 'Synced ETRNL skills into Codex: %s/skills\n' "$CODEX_TARGET"
+printf 'Installed Codex ETRNL skill/runtime files: %s\n' "$CODEX_TARGET"
 printf 'Installed ETRNL agents: %s\n' "${OWNED_AGENTS[*]}"
 if [[ "$legacy_moved" == "1" ]]; then
   printf 'Moved legacy repo-owned skills into backup: %s/skills\n' "$BACKUP"
