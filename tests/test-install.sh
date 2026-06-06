@@ -86,7 +86,7 @@ done
 for skill in "${OWNED_SKILLS[@]}"; do
   assert_file "installed Claude skill $skill" "$CLAUDE_HOME/skills/$skill/SKILL.md"
   assert_file "installed Claude slash command $skill" "$CLAUDE_HOME/commands/$skill.md"
-  assert_contains "installed Claude slash command $skill carries arguments" "$(cat "$CLAUDE_HOME/commands/$skill.md")" 'User request: $ARGUMENTS'
+  assert_contains "installed Claude slash command $skill carries arguments" "$(cat "$CLAUDE_HOME/commands/$skill.md")" "User request: \$ARGUMENTS"
   assert_file "synced Codex skill $skill" "$CODEX_HOME/skills/$skill/SKILL.md"
 done
 assert_file "installed Claude common skill reference" "$CLAUDE_HOME/skills/common/typescript-triggers.md"

@@ -9,7 +9,7 @@ This repo builds a shareable control plane for Claude Code. Keep the public repo
 - Put deterministic enforcement in hooks and repeatable process in skills.
 - When the user asks to implement or execute a plan, complete every item in the plan's `Execution scope` or stop with a concrete blocker. Minimal diffs constrain how each item is implemented; they do not permit silently choosing the first phase, first patch, MVP, or safer subset.
 - Keep startup guidance short; move detail to namespaced rules, docs, or skill references.
-- Keep `AGENTS.md` and `CLAUDE.md` aligned: shared guidance belongs in `AGENTS.md`; Claude-specific startup files should import or point to it instead of duplicating it.
+- Keep `AGENTS.md` and the Claude startup wrapper aligned: shared guidance belongs in `AGENTS.md`; `templates/CLAUDE.md` installs as the tiny Claude-specific file that imports or points to it instead of duplicating it.
 - Run `tests/test-hooks.sh` and `scripts/doctor.sh` before claiming the control plane is healthy.
 - Keep `CHANGELOG.md`, `docs/skills.md`, and `docs/health-stack.md` current when adding repo-owned workflows.
 

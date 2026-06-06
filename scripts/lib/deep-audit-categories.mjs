@@ -1,5 +1,7 @@
+/** Version for the deep-audit category registry schema and expected fixture snapshots. */
 export const CATEGORY_REGISTRY_VERSION = "2026-06-05.1";
 
+/** Category ids intentionally left out of the registered deep-audit gate set. */
 export const KNOWN_UNIMPLEMENTED_CATEGORIES = [
   "api-data",
   "payments",
@@ -96,6 +98,9 @@ function check(checkId, label, requiredWorklists, applicabilityGate, laneId = ""
   return { checkId, label, requiredWorklists, applicabilityGate, laneId };
 }
 
+/**
+ * Canonical registry for deep-audit categories, required worklists, checks, and lane receipts.
+ */
 export const REGISTERED_DEEP_AUDIT_CATEGORIES = [
   {
     categoryId: "code-excellence",
@@ -274,6 +279,7 @@ export const REGISTERED_DEEP_AUDIT_CATEGORIES = [
   },
 ];
 
+/** Return the currently enforced deep-audit category ids in registry order. */
 export function registeredCategoryIds() {
   return REGISTERED_DEEP_AUDIT_CATEGORIES.map((category) => category.categoryId);
 }

@@ -199,7 +199,7 @@ install_skill_command_shims() {
       printf 'argument-hint: <request>\n'
       printf '%s\n' '---'
       printf '\n'
-      printf 'User request: $ARGUMENTS\n\n'
+      printf '%s\n\n' "User request: \$ARGUMENTS"
       printf 'Follow this ETRNL skill contract exactly:\n\n'
       printf '<etrnl_skill_contract name="%s">\n' "$skill"
       while IFS= read -r line || [[ -n "$line" ]]; do

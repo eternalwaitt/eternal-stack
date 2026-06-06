@@ -4,6 +4,7 @@
 
 ## v0.2.0
 
+- Harden public control-plane health checks with config-driven private project redaction, strict workflow runtime doctor mode, clean `shellcheck -x` coverage, and updated documentation for the new runtime health flags.
 - Rename repo-owned ETRNL skills to the canonical `etrnl-dev-*`, `etrnl-audit-*`, `etrnl-ops-*`, and `etrnl-comm-*` taxonomy and remove old slash alias routing.
 - Expand the deep-audit registry to code excellence, UI/UX/product, production, security, performance, shared reuse, repo hygiene, and tooling ecosystem.
 - Add first-class audit skills for excellence, UX, reuse, repo hygiene, and tooling.

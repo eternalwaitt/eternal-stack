@@ -35,11 +35,6 @@ report_command() {
   local output_file
   shift 2
   output_file="$(mktemp "${TMPDIR:-/tmp}/control-plane-doctor.XXXXXX")"
-  cleanup_report_command() {
-    rm -f "$output_file"
-    trap - RETURN
-  }
-  trap cleanup_report_command RETURN
   if "$@" >"$output_file" 2>&1; then
     ok "$present_msg"
   elif [[ -s "$output_file" ]]; then
@@ -47,6 +42,7 @@ report_command() {
   else
     fail "$failure_msg"
   fi
+  rm -f "$output_file"
 }
 
 line_count_file() {
@@ -463,6 +459,19 @@ if [[ -f "$ROOT/scripts/workflow-health.mjs" ]]; then
     done <<<"$workflow_health"
   else
     fail "workflow health summary failed: $workflow_health"
+  fi
+  workflow_doctor_args=(doctor --json)
+  if [[ "${CLAUDE_CONTROL_PLANE_DOCTOR_STRICT_RUNTIME:-0}" == "1" ]]; then
+    workflow_doctor_args+=(--strict)
+  fi
+  if workflow_doctor="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$runs_dir" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$artifact_dir" node "$ROOT/scripts/workflow-health.mjs" "${workflow_doctor_args[@]}" 2>&1)"; then
+    ok "workflow runtime doctor available"
+  else
+    fail "workflow runtime doctor failed: $workflow_doctor"
+  fi
+  if jq -e . >/dev/null 2>&1 <<<"$workflow_doctor"; then
+    runtime_findings_count="$(jq -r '.runtimeFindings | length' <<<"$workflow_doctor")"
+    ok "workflow runtime findings=${runtime_findings_count}"
   fi
 fi
 optional_command codex "optional Codex escalation available" "optional Codex escalation not installed"

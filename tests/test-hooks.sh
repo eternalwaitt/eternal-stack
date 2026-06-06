@@ -106,7 +106,7 @@ assert_json_expr "redirected workflow JSON artifact allowed" "$out" '.continue =
 fd_redirected_workflow_bash="$(jq '.tool_input.command = "node scripts/workflow-health.mjs --json 1>artifacts/workflow-health.json"' <<<"$bash_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$fd_redirected_workflow_bash")"
 assert_json_expr "fd redirected workflow JSON artifact allowed" "$out" '.continue == true'
-rtk_filtered_check_types="$(bash -c 'source "$1"; cc_command_is_quality_verification "$2"; echo $?' _ "$ROOT/hooks/lib/command-classifiers.sh" "rtk pnpm --filter @tcg-collector/api check-types 2>&1 | tail -20")"
+rtk_filtered_check_types="$(bash -c 'source "$1"; cc_command_is_quality_verification "$2"; echo $?' _ "$ROOT/hooks/lib/command-classifiers.sh" "rtk pnpm --filter @fixture/api check-types 2>&1 | tail -20")"
 if [[ "$rtk_filtered_check_types" == "0" ]]; then ok "rtk pnpm filtered check-types counts as quality verification"; else not_ok "rtk pnpm filtered check-types should count as quality verification: got '$rtk_filtered_check_types'"; fi
 readiness_help_bash="$(jq '.tool_input.command = "node ~/.claude/scripts/plan-readiness-check.mjs --help 2>&1 || bat ~/.claude/scripts/plan-readiness-check.mjs"' <<<"$bash_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$readiness_help_bash")"
