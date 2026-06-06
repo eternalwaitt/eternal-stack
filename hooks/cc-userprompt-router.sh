@@ -255,7 +255,7 @@ cc_prompt_skill_update_note() {
   [[ -r "$update_script" ]] || return 0
 
   update_status=0
-  update_output="$(node "$update_script" 2>/dev/null)" || update_status=$?
+  update_output="$(CLAUDE_CONTROL_PLANE_AUTO_UPDATE=0 node "$update_script" 2>/dev/null)" || update_status=$?
   [[ "$update_status" == "0" ]] || return 0
   [[ "$update_output" =~ (CONTROL_PLANE_UPDATE_AVAILABLE|CONTROL_PLANE_REMOTE_UPDATE_AVAILABLE|TOOL_STACK_UPDATE_AVAILABLE|TOOL_STACK_MISSING) ]] || return 0
 

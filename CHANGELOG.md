@@ -20,6 +20,7 @@
 - Wire `/etrnl-dev-ci` into owned-skill install/discovery, prompt routing, trigger fixtures, docs, and parity-scorecard coverage as a canonical repo-owned skill.
 - Introduce local tool-effectiveness measurement for CodeGraph, Beads, Codex imports, and hook-pattern signals, including deterministic keep/drop verdict fixtures, workflow-health projection, and a synthetic continuous-project config template.
 - Enable CodeGraph/Beads bootstrap and update checks, including global MCP refresh, optional project-local `.codegraph`/`.beads` initialization, installed tool-stack health reporting, and per-skill advisory update prompts before requested `etrnl-*` skills run.
+- Make local control-plane repair opt-out during startup update checks; set `CLAUDE_CONTROL_PLANE_AUTO_UPDATE=0` to keep checks non-mutating.
 
 - Improve stop-hook completion classification so paused production handoffs and other explicit non-final status updates do not get blocked as unverified completion claims.
 - Repair hook ergonomics around context and large edits: settings audit now removes legacy Stop handoff monitors that emit invalid context output, and the large-change guard honors recorded plan artifacts such as `.rulebook/PLANS.md`.

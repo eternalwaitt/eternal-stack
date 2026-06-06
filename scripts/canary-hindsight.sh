@@ -58,9 +58,9 @@ emit_ok() {
 health_check() {
   local url="$1"
   if command -v rtk >/dev/null 2>&1; then
-    rtk proxy curl -fsS --max-time 2 "$url" >/dev/null 2>/dev/null
+    rtk proxy curl -fsS --max-time 2 "$url" >/dev/null
   else
-    curl -fsS --max-time 2 "$url" >/dev/null 2>/dev/null
+    curl -fsS --max-time 2 "$url" >/dev/null
   fi
 }
 

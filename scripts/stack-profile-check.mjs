@@ -28,7 +28,7 @@ function asArray(value) {
 }
 
 function hasSecretLookingText(value) {
-  return /sk-(proj-)?[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{20,}/.test(String(value));
+  return /sk-(proj-|ant-)?[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9_]{20,}|glpat-[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9-]{20,}|npm_[A-Za-z0-9]{20,}|AKIA[A-Z0-9]{16}|BEGIN (?:RSA |EC |OPENSSH |)?PRIVATE KEY/.test(String(value));
 }
 
 function hasPrivateHomePath(value) {

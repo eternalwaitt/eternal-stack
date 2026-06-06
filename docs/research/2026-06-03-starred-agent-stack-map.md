@@ -24,7 +24,7 @@ Scope:
 | --- | --- | --- | --- | --- |
 | P0 | `rtk-ai/rtk` | adopt | Deterministic command rewrite/truncation already aligns with current RTK-first direction. | `codex-rtk-pre-tool-use.sh`, doctor/install/test parity |
 | P0 | `colbymchenry/codegraph` | adopt optional | Best local code-index MCP: adaptive output caps, FTS5/SQLite graph, line-numbered explore output, tool allowlist. | optional MCP companion, code-health/research docs |
-| P0 | `github/spec-kit` | steal/adopt gates | Strongest spec -> plan -> tasks -> implement pipeline; better task/checklist executability gates than section checks. | `plan-readiness-check.mjs`, `etrnl-dev-plan`, `etrnl-dev-execute` |
+| P0 | `GitHub/spec-kit` | steal/adopt gates | Strongest spec -> plan -> tasks -> implement pipeline; better task/checklist executability gates than section checks. | `plan-readiness-check.mjs`, `etrnl-dev-plan`, `etrnl-dev-execute` |
 | P0 | `Chachamaru127/claude-code-harness` | steal | Sprint contract, worker AGENTS hash proof, quality gates, test tamper checks, review plateau detection. | `execution-ledger.mjs`, `workflow-health.mjs`, `browser-qa-report.mjs`, Stop verifier |
 | P0 | `infinri/Writ` | steal | Phase-gated writes, mandatory-vs-retrieved rules, mechanical-enforcement requirement for mandatory rules. | `skill-contract-check.mjs`, PreTool/Stop hooks |
 | P1 | `gsd-build/get-shit-done` | adopt as benchmark | Closest workflow benchmark: `.planning` state, phase gates, context monitor, command router. | execution ledger, context breadcrumbs, workflow health |

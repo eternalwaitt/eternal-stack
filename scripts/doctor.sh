@@ -35,15 +35,17 @@ report_command() {
   local output_file
   shift 2
   output_file="$(mktemp "${TMPDIR:-/tmp}/control-plane-doctor.XXXXXX")"
+  cleanup_report_command() {
+    rm -f "$output_file"
+    trap - RETURN
+  }
+  trap cleanup_report_command RETURN
   if "$@" >"$output_file" 2>&1; then
     ok "$present_msg"
-    rm -f "$output_file"
   elif [[ -s "$output_file" ]]; then
     fail "$failure_msg: $(tail -n 40 "$output_file")"
-    rm -f "$output_file"
   else
     fail "$failure_msg"
-    rm -f "$output_file"
   fi
 }
 

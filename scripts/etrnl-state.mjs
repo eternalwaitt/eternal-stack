@@ -44,16 +44,29 @@ function readStdin() {
   if (process.stdin.isTTY) return "";
   try {
     return fs.readFileSync(0, "utf8").trim();
-  } catch {
-    return "";
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && ["EAGAIN", "EWOULDBLOCK"].includes(error.code)) return "";
+    fail(jsonError("StdinReadError", "Failed to read JSON from stdin.", error instanceof Error ? error.message : String(error)), 2);
   }
 }
 
 function readEventInput() {
   const fixture = flagValue(args, "--fixture", flagValue(args, "--input"));
-  if (fixture) return JSON.parse(fs.readFileSync(fixture, "utf8"));
+  if (fixture) {
+    try {
+      return JSON.parse(fs.readFileSync(fixture, "utf8"));
+    } catch (error) {
+      fail(jsonError("InvalidFixtureJSON", `Failed to parse fixture file: ${fixture}`, error instanceof Error ? error.message : String(error)), 2);
+    }
+  }
   const raw = readStdin();
-  if (raw) return JSON.parse(raw);
+  if (raw) {
+    try {
+      return JSON.parse(raw);
+    } catch (error) {
+      fail(jsonError("InvalidStdinJSON", "Failed to parse JSON from stdin.", error instanceof Error ? error.message : String(error)), 2);
+    }
+  }
   if (!eventKind) {
     fail(jsonError("MissingEventInput", "append requires --fixture, stdin JSON, or --event-kind.", "Pass a fixture or pipe a JSON event."), 2);
   }

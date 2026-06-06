@@ -201,7 +201,7 @@ function eventsFromLive() {
         usefulWork: true,
         downstreamArtifact: true,
         verificationRecovered: handoff.handoff && !handoff.handoff.verificationStale,
-        projectHash: handoff.handoff?.projectFingerprint || handoff.latestCompact?.projectFingerprint || "compact",
+        projectHash: handoff.latestCompact?.projectFingerprint || "compact",
         at: handoff.handoff?.lastCompactAt || new Date(0).toISOString(),
       }, "etrnl-state");
       if (!normalized.rejected) events.push(normalized);

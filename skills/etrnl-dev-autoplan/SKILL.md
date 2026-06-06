@@ -112,7 +112,7 @@ Do not put private home paths, `/tmp` snapshots, transcripts, account material, 
 - Blast-radius expansion: auto-include when it touches files already modified by the plan or direct importers and remains bounded.
 - Taste decision: choose the default, log it, and surface it in the final gate.
 - User challenge: never auto-decide changes that contradict the user's explicit direction.
-- Human-gate only premises, subjective taste, destructive actions, missing credentials, scope outside blast radius, or repeated stalls.
+- Human-gate-only: premises, subjective taste, destructive actions, missing credentials, scope outside blast radius, or repeated stalls.
 
 ## Research Flow (required_process)
 

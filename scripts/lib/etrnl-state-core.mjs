@@ -195,7 +195,7 @@ function privacyReject(value, trail = []) {
     return "";
   }
   if (typeof value !== "string") return "";
-  if (/sk-(proj-)?[A-Za-z0-9_-]{20,}/.test(value)) return "secret-looking token";
+  if (/sk-(proj-|ant-)?[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9_]{20,}|glpat-[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9-]{20,}|npm_[A-Za-z0-9]{20,}|AKIA[A-Z0-9]{16}|BEGIN (?:RSA |EC |OPENSSH |)?PRIVATE KEY/.test(value)) return "secret-looking token";
   if (/\.codex\/sessions|\.claude\/projects/.test(value)) return "private transcript path";
   if (hasPrivateAbsolutePathString(value)) return "private absolute path";
   if (privateProjectPattern?.test(value)) return "private project name";
@@ -223,6 +223,15 @@ export function normalizeEvent(raw, options = {}) {
   const reject = privacyReject(data);
   if (reject) {
     return { ok: false, error: jsonError("PrivacyRejectError", `Rejected event before write: ${reject}.`, "Remove raw prompts, transcripts, secrets, private paths, and private project names before appending state.") };
+  }
+  const metadataReject = privacyReject({
+    eventId: raw.eventId,
+    runId: raw.runId || raw.run_id,
+    at: raw.at,
+    projectFingerprint: raw.projectFingerprint,
+  });
+  if (metadataReject) {
+    return { ok: false, error: jsonError("PrivacyRejectError", `Rejected event metadata before write: ${metadataReject}.`, "Keep event identifiers, timestamps, and fingerprints token-free and path-free.") };
   }
   const sessionId = cleanSessionId(raw.sessionId || raw.session_id || options.session);
   const event = {
@@ -284,7 +293,7 @@ export function compactHandoff(options = {}) {
   const sessionEvents = events.filter((event) => event.sessionId === sessionId);
   const latestPre = latestEvent(sessionEvents, (event) => event.eventKind === "compact_pre");
   const latestPost = latestEvent(sessionEvents, (event) => event.eventKind === "compact_post");
-  const latestCheck = latestEvent(sessionEvents, (event) => event.eventKind === "check" && (event.data.category === "verification" || event.data.verification === true || event.data.command));
+  const latestCheck = latestEvent(sessionEvents, (event) => event.eventKind === "check" && (event.data.category === "verification" || event.data.verification === true));
   const compactSeq = Math.max(Number(latestPre?.eventSeq || 0), Number(latestPost?.eventSeq || 0));
   const checkSeq = Number(latestCheck?.eventSeq || 0);
   const summary = latestPost?.data.compactSummary || latestPost?.data.summary || "summary_missing";
@@ -301,7 +310,7 @@ export function compactHandoff(options = {}) {
     lastCompactAt: latestPost?.at || latestPre?.at || "",
   };
   const text = boundText(`Compact recovery: task=${task} next=${nextAction} verification_stale=${handoff.verificationStale} summary=${summary}`, options.maxChars || 1200);
-  return { ok: true, found: true, handoff, text, statePath: statePaths(root).events };
+  return { ok: true, found: true, handoff, latestCompact, text, statePath: statePaths(root).events };
 }
 
 export function stopStatus(options = {}) {

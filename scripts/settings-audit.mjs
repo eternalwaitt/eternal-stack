@@ -21,10 +21,12 @@ if (!settingsPath) {
 const homeDir = os.homedir();
 const envClaudeHome = process.env.CLAUDE_HOME ? path.resolve(process.env.CLAUDE_HOME) : "";
 const settingsAbsPath = path.resolve(settingsPath);
+const settingsIsTemplate = settingsAbsPath.includes(`${path.sep}templates${path.sep}`);
 const configuredClaudeHome = envClaudeHome && settingsAbsPath === path.join(envClaudeHome, "settings.json")
   ? envClaudeHome
-  : path.join(homeDir, ".claude");
-const settingsIsTemplate = settingsAbsPath.includes(`${path.sep}templates${path.sep}`);
+  : path.basename(settingsAbsPath) === "settings.json" && path.basename(path.dirname(settingsAbsPath)) === ".claude" && !settingsIsTemplate
+    ? path.dirname(settingsAbsPath)
+    : path.join(homeDir, ".claude");
 const matcherOrder = ["Bash", "Read", "Edit", "Write", "MultiEdit", "WebSearch", "Task", "TaskCreate", "Agent"];
 const hookEventNames = new Set([
   "PreToolUse",
@@ -384,7 +386,8 @@ function collectFrontmatterHookDeclarations() {
 }
 
 function hindsightConfigPath() {
-  const hindsightHome = process.env.HINDSIGHT_HOME ? path.resolve(process.env.HINDSIGHT_HOME) : path.join(homeDir, ".hindsight");
+  const defaultHindsightHome = path.join(path.dirname(configuredClaudeHome), ".hindsight");
+  const hindsightHome = process.env.HINDSIGHT_HOME ? path.resolve(process.env.HINDSIGHT_HOME) : defaultHindsightHome;
   return path.join(hindsightHome, "claude-code.json");
 }
 
@@ -435,6 +438,14 @@ function collectIssues(settings) {
   const pluginHookManifests = settingsIsTemplate ? [] : collectPluginHookManifests();
   const manifestErrors = pluginHookManifests.filter((row) => row.error);
   const memoryPluginHooks = pluginHookManifests.filter((row) => /hindsight|memory|recall|retain/i.test(`${row.plugin} ${row.command}`));
+  const pluginRows = pluginHookManifests
+    .filter((row) => row.command && row.eventName)
+    .map((row) => ({
+      ...row,
+      matcher: row.matcher ?? "*",
+      hook: { async: row.async === true },
+      basename: hookBasename(row.command),
+    }));
   const riskyTopLevelIssues = collectRiskyTopLevel(settings);
   const frontmatterHookDeclarations = settingsIsTemplate ? [] : collectFrontmatterHookDeclarations();
   const memoryPluginPosture = collectMemoryPluginPosture(settings);
@@ -473,6 +484,40 @@ function collectIssues(settings) {
           legacyHooks.push({ eventName, command: canonical, matcher: group.matcher ?? "*" });
         }
         seen.push({ canonical, matcher: group.matcher });
+      }
+    }
+  }
+  for (const row of pluginRows) {
+    if (!row.basename) continue;
+    const owner = hookOwner(row.basename);
+    const external = {
+      eventName: row.eventName,
+      matcher: row.matcher,
+      command: row.command,
+      hook: row.basename,
+      owner,
+      plugin: row.plugin,
+      manifestPath: row.manifestPath,
+    };
+    const conflict = conflictForHook(row.basename, row.command, row.eventName, row.matcher);
+    if (conflict) conflictingHooks.push({ ...external, ...conflict });
+    for (const required of requiredHooks) {
+      if (row.eventName !== required.eventName || row.basename !== required.hook) continue;
+      if (required.mustBeSync && row.async === true) {
+        syncExpectationIssues.push({
+          eventName: row.eventName,
+          matcher: row.matcher,
+          hook: row.basename,
+          id: "plugin-required-hook-async",
+          reason: `${row.basename} from plugin ${row.plugin} must be synchronous if it registers the compact recovery hook`,
+        });
+      }
+    }
+    const file = hookPath(row.command);
+    if (owner === "repo-owned" && file) {
+      const mode = executableMode(file);
+      if (mode !== "executable") {
+        executableIssues.push({ eventName: row.eventName, hook: row.basename, file, id: "plugin-hook-not-executable", mode, plugin: row.plugin });
       }
     }
   }

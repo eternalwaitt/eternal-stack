@@ -160,9 +160,10 @@ assert_json_expr "post-install: reset removed foreign hooks before stack merge" 
 shopt -s nullglob
 backup_settings=("$CLAUDE_HOME"/backups/control-plane-install-*/settings.json)
 shopt -u nullglob
-if (( ${#backup_settings[@]} == 1 )); then
+if (( ${#backup_settings[@]} >= 1 )); then
   ok "post-install: prior Claude settings were backed up"
-  assert_json_expr "post-install: backup preserves risky settings for rollback" "$(jq -c . "${backup_settings[0]}")" '.autoCompactWindow == 400000 and .skipAutoPermissionPrompt == true'
+  latest_backup="${backup_settings[$((${#backup_settings[@]} - 1))]}"
+  assert_json_expr "post-install: backup preserves risky settings for rollback" "$(jq -c . "$latest_backup")" '.autoCompactWindow == 400000 and .skipAutoPermissionPrompt == true'
 else
   not_ok "post-install: prior Claude settings were backed up"
 fi
@@ -212,11 +213,10 @@ if canary_output="$("$CLAUDE_HOME/scripts/post-upgrade-canary.sh" 2>&1)"; then
 else
   not_ok "post-install: post-upgrade canary failed: $canary_output"
 fi
-metadata_tmp="$CLAUDE_HOME/control-plane/install.json.tmp"
-trap '[[ -n "${metadata_tmp:-}" ]] && rm -f "$metadata_tmp"' EXIT
+metadata_tmp="$(mktemp "$CLAUDE_HOME/control-plane/install.json.XXXXXX")"
+trap 'rm -f "$metadata_tmp"' EXIT
 jq '.sourceFingerprint = "stale"' "$CLAUDE_HOME/control-plane/install.json" >"$metadata_tmp"
 mv -- "$metadata_tmp" "$CLAUDE_HOME/control-plane/install.json"
-metadata_tmp=""
 trap - EXIT
 if ! stale_update_json="$(CLAUDE_CONTROL_PLANE_AUTO_UPDATE=0 node "$CLAUDE_HOME/scripts/update-check.mjs" --json 2>&1)"; then
   not_ok "post-install: stale update-check.mjs failed: $stale_update_json"
@@ -224,11 +224,10 @@ if ! stale_update_json="$(CLAUDE_CONTROL_PLANE_AUTO_UPDATE=0 node "$CLAUDE_HOME/
   exit 1
 fi
 assert_json_expr "post-install: stale metadata detects update" "$stale_update_json" '.ok == true and .localUpdateAvailable == true'
-codex_metadata_tmp="$CODEX_HOME/control-plane/install.json.tmp"
-trap '[[ -n "${codex_metadata_tmp:-}" ]] && rm -f "$codex_metadata_tmp"' EXIT
+codex_metadata_tmp="$(mktemp "$CODEX_HOME/control-plane/install.json.XXXXXX")"
+trap 'rm -f "$codex_metadata_tmp"' EXIT
 jq '.sourceFingerprint = "stale"' "$CODEX_HOME/control-plane/install.json" >"$codex_metadata_tmp"
 mv -- "$codex_metadata_tmp" "$CODEX_HOME/control-plane/install.json"
-codex_metadata_tmp=""
 trap - EXIT
 if codex_prompt_text="$(CLAUDE_CONTROL_PLANE_AUTO_UPDATE=0 CLAUDE_CONTROL_PLANE_TOOL_UPDATE_CHECK=0 node "$CODEX_HOME/scripts/skill-update-prompt.mjs" --agent codex --skill etrnl-dev-plan --json 2>&1)"; then
   assert_json_expr "post-install: stale Codex skill prompt reports update when auto disabled" "$codex_prompt_text" '.ok == true and .promptNeeded == true and .localUpdateAvailable == true'

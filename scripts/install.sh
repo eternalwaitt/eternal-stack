@@ -331,7 +331,7 @@ validate_source_install_inputs() {
     [[ -d "$ROOT/skills/$skill" ]] || missing+=("$ROOT/skills/$skill")
     [[ -s "$ROOT/skills/$skill/SKILL.md" ]] || missing+=("$ROOT/skills/$skill/SKILL.md")
   done
-    if (( ${#missing[@]} > 0 )); then
+  if (( ${#missing[@]} > 0 )); then
     printf 'install dry-run failed; missing source files:\n' >&2
     printf '  %s\n' "${missing[@]}" >&2
     return 1
@@ -581,7 +581,7 @@ write_install_metadata() {
   mkdir -p "$install_home/control-plane"
   metadata_tmp="$(mktemp "$install_home/control-plane/install.json.tmp.XXXXXX")"
   settings_mode="$install_settings_mode"
-    jq -n \
+  jq -n \
     --arg sourceRoot "$ROOT" \
     --arg sourceCommit "$commit" \
     --arg sourceCommitShort "${commit:0:12}" \
@@ -626,7 +626,7 @@ verify_install_state() {
     missing+=("scripts/lib/skill-lists.sh: CRITICAL_SCRIPTS missing or empty")
   fi
   [[ -f "$TARGET/settings.json" ]] || missing+=("settings.json")
-    [[ -f "$TARGET/control-plane/install.json" ]] || missing+=("control-plane/install.json")
+  [[ -f "$TARGET/control-plane/install.json" ]] || missing+=("control-plane/install.json")
   [[ -f "$TARGET/templates/stack-profile.$PROFILE.json" ]] || missing+=("templates/stack-profile.$PROFILE.json")
   [[ -f "$TARGET/templates/hindsight/claude-code.local-daemon.json" ]] || missing+=("templates/hindsight/claude-code.local-daemon.json")
   [[ -x "$TARGET/scripts/update.sh" ]] || missing+=("scripts/update.sh")

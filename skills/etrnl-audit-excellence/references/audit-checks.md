@@ -22,8 +22,8 @@ Use shared artifact paths produced by the orchestrator. Baseline commands:
 | Worklist id | Contents | Baseline command |
 | --- | --- | --- |
 | `code_source` | app and library source files | `fd -e ts -e tsx -e js -e jsx -e py -e rs -e go -e rb -e php -e java -e kt --exclude node_modules --exclude .next --exclude dist` |
-| `code_tests` | test and fixture files | `fd 'test|spec|fixture' --type f --exclude node_modules --exclude .next --exclude dist` |
-| `code_configs` | build, lint, type, and runtime config | `fd 'package.json|tsconfig.*|eslint.*|oxlint.*|biome.*|vite.*|next.config.*|pytest.ini|Cargo.toml|go.mod'` |
+| `code_tests` | test and fixture files | `fd 'test\|spec\|fixture' --type f --exclude node_modules --exclude .next --exclude dist` |
+| `code_configs` | build, lint, type, and runtime config | `fd 'package.json\|tsconfig.*\|eslint.*\|oxlint.*\|biome.*\|vite.*\|next.config.*\|pytest.ini\|Cargo.toml\|go.mod'` |
 
 ## Applicability Discovery
 

@@ -24,7 +24,7 @@ cc_state_dir() {
 }
 
 cc_etrnl_state_script() {
-  printf '%s/../scripts/etrnl-state.mjs\n' "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
+  printf '%s/scripts/etrnl-state.mjs\n' "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 }
 
 cc_etrnl_state_available() {

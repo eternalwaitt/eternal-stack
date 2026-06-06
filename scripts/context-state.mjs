@@ -123,7 +123,10 @@ function save() {
     projectFingerprint: stableHash(process.cwd()),
     branch: gitOutput(["branch", "--show-current"]),
     head: gitOutput(["rev-parse", "--short", "HEAD"]),
-    modifiedFileCount: gitOutput(["status", "--short"]).split(/\n/).filter(Boolean).length,
+    modifiedFileCount: (() => {
+      const output = gitOutput(["status", "--short"]);
+      return output.startsWith("unavailable:") ? 0 : output.split(/\n/).filter(Boolean).length;
+    })(),
     decisions: allValues("--decision"),
     blockers: allValues("--blocker"),
     remainingWork: allValues("--remaining"),
