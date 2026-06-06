@@ -59,6 +59,7 @@ if (!fs.existsSync(updateScript)) {
 
 const update = spawnSync(process.execPath, [updateScript, "--json"], {
   encoding: "utf8",
+  // Startup runs can include git and tool-stack probes; keep this bounded but above slow-network fetches.
   timeout: 180_000,
   env: {
     ...process.env,

@@ -244,6 +244,7 @@ install_beads() {
   [[ "$confirm_status" == "$CONFIRM_SKIPPED" ]] && return 0
   [[ "$confirm_status" == "0" ]] || return "$confirm_status"
   brew install beads
+  need_command bd || { printf 'bootstrap error: bd binary not found after Homebrew install\n' >&2; return 1; }
 }
 
 install_hindsight() {

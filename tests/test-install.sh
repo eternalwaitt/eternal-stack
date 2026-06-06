@@ -36,6 +36,18 @@ assert_no_directory "install dry-run does not create Codex home" "$dry_run_codex
 assert_command "core stack profile validates" node "$ROOT/scripts/stack-profile-check.mjs" "$ROOT/templates/stack-profile.core.json"
 assert_command "full stack profile validates" node "$ROOT/scripts/stack-profile-check.mjs" "$ROOT/templates/stack-profile.full.json"
 
+bad_settings_home="$TMPROOT/bad-settings-claude"
+bad_settings_codex_home="$TMPROOT/bad-settings-codex"
+mkdir -p "$bad_settings_home"
+printf '{invalid json\n' >"$bad_settings_home/settings.json"
+if bad_settings_out="$(CLAUDE_HOME="$bad_settings_home" CODEX_HOME="$bad_settings_codex_home" "$ROOT/scripts/install.sh" 2>&1)"; then
+  ok "install recovers malformed settings"
+else
+  not_ok "install recovers malformed settings: $bad_settings_out"
+fi
+assert_contains "install warns about malformed settings" "$bad_settings_out" "install warning: invalid JSON"
+assert_json_expr "install malformed settings resets enabledPlugins" "$(jq -c . "$bad_settings_home/settings.json")" '.enabledPlugins == {}'
+
 mkdir -p "$CLAUDE_HOME/skills/etrnl-fix-issue" "$CODEX_HOME/skills/etrnl-fix-issue" "$CLAUDE_HOME/commands"
 printf 'legacy claude skill\n' >"$CLAUDE_HOME/skills/etrnl-fix-issue/SKILL.md"
 printf 'legacy codex skill\n' >"$CODEX_HOME/skills/etrnl-fix-issue/SKILL.md"

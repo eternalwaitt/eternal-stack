@@ -21,7 +21,8 @@ const args = process.argv.slice(2);
 const command = collectPositionals(args)[0] || "help";
 const jsonMode = args.includes("--json");
 const stateDir = flagValue(args, "--state-dir");
-const cwd = flagValue(args, "--cwd", process.cwd());
+const cwdFlag = flagValue(args, "--cwd");
+const cwd = cwdFlag || process.cwd();
 const session = flagValue(args, "--session");
 const run = flagValue(args, "--run");
 const eventKind = flagValue(args, "--event-kind");
@@ -165,7 +166,7 @@ function commandImportLegacy() {
   } catch (error) {
     fail(jsonError("InvalidLegacyJSON", `Failed to parse legacy file: ${input}`, error instanceof Error ? error.message : String(error)), 2);
   }
-  const legacyCwd = cwd || (typeof legacy.cwd === "string" && legacy.cwd.trim() ? legacy.cwd : process.cwd());
+  const legacyCwd = cwdFlag || (typeof legacy.cwd === "string" && legacy.cwd.trim() ? legacy.cwd : process.cwd());
   const event = {
     eventKind: "context_entry",
     sessionId: session || legacy.sessionId || "legacy",

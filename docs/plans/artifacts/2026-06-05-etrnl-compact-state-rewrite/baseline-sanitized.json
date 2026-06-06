@@ -22,7 +22,7 @@
   },
   "beads": {
     "statusCommand": "bd status --json",
-    "status": "failed",
+    "status": "not_configured",
     "summary": {
       "totalIssues": 0,
       "openIssues": 0,
@@ -30,11 +30,11 @@
       "inProgressIssues": 0
     },
     "claudeSetupCheck": {
-      "status": "failed",
+      "status": "not_configured",
       "sanitizedFinding": "no Beads hooks installed"
     },
     "codexSetupCheck": {
-      "status": "failed",
+      "status": "not_configured",
       "sanitizedFinding": "repo-local Beads Codex skill missing"
     }
   },
