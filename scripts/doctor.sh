@@ -8,7 +8,7 @@ DOCTOR_ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --jobs)
-      if [[ $# -lt 2 ]]; then
+      if [[ $# -lt 2 || -z "${2:-}" || "${2}" == --* ]]; then
         printf 'doctor: --jobs requires a value\n' >&2
         exit 2
       fi

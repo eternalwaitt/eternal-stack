@@ -347,7 +347,11 @@ function hindsightStatus() {
   const cacheFallback = !cliProbe.probeOk && cacheProbe.installed;
   const pluginInstalled = cliProbe.installed || cacheFallback;
   const pluginInstallSource = cliProbe.installed ? "claude-cli" : (cacheFallback ? "plugin-cache" : "none");
-  const currentVersion = cliProbe.version || cacheProbe.version || "";
+  // When the CLI ran successfully it is authoritative: a definitive "not
+  // installed" must not borrow a stale version from the plugin cache.
+  const currentVersion = cliProbe.probeOk
+    ? (cliProbe.installed ? (cliProbe.version || "") : "")
+    : (cacheProbe.version || "");
   const configPath = hindsightConfigPath();
   const config = readJson(configPath, null);
   const configExists = Boolean(config);
