@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFileSync } from "node:fs";
+import { readStdinJson } from "./lib/read-stdin.mjs";
 
 const args = process.argv.slice(2);
 const strict = args.includes("--strict");
@@ -28,18 +28,18 @@ if (help) {
 }
 
 function readInput() {
-  const raw = readFileSync(0, "utf8").trim();
-  if (!raw) {
-    console.error("execution-wave-check requires JSON on stdin.");
-    process.exit(2);
-  }
-  try {
-    return JSON.parse(raw);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(`execution-wave-check invalid JSON: ${message}`);
-    process.exit(2);
-  }
+  return readStdinJson({
+    required: true,
+    onRequired: () => {
+      console.error("execution-wave-check requires JSON on stdin.");
+      process.exit(2);
+    },
+    onInvalidJson: (error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`execution-wave-check invalid JSON: ${message}`);
+      process.exit(2);
+    },
+  });
 }
 
 function normalizePlan(plan) {

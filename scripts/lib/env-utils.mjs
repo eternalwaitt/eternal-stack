@@ -29,8 +29,8 @@ function firstPositiveEnv(candidates, fallback) {
 
 /**
  * Builds Git subprocess timeout and buffer limits from environment precedence.
- * Timeout precedence is CLAUDE_CONTROL_PLANE_GIT_TIMEOUT_MS, then GIT_TIMEOUT_MS,
- * then options.timeoutMs. Buffer precedence is CLAUDE_CONTROL_PLANE_GIT_MAX_BUFFER_BYTES,
+ * Timeout precedence is ETRNL_GIT_TIMEOUT_MS, then GIT_TIMEOUT_MS,
+ * then options.timeoutMs. Buffer precedence is ETRNL_GIT_MAX_BUFFER_BYTES,
  * then GIT_MAX_BUFFER_BYTES, then GIT_MAX_BUFFER, then options.maxBufferBytes.
  * Example: execFileSync("git", ["status"], gitSubprocessLimits({ timeoutMs: 5000 })).
  * @param {{timeoutMs?: number, maxBufferBytes?: number}} [options] - Default limits.
@@ -39,12 +39,12 @@ function firstPositiveEnv(candidates, fallback) {
 export function gitSubprocessLimits({ timeoutMs, maxBufferBytes } = {}) {
   return {
     timeout: firstPositiveEnv(
-      [process.env.CLAUDE_CONTROL_PLANE_GIT_TIMEOUT_MS, process.env.GIT_TIMEOUT_MS],
+      [process.env.ETRNL_GIT_TIMEOUT_MS, process.env.GIT_TIMEOUT_MS],
       timeoutMs,
     ),
     maxBuffer: firstPositiveEnv(
       [
-        process.env.CLAUDE_CONTROL_PLANE_GIT_MAX_BUFFER_BYTES,
+        process.env.ETRNL_GIT_MAX_BUFFER_BYTES,
         process.env.GIT_MAX_BUFFER_BYTES,
         process.env.GIT_MAX_BUFFER,
       ],

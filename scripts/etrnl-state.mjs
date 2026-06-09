@@ -17,6 +17,7 @@ import {
   stopStatus,
   validateFixtureDir,
 } from "./lib/etrnl-state-core.mjs";
+import { readStdinRaw } from "./lib/read-stdin.mjs";
 
 const args = process.argv.slice(2);
 const command = collectPositionals(args)[0] || "help";
@@ -44,14 +45,9 @@ function fail(error, status = 1) {
 }
 
 function readStdin() {
-  if (process.stdin.isTTY) return "";
   try {
-    return fs.readFileSync(0, "utf8").trim();
+    return readStdinRaw();
   } catch (error) {
-    if (error && typeof error === "object" && "code" in error && ["EAGAIN", "EWOULDBLOCK"].includes(error.code)) {
-      console.error(`warning: stdin read returned ${error.code}; treating input as empty`);
-      return "";
-    }
     fail(jsonError("StdinReadError", "Failed to read JSON from stdin.", error instanceof Error ? error.message : String(error)), 2);
   }
 }

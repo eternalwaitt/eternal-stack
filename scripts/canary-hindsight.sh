@@ -92,7 +92,7 @@ jq -e '
   and (.retainTranscripts == false)
   and (.recallPromptPreamble | test("Fresh repo/runtime evidence overrides memory"))
   ' "$config" >/dev/null || {
-  emit_fail "config-unsafe" "Hindsight config does not match strict control-plane profile"
+  emit_fail "config-unsafe" "Hindsight config does not match strict Eternal Stack profile"
 }
 
 api_url="$(jq -r '.hindsightApiUrl // empty' "$config")"

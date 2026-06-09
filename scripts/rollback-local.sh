@@ -32,7 +32,7 @@ done
 
 if [[ ! -f "$ROOT/scripts/lib/skill-lists.sh" ]]; then
   if [[ "$DRY_RUN" == "1" ]]; then
-    printf 'Dry run: required skill list is missing at %s/scripts/lib/skill-lists.sh; rollback preview would require an installed control-plane root.\n' "$ROOT"
+    printf 'Dry run: required skill list is missing at %s/scripts/lib/skill-lists.sh; rollback preview would require an installed Eternal Stack root.\n' "$ROOT"
     exit 0
   fi
   printf 'Required skill list is missing: %s/scripts/lib/skill-lists.sh\n' "$ROOT" >&2
@@ -70,7 +70,7 @@ latest_backup() {
   latest=""
   # Compare mtimes because install and legacy backup prefixes sort differently.
   shopt -s nullglob
-  for candidate in "$ROOT"/backups/control-plane-install-* "$ROOT"/backups/control-plane-*; do
+  for candidate in "$ROOT"/backups/etrnl-install-* "$ROOT"/backups/etrnl-*; do
     if [[ -d "$candidate" && ( -z "$latest" || "$candidate" -nt "$latest" ) ]]; then
       latest="$candidate"
     fi
@@ -253,7 +253,7 @@ for script in "${CRITICAL_SCRIPTS[@]}"; do
     fi
   fi
 done
-for script in doctor.sh doctor-control-plane.sh; do
+for script in doctor.sh doctor-etrnl.sh; do
   rm -f -- "$CODEX_TARGET/scripts/$script"
   if [[ -f "$BACKUP/codex-scripts/$script" || -L "$BACKUP/codex-scripts/$script" ]]; then
     cp -P -- "$BACKUP/codex-scripts/$script" "$CODEX_TARGET/scripts/$script"
@@ -261,7 +261,7 @@ for script in doctor.sh doctor-control-plane.sh; do
     restored_count=$((restored_count + 1))
   fi
 done
-rm -f -- "$CODEX_TARGET/control-plane/install.json" "$CODEX_TARGET/control-plane/update-state.json" "$CODEX_TARGET/control-plane/just-updated.json"
+rm -f -- "$CODEX_TARGET/etrnl/install.json" "$CODEX_TARGET/etrnl/update-state.json" "$CODEX_TARGET/etrnl/just-updated.json"
 
 for command_name in "${OWNED_COMMANDS[@]}"; do
   restore_command_once "$command_name"

@@ -10,14 +10,18 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 source "$SCRIPT_DIR/lib/json.sh"
 # shellcheck source=hooks/lib/state.sh
 source "$SCRIPT_DIR/lib/state.sh"
+# shellcheck source=hooks/lib/event-extract.sh
+source "$SCRIPT_DIR/lib/event-extract.sh"
+# shellcheck source=hooks/lib/cleanup.sh
+source "$SCRIPT_DIR/lib/cleanup.sh"
 
 cc_json_read_stdin
 cc_json_require_jq || exit 0
 cc_json_valid || exit 0
 cc_state_init
 
-prompt="$(cc_json_get '.prompt // .user_prompt // .message')"
-cwd="$(cc_json_get '.cwd')"
+prompt="$(cc_event_prompt)"
+cwd="$(cc_event_cwd)"
 [[ -n "$cwd" ]] || cwd="$PWD"
 cc_state_update --arg prompt "$prompt" ".lastPrompt = \$prompt"
 prompt_lower="$(printf '%s' "$prompt" | tr '[:upper:]' '[:lower:]')"
@@ -172,7 +176,7 @@ cc_prompt_add_referenced_markdown() {
 
 cc_prompt_claude_context() {
   local inject_mode force_always global_claude project_file fingerprint fingerprint_hash cc_prompt_context cc_prompt_seen_files cc_prompt_remaining_chars raw_mode
-  raw_mode="${CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD:-once}"
+  raw_mode="${ETRNL_INJECT_CLAUDE_MD:-once}"
   inject_mode="$(printf '%s' "$raw_mode" | tr '[:upper:]' '[:lower:]')"
   case "$inject_mode" in
     0|false|no|off) return 0 ;;
@@ -183,10 +187,10 @@ cc_prompt_claude_context() {
 
   cc_prompt_context=""
   cc_prompt_seen_files=""
-  cc_prompt_remaining_chars="$(cc_prompt_context_cap "${CLAUDE_CONTROL_PLANE_CLAUDE_MD_MAX_CHARS:-}")"
+  cc_prompt_remaining_chars="$(cc_prompt_context_cap "${ETRNL_CLAUDE_MD_MAX_CHARS:-}")"
   global_claude="$HOME/.claude/CLAUDE.md"
 
-  cc_prompt_context+="CLAUDE.md reinjection: treat the following as active instructions for this prompt. This mirrors Claude's startup hierarchy where possible. Disable with CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD=0."
+  cc_prompt_context+="CLAUDE.md reinjection: treat the following as active instructions for this prompt. This mirrors Claude's startup hierarchy where possible. Disable with ETRNL_INJECT_CLAUDE_MD=0."
   cc_prompt_add_context_file "Global CLAUDE.md" "$global_claude"
   [[ ! -f "$global_claude" ]] || cc_prompt_add_referenced_markdown "$global_claude" "$HOME/.claude"
   while IFS= read -r project_file; do
@@ -233,7 +237,7 @@ claude_context="$(cc_prompt_claude_context)"
 notes+=("Evidence-first correction protocol: do not use reflexive agreement phrases like \"You're right\". State what is verified or unverified, then name the evidence check or correction.")
 
 cc_prompt_skill_update_note() {
-  [[ "${CLAUDE_CONTROL_PLANE_SKILL_UPDATE_CHECK:-1}" != "0" ]] || return 0
+  [[ "${ETRNL_SKILL_UPDATE_CHECK:-1}" != "0" ]] || return 0
   command -v node >/dev/null 2>&1 || return 0
 
   local state requested_count state_status update_script update_output update_status max_chars
@@ -250,23 +254,28 @@ cc_prompt_skill_update_note() {
   [[ "$requested_count" =~ ^[0-9]+$ ]] || requested_count=0
   (( requested_count > 0 )) || return 0
 
-  update_script="${CLAUDE_CONTROL_PLANE_UPDATE_CHECK_SCRIPT:-$SCRIPT_DIR/../scripts/update-check.mjs}"
+  update_script="${ETRNL_UPDATE_CHECK_SCRIPT:-$SCRIPT_DIR/../scripts/update-check.mjs}"
   [[ -f "$update_script" ]] || return 0
   [[ -r "$update_script" ]] || return 0
 
   update_status=0
-  local update_timeout
-  update_timeout="${CLAUDE_CONTROL_PLANE_SKILL_UPDATE_TIMEOUT_SEC:-5}"
+  local update_timeout update_check_cmd
+  update_timeout="${ETRNL_SKILL_UPDATE_TIMEOUT_SEC:-5}"
   if [[ ! "$update_timeout" =~ ^[0-9]+$ ]] || (( update_timeout <= 0 )); then
     update_timeout=5
   fi
+  update_check_cmd=(node "$update_script")
+  if [[ "${ETRNL_AUTO_UPDATE:-1}" != "0" ]]; then
+    update_check_cmd+=(--auto)
+  fi
   if command -v timeout >/dev/null 2>&1; then
-    update_output="$(CLAUDE_CONTROL_PLANE_AUTO_UPDATE=0 timeout "${update_timeout}s" node "$update_script" 2>/dev/null)" || update_status=$?
+    update_output="$(timeout "${update_timeout}s" "${update_check_cmd[@]}" 2>/dev/null)" || update_status=$?
   else
     local update_output_file update_pid update_elapsed
     update_output_file="$(mktemp "${TMPDIR:-/tmp}/cc-skill-update.XXXXXX")"
+    cc_register_cleanup "$update_output_file"
     update_status=124
-    CLAUDE_CONTROL_PLANE_AUTO_UPDATE=0 node "$update_script" >"$update_output_file" 2>/dev/null &
+    "${update_check_cmd[@]}" >"$update_output_file" 2>/dev/null &
     update_pid=$!
     update_elapsed=0
     while kill -0 "$update_pid" >/dev/null 2>&1; do
@@ -283,12 +292,11 @@ cc_prompt_skill_update_note() {
       wait "$update_pid" >/dev/null 2>&1 || update_status=$?
     fi
     update_output="$(cat "$update_output_file")"
-    rm -f "$update_output_file"
   fi
   [[ "$update_status" == "0" ]] || return 0
-  [[ "$update_output" =~ (CONTROL_PLANE_UPDATE_AVAILABLE|CONTROL_PLANE_REMOTE_UPDATE_AVAILABLE|TOOL_STACK_UPDATE_AVAILABLE|TOOL_STACK_MISSING) ]] || return 0
+  [[ "$update_output" =~ (ETRNL_UPDATE_AVAILABLE|ETRNL_REMOTE_UPDATE_AVAILABLE|TOOL_STACK_UPDATE_AVAILABLE|TOOL_STACK_MISSING) ]] || return 0
 
-  max_chars="$(cc_prompt_context_cap "${CLAUDE_CONTROL_PLANE_SKILL_UPDATE_MAX_CHARS:-1200}")"
+  max_chars="$(cc_prompt_context_cap "${ETRNL_SKILL_UPDATE_MAX_CHARS:-1200}")"
   update_output="${update_output:0:max_chars}"
   notes+=("Skill update check before requested skill: $update_output"$'\n'"Before using the requested skill, tell the user only about remaining remote/tool-stack choices that could not be auto-updated locally.")
 }
@@ -444,6 +452,32 @@ if [[ "$prompt_lower" =~ run[[:space:]]+tests|test[[:space:]]+the[[:space:]]+rep
   record_skill "etrnl-dev-test"
   notes+=("Use etrnl-dev-test for project preflight and focused failure remediation.")
 fi
+# Backend reference suite (etrnl-backend-*): surface the design reference when a
+# prompt is about building backend behavior, not auditing an existing system.
+if [[ "$prompt_lower" =~ rest[[:space:]]+api|graphql|api[[:space:]-]+(contract|endpoint|versioning|design)|endpoint[[:space:]-]+(design|contract)|idempotency[[:space:]-]?key|cursor[[:space:]-]+pagination|error[[:space:]-]+envelope|http[[:space:]]+middleware[[:space:]-]+order ]]; then
+  record_skill "etrnl-backend-api"
+  notes+=("Use etrnl-backend-api: design the resource contract, status codes, idempotency keys, cursor pagination, versioning, error envelope, and middleware order first.")
+fi
+if [[ "$prompt_lower" =~ relational[[:space:]]+(schema|model)|database[[:space:]]+schema|schema[[:space:]]+modeling|n\+1|cache[[:space:]-]?aside|repository[[:space:]]+(pattern|layer|abstraction)|composite[[:space:]]+index|covering[[:space:]]+index ]]; then
+  record_skill "etrnl-backend-data"
+  notes+=("Use etrnl-backend-data: model the schema, index hot paths, batch reads to kill N+1, scope transactions, and hide the client behind a repository with cache-aside.")
+fi
+if [[ "$prompt_lower" =~ authentication|authorization|rbac|abac|input[[:space:]]+validation|owasp ]]; then
+  record_skill "etrnl-backend-security"
+  notes+=("Use etrnl-backend-security: validate at the boundary, deny by default, enforce ownership against persisted records, and keep secrets out of code and logs.")
+fi
+if [[ "$prompt_lower" =~ circuit[[:space:]]+breaker|exponential[[:space:]]+backoff|retr(y|ies)[[:space:]]+with[[:space:]]+backoff|backoff[[:space:]]+and[[:space:]]+jitter|bulkhead|dead[[:space:]-]?letter[[:space:]-]?queue ]]; then
+  record_skill "etrnl-backend-resilience"
+  notes+=("Use etrnl-backend-resilience: bound every wait with timeouts, cap retries with jittered backoff, isolate failures with circuit breakers and bulkheads, and drain dead-letter queues.")
+fi
+if [[ "$prompt_lower" =~ structured[[:space:]]+logging|distributed[[:space:]]+tracing|red[[:space:]]+metrics|error[[:space:]]+budget|sli[[:space:]]+and[[:space:]]+slo|slo[[:space:]]+target ]]; then
+  record_skill "etrnl-backend-observability"
+  notes+=("Use etrnl-backend-observability: emit request-id-keyed structured logs, trace across hops, expose RED metrics, and alert on SLO error-budget burn.")
+fi
+if [[ "$prompt_lower" =~ service[[:space:]]+layer|microservice[[:space:]-]+boundar|event[[:space:]-]?driven|outbox[[:space:]]+pattern|(^|[[:space:]])saga([[:space:]]|$)|cqrs|event[[:space:]]+sourcing|bounded[[:space:]]+context ]]; then
+  record_skill "etrnl-backend-architecture"
+  notes+=("Use etrnl-backend-architecture: keep business rules independent of transport and storage, draw boundaries around bounded contexts, and publish domain events via the outbox.")
+fi
 if [[ "$prompt_lower" =~ audit|code[[:space:]]+review|pr[[:space:]]+review|design[[:space:]]+review|plan[[:space:]]+review|final[[:space:]]+review|review[[:space:]-]+comments|review[[:space:]]+pass|loose[[:space:]]+ends|final[[:space:]]+pass|compare[[:space:]]+changes ]]; then
   record_skill "etrnl-dev-review"
   notes+=("Use etrnl-dev-review for findings-first review, gap mapping, and evidence against the original request.")
@@ -465,7 +499,7 @@ cc_prompt_skill_update_note
 
 if (( ${#notes[@]} > 0 )); then
   msg="$(printf '%s\n' "${notes[@]}")"
-  max_msg="$(cc_prompt_context_cap "${CLAUDE_CONTROL_PLANE_USERPROMPT_CONTEXT_MAX_CHARS:-}")"
+  max_msg="$(cc_prompt_context_cap "${ETRNL_USERPROMPT_CONTEXT_MAX_CHARS:-}")"
   msg="${msg:0:max_msg}"
   cc_json_emit_context "UserPromptSubmit" "$msg"
 fi

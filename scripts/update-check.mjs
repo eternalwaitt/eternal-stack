@@ -34,20 +34,19 @@ const EXCLUDED_DIRS = new Set([".git", "node_modules", "__pycache__", ".serena"]
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const scriptParent = path.dirname(scriptDir);
-const scriptInstalledHome = fs.existsSync(path.join(scriptParent, "control-plane", "install.json")) ? scriptParent : "";
+const scriptInstalledHome = fs.existsSync(path.join(scriptParent, "etrnl", "install.json")) ? scriptParent : "";
 const envHome = process.env.CLAUDE_HOME || process.env.CODEX_HOME || "";
 const controlHome =
-  process.env.CLAUDE_CONTROL_PLANE_HOME ||
-  process.env.CONTROL_PLANE_HOME ||
+  process.env.ETRNL_HOME ||
   scriptInstalledHome ||
   envHome ||
   path.join(os.homedir(), ".claude");
 const installStatePath =
-  process.env.CLAUDE_CONTROL_PLANE_INSTALL_STATE ||
-  path.join(controlHome, "control-plane", "install.json");
+  process.env.ETRNL_INSTALL_STATE ||
+  path.join(controlHome, "etrnl", "install.json");
 const updateStatePath =
-  process.env.CLAUDE_CONTROL_PLANE_UPDATE_STATE ||
-  path.join(controlHome, "control-plane", "update-state.json");
+  process.env.ETRNL_UPDATE_STATE ||
+  path.join(controlHome, "etrnl", "update-state.json");
 
 const run = (command, commandArgs, options = {}) => {
   const result = spawnSync(command, commandArgs, {
@@ -76,7 +75,7 @@ const cleanupJustUpdatedClaims = (markerPath) => {
   } catch (error) {
     if (!(error && typeof error === "object" && error.code === "ENOENT")) {
       const message = error instanceof Error ? error.message : String(error);
-      console.warn(`CONTROL_PLANE_UPDATE_WARNING failed to scan claim markers: ${message}`);
+      console.warn(`ETRNL_UPDATE_WARNING failed to scan claim markers: ${message}`);
     }
     return;
   }
@@ -200,7 +199,7 @@ const sourceState = (root) => {
 const remoteState = (root, force) => {
   const cache = readJson(updateStatePath, {});
   const now = Math.floor(Date.now() / 1000);
-  const maxAge = Number(process.env.CLAUDE_CONTROL_PLANE_UPDATE_INTERVAL_SEC || 21_600);
+  const maxAge = Number(process.env.ETRNL_UPDATE_INTERVAL_SEC || 21_600);
   const lastCheck = Number(cache.lastRemoteCheckAt || 0);
   if (!force && lastCheck > 0 && now - lastCheck < maxAge) {
     return cache.remote ?? { checked: false, reason: "cached" };
@@ -243,25 +242,31 @@ const remoteState = (root, force) => {
   return remote;
 };
 
+function toolStackEntryMissing(tool) {
+  if (!tool || typeof tool !== "object") return false;
+  if (tool.kind === "claude-plugin") return tool.pluginEnabled === true && tool.pluginInstalled !== true;
+  return tool.installed === false;
+}
+
 const printText = (result) => {
   if (result.justUpdated) {
-    console.log(`CONTROL_PLANE_JUST_UPDATED ${result.justUpdated.from || "unknown"} ${result.justUpdated.to || "unknown"}`);
+    console.log(`ETRNL_JUST_UPDATED ${result.justUpdated.from || "unknown"} ${result.justUpdated.to || "unknown"}`);
   }
   if (result.localUpdateAvailable) {
     console.log(
-      `CONTROL_PLANE_UPDATE_AVAILABLE installed=${result.installedCommitShort} source=${result.sourceCommitShort} version=${result.sourceVersion} run="${result.updateCommand}"`,
+      `ETRNL_UPDATE_AVAILABLE installed=${result.installedCommitShort} source=${result.sourceCommitShort} version=${result.sourceVersion} run="${result.updateCommand}"`,
     );
   }
   if (result.remote?.updateAvailable) {
     console.log(
-      `CONTROL_PLANE_REMOTE_UPDATE_AVAILABLE upstream=${result.remote.upstream} behind=${result.remote.behind} run="${result.updateCommand} --pull"`,
+      `ETRNL_REMOTE_UPDATE_AVAILABLE upstream=${result.remote.upstream} behind=${result.remote.behind} run="${result.updateCommand} --pull"`,
     );
   }
   if (result.warning) {
-    console.log(`CONTROL_PLANE_UPDATE_WARNING ${result.warning}`);
+    console.log(`ETRNL_UPDATE_WARNING ${result.warning}`);
   }
   if (result.sourceGitWarning) {
-    console.log(`CONTROL_PLANE_UPDATE_WARNING ${result.sourceGitWarning}`);
+    console.log(`ETRNL_UPDATE_WARNING ${result.sourceGitWarning}`);
   }
   if (result.autoUpdate) {
     console.log(result.autoUpdate);
@@ -269,7 +274,7 @@ const printText = (result) => {
   for (const tool of Object.values(result.toolStack?.tools || {})) {
     if (tool.updateAvailable) {
       console.log(`TOOL_STACK_UPDATE_AVAILABLE ${tool.id} current=${tool.currentVersion} latest=${tool.latestVersion} run="${tool.updateCommand}"`);
-    } else if (!tool.installed) {
+    } else if (toolStackEntryMissing(tool)) {
       console.log(`TOOL_STACK_MISSING ${tool.id} install="${tool.installCommand}"`);
     }
   }
@@ -349,7 +354,7 @@ const staleInstalledScripts = (root) => {
   const installedScripts = path.join(controlHome, "scripts");
   if (!fs.existsSync(sourceScripts) || !fs.existsSync(installedScripts)) return [];
   const sourceOnly = new Set(["scripts/install.sh"]);
-  const renamed = new Map([["scripts/doctor.sh", "scripts/doctor-control-plane.sh"]]);
+  const renamed = new Map([["scripts/doctor.sh", "scripts/doctor-etrnl.sh"]]);
   const files = [];
   walkFiles(root, "scripts", files);
   return files
@@ -389,7 +394,7 @@ const driftSummary = (root, source, installState) => {
 };
 
 const printExplain = (result) => {
-  console.log(`ETRNL control-plane update check: ${result.updateAvailable ? "update available" : "current"}`);
+  console.log(`ETRNL etrnl update check: ${result.updateAvailable ? "update available" : "current"}`);
   console.log(`Installed commit: ${result.installedCommitShort}`);
   console.log(`Source commit: ${result.sourceCommitShort}`);
   console.log(`Source dirty: ${result.sourceDirty ? "yes" : "no"}`);
@@ -409,7 +414,7 @@ const printExplain = (result) => {
 };
 
 const toolStackState = (root) => {
-  if (process.env.CLAUDE_CONTROL_PLANE_TOOL_UPDATE_CHECK === "0") return null;
+  if (process.env.ETRNL_TOOL_UPDATE_CHECK === "0") return null;
   const script = path.join(root, "scripts", "tool-stack-check.mjs");
   if (!fs.existsSync(script)) return null;
   const check = run(process.execPath, [script, "--json"], { timeout: 25_000 });
@@ -467,14 +472,14 @@ if (hasFlag("--source-version")) {
 const jsonOutput = hasFlag("--json");
 const explainOutput = hasFlag("--explain");
 const force = hasFlag("--force");
-const remoteEnabled = hasFlag("--remote") || process.env.CLAUDE_CONTROL_PLANE_REMOTE_UPDATE_CHECK === "1";
-const autoEnabled = hasFlag("--auto") || process.env.CLAUDE_CONTROL_PLANE_AUTO_UPDATE !== "0";
+const remoteEnabled = hasFlag("--remote") || process.env.ETRNL_REMOTE_UPDATE_CHECK === "1";
+const autoEnabled = hasFlag("--auto") || process.env.ETRNL_AUTO_UPDATE !== "0";
 const installState = readJson(installStatePath, null);
 
 if (!installState?.sourceRoot) {
   const result = { ok: false, updateAvailable: false, warning: "install-metadata-missing" };
   if (jsonOutput) console.log(JSON.stringify(result, null, 2));
-  else if (explainOutput) console.log("ETRNL control-plane update check: install metadata missing");
+  else if (explainOutput) console.log("ETRNL etrnl update check: install metadata missing");
   else printText(result);
   process.exit(0);
 }
@@ -483,7 +488,7 @@ const root = path.resolve(installState.sourceRoot);
 if (!fs.existsSync(path.join(root, "scripts", "install.sh"))) {
   const result = { ok: false, updateAvailable: false, warning: "source-root-missing" };
   if (jsonOutput) console.log(JSON.stringify(result, null, 2));
-  else if (explainOutput) console.log("ETRNL control-plane update check: source root missing");
+  else if (explainOutput) console.log("ETRNL etrnl update check: source root missing");
   else printText(result);
   process.exit(0);
 }
@@ -499,7 +504,7 @@ const commitChanged = Boolean(
 const localUpdateAvailable = source.sourceFingerprint !== installedFingerprint || commitChanged;
 const updateCommand = `bash ${path.join(root, "scripts", "update.sh")}`;
 const toolStack = toolStackState(root);
-const justUpdatedPath = path.join(controlHome, "control-plane", "just-updated.json");
+const justUpdatedPath = path.join(controlHome, "etrnl", "just-updated.json");
 cleanupJustUpdatedClaims(justUpdatedPath);
 const justUpdatedClaimPath = `${justUpdatedPath}.claim-${process.pid}-${Date.now()}`;
 let justUpdated = null;
@@ -521,10 +526,13 @@ if (remoteEnabled) {
 
 let autoUpdate = "";
 let autoSucceeded = false;
-if (autoEnabled && localUpdateAvailable) {
+const allowDirtyAutoUpdate = process.env.ETRNL_AUTO_UPDATE_DIRTY === "1";
+if (autoEnabled && localUpdateAvailable && source.sourceDirty && !allowDirtyAutoUpdate) {
+  autoUpdate = "ETRNL_AUTO_UPDATE_SKIPPED dirty-source-checkout (set ETRNL_AUTO_UPDATE_DIRTY=1 to override)";
+} else if (autoEnabled && localUpdateAvailable) {
   const updateScriptPath = path.join(root, "scripts", "update.sh");
   if (!fs.existsSync(updateScriptPath)) {
-    autoUpdate = `CONTROL_PLANE_AUTO_UPDATE_FAILED missing update script: ${updateScriptPath}`;
+    autoUpdate = `ETRNL_AUTO_UPDATE_FAILED missing update script: ${updateScriptPath}`;
   } else {
     const updateEnv = {
       CLAUDE_HOME: process.env.CLAUDE_HOME || (installState.settingsMode === "codex" ? path.join(os.homedir(), ".claude") : controlHome),
@@ -536,8 +544,8 @@ if (autoEnabled && localUpdateAvailable) {
     });
     autoSucceeded = update.ok;
     autoUpdate = update.ok
-      ? `CONTROL_PLANE_AUTO_UPDATED ${installState.sourceCommitShort || "unknown"} ${source.sourceCommitShort}`
-      : `CONTROL_PLANE_AUTO_UPDATE_FAILED ${(update.stderr || update.stdout || "update failed").replace(/\s+/g, " ").slice(0, 240)}`;
+      ? `ETRNL_AUTO_UPDATED ${installState.sourceCommitShort || "unknown"} ${source.sourceCommitShort}`
+      : `ETRNL_AUTO_UPDATE_FAILED ${(update.stderr || update.stdout || "update failed").replace(/\s+/g, " ").slice(0, 240)}`;
   }
 }
 

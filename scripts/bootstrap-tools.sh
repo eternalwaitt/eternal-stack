@@ -13,8 +13,8 @@ SKIP_BEADS=0
 SKIP_HINDSIGHT=0
 DRY_RUN=0
 CONFIRM_SKIPPED=64
-PROFILE="${CLAUDE_CONTROL_PLANE_STACK_PROFILE:-core}"
-HINDSIGHT_MODE="${CLAUDE_CONTROL_PLANE_HINDSIGHT_MODE:-local-daemon}"
+PROFILE="${ETRNL_STACK_PROFILE:-core}"
+HINDSIGHT_MODE="${ETRNL_HINDSIGHT_MODE:-local-daemon}"
 
 usage() {
   cat <<'EOF'
@@ -33,8 +33,8 @@ Options:
   --dry-run             Print planned bootstrap actions without mutation.
 
 Environment:
-  CLAUDE_CONTROL_PLANE_BOOTSTRAP_TOOLS=0 disables global bootstrap from install.
-  CLAUDE_CONTROL_PLANE_BOOTSTRAP_PROJECTS=1 lets install initialize the source repo.
+  ETRNL_BOOTSTRAP_TOOLS=0 disables global bootstrap from install.
+  ETRNL_BOOTSTRAP_PROJECTS=1 lets install initialize the source repo.
 EOF
 }
 
@@ -251,6 +251,21 @@ install_beads() {
   need_command bd || { printf 'bootstrap error: bd binary not found after Homebrew install\n' >&2; return 1; }
 }
 
+hindsight_plugin_cache_installed() {
+  local home_dir="$1"
+  local root version_dir
+  for root in "$home_dir/plugins/cache/hindsight/hindsight-memory" "$home_dir/plugins/cache/hindsight-memory"; do
+    [[ -d "$root" ]] || continue
+    for version_dir in "$root"/*; do
+      [[ -d "$version_dir" ]] || continue
+      if [[ -f "$version_dir/hooks/hooks.json" || -f "$version_dir/settings.json" || -f "$version_dir/.claude-plugin/plugin.json" ]]; then
+        return 0
+      fi
+    done
+  done
+  return 1
+}
+
 install_hindsight() {
   local claude_home hindsight_home config_target template plugin_list config_tmp api_url confirm_status
   if [[ "$SKIP_HINDSIGHT" == "1" ]]; then
@@ -287,13 +302,19 @@ install_hindsight() {
   confirm_status=0
   confirm_required "install Hindsight plugin and write local Hindsight config" || confirm_status=$?
   [[ "$confirm_status" == "0" ]] || return "$confirm_status"
+  # Treat the claude CLI as authoritative for "installed". The plugin cache is
+  # only a hint and may be stale, so use it solely to skip a redundant
+  # marketplace add when the CLI shows the plugin is not yet installed.
   plugin_list="$(claude plugin list --json 2>/dev/null || claude plugin list 2>/dev/null || true)"
-  if jq -e 'if type == "array" then any(.[]; .name == "hindsight-memory") else false end' <<<"$plugin_list" >/dev/null 2>&1; then
-    printf 'ok: Hindsight plugin already installed\n'
-  elif [[ "$plugin_list" =~ (^|[[:space:]])hindsight-memory([[:space:]]|$) ]]; then
+  if jq -e 'if type == "array" then any(.[]; .name == "hindsight-memory") else false end' <<<"$plugin_list" >/dev/null 2>&1 \
+    || [[ "$plugin_list" =~ (^|[[:space:]])hindsight-memory([[:space:]]|$) ]]; then
     printf 'ok: Hindsight plugin already installed\n'
   else
-    claude plugin marketplace add vectorize-io/hindsight
+    if hindsight_plugin_cache_installed "$claude_home"; then
+      printf 'note: Hindsight plugin cache present but CLI does not list it; installing\n'
+    else
+      claude plugin marketplace add vectorize-io/hindsight
+    fi
     claude plugin install hindsight-memory
   fi
   mkdir -p "$hindsight_home"
@@ -306,10 +327,10 @@ install_hindsight() {
   fi
   install -m 600 "$config_tmp" "$config_target"
   rm -f "$config_tmp"
-  mkdir -p "$claude_home/control-plane"
+  mkdir -p "$claude_home/etrnl"
   jq -n --arg mode "$HINDSIGHT_MODE" --arg config "$config_target" \
-    '{hindsight:{mode:$mode,config:$config,ownedBy:"claude-control-plane"}}' \
-    >"$claude_home/control-plane/full-stack-services.json"
+    '{hindsight:{mode:$mode,config:$config,ownedBy:"eternal-stack"}}' \
+    >"$claude_home/etrnl/full-stack-services.json"
 }
 
 bootstrap_project() {
@@ -390,11 +411,11 @@ case "$MODE" in
     tool_stack_check
     ;;
   install)
-    if [[ "$SKIP_PROJECT" != "1" && -z "$PROJECT" && "${CLAUDE_CONTROL_PLANE_BOOTSTRAP_PROJECTS:-0}" == "1" ]]; then
+    if [[ "$SKIP_PROJECT" != "1" && -z "$PROJECT" && "${ETRNL_BOOTSTRAP_PROJECTS:-0}" == "1" ]]; then
       PROJECT="$ROOT"
     fi
-    if [[ "${CLAUDE_CONTROL_PLANE_BOOTSTRAP_TOOLS:-1}" == "0" ]]; then
-      printf 'bootstrap skipped: CLAUDE_CONTROL_PLANE_BOOTSTRAP_TOOLS=0\n'
+    if [[ "${ETRNL_BOOTSTRAP_TOOLS:-1}" == "0" ]]; then
+      printf 'bootstrap skipped: ETRNL_BOOTSTRAP_TOOLS=0\n'
     elif [[ "$SKIP_GLOBAL" != "1" ]]; then
       install_codegraph
       install_beads

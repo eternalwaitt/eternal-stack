@@ -31,8 +31,8 @@ function allValues(flag) {
 }
 
 function contextDir() {
-  const base = process.env.CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR
-    || path.join(process.env.CLAUDE_HOME || path.join(homedir(), ".claude"), "control-plane", "artifacts");
+  const base = process.env.ETRNL_ARTIFACTS_DIR
+    || path.join(process.env.CLAUDE_HOME || path.join(homedir(), ".claude"), "etrnl", "artifacts");
   return path.join(base, "contexts");
 }
 

@@ -811,6 +811,102 @@
       ],
       "priority": "P0",
       "targetMilestone": "M1"
+    },
+    {
+      "etrnlSkill": "etrnl-backend-api",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 2,
+        "research_flow": 1,
+        "subagent_orchestration": 1,
+        "parallelism_safety": 1,
+        "verification_gates": 1,
+        "rollback_guardrails": 1,
+        "telemetry_proactive": 1
+      },
+      "gaps": [],
+      "priority": "P2",
+      "targetMilestone": "M3"
+    },
+    {
+      "etrnlSkill": "etrnl-backend-architecture",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 2,
+        "research_flow": 1,
+        "subagent_orchestration": 1,
+        "parallelism_safety": 1,
+        "verification_gates": 1,
+        "rollback_guardrails": 1,
+        "telemetry_proactive": 1
+      },
+      "gaps": [],
+      "priority": "P2",
+      "targetMilestone": "M3"
+    },
+    {
+      "etrnlSkill": "etrnl-backend-data",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 2,
+        "research_flow": 1,
+        "subagent_orchestration": 1,
+        "parallelism_safety": 1,
+        "verification_gates": 1,
+        "rollback_guardrails": 1,
+        "telemetry_proactive": 1
+      },
+      "gaps": [],
+      "priority": "P2",
+      "targetMilestone": "M3"
+    },
+    {
+      "etrnlSkill": "etrnl-backend-observability",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 2,
+        "research_flow": 1,
+        "subagent_orchestration": 1,
+        "parallelism_safety": 1,
+        "verification_gates": 1,
+        "rollback_guardrails": 1,
+        "telemetry_proactive": 2
+      },
+      "gaps": [],
+      "priority": "P2",
+      "targetMilestone": "M3"
+    },
+    {
+      "etrnlSkill": "etrnl-backend-resilience",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 2,
+        "research_flow": 1,
+        "subagent_orchestration": 1,
+        "parallelism_safety": 1,
+        "verification_gates": 1,
+        "rollback_guardrails": 2,
+        "telemetry_proactive": 1
+      },
+      "gaps": [],
+      "priority": "P2",
+      "targetMilestone": "M3"
+    },
+    {
+      "etrnlSkill": "etrnl-backend-security",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 2,
+        "research_flow": 1,
+        "subagent_orchestration": 1,
+        "parallelism_safety": 1,
+        "verification_gates": 2,
+        "rollback_guardrails": 1,
+        "telemetry_proactive": 1
+      },
+      "gaps": [],
+      "priority": "P2",
+      "targetMilestone": "M3"
     }
   ]
 }

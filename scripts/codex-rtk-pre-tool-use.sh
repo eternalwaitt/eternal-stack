@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
 if ! command -v jq >/dev/null 2>&1; then
   echo "RTK Codex hook requires jq, but jq is not on PATH." >&2

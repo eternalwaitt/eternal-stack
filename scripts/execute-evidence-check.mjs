@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFileSync } from "node:fs";
+import { readStdinJson } from "./lib/read-stdin.mjs";
 
 const SOURCE_FILE_RE = /\.(js|jsx|ts|tsx|mjs|cjs|py|rs|go|php|rb|java|kt|swift|sh|bash|zsh)$/i;
 const EXEMPT_PATH_RE = /(\.test\.|\.spec\.|\/tests?\/|__tests__|\/node_modules\/|\/dist\/|\/build\/|\/coverage\/|\/generated\/|\/__generated__\/|\/migrations\/)/i;
@@ -17,14 +17,17 @@ const INSTALL_TRIGGER_RE = /(^|\/)(hooks|templates|skills|agents|scripts)\/|(^|\
 // markers instead of interpreting those planning fields directly.
 
 function readState() {
-  const raw = readFileSync(0, "utf8").trim();
-  if (!raw) return {};
-  try {
-    return JSON.parse(raw);
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    throw new Error(`invalid guard state JSON: ${detail}`);
-  }
+  return readStdinJson({
+    emptyValue: {},
+    onInvalidJson: (error) => {
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new Error(`invalid guard state JSON: ${detail}`);
+    },
+    onReadError: (error) => {
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new Error(`invalid guard state JSON: ${detail}`);
+    },
+  });
 }
 
 function norm(value) {

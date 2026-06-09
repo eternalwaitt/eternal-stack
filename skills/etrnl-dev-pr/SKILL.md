@@ -1,6 +1,6 @@
 ---
 name: etrnl-dev-pr
-description: ETRNL control-plane pull request workflow for Claude Code. Use only when the user explicitly asks to create or update a PR; hidden from model auto-invocation because it has side effects.
+description: ETRNL pull request workflow for Claude Code. Use only when the user explicitly asks to create or update a PR; hidden from model auto-invocation because it has side effects.
 disable-model-invocation: true
 ---
 # PR

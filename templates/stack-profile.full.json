@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "profile": "full",
-  "description": "Shareable full Claude/Codex control-plane stack with ETRNL, CodeGraph, Beads, and Hindsight supervision.",
+  "description": "Shareable full Claude/Codex etrnl stack with ETRNL, CodeGraph, Beads, and Hindsight supervision.",
   "installCommand": "./scripts/install.sh --profile full --yes",
   "components": {
     "etrnl": {
@@ -93,7 +93,7 @@
     ]
   },
   "rollback": {
-    "installMetadataTarget": "~/.claude/control-plane/install.json",
+    "installMetadataTarget": "~/.claude/etrnl/install.json",
     "required": true,
     "ownedServiceRecords": [
       "hindsight"

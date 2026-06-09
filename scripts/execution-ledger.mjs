@@ -5,6 +5,7 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { argValue as readArgValue } from "./lib/cli-args.mjs";
 import { nowIso, safeId } from "./lib/evidence-trace.mjs";
+import { readStdinRaw } from "./lib/read-stdin.mjs";
 
 const STATUSES = new Set(["pending", "in_progress", "reviewing", "changes_requested", "verified", "blocked", "skipped"]);
 const PHASE_STATUSES = new Set(["pending", "in_progress", "uat", "verified", "blocked", "skipped"]);
@@ -27,8 +28,8 @@ const command = args[0] ?? "help";
 const argValue = (flag, fallback = "") => readArgValue(args, flag, fallback);
 
 function runsDir() {
-  return process.env.CLAUDE_CONTROL_PLANE_RUNS_DIR
-    || path.join(process.env.CLAUDE_HOME || path.join(homedir(), ".claude"), "control-plane", "runs");
+  return process.env.ETRNL_RUNS_DIR
+    || path.join(process.env.CLAUDE_HOME || path.join(homedir(), ".claude"), "etrnl", "runs");
 }
 
 function pointerPath(sessionId) {
@@ -819,7 +820,7 @@ function redactStdinPreview(raw) {
 }
 
 function recordSubagent() {
-  const raw = readFileSync(0, "utf8").trim();
+  const raw = readStdinRaw();
   if (!raw) {
     console.error("record-subagent requires JSON on stdin.");
     process.exit(2);

@@ -4,7 +4,7 @@ set -Eeuo pipefail
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 CLAUDE_HOME="${CLAUDE_HOME:-$HOME/.claude}"
 export CLAUDE_HOME
-INSTALL_STATE="$CLAUDE_HOME/control-plane/install.json"
+INSTALL_STATE="$CLAUDE_HOME/etrnl/install.json"
 PULL_FIRST=0
 ORIGINAL_ARGS=("$@")
 
@@ -84,7 +84,7 @@ if (( PULL_FIRST == 1 )); then
   git -C "$ROOT" pull --ff-only
 fi
 
-"$ROOT/scripts/install.sh"
+"$ROOT/scripts/install.sh" --preserve-settings
 
 post_upgrade_canary="$ROOT/scripts/post-upgrade-canary.sh"
 if [[ ! -f "$post_upgrade_canary" ]]; then
@@ -98,8 +98,8 @@ fi
 
 new_commit="$(git_commit_or_unknown)"
 new_short="${new_commit:0:12}"
-mkdir -p "$CLAUDE_HOME/control-plane"
-just_updated_tmp="$(mktemp "$CLAUDE_HOME/control-plane/just-updated.json.XXXXXX")"
+mkdir -p "$CLAUDE_HOME/etrnl"
+just_updated_tmp="$(mktemp "$CLAUDE_HOME/etrnl/just-updated.json.XXXXXX")"
 if ! chmod 600 "$just_updated_tmp"; then
   rm -f "$just_updated_tmp"
   printf 'fatal: failed to secure update metadata temp file\n' >&2
@@ -114,10 +114,10 @@ if ! jq -n \
   printf 'fatal: failed to write update metadata\n' >&2
   exit 1
 fi
-if ! mv -- "$just_updated_tmp" "$CLAUDE_HOME/control-plane/just-updated.json"; then
+if ! mv -- "$just_updated_tmp" "$CLAUDE_HOME/etrnl/just-updated.json"; then
   rm -f "$just_updated_tmp"
   printf 'fatal: failed to atomically replace update metadata\n' >&2
   exit 1
 fi
 
-printf 'Claude control plane updated: %s -> %s\n' "$old_short" "$new_short"
+printf 'Eternal Stack updated: %s -> %s\n' "$old_short" "$new_short"

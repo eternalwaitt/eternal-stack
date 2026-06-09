@@ -22,7 +22,7 @@ required_paths=(
   "scripts/browser-qa-report.mjs"
   "scripts/lib/evidence-trace.mjs"
   "skills/etrnl-dev-plan/SKILL.md"
-  "control-plane/install.json"
+  "etrnl/install.json"
 )
 
 for rel_path in "${required_paths[@]}"; do

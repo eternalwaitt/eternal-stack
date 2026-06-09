@@ -10,7 +10,7 @@ const command = args.find((arg) => !arg.startsWith("--")) || "help";
 const jsonMode = args.includes("--json");
 const VALID_COMMANDS = new Set(["validate-fixtures", "baseline", "import-codex", "summarize", "doctor"]);
 const VALID_VERDICTS = new Set(["keep", "enforce", "repo-specific", "remove-watch", "insufficient-data"]);
-const DEFAULT_EVENTS_FILE = path.join(process.env.CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR || path.join(homedir(), ".claude", "control-plane", "artifacts"), "tool-effectiveness", "events.jsonl");
+const DEFAULT_EVENTS_FILE = path.join(process.env.ETRNL_ARTIFACTS_DIR || path.join(homedir(), ".claude", "etrnl", "artifacts"), "tool-effectiveness", "events.jsonl");
 const DEFAULT_FIXTURES_DIR = path.join(process.cwd(), "tests", "fixtures", "tool-effectiveness");
 const configuredPrivateProjectNames = (process.env.ETRNL_TOOL_EFFECTIVENESS_PRIVATE_PROJECT_NAMES || process.env.ETRNL_STATE_PRIVATE_PROJECT_NAMES || "")
   .split(",")

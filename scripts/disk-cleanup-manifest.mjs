@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { readFileSync } from "node:fs";
 import path from "node:path";
+import { readStdinJson } from "./lib/read-stdin.mjs";
 
 const command = process.argv[2] || "validate";
 const REQUIRED_FIELDS = ["path", "category", "estimatedBytes", "description", "whySafe", "cleanupCommand", "riskTier"];
@@ -8,9 +8,12 @@ const REQUIRED_FIELDS = ["path", "category", "estimatedBytes", "description", "w
 const ALLOWED_RISK_TIERS = new Set([1, 2, 3]);
 
 function readManifest() {
-  const raw = readFileSync(0, "utf8").trim();
-  if (!raw) throw new Error("manifest JSON is required on stdin");
-  return JSON.parse(raw);
+  return readStdinJson({
+    required: true,
+    onRequired: () => {
+      throw new Error("manifest JSON is required on stdin");
+    },
+  });
 }
 
 function rows(manifest) {

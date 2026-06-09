@@ -1,6 +1,6 @@
 ---
 name: etrnl-dev-execute
-description: ETRNL control-plane plan execution workflow for Claude Code. Use only when the user explicitly asks to execute an implementation plan; hidden from model auto-invocation because it edits files and runs commands.
+description: ETRNL plan execution workflow for Claude Code. Use only when the user explicitly asks to execute an implementation plan; hidden from model auto-invocation because it edits files and runs commands.
 disable-model-invocation: true
 ---
 # ETRNL Execute
@@ -32,7 +32,7 @@ Completion means every item inside the plan's `Execution scope` is verified or e
    - Tier 0: docs/no-source/tiny change, local verification only.
    - Tier 1: one small source surface, normal tests plus completion check.
    - Tier 2: multi-file/source workflow, spec reviewer, quality reviewer, simplifier, completion audit.
-   - Tier 3: hooks, installed-home changes, auth, money, security, migrations, data loss risk, or broad control-plane behavior; full deep stack plus staged install and rollback proof.
+   - Tier 3: hooks, installed-home changes, auth, money, security, migrations, data loss risk, or broad Eternal Stack behavior; full deep stack plus staged install and rollback proof.
    - Execution tiers are valid only after deep plan/autoplan/review passes.
 7. Critically review the plan before editing:
    - If it has missing files, vague steps, unsafe actions, or impossible verification, stop and report the blockers.
@@ -147,7 +147,7 @@ Required complete-row fields:
 - For non-skipped rows: `screenshot` under the artifact root and matching `screenshotSha256`.
 - Conditional metadata belongs in row fields such as `browser`, `browserVersion`, `device`, `platform`, `testCaseId`, `sessionId`, and `environment`; keep names stable if a CSV export is used.
 
-Reject reports with missing `screenshotSha256`, screenshots outside the artifact root, stale `capturedAt`, duplicate `route`/`viewport` rows, or a `complete` report without every route/viewport combination. Store paths under `control-plane/artifacts/browser-qa/` or pass `--artifact-root`, then validate with `node ~/.claude/scripts/browser-qa-report.mjs validate <report-path> --artifact-root <root>`.
+Reject reports with missing `screenshotSha256`, screenshots outside the artifact root, stale `capturedAt`, duplicate `route`/`viewport` rows, or a `complete` report without every route/viewport combination. Store paths under `etrnl/artifacts/browser-qa/` or pass `--artifact-root`, then validate with `node ~/.claude/scripts/browser-qa-report.mjs validate <report-path> --artifact-root <root>`.
 
 ## Verification Gates (hardened)
 

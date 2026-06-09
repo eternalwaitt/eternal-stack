@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+_JSON_LIB_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+# shellcheck source=hooks/lib/event-extract.sh
+source "$_JSON_LIB_DIR/event-extract.sh"
+
 cc_json_read_stdin() {
   local system
   system="$(uname -s 2>/dev/null || printf 'unknown')"
@@ -91,8 +95,8 @@ cc_json_current_assistant_text() {
     return 0
   fi
 
-  msg_id="$(cc_json_get '.assistant_message_id // .message_id // .messageId')"
-  transcript="$(cc_json_get '.transcript_path')"
+  msg_id="$(cc_event_assistant_message_id)"
+  transcript="$(cc_event_transcript_path)"
   if [[ -n "$transcript" && -f "$transcript" && -n "$msg_id" ]]; then
     local transcript_text
     # Transcript fallback scans assistant entries for any of the supported id fields

@@ -48,6 +48,24 @@ fi
 assert_contains "install warns about malformed settings" "$bad_settings_out" "install warning: invalid JSON"
 assert_json_expr "install malformed settings resets enabledPlugins" "$(jq -c . "$bad_settings_home/settings.json")" '.enabledPlugins == {}'
 
+reset_settings_live="$TMPROOT/reset-settings-live"
+reset_settings_backup="$TMPROOT/reset-settings-backup"
+mkdir -p "$reset_settings_live"
+printf '{invalid json\n' >"$reset_settings_live/settings.json"
+mkdir -p "$reset_settings_backup"
+cat >"$reset_settings_backup/settings.json" <<'JSON'
+{
+  "enabledPlugins": {
+    "backup-plugin@example": true
+  }
+}
+JSON
+# shellcheck source=scripts/lib/reset-settings.sh
+source "$ROOT/scripts/lib/reset-settings.sh"
+reset_settings_out="$(reset_settings_preserving_enabled_plugins "$reset_settings_live/settings.json" "$reset_settings_backup/settings.json" 2>&1)"
+assert_contains "reset settings preserves enabledPlugins from backup" "$reset_settings_out" "preserved enabledPlugins from install backup"
+assert_json_expr "reset settings backup fallback keeps plugins" "$(jq -c . "$reset_settings_live/settings.json")" '.enabledPlugins["backup-plugin@example"] == true'
+
 mkdir -p "$CLAUDE_HOME/skills/etrnl-fix-issue" "$CODEX_HOME/skills/etrnl-fix-issue" "$CLAUDE_HOME/commands"
 printf 'legacy claude skill\n' >"$CLAUDE_HOME/skills/etrnl-fix-issue/SKILL.md"
 printf 'legacy codex skill\n' >"$CODEX_HOME/skills/etrnl-fix-issue/SKILL.md"
@@ -128,7 +146,7 @@ assert_executable "installed update helper" "$CLAUDE_HOME/scripts/update.sh"
 assert_executable "installed uninstall helper" "$CLAUDE_HOME/scripts/uninstall.sh"
 assert_file "installed autoplan metadata" "$CLAUDE_HOME/skills/metadata/etrnl-dev-autoplan.json"
 assert_file "installed execute metadata" "$CLAUDE_HOME/skills/metadata/etrnl-dev-execute.json"
-assert_file "installed Codex metadata" "$CODEX_HOME/control-plane/install.json"
+assert_file "installed Codex metadata" "$CODEX_HOME/etrnl/install.json"
 assert_file "installed Codex autoplan metadata" "$CODEX_HOME/skills/metadata/etrnl-dev-autoplan.json"
 assert_file "installed stack core profile template" "$CLAUDE_HOME/templates/stack-profile.core.json"
 assert_file "installed stack full profile template" "$CLAUDE_HOME/templates/stack-profile.full.json"
@@ -191,7 +209,7 @@ assert_json_expr "post-install: reset removed risky top-level settings" "$(jq -c
 assert_json_expr "post-install: reset preserved enabled plugin settings" "$(jq -c . "$CLAUDE_HOME/settings.json")" '.enabledPlugins["foreign-plugin@example"] == true'
 assert_json_expr "post-install: reset removed foreign hooks before stack merge" "$(jq -c . "$CLAUDE_HOME/settings.json")" '([.hooks.SessionStart[]?.hooks[]?.command // empty | select(test("foreign-session-start"))] | length) == 0'
 shopt -s nullglob
-backup_settings=("$CLAUDE_HOME"/backups/control-plane-install-*/settings.json)
+backup_settings=("$CLAUDE_HOME"/backups/etrnl-install-*/settings.json)
 shopt -u nullglob
 if (( ${#backup_settings[@]} >= 1 )); then
   ok "post-install: prior Claude settings were backed up"
@@ -203,7 +221,7 @@ fi
 assert_json_expr "post-install: compact restore is synchronous" "$(jq -c . "$CLAUDE_HOME/settings.json")" '([.hooks.SessionStart[]?.hooks[]? | select((.command // "") | test("cc-sessionstart-restore")) | select(.async == true)] | length) == 0'
 assert_json_expr "post-install: compact lifecycle hooks registered" "$(jq -c . "$CLAUDE_HOME/settings.json")" '([.hooks.PreCompact[]?.hooks[]?.command | select(test("cc-precompact-save"))] | length) == 1 and ([.hooks.PostCompact[]?.hooks[]?.command | select(test("cc-postcompact-record"))] | length) == 1'
 assert_json_expr "post-install: compact companion reminder hooks absent" "$(jq -c . "$CLAUDE_HOME/settings.json")" '([.hooks[]?[]?.hooks[]?.command // empty | select(test("suggest-compact|pre-compact-context|log-compact-event"))] | length) == 0'
-assert_file "post-install: update metadata present" "$CLAUDE_HOME/control-plane/install.json"
+assert_file "post-install: update metadata present" "$CLAUDE_HOME/etrnl/install.json"
 if ! command -v jq >/dev/null 2>&1; then
   not_ok "post-install: jq not available for update metadata checks"
   finish_tests
@@ -220,7 +238,7 @@ assert_json_expr "post-install: drift reports installed agents" "$update_json" "
 assert_json_expr "post-install: drift reports settings mode" "$update_json" '.drift.settingsMode == "default"'
 assert_json_expr "post-install: drift separates recorded and observed settings mode" "$update_json" '.drift.recordedSettingsMode == "default" and .drift.observedSettingsMode == "default" and .drift.settingsModeMismatch == false'
 assert_json_expr "post-install: drift reports fresh scripts" "$update_json" '.drift.staleInstalledScripts.count == 0'
-if ! codex_update_json="$(CLAUDE_CONTROL_PLANE_TOOL_UPDATE_CHECK=0 node "$CODEX_HOME/scripts/update-check.mjs" --json 2>&1)"; then
+if ! codex_update_json="$(ETRNL_TOOL_UPDATE_CHECK=0 node "$CODEX_HOME/scripts/update-check.mjs" --json 2>&1)"; then
   not_ok "post-install: Codex update-check.mjs failed: $codex_update_json"
   finish_tests
   exit 1
@@ -229,7 +247,7 @@ assert_json_expr "post-install: Codex update check is clean" "$codex_update_json
 assert_json_expr "post-install: Codex drift reports installed skills" "$codex_update_json" ".drift.installedSkillCount >= ${#OWNED_SKILLS[@]}"
 assert_json_expr "post-install: Codex drift reports settings mode" "$codex_update_json" '.drift.settingsMode == "codex"'
 assert_json_expr "post-install: Codex drift separates recorded and observed settings mode" "$codex_update_json" '.drift.recordedSettingsMode == "codex"'
-if ! codex_prompt_json="$(CLAUDE_CONTROL_PLANE_TOOL_UPDATE_CHECK=0 node "$CODEX_HOME/scripts/skill-update-prompt.mjs" --agent codex --skill etrnl-dev-plan --json 2>&1)"; then
+if ! codex_prompt_json="$(ETRNL_TOOL_UPDATE_CHECK=0 node "$CODEX_HOME/scripts/skill-update-prompt.mjs" --agent codex --skill etrnl-dev-plan --json 2>&1)"; then
   not_ok "post-install: Codex skill update prompt failed: $codex_prompt_json"
   finish_tests
   exit 1
@@ -246,23 +264,23 @@ if canary_output="$("$CLAUDE_HOME/scripts/post-upgrade-canary.sh" 2>&1)"; then
 else
   not_ok "post-install: post-upgrade canary failed: $canary_output"
 fi
-metadata_tmp="$(mktemp "$CLAUDE_HOME/control-plane/install.json.XXXXXX")"
+metadata_tmp="$(mktemp "$CLAUDE_HOME/etrnl/install.json.XXXXXX")"
 trap 'rm -f "$metadata_tmp"' EXIT
-jq '.sourceFingerprint = "stale"' "$CLAUDE_HOME/control-plane/install.json" >"$metadata_tmp"
-mv -- "$metadata_tmp" "$CLAUDE_HOME/control-plane/install.json"
+jq '.sourceFingerprint = "stale"' "$CLAUDE_HOME/etrnl/install.json" >"$metadata_tmp"
+mv -- "$metadata_tmp" "$CLAUDE_HOME/etrnl/install.json"
 trap - EXIT
-if ! stale_update_json="$(CLAUDE_CONTROL_PLANE_AUTO_UPDATE=0 node "$CLAUDE_HOME/scripts/update-check.mjs" --json 2>&1)"; then
+if ! stale_update_json="$(ETRNL_AUTO_UPDATE=0 node "$CLAUDE_HOME/scripts/update-check.mjs" --json 2>&1)"; then
   not_ok "post-install: stale update-check.mjs failed: $stale_update_json"
   finish_tests
   exit 1
 fi
 assert_json_expr "post-install: stale metadata detects update" "$stale_update_json" '.ok == true and .localUpdateAvailable == true'
-codex_metadata_tmp="$(mktemp "$CODEX_HOME/control-plane/install.json.XXXXXX")"
+codex_metadata_tmp="$(mktemp "$CODEX_HOME/etrnl/install.json.XXXXXX")"
 trap 'rm -f "$codex_metadata_tmp"' EXIT
-jq '.sourceFingerprint = "stale"' "$CODEX_HOME/control-plane/install.json" >"$codex_metadata_tmp"
-mv -- "$codex_metadata_tmp" "$CODEX_HOME/control-plane/install.json"
+jq '.sourceFingerprint = "stale"' "$CODEX_HOME/etrnl/install.json" >"$codex_metadata_tmp"
+mv -- "$codex_metadata_tmp" "$CODEX_HOME/etrnl/install.json"
 trap - EXIT
-if codex_prompt_text="$(CLAUDE_CONTROL_PLANE_AUTO_UPDATE=0 CLAUDE_CONTROL_PLANE_TOOL_UPDATE_CHECK=0 node "$CODEX_HOME/scripts/skill-update-prompt.mjs" --agent codex --skill etrnl-dev-plan --json 2>&1)"; then
+if codex_prompt_text="$(ETRNL_AUTO_UPDATE=0 ETRNL_TOOL_UPDATE_CHECK=0 node "$CODEX_HOME/scripts/skill-update-prompt.mjs" --agent codex --skill etrnl-dev-plan --json 2>&1)"; then
   assert_json_expr "post-install: stale Codex skill prompt reports update when auto disabled" "$codex_prompt_text" '.ok == true and .promptNeeded == true and .localUpdateAvailable == true'
 else
   not_ok "post-install: stale Codex skill prompt failed: $codex_prompt_text"
@@ -295,7 +313,7 @@ assert_no_directory "rollback removed Claude common skill reference" "$CLAUDE_HO
 assert_no_directory "rollback removed Codex common skill reference" "$CODEX_HOME/skills/common"
 assert_no_file "rollback removed Codex update-check helper" "$CODEX_HOME/scripts/update-check.mjs"
 assert_no_file "rollback removed Codex skill update prompt helper" "$CODEX_HOME/scripts/skill-update-prompt.mjs"
-assert_no_file "rollback removed Codex install metadata" "$CODEX_HOME/control-plane/install.json"
+assert_no_file "rollback removed Codex install metadata" "$CODEX_HOME/etrnl/install.json"
 for command_name in "${OWNED_COMMANDS[@]}"; do
   assert_no_file "rollback removed $command_name command" "$CLAUDE_HOME/commands/$command_name.md"
 done

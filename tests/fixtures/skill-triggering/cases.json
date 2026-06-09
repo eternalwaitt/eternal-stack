@@ -240,6 +240,42 @@
     "unexpectedSkills": ["etrnl-dev-commit"]
   },
   {
+    "name": "backend api prompt routes etrnl-backend-api",
+    "prompt": "design a REST API contract with cursor pagination, idempotency keys, versioning, and a stable error envelope",
+    "expectedSkills": ["etrnl-backend-api"],
+    "unexpectedSkills": ["etrnl-backend-data"]
+  },
+  {
+    "name": "backend data prompt routes etrnl-backend-data",
+    "prompt": "model the relational database schema, prevent N+1 queries, and add a repository layer with cache-aside",
+    "expectedSkills": ["etrnl-backend-data"],
+    "unexpectedSkills": ["etrnl-backend-api"]
+  },
+  {
+    "name": "backend security prompt routes etrnl-backend-security",
+    "prompt": "design backend authentication, RBAC authorization, and input validation with OWASP Top 10 coverage",
+    "expectedSkills": ["etrnl-backend-security"],
+    "unexpectedSkills": ["etrnl-audit-security"]
+  },
+  {
+    "name": "backend resilience prompt routes etrnl-backend-resilience",
+    "prompt": "add request timeouts, retries with exponential backoff, a circuit breaker, and a dead-letter queue for the background jobs",
+    "expectedSkills": ["etrnl-backend-resilience"],
+    "unexpectedSkills": ["etrnl-backend-api"]
+  },
+  {
+    "name": "backend observability prompt routes etrnl-backend-observability",
+    "prompt": "add structured logging, distributed tracing, RED metrics, and SLO error budgets to the service",
+    "expectedSkills": ["etrnl-backend-observability"],
+    "unexpectedSkills": ["etrnl-audit-code"]
+  },
+  {
+    "name": "backend architecture prompt routes etrnl-backend-architecture",
+    "prompt": "define the service layer, microservice boundaries, event-driven flows with the outbox pattern, and saga coordination",
+    "expectedSkills": ["etrnl-backend-architecture"],
+    "unexpectedSkills": ["etrnl-backend-data"]
+  },
+  {
     "name": "ambiguous prompt does not over-route",
     "prompt": "what changed here?",
     "expectedSkills": [],

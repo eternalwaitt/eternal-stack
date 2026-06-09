@@ -1,12 +1,18 @@
 # ETRNL Skills
 
-ETRNL is the Claude control-plane skill family. Every skill shipped by this repo uses the `etrnl-` prefix so its origin is obvious in slash commands, hook state, and session summaries.
+ETRNL is the Claude etrnl skill family. Every skill shipped by this repo uses the `etrnl-` prefix so its origin is obvious in slash commands, hook state, and session summaries.
 
-Claude Code personal and project skills use hyphenated command names. If this control plane later ships as a Claude plugin, the plugin namespace can become `etrnl:<skill>`, but the installed skill commands in this repo are `etrnl-*`. Install materializes `~/.claude/commands/etrnl-*.md` shims from the repo-owned skill contracts so slash invocation works even when Claude Code does not expose `~/.claude/skills` directly.
+Claude Code personal and project skills use hyphenated command names. If this Eternal Stack later ships as a Claude plugin, the plugin namespace can become `etrnl:<skill>`, but the installed skill commands in this repo are `etrnl-*`. Install materializes `~/.claude/commands/etrnl-*.md` shims from the repo-owned skill contracts so slash invocation works even when Claude Code does not expose `~/.claude/skills` directly.
 
 | Command | Invocation | Purpose |
 | --- | --- | --- |
 | `/etrnl-ops-agent-files` | Model or user | Maintains AGENTS.md, CLAUDE.md, rules, and agent instruction files without bloat. |
+| `/etrnl-backend-api` | Model or user | Designs REST/GraphQL contracts, status codes, idempotency keys, cursor pagination, versioning, the error envelope, middleware order, and edge rate limiting. |
+| `/etrnl-backend-architecture` | Model or user | Defines service layers, microservice boundaries, event-driven flows with the outbox pattern, CQRS/event sourcing, and saga workflow coordination. |
+| `/etrnl-backend-data` | Model or user | Models relational schemas, designs indexes, prevents N+1 queries, scopes transactions, builds repository abstractions, and adds cache-aside layers. |
+| `/etrnl-backend-observability` | Model or user | Adds structured logging, distributed tracing, RED metrics, SLI/SLO error budgets, liveness/readiness health checks, and centralized error handling. |
+| `/etrnl-backend-resilience` | Model or user | Adds timeouts, retry with backoff and jitter, circuit breakers, bulkheads, distributed rate limiting, and background jobs with dead-letter queues. |
+| `/etrnl-backend-security` | Model or user | Implements authentication, RBAC/ABAC authorization, schema-based input validation, secret handling, and OWASP Top 10 coverage. |
 | `/etrnl-dev-autoplan` | Model or user | Creates readiness-compatible execution plans with task groups, subagent candidates, verification gates, question policy, mandatory deep-stack artifacts, and an autoplan parity scorecard for final plans. |
 | `/etrnl-dev-brainstorm` | Model or user | Turns ambiguous ideas into approved design/spec files before implementation planning. |
 | `/etrnl-dev-ci` | Model or user | Designs, audits, hardens, debugs, and repairs CI/CD lanes, GitHub Actions, branch protection, artifact/deploy gates, OIDC, SBOM/provenance, rollback, flaky CI, and slow builds. |
@@ -74,7 +80,7 @@ Hindsight is not an ETRNL execution skill and is not compact handoff authority. 
 
 Beads is not an ETRNL companion execution skill. It is allowed as explicit backlog, blocker, dependency, claim, and discovered-follow-up state only. Active ETRNL tasks, phases, checks, compact handoff packets, execution-ledger evidence, and review evidence stay in ETRNL state and ledgers. Raw `bd prime --full` output is rejected by `node scripts/etrnl-state.mjs bead-prime-audit`.
 
-These skills are not owned by this repo, but the control plane knows about them and routes to them when installed. Keeping them outside the `etrnl-*` family avoids hiding the repo boundary while preserving the stronger workflow from the original planning sessions.
+These skills are not owned by this repo, but the Eternal Stack knows about them and routes to them when installed. Keeping them outside the `etrnl-*` family avoids hiding the repo boundary while preserving the stronger workflow from the original planning sessions.
 
 | Skill | Owner | Used For |
 | --- | --- | --- |
@@ -102,7 +108,7 @@ These skills are not owned by this repo, but the control plane knows about them 
 | `documentation-comment-health.mjs` | `~/.claude/scripts/documentation-comment-health.mjs` | Inventories exported JS/TS targets and their leading TSDoc/JSDoc coverage so documentation-health runs cannot pass with comment sampling only. |
 | `documentation-health-ledger-check.mjs` | `~/.claude/scripts/documentation-health-ledger-check.mjs` | Blocks documentation-health completion unless coverage, source-truth, freshness/drift, comment, AI-context, terminal-ledger, and validation evidence are present. |
 | `disk-cleanup-manifest.mjs` | `~/.claude/scripts/disk-cleanup-manifest.mjs` | Validates disk-cleanup dry-run manifests with absolute paths, byte estimates, risk tiers, approval requirements, and no recursive `rm` or whole-Trash cleanup. |
-| `merge-settings.mjs` | `~/.claude/scripts/merge-settings.mjs` | Merges control-plane hooks into existing Claude settings without replacing unrelated local configuration. |
+| `merge-settings.mjs` | `~/.claude/scripts/merge-settings.mjs` | Merges etrnl hooks into existing Claude settings without replacing unrelated local configuration. |
 | `plan-readiness-check.mjs` | `~/.claude/scripts/plan-readiness-check.mjs` | Rejects thin plans before they are marked final or executed; final plans require a validated deep-stack artifact bundle unless a legacy transitional flag is explicitly used. |
 | `deep-stack-check.mjs` | `~/.claude/scripts/deep-stack-check.mjs` | Creates and validates the Hybrid Deep Stack artifact bundle for final plans: sanitized source manifest, skill matrix, review phase records, TDD evidence, reuse inventory/bindings, findings ledger, completion audit/reconciliation, risk tier, TypeScript trigger evidence, and install proof. |
 | `deep-audit-artifact-check.mjs` | `~/.claude/scripts/deep-audit-artifact-check.mjs` | Validates deep-audit category artifacts, registry/docs/install alignment, registered check coverage, lane receipts, consumed worklist hashes, redaction, and stable problem/cause/fix diagnostics. |
@@ -116,7 +122,7 @@ These skills are not owned by this repo, but the control plane knows about them 
 | `etrnl-state.mjs` | `~/.claude/scripts/etrnl-state.mjs` | Appends and queries canonical local ETRNL state for compact pre/post events, bounded handoff restore, stale-verification Stop checks, context entries, tool signals, settings observations, accepted lessons, dry-run Beads backlog links, and raw Beads doctrine rejection. |
 | `codex-rtk-pre-tool-use.sh` | `~/.claude/scripts/codex-rtk-pre-tool-use.sh` | Source-controlled Codex RTK PreToolUse hook; syncs to `~/.codex/hooks/rtk-pre-tool-use.sh` to rewrite commands with `updatedInput`, proxy unsafe `rg` forms, and block broad `.codex` scans. |
 | `update-check.mjs` | `~/.claude/scripts/update-check.mjs` | Compares installed metadata with the recorded source checkout, reports local/remote drift, emits `--explain` diagnostics, and can run local auto-update when enabled. |
-| `skill-update-prompt.mjs` | `~/.claude/scripts/skill-update-prompt.mjs`, `~/.codex/scripts/skill-update-prompt.mjs` | Auto-repairs local control-plane drift through update-check, then converts remaining remote and CodeGraph/Beads drift into the per-skill prompt used by Claude hooks and the first Codex skill step. |
+| `skill-update-prompt.mjs` | `~/.claude/scripts/skill-update-prompt.mjs`, `~/.codex/scripts/skill-update-prompt.mjs` | Auto-repairs local etrnl drift through update-check, then converts remaining remote and CodeGraph/Beads drift into the per-skill prompt used by Claude hooks and the first Codex skill step. |
 | `replay-hook-fixtures.mjs` | `~/.claude/scripts/replay-hook-fixtures.mjs` | Replays scrubbed regression fixtures through live hooks and asserts allow/deny/block outcomes. |
 | `execution-ledger.mjs` | `~/.claude/scripts/execution-ledger.mjs` | Creates, validates, and checks local ETRNL run ledgers, including task lineage, packet-bound write evidence, reviews, TDD/simplifier/specialist/completion/install evidence rows, mandatory phase recording during plan execution, conditional workstream metadata, and UAT completion gates. |
 | `execution-wave-check.mjs` | `~/.claude/scripts/execution-wave-check.mjs` | Groups planned tasks by wave, detects file overlap, and reports worktree eligibility. |
@@ -137,7 +143,7 @@ These skills are not owned by this repo, but the control plane knows about them 
 | `research-competitor-intel.mjs` | `~/.claude/scripts/research-competitor-intel.mjs` | Validates pinned competitor manifests, evidence rows, parity scorecards, and refresh cadence. |
 | `skill-contract-check.mjs` | `~/.claude/scripts/skill-contract-check.mjs` | Fails when repo-owned skills drift from docs, helper scripts, readiness contracts, directive-language rules, model/context inheritance, SessionStart hints, or installed copies. |
 | `skill-behavior-smoke.mjs` | `~/.claude/scripts/skill-behavior-smoke.mjs` | Runs end-to-end helper smoke checks for the skill behaviors that must fail closed before live use. |
-| `doctor-control-plane.sh` | `~/.claude/scripts/doctor-control-plane.sh` | Checks installed hooks, settings, skills, agents, docs, scripts, strict/default mode, and workflow state. |
+| `doctor-etrnl.sh` | `~/.claude/scripts/doctor-etrnl.sh` | Checks installed hooks, settings, skills, agents, docs, scripts, strict/default mode, and workflow state. |
 | `update.sh` | `~/.claude/scripts/update.sh` | Re-enters the recorded source checkout and runs the normal installer for local upgrades. |
 | `uninstall.sh` | `~/.claude/scripts/uninstall.sh` | Prints the rollback command and refuses destructive automatic deletion. |
 | `rollback-local.sh` | `~/.claude/scripts/rollback-local.sh` | Restores the latest installer backup and removes/restores repo-owned agents, skills, hooks, and settings safely. |

@@ -1,6 +1,6 @@
 ---
 name: etrnl-dev-autoplan
-description: ETRNL control-plane planning companion for Claude Code. Use when the user asks to create an execution-ready implementation plan with task groups, dependencies, subagent candidates, verification gates, and explicit question policy.
+description: ETRNL planning companion for Claude Code. Use when the user asks to create an execution-ready implementation plan with task groups, dependencies, subagent candidates, verification gates, and explicit question policy.
 ---
 # ETRNL Autoplan
 
@@ -37,7 +37,7 @@ Mandatory stages:
    - For large plans, create read-only task packets for `etrnl-scout`, `etrnl-adversary`, `etrnl-design-reviewer`, and `etrnl-dx-reviewer`, or record a blocker/unavailable/not-applicable disposition.
    - Mark Codex, Gemini, Octopus, gstack design, GPT image/mock tooling, CodeGraph, Beads, and browser tooling as applicable, unavailable, or not-applicable with evidence.
 7. Test-first and verification design:
-   - Include red/green proof for source tasks, fixture coverage for workflow tasks, browser evidence for UI tasks, and install/canary gates for control-plane runtime changes.
+   - Include red/green proof for source tasks, fixture coverage for workflow tasks, browser evidence for UI tasks, and install/canary gates for etrnl runtime changes.
    - Name exact commands and expected pass conditions in `## Verification gates`.
    - Use vertical slices for implementation tasks. Split any task that touches more than 8 files, crosses unrelated subsystems, or lacks one clear verification command.
 8. Artifact creation:

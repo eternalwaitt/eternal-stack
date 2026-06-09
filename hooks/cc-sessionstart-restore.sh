@@ -15,6 +15,9 @@ source "$SCRIPT_DIR/lib/paths.sh"
 # shellcheck source=hooks/lib/skill-hints.sh
 source "$SCRIPT_DIR/lib/skill-hints.sh"
 
+# shellcheck source=hooks/lib/cleanup.sh
+source "$SCRIPT_DIR/lib/cleanup.sh"
+
 trim_chars() {
   local limit="$1"
   if command -v node >/dev/null 2>&1; then
@@ -34,11 +37,6 @@ process.stdin.on("end", () => {
     return
   fi
   cat
-}
-
-cleanup_update_temp_files() {
-  [[ -n "${update_stdout_file:-}" ]] && rm -f "$update_stdout_file"
-  [[ -n "${update_stderr_file:-}" ]] && rm -f "$update_stderr_file"
 }
 
 cc_json_read_stdin
@@ -96,35 +94,42 @@ WORKFLOW_ISSUE_FILTER='
       or ((.uat.openFindings // 0) > 0)
       or ((.missingArtifacts // []) | length > 0);
 '
-if [[ "${CLAUDE_CONTROL_PLANE_UPDATE_CHECK:-1}" != "0" && -f "$SCRIPT_DIR/../scripts/update-check.mjs" ]] && command -v node >/dev/null 2>&1; then
+if [[ "${ETRNL_UPDATE_CHECK:-1}" != "0" && -f "$SCRIPT_DIR/../scripts/update-check.mjs" ]] && command -v node >/dev/null 2>&1; then
   update_check_cmd=(node "$SCRIPT_DIR/../scripts/update-check.mjs")
-  [[ "${CLAUDE_CONTROL_PLANE_AUTO_UPDATE:-1}" != "0" ]] && update_check_cmd+=(--auto)
-  [[ "${CLAUDE_CONTROL_PLANE_REMOTE_UPDATE_CHECK:-0}" == "1" ]] && update_check_cmd+=(--remote)
+  [[ "${ETRNL_AUTO_UPDATE:-1}" != "0" ]] && update_check_cmd+=(--auto)
+  [[ "${ETRNL_REMOTE_UPDATE_CHECK:-0}" == "1" ]] && update_check_cmd+=(--remote)
   update_check_enabled=1
+  update_stdout_file=""
+  update_stderr_file=""
   if ! update_stdout_file="$(mktemp "${TMPDIR:-/tmp}/cc-update-check-out.XXXXXX")"; then
     printf 'claude-guard warning: update-check skipped (stdout temp file unavailable)\n' >&2
     update_check_enabled=0
   elif ! chmod 600 "$update_stdout_file"; then
     printf 'claude-guard warning: update-check skipped (stdout temp file permissions unavailable)\n' >&2
-    cleanup_update_temp_files
+    rm -f "$update_stdout_file"
+    update_stdout_file=""
     update_check_enabled=0
+  fi
+  if (( update_check_enabled == 1 )) && [[ -n "$update_stdout_file" ]]; then
+    cc_register_cleanup "$update_stdout_file"
   fi
   if (( update_check_enabled == 1 )) && ! update_stderr_file="$(mktemp "${TMPDIR:-/tmp}/cc-update-check-err.XXXXXX")"; then
     printf 'claude-guard warning: update-check skipped (stderr temp file unavailable)\n' >&2
-    cleanup_update_temp_files
     update_check_enabled=0
   elif (( update_check_enabled == 1 )) && ! chmod 600 "$update_stderr_file"; then
     printf 'claude-guard warning: update-check skipped (stderr temp file permissions unavailable)\n' >&2
-    cleanup_update_temp_files
+    rm -f "$update_stderr_file"
+    update_stderr_file=""
     update_check_enabled=0
+  fi
+  if (( update_check_enabled == 1 )) && [[ -n "$update_stderr_file" ]]; then
+    cc_register_cleanup "$update_stderr_file"
   fi
   if (( update_check_enabled == 1 )) && [[ ! -w "$update_stdout_file" || ! -w "$update_stderr_file" ]]; then
     printf 'claude-guard warning: update-check skipped (temp files not writable)\n' >&2
-    cleanup_update_temp_files
     update_check_enabled=0
   fi
   if (( update_check_enabled == 1 )); then
-    trap cleanup_update_temp_files EXIT INT TERM
     update_exit_status=0
     if "${update_check_cmd[@]}" >"$update_stdout_file" 2>"$update_stderr_file"; then
       update_exit_status=0
@@ -132,14 +137,12 @@ if [[ "${CLAUDE_CONTROL_PLANE_UPDATE_CHECK:-1}" != "0" && -f "$SCRIPT_DIR/../scr
     else
       update_exit_status=$?
       update_error="$(tr '\n' ' ' <"$update_stderr_file" | trim_chars 500)"
-      update_hint="CONTROL_PLANE_UPDATE_WARNING update-check-failed(exit=${update_exit_status}): ${update_error:-unknown error}"
+      update_hint="ETRNL_UPDATE_WARNING update-check-failed(exit=${update_exit_status}): ${update_error:-unknown error}"
     fi
     update_stderr="$(tr '\n' ' ' <"$update_stderr_file" | trim_chars 500)"
     if [[ -n "$update_stderr" ]]; then
       printf 'claude-guard warning: update-check stderr (exit=%s): %s\n' "$update_exit_status" "$update_stderr" >&2
     fi
-    cleanup_update_temp_files
-    trap - EXIT INT TERM
   fi
 fi
 if [[ -f "$SCRIPT_DIR/../scripts/workflow-health.mjs" ]] && command -v node >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
@@ -174,12 +177,12 @@ if [[ -f "$SCRIPT_DIR/../scripts/workflow-health.mjs" ]] && command -v node >/de
     printf 'claude-guard warning: workflow status hint skipped\n' >&2
   fi
 fi
-if [[ "${CLAUDE_CONTROL_PLANE_LEARNING_STARTUP_HINTS:-}" != "0" \
+if [[ "${ETRNL_LEARNING_STARTUP_HINTS:-}" != "0" \
   && -f "$SCRIPT_DIR/../scripts/project-buglog.mjs" ]] \
   && command -v node >/dev/null 2>&1 \
   && command -v jq >/dev/null 2>&1; then
   learning_enabled=false
-  if [[ "${CLAUDE_CONTROL_PLANE_LEARNING_STARTUP_HINTS:-}" == "1" ]]; then
+  if [[ "${ETRNL_LEARNING_STARTUP_HINTS:-}" == "1" ]]; then
     learning_enabled=true
   elif [[ -n "$workflow_status_json" ]] && jq -e "$WORKFLOW_ISSUE_FILTER"' workflow_issue' >/dev/null 2>&1 <<<"$workflow_status_json"; then
     learning_enabled=true
@@ -188,7 +191,7 @@ if [[ "${CLAUDE_CONTROL_PLANE_LEARNING_STARTUP_HINTS:-}" != "0" \
     learning_json=""
     if learning_json="$(node "$SCRIPT_DIR/../scripts/project-buglog.mjs" suggest-project --cwd "$cwd" --json --limit 3 2>/dev/null)" \
       && jq -e . >/dev/null 2>&1 <<<"$learning_json"; then
-      learning_limit="${CLAUDE_CONTROL_PLANE_LEARNING_HINT_MAX_CHARS:-500}"
+      learning_limit="${ETRNL_LEARNING_HINT_MAX_CHARS:-500}"
       learning_hint_candidate="Project learning hints:"
       retained_learning_fps=()
       while IFS=$'\t' read -r bug_fp bug_severity bug_category bug_summary bug_guard; do
@@ -215,7 +218,7 @@ if [[ "${CLAUDE_CONTROL_PLANE_LEARNING_STARTUP_HINTS:-}" != "0" \
     fi
   fi
 fi
-msg="Control-plane guard active. Fresh evidence beats memory. Cwd: $cwd"
+msg="Eternal Stack guard active. Fresh evidence beats memory. Cwd: $cwd"
 if [[ -n "$branch" ]]; then
   msg="$msg. Git: $branch, dirty files: ${dirty:-0}"
 fi

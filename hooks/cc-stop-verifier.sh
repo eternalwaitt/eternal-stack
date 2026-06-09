@@ -14,6 +14,8 @@ source "$SCRIPT_DIR/lib/state.sh"
 source "$SCRIPT_DIR/lib/code-patterns.sh"
 # shellcheck source=hooks/lib/paths.sh
 source "$SCRIPT_DIR/lib/paths.sh"
+# shellcheck source=hooks/lib/cleanup.sh
+source "$SCRIPT_DIR/lib/cleanup.sh"
 
 # Completion gate flow:
 # [assistant done-claim]
@@ -331,6 +333,7 @@ if [[ "$claims_done" == "true" ]]; then
     stop_status_json=""
     stop_err=""
     stop_err_file="$(mktemp "${TMPDIR:-/tmp}/cc-stop-status.XXXXXX")"
+    cc_register_cleanup "$stop_err_file"
     timeout_cmd=()
     if command -v timeout >/dev/null 2>&1; then
       timeout_cmd=(timeout 5)
@@ -342,11 +345,9 @@ if [[ "$claims_done" == "true" ]]; then
       stop_err="$(head -n 1 "$stop_err_file" 2>/dev/null || true)"
       stop_reason="ETRNL stop-status check failed. Verification is stale after compact."
       [[ -z "$stop_err" ]] || stop_reason="$stop_reason $stop_err"
-      rm -f -- "$stop_err_file"
       cc_json_block "$stop_reason"
       exit 0
     fi
-    rm -f -- "$stop_err_file"
     if [[ -z "$stop_status_json" ]] || ! jq -e . >/dev/null 2>&1 <<<"$stop_status_json"; then
       stop_reason="ETRNL stop-status returned invalid JSON. Verification is stale after compact."
       [[ -z "$stop_status_json" ]] || stop_reason="$stop_reason Output: ${stop_status_json:0:200}"
@@ -638,7 +639,7 @@ else:
       exit 0
       ;;
     missing-install-proof)
-      cc_json_block "etrnl-dev-execute touched control-plane install surfaces without install proof. Record source gate, staged install/doctor/canary, and rollback evidence, or state the explicit blocker."
+      cc_json_block "etrnl-dev-execute touched Eternal Stack install surfaces without install proof. Record source gate, staged install/doctor/canary, and rollback evidence, or state the explicit blocker."
       exit 0
       ;;
   esac

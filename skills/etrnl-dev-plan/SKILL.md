@@ -1,6 +1,6 @@
 ---
 name: etrnl-dev-plan
-description: ETRNL control-plane file-backed planning workflow for Claude Code. Use when the user asks to "write a plan", "make an implementation plan", "turn this spec into tasks", "review/improve/finalize a plan", or plan multi-step work before implementation.
+description: ETRNL file-backed planning workflow for Claude Code. Use when the user asks to "write a plan", "make an implementation plan", "turn this spec into tasks", "review/improve/finalize a plan", or plan multi-step work before implementation.
 paths:
   - "docs/plans/**"
   - "plans/**"
@@ -75,7 +75,7 @@ node ~/.claude/scripts/deep-stack-check.mjs validate-plan --plan <plan-path>
 - `## File map`: exact files to create/modify/read, with each file's responsibility.
 - `## Task groups`: group related tasks so one worker can keep context; each group lists `Owner:`, `Dependencies:`, `Acceptance criteria:`, and `Verification:`; mark independent groups eligible for parallel execution.
 - `## Task sizing and slices`: use vertical slices that produce testable behavior; split any task that touches more than 8 files, crosses unrelated subsystems, or lacks one clear verification command.
-  Sizing note: `more than 8 files` is a control-plane heuristic from prior repo-hardening runs, not a universal limit. Other skill docs must point to this line when they reuse the threshold, and repos with smaller ownership boundaries must tighten it.
+  Sizing note: `more than 8 files` is an Eternal Stack heuristic from prior repo-hardening runs, not a universal limit. Other skill docs must point to this line when they reuse the threshold, and repos with smaller ownership boundaries must tighten it.
 - `## Phases`: setup, implementation, tests, docs, rollout, rollback, verification, completion criteria.
 - `## Skill/tool routing`: list required workflow skills and companion review passes.
 - `## Test plan`: code paths, user flows, error states, regressions, E2E/eval needs, and exact test files/commands.
@@ -120,7 +120,7 @@ Before finalizing, review the draft for:
   - Plans without research grounding or a valid exception for new capabilities must include `research_flow: blocked - no evidence file` in `## Plan Readiness Report` -> `Unresolved questions` and require explicit user sign-off before `Status: Final`.
 - Missing competitor matrix inputs for plans that overlap with documented competitor capabilities:
   - Reference `docs/research/top10-lock.json` if available, or name why no competitor analysis is needed.
-- Missing companion-skill passes from the original control-plane vision:
+- Missing companion-skill passes from the original Eternal Stack vision:
   - `eternal-best-practices` for tenant, money, auth, i18n, Prisma, soft-delete, and domain policy.
   - `code-simplifier` before final scoring or completion.
   - `finding-duplicate-functions` for dedupe/refactor-heavy work.

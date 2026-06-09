@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "profile": "core",
-  "description": "ETRNL control-plane harness without global semantic memory or backlog services.",
+  "description": "ETRNL core harness without global semantic memory or backlog services.",
   "installCommand": "./scripts/install.sh --profile core",
   "components": {
     "etrnl": {
@@ -52,7 +52,7 @@
     ]
   },
   "rollback": {
-    "installMetadataTarget": "~/.claude/control-plane/install.json",
+    "installMetadataTarget": "~/.claude/etrnl/install.json",
     "required": true
   }
 }

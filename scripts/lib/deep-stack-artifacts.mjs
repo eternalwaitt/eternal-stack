@@ -577,7 +577,7 @@ export function validateTypeTriggerEvidence(typeTriggerEvidence, riskTier = {}, 
 export function validateInstallProof(installProof, riskTier = {}, context = {}, errors = []) {
   if (installProof === undefined && !sectionRequired(riskTier, "installProof") && riskTier?.tier !== 3) return errors;
   if (!installProof || typeof installProof !== "object" || Array.isArray(installProof)) {
-    errors.push(error("INSTALL_PROOF_REQUIRED", context.artifactPath, "installProof", "Control-plane changes need source/staged/live install proof records.", "Add installProof with sourceGate, stagedInstall, stagedDoctor, rollbackVerification, liveInstallDecision, and postUpgradeCanary."));
+    errors.push(error("INSTALL_PROOF_REQUIRED", context.artifactPath, "installProof", "Eternal Stack changes need source/staged/live install proof records.", "Add installProof with sourceGate, stagedInstall, stagedDoctor, rollbackVerification, liveInstallDecision, and postUpgradeCanary."));
     return errors;
   }
   for (const stage of INSTALL_PROOF_STAGES) {
