@@ -2,7 +2,7 @@
 
 Vendored from the `prisma-expert` companion skill. Apply for schema design, migrations, client queries, connection management, and transactions on PostgreSQL, MySQL, or SQLite.
 
-Load `sql-optimization.md` when debugging slow queries, missing indexes, or EXPLAIN plans. Load `data.md` for repository and cache-aside patterns. Load `tenant-isolation-patterns` when installed for multi-tenant enforcement beyond schema hints.
+When debugging slow queries, missing indexes, or EXPLAIN plans, load `sql-optimization.md`. For repository and cache-aside patterns, load `data.md`. For multi-tenant enforcement beyond schema hints, load `tenant-isolation-patterns` when installed.
 
 ## Schema Design
 

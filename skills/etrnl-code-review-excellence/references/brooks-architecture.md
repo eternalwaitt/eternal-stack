@@ -10,7 +10,7 @@ Before drawing the graph:
 
 1. Glob top two directory levels to identify module boundaries.
 2. Read the package manifest (`package.json`, `go.mod`, `Cargo.toml`, `pyproject.toml`) for language, framework, and declared dependencies.
-3. Grep import edges (`import`, `from`, `require(`, `use `) — cap at 200 matches per language pass.
+3. Grep import edges (`import`, `from`, `require(`, `use`) — cap at 200 matches per language pass.
 4. For directories with > 10 files, read `index.*`, `main.*`, or `__init__.*` for stated responsibility.
 
 Stop when you can answer: top-level module names and count; which modules import which; highest fan-in or fan-out module.
