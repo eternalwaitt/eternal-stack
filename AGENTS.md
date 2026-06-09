@@ -16,6 +16,6 @@ This repo builds Eternal's opinionated stack of skills, hooks, and rules for Cla
 ## Boundaries
 
 - Repo-owned skills use the `etrnl-*` namespace.
-- Companion skills such as `eternal-best-practices`, `code-simplifier`, `finding-duplicate-functions`, and `brooks-audit` are mapped but not vendored.
+- Companion skills such as `eternal-best-practices`, `code-simplifier`, and `finding-duplicate-functions` are mapped but not vendored; `brooks-audit` is vendored into `etrnl-code-review-excellence/references/brooks-*.md`.
 - Live migration of memory systems, plugins, MCPs, and broad permissions is a local rollout step, not a blind install-time side effect.
 - Whole-codebase audits use `etrnl-audit-code` plus `scripts/code-health-inventory.mjs`; no tracked file may vanish from the coverage map.

@@ -7,23 +7,18 @@ Claude Code personal and project skills use hyphenated command names. If this Et
 | Command | Invocation | Purpose |
 | --- | --- | --- |
 | `/etrnl-ops-agent-files` | Model or user | Maintains AGENTS.md, CLAUDE.md, rules, and agent instruction files without bloat. |
-| `/etrnl-backend-api` | Model or user | Designs REST/GraphQL contracts, status codes, idempotency keys, cursor pagination, versioning, the error envelope, middleware order, and edge rate limiting. |
-| `/etrnl-backend-architecture` | Model or user | Defines service layers, microservice boundaries, event-driven flows with the outbox pattern, CQRS/event sourcing, and saga workflow coordination. |
-| `/etrnl-backend-data` | Model or user | Models relational schemas, designs indexes, prevents N+1 queries, scopes transactions, builds repository abstractions, and adds cache-aside layers. |
-| `/etrnl-backend-observability` | Model or user | Adds structured logging, distributed tracing, RED metrics, SLI/SLO error budgets, liveness/readiness health checks, and centralized error handling. |
-| `/etrnl-backend-resilience` | Model or user | Adds timeouts, retry with backoff and jitter, circuit breakers, bulkheads, distributed rate limiting, and background jobs with dead-letter queues. |
-| `/etrnl-backend-security` | Model or user | Implements authentication, RBAC/ABAC authorization, schema-based input validation, secret handling, and OWASP Top 10 coverage. |
+| `/etrnl-backend-patterns` | Model or user | Orchestrates backend design guidance: classifies the task, loads only the needed `references/` modules (orpc, api, data, prisma, sql-optimization, security, resilience, observability, architecture), and applies them without exposing separate slash commands per concern. |
 | `/etrnl-dev-autoplan` | Model or user | Creates readiness-compatible execution plans with task groups, subagent candidates, verification gates, question policy, mandatory deep-stack artifacts, and an autoplan parity scorecard for final plans. |
 | `/etrnl-dev-brainstorm` | Model or user | Turns ambiguous ideas into approved design/spec files before implementation planning. |
 | `/etrnl-dev-ci` | Model or user | Designs, audits, hardens, debugs, and repairs CI/CD lanes, GitHub Actions, branch protection, artifact/deploy gates, OIDC, SBOM/provenance, rollback, flaky CI, and slow builds. |
-| `/etrnl-audit-code` | Model or user | Runs the canonical code-health router: inventory, Health Stack, deterministic gates, companion audits, ledger, and no-skips closure. |
-| `/etrnl-audit-excellence` | Model or user | Runs the registered code-excellence deep-audit category across correctness, type contracts, error handling, architecture, test signal, and complexity debt. |
-| `/etrnl-audit` | Model or user | Runs registered application deep-audit categories through a shared artifact envelope, shared worklists, category reports, lane receipts, and `all_registered` coverage statements. |
+| `/etrnl-audit-code` | User only | Runs the canonical code-health router: inventory, Health Stack, deterministic gates, companion audits, ledger, and no-skips closure. |
+| `/etrnl-code-review-excellence` | Model or user | Orchestrates code review excellence: classifies the task, loads `references/` modules (audit-checks, Brooks foundation/architecture/onboarding), and runs the registered `code-excellence` deep-audit category when needed. |
+| `/etrnl-deep-audit` | Model or user | Runs orchestrator-included application deep-audit categories through a shared artifact envelope, shared worklists, category reports, lane receipts, and `all_registered` coverage statements. Bundled categories `shared-reuse` and `repo-hygiene` load from `references/categories/`. |
+| `/etrnl-deep-audit-ux` | Model or user | Runs the `ui-ux-product` deep-audit category for accessibility, responsive visual QA, interaction quality, hierarchy, states, empty paths, and product copy — separate from `all_registered` so UI/UX depth can evolve independently. |
 | `/etrnl-audit-docs` | Model or user | Runs documentation-health audits and fixes across READMEs, docs, ADRs, runbooks, API/runtime docs, AI context, and code comments with inventory, drift evidence, and parallel review lanes. |
 | `/etrnl-ops-context-save` | User or model | Saves concise resumable workflow state without storing transcripts or credentials. |
 | `/etrnl-ops-context-restore` | User or model | Restores a saved context summary and flags stale continuation state. |
 | `/etrnl-ops-disk-cleanup` | User only | Reclaims local disk space with host/filesystem evidence, a dry-run manifest, approved transient path classes, `trash` deletion, and before/after free-space verification. |
-| `/etrnl-dev-review` | Model or user | Reviews code, plans, risks, loose ends, and final pass readiness. |
 | `/etrnl-audit-security` | Model or user | Runs the registered security deep-audit category with exploitable-bug evidence, source/sink tracing, missing-control checks, reachability, confidence, and explicit non-findings. |
 | `/etrnl-dev-commit` | User only | Reviews, verifies, stages, and commits relevant work. |
 | `/etrnl-dev-deps` | User only | Handles targeted dependency maintenance with migration checks, catalog consolidation, bot PR triage, and rollback evidence. |
@@ -31,15 +26,11 @@ Claude Code personal and project skills use hyphenated command names. If this Et
 | `/etrnl-dev-stress-test` | Model or user | Stress-tests architecture, rollout, migration, automation, and safety assumptions. |
 | `/etrnl-dev-execute` | User only | Executes an approved readiness-checked implementation plan end to end with test-first source tasks, run ledger, write-mode implementation subagents for parallel-safe multi-file work, reviews, and verification. |
 | `/etrnl-dev-debug` | User only | Debugs bugs, failing tests, CI failures, production issues, tracked issues, and unexpected behavior through root-cause evidence before fixes. |
-| `/etrnl-dev-parallel` | User only | Thin explicit fanout helper; `/etrnl-dev-execute` owns normal plan orchestration. |
 | `/etrnl-audit-performance` | Model or user | Runs the registered performance deep-audit category with route matrix evidence, cold and warm measurements, response bytes, shared worklist hashes, and six lane receipts. |
 | `/etrnl-dev-pr` | User only | Prepares or updates pull requests with verification evidence, CI state, review feedback, CodeRabbit findings, and a closed readiness loop. |
 | `/etrnl-audit-production` | Model or user | Runs the registered production-readiness deep-audit category with no-sampling checks, applicability gates, `CONFIRMED_CLEAN`, skipped-check reasons, and source-limited blockers. |
 | `/etrnl-audit-browser` | User only | Produces browser QA reports with route, viewport, screenshot, console, network, accessibility, and responsive evidence. |
-| `/etrnl-audit-repo` | Model or user | Runs the registered repo-hygiene deep-audit category across entrypoints, file organization, generated artifacts, config consistency, and public/private boundary. |
-| `/etrnl-audit-reuse` | Model or user | Runs the registered shared-reuse deep-audit category across reusable surfaces, duplication hotspots, abstraction fit, test reuse, and new-surface justification. |
 | `/etrnl-audit-tooling` | Model or user | Runs the registered tooling-ecosystem deep-audit category across local setup, command parity, lint/format/type gates, tests, update/rollback paths, live installed-state checks, and tooling hardening. |
-| `/etrnl-audit-ux` | Model or user | Runs the registered UI/UX/product deep-audit category across primary flows, hierarchy, states, accessibility, responsiveness, and product copy. |
 | `/etrnl-dev-test` | User only | Runs project preflight and reports or fixes failures. |
 | `/etrnl-dev-plan` | Model or user | Creates a plan file, reviews it, improves it, then finalizes it. |
 
@@ -49,9 +40,40 @@ Claude Code personal and project skills use hyphenated command names. If this Et
 | --- | --- | --- |
 | `/email-triage <account>` | User only | Runs private email triage in two phases: first archive/label every current INBOX item and provider-verify Inbox Zero with the local private email CLI, then render one action/reply queue item only after verification reports `inbox_zero_verified: true`, `inbox_count: 0`, and either `gmail_mutated: true` or `queue_ready_without_mutation: true`; visible reply drafts require the local draft checker before approval. |
 
+## Code Review Excellence
+
+`/etrnl-code-review-excellence` is the single slash entry for code-excellence review and Brooks-style structural audit. Reference modules live under `skills/etrnl-code-review-excellence/references/` and load on demand — they are not separate owned skills or commands.
+
+| Module file | Covers |
+| --- | --- |
+| `references/audit-checks.md` | Registered `code-excellence` deep-audit checks (`code-01`–`code-06`) |
+| `references/brooks-foundation.md` | Iron Law findings, severity, health score, decay risks, report envelope |
+| `references/brooks-architecture.md` | Module dependency graph, layering, Conway's Law, testability seams |
+| `references/brooks-onboarding.md` | Codebase tour and new-developer orientation |
+
+Successor to the external companion skill `brooks-audit` when the Eternal Stack is installed.
+
+## Backend Patterns
+
+`/etrnl-backend-patterns` is the single slash entry for server-side design work. Reference modules live under `skills/etrnl-backend-patterns/references/` and are loaded on demand by the orchestrator — they are not separate owned skills or commands.
+
+| Module file | Covers |
+| --- | --- |
+| `references/orpc.md` | oRPC contract-first procedures, middleware stack order, Hono mount, TanStack Query, event iterators, errors, thin handlers, 100/100 checklist |
+| `references/api.md` | REST/GraphQL contracts, status codes, idempotency, pagination, versioning, error envelopes, middleware order, surface selection vs oRPC |
+| `references/data.md` | Schemas, indexes, N+1 prevention, transactions, repositories, cache-aside, surface selection vs Prisma/SQL modules |
+| `references/prisma.md` | Prisma schema, migrations, client queries, connection pool, transactions, multi-tenancy, 100/100 checklist |
+| `references/sql-optimization.md` | EXPLAIN ANALYZE, index design, pagination, aggregates, monitoring, Prisma-emitted SQL, 100/100 checklist |
+| `references/security.md` | Authn/authz, validation, secrets, OWASP-oriented server hardening |
+| `references/resilience.md` | Timeouts, retries, circuit breakers, bulkheads, distributed limits, DLQs |
+| `references/observability.md` | Structured logs, tracing, RED metrics, SLI/SLO, health checks, error handling |
+| `references/architecture.md` | Service layers, boundaries, events/outbox, CQRS, sagas |
+
+Successor to the external companion skill `backend-patterns` when installed locally.
+
 ## Deep Audit Skills
 
-`/etrnl-audit` is the thin orchestrator. `all_registered` means every category exported by `scripts/lib/deep-audit-categories.mjs`, currently `code-excellence`, `ui-ux-product`, `production-readiness`, `security`, `performance`, `shared-reuse`, `repo-hygiene`, and `tooling-ecosystem`; it is not a claim that API/data, payments, or privacy/compliance ran.
+`/etrnl-deep-audit` is the thin orchestrator. `all_registered` means every orchestrator-included category from `orchestratorCategoryIds()` in `scripts/lib/deep-audit-categories.mjs`, currently `code-excellence`, `production-readiness`, `security`, `performance`, `shared-reuse`, `repo-hygiene`, and `tooling-ecosystem`; it is not a claim that API/data, payments, privacy/compliance, or UI/UX/product ran. `ui-ux-product` runs separately via `/etrnl-deep-audit-ux`. Categories `shared-reuse` and `repo-hygiene` are bundled under the orchestrator; standalone category skills remain for production, security, performance, tooling, code-excellence, and UI/UX.
 
 Quick validator path:
 
@@ -67,10 +89,10 @@ Direct category examples:
 /etrnl-audit-production --category production-readiness
 /etrnl-audit-security --category security
 /etrnl-audit-performance --category performance
-/etrnl-audit-excellence --category code-excellence
-/etrnl-audit-ux --category ui-ux-product
-/etrnl-audit-reuse --category shared-reuse
-/etrnl-audit-repo --category repo-hygiene
+/etrnl-code-review-excellence --category code-excellence
+/etrnl-deep-audit-ux
+/etrnl-deep-audit --category shared-reuse
+/etrnl-deep-audit --category repo-hygiene
 /etrnl-audit-tooling --category tooling-ecosystem
 ```
 
@@ -89,14 +111,17 @@ These skills are not owned by this repo, but the Eternal Stack knows about them 
 | `better-auth` | External backend skill | Auth-specific implementation review when protected auth paths are edited. |
 | `tenant-isolation-patterns` | External backend skill | Tenant boundary review for multi-tenant data and permission paths. |
 | `money-vo-discipline` | External domain skill | Money/value-object discipline for financial and billing paths. |
-| `prisma-expert` | External data skill | Prisma schema, migration, and query review for database-sensitive work. |
+| `prisma-expert` | External data skill | Prisma schema, migration, and query reference; vendored into `references/prisma.md` when the Eternal Stack is installed — use the repo module instead of loading the companion directly. |
+| `sql-optimization-patterns` | External data skill | SQL query optimization and EXPLAIN analysis; vendored into `references/sql-optimization.md` when the Eternal Stack is installed — use the repo module instead of loading the companion directly. |
 | `i18n-localization` | External domain skill | Locale and translation review for user-facing internationalized surfaces. |
 | `stripe-best-practices` | External payment skill | Stripe payment and billing review when installed. |
 | `abacatepay-integration` | External payment skill | AbacatePay payment integration review when installed. |
 | `ci-cd` | External/ci-cd companion skill | CI helper scripts such as `audit_github_actions.py` referenced by `skills/etrnl-dev-ci/SKILL.md`. |
 | `code-simplifier` | External skill | Clarity and simplification pass before final scoring/completion. |
 | `finding-duplicate-functions` | External skill | Dedupe review for repeated logic and consolidation work. |
-| `brooks-audit` | External/local skill | Brooks review/audit/debt/test/health/sweep modes where installed. |
+| `brooks-audit` | External/local skill | Brooks architecture and onboarding reference; vendored into `etrnl-code-review-excellence/references/brooks-*.md` when the Eternal Stack is installed — use the repo modules instead of loading the companion directly. |
+| `backend-patterns` | External/personal skill | Legacy monolithic backend guidance; prefer repo-owned `/etrnl-backend-patterns` when the Eternal Stack is installed. |
+| `orpc-patterns` | External/personal skill | Full-stack oRPC reference; vendored into `references/orpc.md` when the Eternal Stack is installed — use the repo module instead of loading the companion directly. |
 
 ## Deterministic Helpers
 

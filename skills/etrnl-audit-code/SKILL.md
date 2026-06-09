@@ -1,6 +1,7 @@
 ---
 name: etrnl-audit-code
 description: ETRNL master code-health router. Use when the user asks for "code health", "audit the whole codebase", "no skips", "repo rot", "dead code", "architecture health", "docs health", "PR gate", or a full codebase audit with no loose ends.
+disable-model-invocation: true
 ---
 # ETRNL Code Health
 
@@ -51,7 +52,7 @@ Do not mark a finding `fixed` based on inspection alone. Require a passing gate 
    - Docs/prose: TSDoc/TypeDoc/API Extractor, markdownlint-cli2, CSpell, Vale.
    - Security/static rules: OpenGrep, Semgrep Community, or CodeQL when configured.
 4. Run companion reviews:
-   - `brooks-audit` for architecture/module decay.
+   - `etrnl-code-review-excellence` for architecture/module decay (Brooks modules).
    - `finding-duplicate-functions` for semantic duplicates after syntactic clone checks.
    - `code-simplifier` after implementation or when AI bloat is suspected.
    - `eternal-best-practices` for auth, tenant, money, payments, i18n, Prisma, permissions, and soft-delete surfaces.

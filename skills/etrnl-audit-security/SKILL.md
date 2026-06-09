@@ -11,7 +11,7 @@ Run the registered `security` deep-audit category with shared worklists and expl
 ## Contract
 
 1. Read `scripts/lib/deep-audit-categories.mjs` and verify the `security` registry entry.
-2. Use `/etrnl-audit --category security` or create the same artifact envelope locally.
+2. Use `/etrnl-deep-audit --category security` or create the same artifact envelope locally.
 3. Consume orchestrator worklists only. Do not create category-local inventories after shared worklists exist.
 4. A finding must include source, sink, missing control, exploit sketch, reachability, confidence, impact, and remediation.
 5. A clean check must include explicit non-findings: checked sources, checked sinks, controls observed, and why the exploit path is not reachable.

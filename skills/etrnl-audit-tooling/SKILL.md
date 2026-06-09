@@ -11,8 +11,8 @@ Run the `tooling-ecosystem` deep-audit category against scripts, manifests, lint
 ## Startup
 
 1. Load `references/audit-checks.md`.
-2. Use the shared deep-audit report envelope from `etrnl-audit` when it exists.
-3. For direct category invocation, create the same report envelope with `requestedCategories: ["tooling-ecosystem"]`, or route the run through `etrnl-audit --category tooling-ecosystem`.
+2. Use the shared deep-audit report envelope from `etrnl-deep-audit` when it exists.
+3. For direct category invocation, create the same report envelope with `requestedCategories: ["tooling-ecosystem"]`, or route the run through `etrnl-deep-audit --category tooling-ecosystem`.
 4. Refuse final completion until `node scripts/deep-audit-artifact-check.mjs validate --artifact <artifact>` has passed or a concrete blocker is recorded.
 
 ## Hard Rules

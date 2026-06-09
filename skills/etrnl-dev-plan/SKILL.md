@@ -84,7 +84,7 @@ node ~/.claude/scripts/deep-stack-check.mjs validate-plan --plan <plan-path>
 - `## Parallelization strategy`: sequential lanes versus independent workstreams, module ownership, dependencies, and conflict risks.
 - `## Verification gates`: exact commands or live checks, expected result, and stop condition.
 - `## Rollback`: how to undo risky or irreversible changes.
-- `## Execution handoff`: whether to use `etrnl-dev-execute` inline or `etrnl-dev-parallel` when the user explicitly asks for parallel agents.
+- `## Execution handoff`: whether to use `etrnl-dev-execute` inline and its parallel-fanout contract when the user explicitly asks for parallel agents.
 - `## Plan Readiness Report`: scope challenge, architecture review, code quality review, test review, performance review, failure modes, parallelization, unresolved questions, and final verdict.
 - `## Verdict`: explicit final go/no-go outcome (`Ready for execution` or `Blocked until ...`).
 
@@ -124,7 +124,7 @@ Before finalizing, review the draft for:
   - `eternal-best-practices` for tenant, money, auth, i18n, Prisma, soft-delete, and domain policy.
   - `code-simplifier` before final scoring or completion.
   - `finding-duplicate-functions` for dedupe/refactor-heavy work.
-  - `brooks-audit`/Brooks health when installed and relevant.
+  - `etrnl-code-review-excellence`/Brooks modules when structural or excellence review is in scope.
 - Missing Hybrid Deep Stack artifacts:
   - sanitized source manifest, no `/tmp`, home paths, transcripts, account material, or secrets
   - skill activation matrix, including ordinary TypeScript verification and conditional advanced TypeScript review
@@ -144,7 +144,7 @@ If a companion skill is unavailable, do not silently continue. Record the missin
 Companion skill enforcement:
 
 - `eternal-best-practices` for auth, money, tenant, i18n, Prisma, soft-delete, permissions, and domain policy: a missing pass blocks finalization unless the user explicitly accepts the risk because these are critical security and data boundaries.
-- `code-simplifier`, `finding-duplicate-functions`, and `brooks-audit`: omit only when unavailable or irrelevant, and the report must document why.
+- `code-simplifier` and `finding-duplicate-functions`: omit only when unavailable or irrelevant, and the report must document why. Brooks structural review is owned by `etrnl-code-review-excellence` when installed.
 
 ## Advanced TypeScript Policy
 

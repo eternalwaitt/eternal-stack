@@ -7,7 +7,7 @@
 - Use `etrnl-dev-execute` only when the user explicitly asks to execute a written plan; once approved, continue through mechanical phases without asking between them.
 - During execution, use dependency waves, file-overlap checks, required artifacts, heartbeat checkpoints, and final ledger validation.
 - Use structured task packets for every subagent: goal, context, scope, read set, write scope or read-only, forbidden files, expected output, verification, model tier, timeout, retry policy, no-revert instruction, and WebSearch guidance.
-- Use `etrnl-dev-review` or `etrnl-dev-stress-test` for gap reviews, risks, and final passes.
+- Use `etrnl-dev-autoplan` `references/review-contract.md` for plan review, `etrnl-spec-reviewer` and `etrnl-quality-reviewer` during execution, and `etrnl-dev-stress-test` for adversarial passes.
 - Use `etrnl-audit-code` for whole-codebase health, no-skips audits, dead code, repo rot, docs health, and PR gates.
 - Use `etrnl-audit-browser`, `etrnl-ops-context-save`, and `etrnl-ops-context-restore` when browser proof or resumable workflow state is part of the job.
 - Keep chat summaries short when the durable artifact is a file.

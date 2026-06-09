@@ -278,7 +278,7 @@ cc_documentation_health_requested() {
 cc_code_health_requested() {
   jq -e "$NORM_JQ"'
     ([.requestedSkills[]?.value // empty | norm] | any(. == "code-health" or . == "repo-health" or . == "codebase-health" or . == "health"))
-      or ((.lastPrompt // "" | ascii_downcase) | test("code[- ]health|repo[- ]health|codebase[- ]health|no skips|loose ends|whole codebase audit|entire codebase audit"))
+      or ((.lastPrompt // "" | ascii_downcase) | test("code[- ]health|repo[- ]health|codebase[- ]health|no skips|whole codebase audit|entire codebase audit"))
   ' <<<"$state" >/dev/null
 }
 
@@ -658,9 +658,9 @@ else:
   ' <<<"$state" >/dev/null; then
     if ! jq -e '
       ([.reviewRuns[]?.value // empty, .verificationRuns[]?.value // empty, .skillCalls[]?.value // empty] | map(ascii_downcase))
-      | any(test("etrnl-dev-review|code[ -]?review|review-log|coderabbit|adversarial|redline|second[ -]?pass|stress-test"))
+      | any(test("etrnl-spec-reviewer|etrnl-quality-reviewer|etrnl-dev-pr|code[ -]?review|review-log|coderabbit|adversarial|redline|second[ -]?pass|stress-test"))
     ' <<<"$state" >/dev/null; then
-      cc_json_block "This change is large or risky enough to need a second-pass review before completion. Run etrnl-dev-review, CodeRabbit, an adversarial/stress review, or record a review-log artifact."
+      cc_json_block "This change is large or risky enough to need a second-pass review before completion. Run etrnl-spec-reviewer and etrnl-quality-reviewer, etrnl-dev-pr, CodeRabbit, an adversarial/stress review, or record a review-log artifact."
       exit 0
     fi
   fi

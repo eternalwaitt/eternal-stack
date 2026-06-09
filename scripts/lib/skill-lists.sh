@@ -9,39 +9,30 @@
 
 OWNED_SKILLS=(
   etrnl-ops-agent-files
-  etrnl-backend-api
-  etrnl-backend-architecture
-  etrnl-backend-data
-  etrnl-backend-observability
-  etrnl-backend-resilience
-  etrnl-backend-security
+  etrnl-backend-patterns
   etrnl-dev-autoplan
   etrnl-dev-brainstorm
   etrnl-dev-ci
   etrnl-audit-code
-  etrnl-audit-excellence
+  etrnl-code-review-excellence
   etrnl-dev-commit
   etrnl-ops-context-restore
   etrnl-ops-context-save
-  etrnl-audit
+  etrnl-deep-audit
+  etrnl-deep-audit-ux
   etrnl-dev-deps
   etrnl-ops-disk-cleanup
   etrnl-audit-docs
   etrnl-comm-email-reply-quality
   etrnl-dev-execute
   etrnl-dev-debug
-  etrnl-dev-parallel
   etrnl-audit-performance
   etrnl-dev-plan
   etrnl-audit-production
   etrnl-dev-pr
   etrnl-audit-browser
-  etrnl-audit-repo
-  etrnl-dev-review
-  etrnl-audit-reuse
   etrnl-audit-security
   etrnl-audit-tooling
-  etrnl-audit-ux
   etrnl-dev-stress-test
   etrnl-dev-test
 )
@@ -187,7 +178,6 @@ REMOVED_SKILLS=(
   etrnl-commit
   etrnl-context-restore
   etrnl-context-save
-  etrnl-deep-audit
   etrnl-deps
   etrnl-documentation-health
   etrnl-email-reply-quality
@@ -203,6 +193,19 @@ REMOVED_SKILLS=(
   etrnl-stress-test
   etrnl-systematic-debugging
   etrnl-test
+  etrnl-backend-api
+  etrnl-backend-architecture
+  etrnl-backend-data
+  etrnl-backend-observability
+  etrnl-backend-resilience
+  etrnl-backend-security
+  etrnl-audit
+  etrnl-audit-excellence
+  etrnl-audit-repo
+  etrnl-audit-reuse
+  etrnl-audit-ux
+  etrnl-dev-parallel
+  etrnl-dev-review
   execute-plan
   fix-issue
   parallel-fan-out

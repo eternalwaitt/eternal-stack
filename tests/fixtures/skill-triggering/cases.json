@@ -30,21 +30,27 @@
     "unexpectedSkills": ["etrnl-dev-commit"]
   },
   {
-    "name": "code excellence prompt routes etrnl-audit-excellence",
+    "name": "code excellence prompt routes etrnl-code-review-excellence",
     "prompt": "run a code excellence audit for maintainability, architecture quality, type safety, error handling, and test signal",
-    "expectedSkills": ["etrnl-audit-excellence"],
-    "unexpectedSkills": ["etrnl-audit-code"]
+    "expectedSkills": ["etrnl-code-review-excellence"],
+    "unexpectedSkills": ["etrnl-audit-code", "etrnl-audit-excellence"]
   },
   {
-    "name": "ui ux product prompt routes etrnl-audit-ux",
+    "name": "brooks architecture prompt routes etrnl-code-review-excellence",
+    "prompt": "run a Brooks architecture audit for circular imports, module layering integrity, and structural decay",
+    "expectedSkills": ["etrnl-code-review-excellence"],
+    "unexpectedSkills": ["brooks-audit", "etrnl-audit-code"]
+  },
+  {
+    "name": "ui ux product prompt routes etrnl-deep-audit-ux",
     "prompt": "run a UI/UX product audit for accessibility, responsive visual QA, interaction quality, hierarchy, states, and product copy",
-    "expectedSkills": ["etrnl-audit-ux"],
-    "unexpectedSkills": ["etrnl-audit-code"]
+    "expectedSkills": ["etrnl-deep-audit-ux"],
+    "unexpectedSkills": ["etrnl-audit-code", "etrnl-deep-audit"]
   },
   {
-    "name": "deep audit prompt routes etrnl-audit",
+    "name": "deep audit prompt routes etrnl-deep-audit",
     "prompt": "run the full registered deep audit with production readiness and performance categories",
-    "expectedSkills": ["etrnl-audit"],
+    "expectedSkills": ["etrnl-deep-audit"],
     "unexpectedSkills": ["etrnl-audit-code"]
   },
   {
@@ -54,9 +60,9 @@
     "unexpectedSkills": ["etrnl-audit-code"]
   },
   {
-    "name": "all registered prompt routes etrnl-audit",
+    "name": "all registered prompt routes etrnl-deep-audit",
     "prompt": "run all_registered deep audit lanes across all levels and sublevels",
-    "expectedSkills": ["etrnl-audit"],
+    "expectedSkills": ["etrnl-deep-audit"],
     "unexpectedSkills": ["etrnl-audit-code"]
   },
   {
@@ -144,10 +150,10 @@
     "unexpectedSkills": ["etrnl-dev-plan"]
   },
   {
-    "name": "parallel prompt routes etrnl-dev-parallel",
+    "name": "parallel prompt does not route a standalone skill",
     "prompt": "fan out the independent checks to multiple agents",
-    "expectedSkills": ["etrnl-dev-parallel"],
-    "unexpectedSkills": ["etrnl-dev-commit"]
+    "expectedSkills": [],
+    "unexpectedSkills": ["etrnl-dev-parallel", "etrnl-dev-commit"]
   },
   {
     "name": "performance audit prompt routes etrnl-audit-performance",
@@ -192,9 +198,9 @@
     "unexpectedSkills": ["etrnl-dev-commit"]
   },
   {
-    "name": "copilot review comments route pr and review",
+    "name": "copilot review comments route pr",
     "prompt": "address Copilot review comments on my PR with evidence",
-    "expectedSkills": ["etrnl-dev-pr", "etrnl-dev-review"],
+    "expectedSkills": ["etrnl-dev-pr"],
     "unexpectedSkills": ["etrnl-dev-commit"]
   },
   {
@@ -204,15 +210,15 @@
     "unexpectedSkills": ["etrnl-dev-execute"]
   },
   {
-    "name": "shared reuse prompt routes etrnl-audit-reuse",
+    "name": "shared reuse prompt routes etrnl-deep-audit",
     "prompt": "run a shared reuse audit for duplicate logic, component reuse, helper reuse, and abstraction fit",
-    "expectedSkills": ["etrnl-audit-reuse"],
+    "expectedSkills": ["etrnl-deep-audit"],
     "unexpectedSkills": ["etrnl-dev-commit"]
   },
   {
-    "name": "repo hygiene prompt routes etrnl-audit-repo",
+    "name": "repo hygiene prompt routes etrnl-deep-audit",
     "prompt": "run a repo hygiene audit for file organization, generated artifacts, gitignore, public/private boundary, and README health",
-    "expectedSkills": ["etrnl-audit-repo"],
+    "expectedSkills": ["etrnl-deep-audit"],
     "unexpectedSkills": ["etrnl-dev-commit"]
   },
   {
@@ -222,10 +228,10 @@
     "unexpectedSkills": ["etrnl-dev-commit"]
   },
   {
-    "name": "review prompt routes etrnl-dev-review",
-    "prompt": "do a final review pass for loose ends",
-    "expectedSkills": ["etrnl-dev-review"],
-    "unexpectedSkills": ["etrnl-dev-commit"]
+    "name": "plan review prompt routes etrnl-dev-autoplan",
+    "prompt": "please code review this plan",
+    "expectedSkills": ["etrnl-dev-autoplan"],
+    "unexpectedSkills": ["etrnl-dev-review", "etrnl-dev-commit"]
   },
   {
     "name": "stress prompt routes etrnl-dev-stress-test",
@@ -240,40 +246,58 @@
     "unexpectedSkills": ["etrnl-dev-commit"]
   },
   {
-    "name": "backend api prompt routes etrnl-backend-api",
+    "name": "backend api prompt routes etrnl-backend-patterns",
     "prompt": "design a REST API contract with cursor pagination, idempotency keys, versioning, and a stable error envelope",
-    "expectedSkills": ["etrnl-backend-api"],
-    "unexpectedSkills": ["etrnl-backend-data"]
+    "expectedSkills": ["etrnl-backend-patterns"],
+    "unexpectedSkills": ["etrnl-backend-api", "etrnl-backend-data"]
   },
   {
-    "name": "backend data prompt routes etrnl-backend-data",
+    "name": "backend data prompt routes etrnl-backend-patterns",
     "prompt": "model the relational database schema, prevent N+1 queries, and add a repository layer with cache-aside",
-    "expectedSkills": ["etrnl-backend-data"],
-    "unexpectedSkills": ["etrnl-backend-api"]
+    "expectedSkills": ["etrnl-backend-patterns"],
+    "unexpectedSkills": ["etrnl-backend-api", "etrnl-backend-data"]
   },
   {
-    "name": "backend security prompt routes etrnl-backend-security",
+    "name": "backend security prompt routes etrnl-backend-patterns",
     "prompt": "design backend authentication, RBAC authorization, and input validation with OWASP Top 10 coverage",
-    "expectedSkills": ["etrnl-backend-security"],
-    "unexpectedSkills": ["etrnl-audit-security"]
+    "expectedSkills": ["etrnl-backend-patterns"],
+    "unexpectedSkills": ["etrnl-backend-security", "etrnl-audit-security"]
   },
   {
-    "name": "backend resilience prompt routes etrnl-backend-resilience",
+    "name": "backend resilience prompt routes etrnl-backend-patterns",
     "prompt": "add request timeouts, retries with exponential backoff, a circuit breaker, and a dead-letter queue for the background jobs",
-    "expectedSkills": ["etrnl-backend-resilience"],
-    "unexpectedSkills": ["etrnl-backend-api"]
+    "expectedSkills": ["etrnl-backend-patterns"],
+    "unexpectedSkills": ["etrnl-backend-resilience", "etrnl-backend-api"]
   },
   {
-    "name": "backend observability prompt routes etrnl-backend-observability",
+    "name": "backend observability prompt routes etrnl-backend-patterns",
     "prompt": "add structured logging, distributed tracing, RED metrics, and SLO error budgets to the service",
-    "expectedSkills": ["etrnl-backend-observability"],
-    "unexpectedSkills": ["etrnl-audit-code"]
+    "expectedSkills": ["etrnl-backend-patterns"],
+    "unexpectedSkills": ["etrnl-backend-observability", "etrnl-audit-code"]
   },
   {
-    "name": "backend architecture prompt routes etrnl-backend-architecture",
+    "name": "backend architecture prompt routes etrnl-backend-patterns",
     "prompt": "define the service layer, microservice boundaries, event-driven flows with the outbox pattern, and saga coordination",
-    "expectedSkills": ["etrnl-backend-architecture"],
-    "unexpectedSkills": ["etrnl-backend-data"]
+    "expectedSkills": ["etrnl-backend-patterns"],
+    "unexpectedSkills": ["etrnl-backend-architecture", "etrnl-backend-data"]
+  },
+  {
+    "name": "backend orpc prompt routes etrnl-backend-patterns",
+    "prompt": "add an oRPC procedure with contract-first router, TanStack Query hooks, and the mandatory middleware stack order",
+    "expectedSkills": ["etrnl-backend-patterns"],
+    "unexpectedSkills": ["orpc-patterns", "etrnl-backend-api"]
+  },
+  {
+    "name": "backend prisma prompt routes etrnl-backend-patterns",
+    "prompt": "update schema.prisma with a new relation, run prisma migrate dev, and fix N+1 in the Prisma client queries",
+    "expectedSkills": ["etrnl-backend-patterns"],
+    "unexpectedSkills": ["prisma-expert", "etrnl-backend-data"]
+  },
+  {
+    "name": "backend sql optimization prompt routes etrnl-backend-patterns",
+    "prompt": "this endpoint has a slow query — run EXPLAIN ANALYZE, add a composite index, and eliminate the missing index seq scan",
+    "expectedSkills": ["etrnl-backend-patterns"],
+    "unexpectedSkills": ["sql-optimization-patterns", "etrnl-audit-performance"]
   },
   {
     "name": "ambiguous prompt does not over-route",

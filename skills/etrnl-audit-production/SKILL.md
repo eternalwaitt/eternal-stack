@@ -12,8 +12,8 @@ Run the production-readiness deep-audit category against a target application. T
 
 1. Confirm the target repo, framework, API layer, ORM, auth provider, queue or cron model, deployment model, market locale, tenancy model, logger, and env schema.
 2. Load `references/audit-checks.md`.
-3. Use the shared deep-audit report envelope from `etrnl-audit` when it exists.
-4. For direct category invocation, create the same report envelope with `requestedCategories: ["production-readiness"]`, or route the run through `etrnl-audit --category production-readiness`.
+3. Use the shared deep-audit report envelope from `etrnl-deep-audit` when it exists.
+4. For direct category invocation, create the same report envelope with `requestedCategories: ["production-readiness"]`, or route the run through `etrnl-deep-audit --category production-readiness`.
 5. Refuse final completion until the artifact validator command for the report has run or a concrete blocker is recorded.
 
 ## Hard Rules
