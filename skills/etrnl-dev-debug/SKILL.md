@@ -1,6 +1,6 @@
 ---
 name: etrnl-dev-debug
-description: ETRNL etrnl systematic debugging workflow for Claude Code. Use only when the user explicitly asks to debug, reproduce, investigate, or fix a bug, failing test, CI failure, production issue, tracked issue, or unexpected behavior; hidden from model auto-invocation because it edits code.
+description: ETRNL systematic debugging workflow for Claude Code. Use only when the user explicitly asks to debug, reproduce, investigate, or fix a bug, failing test, CI failure, production issue, tracked issue, or unexpected behavior; hidden from model auto-invocation because it edits code.
 disable-model-invocation: true
 ---
 # Systematic Debugging

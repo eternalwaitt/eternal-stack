@@ -1,6 +1,6 @@
 ---
 name: etrnl-dev-stress-test
-description: ETRNL etrnl adversarial review workflow for Claude Code. Use when stress-testing architecture, rollout plans, migrations, automation, hooks, permissions, or safety assumptions.
+description: ETRNL adversarial review workflow for Claude Code. Use when stress-testing architecture, rollout plans, migrations, automation, hooks, permissions, or safety assumptions.
 disable-model-invocation: true
 ---
 # Stress Test

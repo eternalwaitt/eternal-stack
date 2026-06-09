@@ -14,7 +14,7 @@ Design the contract first. Treat the URL, status code, body shape, and error env
 - Reserve verbs for actions that do not map to CRUD; expose them as sub-resources (`POST /orders/:id/refunds`).
 - Keep filtering, sorting, and pagination in query params, never in the path.
 
-```
+```text
 GET    /api/markets            list
 GET    /api/markets/:id        read
 POST   /api/markets            create

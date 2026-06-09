@@ -59,7 +59,6 @@ Workflow state:
 - `ETRNL_RUNS_DIR` overrides local execution-ledger storage.
 - `ETRNL_ARTIFACTS_DIR` overrides local review, browser-QA, context, and buglog artifact storage.
 - `ETRNL_STATE_DIR` overrides canonical ETRNL JSONL state storage for tests, staged installs, or local experiments.
-- `ETRNL_STATE_DIR` is the etrnl override used when `ETRNL_STATE_DIR` is unset.
 - Default ETRNL state lives under `~/.claude/etrnl/state`; `events.jsonl` is canonical and `views/` are rebuildable materialized projections.
 - `ETRNL_BUGLOG` overrides the project bug-memory file used by `project-buglog.mjs`.
 - `ETRNL_LEARNING_STARTUP_HINTS=1` enables project-level bug-memory hints at SessionStart; `0` disables them. When unset, hints are only considered when scoped workflow-health reports active trouble.

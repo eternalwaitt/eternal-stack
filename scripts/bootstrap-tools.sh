@@ -302,18 +302,20 @@ install_hindsight() {
   confirm_status=0
   confirm_required "install Hindsight plugin and write local Hindsight config" || confirm_status=$?
   [[ "$confirm_status" == "0" ]] || return "$confirm_status"
-  if hindsight_plugin_cache_installed "$claude_home"; then
-    printf 'ok: Hindsight plugin already installed (plugin cache)\n'
+  # Treat the claude CLI as authoritative for "installed". The plugin cache is
+  # only a hint and may be stale, so use it solely to skip a redundant
+  # marketplace add when the CLI shows the plugin is not yet installed.
+  plugin_list="$(claude plugin list --json 2>/dev/null || claude plugin list 2>/dev/null || true)"
+  if jq -e 'if type == "array" then any(.[]; .name == "hindsight-memory") else false end' <<<"$plugin_list" >/dev/null 2>&1 \
+    || [[ "$plugin_list" =~ (^|[[:space:]])hindsight-memory([[:space:]]|$) ]]; then
+    printf 'ok: Hindsight plugin already installed\n'
   else
-    plugin_list="$(claude plugin list --json 2>/dev/null || claude plugin list 2>/dev/null || true)"
-    if jq -e 'if type == "array" then any(.[]; .name == "hindsight-memory") else false end' <<<"$plugin_list" >/dev/null 2>&1; then
-      printf 'ok: Hindsight plugin already installed\n'
-    elif [[ "$plugin_list" =~ (^|[[:space:]])hindsight-memory([[:space:]]|$) ]]; then
-      printf 'ok: Hindsight plugin already installed\n'
+    if hindsight_plugin_cache_installed "$claude_home"; then
+      printf 'note: Hindsight plugin cache present but CLI does not list it; installing\n'
     else
       claude plugin marketplace add vectorize-io/hindsight
-      claude plugin install hindsight-memory
     fi
+    claude plugin install hindsight-memory
   fi
   mkdir -p "$hindsight_home"
   config_tmp="$(mktemp "$config_target.tmp.XXXXXX")"

@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 
 # Accumulate temp files and remove them on EXIT, including early deny/error paths.
-CLEANUP_FILES=()
+# Initialize once: re-sourcing in the same process must not drop already-registered files.
+if [[ -z "${CC_CLEANUP_INITIALIZED:-}" ]]; then
+  CC_CLEANUP_INITIALIZED=1
+  CLEANUP_FILES=()
+fi
 
 cc_register_cleanup() {
   local file="$1"

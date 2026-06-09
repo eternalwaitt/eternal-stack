@@ -1,6 +1,6 @@
 ---
 name: etrnl-ops-agent-files
-description: ETRNL etrnl skill for reviewing and maintaining AGENTS.md, CLAUDE.md, Claude rules, Codex rules, and agent instruction files without bloat. Use when pruning, auditing, or updating agent instruction surfaces across Claude Code and Codex.
+description: ETRNL skill for reviewing and maintaining AGENTS.md, CLAUDE.md, Claude rules, Codex rules, and agent instruction files without bloat. Use when pruning, auditing, or updating agent instruction surfaces across Claude Code and Codex.
 disable-model-invocation: true
 ---
 # Agent File Doctor

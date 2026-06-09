@@ -305,17 +305,30 @@ function hindsightPluginFromCache(homeDir) {
 
 function hindsightPluginFromCli(claudePath) {
   const pluginList = run(claudePath, ["plugin", "list"], { timeout: 10_000 });
-  if (!pluginList.ok || !new RegExp(HINDSIGHT_PLUGIN_NAME, "i").test(pluginList.stdout)) {
+  // probeOk distinguishes a failed CLI invocation (ambiguous) from a successful
+  // run that simply did not list the plugin (authoritative "not installed").
+  if (!pluginList.ok) {
     return {
       installed: false,
+      probeOk: false,
       version: "",
       source: "claude-cli",
       error: pluginList.error || pluginList.stderr || "plugin-list-failed",
     };
   }
+  if (!new RegExp(HINDSIGHT_PLUGIN_NAME, "i").test(pluginList.stdout)) {
+    return {
+      installed: false,
+      probeOk: true,
+      version: "",
+      source: "claude-cli",
+      error: "",
+    };
+  }
   const versionMatch = pluginList.stdout.match(new RegExp(`${HINDSIGHT_PLUGIN_NAME}(?:@[^\\s]+)?\\s+(\\S+)`, "i"));
   return {
     installed: true,
+    probeOk: true,
     version: versionMatch ? parseSemver(versionMatch[1]) : "",
     source: "claude-cli",
     error: "",
@@ -327,10 +340,13 @@ function hindsightStatus() {
   const settings = readJson(settingsPath, {});
   const pluginEnabled = settings.enabledPlugins?.["hindsight-memory@hindsight"] === true;
   const claude = commandPath("claude");
-  const cliProbe = claude ? hindsightPluginFromCli(claude) : { installed: false, version: "", source: "none", error: "claude-missing" };
+  const cliProbe = claude ? hindsightPluginFromCli(claude) : { installed: false, probeOk: false, version: "", source: "none", error: "claude-missing" };
   const cacheProbe = hindsightPluginFromCache(claudeHome);
-  const pluginInstalled = cliProbe.installed || cacheProbe.installed;
-  const pluginInstallSource = cliProbe.installed ? "claude-cli" : (cacheProbe.installed ? "plugin-cache" : "none");
+  // The CLI is authoritative when it ran successfully; only fall back to the
+  // cache hint when the CLI could not produce a definitive answer.
+  const cacheFallback = !cliProbe.probeOk && cacheProbe.installed;
+  const pluginInstalled = cliProbe.installed || cacheFallback;
+  const pluginInstallSource = cliProbe.installed ? "claude-cli" : (cacheFallback ? "plugin-cache" : "none");
   const currentVersion = cliProbe.version || cacheProbe.version || "";
   const configPath = hindsightConfigPath();
   const config = readJson(configPath, null);
@@ -341,8 +357,12 @@ function hindsightStatus() {
   const warnings = [];
   const addConfigFinding = (message) => (hindsightStrictChecks ? issues : warnings).push(message);
   if (pluginEnabled && !pluginInstalled) issues.push("enabled plugin is not installed");
-  if (pluginEnabled && !claude && cacheProbe.installed) {
-    warnings.push("Hindsight plugin verified from installed-home cache; claude CLI not on PATH");
+  if (pluginEnabled && cacheFallback) {
+    warnings.push(
+      claude
+        ? "Hindsight plugin verified from installed-home cache; claude CLI could not confirm"
+        : "Hindsight plugin verified from installed-home cache; claude CLI not on PATH",
+    );
   }
   if (pluginEnabled && !configExists) issues.push("enabled plugin has no Hindsight config");
   if (configExists) {

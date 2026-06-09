@@ -1,6 +1,6 @@
 ---
 name: etrnl-dev-test
-description: ETRNL etrnl test/preflight workflow for Claude Code. Use when the user explicitly asks to test, verify, or run checks; hidden from model auto-invocation.
+description: ETRNL test/preflight workflow for Claude Code. Use when the user explicitly asks to test, verify, or run checks; hidden from model auto-invocation.
 disable-model-invocation: true
 ---
 # Test

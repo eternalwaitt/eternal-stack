@@ -53,7 +53,9 @@ export function readStdinRaw(options = {}) {
       throw error;
     }
     if (bytesRead === 0) break;
-    chunks.push(buf.subarray(0, bytesRead));
+    // Copy out of the reusable buffer; subarray would alias `buf` and be
+    // overwritten by the next readSync, corrupting multi-chunk input.
+    chunks.push(Buffer.from(buf.subarray(0, bytesRead)));
   }
   return Buffer.concat(chunks).toString("utf8").trim();
 }

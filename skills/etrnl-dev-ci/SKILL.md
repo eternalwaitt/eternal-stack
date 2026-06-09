@@ -1,6 +1,6 @@
 ---
 name: etrnl-dev-ci
-description: ETRNL etrnl CI/CD workflow for Claude Code. Use when designing, auditing, hardening, debugging, or repairing CI/CD pipelines, GitHub Actions, deploy gates, release automation, branch protection, OIDC, SBOMs, image builds, staging, canary, blue-green, rollback, flaky CI, or slow builds.
+description: ETRNL CI/CD workflow for Claude Code. Use when designing, auditing, hardening, debugging, or repairing CI/CD pipelines, GitHub Actions, deploy gates, release automation, branch protection, OIDC, SBOMs, image builds, staging, canary, blue-green, rollback, flaky CI, or slow builds.
 ---
 # ETRNL CI/CD
 

@@ -1,6 +1,6 @@
 ---
 name: etrnl-dev-commit
-description: ETRNL etrnl commit workflow for Claude Code. Use only when the user explicitly asks to commit; hidden from model auto-invocation because it has side effects.
+description: ETRNL commit workflow for Claude Code. Use only when the user explicitly asks to commit; hidden from model auto-invocation because it has side effects.
 disable-model-invocation: true
 ---
 # Commit

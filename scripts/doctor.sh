@@ -8,7 +8,11 @@ DOCTOR_ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --jobs)
-      DOCTOR_JOBS="${2:-}"
+      if [[ $# -lt 2 ]]; then
+        printf 'doctor: --jobs requires a value\n' >&2
+        exit 2
+      fi
+      DOCTOR_JOBS="$2"
       shift 2
       ;;
     --jobs=*)
@@ -221,16 +225,20 @@ start_heavy_async_checks() {
   DOCTOR_HEAVY_STARTED=1
   if (( ${#hook_tests[@]} > 0 )); then
     for hook_test in "${hook_tests[@]}"; do
+      wait_for_doctor_job_slot "$DOCTOR_JOBS"
       queue_heavy_async_command "heavy-$(basename "$hook_test")" "$(basename "$hook_test") pass" "$(basename "$hook_test") fail" "$hook_test"
     done
   fi
   if [[ -x "$ROOT/tests/test-install.sh" ]]; then
+    wait_for_doctor_job_slot "$DOCTOR_JOBS"
     queue_heavy_async_command "heavy-test-install" "install/rollback tests pass" "install/rollback tests fail" "$ROOT/tests/test-install.sh"
   fi
   if [[ -x "$ROOT/tests/test-read-stdin.sh" ]]; then
+    wait_for_doctor_job_slot "$DOCTOR_JOBS"
     queue_heavy_async_command "heavy-read-stdin" "read-stdin tests pass" "read-stdin tests fail" "$ROOT/tests/test-read-stdin.sh"
   fi
   if [[ -d "$ROOT/hooks/fixtures/events/replay" ]]; then
+    wait_for_doctor_job_slot "$DOCTOR_JOBS"
     queue_heavy_async_command "heavy-replay-fixtures" "replay fixtures clean" "replay fixtures failed" node "$ROOT/scripts/replay-hook-fixtures.mjs"
   fi
 }

@@ -1,6 +1,6 @@
 ---
 name: etrnl-dev-plan
-description: ETRNL etrnl file-backed planning workflow for Claude Code. Use when the user asks to "write a plan", "make an implementation plan", "turn this spec into tasks", "review/improve/finalize a plan", or plan multi-step work before implementation.
+description: ETRNL file-backed planning workflow for Claude Code. Use when the user asks to "write a plan", "make an implementation plan", "turn this spec into tasks", "review/improve/finalize a plan", or plan multi-step work before implementation.
 paths:
   - "docs/plans/**"
   - "plans/**"

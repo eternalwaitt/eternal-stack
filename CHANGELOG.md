@@ -6,9 +6,6 @@
 
 - Rename the project to **Eternal Stack** (repo slug `eternal-stack`). Clean break on environment variables: every `CLAUDE_CONTROL_PLANE_*` / `CONTROL_PLANE_*` variable and stdout marker is now `ETRNL_*`, with no legacy fallbacks. Runtime data under `~/.claude/control-plane/` (and the Codex equivalent) is migrated to `~/.claude/etrnl/` on install.
 - Vendor a repo-owned backend reference suite as six `etrnl-backend-*` skills (`api`, `data`, `security`, `resilience`, `observability`, `architecture`), derived from the SkillsMP backend-development deep search and rewritten in directive voice; register them in `OWNED_SKILLS`, `docs/skills.md`, and the parity scorecard, with prompt-router triggers and skill-trigger fixtures.
-
-## v0.2.1
-
 - Stop update churn from resetting Claude settings: `update.sh` now runs `install.sh --preserve-settings`, and SessionStart auto-update skips when the source checkout is dirty unless `ETRNL_AUTO_UPDATE_DIRTY=1`.
 - Fix false Hindsight "not installed" reports: detect the plugin from `~/.claude/plugins/cache` when hook PATH lacks `claude`, and stop `update-check` from treating `pluginInstalled` tools as missing via the wrong `installed` field.
 - Enable local auto-update by default on requested-skill and Codex skill-update paths; set `ETRNL_AUTO_UPDATE=0` to keep those checks non-mutating.

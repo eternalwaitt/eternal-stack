@@ -1,6 +1,6 @@
 ---
 name: etrnl-dev-autoplan
-description: ETRNL etrnl planning companion for Claude Code. Use when the user asks to create an execution-ready implementation plan with task groups, dependencies, subagent candidates, verification gates, and explicit question policy.
+description: ETRNL planning companion for Claude Code. Use when the user asks to create an execution-ready implementation plan with task groups, dependencies, subagent candidates, verification gates, and explicit question policy.
 ---
 # ETRNL Autoplan
 

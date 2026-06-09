@@ -110,6 +110,9 @@ if [[ "${ETRNL_UPDATE_CHECK:-1}" != "0" && -f "$SCRIPT_DIR/../scripts/update-che
     update_stdout_file=""
     update_check_enabled=0
   fi
+  if (( update_check_enabled == 1 )) && [[ -n "$update_stdout_file" ]]; then
+    cc_register_cleanup "$update_stdout_file"
+  fi
   if (( update_check_enabled == 1 )) && ! update_stderr_file="$(mktemp "${TMPDIR:-/tmp}/cc-update-check-err.XXXXXX")"; then
     printf 'claude-guard warning: update-check skipped (stderr temp file unavailable)\n' >&2
     update_check_enabled=0
@@ -118,9 +121,6 @@ if [[ "${ETRNL_UPDATE_CHECK:-1}" != "0" && -f "$SCRIPT_DIR/../scripts/update-che
     rm -f "$update_stderr_file"
     update_stderr_file=""
     update_check_enabled=0
-  fi
-  if (( update_check_enabled == 1 )) && [[ -n "$update_stdout_file" ]]; then
-    cc_register_cleanup "$update_stdout_file"
   fi
   if (( update_check_enabled == 1 )) && [[ -n "$update_stderr_file" ]]; then
     cc_register_cleanup "$update_stderr_file"

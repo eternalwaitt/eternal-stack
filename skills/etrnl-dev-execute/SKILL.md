@@ -1,6 +1,6 @@
 ---
 name: etrnl-dev-execute
-description: ETRNL etrnl plan execution workflow for Claude Code. Use only when the user explicitly asks to execute an implementation plan; hidden from model auto-invocation because it edits files and runs commands.
+description: ETRNL plan execution workflow for Claude Code. Use only when the user explicitly asks to execute an implementation plan; hidden from model auto-invocation because it edits files and runs commands.
 disable-model-invocation: true
 ---
 # ETRNL Execute
