@@ -150,7 +150,7 @@
       "targetMilestone": "M1"
     },
     {
-      "etrnlSkill": "etrnl-audit-excellence",
+      "etrnlSkill": "etrnl-code-review-excellence",
       "capabilityScores": {
         "tdd_enforcement": 1,
         "planning_depth": 2,
@@ -244,7 +244,7 @@
       "targetMilestone": "M3"
     },
     {
-      "etrnlSkill": "etrnl-audit",
+      "etrnlSkill": "etrnl-deep-audit",
       "capabilityScores": {
         "tdd_enforcement": 1,
         "planning_depth": 3,
@@ -263,6 +263,32 @@
           "sourceRows": [
             "gstack:telemetry_proactive",
             "reap:telemetry_proactive"
+          ]
+        }
+      ],
+      "priority": "P1",
+      "targetMilestone": "M2"
+    },
+    {
+      "etrnlSkill": "etrnl-deep-audit-ux",
+      "capabilityScores": {
+        "tdd_enforcement": 1,
+        "planning_depth": 2,
+        "research_flow": 1,
+        "subagent_orchestration": 2,
+        "parallelism_safety": 1,
+        "verification_gates": 2,
+        "rollback_guardrails": 1,
+        "telemetry_proactive": 1
+      },
+      "gaps": [
+        {
+          "capability": "verification_gates",
+          "target": "require browser QA evidence or explicit source-limited rows for every runtime UI claim",
+          "ownerSurface": "skill:etrnl-deep-audit-ux",
+          "sourceRows": [
+            "gstack:verification_gates",
+            "reap:verification_gates"
           ]
         }
       ],
@@ -453,41 +479,6 @@
       "targetMilestone": "M2"
     },
     {
-      "etrnlSkill": "etrnl-dev-parallel",
-      "capabilityScores": {
-        "tdd_enforcement": 1,
-        "planning_depth": 2,
-        "research_flow": 1,
-        "subagent_orchestration": 3,
-        "parallelism_safety": 1,
-        "verification_gates": 1,
-        "rollback_guardrails": 1,
-        "telemetry_proactive": 1
-      },
-      "gaps": [
-        {
-          "capability": "parallelism_safety",
-          "target": "add strict no-overlap contract check for research subagent lanes",
-          "ownerSurface": "skill:etrnl-dev-parallel",
-          "sourceRows": [
-            "gstack:parallelism_safety",
-            "spec-kit:parallelism_safety"
-          ]
-        },
-        {
-          "capability": "verification_gates",
-          "target": "require verification receipts from each lane before merge phase",
-          "ownerSurface": "agent:etrnl-quality-reviewer",
-          "sourceRows": [
-            "get-shit-done:verification_gates",
-            "spec-kitty:verification_gates"
-          ]
-        }
-      ],
-      "priority": "P1",
-      "targetMilestone": "M2"
-    },
-    {
       "etrnlSkill": "etrnl-audit-performance",
       "capabilityScores": {
         "tdd_enforcement": 1,
@@ -618,73 +609,6 @@
       "targetMilestone": "M2"
     },
     {
-      "etrnlSkill": "etrnl-audit-repo",
-      "capabilityScores": {
-        "tdd_enforcement": 1,
-        "planning_depth": 2,
-        "research_flow": 1,
-        "subagent_orchestration": 1,
-        "parallelism_safety": 1,
-        "verification_gates": 2,
-        "rollback_guardrails": 1,
-        "telemetry_proactive": 1
-      },
-      "gaps": [],
-      "priority": "P2",
-      "targetMilestone": "M3"
-    },
-    {
-      "etrnlSkill": "etrnl-dev-review",
-      "capabilityScores": {
-        "tdd_enforcement": 1,
-        "planning_depth": 2,
-        "research_flow": 0,
-        "subagent_orchestration": 2,
-        "parallelism_safety": 1,
-        "verification_gates": 2,
-        "rollback_guardrails": 1,
-        "telemetry_proactive": 1
-      },
-      "gaps": [
-        {
-          "capability": "research_flow",
-          "target": "require code-level competitor citations in review findings for strategy/skill recommendations",
-          "ownerSurface": "skill:etrnl-dev-review",
-          "sourceRows": [
-            "superpowers:research_flow",
-            "spec-kit:research_flow"
-          ]
-        },
-        {
-          "capability": "verification_gates",
-          "target": "fail review completion if recommendation lacks source row references",
-          "ownerSurface": "script:review-log.mjs",
-          "sourceRows": [
-            "get-shit-done:verification_gates",
-            "shipyard:verification_gates"
-          ]
-        }
-      ],
-      "priority": "P0",
-      "targetMilestone": "M1"
-    },
-    {
-      "etrnlSkill": "etrnl-audit-reuse",
-      "capabilityScores": {
-        "tdd_enforcement": 1,
-        "planning_depth": 2,
-        "research_flow": 1,
-        "subagent_orchestration": 1,
-        "parallelism_safety": 1,
-        "verification_gates": 2,
-        "rollback_guardrails": 1,
-        "telemetry_proactive": 1
-      },
-      "gaps": [],
-      "priority": "P2",
-      "targetMilestone": "M3"
-    },
-    {
       "etrnlSkill": "etrnl-audit-security",
       "capabilityScores": {
         "tdd_enforcement": 1,
@@ -712,22 +636,6 @@
     },
     {
       "etrnlSkill": "etrnl-audit-tooling",
-      "capabilityScores": {
-        "tdd_enforcement": 1,
-        "planning_depth": 2,
-        "research_flow": 1,
-        "subagent_orchestration": 1,
-        "parallelism_safety": 1,
-        "verification_gates": 2,
-        "rollback_guardrails": 1,
-        "telemetry_proactive": 1
-      },
-      "gaps": [],
-      "priority": "P2",
-      "targetMilestone": "M3"
-    },
-    {
-      "etrnlSkill": "etrnl-audit-ux",
       "capabilityScores": {
         "tdd_enforcement": 1,
         "planning_depth": 2,
@@ -813,96 +721,16 @@
       "targetMilestone": "M1"
     },
     {
-      "etrnlSkill": "etrnl-backend-api",
+      "etrnlSkill": "etrnl-backend-patterns",
       "capabilityScores": {
         "tdd_enforcement": 1,
         "planning_depth": 2,
         "research_flow": 1,
-        "subagent_orchestration": 1,
-        "parallelism_safety": 1,
-        "verification_gates": 1,
-        "rollback_guardrails": 1,
-        "telemetry_proactive": 1
-      },
-      "gaps": [],
-      "priority": "P2",
-      "targetMilestone": "M3"
-    },
-    {
-      "etrnlSkill": "etrnl-backend-architecture",
-      "capabilityScores": {
-        "tdd_enforcement": 1,
-        "planning_depth": 2,
-        "research_flow": 1,
-        "subagent_orchestration": 1,
-        "parallelism_safety": 1,
-        "verification_gates": 1,
-        "rollback_guardrails": 1,
-        "telemetry_proactive": 1
-      },
-      "gaps": [],
-      "priority": "P2",
-      "targetMilestone": "M3"
-    },
-    {
-      "etrnlSkill": "etrnl-backend-data",
-      "capabilityScores": {
-        "tdd_enforcement": 1,
-        "planning_depth": 2,
-        "research_flow": 1,
-        "subagent_orchestration": 1,
-        "parallelism_safety": 1,
-        "verification_gates": 1,
-        "rollback_guardrails": 1,
-        "telemetry_proactive": 1
-      },
-      "gaps": [],
-      "priority": "P2",
-      "targetMilestone": "M3"
-    },
-    {
-      "etrnlSkill": "etrnl-backend-observability",
-      "capabilityScores": {
-        "tdd_enforcement": 1,
-        "planning_depth": 2,
-        "research_flow": 1,
-        "subagent_orchestration": 1,
-        "parallelism_safety": 1,
-        "verification_gates": 1,
-        "rollback_guardrails": 1,
-        "telemetry_proactive": 2
-      },
-      "gaps": [],
-      "priority": "P2",
-      "targetMilestone": "M3"
-    },
-    {
-      "etrnlSkill": "etrnl-backend-resilience",
-      "capabilityScores": {
-        "tdd_enforcement": 1,
-        "planning_depth": 2,
-        "research_flow": 1,
-        "subagent_orchestration": 1,
-        "parallelism_safety": 1,
-        "verification_gates": 1,
-        "rollback_guardrails": 2,
-        "telemetry_proactive": 1
-      },
-      "gaps": [],
-      "priority": "P2",
-      "targetMilestone": "M3"
-    },
-    {
-      "etrnlSkill": "etrnl-backend-security",
-      "capabilityScores": {
-        "tdd_enforcement": 1,
-        "planning_depth": 2,
-        "research_flow": 1,
-        "subagent_orchestration": 1,
+        "subagent_orchestration": 2,
         "parallelism_safety": 1,
         "verification_gates": 2,
-        "rollback_guardrails": 1,
-        "telemetry_proactive": 1
+        "rollback_guardrails": 2,
+        "telemetry_proactive": 2
       },
       "gaps": [],
       "priority": "P2",

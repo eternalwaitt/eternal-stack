@@ -44,7 +44,7 @@ Completion means every item inside the plan's `Execution scope` is verified or e
 1. Continue through the approved plan without asking between mechanical phases.
    - Treat `Execution scope: all_phases` as a hard contract to execute the full plan. If the plan has no `Execution scope`, stop and patch the plan before editing.
 2. Ask the user only for destructive actions, scope expansion, missing credentials, conflicting user edits, repeated stalls, or subjective product/taste decisions.
-3. Group tasks by dependency and write scope. Execute dependent work sequentially; dispatch independent read-only review or disjoint write work to fresh subagents.
+3. Group tasks by dependency and write scope. Execute dependent work sequentially; dispatch independent read-only review or disjoint write work to fresh subagents. For explicit parallel fan-out requests, load `references/parallel-fanout.md` before widening lanes.
     - Use wave-based execution: earlier waves must finish before later waves.
     - Before parallel work, run an overlap check with the plan's task file lists when practical:
       `node ~/.claude/scripts/execution-wave-check.mjs < tasks.json`
@@ -98,7 +98,7 @@ Completion means every item inside the plan's `Execution scope` is verified or e
    - `eternal-best-practices` for auth, tenant, money, i18n, Prisma, permissions, soft-delete, and stack policy.
    - `finding-duplicate-functions` when reducing duplication or consolidating repeated logic.
    - `code-simplifier` after implementation and before final scoring/completion.
-   - `brooks-audit` when the plan or project expects Brooks health.
+   - `etrnl-code-review-excellence` when the plan or project expects Brooks health or code-excellence review.
    - If a triggered companion skill is unavailable, record the missing skill, impact, and compensating check in the ledger before continuing.
 
 ## Verification

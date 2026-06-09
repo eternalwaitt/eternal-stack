@@ -8,8 +8,8 @@ This reference defines the `production-readiness` deep-audit category. It rewrit
 - Skill name: `etrnl-audit-production`
 - Execution mode: sequential
 - Registered check ids: `prod-01-state-coverage` through `prod-18-operability-prr`
-- Report envelope: same schema used by `etrnl-audit`
-- Direct invocation: create `requestedCategories: ["production-readiness"]` or route to `etrnl-audit --category production-readiness`
+- Report envelope: same schema used by `etrnl-deep-audit`
+- Direct invocation: create `requestedCategories: ["production-readiness"]` or route to `etrnl-deep-audit --category production-readiness`
 - Completion gate: validate the final artifact with `node scripts/deep-audit-artifact-check.mjs validate --artifact <artifact>`
 
 ## Evidence Rules

@@ -433,7 +433,7 @@ printf '%s\n' 'Outside secret should not be injected.' >"$TMPROOT/outside.md"
 prompt="$(fixture userpromptsubmit.json | jq --arg cwd "$TMPROOT/example/subdir" '.cwd = $cwd')"
 out="$(HOME="$TMPROOT/home" run_hook cc-userprompt-router.sh "$prompt")"
 assert_json_expr "prompt router emits context" "$out" '.hookSpecificOutput.additionalContext | length > 0'
-assert_contains "prompt router names code review workflow" "$out" "etrnl-dev-review"
+assert_contains "prompt router names plan review workflow" "$out" "etrnl-dev-autoplan"
 assert_contains "prompt router reinjects global CLAUDE.md" "$out" "Reuse before create from injected global"
 assert_contains "prompt router expands global AGENTS bridge" "$out" "Global AGENTS bridge was expanded"
 assert_contains "prompt router expands global tilde references" "$out" "Global tilde markdown import was expanded"
@@ -539,7 +539,7 @@ for (( i = 0; i < skill_trigger_count; i++ )); do
   done <<<"$unexpected_skills"
 done
 
-skill_json="$(jq -cn '{session_id:"fixture-session",hook_event_name:"UserPromptExpansion",command_name:"etrnl-dev-review"}')"
+skill_json="$(jq -cn '{session_id:"fixture-session",hook_event_name:"UserPromptExpansion",command_name:"etrnl-dev-autoplan"}')"
 run_hook cc-userprompt-expansion.sh "$skill_json" >/dev/null || true
 state_file="$TMPROOT/claude-guard-fixture-session.json"
 assert_json_expr "skill recorded" "$(jq -c . "$state_file")" '(.skillCalls | length) > 0'
@@ -804,7 +804,7 @@ jq -nc '{schemaVersion:1,reads:{},searches:{},edits:{"/tmp/example/src/a.ts":"20
 review_stop="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-review-required",cwd:$root,last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$review_stop")"
 assert_contains "second-pass review required for broad source edits" "$out" "second-pass review"
-jq '.reviewRuns = [{value:"etrnl-dev-review",at:"2026-01-01T00:00:03Z"}]' "$review_state" >"$review_state.tmp" && mv "$review_state.tmp" "$review_state"
+jq '.reviewRuns = [{value:"etrnl-spec-reviewer",at:"2026-01-01T00:00:03Z"}]' "$review_state" >"$review_state.tmp" && mv "$review_state.tmp" "$review_state"
 out="$(run_hook cc-stop-verifier.sh "$review_stop")"
 if [[ -z "$out" ]]; then ok "second-pass review evidence satisfies broad edits"; else not_ok "second-pass review evidence should satisfy broad edits: $out"; fi
 
@@ -872,7 +872,7 @@ jq -nc '{
   qualityRuns: [{value:"pnpm test", at:"2026-01-01T00:00:02Z"}],
   testRuns: [{value:"pnpm test", at:"2026-01-01T00:00:02Z"}],
   browserRuns: [],
-  reviewRuns: [{value:"etrnl-dev-review", at:"2026-01-01T00:00:02Z"}],
+  reviewRuns: [{value:"etrnl-quality-reviewer", at:"2026-01-01T00:00:02Z"}],
   newFileSearches: [],
   newSourceFiles: {},
   editCounts: {},

@@ -4,7 +4,8 @@ Use this stack when running `etrnl-audit-code` in this repo.
 
 ## Deep-Audit Skills
 
-- `etrnl-audit-repo`: repo hygiene audit for organization, generated artifacts, dead files, and public-boundary drift; see `docs/skills.md` and `scripts/lib/deep-audit-categories.mjs`.
+- `etrnl-deep-audit` bundled `repo-hygiene` category: organization, generated artifacts, dead files, and public-boundary drift; see `skills/etrnl-deep-audit/references/categories/repo-hygiene.md` and `scripts/lib/deep-audit-categories.mjs`.
+- `etrnl-deep-audit-ux`: standalone `ui-ux-product` deep-audit category (excluded from `all_registered`); see `skills/etrnl-deep-audit-ux/references/audit-checks.md`.
 - `etrnl-audit-tooling`: tooling-ecosystem audit for `tool-01` through `tool-05`, covering local setup, formatter/lint/test gates, CI parity, hook/tool drift, and developer workflow reliability; see `docs/skills.md` and `scripts/lib/deep-audit-categories.mjs`.
 
 ## Required Gates

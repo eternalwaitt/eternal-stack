@@ -1,5 +1,5 @@
 /** Version for the deep-audit category registry schema and expected fixture snapshots. */
-export const CATEGORY_REGISTRY_VERSION = "2026-06-05.1";
+export const CATEGORY_REGISTRY_VERSION = "2026-06-09.1";
 
 /** Category ids intentionally left out of the registered deep-audit gate set. */
 export const KNOWN_UNIMPLEMENTED_CATEGORIES = [
@@ -104,8 +104,8 @@ function check(checkId, label, requiredWorklists, applicabilityGate, laneId = ""
 export const REGISTERED_DEEP_AUDIT_CATEGORIES = [
   {
     categoryId: "code-excellence",
-    skillName: "etrnl-audit-excellence",
-    referencePath: "skills/etrnl-audit-excellence/references/audit-checks.md",
+    skillName: "etrnl-code-review-excellence",
+    referencePath: "skills/etrnl-code-review-excellence/references/audit-checks.md",
     executionMode: "sequential",
     requiredWorklists: worklists.excellence,
     checks: [
@@ -120,8 +120,9 @@ export const REGISTERED_DEEP_AUDIT_CATEGORIES = [
   },
   {
     categoryId: "ui-ux-product",
-    skillName: "etrnl-audit-ux",
-    referencePath: "skills/etrnl-audit-ux/references/audit-checks.md",
+    skillName: "etrnl-deep-audit-ux",
+    orchestratorIncluded: false,
+    referencePath: "skills/etrnl-deep-audit-ux/references/audit-checks.md",
     executionMode: "sequential",
     requiredWorklists: worklists.ux,
     checks: [
@@ -234,8 +235,9 @@ export const REGISTERED_DEEP_AUDIT_CATEGORIES = [
   },
   {
     categoryId: "shared-reuse",
-    skillName: "etrnl-audit-reuse",
-    referencePath: "skills/etrnl-audit-reuse/references/audit-checks.md",
+    skillName: "etrnl-deep-audit",
+    bundled: true,
+    referencePath: "skills/etrnl-deep-audit/references/categories/shared-reuse.md",
     executionMode: "sequential",
     requiredWorklists: worklists.reuse,
     checks: [
@@ -249,8 +251,9 @@ export const REGISTERED_DEEP_AUDIT_CATEGORIES = [
   },
   {
     categoryId: "repo-hygiene",
-    skillName: "etrnl-audit-repo",
-    referencePath: "skills/etrnl-audit-repo/references/audit-checks.md",
+    skillName: "etrnl-deep-audit",
+    bundled: true,
+    referencePath: "skills/etrnl-deep-audit/references/categories/repo-hygiene.md",
     executionMode: "sequential",
     requiredWorklists: worklists.repo,
     checks: [
@@ -279,9 +282,16 @@ export const REGISTERED_DEEP_AUDIT_CATEGORIES = [
   },
 ];
 
-/** Return the currently enforced deep-audit category ids in registry order. */
+/** Return every registered deep-audit category id in registry order. */
 export function registeredCategoryIds() {
   return REGISTERED_DEEP_AUDIT_CATEGORIES.map((category) => category.categoryId);
+}
+
+/** Return category ids included in etrnl-deep-audit `all_registered` selection. */
+export function orchestratorCategoryIds() {
+  return REGISTERED_DEEP_AUDIT_CATEGORIES.filter((category) => category.orchestratorIncluded !== false).map(
+    (category) => category.categoryId,
+  );
 }
 
 /**

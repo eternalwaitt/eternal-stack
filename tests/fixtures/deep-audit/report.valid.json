@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "auditId": "deep-audit-valid",
-  "categoryRegistryVersion": "2026-06-05.1",
+  "categoryRegistryVersion": "2026-06-09.1",
   "registeredCategories": [
     "code-excellence",
     "ui-ux-product",
@@ -17,7 +17,7 @@
     "payments",
     "privacy-compliance"
   ],
-  "coverageStatement": "Coverage: all_registered categories completed: code-excellence, ui-ux-product, production-readiness, security, performance, shared-reuse, repo-hygiene, tooling-ecosystem. Known not-yet-registered audit domains: api-data, payments, privacy-compliance. This is not a claim that every possible audit domain has run.",
+  "coverageStatement": "Coverage: all_registered categories completed: code-excellence, production-readiness, security, performance, shared-reuse, repo-hygiene, tooling-ecosystem. UI/UX/product audit is separate: run etrnl-deep-audit-ux when needed. Known not-yet-registered audit domains: api-data, payments, privacy-compliance. This is not a claim that every possible audit domain has run.",
   "targetLabel": "synthetic-app",
   "targetFingerprint": "repo:synthetic-app@abcdef1",
   "requestedCategories": "all_registered",
@@ -233,36 +233,6 @@
       "sha256": "sha256:code_architecture",
       "artifactLabel": "code-architecture"
     },
-    "ux_routes": {
-      "count": 1,
-      "sha256": "sha256:ux_routes",
-      "artifactLabel": "ux-routes"
-    },
-    "ux_components": {
-      "count": 1,
-      "sha256": "sha256:ux_components",
-      "artifactLabel": "ux-components"
-    },
-    "ux_states": {
-      "count": 1,
-      "sha256": "sha256:ux_states",
-      "artifactLabel": "ux-states"
-    },
-    "ux_styles": {
-      "count": 1,
-      "sha256": "sha256:ux_styles",
-      "artifactLabel": "ux-styles"
-    },
-    "ux_copy": {
-      "count": 1,
-      "sha256": "sha256:ux_copy",
-      "artifactLabel": "ux-copy"
-    },
-    "ux_accessibility": {
-      "count": 1,
-      "sha256": "sha256:ux_accessibility",
-      "artifactLabel": "ux-accessibility"
-    },
     "reuse_source_files": {
       "count": 1,
       "sha256": "sha256:reuse_source_files",
@@ -391,50 +361,6 @@
           "checkId": "code-06-complexity-debt",
           "status": "confirmed_clean",
           "confirmedClean": "CONFIRMED_CLEAN: Complexity, dead code, and stale abstractions - 0 findings"
-        }
-      ]
-    },
-    {
-      "categoryId": "ui-ux-product",
-      "status": "clean",
-      "consumedWorklistHashes": {
-        "ux_routes": "sha256:ux_routes",
-        "ux_components": "sha256:ux_components",
-        "ux_states": "sha256:ux_states",
-        "ux_styles": "sha256:ux_styles",
-        "ux_copy": "sha256:ux_copy",
-        "ux_accessibility": "sha256:ux_accessibility"
-      },
-      "checks": [
-        {
-          "checkId": "ux-01-primary-flows",
-          "status": "confirmed_clean",
-          "confirmedClean": "CONFIRMED_CLEAN: Primary product flows - 0 findings"
-        },
-        {
-          "checkId": "ux-02-information-hierarchy",
-          "status": "confirmed_clean",
-          "confirmedClean": "CONFIRMED_CLEAN: Information hierarchy and scanning - 0 findings"
-        },
-        {
-          "checkId": "ux-03-states-feedback",
-          "status": "confirmed_clean",
-          "confirmedClean": "CONFIRMED_CLEAN: States, feedback, and empty paths - 0 findings"
-        },
-        {
-          "checkId": "ux-04-accessibility",
-          "status": "confirmed_clean",
-          "confirmedClean": "CONFIRMED_CLEAN: Accessibility and keyboard paths - 0 findings"
-        },
-        {
-          "checkId": "ux-05-responsive-visual-polish",
-          "status": "confirmed_clean",
-          "confirmedClean": "CONFIRMED_CLEAN: Responsive visual polish - 0 findings"
-        },
-        {
-          "checkId": "ux-06-product-copy",
-          "status": "confirmed_clean",
-          "confirmedClean": "CONFIRMED_CLEAN: Product copy and trust cues - 0 findings"
         }
       ]
     },
@@ -993,7 +919,6 @@
   ],
   "confirmedClean": [
     "code-excellence",
-    "ui-ux-product",
     "production-readiness",
     "security",
     "performance",

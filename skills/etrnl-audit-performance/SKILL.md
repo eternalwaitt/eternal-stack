@@ -6,15 +6,15 @@ description: ETRNL performance deep-audit category skill. Use when the user asks
 
 Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-audit-performance`; on update, ask update/snooze/continue.
 
-Run the registered `performance` deep-audit category with shared worklists, route/runtime evidence, six lane receipts, and the same artifact envelope used by `etrnl-audit`.
+Run the registered `performance` deep-audit category with shared worklists, route/runtime evidence, six lane receipts, and the same artifact envelope used by `etrnl-deep-audit`.
 
-This is a category skill, not the full orchestrator. Use `/etrnl-audit` for `all_registered` coverage across every registered category.
+This is a category skill, not the full orchestrator. Use `/etrnl-deep-audit` for `all_registered` coverage across every registered category.
 
 ## Required Flow
 
 1. Read `scripts/lib/deep-audit-categories.mjs` and verify the `performance` registry entry.
-1. Create or reuse the run-scoped deep-audit artifact directory supplied by `/etrnl-audit`.
-1. If invoked directly, route through `/etrnl-audit --category performance` or create the same report envelope locally.
+1. Create or reuse the run-scoped deep-audit artifact directory supplied by `/etrnl-deep-audit`.
+1. If invoked directly, route through `/etrnl-deep-audit --category performance` or create the same report envelope locally.
 1. Build every `perf_*` worklist from the registry before lane analysis starts.
 1. Record each worklist path, item count, and content hash in the artifact envelope.
 1. Load `references/audit-checks.md` before auditing.

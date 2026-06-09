@@ -8,6 +8,7 @@ import {
   KNOWN_UNIMPLEMENTED_CATEGORIES,
   REGISTERED_DEEP_AUDIT_CATEGORIES,
   findCategory,
+  orchestratorCategoryIds,
   registeredCategoryIds,
 } from "./lib/deep-audit-categories.mjs";
 
@@ -157,7 +158,7 @@ function walkStrings(value, visit, jsonPath = "$") {
 
 function selectedCategories(artifact, errors, artifactPath) {
   const validIds = registeredCategoryIds();
-  if (artifact.requestedCategories === "all_registered") return validIds;
+  if (artifact.requestedCategories === "all_registered") return orchestratorCategoryIds();
   if (!Array.isArray(artifact.requestedCategories)) {
     errors.push(diagnostic("REQUESTED_CATEGORIES_INVALID", artifactPath, "requestedCategories must be all_registered or an array.", "The artifact cannot establish the selected category set.", "Set requestedCategories to all_registered or a list of registered category ids.", "$.requestedCategories"));
     return [];
@@ -293,9 +294,15 @@ function validateRegistrySnapshot(artifact, artifactPath, errors, registryIds) {
 
 function validateCoverageStatement(artifact, artifactPath, errors, selected, registryIds) {
   if (artifact.requestedCategories === "all_registered") {
-    for (const categoryId of registryIds) {
+    const orchestratorIds = orchestratorCategoryIds();
+    for (const categoryId of orchestratorIds) {
       if (!selected.includes(categoryId)) {
-        errors.push(diagnostic("ALL_REGISTERED_OMITS_CATEGORY", artifactPath, `${categoryId} is omitted from all_registered selection.`, "all_registered must run every registered category.", "Use registeredCategoryIds() to derive all_registered selections.", "$.requestedCategories"));
+        errors.push(diagnostic("ALL_REGISTERED_OMITS_CATEGORY", artifactPath, `${categoryId} is omitted from all_registered selection.`, "all_registered must run every orchestrator-included category.", "Use orchestratorCategoryIds() to derive all_registered selections.", "$.requestedCategories"));
+      }
+    }
+    for (const categoryId of selected) {
+      if (!orchestratorIds.includes(categoryId)) {
+        errors.push(diagnostic("ALL_REGISTERED_EXTRA_CATEGORY", artifactPath, `${categoryId} is not orchestrator-included but appears in all_registered selection.`, "Standalone categories such as ui-ux-product must run through their own skill.", "Remove standalone categories from all_registered or route through etrnl-deep-audit-ux.", "$.requestedCategories"));
       }
     }
   }
@@ -503,32 +510,39 @@ function validateRegistryInstallSurfaces(skillLists, install, errors) {
 }
 
 function validateRegisteredCategorySurface(category, root, docs, triggerText, ownedSkills, errors) {
-  if (!ownedSkills.includes(category.skillName)) {
-    errors.push(diagnostic("REGISTRY_OWNED_SKILL_MISSING", "scripts/lib/skill-lists.sh", `${category.skillName} is missing from OWNED_SKILLS.`, "The skill will not install or route as repo-owned.", `Add ${category.skillName} to OWNED_SKILLS.`));
-  }
-  if (!docs.includes(`/${category.skillName}`)) {
-    errors.push(diagnostic("REGISTRY_DOCS_MISSING", "docs/skills.md", `${category.skillName} is missing from docs/skills.md.`, "Maintainers cannot discover the skill.", `Document /${category.skillName}.`));
-  }
-  if (!triggerText.includes(category.skillName)) {
-    errors.push(diagnostic("REGISTRY_TRIGGER_FIXTURE_MISSING", "tests/fixtures/skill-triggering/cases.json", `${category.skillName} is missing from trigger cases.`, "Skill behavior smoke cannot prove routing.", `Add a trigger fixture expecting ${category.skillName}.`));
-  }
-  if (!fs.existsSync(path.join(root, "skills", category.skillName, "SKILL.md"))) {
-    errors.push(diagnostic("REGISTRY_SKILL_DIR_MISSING", `skills/${category.skillName}/SKILL.md`, `${category.skillName} SKILL.md is missing.`, "The registry points at a skill that does not exist.", `Create skills/${category.skillName}/SKILL.md.`));
+  const bundled = category.bundled === true;
+  if (!bundled) {
+    if (!ownedSkills.includes(category.skillName)) {
+      errors.push(diagnostic("REGISTRY_OWNED_SKILL_MISSING", "scripts/lib/skill-lists.sh", `${category.skillName} is missing from OWNED_SKILLS.`, "The skill will not install or route as repo-owned.", `Add ${category.skillName} to OWNED_SKILLS.`));
+    }
+    if (!docs.includes(`/${category.skillName}`)) {
+      errors.push(diagnostic("REGISTRY_DOCS_MISSING", "docs/skills.md", `${category.skillName} is missing from docs/skills.md.`, "Maintainers cannot discover the skill.", `Document /${category.skillName}.`));
+    }
+    if (!triggerText.includes(category.skillName)) {
+      errors.push(diagnostic("REGISTRY_TRIGGER_FIXTURE_MISSING", "tests/fixtures/skill-triggering/cases.json", `${category.skillName} is missing from trigger cases.`, "Skill behavior smoke cannot prove routing.", `Add a trigger fixture expecting ${category.skillName}.`));
+    }
+    if (!fs.existsSync(path.join(root, "skills", category.skillName, "SKILL.md"))) {
+      errors.push(diagnostic("REGISTRY_SKILL_DIR_MISSING", `skills/${category.skillName}/SKILL.md`, `${category.skillName} SKILL.md is missing.`, "The registry points at a skill that does not exist.", `Create skills/${category.skillName}/SKILL.md.`));
+    }
   }
   if (!fs.existsSync(path.join(root, category.referencePath))) {
     errors.push(diagnostic("REGISTRY_REFERENCE_MISSING", category.referencePath, `${category.referencePath} is missing.`, "The category detail reference cannot be loaded.", `Create ${category.referencePath}.`));
   }
 }
 
-function validateOrchestratorSurface(docs, triggerText, ownedSkills, errors) {
-  if (!ownedSkills.includes("etrnl-audit")) {
-    errors.push(diagnostic("REGISTRY_ORCHESTRATOR_MISSING", "scripts/lib/skill-lists.sh", "etrnl-audit is missing from OWNED_SKILLS.", "The orchestrator will not install as repo-owned.", "Add etrnl-audit to OWNED_SKILLS."));
+function validateOrchestratorSurface(docs, triggerText, ownedSkills, root, errors) {
+  const orchestrator = "etrnl-deep-audit";
+  if (!ownedSkills.includes(orchestrator)) {
+    errors.push(diagnostic("REGISTRY_ORCHESTRATOR_MISSING", "scripts/lib/skill-lists.sh", `${orchestrator} is missing from OWNED_SKILLS.`, "The orchestrator will not install as repo-owned.", `Add ${orchestrator} to OWNED_SKILLS.`));
   }
-  if (!docs.includes("/etrnl-audit")) {
-    errors.push(diagnostic("REGISTRY_DOCS_MISSING", "docs/skills.md", "etrnl-audit is missing from docs/skills.md.", "Maintainers cannot discover the orchestrator.", "Document /etrnl-audit."));
+  if (!docs.includes(`/${orchestrator}`)) {
+    errors.push(diagnostic("REGISTRY_DOCS_MISSING", "docs/skills.md", `${orchestrator} is missing from docs/skills.md.`, "Maintainers cannot discover the orchestrator.", `Document /${orchestrator}.`));
   }
-  if (!triggerText.includes("etrnl-audit")) {
-    errors.push(diagnostic("REGISTRY_TRIGGER_FIXTURE_MISSING", "tests/fixtures/skill-triggering/cases.json", "etrnl-audit is missing from trigger cases.", "Skill behavior smoke cannot prove orchestrator routing.", "Add a trigger fixture expecting etrnl-audit."));
+  if (!triggerText.includes(orchestrator)) {
+    errors.push(diagnostic("REGISTRY_TRIGGER_FIXTURE_MISSING", "tests/fixtures/skill-triggering/cases.json", `${orchestrator} is missing from trigger cases.`, "Skill behavior smoke cannot prove orchestrator routing.", `Add a trigger fixture expecting ${orchestrator}.`));
+  }
+  if (!fs.existsSync(path.join(root, "skills", orchestrator, "SKILL.md"))) {
+    errors.push(diagnostic("REGISTRY_SKILL_DIR_MISSING", `skills/${orchestrator}/SKILL.md`, `${orchestrator} SKILL.md is missing.`, "The orchestrator skill does not exist.", `Create skills/${orchestrator}/SKILL.md.`));
   }
 }
 
@@ -551,7 +565,7 @@ function runValidateRegistry() {
   for (const category of REGISTERED_DEEP_AUDIT_CATEGORIES) {
     validateRegisteredCategorySurface(category, root, docs, triggerText, ownedSkills, errors);
   }
-  validateOrchestratorSurface(docs, triggerText, ownedSkills, errors);
+  validateOrchestratorSurface(docs, triggerText, ownedSkills, root, errors);
   report(errors);
 }
 

@@ -364,7 +364,7 @@ if [[ "$DRY_RUN" == "1" ]]; then
   printf 'Dry run: would install Codex skill/runtime files into %s\n' "$CODEX_TARGET"
   printf 'Dry run: would copy settings, stack profile, and Hindsight config templates\n'
   if [[ "$RESET_CLAUDE_SETTINGS" == "1" ]]; then
-    printf 'Dry run: would back up %s/settings.json and reset it to vanilla while preserving enabledPlugins before applying stack hooks\n' "$TARGET"
+    printf 'Dry run: would back up %s/settings.json and reset it to vanilla while preserving enabledPlugins and statusLine before applying stack hooks\n' "$TARGET"
   else
     printf 'Dry run: would preserve existing %s/settings.json and merge stack hooks into it\n' "$TARGET"
   fi

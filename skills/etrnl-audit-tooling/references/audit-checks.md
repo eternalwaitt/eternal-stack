@@ -3,7 +3,7 @@
 - Category id: `tooling-ecosystem`
 - Skill name: `etrnl-audit-tooling`
 - Registry source: `scripts/lib/deep-audit-categories.mjs`
-- Report envelope: same schema used by `etrnl-audit`
+- Report envelope: same schema used by `etrnl-deep-audit`
 
 ## Checks
 

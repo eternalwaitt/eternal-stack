@@ -21,7 +21,7 @@ else
 fi
 assert_contains "install dry-run names core profile" "$dry_run_out" "profile=core"
 assert_contains "install dry-run names stack validator" "$dry_run_out" "stack-profile-check.mjs"
-assert_contains "install dry-run resets Claude settings before applying stack" "$dry_run_out" "reset it to vanilla while preserving enabledPlugins before applying stack hooks"
+assert_contains "install dry-run resets Claude settings before applying stack" "$dry_run_out" "reset it to vanilla while preserving enabledPlugins and statusLine before applying stack hooks"
 core_dry_run_out="$(CLAUDE_HOME="$dry_run_home" CODEX_HOME="$dry_run_codex_home" "$ROOT/scripts/install.sh" --profile core --dry-run)"
 assert_contains "core profile dry-run skips global memory tools" "$core_dry_run_out" "core profile skips Hindsight, Beads, and CodeGraph bootstrap"
 preserve_dry_run_out="$(CLAUDE_HOME="$dry_run_home" CODEX_HOME="$dry_run_codex_home" "$ROOT/scripts/install.sh" --preserve-settings --dry-run)"
@@ -57,14 +57,19 @@ cat >"$reset_settings_backup/settings.json" <<'JSON'
 {
   "enabledPlugins": {
     "backup-plugin@example": true
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "bash ~/.claude/statusline.sh"
   }
 }
 JSON
 # shellcheck source=scripts/lib/reset-settings.sh
 source "$ROOT/scripts/lib/reset-settings.sh"
 reset_settings_out="$(reset_settings_preserving_enabled_plugins "$reset_settings_live/settings.json" "$reset_settings_backup/settings.json" 2>&1)"
-assert_contains "reset settings preserves enabledPlugins from backup" "$reset_settings_out" "preserved enabledPlugins from install backup"
+assert_contains "reset settings preserves enabledPlugins from backup" "$reset_settings_out" "preserved enabledPlugins and statusLine from install backup"
 assert_json_expr "reset settings backup fallback keeps plugins" "$(jq -c . "$reset_settings_live/settings.json")" '.enabledPlugins["backup-plugin@example"] == true'
+assert_json_expr "reset settings backup fallback keeps statusLine" "$(jq -c . "$reset_settings_live/settings.json")" '.statusLine.command == "bash ~/.claude/statusline.sh"'
 
 mkdir -p "$CLAUDE_HOME/skills/etrnl-fix-issue" "$CODEX_HOME/skills/etrnl-fix-issue" "$CLAUDE_HOME/commands"
 printf 'legacy claude skill\n' >"$CLAUDE_HOME/skills/etrnl-fix-issue/SKILL.md"
@@ -77,6 +82,10 @@ cat >"$CLAUDE_HOME/settings.json" <<'JSON'
   "skipAutoPermissionPrompt": true,
   "enabledPlugins": {
     "foreign-plugin@example": true
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "bash ~/.claude/statusline.sh"
   },
   "hooks": {
     "SessionStart": [
@@ -207,6 +216,7 @@ done
 assert_file "post-install: settings.json present" "$CLAUDE_HOME/settings.json"
 assert_json_expr "post-install: reset removed risky top-level settings" "$(jq -c . "$CLAUDE_HOME/settings.json")" '(has("autoCompactWindow") | not) and (has("skipAutoPermissionPrompt") | not)'
 assert_json_expr "post-install: reset preserved enabled plugin settings" "$(jq -c . "$CLAUDE_HOME/settings.json")" '.enabledPlugins["foreign-plugin@example"] == true'
+assert_json_expr "post-install: reset preserved statusLine" "$(jq -c . "$CLAUDE_HOME/settings.json")" '.statusLine.command == "bash ~/.claude/statusline.sh"'
 assert_json_expr "post-install: reset removed foreign hooks before stack merge" "$(jq -c . "$CLAUDE_HOME/settings.json")" '([.hooks.SessionStart[]?.hooks[]?.command // empty | select(test("foreign-session-start"))] | length) == 0'
 shopt -s nullglob
 backup_settings=("$CLAUDE_HOME"/backups/etrnl-install-*/settings.json)

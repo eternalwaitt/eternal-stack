@@ -16,7 +16,7 @@ Install:
 
 - `ETRNL_STACK_PROFILE=core|full` sets the default install profile when `--profile` is omitted.
 - `ETRNL_ENABLE_STRICT=1` merges strict blocker hooks during install.
-- `./scripts/install.sh` backs up and resets managed `~/.claude/settings.json` to a vanilla settings shell before applying the selected stack, while preserving existing `enabledPlugins`. Use `--preserve-settings` only for a deliberate merge into existing settings.
+- `./scripts/install.sh` backs up and resets managed `~/.claude/settings.json` to a vanilla settings shell before applying the selected stack, while preserving existing `enabledPlugins` and `statusLine` (for example a custom `~/.claude/statusline.sh` HUD). Use `--preserve-settings` only for a deliberate merge into existing settings.
 - `ETRNL_INSTALL_STARTUP=1` overwrites installed `AGENTS.md` and `CLAUDE.md` startup files instead of preserving existing local copies.
 - `ETRNL_BOOTSTRAP_PROJECTS=1` lets a full install initialize or verify project-local `.codegraph` and `.beads` state.
 - `ETRNL_HINDSIGHT_MODE=local-daemon|external-api|docker-server` selects full-profile Hindsight provisioning mode.

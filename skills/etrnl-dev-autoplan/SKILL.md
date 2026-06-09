@@ -61,7 +61,7 @@ Run the full review gauntlet before finalizing any non-trivial plan. Planning, a
    - Record quick wins, rejected expansions, premise challenges, and user-direction conflicts.
 2. Engineering review:
    - Validate architecture, data flow, failure modes, rollback, tests, parallelization, reuse, latency, install risk, and type boundaries.
-   - Reuse `/etrnl-dev-review` criteria instead of duplicating a long prompt.
+   - Reuse `references/review-contract.md` instead of duplicating a long prompt.
 3. Design review, when UI scope exists:
    - Check information hierarchy, interaction states, responsive behavior, accessibility, and existing design-system reuse.
    - Add a design/mock artifact slot when visuals would materially reduce ambiguity.

@@ -202,7 +202,7 @@ cc_command_is_browser_verification() {
 cc_command_is_review_verification() {
   local cmd
   cmd="$(cc_command_normalize "$1")"
-  [[ "$cmd" =~ (etrnl-dev-review|code[[:space:]-]?review|review-log|coderabbit|adversarial|redline|second[[:space:]-]?pass) ]]
+  [[ "$cmd" =~ (etrnl-spec-reviewer|etrnl-quality-reviewer|etrnl-dev-pr|code[[:space:]-]?review|review-log|coderabbit|adversarial|redline|second[[:space:]-]?pass) ]]
 }
 
 cc_command_is_unbounded_json_dump() {

@@ -96,7 +96,7 @@ cc_large_change_has_plan_artifact() {
     (((.reviewRuns // []) | length) > 0)
       or ([.skillCalls[]?.value // empty]
         | map(ascii_downcase)
-        | any(test("^(etrnl-dev-plan|etrnl-dev-review|writing-plans|code-review|execute-plan|plan|review)$")))
+        | any(test("^(etrnl-dev-plan|etrnl-dev-autoplan|writing-plans|code-review|execute-plan|plan|review)$")))
       or ([.edits // {} | keys[] | select(plan_file)] | length > 0)
       or ([.successfulCommands[]?.command // empty, .commands[]?.value // empty]
         | map(ascii_downcase)
@@ -464,7 +464,7 @@ review_required_for_risky_command() {
       and
     (([.reviewRuns[]?.value // empty, .verificationRuns[]?.value // empty, .skillCalls[]?.value // empty]
       | map(ascii_downcase)
-      | any(test("etrnl-dev-review|code[ -]?review|review-log|coderabbit|adversarial|redline|second[ -]?pass|stress-test"))) | not)
+      | any(test("etrnl-spec-reviewer|etrnl-quality-reviewer|etrnl-dev-pr|code[ -]?review|review-log|coderabbit|adversarial|redline|second[ -]?pass|stress-test"))) | not)
   ' "$(cc_state_file)" >/dev/null 2>&1
 }
 
@@ -689,7 +689,7 @@ handle_bash() {
   local env_hint
   env_hint="$(cc_json_get '.tool_input.environment // .environment // .env // empty')"
   if cc_command_is_risky_completion_operation "$cmd" && review_required_for_risky_command; then
-    deny "Risky completion command blocked until second-pass review evidence is present. Run etrnl-dev-review (or equivalent review artifact) before commit/push/deploy operations."
+    deny "Risky completion command blocked until second-pass review evidence is present. Run etrnl-spec-reviewer, etrnl-quality-reviewer, etrnl-dev-pr, or record equivalent review-log evidence before commit/push/deploy operations."
   fi
   if cc_command_is_prod_schema_mutation "$cmd" "$env_hint"; then
     if migration_evidence_missing; then

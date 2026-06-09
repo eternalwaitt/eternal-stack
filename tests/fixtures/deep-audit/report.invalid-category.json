@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "auditId": "invalid-category",
-  "categoryRegistryVersion": "2026-06-05.1",
+  "categoryRegistryVersion": "2026-06-09.1",
   "registeredCategories": [
     "code-excellence",
     "ui-ux-product",

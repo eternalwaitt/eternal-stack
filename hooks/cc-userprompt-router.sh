@@ -302,9 +302,9 @@ cc_prompt_skill_update_note() {
 }
 
 documentation_health_pattern='documentation[[:space:]-]+health|docs[[:space:]-]+health|documentation[[:space:]-]+audit|docs[[:space:]-]+audit|documentation[[:space:]-]+drift|docs[[:space:]-]+drift|stale[[:space:]]+docs|readme[[:space:]-]+audit|adr[[:space:]-]+health|runbook[[:space:]-]+audit|api[[:space:]-]+docs[[:space:]-]+audit|tsdoc|jsdoc|code[[:space:]-]+documentation[[:space:]-]+health|onboarding[[:space:]-]+docs|documentation[[:space:]-]+pass'
-code_health_pattern='code[[:space:]]+health|health[[:space:]]+check|repo[[:space:]]+rot|audit[[:space:]]+.*(whole|entire)[[:space:]]+codebase|no[[:space:]]+skips|dead[[:space:]]+code|pr-gate'
+code_health_pattern='code[[:space:]]+health|repo[[:space:]]+rot|audit[[:space:]]+.*(whole|entire)[[:space:]]+codebase|no[[:space:]]+skips|dead[[:space:]]+code|pr-gate|architecture[[:space:]]+health'
 ci_cd_pattern='ci/cd|ci-cd|ci[[:space:]-]+pipeline|pr[[:space:]-]+ci|ci[[:space:]-]+.*pr|pipeline[[:space:]-]+(failed|failure|broken|failing)|workflow[[:space:]-]+run[[:space:]-]+(failed|failure|broken|failing)|continuous[[:space:]]+integration|continuous[[:space:]]+delivery|github[[:space:]]+actions?|gitlab[[:space:]]+ci|jenkins|branch[[:space:]-]+protection|deployment[[:space:]-]+automation|release[[:space:]-]+gate|deploy[[:space:]-]+gate|oidc|sbom|cosign|docker[[:space:]-]+image[[:space:]-]+build|canary[[:space:]-]+deploy|blue[[:space:]-]+green|rollback[[:space:]-]+pipeline|flaky[[:space:]-]+ci|slow[[:space:]-]+build'
-code_excellence_pattern='code[[:space:]-]+excellence|engineering[[:space:]-]+excellence|code[[:space:]-]+quality[[:space:]-]+audit|maintainability[[:space:]-]+audit|architecture[[:space:]-]+quality|type[[:space:]-]+safety[[:space:]-]+audit|error[[:space:]-]+handling[[:space:]-]+audit'
+code_excellence_pattern='code[[:space:]-]+excellence|code[[:space:]-]+review[[:space:]-]+excellence|engineering[[:space:]-]+excellence|code[[:space:]-]+quality[[:space:]-]+audit|maintainability[[:space:]-]+audit|architecture[[:space:]-]+quality|type[[:space:]-]+safety[[:space:]-]+audit|error[[:space:]-]+handling[[:space:]-]+audit|brooks[[:space:]-]+(audit|health|lint)|circular[[:space:]]+import|module[[:space:]]+dependenc|layering[[:space:]]+integrit|clean[[:space:]]+architecture|structural[[:space:]]+decay|codebase[[:space:]]+tour|explain[[:space:]].*codebase[[:space:]]+to[[:space:]]+a[[:space:]]+new[[:space:]]+developer'
 ui_ux_pattern='ui[[:space:]/-]*ux|ux[[:space:]-]+audit|product[[:space:]-]+audit|design[[:space:]-]+audit|accessibility[[:space:]-]+audit|responsive[[:space:]-]+audit|interaction[[:space:]-]+quality|visual[[:space:]-]+qa'
 reuse_pattern='shared[[:space:]-]+reuse|reuse[[:space:]-]+audit|duplication[[:space:]-]+audit|duplicate[[:space:]-]+logic|component[[:space:]-]+reuse|helper[[:space:]-]+reuse|abstraction[[:space:]-]+audit'
 repo_hygiene_pattern='repo[[:space:]-]+hygiene|repository[[:space:]-]+hygiene|repo[[:space:]-]+health|file[[:space:]-]+organization|dead[[:space:]-]+files|generated[[:space:]-]+artifact|gitignore|readme[[:space:]-]+health'
@@ -374,28 +374,28 @@ if [[ "$prompt_lower" =~ $documentation_health_pattern ]]; then
   notes+=("Use etrnl-audit-docs: inventory docs first, verify claims against source/runtime truth, fan out read-only documentation lanes when broad, and close every finding with evidence.")
 fi
 if [[ "$prompt_lower" =~ $code_excellence_pattern ]]; then
-  record_skill "etrnl-audit-excellence"
-  notes+=("Use etrnl-audit-excellence: inspect maintainability, architecture, type safety, error handling, tests, boundaries, and dead complexity with source-backed findings.")
+  record_skill "etrnl-code-review-excellence"
+  notes+=("Use etrnl-code-review-excellence: load references/routing.md, pick minimum modules (audit-checks, brooks-architecture, brooks-onboarding), state loaded modules, then review with source-backed findings.")
 fi
 if [[ "$prompt_lower" =~ $ui_ux_pattern ]]; then
-  record_skill "etrnl-audit-ux"
-  notes+=("Use etrnl-audit-ux: inspect product flows, hierarchy, states, accessibility, responsiveness, interaction quality, and visual polish with browser evidence when UI is runnable.")
+  record_skill "etrnl-deep-audit-ux"
+  notes+=("Use etrnl-deep-audit-ux: run the ui-ux-product deep-audit category with shared worklists, browser evidence for runtime UI claims, and artifact validation. Do not fold UI/UX into etrnl-deep-audit all_registered.")
 fi
 if [[ "$prompt_lower" =~ $reuse_pattern ]]; then
-  record_skill "etrnl-audit-reuse"
-  notes+=("Use etrnl-audit-reuse: inventory existing components/helpers/modules, identify duplication, and separate reuse opportunities from justified local specialization.")
+  record_skill "etrnl-deep-audit"
+  notes+=("Use etrnl-deep-audit --category shared-reuse: load references/categories/shared-reuse.md after shared worklists exist.")
 fi
 if [[ "$prompt_lower" =~ $repo_hygiene_pattern ]]; then
-  record_skill "etrnl-audit-repo"
-  notes+=("Use etrnl-audit-repo: inspect file organization, stale artifacts, ignored/generated files, repo metadata, docs entrypoints, and ownership boundaries.")
+  record_skill "etrnl-deep-audit"
+  notes+=("Use etrnl-deep-audit --category repo-hygiene: load references/categories/repo-hygiene.md after shared worklists exist.")
 fi
 if [[ "$prompt_lower" =~ $tooling_ecosystem_pattern ]]; then
   record_skill "etrnl-audit-tooling"
   notes+=("Use etrnl-audit-tooling: inspect scripts, local setup, linters, formatters, test commands, CI parity, update paths, and developer experience gates.")
 fi
 if [[ "$prompt_lower" =~ deep[[:space:]-]+audit|full[[:space:]]+registered[[:space:]]+audit|full[[:space:]]+registered[[:space:]]+deep[[:space:]]+audit|all_registered ]]; then
-  record_skill "etrnl-audit"
-  notes+=("Use etrnl-audit: create shared worklists, run registered deep-audit categories, require lane receipts where applicable, and validate the final artifact.")
+  record_skill "etrnl-deep-audit"
+  notes+=("Use etrnl-deep-audit: create shared worklists, run registered deep-audit categories, require lane receipts where applicable, and validate the final artifact.")
 fi
 if [[ "$prompt_lower" =~ security[[:space:]-]+audit|exploitable[[:space:]-]+bug|injection[[:space:]-]+review|authz[[:space:]-]+review|secret[[:space:]-]+handling|csrf|origin[[:space:]-]+review ]]; then
   record_skill "etrnl-audit-security"
@@ -438,8 +438,7 @@ if [[ "$prompt_lower" =~ systematic[[:space:]-]+debugging|root[[:space:]-]+cause
   notes+=("Use etrnl-dev-debug: prove the symptom, trace root cause before fixes, patch the smallest source surface, and verify the original failure.")
 fi
 if [[ "$prompt_lower" =~ parallel|fan[[:space:]-]?out|split[[:space:]]+.*agents|multiple[[:space:]]+agents ]]; then
-  record_skill "etrnl-dev-parallel"
-  notes+=("Use etrnl-dev-parallel only for explicit bounded fanout with disjoint ownership and final integration checks. Generate each Task packet first with node \${CLAUDE_HOME:-\$HOME/.claude}/scripts/agent-task-packet-check.mjs --template read-only or --template write; do not handwrite partial packets.")
+  notes+=("For bounded parallel fanout during plan execution, use etrnl-dev-execute references/parallel-fanout.md. Generate each Task packet with node \${CLAUDE_HOME:-\$HOME/.claude}/scripts/agent-task-packet-check.mjs --template read-only or --template write; do not handwrite partial packets.")
 fi
 if [[ "$prompt_lower" =~ subagent|agent[[:space:]]+packet|task[[:space:]]+packet|delegate[[:space:]]+to[[:space:]]+agent ]]; then
   notes+=("Before any Agent/Task call, generate a complete packet with node \${CLAUDE_HOME:-\$HOME/.claude}/scripts/agent-task-packet-check.mjs --template read-only or --template write, then pass the JSON-only packet to the agent call.")
@@ -452,35 +451,16 @@ if [[ "$prompt_lower" =~ run[[:space:]]+tests|test[[:space:]]+the[[:space:]]+rep
   record_skill "etrnl-dev-test"
   notes+=("Use etrnl-dev-test for project preflight and focused failure remediation.")
 fi
-# Backend reference suite (etrnl-backend-*): surface the design reference when a
-# prompt is about building backend behavior, not auditing an existing system.
-if [[ "$prompt_lower" =~ rest[[:space:]]+api|graphql|api[[:space:]-]+(contract|endpoint|versioning|design)|endpoint[[:space:]-]+(design|contract)|idempotency[[:space:]-]?key|cursor[[:space:]-]+pagination|error[[:space:]-]+envelope|http[[:space:]]+middleware[[:space:]-]+order ]]; then
-  record_skill "etrnl-backend-api"
-  notes+=("Use etrnl-backend-api: design the resource contract, status codes, idempotency keys, cursor pagination, versioning, error envelope, and middleware order first.")
+# Backend patterns orchestrator: route design/build prompts to one skill; it loads
+# only the references/ modules the task needs (orpc, api, data, prisma, sql-optimization,
+# security, resilience, observability, architecture). Do not route backend audits here.
+if [[ "$prompt_lower" =~ orpc|@orpc|typesafe[[:space:]]+api|rpc[[:space:]]+procedure|event[[:space:]]+iterator|rest[[:space:]]+api|graphql|api[[:space:]-]+(contract|endpoint|versioning|design)|endpoint[[:space:]-]+(design|contract)|idempotency[[:space:]-]?key|cursor[[:space:]-]+pagination|error[[:space:]-]+envelope|http[[:space:]]+middleware[[:space:]-]+order|relational[[:space:]]+(schema|model)|database[[:space:]]+schema|schema[[:space:]]+modeling|n\+1|cache[[:space:]-]?aside|repository[[:space:]]+(pattern|layer|abstraction)|composite[[:space:]]+index|covering[[:space:]]+index|(^|[^a-z0-9])prisma([^a-z0-9]|$)|schema\.prisma|prisma[[:space:]]+migrate|slow[[:space:]]+quer|explain[[:space:]]+(analyze|plan)|sql[[:space:]]+optim|missing[[:space:]]+index|pg_stat|query[[:space:]]+plan|authentication|authorization|rbac|abac|input[[:space:]]+validation|owasp|circuit[[:space:]]+breaker|exponential[[:space:]]+backoff|retr(y|ies)[[:space:]]+with[[:space:]]+backoff|backoff[[:space:]]+and[[:space:]]+jitter|bulkhead|dead[[:space:]-]?letter[[:space:]-]?queue|structured[[:space:]]+logging|distributed[[:space:]]+tracing|red[[:space:]]+metrics|error[[:space:]]+budget|sli[[:space:]]+and[[:space:]]+slo|slo[[:space:]]+target|service[[:space:]]+layer|microservice[[:space:]-]+boundar|event[[:space:]-]?driven|outbox[[:space:]]+pattern|(^|[[:space:]])saga([[:space:]]|$)|cqrs|event[[:space:]]+sourcing|bounded[[:space:]]+context ]]; then
+  record_skill "etrnl-backend-patterns"
+  notes+=("Use etrnl-backend-patterns: load references/routing.md, pick the minimum reference modules for the task, state loaded modules, then design. Do not preload all nine modules unless the user asks for a full backend pass.")
 fi
-if [[ "$prompt_lower" =~ relational[[:space:]]+(schema|model)|database[[:space:]]+schema|schema[[:space:]]+modeling|n\+1|cache[[:space:]-]?aside|repository[[:space:]]+(pattern|layer|abstraction)|composite[[:space:]]+index|covering[[:space:]]+index ]]; then
-  record_skill "etrnl-backend-data"
-  notes+=("Use etrnl-backend-data: model the schema, index hot paths, batch reads to kill N+1, scope transactions, and hide the client behind a repository with cache-aside.")
-fi
-if [[ "$prompt_lower" =~ authentication|authorization|rbac|abac|input[[:space:]]+validation|owasp ]]; then
-  record_skill "etrnl-backend-security"
-  notes+=("Use etrnl-backend-security: validate at the boundary, deny by default, enforce ownership against persisted records, and keep secrets out of code and logs.")
-fi
-if [[ "$prompt_lower" =~ circuit[[:space:]]+breaker|exponential[[:space:]]+backoff|retr(y|ies)[[:space:]]+with[[:space:]]+backoff|backoff[[:space:]]+and[[:space:]]+jitter|bulkhead|dead[[:space:]-]?letter[[:space:]-]?queue ]]; then
-  record_skill "etrnl-backend-resilience"
-  notes+=("Use etrnl-backend-resilience: bound every wait with timeouts, cap retries with jittered backoff, isolate failures with circuit breakers and bulkheads, and drain dead-letter queues.")
-fi
-if [[ "$prompt_lower" =~ structured[[:space:]]+logging|distributed[[:space:]]+tracing|red[[:space:]]+metrics|error[[:space:]]+budget|sli[[:space:]]+and[[:space:]]+slo|slo[[:space:]]+target ]]; then
-  record_skill "etrnl-backend-observability"
-  notes+=("Use etrnl-backend-observability: emit request-id-keyed structured logs, trace across hops, expose RED metrics, and alert on SLO error-budget burn.")
-fi
-if [[ "$prompt_lower" =~ service[[:space:]]+layer|microservice[[:space:]-]+boundar|event[[:space:]-]?driven|outbox[[:space:]]+pattern|(^|[[:space:]])saga([[:space:]]|$)|cqrs|event[[:space:]]+sourcing|bounded[[:space:]]+context ]]; then
-  record_skill "etrnl-backend-architecture"
-  notes+=("Use etrnl-backend-architecture: keep business rules independent of transport and storage, draw boundaries around bounded contexts, and publish domain events via the outbox.")
-fi
-if [[ "$prompt_lower" =~ audit|code[[:space:]]+review|pr[[:space:]]+review|design[[:space:]]+review|plan[[:space:]]+review|final[[:space:]]+review|review[[:space:]-]+comments|review[[:space:]]+pass|loose[[:space:]]+ends|final[[:space:]]+pass|compare[[:space:]]+changes ]]; then
-  record_skill "etrnl-dev-review"
-  notes+=("Use etrnl-dev-review for findings-first review, gap mapping, and evidence against the original request.")
+if [[ "$prompt_lower" =~ plan[[:space:]]+review|review[[:space:]]+.*plan|code[[:space:]]+review[[:space:]]+.*plan ]]; then
+  record_skill "etrnl-dev-autoplan"
+  notes+=("Use etrnl-dev-autoplan references/review-contract.md for findings-first plan review and gap mapping.")
 fi
 if [[ "$prompt" =~ (current|latest|docs|API|library|package) ]]; then
   notes+=("Use context7 or official/current docs before relying on memory.")
