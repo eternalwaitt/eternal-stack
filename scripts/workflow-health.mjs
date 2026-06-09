@@ -18,10 +18,10 @@ if (unknownCommand) {
 const command = positionalArgs.find((arg) => KNOWN_COMMANDS.has(arg)) || "summary";
 const jsonMode = args.includes("--json");
 const strictRuntime = args.includes("--strict") || process.env.ETRNL_WORKFLOW_HEALTH_STRICT === "1";
-const base = process.env.CLAUDE_CONTROL_PLANE_RUNS_DIR
-  || path.join(process.env.CLAUDE_HOME || path.join(homedir(), ".claude"), "control-plane", "runs");
-const artifactBase = process.env.CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR
-  || path.join(process.env.CLAUDE_HOME || path.join(homedir(), ".claude"), "control-plane", "artifacts");
+const base = process.env.ETRNL_RUNS_DIR
+  || path.join(process.env.CLAUDE_HOME || path.join(homedir(), ".claude"), "etrnl", "runs");
+const artifactBase = process.env.ETRNL_ARTIFACTS_DIR
+  || path.join(process.env.CLAUDE_HOME || path.join(homedir(), ".claude"), "etrnl", "artifacts");
 const limit = Number(flagValue("--limit", args.find((arg) => /^\d+$/.test(arg)) || "10"));
 const staleHours = Number(process.env.ETRNL_STALE_RUN_HOURS || "24");
 const verbose = process.argv.includes("--verbose") || process.env.VERBOSE === "1";

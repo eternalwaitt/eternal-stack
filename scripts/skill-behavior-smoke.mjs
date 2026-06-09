@@ -28,8 +28,8 @@ mkdirSync(claudeHome, { recursive: true, mode: 0o700 });
 const checks = [];
 const baseEnv = {
   ...process.env,
-  CLAUDE_CONTROL_PLANE_RUNS_DIR: runsDir,
-  CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR: artifactsDir,
+  ETRNL_RUNS_DIR: runsDir,
+  ETRNL_ARTIFACTS_DIR: artifactsDir,
   CLAUDE_HOME: claudeHome,
   CLAUDE_SESSION_ID: "skill-smoke",
 };

@@ -4,14 +4,15 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { argValue } from "./lib/cli-args.mjs";
 import { fileInfo, fileSha256, isFreshIso, nowIso, resolveContainedPath } from "./lib/evidence-trace.mjs";
+import { readStdinJson as readSharedStdinJson } from "./lib/read-stdin.mjs";
 
 const args = process.argv.slice(2);
 const command = args[0] ?? "help";
 const strict = args.includes("--strict");
 
 function artifactDir() {
-  return process.env.CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR
-    || path.join(process.env.CLAUDE_HOME || path.join(homedir(), ".claude"), "control-plane", "artifacts");
+  return process.env.ETRNL_ARTIFACTS_DIR
+    || path.join(process.env.CLAUDE_HOME || path.join(homedir(), ".claude"), "etrnl", "artifacts");
 }
 
 function reportsDir() {
@@ -51,16 +52,40 @@ function maxAgeMs() {
 }
 
 function readStdinJson() {
-  if (process.stdin.isTTY) return {};
-  const raw = readFileSync(0, "utf8").trim();
-  if (!raw) return {};
-  try {
-    return JSON.parse(raw);
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    console.error(`Invalid JSON on stdin: ${detail}`);
-    process.exit(2);
+  return readSharedStdinJson({ emptyValue: {} });
+}
+
+function hasCliCreateArgs() {
+  return Boolean(
+    argValue(args, "--path")
+    || argValue(args, "--id")
+    || argValue(args, "--routes")
+    || argValue(args, "--route")
+    || argValue(args, "--viewports")
+    || argValue(args, "--viewport")
+    || argValue(args, "--matrix")
+    || argValue(args, "--schema-version")
+    || argValue(args, "--target-url")
+    || argValue(args, "--tool")
+    || argValue(args, "--provenance")
+    || argValue(args, "--status")
+    || argValue(args, "--console")
+    || argValue(args, "--network")
+  );
+}
+
+function readCreateInput() {
+  if (process.stdin.isTTY) {
+    return readStdinJson();
   }
+  if (hasCliCreateArgs()) {
+    return readSharedStdinJson({
+      emptyValue: {},
+      maxWaitMs: 100,
+      onReadError: () => {},
+    });
+  }
+  return readStdinJson();
 }
 
 function defaultMatrix(routes, viewports) {
@@ -258,7 +283,7 @@ function writeReport(report) {
 }
 
 function create() {
-  const input = readStdinJson();
+  const input = readCreateInput();
   const routes = input.routes || splitList(argValue(args, "--routes", argValue(args, "--route", "/")));
   const viewports = input.viewports || splitList(argValue(args, "--viewports", argValue(args, "--viewport", "desktop")));
   const schemaVersion = hasV2Input(input) ? 2 : 1;
@@ -285,7 +310,7 @@ function create() {
       tool: report.tool,
       targetUrl: report.targetUrl,
       command: "browser-qa-report create",
-      createdBy: "claude-control-plane",
+      createdBy: "eternal-stack",
       capturedAt: nowIso(),
     });
   }

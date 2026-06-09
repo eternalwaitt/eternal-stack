@@ -10,7 +10,7 @@
   "sourceManifest": {
     "sources": [
       {
-        "sourceId": "repo-control-plane",
+        "sourceId": "repo-eternal-stack",
         "version": "current",
         "commit": "0000000000000000000000000000000000000000",
         "hash": "sha256:fixture",

@@ -2,6 +2,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { packetHash } from "./lib/evidence-trace.mjs";
+import { readStdinRaw } from "./lib/read-stdin.mjs";
 
 const args = process.argv.slice(2);
 const knownCommands = new Set(["hash"]);
@@ -137,7 +138,7 @@ function readInput() {
   try {
     raw = fileArg
       ? readFileSync(fileArg, "utf8").trim()
-      : readFileSync(0, "utf8").trim();
+      : readStdinRaw();
   } catch (error) {
     console.error(`Failed to read task packet input from ${fileArg || "stdin"}: ${error.message}`);
     process.exit(2);

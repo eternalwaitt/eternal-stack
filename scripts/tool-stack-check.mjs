@@ -15,10 +15,10 @@ const valueAfter = (flag, fallback = "") => {
 
 const claudeHome = process.env.CLAUDE_HOME || path.join(os.homedir(), ".claude");
 const bootstrapToolsPath = path.join(claudeHome, "scripts", "bootstrap-tools.sh");
-const statePath = process.env.CLAUDE_CONTROL_PLANE_TOOL_STACK_STATE ||
-  path.join(claudeHome, "control-plane", "tool-stack-state.json");
+const statePath = process.env.ETRNL_TOOL_STACK_STATE ||
+  path.join(claudeHome, "etrnl", "tool-stack-state.json");
 const DEFAULT_LATEST_TTL_SEC = 21_600;
-const latestTtlSec = parsePositiveIntegerEnv("CLAUDE_CONTROL_PLANE_TOOL_UPDATE_INTERVAL_SEC", DEFAULT_LATEST_TTL_SEC);
+const latestTtlSec = parsePositiveIntegerEnv("ETRNL_TOOL_UPDATE_INTERVAL_SEC", DEFAULT_LATEST_TTL_SEC);
 const jsonMode = hasFlag("--json");
 const explainMode = hasFlag("--explain");
 const force = hasFlag("--force");
@@ -254,13 +254,84 @@ function githubLatestRelease(cache, repo, cacheKeyId) {
   return { version, error: version ? "" : result.stderr || result.error || "gh-release-failed" };
 }
 
+const HINDSIGHT_PLUGIN_NAME = "hindsight-memory";
+
+function listDirectoryNames(dirPath) {
+  if (!fs.existsSync(dirPath)) return [];
+  try {
+    return fs.readdirSync(dirPath, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
+  } catch {
+    return [];
+  }
+}
+
+function hindsightPluginCacheRoots(homeDir) {
+  const cacheRoot = path.join(homeDir, "plugins", "cache");
+  return [
+    path.join(cacheRoot, "hindsight", HINDSIGHT_PLUGIN_NAME),
+    path.join(cacheRoot, HINDSIGHT_PLUGIN_NAME),
+  ];
+}
+
+function hindsightPluginCacheLooksInstalled(versionDir) {
+  return ["hooks/hooks.json", "settings.json", ".claude-plugin/plugin.json"].some((relativePath) =>
+    fs.existsSync(path.join(versionDir, ...relativePath.split("/"))),
+  );
+}
+
+function hindsightPluginFromCache(homeDir) {
+  let bestVersion = "";
+  let cachePath = "";
+  for (const root of hindsightPluginCacheRoots(homeDir)) {
+    for (const versionName of listDirectoryNames(root)) {
+      const version = parseSemver(versionName);
+      if (!version) continue;
+      const candidate = path.join(root, versionName);
+      if (!hindsightPluginCacheLooksInstalled(candidate)) continue;
+      if (!bestVersion || compareSemver(version, bestVersion) > 0) {
+        bestVersion = version;
+        cachePath = candidate;
+      }
+    }
+  }
+  return {
+    installed: Boolean(bestVersion),
+    version: bestVersion,
+    cachePath,
+  };
+}
+
+function hindsightPluginFromCli(claudePath) {
+  const pluginList = run(claudePath, ["plugin", "list"], { timeout: 10_000 });
+  if (!pluginList.ok || !new RegExp(HINDSIGHT_PLUGIN_NAME, "i").test(pluginList.stdout)) {
+    return {
+      installed: false,
+      version: "",
+      source: "claude-cli",
+      error: pluginList.error || pluginList.stderr || "plugin-list-failed",
+    };
+  }
+  const versionMatch = pluginList.stdout.match(new RegExp(`${HINDSIGHT_PLUGIN_NAME}(?:@[^\\s]+)?\\s+(\\S+)`, "i"));
+  return {
+    installed: true,
+    version: versionMatch ? parseSemver(versionMatch[1]) : "",
+    source: "claude-cli",
+    error: "",
+  };
+}
+
 function hindsightStatus() {
   const settingsPath = path.join(claudeHome, "settings.json");
   const settings = readJson(settingsPath, {});
   const pluginEnabled = settings.enabledPlugins?.["hindsight-memory@hindsight"] === true;
   const claude = commandPath("claude");
-  const pluginList = claude ? run(claude, ["plugin", "list"], { timeout: 10_000 }) : { ok: false, stdout: "", stderr: "", error: "claude-missing" };
-  const pluginInstalled = pluginList.ok && /hindsight-memory/i.test(pluginList.stdout);
+  const cliProbe = claude ? hindsightPluginFromCli(claude) : { installed: false, version: "", source: "none", error: "claude-missing" };
+  const cacheProbe = hindsightPluginFromCache(claudeHome);
+  const pluginInstalled = cliProbe.installed || cacheProbe.installed;
+  const pluginInstallSource = cliProbe.installed ? "claude-cli" : (cacheProbe.installed ? "plugin-cache" : "none");
+  const currentVersion = cliProbe.version || cacheProbe.version || "";
   const configPath = hindsightConfigPath();
   const config = readJson(configPath, null);
   const configExists = Boolean(config);
@@ -270,6 +341,9 @@ function hindsightStatus() {
   const warnings = [];
   const addConfigFinding = (message) => (hindsightStrictChecks ? issues : warnings).push(message);
   if (pluginEnabled && !pluginInstalled) issues.push("enabled plugin is not installed");
+  if (pluginEnabled && !claude && cacheProbe.installed) {
+    warnings.push("Hindsight plugin verified from installed-home cache; claude CLI not on PATH");
+  }
   if (pluginEnabled && !configExists) issues.push("enabled plugin has no Hindsight config");
   if (configExists) {
     if (config.dynamicBankId !== true) addConfigFinding("dynamicBankId should be true");
@@ -285,14 +359,17 @@ function hindsightStatus() {
     id: "hindsight",
     kind: "claude-plugin",
     claudeInstalled: Boolean(claude),
+    installed: pluginInstalled,
     pluginInstalled,
+    pluginInstallSource,
+    pluginCachePath: cacheProbe.cachePath || "",
     pluginEnabled,
     configExists,
     configPath,
     mode,
     safeRetention: configExists ? config.retainToolCalls === false : false,
     apiHealth,
-    currentVersion: "",
+    currentVersion,
     latestVersion: latest.version,
     latestError: latest.error,
     ok: !pluginEnabled || (pluginInstalled && configExists && issues.length === 0 && apiHealth.ok),

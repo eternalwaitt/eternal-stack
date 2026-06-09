@@ -3,8 +3,45 @@ set -Eeuo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 STATUS=0
+DOCTOR_JOBS="${DOCTOR_JOBS:-4}"
+DOCTOR_ARGS=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --jobs)
+      DOCTOR_JOBS="${2:-}"
+      shift 2
+      ;;
+    --jobs=*)
+      DOCTOR_JOBS="${1#*=}"
+      shift
+      ;;
+    *)
+      DOCTOR_ARGS+=("$1")
+      shift
+      ;;
+  esac
+done
+if [[ ! "$DOCTOR_JOBS" =~ ^[0-9]+$ ]] || (( DOCTOR_JOBS < 1 )); then
+  DOCTOR_JOBS=4
+fi
+if (( ${#DOCTOR_ARGS[@]} > 0 )); then
+  set -- "${DOCTOR_ARGS[@]}"
+else
+  set --
+fi
+DOCTOR_RESULT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/etrnl-doctor-results.XXXXXX")"
+DOCTOR_ASYNC_PIDS=()
+DOCTOR_HEAVY_PIDS=()
+DOCTOR_BATCH_ORDER=()
+DOCTOR_HEAVY_ORDER=()
+DOCTOR_HEAVY_STARTED=0
 # shellcheck source=scripts/lib/skill-lists.sh
 source "$ROOT/scripts/lib/skill-lists.sh"
+
+doctor_cleanup() {
+  rm -rf -- "$DOCTOR_RESULT_DIR"
+}
+trap doctor_cleanup EXIT
 
 ok() { printf 'ok: %s\n' "$*"; }
 fail() { printf 'fail: %s\n' "$*" >&2; STATUS=1; }
@@ -34,7 +71,7 @@ report_command() {
   local failure_msg="$2"
   local output_file
   shift 2
-  output_file="$(mktemp "${TMPDIR:-/tmp}/control-plane-doctor.XXXXXX")"
+  output_file="$(mktemp "${TMPDIR:-/tmp}/etrnl-doctor.XXXXXX")"
   if "$@" >"$output_file" 2>&1; then
     ok "$present_msg"
   elif [[ -s "$output_file" ]]; then
@@ -43,6 +80,210 @@ report_command() {
     fail "$failure_msg"
   fi
   rm -f "$output_file"
+}
+
+queue_async_command() {
+  local slot="$1"
+  local present_msg="$2"
+  local failure_msg="$3"
+  shift 3
+  DOCTOR_BATCH_ORDER+=("$slot")
+  (
+    local output_file
+    output_file="$(mktemp "${TMPDIR:-/tmp}/etrnl-doctor.XXXXXX")"
+    if "$@" >"$output_file" 2>&1; then
+      printf 'ok\t%s\n' "$present_msg" >"$DOCTOR_RESULT_DIR/${slot}.result"
+    elif [[ -s "$output_file" ]]; then
+      printf 'fail\t%s: %s\n' "$failure_msg" "$(tail -n 40 "$output_file")" >"$DOCTOR_RESULT_DIR/${slot}.result"
+    else
+      printf 'fail\t%s\n' "$failure_msg" >"$DOCTOR_RESULT_DIR/${slot}.result"
+    fi
+    rm -f "$output_file"
+  ) &
+  DOCTOR_ASYNC_PIDS+=("$!")
+}
+
+doctor_write_async_result() {
+  local slot="$1"
+  local present_msg="$2"
+  local failure_msg="$3"
+  local output_file="$4"
+  local exit_code="$5"
+  if (( exit_code == 0 )); then
+    printf 'ok\t%s\n' "$present_msg" >"$DOCTOR_RESULT_DIR/${slot}.result"
+  elif [[ -s "$output_file" ]]; then
+    printf 'fail\t%s: %s\n' "$failure_msg" "$(tail -n 40 "$output_file")" >"$DOCTOR_RESULT_DIR/${slot}.result"
+  else
+    printf 'fail\t%s\n' "$failure_msg" >"$DOCTOR_RESULT_DIR/${slot}.result"
+  fi
+}
+
+queue_heavy_async_command() {
+  local slot="$1"
+  local present_msg="$2"
+  local failure_msg="$3"
+  shift 3
+  DOCTOR_HEAVY_ORDER+=("$slot")
+  (
+    local output_file exit_code
+    output_file="$(mktemp "${TMPDIR:-/tmp}/etrnl-doctor.XXXXXX")"
+    if "$@" >"$output_file" 2>&1; then
+      exit_code=0
+    else
+      exit_code=$?
+    fi
+    doctor_write_async_result "$slot" "$present_msg" "$failure_msg" "$output_file" "$exit_code"
+    rm -f "$output_file"
+  ) &
+  DOCTOR_HEAVY_PIDS+=("$!")
+}
+
+doctor_active_job_count() {
+  echo $(( ${#DOCTOR_ASYNC_PIDS[@]} + ${#DOCTOR_HEAVY_PIDS[@]} ))
+}
+
+doctor_reap_async_pids() {
+  local -a still_running=()
+  local pid
+  if (( ${#DOCTOR_ASYNC_PIDS[@]} > 0 )); then
+    for pid in "${DOCTOR_ASYNC_PIDS[@]}"; do
+      if kill -0 "$pid" 2>/dev/null; then
+        still_running+=("$pid")
+      else
+        wait "$pid" || true
+      fi
+    done
+  fi
+  if (( ${#still_running[@]} > 0 )); then
+    DOCTOR_ASYNC_PIDS=("${still_running[@]}")
+  else
+    DOCTOR_ASYNC_PIDS=()
+  fi
+}
+
+doctor_reap_heavy_pids() {
+  local -a still_running=()
+  local pid
+  if (( ${#DOCTOR_HEAVY_PIDS[@]} > 0 )); then
+    for pid in "${DOCTOR_HEAVY_PIDS[@]}"; do
+      if kill -0 "$pid" 2>/dev/null; then
+        still_running+=("$pid")
+      else
+        wait "$pid" || true
+      fi
+    done
+  fi
+  if (( ${#still_running[@]} > 0 )); then
+    DOCTOR_HEAVY_PIDS=("${still_running[@]}")
+  else
+    DOCTOR_HEAVY_PIDS=()
+  fi
+}
+
+wait_for_doctor_job_slot() {
+  local max_jobs="$1"
+  until (( $(doctor_active_job_count) < max_jobs )); do
+    doctor_reap_async_pids
+    doctor_reap_heavy_pids
+    sleep 0.05
+  done
+}
+
+flush_async_batch() {
+  local pid slot status msg
+  if (( ${#DOCTOR_ASYNC_PIDS[@]} > 0 )); then
+    for pid in "${DOCTOR_ASYNC_PIDS[@]}"; do
+      wait "$pid" || true
+    done
+  fi
+  DOCTOR_ASYNC_PIDS=()
+  if (( ${#DOCTOR_BATCH_ORDER[@]} > 0 )); then
+    for slot in "${DOCTOR_BATCH_ORDER[@]}"; do
+      if [[ ! -f "$DOCTOR_RESULT_DIR/${slot}.result" ]]; then
+        fail "doctor async result missing for $slot"
+        continue
+      fi
+      IFS=$'\t' read -r status msg <"$DOCTOR_RESULT_DIR/${slot}.result" || true
+      if [[ "$status" == "ok" ]]; then
+        ok "$msg"
+      else
+        fail "$msg"
+      fi
+      rm -f "$DOCTOR_RESULT_DIR/${slot}.result"
+    done
+  fi
+  DOCTOR_BATCH_ORDER=()
+}
+
+start_heavy_async_checks() {
+  local hook_test
+  (( DOCTOR_HEAVY_STARTED )) && return 0
+  DOCTOR_HEAVY_STARTED=1
+  if (( ${#hook_tests[@]} > 0 )); then
+    for hook_test in "${hook_tests[@]}"; do
+      queue_heavy_async_command "heavy-$(basename "$hook_test")" "$(basename "$hook_test") pass" "$(basename "$hook_test") fail" "$hook_test"
+    done
+  fi
+  if [[ -x "$ROOT/tests/test-install.sh" ]]; then
+    queue_heavy_async_command "heavy-test-install" "install/rollback tests pass" "install/rollback tests fail" "$ROOT/tests/test-install.sh"
+  fi
+  if [[ -x "$ROOT/tests/test-read-stdin.sh" ]]; then
+    queue_heavy_async_command "heavy-read-stdin" "read-stdin tests pass" "read-stdin tests fail" "$ROOT/tests/test-read-stdin.sh"
+  fi
+  if [[ -d "$ROOT/hooks/fixtures/events/replay" ]]; then
+    queue_heavy_async_command "heavy-replay-fixtures" "replay fixtures clean" "replay fixtures failed" node "$ROOT/scripts/replay-hook-fixtures.mjs"
+  fi
+}
+
+flush_heavy_async_checks() {
+  local pid slot status msg
+  (( DOCTOR_HEAVY_STARTED )) || return 0
+  if (( ${#DOCTOR_HEAVY_PIDS[@]} > 0 )); then
+    for pid in "${DOCTOR_HEAVY_PIDS[@]}"; do
+      wait "$pid" || true
+    done
+  fi
+  DOCTOR_HEAVY_PIDS=()
+  if (( ${#DOCTOR_HEAVY_ORDER[@]} > 0 )); then
+    for slot in "${DOCTOR_HEAVY_ORDER[@]}"; do
+      if [[ ! -f "$DOCTOR_RESULT_DIR/${slot}.result" ]]; then
+        fail "doctor async result missing for $slot"
+        continue
+      fi
+      IFS=$'\t' read -r status msg <"$DOCTOR_RESULT_DIR/${slot}.result" || true
+      if [[ "$status" == "ok" ]]; then
+        ok "$msg"
+      else
+        fail "$msg"
+      fi
+      rm -f "$DOCTOR_RESULT_DIR/${slot}.result"
+    done
+  fi
+  DOCTOR_HEAVY_ORDER=()
+}
+
+run_parallel_syntax_checks() {
+  local script slot=0 id
+  local -a syntax_scripts=(
+    agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger etrnl-state
+    execute-evidence-check execution-wave-check tool-effectiveness tool-stack-check stack-profile-check
+    code-health-ledger-check documentation-comment-health documentation-health-ledger-check review-log
+    project-buglog browser-qa-report context-state live-hook-noise-report session-audit workflow-health
+    prompt-budget-check skill-contract-check skill-behavior-smoke skill-update-prompt disk-cleanup-manifest
+    performance-baseline pr-preflight changelog-release-check port-guard update-check research-competitor-intel
+    settings-audit
+  )
+  for script in "${syntax_scripts[@]}"; do
+    if [[ -f "$ROOT/scripts/$script.mjs" ]]; then
+      slot=$((slot + 1))
+      id="$(printf 'syntax-%03d-%s' "$slot" "$script")"
+      wait_for_doctor_job_slot "$DOCTOR_JOBS"
+      queue_async_command "$id" "$script syntax valid" "$script syntax invalid" node --check "$ROOT/scripts/$script.mjs"
+    else
+      fail "$script script missing"
+    fi
+  done
+  flush_async_batch
 }
 
 line_count_file() {
@@ -76,60 +317,6 @@ check_startup_file_budget() {
   fi
 }
 
-read_skill_hint_fallback() {
-  local hint_path="$1"
-  local line in_array=0
-  while IFS= read -r line; do
-    if (( in_array == 0 )); then
-      # Entry detection: start parsing only once we hit the `skills=(` line.
-      [[ "$line" =~ ^[[:space:]]*skills=\([[:space:]]*$ ]] || continue
-      in_array=1
-      continue
-    fi
-    # Closing-paren detection: stop after the array body.
-    [[ "$line" =~ ^[[:space:]]*\)[[:space:]]*$ ]] && break
-    # Empty-line handling: preserve behavior by skipping blank entries.
-    if [[ -n "$line" ]]; then
-      # Array body accumulation: remove inline comments safely via Python unescape logic.
-      line="$(python3 - "$line" <<'PY'
-import sys
-line = sys.argv[1]
-out = []
-in_single = False
-in_double = False
-escaped = False
-for ch in line:
-    if escaped:
-        out.append(ch)
-        escaped = False
-        continue
-    if ch == "\\" and not in_single:
-        out.append(ch)
-        escaped = True
-        continue
-    if ch == "'" and not in_double:
-        in_single = not in_single
-        out.append(ch)
-        continue
-    if ch == '"' and not in_single:
-        in_double = not in_double
-        out.append(ch)
-        continue
-    if ch == "#" and not in_single and not in_double:
-        break
-    out.append(ch)
-print("".join(out))
-PY
-)"
-    fi
-    # Normalize whitespace before emitting parsed values.
-    line="${line#"${line%%[![:space:]]*}"}"
-    line="${line%"${line##*[![:space:]]}"}"
-    [[ -z "$line" ]] && continue
-    printf '%s\n' "$line"
-  done < "$hint_path"
-}
-
 for dep in jq git node rg fd; do
   require_command "$dep"
 done
@@ -141,36 +328,11 @@ fi
 optional_command sg "sg available" "sg unavailable; live hooks fail open"
 
 if [[ -f "$ROOT/hooks/lib/skill-hints.sh" ]]; then
-  hint_fallback_skills=()
-  while IFS= read -r fallback_skill; do
-    hint_fallback_skills+=("$fallback_skill")
-  done < <(read_skill_hint_fallback "$ROOT/hooks/lib/skill-hints.sh")
-  if (( ${#hint_fallback_skills[@]} == 0 )); then
-    if rg -q "OWNED_SKILLS" "$ROOT/hooks/lib/skill-hints.sh"; then
-      ok "skill-hints derive from OWNED_SKILLS"
-    else
-      fail "hooks/lib/skill-hints.sh has no fallback list and does not derive from OWNED_SKILLS"
-    fi
+  if rg -q 'skill-lists\.sh' "$ROOT/hooks/lib/skill-hints.sh" \
+    && rg -q 'OWNED_SKILLS' "$ROOT/hooks/lib/skill-hints.sh"; then
+    ok "skill-hints derive from OWNED_SKILLS via skill-lists.sh"
   else
-  hint_mismatch=0
-  hint_mismatch_detail=""
-  if (( ${#hint_fallback_skills[@]} != ${#OWNED_SKILLS[@]} )); then
-    hint_mismatch=1
-    hint_mismatch_detail="count expected=${#OWNED_SKILLS[@]} actual=${#hint_fallback_skills[@]}"
-  else
-    for i in "${!OWNED_SKILLS[@]}"; do
-      if [[ "${OWNED_SKILLS[$i]}" != "${hint_fallback_skills[$i]}" ]]; then
-        hint_mismatch=1
-        hint_mismatch_detail="index=$i expected=${OWNED_SKILLS[$i]} actual=${hint_fallback_skills[$i]:-<missing>}"
-        break
-      fi
-    done
-  fi
-  if (( hint_mismatch == 0 )); then
-    ok "skill-hint fallback list synchronized with OWNED_SKILLS"
-  else
-    fail "hooks/lib/skill-hints.sh fallback list differs from scripts/lib/skill-lists.sh OWNED_SKILLS (${hint_mismatch_detail})"
-  fi
+    fail "hooks/lib/skill-hints.sh must source skill-lists.sh and use OWNED_SKILLS"
   fi
 else
   fail "hooks/lib/skill-hints.sh missing"
@@ -191,17 +353,16 @@ elif [[ -x "$ROOT/hooks/test-hooks.sh" ]]; then
   [[ -x "$ROOT/hooks/test-workflow-tools.sh" ]] && hook_tests+=("$ROOT/hooks/test-workflow-tools.sh")
 fi
 if (( ${#hook_tests[@]} > 0 )); then
-  for hook_test in "${hook_tests[@]}"; do
-    report_command "$(basename "$hook_test") pass" "$(basename "$hook_test") fail" "$hook_test"
-  done
+  :
 else
   ok "hook tests skipped outside source checkout"
 fi
 if [[ -x "$ROOT/tests/test-install.sh" ]]; then
-  report_command "install/rollback tests pass" "install/rollback tests fail" "$ROOT/tests/test-install.sh"
+  :
 else
   ok "install/rollback tests skipped outside source checkout"
 fi
+start_heavy_async_checks
 
 if [[ -f "$ROOT/scripts/merge-settings.mjs" ]]; then
   report_command "merge-settings syntax valid" "merge-settings syntax invalid" node --check "$ROOT/scripts/merge-settings.mjs"
@@ -240,13 +401,12 @@ if [[ -f "$ROOT/scripts/codex-rtk-pre-tool-use.sh" ]]; then
 else
   fail "codex RTK hook script missing"
 fi
-for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger etrnl-state execute-evidence-check execution-wave-check tool-effectiveness tool-stack-check stack-profile-check code-health-ledger-check documentation-comment-health documentation-health-ledger-check review-log project-buglog browser-qa-report context-state live-hook-noise-report session-audit workflow-health prompt-budget-check skill-contract-check skill-behavior-smoke skill-update-prompt disk-cleanup-manifest performance-baseline pr-preflight changelog-release-check port-guard update-check research-competitor-intel settings-audit; do
-  if [[ -f "$ROOT/scripts/$script.mjs" ]]; then
-    report_command "$script syntax valid" "$script syntax invalid" node --check "$ROOT/scripts/$script.mjs"
-  else
-    fail "$script script missing"
-  fi
-done
+run_parallel_syntax_checks
+if [[ -f "$ROOT/scripts/lib/read-stdin.mjs" ]]; then
+  report_command "read-stdin helper syntax valid" "read-stdin helper syntax invalid" node --check "$ROOT/scripts/lib/read-stdin.mjs"
+else
+  fail "read-stdin helper missing"
+fi
 if [[ -d "$ROOT/tests/fixtures/tool-effectiveness" ]]; then
   report_command "tool-effectiveness fixtures valid" "tool-effectiveness fixtures invalid" node "$ROOT/scripts/tool-effectiveness.mjs" validate-fixtures --fixtures "$ROOT/tests/fixtures/tool-effectiveness"
   report_command "tool-effectiveness fixture summary runs" "tool-effectiveness fixture summary failed" node "$ROOT/scripts/tool-effectiveness.mjs" summarize --fixtures "$ROOT/tests/fixtures/tool-effectiveness" --json
@@ -305,9 +465,7 @@ if (( research_inputs_ok == 1 )); then
   report_command "research evidence contract valid" "research evidence contract failed" node "$ROOT/scripts/research-competitor-intel.mjs" validate-evidence --evidence "$ROOT/docs/research/capability-evidence.json"
   report_command "research scorecard contract valid" "research scorecard contract failed" node "$ROOT/scripts/research-competitor-intel.mjs" validate-scorecard --scorecard "$ROOT/docs/research/parity-scorecard.json" --skills-file "$ROOT/scripts/lib/skill-lists.sh" --evidence "$ROOT/docs/research/capability-evidence.json"
 fi
-if [[ -d "$ROOT/hooks/fixtures/events/replay" ]]; then
-  report_command "replay fixtures clean" "replay fixtures failed" node "$ROOT/scripts/replay-hook-fixtures.mjs"
-else
+if [[ ! -d "$ROOT/hooks/fixtures/events/replay" ]]; then
   fail "replay fixture directory missing"
 fi
 
@@ -331,12 +489,12 @@ else
 fi
 
 stack_profile=""
-if [[ -f "$ROOT/control-plane/install.json" ]]; then
-  stack_profile="$(jq -r '.stackProfile // ""' "$ROOT/control-plane/install.json" 2>/dev/null || true)"
+if [[ -f "$ROOT/etrnl/install.json" ]]; then
+  stack_profile="$(jq -r '.stackProfile // ""' "$ROOT/etrnl/install.json" 2>/dev/null || true)"
 fi
   if [[ -x "$ROOT/scripts/canary-hindsight.sh" ]]; then
     report_command "hindsight canary syntax valid" "hindsight canary syntax invalid" bash -n "$ROOT/scripts/canary-hindsight.sh"
-  if [[ "$stack_profile" == "full" || "${CLAUDE_CONTROL_PLANE_REQUIRE_HINDSIGHT:-0}" == "1" ]]; then
+  if [[ "$stack_profile" == "full" || "${ETRNL_REQUIRE_HINDSIGHT:-0}" == "1" ]]; then
     report_command "hindsight canary green" "hindsight canary red" env HINDSIGHT_CANARY_REQUIRE_HEALTH=1 "$ROOT/scripts/canary-hindsight.sh" --json
   elif hindsight_posture="$("$ROOT/scripts/canary-hindsight.sh" --json 2>/dev/null)"; then
     if jq -e . >/dev/null 2>&1 <<<"$hindsight_posture"; then
@@ -352,7 +510,7 @@ fi
 if [[ -d "$ROOT/skills" && -f "$ROOT/docs/skills.md" ]]; then
   skill_check_failed=0
   installed_root=0
-  if [[ -f "$ROOT/control-plane/install.json" ]]; then
+  if [[ -f "$ROOT/etrnl/install.json" ]]; then
     installed_root=1
   fi
   for skill_dir in "${OWNED_SKILLS[@]}"; do
@@ -443,8 +601,8 @@ else
   fail "agents directory missing"
 fi
 
-runs_dir="${CLAUDE_CONTROL_PLANE_RUNS_DIR:-${CLAUDE_HOME:-$HOME/.claude}/control-plane/runs}"
-artifact_dir="${CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR:-${CLAUDE_HOME:-$HOME/.claude}/control-plane/artifacts}"
+runs_dir="${ETRNL_RUNS_DIR:-${CLAUDE_HOME:-$HOME/.claude}/etrnl/runs}"
+artifact_dir="${ETRNL_ARTIFACTS_DIR:-${CLAUDE_HOME:-$HOME/.claude}/etrnl/artifacts}"
 if [[ -d "$runs_dir" ]]; then
   ok "workflow ledger directory present"
 else
@@ -456,7 +614,7 @@ else
   ok "workflow artifact directory not created yet"
 fi
 if [[ -f "$ROOT/scripts/workflow-health.mjs" ]]; then
-  if workflow_health="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$runs_dir" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$artifact_dir" node "$ROOT/scripts/workflow-health.mjs" 2>&1)"; then
+  if workflow_health="$(ETRNL_RUNS_DIR="$runs_dir" ETRNL_ARTIFACTS_DIR="$artifact_dir" node "$ROOT/scripts/workflow-health.mjs" 2>&1)"; then
     ok "workflow health summary available"
     while IFS= read -r line; do
       [[ -n "$line" ]] && ok "workflow health: $line"
@@ -465,10 +623,10 @@ if [[ -f "$ROOT/scripts/workflow-health.mjs" ]]; then
     fail "workflow health summary failed: $workflow_health"
   fi
   workflow_doctor_args=(doctor --json)
-  if [[ "${CLAUDE_CONTROL_PLANE_DOCTOR_STRICT_RUNTIME:-0}" == "1" ]]; then
+  if [[ "${ETRNL_DOCTOR_STRICT_RUNTIME:-0}" == "1" ]]; then
     workflow_doctor_args+=(--strict)
   fi
-  if workflow_doctor="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$runs_dir" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$artifact_dir" node "$ROOT/scripts/workflow-health.mjs" "${workflow_doctor_args[@]}" 2>&1)"; then
+  if workflow_doctor="$(ETRNL_RUNS_DIR="$runs_dir" ETRNL_ARTIFACTS_DIR="$artifact_dir" node "$ROOT/scripts/workflow-health.mjs" "${workflow_doctor_args[@]}" 2>&1)"; then
     ok "workflow runtime doctor available"
   else
     fail "workflow runtime doctor failed: $workflow_doctor"
@@ -537,8 +695,8 @@ if [[ -x "$ROOT/scripts/update.sh" ]]; then
 else
   fail "update script missing"
 fi
-if [[ -f "$ROOT/control-plane/install.json" ]]; then
-  report_command "installed update metadata valid" "installed update metadata invalid" jq empty "$ROOT/control-plane/install.json"
+if [[ -f "$ROOT/etrnl/install.json" ]]; then
+  report_command "installed update metadata valid" "installed update metadata invalid" jq empty "$ROOT/etrnl/install.json"
 elif [[ -f "$ROOT/scripts/update-check.mjs" ]]; then
   report_command "source update fingerprint available" "source update fingerprint failed" node "$ROOT/scripts/update-check.mjs" --fingerprint-source "$ROOT"
 fi
@@ -625,5 +783,7 @@ if git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1 && [[ -f "$ROO
 else
   ok "credential scan skipped outside source checkout"
 fi
+
+flush_heavy_async_checks
 
 exit "$STATUS"

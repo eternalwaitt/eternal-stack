@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Centralized skill identifiers for the ETRNL control plane.
+# Centralized skill identifiers for the Eternal Stack.
 # Used by install, doctor, and domain-sensitive hook gates.
 # Add new repo-owned skills to OWNED_SKILLS by directory name only, then run doctor.
 # The parity-scorecard schema does not hardcode OWNED_SKILLS count; rerun tests/test-workflow-tools.sh when skills change.
@@ -9,6 +9,12 @@
 
 OWNED_SKILLS=(
   etrnl-ops-agent-files
+  etrnl-backend-api
+  etrnl-backend-architecture
+  etrnl-backend-data
+  etrnl-backend-observability
+  etrnl-backend-resilience
+  etrnl-backend-security
   etrnl-dev-autoplan
   etrnl-dev-brainstorm
   etrnl-dev-ci

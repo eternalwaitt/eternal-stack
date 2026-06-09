@@ -14,7 +14,7 @@ Full stack install:
 ```bash
 ./scripts/install.sh --profile full --yes
 ./scripts/doctor.sh
-~/.claude/scripts/doctor-control-plane.sh
+~/.claude/scripts/doctor-etrnl.sh
 ```
 
 The full profile runs the core install plus CodeGraph, Beads, and Hindsight provisioning. It fails closed in non-interactive mode unless `--yes` is supplied. Use `--skip-codegraph`, `--skip-beads`, or `--skip-hindsight` only when the skip is intentional and recorded in the rollout evidence.
@@ -22,18 +22,18 @@ The full profile runs the core install plus CodeGraph, Beads, and Hindsight prov
 Strict local install:
 
 ```bash
-CLAUDE_CONTROL_PLANE_ENABLE_STRICT=1 ./scripts/install.sh
+ETRNL_ENABLE_STRICT=1 ./scripts/install.sh
 ./scripts/doctor.sh
-~/.claude/scripts/doctor-control-plane.sh
+~/.claude/scripts/doctor-etrnl.sh
 ```
 
 The installer:
 
 - backs up existing Claude settings and `CLAUDE.md`
-- resets managed `~/.claude/settings.json` to a vanilla settings shell before applying the selected control-plane stack, preserving `enabledPlugins` unless `--preserve-settings` is explicitly supplied
+- resets managed `~/.claude/settings.json` to a vanilla settings shell before applying the selected etrnl stack, preserving `enabledPlugins` unless `--preserve-settings` is explicitly supplied
 - backs up pre-existing repo-owned hooks, skills, and agent files so rollback can restore them or remove newly installed copies
 - copies reusable hooks, hook libraries, fixtures, docs, skills, generated `etrnl-*` slash command shims, and ETRNL agent templates
-- copies control-plane assets:
+- copies etrnl assets:
   - public `AGENTS.md` baseline
   - tiny `CLAUDE.md` wrapper
   - namespaced rules
@@ -42,22 +42,22 @@ The installer:
   - hook test harness
   - execution ledger, task-packet, wave-check, review-log, browser-QA, context-state, workflow-health, prompt-budget, changelog release, update drift, settings audit, and port guard helpers
 - stores startup templates under `~/.claude/docs/templates/`
-- only overwrites existing `AGENTS.md`/`CLAUDE.md` when `CLAUDE_CONTROL_PLANE_INSTALL_STARTUP=1`
+- only overwrites existing `AGENTS.md`/`CLAUDE.md` when `ETRNL_INSTALL_STARTUP=1`
 - moves legacy repo-owned skill folders into the install backup before copying `etrnl-*` skills
-  - legacy examples: `writing-plans`, `execute-plan`, `etrnl-run-plan`, `eternal-control-writing-plans`, or `eternal-*` control-plane folders
+  - legacy examples: `writing-plans`, `execute-plan`, `etrnl-run-plan`, `eternal-control-writing-plans`, or `eternal-*` etrnl folders
 - installs `~/.claude/commands/etrnl-*.md` slash command shims generated from the matching repo-owned skill contracts
 - installs repo-owned `etrnl-*` agents into `~/.claude/agents/` by default
-- writes `~/.claude/control-plane/install.json` with the source checkout, commit, version, installed source fingerprint, and settings mode
+- writes `~/.claude/etrnl/install.json` with the source checkout, commit, version, installed source fingerprint, and settings mode
 - writes the selected stack profile into install metadata
 - copies stack profile manifests and Hindsight config templates under `~/.claude/templates/` and `~/.codex/templates/`
 - installs `~/.claude/scripts/update-check.mjs`, `update.sh`, and `uninstall.sh` so installed Claude sessions can explain, detect, and repair drift from the source checkout
-- installs `~/.claude/scripts/tool-stack-check.mjs` and `bootstrap-tools.sh` so CodeGraph, Beads, MCP config, and repo-local indexes/databases can be checked or bootstrapped from the installed control plane
+- installs `~/.claude/scripts/tool-stack-check.mjs` and `bootstrap-tools.sh` so CodeGraph, Beads, MCP config, and repo-local indexes/databases can be checked or bootstrapped from the installed Eternal Stack
 - installs `~/.claude/scripts/stack-profile-check.mjs` so profile manifests can be validated before install, staged rollout, and doctor runs
-- installs repo-owned `etrnl-*` skills, scripts, script libraries, and `~/.codex/control-plane/install.json` into `~/.codex` so Codex sessions can run the same skill helpers without depending on `~/.claude`
+- installs repo-owned `etrnl-*` skills, scripts, script libraries, and `~/.codex/etrnl/install.json` into `~/.codex` so Codex sessions can run the same skill helpers without depending on `~/.claude`
 - runs `settings-audit.mjs --fix` so duplicate hook commands are compacted and the legacy race-prone rate limiter is replaced with `cc-rate-limiter.sh`
 - runs the hook and workflow-tool test harnesses plus the post-upgrade canary
 - applies safe observer hooks after the vanilla reset, including once-per-session `UserPromptSubmit` `CLAUDE.md` reinjection and the advisory rate limiter
-- merges strict blocker hooks, including `PreToolUse`, `Stop`, and `SubagentStop`, only when `CLAUDE_CONTROL_PLANE_ENABLE_STRICT=1`
+- merges strict blocker hooks, including `PreToolUse`, `Stop`, and `SubagentStop`, only when `ETRNL_ENABLE_STRICT=1`
 - records the evidence-before-agreement lesson to ETRNL state first, then exports it to Hindsight only when the Hindsight canary is green
 
 ## Hindsight Marketplace Access
@@ -69,7 +69,7 @@ Post-install verification:
 
 ```bash
 ./scripts/doctor.sh
-~/.claude/scripts/doctor-control-plane.sh
+~/.claude/scripts/doctor-etrnl.sh
 node ~/.claude/scripts/settings-audit.mjs ~/.claude/settings.json --json
 node ~/.claude/scripts/update-check.mjs --json
 node ~/.claude/scripts/update-check.mjs --explain
@@ -100,11 +100,11 @@ The installed updater (`~/.claude/scripts/update.sh`) delegates back to the reco
 
 Startup update checks are cached and local-first.
 
-- `CLAUDE_CONTROL_PLANE_UPDATE_CHECK=0`: disable startup update checks.
-- `CLAUDE_CONTROL_PLANE_REMOTE_UPDATE_CHECK=1`: also check the git upstream.
-- `CLAUDE_CONTROL_PLANE_AUTO_UPDATE=0`: disable automatic local control-plane repair from the recorded source checkout. Local auto-update is enabled by default when the installed fingerprint is stale.
-- `CLAUDE_CONTROL_PLANE_TOOL_UPDATE_CHECK=0`: disable CodeGraph/Beads checks inside update-check.
-- `CLAUDE_CONTROL_PLANE_SKILL_UPDATE_CHECK=0`: disable the per-skill update prompt.
+- `ETRNL_UPDATE_CHECK=0`: disable startup update checks.
+- `ETRNL_REMOTE_UPDATE_CHECK=1`: also check the git upstream.
+- `ETRNL_AUTO_UPDATE=0`: disable automatic local etrnl repair from the recorded source checkout. Local auto-update is enabled by default when the installed fingerprint is stale.
+- `ETRNL_TOOL_UPDATE_CHECK=0`: disable CodeGraph/Beads checks inside update-check.
+- `ETRNL_SKILL_UPDATE_CHECK=0`: disable the per-skill update prompt.
 
 Tool bootstrap:
 
@@ -113,7 +113,7 @@ Tool bootstrap:
 ~/.claude/scripts/bootstrap-tools.sh project --project "$PWD"
 ```
 
-Core installs do not bootstrap global tools. Full-profile bootstrap installs or verifies CodeGraph via npm `@colbymchenry/codegraph`, refreshes global CodeGraph MCP registration, installs or verifies Beads via npm `@beads/bd`, installs or verifies the `hindsight-memory` Claude plugin from `vectorize-io/hindsight`, and writes a token-free Hindsight config. Set `CLAUDE_CONTROL_PLANE_BOOTSTRAP_PROJECTS=1` when the current source checkout should also receive project-local `.codegraph` and `.beads` state during install.
+Core installs do not bootstrap global tools. Full-profile bootstrap installs or verifies CodeGraph via npm `@colbymchenry/codegraph`, refreshes global CodeGraph MCP registration, installs or verifies Beads via npm `@beads/bd`, installs or verifies the `hindsight-memory` Claude plugin from `vectorize-io/hindsight`, and writes a token-free Hindsight config. Set `ETRNL_BOOTSTRAP_PROJECTS=1` when the current source checkout should also receive project-local `.codegraph` and `.beads` state during install.
 
 Hindsight modes:
 
@@ -127,4 +127,4 @@ Every requested Claude `etrnl-*` skill invocation runs the installed update chec
 
 Codex does not expose the same prompt-submit hook in the current CLI, so every repo-owned Codex skill starts with `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill <skill>`.
 
-If the local control plane is stale, the helper auto-updates from the recorded source checkout before the skill runs. It only prompts for remaining remote or tool-stack choices, such as a pull, CodeGraph, or Beads bootstrap, that cannot be safely completed as local repair.
+If the local Eternal Stack is stale, the helper auto-updates from the recorded source checkout before the skill runs. It only prompts for remaining remote or tool-stack choices, such as a pull, CodeGraph, or Beads bootstrap, that cannot be safely completed as local repair.

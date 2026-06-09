@@ -13,8 +13,8 @@ const ALLOWED_STATUSES = new Set(["open", "triaged", "in-progress", "resolved", 
 const ALLOWED_ACTIONS = new Set(["unresolved", "triaged", "resolved", "fixed", "auto-fixed", "false-positive", "skipped"]);
 
 function artifactDir() {
-  return process.env.CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR
-    || path.join(process.env.CLAUDE_HOME || path.join(homedir(), ".claude"), "control-plane", "artifacts");
+  return process.env.ETRNL_ARTIFACTS_DIR
+    || path.join(process.env.CLAUDE_HOME || path.join(homedir(), ".claude"), "etrnl", "artifacts");
 }
 
 function logPath() {

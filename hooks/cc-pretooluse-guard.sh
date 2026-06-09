@@ -13,6 +13,8 @@ source "$SCRIPT_DIR/lib/json.sh"
 source "$SCRIPT_DIR/lib/state.sh"
 # shellcheck source=hooks/lib/paths.sh
 source "$SCRIPT_DIR/lib/paths.sh"
+# shellcheck source=hooks/lib/event-extract.sh
+source "$SCRIPT_DIR/lib/event-extract.sh"
 # shellcheck source=hooks/lib/code-patterns.sh
 source "$SCRIPT_DIR/lib/code-patterns.sh"
 # shellcheck source=hooks/lib/command-classifiers.sh
@@ -21,6 +23,8 @@ source "$SCRIPT_DIR/lib/command-classifiers.sh"
 source "$SCRIPT_DIR/../scripts/lib/codex-memory-scan.sh"
 # shellcheck source=scripts/lib/skill-lists.sh
 source "$SCRIPT_DIR/../scripts/lib/skill-lists.sh"
+# shellcheck source=hooks/lib/cleanup.sh
+source "$SCRIPT_DIR/lib/cleanup.sh"
 
 # Hook decision pipeline:
 # 1) classify command/tool risk level
@@ -82,7 +86,7 @@ if ! cc_state_init; then
   emit_state_init_failure_event
 fi
 
-current_tool="$(cc_json_get '.tool_name // .toolName // .tool')"
+current_tool="$(cc_event_tool_name)"
 cwd="$(cc_project_cwd)"
 
 cc_large_change_has_plan_artifact() {
@@ -482,7 +486,7 @@ verify_override_token() {
   local override_script token fingerprint output marker safe_reason safe_reason_raw omitted_chars session_id
   override_script="$SCRIPT_DIR/../scripts/guard-override-token.mjs"
   if [[ ! -f "$override_script" ]] || ! command -v node >/dev/null 2>&1; then
-    deny "Safety-critical command blocked: override verification is unavailable. Install the control-plane scripts and retry with a one-time approved override token."
+    deny "Safety-critical command blocked: override verification is unavailable. Install the Eternal Stack scripts and retry with a one-time approved override token."
   fi
   token="$(cc_json_get '.tool_input.guard_override_token // .guard_override_token')"
   if [[ -z "$token" ]]; then
@@ -667,7 +671,7 @@ handle_bash() {
   fi
 
   if command_writes_live_claude_hooks "$cmd"; then
-    deny "Live ~/.claude/hooks edits are blocked. Edit the source-controlled control-plane hook, run the installer, and verify source/install sync instead."
+    deny "Live ~/.claude/hooks edits are blocked. Edit the source-controlled Eternal Stack hook, run the installer, and verify source/install sync instead."
   fi
 
   if command_is_gws_write "$cmd" && ! jq -e '.verificationRuns[]? | .value | test("gws.*(account|whoami)|gmail.*(account|whoami)|drive.*(account|whoami)")' "$(cc_state_file)" >/dev/null 2>&1; then
@@ -768,7 +772,7 @@ handle_edit() {
     if cc_domain_sensitive_path "$abs" && ! cc_domain_skill_seen; then
       deny "This path touches domain-sensitive code. Invoke eternal-best-practices or the relevant domain skill before editing auth, tenant, money, payment, i18n, Prisma, permissions, or soft-delete surfaces."
     fi
-    if [[ "${CLAUDE_CONTROL_PLANE_LEARNING_HINTS:-1}" != "0" ]] && command -v node >/dev/null 2>&1 && [[ -f "$SCRIPT_DIR/../scripts/project-buglog.mjs" ]]; then
+    if [[ "${ETRNL_LEARNING_HINTS:-1}" != "0" ]] && command -v node >/dev/null 2>&1 && [[ -f "$SCRIPT_DIR/../scripts/project-buglog.mjs" ]]; then
       if ! bug_json="$(node "$SCRIPT_DIR/../scripts/project-buglog.mjs" suggest --cwd "$cwd" --file "$abs" --json 2>&1)"; then
         printf 'claude-guard warning: project bug memory hint skipped: %s\n' "$bug_json" >&2
         bug_json=""
@@ -807,20 +811,18 @@ handle_edit() {
     if ! tmp="$(mktemp "${TMPDIR:-/tmp}/claude-guard-edit.XXXXXX")"; then
       deny "Failed to create temporary file for complexity check."
     fi
+    cc_register_cleanup "$tmp"
     if ! complexity_err="$(mktemp "${TMPDIR:-/tmp}/claude-guard-complexity.XXXXXX")"; then
-      rm -f -- "$tmp"
       deny "Failed to create temporary error file for complexity check."
     fi
+    cc_register_cleanup "$complexity_err"
     if ! printf '%s\n' "$text" >"$tmp"; then
-      rm -f -- "$tmp" "$complexity_err"
       deny "Failed to write temporary file for complexity check."
     fi
     if ! node "$SCRIPT_DIR/lib/complexity-check.mjs" "$tmp" >"$complexity_err" 2>&1; then
       complexity_message="$(tr '\n' ' ' <"$complexity_err")"
-      rm -f -- "$tmp" "$complexity_err"
       deny "$complexity_message"
     fi
-    rm -f -- "$tmp" "$complexity_err"
   fi
 
   if [[ "$is_new_source" == "true" ]]; then
@@ -847,7 +849,7 @@ handle_websearch() {
 
 handle_serena_search_for_pattern() {
   local rel_path include_glob max_chars before_lines after_lines
-  if [[ "${CLAUDE_CONTROL_PLANE_SERENA_SCOPE_GUARD:-1}" == "0" ]]; then
+  if [[ "${ETRNL_SERENA_SCOPE_GUARD:-1}" == "0" ]]; then
     cc_json_allow
     return 0
   fi

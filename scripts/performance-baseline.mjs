@@ -9,8 +9,8 @@ const args = process.argv.slice(2);
 const command = args[0] || "validate";
 
 function artifactDir() {
-  return process.env.CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR
-    || path.join(process.env.CLAUDE_HOME || path.join(homedir(), ".claude"), "control-plane", "artifacts");
+  return process.env.ETRNL_ARTIFACTS_DIR
+    || path.join(process.env.CLAUDE_HOME || path.join(homedir(), ".claude"), "etrnl", "artifacts");
 }
 
 function baselinesDir() {
@@ -105,7 +105,7 @@ function readJsonFromStdin() {
   if (process.stdin.isTTY) return Promise.resolve({});
   return new Promise((resolve, reject) => {
     let input = "";
-    const timeoutMs = Number(process.env.CLAUDE_CONTROL_PLANE_STDIN_TIMEOUT_MS || "5000");
+    const timeoutMs = Number(process.env.ETRNL_STDIN_TIMEOUT_MS || "5000");
     const timer = setTimeout(() => {
       reject(new Error("stdin did not close; pipe JSON and close stdin/EOF"));
     }, Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 5000);

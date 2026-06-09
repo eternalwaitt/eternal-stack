@@ -1,6 +1,6 @@
 ---
 name: etrnl-dev-review
-description: ETRNL control-plane review workflow for Claude Code. Use for code reviews, plan reviews, final review passes, pitfalls, loose ends, risks, and quick wins.
+description: ETRNL etrnl review workflow for Claude Code. Use for code reviews, plan reviews, final review passes, pitfalls, loose ends, risks, and quick wins.
 ---
 # Code Review
 

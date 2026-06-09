@@ -9,16 +9,18 @@ if [[ ! -f "$SKILL_LISTS" ]]; then
 fi
 # shellcheck source=scripts/lib/skill-lists.sh
 source "$SKILL_LISTS"
+# shellcheck source=scripts/lib/reset-settings.sh
+source "$ROOT/scripts/lib/reset-settings.sh"
 TARGET="${CLAUDE_HOME:-$HOME/.claude}"
 CODEX_TARGET="${CODEX_HOME:-$HOME/.codex}"
 STAMP="$(date +%Y%m%d-%H%M%S)"
-BACKUP="$TARGET/backups/control-plane-install-$STAMP"
+BACKUP="$TARGET/backups/etrnl-install-$STAMP"
 SETTINGS_TEMPLATE="$ROOT/templates/settings.json"
 legacy_rules_present=0
 DRY_RUN=0
 YES=0
 RESET_CLAUDE_SETTINGS=1
-PROFILE="${CLAUDE_CONTROL_PLANE_STACK_PROFILE:-core}"
+PROFILE="${ETRNL_STACK_PROFILE:-core}"
 SKIP_HINDSIGHT=0
 SKIP_BEADS=0
 SKIP_CODEGRAPH=0
@@ -101,7 +103,7 @@ profile_manifest_path() {
 
 PROFILE_MANIFEST="$(profile_manifest_path)"
 
-if [[ "${CLAUDE_CONTROL_PLANE_ENABLE_STRICT:-0}" == "1" ]]; then
+if [[ "${ETRNL_ENABLE_STRICT:-0}" == "1" ]]; then
   SETTINGS_TEMPLATE="$ROOT/templates/settings.strict.json"
 fi
 
@@ -211,22 +213,6 @@ install_skill_command_shims() {
   done
 }
 
-reset_settings_preserving_enabled_plugins() {
-  local settings_file="$1"
-  local tmp
-  tmp="$(mktemp "$settings_file.tmp.XXXXXX")"
-  if [[ -f "$settings_file" ]]; then
-    if ! jq '{enabledPlugins: (.enabledPlugins // {})}' "$settings_file" >"$tmp" 2>/dev/null; then
-      printf 'install warning: invalid JSON in %s; resetting enabledPlugins to empty map\n' "$settings_file" >&2
-      printf '{"enabledPlugins":{}}\n' >"$tmp"
-    fi
-  else
-    printf '{"enabledPlugins":{}}\n' >"$tmp"
-  fi
-  install -m 600 "$tmp" "$settings_file"
-  rm -f "$tmp"
-}
-
 backup_removed_skills() {
   local target_dir="$1"
   local backup_dir="$2"
@@ -277,8 +263,8 @@ copy_control_scripts() {
   local target_home="$1"
   local script
   mkdir -p "$target_home/scripts"
-  cp -- "$ROOT/scripts/doctor.sh" "$target_home/scripts/doctor-control-plane.sh"
-  ln -sf -- "doctor-control-plane.sh" "$target_home/scripts/doctor.sh"
+  cp -- "$ROOT/scripts/doctor.sh" "$target_home/scripts/doctor-etrnl.sh"
+  ln -sf -- "doctor-etrnl.sh" "$target_home/scripts/doctor.sh"
   for script in "${INSTALL_SCRIPTS[@]}"; do
     cp -- "$ROOT/scripts/$script" "$target_home/scripts/$script"
   done
@@ -359,11 +345,22 @@ validate_source_install_inputs() {
   node "$ROOT/scripts/stack-profile-check.mjs" "$PROFILE_MANIFEST"
 }
 
+# One-shot rename of the pre-Eternal-Stack runtime dir so runs/, artifacts/,
+# state/, cache/, and install.json carry over without data loss. Whole-dir
+# move preserves every subpath; skip if the new dir already exists.
+migrate_legacy_runtime_dir() {
+  local home="$1"
+  if [[ -d "$home/control-plane" && ! -e "$home/etrnl" ]]; then
+    mv -- "$home/control-plane" "$home/etrnl"
+    printf 'Migrated legacy runtime data: %s/control-plane -> %s/etrnl\n' "$home" "$home"
+  fi
+}
+
 if [[ "$DRY_RUN" == "1" ]]; then
   validate_source_install_inputs
   printf 'Dry run: profile=%s manifest=%s\n' "$PROFILE" "$PROFILE_MANIFEST"
   printf 'Dry run: would validate stack profile with scripts/stack-profile-check.mjs\n'
-  printf 'Dry run: would install Claude control plane files into %s\n' "$TARGET"
+  printf 'Dry run: would install Eternal Stack files into %s\n' "$TARGET"
   printf 'Dry run: would install Codex skill/runtime files into %s\n' "$CODEX_TARGET"
   printf 'Dry run: would copy settings, stack profile, and Hindsight config templates\n'
   if [[ "$RESET_CLAUDE_SETTINGS" == "1" ]]; then
@@ -380,12 +377,17 @@ if [[ "$DRY_RUN" == "1" ]]; then
     printf 'Dry run: core profile skips Hindsight, Beads, and CodeGraph bootstrap\n'
   fi
   printf 'Dry run: would create backup at %s\n' "$BACKUP"
-  printf 'Dry run: would write rollback metadata into %s/control-plane/install.json\n' "$TARGET"
+  if [[ -d "$TARGET/control-plane" && ! -e "$TARGET/etrnl" ]]; then
+    printf 'Dry run: would migrate legacy runtime dir %s/control-plane -> %s/etrnl\n' "$TARGET" "$TARGET"
+  fi
+  printf 'Dry run: would write rollback metadata into %s/etrnl/install.json\n' "$TARGET"
   printf 'Dry run: registered hooks template would be %s\n' "$SETTINGS_TEMPLATE"
   exit 0
 fi
 
 mkdir -p "$TARGET" "$BACKUP"
+migrate_legacy_runtime_dir "$TARGET"
+migrate_legacy_runtime_dir "$CODEX_TARGET"
 for file in settings.json settings.local.json CLAUDE.md AGENTS.md; do
   if [[ -f "$TARGET/$file" ]]; then
     cp -- "$TARGET/$file" "$BACKUP/$file"
@@ -432,7 +434,7 @@ for skill in "${OWNED_SKILLS[@]}"; do
   fi
 done
 mkdir -p "$BACKUP/codex-scripts" "$BACKUP/codex-scripts/lib"
-for script in doctor.sh doctor-control-plane.sh; do
+for script in doctor.sh doctor-etrnl.sh; do
   if [[ -f "$CODEX_TARGET/scripts/$script" || -L "$CODEX_TARGET/scripts/$script" ]]; then
     cp -P -- "$CODEX_TARGET/scripts/$script" "$BACKUP/codex-scripts/$script"
   fi
@@ -464,13 +466,13 @@ if [[ "$PROFILE" == "full" ]]; then
   [[ "$SKIP_CODEGRAPH" == "1" ]] && bootstrap_args+=(--skip-codegraph)
   [[ "$SKIP_BEADS" == "1" ]] && bootstrap_args+=(--skip-beads)
   [[ "$SKIP_HINDSIGHT" == "1" ]] && bootstrap_args+=(--skip-hindsight)
-  if [[ "${CLAUDE_CONTROL_PLANE_BOOTSTRAP_PROJECTS:-0}" == "1" ]]; then
+  if [[ "${ETRNL_BOOTSTRAP_PROJECTS:-0}" == "1" ]]; then
     bootstrap_args+=(--project "$ROOT")
   else
     bootstrap_args+=(--skip-project)
   fi
   "$ROOT/scripts/bootstrap-tools.sh" "${bootstrap_args[@]}"
-elif [[ "${CLAUDE_CONTROL_PLANE_BOOTSTRAP_TOOLS:-0}" == "1" ]]; then
+elif [[ "${ETRNL_BOOTSTRAP_TOOLS:-0}" == "1" ]]; then
   printf 'install warning: core profile does not bootstrap Hindsight, Beads, or CodeGraph; use --profile full for the supported full stack\n' >&2
 fi
 remove_removed_skills "$TARGET/skills"
@@ -510,10 +512,10 @@ else
 fi
 cp -- "$ROOT/templates/AGENTS.md" "$TARGET/docs/templates/AGENTS.md"
 cp -- "$ROOT/templates/CLAUDE.md" "$TARGET/docs/templates/CLAUDE.md"
-if [[ "${CLAUDE_CONTROL_PLANE_INSTALL_STARTUP:-0}" == "1" || ! -f "$TARGET/AGENTS.md" ]]; then
+if [[ "${ETRNL_INSTALL_STARTUP:-0}" == "1" || ! -f "$TARGET/AGENTS.md" ]]; then
   cp -- "$ROOT/templates/AGENTS.md" "$TARGET/AGENTS.md"
 fi
-if [[ "${CLAUDE_CONTROL_PLANE_INSTALL_STARTUP:-0}" == "1" || ! -f "$TARGET/CLAUDE.md" ]]; then
+if [[ "${ETRNL_INSTALL_STARTUP:-0}" == "1" || ! -f "$TARGET/CLAUDE.md" ]]; then
   cp -- "$ROOT/templates/CLAUDE.md" "$TARGET/CLAUDE.md"
 fi
 cp -- "$ROOT/tests/test-hooks.sh" "$TARGET/tests/test-hooks.sh"
@@ -534,7 +536,7 @@ chmod_control_scripts "$TARGET"
 chmod_control_scripts "$CODEX_TARGET"
 
 if [[ "$RESET_CLAUDE_SETTINGS" == "1" ]]; then
-  reset_settings_preserving_enabled_plugins "$TARGET/settings.json"
+  reset_settings_preserving_enabled_plugins "$TARGET/settings.json" "$BACKUP/settings.json"
 fi
 node "$ROOT/scripts/merge-settings.mjs" "$TARGET/settings.json" "$SETTINGS_TEMPLATE"
 node "$ROOT/scripts/settings-audit.mjs" "$TARGET/settings.json" --fix >/dev/null
@@ -609,8 +611,8 @@ write_install_metadata() {
     return 1
   fi
   rm -f "$version_stderr_file"
-  mkdir -p "$install_home/control-plane"
-  metadata_tmp="$(mktemp "$install_home/control-plane/install.json.tmp.XXXXXX")"
+  mkdir -p "$install_home/etrnl"
+  metadata_tmp="$(mktemp "$install_home/etrnl/install.json.tmp.XXXXXX")"
   settings_mode="$install_settings_mode"
   jq -n \
     --arg sourceRoot "$ROOT" \
@@ -625,7 +627,7 @@ write_install_metadata() {
     --argjson sourceGitAvailable "$source_git_available" \
     --argjson sourceDirty "$dirty" \
     '{sourceRoot:$sourceRoot,sourceCommit:$sourceCommit,sourceCommitShort:$sourceCommitShort,sourceBranch:$sourceBranch,sourceGitAvailable:$sourceGitAvailable,sourceDirty:$sourceDirty,sourceFingerprint:$sourceFingerprint,sourceVersion:$sourceVersion,settingsMode:$settingsMode,stackProfile:$stackProfile,installedAt:$installedAt}' >"$metadata_tmp"
-  install -m 600 "$metadata_tmp" "$install_home/control-plane/install.json"
+  install -m 600 "$metadata_tmp" "$install_home/etrnl/install.json"
   rm -f "$metadata_tmp"
 }
 write_install_metadata "$TARGET" "$(settings_mode_for_template "$SETTINGS_TEMPLATE")"
@@ -657,11 +659,11 @@ verify_install_state() {
     missing+=("scripts/lib/skill-lists.sh: CRITICAL_SCRIPTS missing or empty")
   fi
   [[ -f "$TARGET/settings.json" ]] || missing+=("settings.json")
-  [[ -f "$TARGET/control-plane/install.json" ]] || missing+=("control-plane/install.json")
+  [[ -f "$TARGET/etrnl/install.json" ]] || missing+=("etrnl/install.json")
   [[ -f "$TARGET/templates/stack-profile.$PROFILE.json" ]] || missing+=("templates/stack-profile.$PROFILE.json")
   [[ -f "$TARGET/templates/hindsight/claude-code.local-daemon.json" ]] || missing+=("templates/hindsight/claude-code.local-daemon.json")
   [[ -x "$TARGET/scripts/update.sh" ]] || missing+=("scripts/update.sh")
-  [[ -f "$CODEX_TARGET/control-plane/install.json" ]] || missing+=("codex control-plane/install.json")
+  [[ -f "$CODEX_TARGET/etrnl/install.json" ]] || missing+=("codex etrnl/install.json")
   [[ -x "$CODEX_TARGET/scripts/update-check.mjs" ]] || missing+=("codex scripts/update-check.mjs")
   [[ -x "$CODEX_TARGET/scripts/skill-update-prompt.mjs" ]] || missing+=("codex scripts/skill-update-prompt.mjs")
   for file in "${OWNED_SKILLS[@]}"; do
@@ -680,11 +682,11 @@ verify_install_state() {
 verify_install_state
 CLAUDE_HOME="$TARGET" "$TARGET/scripts/post-upgrade-canary.sh"
 
-printf 'Installed Claude control plane files. Backup: %s\n' "$BACKUP"
+printf 'Installed Eternal Stack files. Backup: %s\n' "$BACKUP"
 printf 'Installed Codex ETRNL skill/runtime files: %s\n' "$CODEX_TARGET"
 printf 'Installed ETRNL agents: %s\n' "${OWNED_AGENTS[*]}"
 if [[ "$removed_moved" == "1" ]]; then
   printf 'Moved removed repo-owned skills into backup: %s/skills\n' "$BACKUP"
 fi
 printf 'Registered hooks from: %s\n' "$SETTINGS_TEMPLATE"
-printf 'Run: %s/scripts/doctor-control-plane.sh\n' "$TARGET"
+printf 'Run: %s/scripts/doctor-etrnl.sh\n' "$TARGET"

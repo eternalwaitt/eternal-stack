@@ -1,6 +1,6 @@
 ---
 name: etrnl-dev-ci
-description: ETRNL control-plane CI/CD workflow for Claude Code. Use when designing, auditing, hardening, debugging, or repairing CI/CD pipelines, GitHub Actions, deploy gates, release automation, branch protection, OIDC, SBOMs, image builds, staging, canary, blue-green, rollback, flaky CI, or slow builds.
+description: ETRNL etrnl CI/CD workflow for Claude Code. Use when designing, auditing, hardening, debugging, or repairing CI/CD pipelines, GitHub Actions, deploy gates, release automation, branch protection, OIDC, SBOMs, image builds, staging, canary, blue-green, rollback, flaky CI, or slow builds.
 ---
 # ETRNL CI/CD
 
@@ -29,7 +29,7 @@ For broad workflow audits:
 
 1. If the companion CI/CD skill helper exists, run it first:
    - `test -f ~/.agents/skills/ci-cd/scripts/audit_github_actions.py && python ~/.agents/skills/ci-cd/scripts/audit_github_actions.py .`
-   - This helper belongs to the external `ci-cd` companion skill, not this repo-owned control plane; continue manually when it is absent.
+   - This helper belongs to the external `ci-cd` companion skill, not this repo-owned Eternal Stack; continue manually when it is absent.
 2. Inspect `.github/workflows/*.yml`, `.github/workflows/*.yaml`, action references, `permissions:`, shell `run:` blocks, secrets, caches, artifacts, and concurrency by hand.
 3. Record every finding with file, job, step, impact, fix, and verification command.
 4. Rerun the helper or manual checklist after patching.

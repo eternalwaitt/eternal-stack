@@ -216,7 +216,7 @@ if (
 ) {
   addFailure(
     'plan_too_large',
-    `Final plan is ${text.length} characters, above the ${largeFinalPlanCharLimit} character control-plane limit, without an Execution Digest or Plan Index.`,
+    `Final plan is ${text.length} characters, above the ${largeFinalPlanCharLimit} character Eternal Stack limit, without an Execution Digest or Plan Index.`,
   );
 }
 

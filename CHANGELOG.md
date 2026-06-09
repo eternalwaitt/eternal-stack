@@ -2,14 +2,26 @@
 
 ## Unreleased
 
-## v0.2.0
+## v0.3.0
 
-- Harden public control-plane health checks with config-driven private project redaction, strict workflow runtime doctor mode, clean `shellcheck -x` coverage, and updated documentation for the new runtime health flags. `workflow-health.mjs doctor` now exits non-zero when the doctor payload is unhealthy, so callers that capture doctor output should guard the command substitution instead of assuming success.
+- Rename the project to **Eternal Stack** (repo slug `eternal-stack`). Clean break on environment variables: every `CLAUDE_CONTROL_PLANE_*` / `CONTROL_PLANE_*` variable and stdout marker is now `ETRNL_*`, with no legacy fallbacks. Runtime data under `~/.claude/control-plane/` (and the Codex equivalent) is migrated to `~/.claude/etrnl/` on install.
+- Vendor a repo-owned backend reference suite as six `etrnl-backend-*` skills (`api`, `data`, `security`, `resilience`, `observability`, `architecture`), derived from the SkillsMP backend-development deep search and rewritten in directive voice; register them in `OWNED_SKILLS`, `docs/skills.md`, and the parity scorecard, with prompt-router triggers and skill-trigger fixtures.
+
+## v0.2.1
+
+- Stop update churn from resetting Claude settings: `update.sh` now runs `install.sh --preserve-settings`, and SessionStart auto-update skips when the source checkout is dirty unless `ETRNL_AUTO_UPDATE_DIRTY=1`.
+- Fix false Hindsight "not installed" reports: detect the plugin from `~/.claude/plugins/cache` when hook PATH lacks `claude`, and stop `update-check` from treating `pluginInstalled` tools as missing via the wrong `installed` field.
+- Enable local auto-update by default on requested-skill and Codex skill-update paths; set `ETRNL_AUTO_UPDATE=0` to keep those checks non-mutating.
+- Sync health-stack, guards, troubleshooting, coverage, and README docs with stdin helper, doctor parallelism, hook shared libs, and sycophancy strict hook coverage.
+- Add shared EAGAIN-safe stdin helper (`scripts/lib/read-stdin.mjs`) and refactor all stdin-reading scripts onto it, with `tests/test-read-stdin.sh` regression coverage wired into `doctor.sh`.
+- Parallelize `doctor.sh` syntax checks and heavy test suites with `--jobs` / `DOCTOR_JOBS`, keeping deterministic result aggregation.
+- Harden hot hooks with trap-based temp-file cleanup (`hooks/lib/cleanup.sh`) and shared jq payload extraction (`hooks/lib/event-extract.sh`) for Claude Code event drift resilience.
+- Harden public Eternal Stack health checks with config-driven private project redaction, strict workflow runtime doctor mode, clean `shellcheck -x` coverage, and updated documentation for the new runtime health flags. `workflow-health.mjs doctor` now exits non-zero when the doctor payload is unhealthy, so callers that capture doctor output should guard the command substitution instead of assuming success.
 - Rename repo-owned ETRNL skills to the canonical `etrnl-dev-*`, `etrnl-audit-*`, `etrnl-ops-*`, and `etrnl-comm-*` taxonomy and remove old slash alias routing.
 - Expand the deep-audit registry to code excellence, UI/UX/product, production, security, performance, shared reuse, repo hygiene, and tooling ecosystem.
 - Register `etrnl-audit-repo` and `etrnl-audit-tooling` in `scripts/lib/deep-audit-categories.mjs`, with health-stack docs for repo hygiene and tooling-ecosystem audit coverage.
 - Add first-class audit skills for excellence, UX, reuse, repo hygiene, and tooling.
-- Reset managed Claude Code `settings.json` to vanilla during install after backing it up, then apply the selected control-plane stack; add `--preserve-settings` for deliberate merge-in-place installs.
+- Reset managed Claude Code `settings.json` to vanilla during install after backing it up, then apply the selected Eternal Stack profile; add `--preserve-settings` for deliberate merge-in-place installs.
 - Add shareable `core` and `full` stack install profiles with profile manifests, Hindsight config templates, profile validation, full-profile bootstrap flags, Hindsight plugin/config posture checks, ETRNL-first lesson retention, and raw Beads doctrine rejection.
 - Add the ETRNL compact state layer with append-only local JSONL events, bounded `compact-handoff` recovery, stale-verification Stop checks, privacy-reject fixtures, staged install assertions for synchronous compact restore, and explicit Beads backlog-only/Dolt projection boundaries.
 - Tighten `/etrnl-dev-deps` with explicit audit/report read-only modes, catalog-first workspace version consolidation, related-package bundling, rollback command requirements, and dependency report fields.
@@ -22,13 +34,13 @@
 - Wire `/etrnl-dev-ci` into owned-skill install/discovery, prompt routing, trigger fixtures, docs, and parity-scorecard coverage as a canonical repo-owned skill.
 - Introduce local tool-effectiveness measurement for CodeGraph, Beads, Codex imports, and hook-pattern signals, including deterministic keep/drop verdict fixtures, workflow-health projection, and a synthetic continuous-project config template.
 - Enable CodeGraph/Beads bootstrap and update checks, including global MCP refresh, optional project-local `.codegraph`/`.beads` initialization, installed tool-stack health reporting, and per-skill advisory update prompts before requested `etrnl-*` skills run.
-- Make local control-plane repair opt-out during startup update checks; set `CLAUDE_CONTROL_PLANE_AUTO_UPDATE=0` to keep checks non-mutating.
+- Make local Eternal Stack repair opt-out during startup update checks; set `ETRNL_AUTO_UPDATE=0` to keep checks non-mutating.
 
 - Improve stop-hook completion classification so paused production handoffs and other explicit non-final status updates do not get blocked as unverified completion claims.
 - Repair hook ergonomics around context and large edits: settings audit now removes legacy Stop handoff monitors that emit invalid context output, and the large-change guard honors recorded plan artifacts such as `.rulebook/PLANS.md`.
 - Add quick-win runtime hardening from recent logs: preflight unscoped Serena searches and unbounded health JSON dumps, aggregate project buglog repeat-edit hints, and make local skill metadata validation opt-in at SessionStart.
 - Harden script reliability after defensive Bash audit: clean up PreToolUse temp files, remove overlapping shell patterns, and bound Git child processes in script helpers.
-- Bound `UserPromptSubmit` `CLAUDE.md` reinjection to once per session by default, document `CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD=always`, and add a scoped recovery hint for oversized Serena search output.
+- Bound `UserPromptSubmit` `CLAUDE.md` reinjection to once per session by default, document `ETRNL_INJECT_CLAUDE_MD=always`, and add a scoped recovery hint for oversized Serena search output.
 - Add the latest starred-agent stack research map and convert the highest-value findings into enforcement: parallel subagent lifecycle fields, executable task-group readiness checks, mandatory-rule mechanical gate validation, and optional CodeGraph/React Doctor/Brooks-Lint health-stack mappings.
 - Add the Hybrid Deep Stack plan/review/execute contract: final plans validate `Deep stack artifacts:` through `deep-stack-check.mjs`, with source manifests, skill matrices, reuse inventories, review phase records, findings ledgers, completion audits, risk tiers, TypeScript trigger evidence, staged-install proof, and structured repair errors.
 - Harden task packets, ledgers, and stop checks so multi-file source work is bound to implementation agents, spec/quality reviewers, reuse/TDD/simplifier/completion/install evidence, no-revert acknowledgement, overlap checks, packet hashes, and direct-parent-edit blocking unless a sequential-degraded blocker is recorded.
@@ -37,7 +49,7 @@
 - Add and harden private email-triage workflows: `/email-triage`, `/etrnl-comm-email-reply-quality`, provider-verified Inbox Zero gates, queue-ready-without-mutation support, reply queue completion checks, ML insight routing, draft quality gates, and dry-run/queue-before-verify blockers.
 - Add documentation and code-health gates: `/etrnl-audit-docs`, deterministic comment-health counters, code-health inventory and ledger checks, shared audit exclusions, baseline-only completion blockers, and terminal findings requirements.
 - Tighten `/etrnl-audit-docs` so final reports must prove source-truth freshness with recent commit/PR impact review, stale-reference searches, active plan/work-queue counters, all-docs coverage, and a hard block on `100/100` while stale, misleading, outdated, or unreviewed docs remain.
-- Expand installed control-plane operations: rollback/update metadata, settings audit repair, strict hook templates, install-home doctor coverage, repo-owned agents, skill behavior smoke checks, replay fixtures, browser QA v2 matrix/hash validation, prompt-budget checks, changelog release hygiene, and post-upgrade canaries.
+- Expand installed Eternal Stack operations: rollback/update metadata, settings audit repair, strict hook templates, install-home doctor coverage, repo-owned agents, skill behavior smoke checks, replay fixtures, browser QA v2 matrix/hash validation, prompt-budget checks, changelog release hygiene, and post-upgrade canaries.
 - Add safety and quality guards for sycophancy, ownership deflection, dangerous filesystem paths, secret/prod commands with signed override tokens, schema migration evidence, output-limiter pipes, large edits, file sprawl, stale verification, repeated failures, and dev-server port collisions.
 
 ## v0.1.6

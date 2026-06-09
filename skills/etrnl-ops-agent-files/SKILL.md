@@ -1,6 +1,6 @@
 ---
 name: etrnl-ops-agent-files
-description: ETRNL control-plane skill for reviewing and maintaining AGENTS.md, CLAUDE.md, Claude rules, Codex rules, and agent instruction files without bloat. Use when pruning, auditing, or updating agent instruction surfaces across Claude Code and Codex.
+description: ETRNL etrnl skill for reviewing and maintaining AGENTS.md, CLAUDE.md, Claude rules, Codex rules, and agent instruction files without bloat. Use when pruning, auditing, or updating agent instruction surfaces across Claude Code and Codex.
 disable-model-invocation: true
 ---
 # Agent File Doctor
@@ -9,11 +9,11 @@ Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --sk
 
 Maintain instruction files as routing/configuration surfaces, not memory stores.
 
-This repo-owned `etrnl-ops-agent-files` skill is the control-plane maintenance workflow for installed Claude/Codex startup files, templates, hooks, and runtime injection. Use any external agent-file review skill only for broader non-control-plane audits.
+This repo-owned `etrnl-ops-agent-files` skill is the etrnl maintenance workflow for installed Claude/Codex startup files, templates, hooks, and runtime injection. Use any external agent-file review skill only for broader non-etrnl audits.
 
 ## Target Scope
 
-This skill audits the active agent-file hierarchy for the requested target, not this control-plane repo by default.
+This skill audits the active agent-file hierarchy for the requested target, not this etrnl repo by default.
 
 Before recommending edits, declare:
 
@@ -34,7 +34,7 @@ For monorepos and workspaces, walk downward from the target root for nested agen
 - imported markdown referenced with `@path.md`
 - local tool overlays such as `RTK.md` only when they are part of the target session's actual load chain
 
-When the repo is `claude-control-plane`, distinguish control-plane source maintenance from auditing the user's installed Claude/Codex session context. Repo-managed source changes belong in this repo; installed-home drift is verified separately and updated through install/update scripts unless the user explicitly requests a local override.
+When the repo is `eternal-stack`, distinguish etrnl source maintenance from auditing the user's installed Claude/Codex session context. Repo-managed source changes belong in this repo; installed-home drift is verified separately and updated through install/update scripts unless the user explicitly requests a local override.
 
 Default to read-only audit output unless the user explicitly asks to edit. Do not stop to ask which surfaces to audit when a complete read-only inventory is possible. If edits are requested and ownership is split, apply repo-owned changes in the repo canonical source, local overlay changes in the installed-home overlay, and report any source-limited surfaces instead of asking a multiple-choice scope question.
 
@@ -132,7 +132,7 @@ After editing agent instruction surfaces, run the smallest relevant gate:
 - `node scripts/skill-contract-check.mjs` for repo-owned skill changes.
 - `node scripts/prompt-budget-check.mjs .` when always-loaded files, skills, agents, or rules changed.
 - `tests/test-hooks.sh` when routing, prompt injection, hooks, settings, or triggers changed.
-- `scripts/doctor.sh` before claiming the control plane install/startup surface is healthy.
+- `scripts/doctor.sh` before claiming the Eternal Stack install/startup surface is healthy.
 - `git diff --check` for every edit.
 
 ## Hard Rules

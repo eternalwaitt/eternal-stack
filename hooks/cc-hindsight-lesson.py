@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Retain one stable control-plane behavior lesson in Hindsight."""
+"""Retain one stable Eternal Stack behavior lesson in Hindsight."""
 
 from __future__ import annotations
 
@@ -15,11 +15,11 @@ import urllib.request
 from pathlib import Path
 
 
-LESSON_ID = "control-plane/evidence-before-agreement/v1"
+LESSON_ID = "etrnl/evidence-before-agreement/v1"
 LESSON_TTL_SECONDS = 30 * 24 * 60 * 60
-BANK_ID = "claude-control-plane"
+BANK_ID = "etrnl"
 
-LESSON = """Control-plane behavior lesson: evidence before agreement.
+LESSON = """Eternal Stack behavior lesson: evidence before agreement.
 
 When the user challenges a claim, do not begin with agreement language like "You're right",
 "good catch", "exactly", or an apology followed by "let me check".
@@ -69,7 +69,7 @@ def append_etrnl_lesson() -> dict | None:
         return None
     event = {
         "eventKind": "lesson",
-        "sessionId": os.environ.get("CLAUDE_SESSION_ID") or "control-plane-lesson",
+        "sessionId": os.environ.get("CLAUDE_SESSION_ID") or "etrnl-lesson",
         "data": {
             "lessonId": LESSON_ID,
             "content": lesson_content(),
@@ -128,14 +128,14 @@ def retain_lesson(config: dict, event: dict) -> bool:
     item = {
         "content": data.get("content") or LESSON,
         "document_id": LESSON_ID,
-        "context": "claude-control-plane",
+        "context": "etrnl",
         "metadata": {
             "kind": "standing_behavior_rule",
             "version": "1",
             "retention_policy": "stable_upsert_not_per_violation",
             "etrnl_event_id": event.get("eventId", ""),
         },
-        "tags": ["control-plane", "behavior", "evidence-before-agreement"],
+        "tags": ["etrnl", "behavior", "evidence-before-agreement"],
     }
     body = json.dumps({"items": [item], "async": True}).encode()
     bank = urllib.parse.quote(BANK_ID, safe="")
@@ -156,7 +156,7 @@ def main() -> int:
     if os.environ.get("CLAUDE_GUARD_DISABLE_HINDSIGHT_LESSON") == "1":
         return 0
 
-    stamp_dir = Path.home() / ".claude" / "cache" / "control-plane-lessons"
+    stamp_dir = Path.home() / ".claude" / "cache" / "etrnl-lessons"
     stamp_dir.mkdir(parents=True, exist_ok=True)
     event_path = stamp_dir / "evidence-before-agreement-v1.event.json"
     hindsight_stamp_path = stamp_dir / "evidence-before-agreement-v1.hindsight.retained"

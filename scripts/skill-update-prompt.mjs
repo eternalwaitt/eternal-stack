@@ -15,18 +15,17 @@ const valueAfter = (flag, fallback = "") => {
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const scriptParent = path.dirname(scriptDir);
-const scriptInstalledHome = fs.existsSync(path.join(scriptParent, "control-plane", "install.json")) ? scriptParent : "";
+const scriptInstalledHome = fs.existsSync(path.join(scriptParent, "etrnl", "install.json")) ? scriptParent : "";
 const envHome = process.env.CLAUDE_HOME || process.env.CODEX_HOME || "";
 const controlHome =
-  process.env.CLAUDE_CONTROL_PLANE_HOME ||
-  process.env.CONTROL_PLANE_HOME ||
+  process.env.ETRNL_HOME ||
   scriptInstalledHome ||
   envHome ||
   path.join(os.homedir(), ".claude");
 const agent = valueAfter("--agent", path.basename(controlHome) === ".codex" ? "codex" : "claude");
 const skill = valueAfter("--skill", "unknown");
 const jsonOutput = hasFlag("--json");
-const updateScript = process.env.CLAUDE_CONTROL_PLANE_UPDATE_CHECK_SCRIPT || path.join(scriptDir, "update-check.mjs");
+const updateScript = process.env.ETRNL_UPDATE_CHECK_SCRIPT || path.join(scriptDir, "update-check.mjs");
 
 const emit = (result) => {
   if (jsonOutput) {
@@ -39,7 +38,7 @@ const emit = (result) => {
   );
   if (result.summary) console.log(result.summary);
   if (result.rawUpdateOutput) console.log(result.rawUpdateOutput);
-  console.log("Before using this skill, tell the user only about pending remote or tool-stack updates; local control-plane repair was checked without mutating this process.");
+  console.log("Before using this skill, tell the user only about pending remote or tool-stack updates; local Eternal Stack repair was checked without mutating this process.");
 };
 
 if (!fs.existsSync(updateScript)) {
@@ -57,14 +56,18 @@ if (!fs.existsSync(updateScript)) {
   process.exit(0);
 }
 
-const update = spawnSync(process.execPath, [updateScript, "--json"], {
+const autoUpdateDisabled = process.env.ETRNL_AUTO_UPDATE === "0";
+const updateArgs = [updateScript, "--json"];
+if (!autoUpdateDisabled) {
+  updateArgs.push("--auto");
+}
+const update = spawnSync(process.execPath, updateArgs, {
   encoding: "utf8",
   // Startup runs can include git and tool-stack probes; keep this bounded but above slow-network fetches.
   timeout: 180_000,
   env: {
     ...process.env,
-    CLAUDE_CONTROL_PLANE_HOME: controlHome,
-    CLAUDE_CONTROL_PLANE_AUTO_UPDATE: "0",
+    ETRNL_HOME: controlHome,
   },
 });
 
@@ -121,12 +124,12 @@ const bootstrapCommand = state.sourceRoot
 const rawLines = [];
 if (state.localUpdateAvailable) {
   rawLines.push(
-    `CONTROL_PLANE_UPDATE_AVAILABLE installed=${state.installedCommitShort || "unknown"} source=${state.sourceCommitShort || "unknown"} version=${state.sourceVersion || "unknown"} run="${updateCommand}"`,
+    `ETRNL_UPDATE_AVAILABLE installed=${state.installedCommitShort || "unknown"} source=${state.sourceCommitShort || "unknown"} version=${state.sourceVersion || "unknown"} run="${updateCommand}"`,
   );
 }
 if (state.remote?.updateAvailable) {
   rawLines.push(
-    `CONTROL_PLANE_REMOTE_UPDATE_AVAILABLE upstream=${state.remote.upstream || "unknown"} behind=${state.remote.behind || 0} run="${updateCommand} --pull"`,
+    `ETRNL_REMOTE_UPDATE_AVAILABLE upstream=${state.remote.upstream || "unknown"} behind=${state.remote.behind || 0} run="${updateCommand} --pull"`,
   );
 }
 for (const tool of Object.values(toolStack.tools || {})) {
@@ -134,11 +137,11 @@ for (const tool of Object.values(toolStack.tools || {})) {
     rawLines.push(
       `TOOL_STACK_UPDATE_AVAILABLE ${tool.id} current=${tool.currentVersion} latest=${tool.latestVersion} run="${tool.updateCommand}"`,
     );
-  } else if (tool && tool.installed === false) {
+  } else if (tool && (tool.kind === "claude-plugin" ? tool.pluginEnabled && !tool.pluginInstalled : tool.installed === false)) {
     rawLines.push(`TOOL_STACK_MISSING ${tool.id} install="${tool.installCommand}"`);
   }
 }
-if (state.warning) rawLines.push(`CONTROL_PLANE_UPDATE_WARNING ${state.warning}`);
+if (state.warning) rawLines.push(`ETRNL_UPDATE_WARNING ${state.warning}`);
 
 const resultOk = state.ok !== false;
 const promptNeeded = Boolean(state.updateAvailable) || !resultOk || rawLines.length > 0;
@@ -156,7 +159,7 @@ emit({
   updateCommand,
   bootstrapCommand,
   summary: promptNeeded
-    ? `control-plane=${state.localUpdateAvailable ? "stale" : "current"} tools=${[...missingTools, ...toolUpdates].join(",") || "current"}`
+    ? `etrnl=${state.localUpdateAvailable ? "stale" : "current"} tools=${[...missingTools, ...toolUpdates].join(",") || "current"}`
     : "",
   rawUpdateOutput: rawLines.join("\n"),
 });

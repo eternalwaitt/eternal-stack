@@ -151,8 +151,8 @@ lesson_state_dir="$TMPROOT/hindsight-lesson-state"
 mkdir -p "$lesson_home"
 HOME="$lesson_home" ETRNL_STATE_DIR="$lesson_state_dir" CLAUDE_GUARD_DISABLE_HINDSIGHT_LESSON=0 CLAUDE_GUARD_FORCE_LESSON_RETAIN=1 python3 "$ROOT/hooks/cc-hindsight-lesson.py"
 lesson_state="$(jq -c . "$lesson_state_dir/events.jsonl")"
-assert_json_expr "hindsight lesson hook records ETRNL lesson first" "$lesson_state" '.eventKind == "lesson" and .data.lessonId == "control-plane/evidence-before-agreement/v1" and .data.exportTarget == "hindsight"'
-assert_no_file "hindsight lesson hook does not write false Hindsight retained stamp without canary" "$lesson_home/.claude/cache/control-plane-lessons/evidence-before-agreement-v1.hindsight.retained"
+assert_json_expr "hindsight lesson hook records ETRNL lesson first" "$lesson_state" '.eventKind == "lesson" and .data.lessonId == "etrnl/evidence-before-agreement/v1" and .data.exportTarget == "hindsight"'
+assert_no_file "hindsight lesson hook does not write false Hindsight retained stamp without canary" "$lesson_home/.claude/cache/etrnl-lessons/evidence-before-agreement-v1.hindsight.retained"
 private_lesson_home="$TMPROOT/hindsight-private-lesson-home"
 private_lesson_state_dir="$TMPROOT/hindsight-private-lesson-state"
 mkdir -p "$private_lesson_home"
@@ -454,17 +454,17 @@ if [[ "$out" == *"Project-specific gotcha from injected CLAUDE.md"* ]]; then
 else
   ok "prompt router reinjects CLAUDE.md only once per session"
 fi
-out="$(HOME="$TMPROOT/home" CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD=always run_hook cc-userprompt-router.sh "$prompt")"
+out="$(HOME="$TMPROOT/home" ETRNL_INJECT_CLAUDE_MD=always run_hook cc-userprompt-router.sh "$prompt")"
 assert_contains "prompt router always mode repeats CLAUDE.md reinjection" "$out" "Project-specific gotcha from injected CLAUDE.md"
 disabled_zero_prompt="$(printf '%s' "$prompt" | jq '.session_id = "fixture-userprompt-disabled-zero"')"
-out="$(HOME="$TMPROOT/home" CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD=0 run_hook cc-userprompt-router.sh "$disabled_zero_prompt")"
+out="$(HOME="$TMPROOT/home" ETRNL_INJECT_CLAUDE_MD=0 run_hook cc-userprompt-router.sh "$disabled_zero_prompt")"
 if [[ "$out" == *"Project-specific gotcha from injected CLAUDE.md"* ]]; then
   not_ok "prompt router disables CLAUDE.md reinjection"
 else
   ok "prompt router disables CLAUDE.md reinjection"
 fi
 disabled_false_prompt="$(printf '%s' "$prompt" | jq '.session_id = "fixture-userprompt-disabled-false"')"
-out="$(HOME="$TMPROOT/home" CLAUDE_CONTROL_PLANE_INJECT_CLAUDE_MD=FALSE run_hook cc-userprompt-router.sh "$disabled_false_prompt")"
+out="$(HOME="$TMPROOT/home" ETRNL_INJECT_CLAUDE_MD=FALSE run_hook cc-userprompt-router.sh "$disabled_false_prompt")"
 if [[ "$out" == *"Project-specific gotcha from injected CLAUDE.md"* ]]; then
   not_ok "prompt router disables CLAUDE.md reinjection case-insensitively"
 else
@@ -483,12 +483,12 @@ assert_json_expr "plan skill recorded" "$(jq -c . "$plan_state")" 'any(.requeste
 fake_skill_update="$TMPROOT/fake-skill-update.mjs"
 cat >"$fake_skill_update" <<'JS'
 #!/usr/bin/env node
-console.log('CONTROL_PLANE_UPDATE_AVAILABLE installed=old source=new version=v0 run="~/.claude/scripts/update.sh"');
+console.log('ETRNL_UPDATE_AVAILABLE installed=old source=new version=v0 run="~/.claude/scripts/update.sh"');
 console.log('TOOL_STACK_UPDATE_AVAILABLE codegraph current=0.9.9 latest=1.0.0 run="npm install -g codegraph"');
 JS
 skill_update_prompt="$(jq -cn '{session_id:"fixture-skill-update-prompt",prompt:"/etrnl-dev-plan docs/plans/example.md"}')"
-out="$(CLAUDE_CONTROL_PLANE_SKILL_UPDATE_CHECK=1 CLAUDE_CONTROL_PLANE_UPDATE_CHECK_SCRIPT="$fake_skill_update" run_hook cc-userprompt-router.sh "$skill_update_prompt")"
-assert_contains "skill prompt checks control-plane updates" "$out" "Skill update check before requested skill"
+out="$(ETRNL_SKILL_UPDATE_CHECK=1 ETRNL_UPDATE_CHECK_SCRIPT="$fake_skill_update" run_hook cc-userprompt-router.sh "$skill_update_prompt")"
+assert_contains "skill prompt checks etrnl updates" "$out" "Skill update check before requested skill"
 assert_contains "skill prompt includes tool-stack update" "$out" "TOOL_STACK_UPDATE_AVAILABLE codegraph"
 assert_contains "skill prompt names remaining choices only" "$out" "remaining remote/tool-stack choices"
 health_prompt="$(jq -cn '{session_id:"fixture-health-prompt",prompt:"audit the entire codebase with no skips or loose ends"}')"
@@ -578,15 +578,15 @@ serena_large_failure_json="$(jq -cn '{session_id:"fixture-serena-large-failure",
 out="$(run_hook cc-posttoolusefailure-diagnose.sh "$serena_large_failure_json")"
 assert_contains "serena large-output failure gets scoped diagnostic" "$out" "narrower relative_path"
 serena_unscoped_json="$(jq -cn '{session_id:"fixture-serena-preflight",tool_name:"mcp__serena__search_for_pattern",tool_input:{substring_pattern:"needle",max_answer_chars:12000}}')"
-out="$(CLAUDE_CONTROL_PLANE_SERENA_SCOPE_GUARD=1 run_hook cc-pretooluse-guard.sh "$serena_unscoped_json")"
+out="$(ETRNL_SERENA_SCOPE_GUARD=1 run_hook cc-pretooluse-guard.sh "$serena_unscoped_json")"
 assert_json_expr "serena unscoped search denied before output blowup" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
 assert_contains "serena unscoped search reason" "$out" "must be scoped"
 serena_uncapped_json="$(jq -cn '{session_id:"fixture-serena-preflight",tool_name:"mcp__serena__search_for_pattern",tool_input:{substring_pattern:"needle",relative_path:"src"}}')"
-out="$(CLAUDE_CONTROL_PLANE_SERENA_SCOPE_GUARD=1 run_hook cc-pretooluse-guard.sh "$serena_uncapped_json")"
+out="$(ETRNL_SERENA_SCOPE_GUARD=1 run_hook cc-pretooluse-guard.sh "$serena_uncapped_json")"
 assert_json_expr "serena uncapped search denied before output blowup" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
 assert_contains "serena uncapped search reason" "$out" "max_answer_chars"
 serena_scoped_json="$(jq -cn '{session_id:"fixture-serena-preflight",tool_name:"mcp__serena__search_for_pattern",tool_input:{substring_pattern:"needle",relative_path:"src",max_answer_chars:12000,context_lines_before:2,context_lines_after:2}}')"
-out="$(CLAUDE_CONTROL_PLANE_SERENA_SCOPE_GUARD=1 run_hook cc-pretooluse-guard.sh "$serena_scoped_json")"
+out="$(ETRNL_SERENA_SCOPE_GUARD=1 run_hook cc-pretooluse-guard.sh "$serena_scoped_json")"
 assert_json_expr "serena scoped bounded search allowed" "$out" '.continue == true'
 email_guard_failure_json="$(jq -cn '{session_id:"fixture-email-guard-failure",tool_name:"Bash",tool_input:{command:"vivaz-email triage guarded-run --account agencia --apply --require-insights"},error:"TRIAGE_GUARD_ML_DISAGREED: ML archive review found 1 disagreement"}')"
 out="$(run_hook cc-posttoolusefailure-diagnose.sh "$email_guard_failure_json")"
@@ -595,7 +595,7 @@ assert_contains "email triage ML disagreement avoids asking repository owner" "$
 
 rate_event="$(jq -cn '{session_id:"fixture-rate",tool_name:"Bash",tool_input:{command:"rg -n value src"}}')"
 run_hook cc-rate-limiter.sh "$rate_event" >/dev/null || true
-out="$(CLAUDE_CONTROL_PLANE_RATE_LIMITER_RAPID_THRESHOLD=1 run_hook cc-rate-limiter.sh "$rate_event")"
+out="$(ETRNL_RATE_LIMITER_RAPID_THRESHOLD=1 run_hook cc-rate-limiter.sh "$rate_event")"
 assert_contains "rate limiter emits pace context" "$out" "Pace check"
 
 warning_edit_event="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-warning-debounce",tool_name:"Edit",status:"success",cwd:$root,tool_input:{file_path:($root + "/src/app.ts")}}')"
@@ -630,7 +630,7 @@ run_hook cc-posttoolbatch-observer.sh "$bug_disabled_read" >/dev/null || true
 bug_disabled_search="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-bug-disabled",tool_name:"Bash",status:"success",cwd:$root,tool_input:{command:"rg -n value src/app.ts"}}')"
 run_hook cc-posttoolbatch-observer.sh "$bug_disabled_search" >/dev/null || true
 bug_disabled_edit="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-bug-disabled",tool_name:"Edit",cwd:$root,tool_input:{file_path:($root + "/src/app.ts"),old_string:"export const value = 1;",new_string:"export const value = 4;"}}')"
-out="$(CLAUDE_CONTROL_PLANE_LEARNING_HINTS=0 run_hook cc-pretooluse-guard.sh "$bug_disabled_edit")"
+out="$(ETRNL_LEARNING_HINTS=0 run_hook cc-pretooluse-guard.sh "$bug_disabled_edit")"
 if [[ "$out" == *"Previous bug notes"* ]]; then
   not_ok "bug memory disabled by env flag"
 else
@@ -947,8 +947,8 @@ out="$(run_hook cc-sessionstart-restore.sh "$status_session_json")"
 assert_contains "session start injects workflow status" "$out" "Workflow status:"
 assert_contains "session start workflow status names unfinished work" "$out" "unfinished=1"
 startup_buglog_path="$TMPROOT/artifacts/project-buglog.jsonl"
-CLAUDE_CONTROL_PLANE_BUGLOG="$startup_buglog_path" node "$ROOT/scripts/project-buglog.mjs" record --cwd "$ROOT" --file scripts/example.mjs --category repeated-edit --summary "repeat startup hint" >/dev/null
-out="$(CLAUDE_CONTROL_PLANE_BUGLOG="$startup_buglog_path" CLAUDE_CONTROL_PLANE_LEARNING_STARTUP_HINTS=1 run_hook cc-sessionstart-restore.sh "$status_session_json")"
+ETRNL_BUGLOG="$startup_buglog_path" node "$ROOT/scripts/project-buglog.mjs" record --cwd "$ROOT" --file scripts/example.mjs --category repeated-edit --summary "repeat startup hint" >/dev/null
+out="$(ETRNL_BUGLOG="$startup_buglog_path" ETRNL_LEARNING_STARTUP_HINTS=1 run_hook cc-sessionstart-restore.sh "$status_session_json")"
 assert_contains "session start can inject project learning hints" "$out" "Project learning hints:"
 
 agent_bad="$(jq -cn '{session_id:"fixture-session",tool_name:"Task",tool_input:{packet:{mode:"read-only",goal:"inspect task",cwd:"/repo",scope:"scripts",readSet:["scripts"],expectedOutput:"summary",noRevert:true}}}')"

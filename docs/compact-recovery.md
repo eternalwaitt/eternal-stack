@@ -1,6 +1,6 @@
 # Compact Recovery
 
-ETRNL compact recovery lets Claude keep owning auto-compaction while the control plane records enough state to continue safely after compact.
+ETRNL compact recovery lets Claude keep owning auto-compaction while the Eternal Stack records enough state to continue safely after compact.
 
 ## Five-Minute Check
 
@@ -40,7 +40,7 @@ Use temporary homes before changing live Claude or Codex settings:
 ```bash
 CLAUDE_HOME="$(mktemp -d)" CODEX_HOME="$(mktemp -d)" ./scripts/install.sh
 node scripts/settings-audit.mjs "$CLAUDE_HOME/settings.json" --strict-conflicts --json
-CLAUDE_CONTROL_PLANE_HOME="$CLAUDE_HOME" node "$CLAUDE_HOME/scripts/update-check.mjs" --json
+ETRNL_HOME="$CLAUDE_HOME" node "$CLAUDE_HOME/scripts/update-check.mjs" --json
 "$CLAUDE_HOME/scripts/post-upgrade-canary.sh"
 "$CLAUDE_HOME/scripts/rollback-local.sh" --dry-run
 ```
@@ -82,8 +82,8 @@ Common findings:
 Default state is local and untracked:
 
 ```text
-~/.claude/control-plane/state/events.jsonl
-~/.claude/control-plane/state/views/compact-handoff.json
+~/.claude/etrnl/state/events.jsonl
+~/.claude/etrnl/state/views/compact-handoff.json
 ```
 
 Override it for tests or staged runs:

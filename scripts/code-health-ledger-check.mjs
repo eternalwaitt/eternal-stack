@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFileSync } from "node:fs";
+import { readStdinJson } from "./lib/read-stdin.mjs";
 
 const CODE_HEALTH_SKILL = "code-health";
 const TERMINAL_DISPOSITIONS = new Set([
@@ -11,21 +11,25 @@ const TERMINAL_DISPOSITIONS = new Set([
 const NON_TERMINAL_DISPOSITIONS = new Set(["open", "later", "todo", "follow-up", "follow_up", ""]);
 
 function readInput() {
-  const raw = readFileSync(0, "utf8").trim();
-  if (!raw) return { state: {}, message: "" };
-  try {
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === "object" && parsed.state) {
-      return {
-        state: parsed.state,
-        message: String(parsed.message || ""),
-      };
-    }
-    return { state: parsed, message: String(parsed.lastAssistantMessage || "") };
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    throw new Error(`invalid code health input JSON: ${detail}`);
+  const parsed = readStdinJson({
+    emptyValue: null,
+    onInvalidJson: (error) => {
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new Error(`invalid code health input JSON: ${detail}`);
+    },
+    onReadError: (error) => {
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new Error(`invalid code health input JSON: ${detail}`);
+    },
+  });
+  if (parsed === null) return { state: {}, message: "" };
+  if (parsed && typeof parsed === "object" && parsed.state) {
+    return {
+      state: parsed.state,
+      message: String(parsed.message || ""),
+    };
   }
+  return { state: parsed, message: String(parsed.lastAssistantMessage || "") };
 }
 
 function norm(value) {
@@ -91,7 +95,7 @@ function hasInventory(commands) {
 
 function hasValidation(commands) {
   return commands.some((command) => (
-    /tests\/test-hooks\.sh|tests\/test-workflow-tools\.sh|scripts\/doctor\.sh|doctor-control-plane\.sh|pnpm\s+(run\s+)?(typecheck|lint|test|build)|npm\s+(run\s+)?(typecheck|lint|test|build)|yarn\s+(run\s+)?(typecheck|lint|test|build)|bun\s+(run\s+)?(typecheck|lint|test|build)|cargo\s+(test|clippy|build|check)|go\s+test|pytest|ruff|mypy|pyright/i.test(command)
+    /tests\/test-hooks\.sh|tests\/test-workflow-tools\.sh|scripts\/doctor\.sh|doctor-etrnl\.sh|pnpm\s+(run\s+)?(typecheck|lint|test|build)|npm\s+(run\s+)?(typecheck|lint|test|build)|yarn\s+(run\s+)?(typecheck|lint|test|build)|bun\s+(run\s+)?(typecheck|lint|test|build)|cargo\s+(test|clippy|build|check)|go\s+test|pytest|ruff|mypy|pyright/i.test(command)
   ));
 }
 

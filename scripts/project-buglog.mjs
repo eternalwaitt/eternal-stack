@@ -11,12 +11,12 @@ const jsonMode = args.includes("--json");
 const BUGLOG_FINGERPRINT_VERSION = 3;
 
 function artifactDir() {
-  return process.env.CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR
-    || path.join(process.env.CLAUDE_HOME || path.join(homedir(), ".claude"), "control-plane", "artifacts");
+  return process.env.ETRNL_ARTIFACTS_DIR
+    || path.join(process.env.CLAUDE_HOME || path.join(homedir(), ".claude"), "etrnl", "artifacts");
 }
 
 function buglogPath() {
-  return process.env.CLAUDE_CONTROL_PLANE_BUGLOG
+  return process.env.ETRNL_BUGLOG
     || path.join(artifactDir(), "project-buglog.jsonl");
 }
 
@@ -206,7 +206,7 @@ function projectSuggestions(cwd, entries, limit, threshold) {
 }
 
 function maxAgeMs() {
-  const raw = argValue(args, "--max-age-days", process.env.CLAUDE_CONTROL_PLANE_LEARNING_HINT_MAX_AGE_DAYS || "90");
+  const raw = argValue(args, "--max-age-days", process.env.ETRNL_LEARNING_HINT_MAX_AGE_DAYS || "90");
   const days = Number(raw);
   if (!Number.isFinite(days) || days <= 0) return null;
   return days * 24 * 60 * 60 * 1000;

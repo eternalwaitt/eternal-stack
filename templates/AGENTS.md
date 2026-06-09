@@ -1,6 +1,6 @@
 # Agent Baseline
 
-This is the portable, agent-neutral baseline for the control plane. Keep private identity, accounts, credentials, and project-specific memories in local overlays.
+This is the portable, agent-neutral baseline for the Eternal Stack. Keep private identity, accounts, credentials, and project-specific memories in local overlays.
 Project `AGENTS.md`/`CLAUDE.md` files override this baseline where they conflict. Keep startup guidance concise; move specialized procedures to scoped rules, skills, hooks, or project docs.
 
 ## Core Rules

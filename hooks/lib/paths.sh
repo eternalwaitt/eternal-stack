@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 
+# shellcheck source=hooks/lib/event-extract.sh
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/event-extract.sh"
+
 cc_project_cwd() {
   local cwd
-  cwd="$(jq -r '.cwd // .workspace.cwd // env.PWD // empty' <<<"${HOOK_INPUT:-{}}" 2>/dev/null || true)"
+  cwd="$(cc_event_cwd)"
   if [[ -z "$cwd" ]]; then
     pwd -P
     return

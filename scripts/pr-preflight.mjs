@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
+import { readStdinRaw } from "./lib/read-stdin.mjs";
 
 const args = process.argv.slice(2);
 const command = args[0] || "status";
@@ -116,7 +117,7 @@ function status() {
 }
 
 function validate() {
-  const raw = readFileSync(0, "utf8").trim();
+  const raw = readStdinRaw();
   const blockers = [];
   const warnings = [];
   let payload = {};

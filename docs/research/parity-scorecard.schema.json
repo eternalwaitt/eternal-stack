@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://vivaz.dev/claude-control-plane/research/parity-scorecard.schema.json",
+  "$id": "https://vivaz.dev/eternal-stack/research/parity-scorecard.schema.json",
   "title": "ETRNL Parity Scorecard",
   "type": "object",
   "required": [

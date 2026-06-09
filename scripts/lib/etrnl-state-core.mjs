@@ -83,7 +83,7 @@ export function collectPositionals(args) {
 
 /** Resolve the local ETRNL state root from an explicit path, environment, or Claude home default. */
 export function stateRoot(explicit = "") {
-  return path.resolve(explicit || process.env.ETRNL_STATE_DIR || process.env.CLAUDE_CONTROL_PLANE_STATE_DIR || path.join(process.env.CLAUDE_HOME || path.join(os.homedir(), ".claude"), "control-plane", "state"));
+  return path.resolve(explicit || process.env.ETRNL_STATE_DIR || path.join(process.env.CLAUDE_HOME || path.join(os.homedir(), ".claude"), "etrnl", "state"));
 }
 
 /** Build all filesystem paths owned by the local ETRNL state store for a root. */
@@ -423,7 +423,7 @@ export function beadPrimeAudit(text = "") {
     command: "bead-prime-audit",
     prohibited: prohibited.map((rule) => rule.id),
     reason: prohibited.length > 0
-      ? "Raw Beads startup doctrine is prohibited in this control plane; use ETRNL bead-link dry-run candidates only."
+      ? "Raw Beads startup doctrine is prohibited in the Eternal Stack; use ETRNL bead-link dry-run candidates only."
       : "No raw Beads startup doctrine detected.",
   };
 }

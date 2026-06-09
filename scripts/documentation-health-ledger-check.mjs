@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFileSync } from "node:fs";
+import { readStdinJson } from "./lib/read-stdin.mjs";
 
 const DOC_SKILL = "documentation-health";
 const TERMINAL_DISPOSITIONS = new Set([
@@ -15,21 +15,25 @@ const BASELINE_REPORT_RE = /\b(?:baseline (?:written|created|generated|refreshed
 const BASELINE_NEGATED_RE = /\b(?:no|not|never|without|did not|didn't)\b.{0,60}\bbaseline\b|\bbaseline\b.{0,60}\b(?:not|never)\b/i;
 
 function readInput() {
-  const raw = readFileSync(0, "utf8").trim();
-  if (!raw) return { state: {}, message: "" };
-  try {
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === "object" && parsed.state) {
-      return {
-        state: parsed.state,
-        message: String(parsed.message || ""),
-      };
-    }
-    return { state: parsed, message: String(parsed.lastAssistantMessage || "") };
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    throw new Error(`invalid documentation health input JSON: ${detail}`);
+  const parsed = readStdinJson({
+    emptyValue: null,
+    onInvalidJson: (error) => {
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new Error(`invalid documentation health input JSON: ${detail}`);
+    },
+    onReadError: (error) => {
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new Error(`invalid documentation health input JSON: ${detail}`);
+    },
+  });
+  if (parsed === null) return { state: {}, message: "" };
+  if (parsed && typeof parsed === "object" && parsed.state) {
+    return {
+      state: parsed.state,
+      message: String(parsed.message || ""),
+    };
   }
+  return { state: parsed, message: String(parsed.lastAssistantMessage || "") };
 }
 
 function norm(value) {
@@ -115,7 +119,7 @@ function hasInventory(commands) {
 
 function hasValidation(commands) {
   return commands.some((command) => (
-    /documentation-health-ledger-check\.mjs|markdownlint|cspell|vale|lychee|linkinator|markdown-link-check|skill-contract-check\.mjs|tests\/test-hooks\.sh|scripts\/doctor\.sh|doctor-control-plane\.sh/.test(command)
+    /documentation-health-ledger-check\.mjs|markdownlint|cspell|vale|lychee|linkinator|markdown-link-check|skill-contract-check\.mjs|tests\/test-hooks\.sh|scripts\/doctor\.sh|doctor-etrnl\.sh/.test(command)
   ));
 }
 

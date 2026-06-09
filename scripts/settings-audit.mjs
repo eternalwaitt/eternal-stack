@@ -9,7 +9,7 @@ const fix = args.includes("--fix");
 const json = args.includes("--json");
 const strictConflicts = args.includes("--strict-conflicts");
 const settingsPath = args.find((arg) => !arg.startsWith("--"));
-const configuredMaxWalkDepth = Number(process.env.CLAUDE_CONTROL_PLANE_SETTINGS_AUDIT_MAX_DEPTH || "8");
+const configuredMaxWalkDepth = Number(process.env.ETRNL_SETTINGS_AUDIT_MAX_DEPTH || "8");
 const maxWalkDepth = Number.isFinite(configuredMaxWalkDepth) && configuredMaxWalkDepth >= 0 ? configuredMaxWalkDepth : 8;
 const walkDepthWarnings = new Set();
 
@@ -217,7 +217,7 @@ const conflictForHook = (basename, command, eventName, matcher) => {
     if (rtkRewriteHasRgProxyGuard(command)) return null;
     return {
       id: "rtk-rewrite",
-      reason: "outdated rtk-rewrite.sh rewrites Bash commands before the control-plane guard; observed rg -> rtk grep rewrites can break recursive directory searches",
+      reason: "outdated rtk-rewrite.sh rewrites Bash commands before the Eternal Stack guard; observed rg -> rtk grep rewrites can break recursive directory searches",
     };
   }
   if (basename === "enforce-cli-toolkit.sh" && eventName === "PreToolUse" && matcherOverlaps(matcher, "Bash")) {
@@ -654,14 +654,14 @@ if (json) {
     console.log(`warning: risky top-level setting ${risky.key}: ${risky.reason}`);
   }
   for (const root of after.walkDepthWarnings) {
-    console.log(`warning: settings audit max depth reached at ${root}; set CLAUDE_CONTROL_PLANE_SETTINGS_AUDIT_MAX_DEPTH to scan deeper`);
+    console.log(`warning: settings audit max depth reached at ${root}; set ETRNL_SETTINGS_AUDIT_MAX_DEPTH to scan deeper`);
   }
   if (after.pluginHookManifests.length > 0) {
     console.log(`info: ${after.pluginHookManifests.length} plugin hook(s) visible outside settings.json`);
   }
   const unknownCount = after.externalHooks.filter((hook) => hook.owner === "unknown-external").length;
   if (unknownCount > 0) {
-    console.log(`warning: ${unknownCount} unknown external hook(s) present; inspect --json output before blaming repo-owned control-plane hooks`);
+    console.log(`warning: ${unknownCount} unknown external hook(s) present; inspect --json output before blaming repo-owned Eternal Stack hooks`);
   }
 } else {
   console.error(`fail: settings audit found issues in ${settingsPath}`);
@@ -696,7 +696,7 @@ if (json) {
     console.error(`- memory plugin unhealthy ${posture.plugin}: ${posture.issues.join("; ")}`);
   }
   for (const root of after.walkDepthWarnings) {
-    console.error(`- settings audit max depth reached at ${root}; set CLAUDE_CONTROL_PLANE_SETTINGS_AUDIT_MAX_DEPTH to scan deeper`);
+    console.error(`- settings audit max depth reached at ${root}; set ETRNL_SETTINGS_AUDIT_MAX_DEPTH to scan deeper`);
   }
 }
 

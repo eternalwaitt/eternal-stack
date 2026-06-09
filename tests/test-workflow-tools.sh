@@ -324,33 +324,33 @@ done
 assert_command "complexity syntax" node --check "$ROOT/hooks/lib/complexity-check.mjs"
 assert_command "audit exclusions syntax" node --check "$ROOT/scripts/lib/audit-exclusions.mjs"
 assert_command "env utils namespaced git limits" env \
-  CLAUDE_CONTROL_PLANE_GIT_TIMEOUT_MS=123 \
+  ETRNL_GIT_TIMEOUT_MS=123 \
   GIT_TIMEOUT_MS=456 \
-  CLAUDE_CONTROL_PLANE_GIT_MAX_BUFFER_BYTES=789 \
+  ETRNL_GIT_MAX_BUFFER_BYTES=789 \
   GIT_MAX_BUFFER_BYTES=111 \
   node --input-type=module -e 'import { gitSubprocessLimits } from "./scripts/lib/env-utils.mjs";
 const limits = gitSubprocessLimits({ timeoutMs: 1, maxBufferBytes: 2 });
 if (limits.timeout !== 123 || limits.maxBuffer !== 789) process.exit(1);'
 assert_command "env utils invalid namespaced falls through" env \
-  CLAUDE_CONTROL_PLANE_GIT_TIMEOUT_MS=abc \
+  ETRNL_GIT_TIMEOUT_MS=abc \
   GIT_TIMEOUT_MS=456 \
-  CLAUDE_CONTROL_PLANE_GIT_MAX_BUFFER_BYTES=abc \
+  ETRNL_GIT_MAX_BUFFER_BYTES=abc \
   GIT_MAX_BUFFER_BYTES=111 \
   node --input-type=module -e 'import { gitSubprocessLimits } from "./scripts/lib/env-utils.mjs";
 const limits = gitSubprocessLimits({ timeoutMs: 1, maxBufferBytes: 2 });
 if (limits.timeout !== 456 || limits.maxBuffer !== 111) process.exit(1);'
 assert_command "env utils rejects non-decimal integers" env \
-  CLAUDE_CONTROL_PLANE_GIT_TIMEOUT_MS=1e3 \
+  ETRNL_GIT_TIMEOUT_MS=1e3 \
   GIT_TIMEOUT_MS=456 \
-  CLAUDE_CONTROL_PLANE_GIT_MAX_BUFFER_BYTES=0x100 \
+  ETRNL_GIT_MAX_BUFFER_BYTES=0x100 \
   GIT_MAX_BUFFER_BYTES=111 \
   node --input-type=module -e 'import { gitSubprocessLimits } from "./scripts/lib/env-utils.mjs";
 const limits = gitSubprocessLimits({ timeoutMs: 1, maxBufferBytes: 2 });
 if (limits.timeout !== 456 || limits.maxBuffer !== 111) process.exit(1);'
 assert_command "env utils rejects unsafe integers" env \
-  CLAUDE_CONTROL_PLANE_GIT_TIMEOUT_MS=9007199254740993 \
+  ETRNL_GIT_TIMEOUT_MS=9007199254740993 \
   GIT_TIMEOUT_MS=456 \
-  CLAUDE_CONTROL_PLANE_GIT_MAX_BUFFER_BYTES=9007199254740993 \
+  ETRNL_GIT_MAX_BUFFER_BYTES=9007199254740993 \
   GIT_MAX_BUFFER_BYTES=111 \
   node --input-type=module -e 'import { gitSubprocessLimits } from "./scripts/lib/env-utils.mjs";
 const limits = gitSubprocessLimits({ timeoutMs: 1, maxBufferBytes: 2 });
@@ -449,7 +449,7 @@ assert_json_expr "pr preflight separates untracked files" "$pr_preflight_status_
 perf_baseline_fixture="$TMPROOT/performance-baseline.json"
 printf '%s\n' '{"schemaVersion":1,"baselineId":"base","targetLabel":"fixture","measurements":[{"route":"/","durationMs":100,"responseBytes":1000,"capturedAt":"2026-01-01T00:00:00Z"},{"route":"/removed","durationMs":75,"responseBytes":500,"capturedAt":"2026-01-01T00:00:00Z"}],"nextRun":{"command":"pnpm bench","thresholds":{"maxRegressionPct":20}}}' >"$perf_baseline_fixture"
 assert_command "performance baseline validates fixture" node "$ROOT/scripts/performance-baseline.mjs" validate "$perf_baseline_fixture"
-perf_created_path="$(printf '%s\n' '{"baselineId":"created","targetLabel":"fixture","measurements":[{"route":"/created","durationMs":50,"capturedAt":"2026-01-01T00:00:00Z"}]}' | CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$TMPROOT/artifacts" node "$ROOT/scripts/performance-baseline.mjs" create)"
+perf_created_path="$(printf '%s\n' '{"baselineId":"created","targetLabel":"fixture","measurements":[{"route":"/created","durationMs":50,"capturedAt":"2026-01-01T00:00:00Z"}]}' | ETRNL_ARTIFACTS_DIR="$TMPROOT/artifacts" node "$ROOT/scripts/performance-baseline.mjs" create)"
 assert_file "performance baseline create writes report without nextRun" "$perf_created_path"
 assert_command "performance baseline create output validates" node "$ROOT/scripts/performance-baseline.mjs" validate "$perf_created_path"
 assert_json_expr "performance baseline create omits empty nextRun" "$(cat "$perf_created_path")" 'has("nextRun") | not'
@@ -468,7 +468,7 @@ if perf_invalid_json="$(printf '{' | node "$ROOT/scripts/performance-baseline.mj
 else
   assert_contains "performance baseline reports invalid JSON" "$perf_invalid_json" "invalid JSON from stdin"
 fi
-if perf_stdin_timeout="$(CLAUDE_CONTROL_PLANE_STDIN_TIMEOUT_MS=1 node "$ROOT/scripts/performance-baseline.mjs" create < <(sleep 0.05) 2>&1)"; then
+if perf_stdin_timeout="$(ETRNL_STDIN_TIMEOUT_MS=1 node "$ROOT/scripts/performance-baseline.mjs" create < <(sleep 0.05) 2>&1)"; then
   not_ok "performance baseline fails when stdin does not close"
 else
   assert_contains "performance baseline fails when stdin does not close" "$perf_stdin_timeout" "missing EOF"
@@ -691,11 +691,21 @@ cat >"$TMPROOT/tool-stack-hindsight/claude-code.json" <<'JSON'
   "recallPromptPreamble": "Fresh repo/runtime evidence overrides memory."
 }
 JSON
-tool_stack_json="$(PATH="$tool_stack_bin:/usr/bin:/bin" CLAUDE_HOME="$TMPROOT/tool-stack-home" HINDSIGHT_HOME="$TMPROOT/tool-stack-hindsight" CLAUDE_CONTROL_PLANE_TOOL_STACK_STATE="$TMPROOT/tool-stack-state.json" "$node_bin" "$ROOT/scripts/tool-stack-check.mjs" --json --force)"
+tool_stack_json="$(PATH="$tool_stack_bin:/usr/bin:/bin" CLAUDE_HOME="$TMPROOT/tool-stack-home" HINDSIGHT_HOME="$TMPROOT/tool-stack-hindsight" ETRNL_TOOL_STACK_STATE="$TMPROOT/tool-stack-state.json" "$node_bin" "$ROOT/scripts/tool-stack-check.mjs" --json --force)"
 assert_json_expr "tool stack checker detects codegraph update" "$tool_stack_json" '.tools.codegraph.installed == true and .tools.codegraph.currentVersion == "0.9.9" and .tools.codegraph.latestVersion == "1.0.0" and .tools.codegraph.updateAvailable == true'
 assert_json_expr "tool stack checker keeps beads current" "$tool_stack_json" '.tools.beads.installed == true and .tools.beads.currentVersion == "1.0.5" and .tools.beads.updateAvailable == false'
 assert_json_expr "tool stack checker reports Hindsight plugin posture" "$tool_stack_json" '.tools.hindsight.pluginEnabled == true and .tools.hindsight.pluginInstalled == true and .tools.hindsight.ok == true and .tools.hindsight.mode == "local-daemon"'
-tool_stack_text="$(PATH="$tool_stack_bin:/usr/bin:/bin" CLAUDE_HOME="$TMPROOT/tool-stack-home" HINDSIGHT_HOME="$TMPROOT/tool-stack-hindsight" CLAUDE_CONTROL_PLANE_TOOL_STACK_STATE="$TMPROOT/tool-stack-state.json" "$node_bin" "$ROOT/scripts/tool-stack-check.mjs" --force)"
+mkdir -p "$TMPROOT/tool-stack-home/plugins/cache/hindsight/hindsight-memory/0.7.1/hooks"
+printf '{}\n' >"$TMPROOT/tool-stack-home/plugins/cache/hindsight/hindsight-memory/0.7.1/hooks/hooks.json"
+hindsight_cache_json="$(PATH="/usr/bin:/bin" CLAUDE_HOME="$TMPROOT/tool-stack-home" HINDSIGHT_HOME="$TMPROOT/tool-stack-hindsight" ETRNL_TOOL_STACK_STATE="$TMPROOT/tool-stack-cache-state.json" "$node_bin" "$ROOT/scripts/tool-stack-check.mjs" --json --force)"
+assert_json_expr "tool stack checker detects Hindsight from plugin cache without claude on PATH" "$hindsight_cache_json" '.tools.hindsight.pluginInstalled == true and .tools.hindsight.pluginInstallSource == "plugin-cache" and .tools.hindsight.installed == true and .tools.hindsight.ok == true and .tools.hindsight.currentVersion == "0.7.1"'
+hindsight_update_output="$(PATH="/usr/bin:/bin" CLAUDE_HOME="$TMPROOT/tool-stack-home" HINDSIGHT_HOME="$TMPROOT/tool-stack-hindsight" ETRNL_TOOL_STACK_STATE="$TMPROOT/tool-stack-cache-state.json" "$node_bin" "$ROOT/scripts/update-check.mjs" 2>&1 || true)"
+if [[ "$hindsight_update_output" == *"TOOL_STACK_MISSING hindsight"* ]]; then
+  not_ok "update-check does not false-positive missing Hindsight when plugin cache is present"
+else
+  ok "update-check does not false-positive missing Hindsight when plugin cache is present"
+fi
+tool_stack_text="$(PATH="$tool_stack_bin:/usr/bin:/bin" CLAUDE_HOME="$TMPROOT/tool-stack-home" HINDSIGHT_HOME="$TMPROOT/tool-stack-hindsight" ETRNL_TOOL_STACK_STATE="$TMPROOT/tool-stack-state.json" "$node_bin" "$ROOT/scripts/tool-stack-check.mjs" --force)"
 assert_contains "tool stack checker text advertises update" "$tool_stack_text" "TOOL_STACK_UPDATE_AVAILABLE codegraph"
 hindsight_canary_json="$(PATH="$tool_stack_bin:/usr/bin:/bin" "$ROOT/scripts/canary-hindsight.sh" --settings "$TMPROOT/tool-stack-home/settings.json" --config "$TMPROOT/tool-stack-hindsight/claude-code.json" --json)"
 assert_json_expr "hindsight canary passes local daemon config without live health" "$hindsight_canary_json" '.ok == true and .mode == "local-daemon" and .health == "health-skipped"'
@@ -764,14 +774,16 @@ tool_effectiveness_codex_import_json="$(node "$ROOT/scripts/tool-effectiveness.m
 assert_json_expr "tool-effectiveness codex import sanitizes tool events" "$tool_effectiveness_codex_import_json" '.command == "import-codex" and .dryRun == true and .eventsImported == 2 and (.rejected | length) == 0'
 assert_json_expr "tool-effectiveness codex import preserves explicit outcomes" "$tool_effectiveness_codex_import_json" '(.events[] | select(.tool == "codegraph") | .eligible == true and .toolUsed == true and .usefulWork == true and .downstreamArtifact == true) and (.events[] | select(.tool == "beads") | .eligible == false and .toolUsed == false and .usefulWork == false and .downstreamArtifact == false)'
 assert_command "update shell syntax" bash -n "$ROOT/scripts/update.sh"
+grep -Fq 'install.sh" --preserve-settings' "$ROOT/scripts/update.sh" || fail "update.sh must preserve settings on upgrade"
+grep -Fq 'post_upgrade_canary="$ROOT/scripts/post-upgrade-canary.sh"' "$ROOT/scripts/update.sh" || fail "update.sh must assign post_upgrade_canary before use"
 auto_update_source="$TMPROOT/auto-update-source"
 auto_update_home="$TMPROOT/auto-update-home"
-mkdir -p "$auto_update_source/scripts" "$auto_update_home/control-plane"
+mkdir -p "$auto_update_source/scripts" "$auto_update_home/etrnl"
 printf '%s\n' '#!/usr/bin/env bash' 'exit 0' >"$auto_update_source/scripts/install.sh"
 cat >"$auto_update_source/scripts/update.sh" <<'BASH'
 #!/usr/bin/env bash
 set -Eeuo pipefail
-mkdir -p "$CLAUDE_HOME/control-plane"
+mkdir -p "$CLAUDE_HOME/etrnl"
 printf 'ran\n' >"$CLAUDE_HOME/auto-update-ran"
 BASH
 chmod +x "$auto_update_source/scripts/install.sh" "$auto_update_source/scripts/update.sh"
@@ -783,13 +795,40 @@ jq -n --arg sourceRoot "$auto_update_source" '{
   sourceVersion: "v0.0.1",
   sourceFingerprint: "stale",
   settingsMode: "default"
-}' >"$auto_update_home/control-plane/install.json"
-auto_disabled_json="$(CLAUDE_HOME="$auto_update_home" CODEX_HOME="$TMPROOT/auto-update-codex" CLAUDE_CONTROL_PLANE_HOME="$auto_update_home" CLAUDE_CONTROL_PLANE_AUTO_UPDATE=0 node "$ROOT/scripts/update-check.mjs" --json)"
+}' >"$auto_update_home/etrnl/install.json"
+auto_disabled_json="$(CLAUDE_HOME="$auto_update_home" CODEX_HOME="$TMPROOT/auto-update-codex" ETRNL_HOME="$auto_update_home" ETRNL_AUTO_UPDATE=0 node "$ROOT/scripts/update-check.mjs" --json)"
 assert_json_expr "update-check opt-out reports stale local install" "$auto_disabled_json" '.ok == true and .localUpdateAvailable == true and .autoUpdate == ""'
 assert_no_file "update-check opt-out does not run updater" "$auto_update_home/auto-update-ran"
-auto_default_json="$(CLAUDE_HOME="$auto_update_home" CODEX_HOME="$TMPROOT/auto-update-codex" CLAUDE_CONTROL_PLANE_HOME="$auto_update_home" node "$ROOT/scripts/update-check.mjs" --json)"
-assert_json_expr "update-check auto-runs local updater by default" "$auto_default_json" '.ok == true and .localUpdateAvailable == false and (.autoUpdate | startswith("CONTROL_PLANE_AUTO_UPDATED "))'
+auto_default_json="$(CLAUDE_HOME="$auto_update_home" CODEX_HOME="$TMPROOT/auto-update-codex" ETRNL_HOME="$auto_update_home" node "$ROOT/scripts/update-check.mjs" --json)"
+assert_json_expr "update-check auto-runs local updater by default" "$auto_default_json" '.ok == true and .localUpdateAvailable == false and (.autoUpdate | startswith("ETRNL_AUTO_UPDATED "))'
 assert_file "update-check default auto ran updater" "$auto_update_home/auto-update-ran"
+dirty_auto_source="$TMPROOT/dirty-auto-source"
+dirty_auto_home="$TMPROOT/dirty-auto-home"
+mkdir -p "$dirty_auto_source/scripts" "$dirty_auto_home/etrnl"
+printf '%s\n' '#!/usr/bin/env bash' 'exit 0' >"$dirty_auto_source/scripts/install.sh"
+chmod +x "$dirty_auto_source/scripts/install.sh"
+cat >"$dirty_auto_source/scripts/update.sh" <<'BASH'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+printf 'ran\n' >"$CLAUDE_HOME/auto-update-dirty-ran"
+BASH
+chmod +x "$dirty_auto_source/scripts/update.sh"
+printf '%s\n' '# Changelog' '' '## v0.0.1' >"$dirty_auto_source/CHANGELOG.md"
+git -C "$dirty_auto_source" init -q
+git -C "$dirty_auto_source" add CHANGELOG.md scripts/install.sh scripts/update.sh
+git -C "$dirty_auto_source" -c user.email='test@example.com' -c user.name='test' commit -q -m 'init'
+printf 'dirty\n' >"$dirty_auto_source/dirty-marker"
+jq -n --arg sourceRoot "$dirty_auto_source" '{
+  sourceRoot: $sourceRoot,
+  sourceCommit: "deadbeef",
+  sourceCommitShort: "deadbeef",
+  sourceVersion: "v0.0.1",
+  sourceFingerprint: "stale",
+  settingsMode: "default"
+}' >"$dirty_auto_home/etrnl/install.json"
+dirty_skipped_json="$(CLAUDE_HOME="$dirty_auto_home" CODEX_HOME="$TMPROOT/dirty-auto-codex" ETRNL_HOME="$dirty_auto_home" node "$ROOT/scripts/update-check.mjs" --json)"
+assert_json_expr "update-check skips auto-update on dirty source checkout" "$dirty_skipped_json" '.autoUpdate | startswith("ETRNL_AUTO_UPDATE_SKIPPED")'
+assert_no_file "update-check dirty skip does not run updater" "$dirty_auto_home/auto-update-dirty-ran"
 assert_command "bootstrap tools shell syntax" bash -n "$ROOT/scripts/bootstrap-tools.sh"
 merge_target="$TMPROOT/settings-target.json"
 merge_template="$TMPROOT/settings-template.json"
@@ -1213,24 +1252,24 @@ fi
 buglog_path="$TMPROOT/project-buglog.jsonl"
 BUGLOG_TOKEN="sk_live_example_should_not_persist"
 BUGLOG_SECRET="aws_secret_access_key=$aws_secret_value"
-buglog_fp="$(CLAUDE_CONTROL_PLANE_BUGLOG="$buglog_path" node "$ROOT/scripts/project-buglog.mjs" record --cwd "$TMPROOT/project" --file src/app.ts --category repeated-edit --summary "repeat failure leaked $BUGLOG_TOKEN and $BUGLOG_SECRET")"
+buglog_fp="$(ETRNL_BUGLOG="$buglog_path" node "$ROOT/scripts/project-buglog.mjs" record --cwd "$TMPROOT/project" --file src/app.ts --category repeated-edit --summary "repeat failure leaked $BUGLOG_TOKEN and $BUGLOG_SECRET")"
 if [[ ${#buglog_fp} -ge 16 ]]; then
   ok "project buglog fingerprint emitted"
 else
   not_ok "project buglog fingerprint emitted"
 fi
-buglog_fp_session2="$(CLAUDE_CONTROL_PLANE_BUGLOG="$buglog_path" node "$ROOT/scripts/project-buglog.mjs" record --cwd "$TMPROOT/project" --file src/app.ts --category repeated-edit --summary "repeat failure leaked $BUGLOG_TOKEN and $BUGLOG_SECRET" --session other-session)"
+buglog_fp_session2="$(ETRNL_BUGLOG="$buglog_path" node "$ROOT/scripts/project-buglog.mjs" record --cwd "$TMPROOT/project" --file src/app.ts --category repeated-edit --summary "repeat failure leaked $BUGLOG_TOKEN and $BUGLOG_SECRET" --session other-session)"
 if [[ "$buglog_fp_session2" == "$buglog_fp" ]]; then
   ok "project buglog fingerprint is cross-session stable"
 else
   not_ok "project buglog fingerprint is cross-session stable"
 fi
-CLAUDE_CONTROL_PLANE_BUGLOG="$buglog_path" node "$ROOT/scripts/project-buglog.mjs" record --cwd "$TMPROOT/project" --file src/other.ts --category repeated-edit --summary "repeat failure leaked $BUGLOG_TOKEN and $BUGLOG_SECRET" >/dev/null
-CLAUDE_CONTROL_PLANE_BUGLOG="$buglog_path" node "$ROOT/scripts/project-buglog.mjs" record --cwd "$TMPROOT/project" --file src/third.ts --category repeated-edit --summary "repeat failure leaked $BUGLOG_TOKEN and $BUGLOG_SECRET" >/dev/null
-buglog_json="$(CLAUDE_CONTROL_PLANE_BUGLOG="$buglog_path" node "$ROOT/scripts/project-buglog.mjs" suggest --cwd "$TMPROOT/project" --file src/app.ts --json)"
+ETRNL_BUGLOG="$buglog_path" node "$ROOT/scripts/project-buglog.mjs" record --cwd "$TMPROOT/project" --file src/other.ts --category repeated-edit --summary "repeat failure leaked $BUGLOG_TOKEN and $BUGLOG_SECRET" >/dev/null
+ETRNL_BUGLOG="$buglog_path" node "$ROOT/scripts/project-buglog.mjs" record --cwd "$TMPROOT/project" --file src/third.ts --category repeated-edit --summary "repeat failure leaked $BUGLOG_TOKEN and $BUGLOG_SECRET" >/dev/null
+buglog_json="$(ETRNL_BUGLOG="$buglog_path" node "$ROOT/scripts/project-buglog.mjs" suggest --cwd "$TMPROOT/project" --file src/app.ts --json)"
 assert_json_expr "project buglog suggest emits JSON" "$buglog_json" '.schemaVersion == 1 and (.suggestions | length) == 1'
 assert_json_expr "project buglog suggest includes guard recommendation" "$buglog_json" '(.suggestions[0].suggestedGuard | length) > 0'
-buglog_project_json="$(CLAUDE_CONTROL_PLANE_BUGLOG="$buglog_path" node "$ROOT/scripts/project-buglog.mjs" suggest-project --cwd "$TMPROOT/project" --json --aggregate-threshold 3)"
+buglog_project_json="$(ETRNL_BUGLOG="$buglog_path" node "$ROOT/scripts/project-buglog.mjs" suggest-project --cwd "$TMPROOT/project" --json --aggregate-threshold 3)"
 assert_json_expr "project buglog project hints omit raw cwd" "$buglog_project_json" '.project == "project" and (.cwd | not) and (.suggestions | length) == 1'
 assert_json_expr "project buglog aggregates repeated lessons" "$buglog_project_json" '.suggestions[0].kind == "aggregate" and .suggestions[0].affectedFilesCount == 3 and (.suggestions[0].recentFiles | length) == 3'
 assert_json_expr "project buglog aggregate carries display file" "$buglog_project_json" '(.suggestions[0].file | type == "string" and length > 0)'
@@ -1241,7 +1280,7 @@ else
 fi
 stale_buglog_path="$TMPROOT/stale-project-buglog.jsonl"
 printf '%s\n' '{"schemaVersion":1,"fingerprintVersion":2,"cwd":"'"$TMPROOT"'/stale","file":"src/stale.ts","category":"repeat-edit","summary":"old bug","sessionId":"old","at":"2000-01-01T00:00:00Z","fingerprint":"oldbug1234567890"}' >"$stale_buglog_path"
-stale_buglog_json="$(CLAUDE_CONTROL_PLANE_BUGLOG="$stale_buglog_path" node "$ROOT/scripts/project-buglog.mjs" suggest --cwd "$TMPROOT/stale" --file src/stale.ts --json --max-age-days 1)"
+stale_buglog_json="$(ETRNL_BUGLOG="$stale_buglog_path" node "$ROOT/scripts/project-buglog.mjs" suggest --cwd "$TMPROOT/stale" --file src/stale.ts --json --max-age-days 1)"
 assert_json_expr "project buglog suppresses stale hints" "$stale_buglog_json" '(.suggestions | length) == 0'
 
 qa_report="$(printf '{"routes":["/"],"viewports":["desktop","mobile"],"findings":[]}' | node "$ROOT/scripts/browser-qa-report.mjs" create --path "$TMPROOT/browser-qa.json")"
@@ -1305,7 +1344,7 @@ qa_artifacts="$TMPROOT/browser-qa-artifacts"
 mkdir -p "$qa_artifacts/browser-qa"
 printf '{bad' >"$qa_artifacts/browser-qa/bad.json"
 cp "$qa_report" "$qa_artifacts/browser-qa/good.json"
-if qa_summary="$(CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$qa_artifacts" node "$ROOT/scripts/browser-qa-report.mjs" summary --strict 2>&1)"; then
+if qa_summary="$(ETRNL_ARTIFACTS_DIR="$qa_artifacts" node "$ROOT/scripts/browser-qa-report.mjs" summary --strict 2>&1)"; then
   not_ok "browser QA strict summary exits after processing all reports"
 else
   assert_contains "browser QA strict summary counts valid reports" "$qa_summary" "browserQa reports=1"
@@ -1345,60 +1384,60 @@ assert_json_expr "wave drift ignores file order" "$wave_reordered_json" '.drift 
 health_root="$TMPROOT/health"
 mkdir -p "$health_root/runs"
 printf '%s\n' '{"schemaVersion":1,"runId":"stale-run","updatedAt":"2000-01-01T00:00:00Z","tasks":[{"id":"T1","status":"in_progress"}],"agents":[],"checks":[]}' >"$health_root/runs/stale-run.json"
-health_out="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs")"
+health_out="$(ETRNL_RUNS_DIR="$health_root/runs" ETRNL_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs")"
 assert_contains "workflow health detects stale runs" "$health_out" "staleRuns=1"
 assert_contains "workflow health reports artifact freshness" "$health_out" "artifactFreshness latest=none"
-health_status_json="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" status --json)"
+health_status_json="$(ETRNL_RUNS_DIR="$health_root/runs" ETRNL_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" status --json)"
 assert_json_expr "workflow health status emits schema" "$health_status_json" '.schemaVersion == 1'
 assert_json_expr "workflow health status reports active run" "$health_status_json" '.activeRunId == "stale-run"'
 assert_json_expr "workflow health status reports unfinished work" "$health_status_json" '.unfinishedTasks == 1 and .runs.stale == 1'
 assert_json_expr "workflow health status reports next action" "$health_status_json" '(.nextAction | length) > 0'
 mkdir -p "$health_root/project-a" "$health_root/project-b"
 jq -n --arg cwd "$health_root/project-a" '{"schemaVersion":2,"runId":"project-a-run","sessionId":"project-a-session","cwd":$cwd,"projectId":"project-a","updatedAt":"2026-05-13T11:00:00Z","tasks":[{"id":"T1","status":"verified"}],"agents":[],"checks":[{"name":"fixture","status":"passed"}],"events":[]}' >"$health_root/runs/project-a-run.json"
-filtered_health_json="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" status --json --cwd "$health_root/project-a")"
+filtered_health_json="$(ETRNL_RUNS_DIR="$health_root/runs" ETRNL_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" status --json --cwd "$health_root/project-a")"
 assert_json_expr "workflow health cwd filter selects matching run" "$filtered_health_json" '.activeRunId == "project-a-run" and .filters.cwd != ""'
-filtered_empty_health_json="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" status --json --cwd "$health_root/project-b")"
+filtered_empty_health_json="$(ETRNL_RUNS_DIR="$health_root/runs" ETRNL_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" status --json --cwd "$health_root/project-b")"
 assert_json_expr "workflow health cwd filter excludes unrelated runs" "$filtered_empty_health_json" '.activeRunId == "" and .runs.total == 0'
-if workflow_unknown_out="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" nope --json 2>&1)"; then
+if workflow_unknown_out="$(ETRNL_RUNS_DIR="$health_root/runs" ETRNL_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" nope --json 2>&1)"; then
   not_ok "workflow health rejects unknown command even in json mode"
 else
   assert_contains "workflow health unknown command reason" "$workflow_unknown_out" "Unknown workflow-health command"
 fi
-doctor_health_json="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" doctor --json --all)"
+doctor_health_json="$(ETRNL_RUNS_DIR="$health_root/runs" ETRNL_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" doctor --json --all)"
 assert_json_expr "workflow health doctor reports ledgers" "$doctor_health_json" '.command == "doctor" and .ledgers.total >= 2 and .strictReady == false and any(.runtimeFindings[]; .id == "stale-ledgers")'
 workflow_empty_root="$TMPROOT/workflow-health-empty"
-if CLAUDE_CONTROL_PLANE_RUNS_DIR="$workflow_empty_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$workflow_empty_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" doctor --json >/dev/null; then
+if ETRNL_RUNS_DIR="$workflow_empty_root/runs" ETRNL_ARTIFACTS_DIR="$workflow_empty_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" doctor --json >/dev/null; then
   ok "workflow health doctor exits zero with clean empty state"
 else
   not_ok "workflow health doctor exits zero with clean empty state"
 fi
-if strict_health_out="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" doctor --json --all --strict 2>&1)"; then
+if strict_health_out="$(ETRNL_RUNS_DIR="$health_root/runs" ETRNL_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" doctor --json --all --strict 2>&1)"; then
   not_ok "workflow health strict doctor fails on runtime findings"
 else
   assert_json_expr "workflow health strict doctor fails on runtime findings" "$strict_health_out" '.ok == false and .strict == true and any(.runtimeFindings[]; .id == "stale-ledgers")'
 fi
 mkdir -p "$health_root/artifacts/tool-effectiveness"
 printf '%s\n' '{"schemaVersion":1,"tool":"codegraph","eligible":true,"toolUsed":true,"usedBeforeFirstEdit":true}' >"$health_root/artifacts/tool-effectiveness/events.jsonl"
-effectiveness_status_json="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" status --json --all)"
+effectiveness_status_json="$(ETRNL_RUNS_DIR="$health_root/runs" ETRNL_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" status --json --all)"
 assert_json_expr "workflow health status projects effectiveness when present" "$effectiveness_status_json" '.effectiveness.events == 1 and (.effectiveness.tools | index("codegraph")) != null'
-effectiveness_scoped_status_json="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" status --json --cwd "$health_root/project-a")"
+effectiveness_scoped_status_json="$(ETRNL_RUNS_DIR="$health_root/runs" ETRNL_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" status --json --cwd "$health_root/project-a")"
 assert_json_expr "workflow health scoped status suppresses global effectiveness" "$effectiveness_scoped_status_json" '.effectiveness == null'
-effectiveness_doctor_json="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" doctor --json --all)"
+effectiveness_doctor_json="$(ETRNL_RUNS_DIR="$health_root/runs" ETRNL_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" doctor --json --all)"
 assert_json_expr "workflow health doctor reports effectiveness health" "$effectiveness_doctor_json" '.effectiveness.events == 1 and .effectiveness.malformed == 0'
 jq -n '{"schemaVersion":2,"runId":"old-terminal-run","sessionId":"old","cwd":"/tmp/old","projectId":"old","updatedAt":"2000-01-01T00:00:00Z","tasks":[{"id":"T1","status":"verified"}],"agents":[],"checks":[{"name":"fixture","status":"passed"}],"events":[]}' >"$health_root/runs/old-terminal-run.json"
-prune_health_json="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" prune --older-than-days 30 --dry-run --json --all)"
+prune_health_json="$(ETRNL_RUNS_DIR="$health_root/runs" ETRNL_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" prune --older-than-days 30 --dry-run --json --all)"
 assert_json_expr "workflow health prune dry-run reports prunable ledgers" "$prune_health_json" '.command == "prune" and .dryRun == true and (.prunable | map(.runId) | index("old-terminal-run")) != null and .pruned == 0'
 printf '%s\n' '{"schemaVersion":1,"runId":"artifact-run","updatedAt":"2026-05-13T12:00:00Z","tasks":[{"id":"T1","status":"verified"}],"agents":[],"checks":[{"name":"fixture","status":"passed"}],"requiredArtifacts":["browser-qa-report"],"artifacts":[]}' >"$health_root/runs/artifact-run.json"
-artifact_status_json="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" status --json)"
+artifact_status_json="$(ETRNL_RUNS_DIR="$health_root/runs" ETRNL_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" status --json)"
 assert_json_expr "workflow health status reports missing artifacts" "$artifact_status_json" '(.missingArtifacts | index("browser-qa-report")) != null'
 printf '%s\n' '{"schemaVersion":1,"runId":"uat-run","updatedAt":"2026-05-13T13:00:00Z","phaseId":"P1","workstreamId":"browser","phaseStatus":"uat","uatArtifact":"browser-qa.json","uatOpenFindings":2,"tasks":[{"id":"T1","status":"verified"}],"agents":[],"checks":[{"name":"fixture","status":"passed"}],"requiredArtifacts":[],"artifacts":[]}' >"$health_root/runs/uat-run.json"
-uat_status_json="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" status --json)"
+uat_status_json="$(ETRNL_RUNS_DIR="$health_root/runs" ETRNL_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" status --json)"
 assert_json_expr "workflow health status reports UAT state" "$uat_status_json" '.phase.id == "P1" and .uat.openFindings == 2'
 assert_json_expr "workflow health next action prefers UAT findings" "$uat_status_json" '(.nextAction | contains("UAT findings"))'
-uat_status_text="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" status)"
+uat_status_text="$(ETRNL_RUNS_DIR="$health_root/runs" ETRNL_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" status)"
 assert_contains "workflow health status text reports active run" "$uat_status_text" "activeRun=uat-run"
 assert_contains "workflow health status text reports next action" "$uat_status_text" "nextAction=resolve UAT findings: 2"
-empty_health="$(CLAUDE_CONTROL_PLANE_RUNS_DIR="$health_root/missing-runs" CLAUDE_CONTROL_PLANE_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs")"
+empty_health="$(ETRNL_RUNS_DIR="$health_root/missing-runs" ETRNL_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs")"
 assert_contains "workflow health reports artifacts without ledger dir" "$empty_health" "reviewLog entries=0"
 
 autoplan_meta="$(jq -c . "$ROOT/skills/metadata/etrnl-dev-autoplan.json")"

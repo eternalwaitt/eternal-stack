@@ -1,10 +1,10 @@
-# Control Plane Coverage
+# Eternal Stack Coverage
 
 Status key: `done` means implemented in this repo; `live-gated` means intentionally controlled by local install/canary because it mutates a personal Claude setup.
 
 | Planned area | Current coverage |
 | --- | --- |
-| Hook library and state | done: JSON, state, paths, preflight, code policy, and complexity helpers. |
+| Hook library and state | done: JSON, state, paths, preflight, code policy, complexity, cleanup, and event-extract helpers. |
 | Observer hooks | done: prompt routing, prompt expansion, `CLAUDE.md` reinjection, advisory locked rate limiting, post-tool batch observation, and session cleanup. |
 | Strict blockers | done: Bash, directory `Read`, shell output-limiter, edit/write, WebSearch, agent/task, evidence-first, stale verification, requested-skill, domain-skill, first-failure context, repeated-failure, Stop, and SubagentStop gates. |
 | Compact recovery | done: PreCompact/PostCompact state with timestamp/count metadata plus SessionStart recovery, workflow status, and skill hints. |
@@ -23,7 +23,7 @@ Status key: `done` means implemented in this repo; `live-gated` means intentiona
 
 ## Companion Skills
 
-The control plane owns only the `etrnl-*` skills in this repo. These companion skills are expected when installed and are mapped in `docs/skills.md`:
+The Eternal Stack owns only the `etrnl-*` skills in this repo. These companion skills are expected when installed and are mapped in `docs/skills.md`:
 
 - `eternal-best-practices`
 - `domain-*`

@@ -1,6 +1,6 @@
 ---
 name: etrnl-dev-parallel
-description: ETRNL control-plane parallel-agent workflow for Claude Code. Use only when the user explicitly asks for parallel agents; hidden from model auto-invocation because it delegates work.
+description: ETRNL etrnl parallel-agent workflow for Claude Code. Use only when the user explicitly asks for parallel agents; hidden from model auto-invocation because it delegates work.
 disable-model-invocation: true
 ---
 # Parallel Fan-Out
