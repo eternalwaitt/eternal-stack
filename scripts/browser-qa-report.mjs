@@ -59,10 +59,12 @@ function hasCliCreateArgs() {
   return Boolean(
     argValue(args, "--path")
     || argValue(args, "--id")
+    || argValue(args, "--run-id")
     || argValue(args, "--routes")
     || argValue(args, "--route")
     || argValue(args, "--viewports")
     || argValue(args, "--viewport")
+    || argValue(args, "--screenshots")
     || argValue(args, "--matrix")
     || argValue(args, "--schema-version")
     || argValue(args, "--target-url")
@@ -71,6 +73,8 @@ function hasCliCreateArgs() {
     || argValue(args, "--status")
     || argValue(args, "--console")
     || argValue(args, "--network")
+    || argValue(args, "--accessibility")
+    || argValue(args, "--responsive")
   );
 }
 

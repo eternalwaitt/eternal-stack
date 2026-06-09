@@ -32,7 +32,7 @@ Completion means every item inside the plan's `Execution scope` is verified or e
    - Tier 0: docs/no-source/tiny change, local verification only.
    - Tier 1: one small source surface, normal tests plus completion check.
    - Tier 2: multi-file/source workflow, spec reviewer, quality reviewer, simplifier, completion audit.
-   - Tier 3: hooks, installed-home changes, auth, money, security, migrations, data loss risk, or broad etrnl behavior; full deep stack plus staged install and rollback proof.
+   - Tier 3: hooks, installed-home changes, auth, money, security, migrations, data loss risk, or broad Eternal Stack behavior; full deep stack plus staged install and rollback proof.
    - Execution tiers are valid only after deep plan/autoplan/review passes.
 7. Critically review the plan before editing:
    - If it has missing files, vague steps, unsafe actions, or impossible verification, stop and report the blockers.

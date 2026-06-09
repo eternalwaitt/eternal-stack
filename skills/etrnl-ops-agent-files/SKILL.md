@@ -9,11 +9,11 @@ Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --sk
 
 Maintain instruction files as routing/configuration surfaces, not memory stores.
 
-This repo-owned `etrnl-ops-agent-files` skill is the etrnl maintenance workflow for installed Claude/Codex startup files, templates, hooks, and runtime injection. Use any external agent-file review skill only for broader non-etrnl audits.
+This repo-owned `etrnl-ops-agent-files` skill is the ETRNL maintenance workflow for installed Claude/Codex startup files, templates, hooks, and runtime injection. Use any external agent-file review skill only for broader non-ETRNL audits.
 
 ## Target Scope
 
-This skill audits the active agent-file hierarchy for the requested target, not this etrnl repo by default.
+This skill audits the active agent-file hierarchy for the requested target, not this ETRNL repo by default.
 
 Before recommending edits, declare:
 
@@ -34,7 +34,7 @@ For monorepos and workspaces, walk downward from the target root for nested agen
 - imported markdown referenced with `@path.md`
 - local tool overlays such as `RTK.md` only when they are part of the target session's actual load chain
 
-When the repo is `eternal-stack`, distinguish etrnl source maintenance from auditing the user's installed Claude/Codex session context. Repo-managed source changes belong in this repo; installed-home drift is verified separately and updated through install/update scripts unless the user explicitly requests a local override.
+When the repo is `eternal-stack`, distinguish ETRNL source maintenance from auditing the user's installed Claude/Codex session context. Repo-managed source changes belong in this repo; installed-home drift is verified separately and updated through install/update scripts unless the user explicitly requests a local override.
 
 Default to read-only audit output unless the user explicitly asks to edit. Do not stop to ask which surfaces to audit when a complete read-only inventory is possible. If edits are requested and ownership is split, apply repo-owned changes in the repo canonical source, local overlay changes in the installed-home overlay, and report any source-limited surfaces instead of asking a multiple-choice scope question.
 
