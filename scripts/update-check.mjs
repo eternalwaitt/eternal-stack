@@ -353,7 +353,7 @@ const staleInstalledScripts = (root) => {
   const sourceScripts = path.join(root, "scripts");
   const installedScripts = path.join(controlHome, "scripts");
   if (!fs.existsSync(sourceScripts) || !fs.existsSync(installedScripts)) return [];
-  const sourceOnly = new Set(["scripts/install.sh", "scripts/vendor-bundled-skills.sh"]);
+  const sourceOnly = new Set(["scripts/install.sh", "scripts/vendor-bundled-skills.sh", "scripts/sync-rule-exports.mjs"]);
   const renamed = new Map([["scripts/doctor.sh", "scripts/doctor-etrnl.sh"]]);
   const files = [];
   walkFiles(root, "scripts", files);

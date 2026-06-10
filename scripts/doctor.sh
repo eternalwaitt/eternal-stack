@@ -612,6 +612,39 @@ if [[ -f "$ROOT/scripts/workflow-health.mjs" ]]; then
   fi
 fi
 optional_command codex "optional Codex escalation available" "optional Codex escalation not installed"
+codex_target="${CODEX_HOME:-$HOME/.codex}"
+codex_config="$codex_target/config.toml"
+codex_byte_budget=32768
+if [[ -f "$codex_config" ]]; then
+  parsed_budget="$(python3 -c "
+import re, sys
+with open('$codex_config') as f:
+    content = f.read()
+m = re.search(r'project_doc_max_bytes\s*=\s*([0-9]+)', content)
+print(m.group(1) if m else '')
+" 2>/dev/null)" || parsed_budget=""
+  if [[ -n "$parsed_budget" && "$parsed_budget" =~ ^[0-9]+$ ]]; then
+    codex_byte_budget="$parsed_budget"
+    ok "Codex byte budget from config.toml: $codex_byte_budget"
+  else
+    ok "Codex byte budget: default $codex_byte_budget (project_doc_max_bytes not set in config.toml)"
+  fi
+else
+  ok "Codex byte budget: default $codex_byte_budget (~/.codex/config.toml not present)"
+fi
+codex_warn_threshold=$(( codex_byte_budget * 75 / 100 ))
+if [[ -f "$codex_target/AGENTS.md" ]]; then
+  agents_bytes="$(wc -c < "$codex_target/AGENTS.md" | tr -d ' ')"
+  if (( agents_bytes > codex_byte_budget )); then
+    fail "~/.codex/AGENTS.md exceeds byte budget ($agents_bytes > $codex_byte_budget)"
+  elif (( agents_bytes > codex_warn_threshold )); then
+    fail "~/.codex/AGENTS.md at $agents_bytes bytes (>75% of $codex_byte_budget budget)"
+  else
+    ok "~/.codex/AGENTS.md within byte budget ($agents_bytes / $codex_byte_budget)"
+  fi
+else
+  ok "~/.codex/AGENTS.md not installed (ETRNL_INSTALL_STARTUP gated)"
+fi
 optional_command gemini "optional Gemini escalation available" "optional Gemini escalation not installed"
 optional_command playwright-cli "optional browser QA tool available" "optional browser QA tool not installed"
 if [[ -x "$HOME/.claude/skills/gstack/bin/design" || -x "$HOME/.agents/skills/gstack/bin/design" || -x "$HOME/.gstack/repos/gstack/bin/design" ]]; then
@@ -630,6 +663,39 @@ if [[ -d "$ROOT/rules/etrnl" ]]; then
   done
 else
   fail "rules/etrnl missing"
+fi
+
+# rules-manifest.json assertions (ADR 0003 Decision 6)
+if [[ -f "$ROOT/rules-manifest.json" ]]; then
+  if jq empty "$ROOT/rules-manifest.json" >/dev/null 2>&1; then
+    ok "rules-manifest.json is valid JSON"
+    manifest_schema="$(jq -r '.schemaVersion // empty' "$ROOT/rules-manifest.json" 2>/dev/null)"
+    if [[ "$manifest_schema" == "1" ]]; then
+      ok "rules-manifest.json schemaVersion=1"
+    else
+      fail "rules-manifest.json schemaVersion unexpected: ${manifest_schema:-missing}"
+    fi
+    banned_count="$(jq -r '.privacy.bannedTokens | length' "$ROOT/rules-manifest.json" 2>/dev/null || echo "0")"
+    if (( banned_count > 0 )); then
+      ok "rules-manifest.json bannedTokens=$banned_count"
+    else
+      fail "rules-manifest.json privacy.bannedTokens is empty — privacy gate inactive"
+    fi
+  else
+    fail "rules-manifest.json invalid JSON"
+  fi
+else
+  ok "rules-manifest.json not present (optional until first profile defined)"
+fi
+if [[ -d "$ROOT/rules/eternal-saas/global" ]]; then
+  global_count="$(find "$ROOT/rules/eternal-saas/global" -maxdepth 1 -name '*.md' | wc -l | tr -d ' ')"
+  if (( global_count > 0 )); then
+    ok "rules/eternal-saas/global present ($global_count modules)"
+  else
+    fail "rules/eternal-saas/global is empty"
+  fi
+else
+  ok "rules/eternal-saas/global not present (installed on demand)"
 fi
 
 if [[ -f "$ROOT/docs/health-stack.md" ]]; then

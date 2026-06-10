@@ -187,7 +187,9 @@ INSTALL_SCRIPTS=(
   canary-hindsight.sh
   post-upgrade-canary.sh
   rollback-local.sh
+  init-project-rules.sh
 )
+
 
 REMOVED_SKILLS=(
   agent-file-doctor
