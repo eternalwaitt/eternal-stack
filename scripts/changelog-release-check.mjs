@@ -25,6 +25,8 @@ const KEEP_A_CHANGELOG_CATEGORIES = new Set([
 function usage() {
   console.error("usage: changelog-release-check.mjs [--root <path>] [--allow-unreleased] [--strict-unreleased] [--skip-version-file] [--skip-categories]");
   console.error("--strict-unreleased takes precedence over --allow-unreleased when both are present.");
+  console.error("--skip-version-file skips VERSION file alignment checks (test fixtures only).");
+  console.error("--skip-categories skips Keep a Changelog category validation (test fixtures only).");
   process.exit(2);
 }
 

@@ -8,14 +8,14 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, "..");
 const changelogPath = path.join(root, "CHANGELOG.md");
 const versionPath = path.join(root, "VERSION");
-const KEEP_A_CHANGELOG_CATEGORIES = [
+const KEEP_A_CHANGELOG_CATEGORIES = new Set([
   "### Added",
   "### Changed",
   "### Fixed",
   "### Removed",
   "### Security",
   "### Deprecated",
-];
+]);
 
 function usage() {
   console.error("usage: release.mjs prepare <X.Y.Z> | tag [--message <text>] | check");
@@ -51,7 +51,7 @@ function emptyUnreleasedBlock() {
   return [
     "## Unreleased",
     "",
-    ...KEEP_A_CHANGELOG_CATEGORIES.flatMap((heading) => [heading, ""]),
+    ...[...KEEP_A_CHANGELOG_CATEGORIES].flatMap((heading) => [heading, ""]),
   ];
 }
 
@@ -69,7 +69,7 @@ function prepare(versionArg) {
   const unreleasedBody = lines.slice(unreleasedIndex + 1, nextHeadingIndex);
   const meaningful = unreleasedBody
     .map((line) => line.trim())
-    .filter((line) => line !== "" && !KEEP_A_CHANGELOG_CATEGORIES.includes(line));
+    .filter((line) => line !== "" && !KEEP_A_CHANGELOG_CATEGORIES.has(line));
   if (meaningful.length === 0) {
     fail("Nothing to release: add categorized bullets under ## Unreleased before running prepare.");
   }
