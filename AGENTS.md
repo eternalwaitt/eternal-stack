@@ -23,6 +23,9 @@ This repo builds Eternal's opinionated stack of skills, hooks, and rules for Cla
 | [docs/guards.md](docs/guards.md) | Pretool deny rules, stop-verifier gates, fail-open matrix |
 | [docs/rules.md](docs/rules.md) | Cross-host rule pack: module catalog, host activation, install, drift check |
 | [docs/install.md](docs/install.md) | Install, update, rollback, strict mode |
+| [docs/migration.md](docs/migration.md) | Rollout sequencing — safe migration order |
+| [docs/configuration.md](docs/configuration.md) | Profiles, strict mode, env var tuning |
+| [docs/troubleshooting.md](docs/troubleshooting.md) | Common issues, repo vs installed paths, bypass |
 | [docs/skills.md](docs/skills.md) | `etrnl-*` skills by namespace plus bundled inventory and scripts |
 | [docs/health-stack.md](docs/health-stack.md) | Doctor gates and audit workflows |
 | [docs/RELEASING.md](docs/RELEASING.md) | Semver, changelog categories, tags |

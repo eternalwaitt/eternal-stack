@@ -88,6 +88,9 @@ Don't skip those steps. Strict mode with untested hooks will interrupt things yo
 | [docs/guards.md](docs/guards.md) | Pretool deny catalog, stop-verifier gates, fail-open matrix |
 | [docs/rules.md](docs/rules.md) | Cross-host rule pack: module catalog, host activation, `init-project-rules.sh` |
 | [docs/install.md](docs/install.md) | Install, update, uninstall, profiles, strict mode |
+| [docs/migration.md](docs/migration.md) | Rollout sequencing — safe migration order |
+| [docs/configuration.md](docs/configuration.md) | Profiles, strict mode, env var tuning |
+| [docs/troubleshooting.md](docs/troubleshooting.md) | Common issues, repo vs installed paths, bypass |
 | [docs/skills.md](docs/skills.md) | `etrnl-*` skills by namespace and bundled inventory |
 | [docs/health-stack.md](docs/health-stack.md) | Code and documentation health gates |
 | [docs/eternal-stack-coverage.md](docs/eternal-stack-coverage.md) | Capability coverage map |

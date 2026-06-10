@@ -1,6 +1,6 @@
 # Install
 
-Public home: [github.com/eternalwaitt/eternal-stack](https://github.com/eternalwaitt/eternal-stack). Overview and doc map: [README.md](../README.md). Hook reference: [hooks.md](hooks.md). Guard rules: [guards.md](guards.md).
+Public home: [github.com/eternalwaitt/eternal-stack](https://github.com/eternalwaitt/eternal-stack). Overview and doc map: [README.md](../README.md). Hook reference: [hooks.md](hooks.md). Guard rules: [guards.md](guards.md). Rollout sequencing: [migration.md](migration.md).
 
 ```bash
 ./scripts/install.sh --profile core
