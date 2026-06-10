@@ -1,0 +1,9 @@
+{
+  "eventKind": "context_entry",
+  "sessionId": "fixture-beads",
+  "data": {
+    "entryType": "active_execution",
+    "title": "Mirror current ETRNL task",
+    "source": "compact-state-plan"
+  }
+}

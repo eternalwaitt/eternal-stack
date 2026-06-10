@@ -1,0 +1,6 @@
+{
+  "session_id": "fixture-ledger",
+  "hook_event_name": "SubagentStop",
+  "agent_id": "agent-2",
+  "last_assistant_message": "Changed files: scripts/example.mjs\nVerification: pnpm test passed"
+}

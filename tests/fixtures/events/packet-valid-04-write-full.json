@@ -1,0 +1,25 @@
+{
+  "session_id": "fixture-packet-valid-04",
+  "tool_name": "Task",
+  "tool_input": {
+    "packet": {
+      "mode": "write",
+      "taskId": "T4",
+      "lineageId": "wave-1.T4",
+      "goal": "rewrite etrnl-dev-review SKILL.md with evidence_flow and tdd_enforcement sections",
+      "contextSummary": "Track B task B5; scope is skills/etrnl-dev-review/SKILL.md only",
+      "cwd": "/repo",
+      "scope": "skills/etrnl-dev-review/SKILL.md",
+      "readSet": ["skills/etrnl-dev-review/SKILL.md", "CREDITS.md", "skills/etrnl-dev-plan/SKILL.md"],
+      "writeScope": ["skills/etrnl-dev-review/SKILL.md"],
+      "forbiddenPaths": ["scripts", "hooks", "tests"],
+      "expectedOutput": "skills/etrnl-dev-review/SKILL.md with Evidence Flow and TDD Enforcement sections; contract check passes",
+      "verificationCommand": "node scripts/skill-contract-check.mjs --root .",
+      "modelTier": "sonnet",
+      "timeoutSec": 300,
+      "retryPolicy": {"maxRetries": 1, "backoff": "linear", "initialDelayMs": 1000},
+      "noRevert": true,
+      "webSearchGuidance": "no WebSearch needed; use CREDITS.md as evidence"
+    }
+  }
+}

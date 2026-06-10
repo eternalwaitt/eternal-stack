@@ -1,0 +1,264 @@
+{
+  "schemaVersion": 1,
+  "categoryRegistryVersion": "2026-06-09.1",
+  "registeredCategories": [
+    "production-readiness",
+    "security",
+    "performance"
+  ],
+  "knownUnimplementedCategories": [
+    "ux-accessibility",
+    "api-data",
+    "docs",
+    "payments",
+    "privacy-compliance"
+  ],
+  "targetLabel": "synthetic-app",
+  "findings": [],
+  "sourceLimitedBlockers": [],
+  "checksSkipped": [],
+  "verification": [
+    {
+      "command": "node scripts/deep-audit-artifact-check.mjs validate --artifact <fixture>",
+      "status": "passed"
+    }
+  ],
+  "auditId": "invalid-lane-status",
+  "coverageStatement": "Coverage: performance. Known not-yet-registered audit domains: ux-accessibility, api-data, docs, payments, privacy-compliance. This is not a claim that every possible audit domain has run.",
+  "targetFingerprint": "repo:synthetic-app@invalid-lane-status",
+  "requestedCategories": [
+    "performance"
+  ],
+  "runArtifactLabel": "deep-audit-performance-valid-run",
+  "worklists": {
+    "perf_pages": {
+      "count": 2,
+      "sha256": "sha256:perf_pages",
+      "artifactLabel": "perf-pages"
+    },
+    "perf_route_handlers": {
+      "count": 1,
+      "sha256": "sha256:perf_route_handlers",
+      "artifactLabel": "perf-route-handlers"
+    },
+    "perf_dynamic_routes": {
+      "count": 1,
+      "sha256": "sha256:perf_dynamic_routes",
+      "artifactLabel": "perf-dynamic-routes"
+    },
+    "perf_loading": {
+      "count": 1,
+      "sha256": "sha256:perf_loading",
+      "artifactLabel": "perf-loading"
+    },
+    "perf_queries": {
+      "count": 1,
+      "sha256": "sha256:perf_queries",
+      "artifactLabel": "perf-queries"
+    },
+    "perf_client": {
+      "count": 1,
+      "sha256": "sha256:perf_client",
+      "artifactLabel": "perf-client"
+    },
+    "perf_dynamic": {
+      "count": 1,
+      "sha256": "sha256:perf_dynamic",
+      "artifactLabel": "perf-dynamic"
+    },
+    "perf_deps": {
+      "count": 1,
+      "sha256": "sha256:perf_deps",
+      "artifactLabel": "perf-deps"
+    },
+    "perf_large_files": {
+      "count": 1,
+      "sha256": "sha256:perf_large_files",
+      "artifactLabel": "perf-large-files"
+    },
+    "perf_next_configs": {
+      "count": 1,
+      "sha256": "sha256:perf_next_configs",
+      "artifactLabel": "perf-next-configs"
+    },
+    "perf_compiler_status": {
+      "count": 1,
+      "sha256": "sha256:perf_compiler_status",
+      "artifactLabel": "perf-compiler-status"
+    }
+  },
+  "categoryReports": [
+    {
+      "categoryId": "performance",
+      "status": "clean",
+      "consumedWorklistHashes": {
+        "perf_pages": "sha256:perf_pages",
+        "perf_route_handlers": "sha256:perf_route_handlers",
+        "perf_dynamic_routes": "sha256:perf_dynamic_routes",
+        "perf_loading": "sha256:perf_loading",
+        "perf_queries": "sha256:perf_queries",
+        "perf_client": "sha256:perf_client",
+        "perf_dynamic": "sha256:perf_dynamic",
+        "perf_deps": "sha256:perf_deps",
+        "perf_large_files": "sha256:perf_large_files",
+        "perf_next_configs": "sha256:perf_next_configs",
+        "perf_compiler_status": "sha256:perf_compiler_status"
+      },
+      "checks": [
+        {
+          "checkId": "perf-01-database-query-performance",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Database query performance - 0 findings"
+        },
+        {
+          "checkId": "perf-02-server-response-caching",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Server response time and caching - 0 findings"
+        },
+        {
+          "checkId": "perf-03-bundle-code-splitting",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Bundle size and code splitting - 0 findings"
+        },
+        {
+          "checkId": "perf-04-react-rendering",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: React rendering performance - 0 findings"
+        },
+        {
+          "checkId": "perf-05-perceived-performance",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Perceived performance and UX speed - 0 findings"
+        },
+        {
+          "checkId": "perf-06-infrastructure-network",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Infrastructure and network performance - 0 findings"
+        }
+      ]
+    }
+  ],
+  "laneReceipts": [
+    {
+      "categoryId": "performance",
+      "laneId": "database-query-performance",
+      "status": "failed",
+      "consumedWorklistHashes": {
+        "perf_pages": "sha256:perf_pages",
+        "perf_route_handlers": "sha256:perf_route_handlers",
+        "perf_dynamic_routes": "sha256:perf_dynamic_routes",
+        "perf_loading": "sha256:perf_loading",
+        "perf_queries": "sha256:perf_queries",
+        "perf_client": "sha256:perf_client",
+        "perf_dynamic": "sha256:perf_dynamic",
+        "perf_deps": "sha256:perf_deps",
+        "perf_large_files": "sha256:perf_large_files",
+        "perf_next_configs": "sha256:perf_next_configs",
+        "perf_compiler_status": "sha256:perf_compiler_status"
+      },
+      "summary": "lane failed"
+    },
+    {
+      "categoryId": "performance",
+      "laneId": "server-response-caching",
+      "status": "completed",
+      "consumedWorklistHashes": {
+        "perf_pages": "sha256:perf_pages",
+        "perf_route_handlers": "sha256:perf_route_handlers",
+        "perf_dynamic_routes": "sha256:perf_dynamic_routes",
+        "perf_loading": "sha256:perf_loading",
+        "perf_queries": "sha256:perf_queries",
+        "perf_client": "sha256:perf_client",
+        "perf_dynamic": "sha256:perf_dynamic",
+        "perf_deps": "sha256:perf_deps",
+        "perf_large_files": "sha256:perf_large_files",
+        "perf_next_configs": "sha256:perf_next_configs",
+        "perf_compiler_status": "sha256:perf_compiler_status"
+      },
+      "summary": "lane completed"
+    },
+    {
+      "categoryId": "performance",
+      "laneId": "bundle-code-splitting",
+      "status": "completed",
+      "consumedWorklistHashes": {
+        "perf_pages": "sha256:perf_pages",
+        "perf_route_handlers": "sha256:perf_route_handlers",
+        "perf_dynamic_routes": "sha256:perf_dynamic_routes",
+        "perf_loading": "sha256:perf_loading",
+        "perf_queries": "sha256:perf_queries",
+        "perf_client": "sha256:perf_client",
+        "perf_dynamic": "sha256:perf_dynamic",
+        "perf_deps": "sha256:perf_deps",
+        "perf_large_files": "sha256:perf_large_files",
+        "perf_next_configs": "sha256:perf_next_configs",
+        "perf_compiler_status": "sha256:perf_compiler_status"
+      },
+      "summary": "lane completed"
+    },
+    {
+      "categoryId": "performance",
+      "laneId": "react-rendering",
+      "status": "completed",
+      "consumedWorklistHashes": {
+        "perf_pages": "sha256:perf_pages",
+        "perf_route_handlers": "sha256:perf_route_handlers",
+        "perf_dynamic_routes": "sha256:perf_dynamic_routes",
+        "perf_loading": "sha256:perf_loading",
+        "perf_queries": "sha256:perf_queries",
+        "perf_client": "sha256:perf_client",
+        "perf_dynamic": "sha256:perf_dynamic",
+        "perf_deps": "sha256:perf_deps",
+        "perf_large_files": "sha256:perf_large_files",
+        "perf_next_configs": "sha256:perf_next_configs",
+        "perf_compiler_status": "sha256:perf_compiler_status"
+      },
+      "summary": "lane completed"
+    },
+    {
+      "categoryId": "performance",
+      "laneId": "perceived-performance",
+      "status": "completed",
+      "consumedWorklistHashes": {
+        "perf_pages": "sha256:perf_pages",
+        "perf_route_handlers": "sha256:perf_route_handlers",
+        "perf_dynamic_routes": "sha256:perf_dynamic_routes",
+        "perf_loading": "sha256:perf_loading",
+        "perf_queries": "sha256:perf_queries",
+        "perf_client": "sha256:perf_client",
+        "perf_dynamic": "sha256:perf_dynamic",
+        "perf_deps": "sha256:perf_deps",
+        "perf_large_files": "sha256:perf_large_files",
+        "perf_next_configs": "sha256:perf_next_configs",
+        "perf_compiler_status": "sha256:perf_compiler_status"
+      },
+      "summary": "lane completed"
+    },
+    {
+      "categoryId": "performance",
+      "laneId": "infrastructure-network",
+      "status": "completed",
+      "consumedWorklistHashes": {
+        "perf_pages": "sha256:perf_pages",
+        "perf_route_handlers": "sha256:perf_route_handlers",
+        "perf_dynamic_routes": "sha256:perf_dynamic_routes",
+        "perf_loading": "sha256:perf_loading",
+        "perf_queries": "sha256:perf_queries",
+        "perf_client": "sha256:perf_client",
+        "perf_dynamic": "sha256:perf_dynamic",
+        "perf_deps": "sha256:perf_deps",
+        "perf_large_files": "sha256:perf_large_files",
+        "perf_next_configs": "sha256:perf_next_configs",
+        "perf_compiler_status": "sha256:perf_compiler_status"
+      },
+      "summary": "lane completed"
+    }
+  ],
+  "confirmedClean": [
+    "performance"
+  ],
+  "synthesis": {
+    "status": "clean",
+    "summary": "Performance direct category clean."
+  }
+}

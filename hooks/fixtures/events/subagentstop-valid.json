@@ -1,0 +1,6 @@
+{
+  "session_id": "fixture-ledger",
+  "hook_event_name": "SubagentStop",
+  "agent_id": "agent-1",
+  "last_assistant_message": "ETRNL_TASK_ID: T1\nChanged files: scripts/example.mjs\nVerification: pnpm test passed\nBlockers: none"
+}

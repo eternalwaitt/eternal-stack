@@ -1,0 +1,9 @@
+{
+  "skill": "etrnl-dev-execute",
+  "executionMode": "wave-based execution",
+  "ownershipRule": "do not duplicate",
+  "fallback": "spot-check",
+  "testDiscipline": "TDD red-green",
+  "riskTiering": "hybrid-after-deep-review",
+  "deepStackArtifacts": true
+}

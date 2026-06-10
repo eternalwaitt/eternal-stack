@@ -1,0 +1,36 @@
+.DS_Store
+__pycache__/
+*.pyc
+*.tmp
+*.bak
+*.orig
+node_modules/
+coverage/
+.serena/
+.codegraph/
+.cursor/
+.claude/
+.gstack/
+.planning/
+plans/
+docs/plans/
+docs/research/
+
+# Never commit private Claude runtime data.
+settings.local.json
+.credentials.json
+projects/
+sessions/
+transcripts/
+history.jsonl
+backups/
+cache/
+telemetry/
+
+# Beads / Dolt files (added by bd init)
+.beads/
+.dolt/
+.beads/*.db
+.beads/**/*.db
+.beads-credential-key
+.beads/proxieddb/

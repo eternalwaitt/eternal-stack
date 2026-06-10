@@ -1,0 +1,13 @@
+{
+  "hook": "cc-pretooluse-guard.sh",
+  "expected": { "kind": "allow" },
+  "payload": {
+    "session_id": "replay-2",
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Bash",
+    "cwd": "/tmp/example",
+    "tool_input": {
+      "command": "pnpm test | tail -40"
+    }
+  }
+}

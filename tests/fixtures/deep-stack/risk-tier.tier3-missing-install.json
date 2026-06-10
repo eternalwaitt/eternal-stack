@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "artifactType": "deep-stack-plan",
+  "_fixtureIntent": "Negative control: tier-3 plan is missing required staged install and rollback proof.",
+  "deepReview": { "status": "passed", "phases": ["ceo", "engineering", "dx", "adversarial", "specialist", "reuse", "simplifier"] },
+  "sourceManifest": { "sources": [{ "sourceId": "repo", "version": "current", "commit": "0000000000000000000000000000000000000000", "hash": "sha256:fixture", "capturedAt": "2026-06-01T12:00:00Z", "refreshCommand": "node scripts/deep-stack-check.mjs create --plan p --out o", "requiredFiles": ["scripts/deep-stack-check.mjs"] }] },
+  "skillMatrix": [{ "skill": "code-simplifier", "status": "required", "trigger": "source", "evidence": "diff" }],
+  "reuseInventory": { "searchedPaths": ["scripts"], "existingAnalogs": [], "candidateHelpers": [], "candidateTests": [], "decisions": [] },
+  "findings": [],
+  "completionAudit": [],
+  "riskTier": { "tier": 3, "deepReviewPassed": true, "reason": "installed hook change", "requiredArtifacts": ["stagedInstall"], "verificationGate": "scripts/doctor.sh", "acceptedRisks": [] }
+}

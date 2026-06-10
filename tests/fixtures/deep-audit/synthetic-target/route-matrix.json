@@ -1,0 +1,14 @@
+{
+  "rowType": "ROUTE_MATRIX",
+  "routes": [
+    {
+      "route": "/dashboard",
+      "status": 200,
+      "coldMs": 120,
+      "warmMs": 35,
+      "bytes": 4096,
+      "authFixture": "synthetic-admin-session",
+      "dynamicFixture": "synthetic-tenant-id"
+    }
+  ]
+}

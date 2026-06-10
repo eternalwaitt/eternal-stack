@@ -1,0 +1,43 @@
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_digest:
+        description: Immutable image digest to deploy
+        required: true
+        type: string
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  deploy:
+    name: Deploy production
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - name: Validate input
+        env:
+          IMAGE_DIGEST: ${{ inputs.image_digest }}
+        run: |
+          if ! printf '%s' "$IMAGE_DIGEST" | grep -Eq '^sha256:[a-f0-9]{64}$'; then
+            echo "image_digest must be a full immutable sha256 digest." >&2
+            exit 1
+          fi
+
+      - name: Deploy
+        env:
+          IMAGE_DIGEST: ${{ inputs.image_digest }}
+        run: |
+          set -euo pipefail
+          echo "Capture current production revision here."
+          echo "Deploy immutable artifact: $IMAGE_DIGEST"
+          echo "Run bounded health checks here."
+          echo "Rollback automatically or print exact rollback command on failure."

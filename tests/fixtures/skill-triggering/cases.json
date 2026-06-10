@@ -1,0 +1,308 @@
+[
+  {
+    "name": "agent files prompt routes etrnl-ops-agent-files",
+    "prompt": "align AGENTS.md and CLAUDE.md with the current hook behavior",
+    "expectedSkills": ["etrnl-ops-agent-files"],
+    "unexpectedSkills": ["etrnl-dev-execute"]
+  },
+  {
+    "name": "autoplan prompt routes etrnl-dev-autoplan",
+    "prompt": "autoplan .claude/plans/example.md and run all reviews automatically",
+    "expectedSkills": ["etrnl-dev-autoplan"],
+    "unexpectedSkills": ["etrnl-dev-execute"]
+  },
+  {
+    "name": "brainstorm prompt routes etrnl-dev-brainstorm",
+    "prompt": "think through and scope this feature before implementation",
+    "expectedSkills": ["etrnl-dev-brainstorm"],
+    "unexpectedSkills": ["etrnl-dev-execute"]
+  },
+  {
+    "name": "ci cd prompt routes etrnl-dev-ci",
+    "prompt": "harden the GitHub Actions workflow with deployment rollback and branch protection",
+    "expectedSkills": ["etrnl-dev-ci"],
+    "unexpectedSkills": ["etrnl-audit-code"]
+  },
+  {
+    "name": "code health prompt routes etrnl-audit-code",
+    "prompt": "run a no skips code health audit on the whole repo",
+    "expectedSkills": ["etrnl-audit-code"],
+    "unexpectedSkills": ["etrnl-dev-commit"]
+  },
+  {
+    "name": "code excellence prompt routes etrnl-code-review-excellence",
+    "prompt": "run a code excellence audit for maintainability, architecture quality, type safety, error handling, and test signal",
+    "expectedSkills": ["etrnl-code-review-excellence"],
+    "unexpectedSkills": ["etrnl-audit-code", "etrnl-audit-excellence"]
+  },
+  {
+    "name": "brooks architecture prompt routes etrnl-code-review-excellence",
+    "prompt": "run a Brooks architecture audit for circular imports, module layering integrity, and structural decay",
+    "expectedSkills": ["etrnl-code-review-excellence"],
+    "unexpectedSkills": ["brooks-audit", "etrnl-audit-code"]
+  },
+  {
+    "name": "ui ux product prompt routes etrnl-deep-audit-ux",
+    "prompt": "run a UI/UX product audit for accessibility, responsive visual QA, interaction quality, hierarchy, states, and product copy",
+    "expectedSkills": ["etrnl-deep-audit-ux"],
+    "unexpectedSkills": ["etrnl-audit-code", "etrnl-deep-audit"]
+  },
+  {
+    "name": "deep audit prompt routes etrnl-deep-audit",
+    "prompt": "run the full registered deep audit with production readiness and performance categories",
+    "expectedSkills": ["etrnl-deep-audit"],
+    "unexpectedSkills": ["etrnl-audit-code"]
+  },
+  {
+    "name": "security audit prompt routes etrnl-audit-security",
+    "prompt": "run a security audit for exploitable bugs, injection sinks, authz, secret handling, and CSRF",
+    "expectedSkills": ["etrnl-audit-security"],
+    "unexpectedSkills": ["etrnl-audit-code"]
+  },
+  {
+    "name": "all registered prompt routes etrnl-deep-audit",
+    "prompt": "run all_registered deep audit lanes across all levels and sublevels",
+    "expectedSkills": ["etrnl-deep-audit"],
+    "unexpectedSkills": ["etrnl-audit-code"]
+  },
+  {
+    "name": "documentation health prompt routes etrnl-audit-docs",
+    "prompt": "run a documentation health audit for docs drift, stale READMEs, ADR health, and TSDoc coverage",
+    "expectedSkills": ["etrnl-audit-docs"],
+    "unexpectedSkills": ["etrnl-audit-code"]
+  },
+  {
+    "name": "commit prompt routes etrnl-dev-commit",
+    "prompt": "commit the verified changes after checking the diff",
+    "expectedSkills": ["etrnl-dev-commit"],
+    "unexpectedSkills": ["etrnl-dev-pr"]
+  },
+  {
+    "name": "context restore prompt routes etrnl-ops-context-restore",
+    "prompt": "restore context from the saved handover and resume the work",
+    "expectedSkills": ["etrnl-ops-context-restore"],
+    "unexpectedSkills": ["etrnl-ops-context-save"]
+  },
+  {
+    "name": "context save prompt routes etrnl-ops-context-save",
+    "prompt": "write a handover prompt so I can start a fresh session",
+    "expectedSkills": ["etrnl-ops-context-save"],
+    "unexpectedSkills": ["etrnl-ops-context-restore"]
+  },
+  {
+    "name": "dependency prompt routes etrnl-dev-deps",
+    "prompt": "upgrade this package and run the dependency audit",
+    "expectedSkills": ["etrnl-dev-deps"],
+    "unexpectedSkills": ["etrnl-dev-pr"]
+  },
+  {
+    "name": "dependabot prompt routes etrnl-dev-deps",
+    "prompt": "handle this Dependabot PR and verify the dependency update",
+    "expectedSkills": ["etrnl-dev-deps"],
+    "unexpectedSkills": ["etrnl-dev-commit"]
+  },
+  {
+    "name": "renovate grouped PR routes etrnl-dev-deps",
+    "prompt": "review the Renovate grouped PR for package updates",
+    "expectedSkills": ["etrnl-dev-deps"],
+    "unexpectedSkills": ["etrnl-dev-commit"]
+  },
+  {
+    "name": "security dependency alert routes etrnl-dev-deps",
+    "prompt": "fix the security dependency alert and run the upgrade checks",
+    "expectedSkills": ["etrnl-dev-deps"],
+    "unexpectedSkills": ["etrnl-dev-commit"]
+  },
+  {
+    "name": "dependency catalog consolidation routes etrnl-dev-deps",
+    "prompt": "consolidate these dependency versions into a workspace catalog",
+    "expectedSkills": ["etrnl-dev-deps"],
+    "unexpectedSkills": ["etrnl-dev-commit"]
+  },
+  {
+    "name": "disk cleanup prompt routes etrnl-ops-disk-cleanup",
+    "prompt": "free SSD space with a disk cleanup pass",
+    "expectedSkills": ["etrnl-ops-disk-cleanup"],
+    "unexpectedSkills": ["etrnl-dev-commit"]
+  },
+  {
+    "name": "email reply quality prompt routes etrnl-comm-email-reply-quality",
+    "prompt": "run email reply quality on this Brazilian Portuguese draft for em dashes and AI tells",
+    "expectedSkills": ["etrnl-comm-email-reply-quality"],
+    "unexpectedSkills": ["etrnl-dev-commit"]
+  },
+  {
+    "name": "execute prompt routes etrnl-dev-execute",
+    "prompt": "implement the approved plan now",
+    "expectedSkills": ["etrnl-dev-execute"],
+    "unexpectedSkills": ["etrnl-dev-commit"]
+  },
+  {
+    "name": "fix issue prompt routes etrnl-dev-debug",
+    "prompt": "reproduce and fix issue #123",
+    "expectedSkills": ["etrnl-dev-debug"],
+    "unexpectedSkills": ["etrnl-dev-plan"]
+  },
+  {
+    "name": "systematic debugging prompt routes etrnl-dev-debug",
+    "prompt": "use systematic debugging to investigate the failing login test root cause",
+    "expectedSkills": ["etrnl-dev-debug"],
+    "unexpectedSkills": ["etrnl-dev-plan"]
+  },
+  {
+    "name": "parallel prompt does not route a standalone skill",
+    "prompt": "fan out the independent checks to multiple agents",
+    "expectedSkills": [],
+    "unexpectedSkills": ["etrnl-dev-parallel", "etrnl-dev-commit"]
+  },
+  {
+    "name": "performance audit prompt routes etrnl-audit-performance",
+    "prompt": "audit route latency, cold and warm performance, bundle size, React rendering, and infrastructure speed",
+    "expectedSkills": ["etrnl-audit-performance"],
+    "unexpectedSkills": ["etrnl-audit-production"]
+  },
+  {
+    "name": "speed audit prompt routes etrnl-audit-performance",
+    "prompt": "run a speed audit and latency audit for this app",
+    "expectedSkills": ["etrnl-audit-performance"],
+    "unexpectedSkills": ["etrnl-audit-production"]
+  },
+  {
+    "name": "plan prompt routes etrnl-dev-plan",
+    "prompt": "write a detailed implementation plan for this repo",
+    "expectedSkills": ["etrnl-dev-plan"],
+    "unexpectedSkills": ["etrnl-dev-execute"]
+  },
+  {
+    "name": "production readiness prompt routes etrnl-audit-production",
+    "prompt": "audit production readiness for validation, auth edge cases, webhooks, tenancy, migrations, env, and error boundaries",
+    "expectedSkills": ["etrnl-audit-production"],
+    "unexpectedSkills": ["etrnl-audit-performance"]
+  },
+  {
+    "name": "webhook reliability prompt routes etrnl-audit-production",
+    "prompt": "audit webhook reliability and webhook safety for duplicate delivery",
+    "expectedSkills": ["etrnl-audit-production"],
+    "unexpectedSkills": ["etrnl-audit-performance"]
+  },
+  {
+    "name": "pr prompt routes etrnl-dev-pr",
+    "prompt": "prepare a pull request with verification evidence",
+    "expectedSkills": ["etrnl-dev-pr"],
+    "unexpectedSkills": ["etrnl-dev-commit"]
+  },
+  {
+    "name": "pr ci prompt routes etrnl-dev-pr and etrnl-dev-ci",
+    "prompt": "keep PR CI green and fetch failing check logs",
+    "expectedSkills": ["etrnl-dev-pr", "etrnl-dev-ci"],
+    "unexpectedSkills": ["etrnl-dev-commit"]
+  },
+  {
+    "name": "copilot review comments route pr",
+    "prompt": "address Copilot review comments on my PR with evidence",
+    "expectedSkills": ["etrnl-dev-pr"],
+    "unexpectedSkills": ["etrnl-dev-commit"]
+  },
+  {
+    "name": "browser QA prompt routes etrnl-audit-browser",
+    "prompt": "run browser QA on the changed routes and check console and network",
+    "expectedSkills": ["etrnl-audit-browser"],
+    "unexpectedSkills": ["etrnl-dev-execute"]
+  },
+  {
+    "name": "shared reuse prompt routes etrnl-deep-audit",
+    "prompt": "run a shared reuse audit for duplicate logic, component reuse, helper reuse, and abstraction fit",
+    "expectedSkills": ["etrnl-deep-audit"],
+    "unexpectedSkills": ["etrnl-dev-commit"]
+  },
+  {
+    "name": "repo hygiene prompt routes etrnl-deep-audit",
+    "prompt": "run a repo hygiene audit for file organization, generated artifacts, gitignore, public/private boundary, and README health",
+    "expectedSkills": ["etrnl-deep-audit"],
+    "unexpectedSkills": ["etrnl-dev-commit"]
+  },
+  {
+    "name": "tooling ecosystem prompt routes etrnl-audit-tooling",
+    "prompt": "run a tooling ecosystem audit for local setup, scripts, formatter lint gates, CI parity, updates, and rollback paths",
+    "expectedSkills": ["etrnl-audit-tooling"],
+    "unexpectedSkills": ["etrnl-dev-commit"]
+  },
+  {
+    "name": "plan review prompt routes etrnl-dev-autoplan",
+    "prompt": "please code review this plan",
+    "expectedSkills": ["etrnl-dev-autoplan"],
+    "unexpectedSkills": ["etrnl-dev-review", "etrnl-dev-commit"]
+  },
+  {
+    "name": "stress prompt routes etrnl-dev-stress-test",
+    "prompt": "stress test this rollout and list failure modes",
+    "expectedSkills": ["etrnl-dev-stress-test"],
+    "unexpectedSkills": ["etrnl-dev-execute"]
+  },
+  {
+    "name": "test prompt routes etrnl-dev-test",
+    "prompt": "run tests and fix test failures",
+    "expectedSkills": ["etrnl-dev-test"],
+    "unexpectedSkills": ["etrnl-dev-commit"]
+  },
+  {
+    "name": "backend api prompt routes etrnl-backend-patterns",
+    "prompt": "design a REST API contract with cursor pagination, idempotency keys, versioning, and a stable error envelope",
+    "expectedSkills": ["etrnl-backend-patterns"],
+    "unexpectedSkills": ["etrnl-backend-api", "etrnl-backend-data"]
+  },
+  {
+    "name": "backend data prompt routes etrnl-backend-patterns",
+    "prompt": "model the relational database schema, prevent N+1 queries, and add a repository layer with cache-aside",
+    "expectedSkills": ["etrnl-backend-patterns"],
+    "unexpectedSkills": ["etrnl-backend-api", "etrnl-backend-data"]
+  },
+  {
+    "name": "backend security prompt routes etrnl-backend-patterns",
+    "prompt": "design backend authentication, RBAC authorization, and input validation with OWASP Top 10 coverage",
+    "expectedSkills": ["etrnl-backend-patterns"],
+    "unexpectedSkills": ["etrnl-backend-security", "etrnl-audit-security"]
+  },
+  {
+    "name": "backend resilience prompt routes etrnl-backend-patterns",
+    "prompt": "add request timeouts, retries with exponential backoff, a circuit breaker, and a dead-letter queue for the background jobs",
+    "expectedSkills": ["etrnl-backend-patterns"],
+    "unexpectedSkills": ["etrnl-backend-resilience", "etrnl-backend-api"]
+  },
+  {
+    "name": "backend observability prompt routes etrnl-backend-patterns",
+    "prompt": "add structured logging, distributed tracing, RED metrics, and SLO error budgets to the service",
+    "expectedSkills": ["etrnl-backend-patterns"],
+    "unexpectedSkills": ["etrnl-backend-observability", "etrnl-audit-code"]
+  },
+  {
+    "name": "backend architecture prompt routes etrnl-backend-patterns",
+    "prompt": "define the service layer, microservice boundaries, event-driven flows with the outbox pattern, and saga coordination",
+    "expectedSkills": ["etrnl-backend-patterns"],
+    "unexpectedSkills": ["etrnl-backend-architecture", "etrnl-backend-data"]
+  },
+  {
+    "name": "backend orpc prompt routes etrnl-backend-patterns",
+    "prompt": "add an oRPC procedure with contract-first router, TanStack Query hooks, and the mandatory middleware stack order",
+    "expectedSkills": ["etrnl-backend-patterns"],
+    "unexpectedSkills": ["orpc-patterns", "etrnl-backend-api"]
+  },
+  {
+    "name": "backend prisma prompt routes etrnl-backend-patterns",
+    "prompt": "update schema.prisma with a new relation, run prisma migrate dev, and fix N+1 in the Prisma client queries",
+    "expectedSkills": ["etrnl-backend-patterns"],
+    "unexpectedSkills": ["prisma-expert", "etrnl-backend-data"]
+  },
+  {
+    "name": "backend sql optimization prompt routes etrnl-backend-patterns",
+    "prompt": "this endpoint has a slow query - run EXPLAIN ANALYZE, add a composite index, and eliminate the missing index seq scan",
+    "expectedSkills": ["etrnl-backend-patterns"],
+    "unexpectedSkills": ["sql-optimization-patterns", "etrnl-audit-performance"]
+  },
+  {
+    "name": "ambiguous prompt does not over-route",
+    "prompt": "what changed here?",
+    "expectedSkills": [],
+    "unexpectedSkills": ["etrnl-dev-execute", "etrnl-dev-commit", "etrnl-dev-pr"]
+  }
+]

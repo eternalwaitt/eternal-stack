@@ -1,0 +1,10 @@
+{
+  "hook": "cc-posttooluse-sycophancy.sh",
+  "expected": { "kind": "block", "contains": "Evidence-before-agreement" },
+  "payload": {
+    "session_id": "replay-syc",
+    "hook_event_name": "PostToolUse",
+    "tool_name": "Bash",
+    "last_assistant_message": "You're right, let me check that quickly."
+  }
+}
