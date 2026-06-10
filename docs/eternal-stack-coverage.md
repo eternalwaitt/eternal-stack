@@ -8,8 +8,8 @@ Status key: `done` means implemented in this repo; `live-gated` means intentiona
 | Observer hooks | done: prompt routing, prompt expansion, `CLAUDE.md` reinjection, advisory locked rate limiting, post-tool batch observation, and session cleanup. |
 | Strict blockers | done: Bash, directory `Read`, shell output-limiter, edit/write, WebSearch, agent/task, evidence-first, stale verification, requested-skill, domain-skill, first-failure context, repeated-failure, Stop, and SubagentStop gates. |
 | Compact recovery | done: PreCompact/PostCompact state with timestamp/count metadata plus SessionStart recovery, workflow status, and skill hints. |
-| Skill set | done: `etrnl-*` repo-owned family, canonical `/etrnl-dev-ci`, plus documented companion skills. |
-| Code health | done: master code-health router, deterministic inventory helper, Health Stack doc, no-skips ledger contract, and companion audit routing. |
+| Skill set | done: `etrnl-*` orchestration family, canonical `/etrnl-dev-ci`, plus bundled policy/review/domain skills documented in `docs/skills.md`. |
+| Code health | done: master code-health router, deterministic inventory helper, Health Stack doc, no-skips ledger contract, and bundled-skill audit routing. |
 | Writing plans flow | done: file-backed draft, review, improve, final, short chat summary, Hybrid Deep Stack metadata, and `/etrnl-dev-autoplan` full-depth planning with CEO, engineering, DX, adversarial, specialist, reuse, simplifier, and findings convergence. |
 | Execution flow | done: phase gates, Hybrid risk tiers only after deep review, optional phase/workstream/UAT ledger metadata, schema v2 execution events/reviews, structured task packets with task identity, lineage, packet hashes, reuse/TDD/simplifier evidence fields, wave planning, overlap checks, worktree eligibility, deep-stack packet ownership fields, `etrnl-dev-execute` completion blocking when packet-bound implementation/reviewer/TDD/simplifier/reuse/TypeScript/install evidence is missing, mandatory spec/quality/simplifier reviewer evidence, critical review, durable artifacts, verification, final simplification/dedupe/domain passes, and no-pause question policy. |
 | Durable artifacts | done: deep-stack bundle, sanitized source manifest, skill matrix, review phase records, TDD evidence, reuse inventory and reuse bindings, findings ledger, completion audit and completion reconciliation, TypeScript trigger evidence, install proof, Hybrid risk tier, review log, browser QA v1/v2 reports with mandatory console/network summaries, route/viewport matrix counts, screenshot hashes, capture freshness, and provenance for completed v2 runs, context save/restore, artifact-required ledger checks, redacted cross-session project buglog hints, workflow-health summaries/status JSON, and local tool-effectiveness verdict summaries. |
@@ -22,9 +22,9 @@ Status key: `done` means implemented in this repo; `live-gated` means intentiona
 | Shareable repo boundary | done: public templates exclude private identity, accounts, transcripts, secrets, and memories. |
 | Release and public docs | done: `VERSION`, Keep a Changelog `CHANGELOG.md`, `docs/RELEASING.md`, `scripts/release.mjs`, `changelog-release-check.mjs`, `README.md`, `CREDITS.md`, root `AGENTS.md`/`CLAUDE.md`, and aligned `docs/skills.md` / `docs/health-stack.md`. |
 
-## Companion Skills
+## Bundled skills
 
-The Eternal Stack owns only the `etrnl-*` skills in this repo. These companion skills are expected when installed and are mapped in `docs/skills.md`:
+Eternal Stack is a bundled skill family: `etrnl-*` orchestration from this repo plus policy, review, and domain skills that install on the host and are routed by hooks and workflows. See `docs/skills.md` for the full inventory. Representative bundled skills:
 
 - `eternal-best-practices`
 - `domain-*`
@@ -37,9 +37,7 @@ The Eternal Stack owns only the `etrnl-*` skills in this repo. These companion s
 - `abacatepay-integration`
 - `code-simplifier`
 - `finding-duplicate-functions`
-- `brooks-audit`
-
-They remain separate so the repo-owned namespace is unambiguous while still preserving the richer review loop from the original sessions.
+- Brooks guidance via `etrnl-code-review-excellence/references/` (supersedes standalone `brooks-audit` for stack use)
 
 ## Best-Of-All-Worlds Layers
 

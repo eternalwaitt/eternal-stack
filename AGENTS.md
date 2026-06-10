@@ -20,7 +20,7 @@ This repo builds Eternal's opinionated stack of skills, hooks, and rules for Cla
 | --- | --- |
 | [README.md](README.md) | Public onboarding, profiles, doc index |
 | [docs/install.md](docs/install.md) | Install, update, rollback, strict mode |
-| [docs/skills.md](docs/skills.md) | Owned vs companion skills and script inventory |
+| [docs/skills.md](docs/skills.md) | `etrnl-*` orchestration plus bundled skills and script inventory |
 | [docs/health-stack.md](docs/health-stack.md) | Doctor gates and audit workflows |
 | [docs/RELEASING.md](docs/RELEASING.md) | Semver, changelog categories, tags |
 | [CREDITS.md](CREDITS.md) | Vendored and inspirational attribution |
@@ -30,7 +30,9 @@ Historical execution plans live under `docs/plans/`; durable decisions live unde
 
 ## Boundaries
 
-- Repo-owned skills use the `etrnl-*` namespace.
-- Companion skills such as `eternal-best-practices`, `code-simplifier`, and `finding-duplicate-functions` are mapped but not vendored; `brooks-audit` is vendored into `etrnl-code-review-excellence/references/brooks-*.md`.
+- Repo-owned orchestration skills use the `etrnl-*` namespace and install from this repository.
+- Eternal Stack is a bundled skill family: policy, review, simplification, and domain skills (`eternal-best-practices`, `code-simplifier`, `finding-duplicate-functions`, `domain-*`, auth, tenancy, payments, and related bundles) are vendored under `skills/bundled/` and installed by `scripts/install.sh`. Hooks and `etrnl-*` workflows route to bundled skills by name.
+- Selected upstream guidance is also inlined as `references/` modules inside `etrnl-*` skills (Brooks under `etrnl-code-review-excellence`, oRPC/Prisma/SQL under `etrnl-backend-patterns`, and similar). Prefer those modules when they cover the task; load the bundled skill when the workflow needs the full surface.
+- The public repository boundary is privacy, not skill ownership: keep private identity, accounts, transcripts, credentials, and local memories out of tracked files.
 - Live migration of memory systems, plugins, MCPs, and broad permissions is a local rollout step, not a blind install-time side effect.
 - Whole-codebase audits use `etrnl-audit-code` plus `scripts/code-health-inventory.mjs`; no tracked file may vanish from the coverage map.

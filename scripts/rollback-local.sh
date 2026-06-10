@@ -205,6 +205,14 @@ for skill in "${OWNED_SKILLS[@]}"; do
     restored_count=$((restored_count + 1))
   fi
 done
+for skill in "${BUNDLED_SKILLS[@]}"; do
+  rm -rf -- "$ROOT/skills/$skill"
+  if [[ -d "$BACKUP/skills/$skill" ]]; then
+    cp -R -- "$BACKUP/skills/$skill" "$ROOT/skills/$skill"
+    restored+=("skills/$skill (bundled)")
+    restored_count=$((restored_count + 1))
+  fi
+done
 rm -rf -- "$ROOT/skills/common"
 if [[ -d "$BACKUP/skills/common" ]]; then
   cp -R -- "$BACKUP/skills/common" "$ROOT/skills/common"
@@ -223,6 +231,14 @@ for skill in "${OWNED_SKILLS[@]}"; do
   if [[ -d "$BACKUP/codex-skills/$skill" ]]; then
     cp -R -- "$BACKUP/codex-skills/$skill" "$CODEX_TARGET/skills/$skill"
     restored+=("codex-skills/$skill")
+    restored_count=$((restored_count + 1))
+  fi
+done
+for skill in "${BUNDLED_SKILLS[@]}"; do
+  rm -rf -- "$CODEX_TARGET/skills/$skill"
+  if [[ -d "$BACKUP/codex-skills/$skill" ]]; then
+    cp -R -- "$BACKUP/codex-skills/$skill" "$CODEX_TARGET/skills/$skill"
+    restored+=("codex-skills/$skill (bundled)")
     restored_count=$((restored_count + 1))
   fi
 done

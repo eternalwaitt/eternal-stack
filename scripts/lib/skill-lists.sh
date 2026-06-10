@@ -37,6 +37,32 @@ OWNED_SKILLS=(
   etrnl-dev-test
 )
 
+# Bundled policy/review/domain skills vendored under skills/bundled/ and installed
+# to ~/.claude/skills/<name> and ~/.codex/skills/<name>. Refresh with scripts/vendor-bundled-skills.sh.
+BUNDLED_SKILLS=(
+  abacatepay-integration
+  better-auth
+  brooks-audit
+  ci-cd
+  code-simplifier
+  domain-cli
+  domain-cloud-native
+  domain-embedded
+  domain-fintech
+  domain-iot
+  domain-ml
+  domain-web
+  eternal-best-practices
+  finding-duplicate-functions
+  i18n-localization
+  money-vo-discipline
+  orpc-patterns
+  prisma-expert
+  sql-optimization-patterns
+  stripe-best-practices
+  tenant-isolation-patterns
+)
+
 OWNED_AGENTS=(
   etrnl-adversary
   etrnl-browser-qa
@@ -240,8 +266,8 @@ REMOVED_SKILLS=(
   eternal-writing-plans
 )
 
-# Companion/domain-sensitive skills that gate protected edits in hooks.
+# Bundled domain-sensitive skills that gate protected edits in hooks.
 DOMAIN_COMPANION_SKILL_PATTERN='^(eternal-best-practices|domain-[a-z0-9_-]+|better-auth|tenant-isolation(-patterns)?|money-vo-discipline|prisma-expert|i18n-localization|stripe-best-practices|abacatepay-integration)$'
 
 # Keep shellcheck aware these sourced constants are intentionally read by callers.
-: "${OWNED_SKILLS[*]}" "${OWNED_AGENTS[*]}" "${OWNED_COMMANDS[*]}" "${CRITICAL_HOOKS[*]}" "${CRITICAL_SCRIPTS[*]}" "${INSTALL_SCRIPTS[*]}" "${REMOVED_SKILLS[*]}" "$DOMAIN_COMPANION_SKILL_PATTERN"
+: "${OWNED_SKILLS[*]}" "${BUNDLED_SKILLS[*]}" "${OWNED_AGENTS[*]}" "${OWNED_COMMANDS[*]}" "${CRITICAL_HOOKS[*]}" "${CRITICAL_SCRIPTS[*]}" "${INSTALL_SCRIPTS[*]}" "${REMOVED_SKILLS[*]}" "$DOMAIN_COMPANION_SKILL_PATTERN"

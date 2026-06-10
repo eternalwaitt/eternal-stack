@@ -61,7 +61,7 @@ ETRNL_ENABLE_STRICT=1 ./scripts/install.sh
 | [CLAUDE.md](CLAUDE.md) | Tiny Claude Code wrapper (imports `AGENTS.md`) |
 | [docs/install.md](docs/install.md) | Install, update, uninstall, profiles |
 | [docs/eternal-stack-coverage.md](docs/eternal-stack-coverage.md) | Capability coverage map |
-| [docs/skills.md](docs/skills.md) | Owned vs companion skills |
+| [docs/skills.md](docs/skills.md) | `etrnl-*` orchestration and bundled skills |
 | [docs/health-stack.md](docs/health-stack.md) | Code and documentation health gates |
 | [docs/RELEASING.md](docs/RELEASING.md) | Semver, changelog categories, tagging |
 | [CREDITS.md](CREDITS.md) | Vendored and inspirational sources |
@@ -90,4 +90,4 @@ This repository is public-safe: no private identity, accounts, credentials, tran
 
 ## Credits
 
-Vendored Brooks, oRPC, Prisma, and SQL reference modules; companion skill mappings; and starred-repo research are documented in [CREDITS.md](CREDITS.md).
+Inlined Brooks, oRPC, Prisma, and SQL reference modules; bundled skill attribution; and starred-repo research are documented in [CREDITS.md](CREDITS.md).

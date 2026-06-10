@@ -2,9 +2,9 @@
 
 Eternal Stack is an opinionated Claude Code stack: hooks, skills, scripts, and install profiles. It combines Eternal engineering practice with ideas and reference material from the wider agent-tooling community.
 
-## Vendored reference material
+## Inlined reference modules
 
-These companion skills are **not** shipped as separate install surfaces. Selected content is rewritten in directive voice and vendored under repo-owned `references/` modules.
+Selected upstream guidance is rewritten in directive voice and shipped inside repo-owned `references/` modules. These are part of the Eternal Stack bundle even when a fuller skill also exists on the host.
 
 | Source skill / material | Eternal Stack home | Notes |
 | --- | --- | --- |
@@ -14,22 +14,23 @@ These companion skills are **not** shipped as separate install surfaces. Selecte
 | `sql-optimization-patterns` | `skills/etrnl-backend-patterns/references/sql-optimization.md` | EXPLAIN ANALYZE, indexes, pagination |
 | SkillsMP backend-development research | `skills/etrnl-backend-patterns/references/*.md` | Six-topic backend suite informed by public skill marketplace research (`docs/research/2026-06-04-etrnl-skillsmp-comparison.md`) |
 
-Vendored files are adapted for Eternal Stack conventions. They remain separate from upstream licenses and update paths — check upstream projects when you need the canonical versions.
+Vendored files are adapted for Eternal Stack conventions. Check upstream projects when you need canonical versions or license text.
 
-## Mapped companion skills (not vendored)
+## Bundled stack skills
 
-When installed locally, Eternal Stack routes to these external skills but does **not** copy them into this repository:
+Eternal Stack is designed as a complete skill family. Policy, review, simplification, domain, auth, tenancy, and payments skills are vendored under `skills/bundled/`, installed by `scripts/install.sh`, and routed by hooks and `etrnl-*` workflows — they are not a separate optional layer outside the stack.
 
-| Skill | Typical use |
-| --- | --- |
-| `eternal-best-practices` | Multi-tenant SaaS policy router |
-| `code-simplifier` | Clarity pass before completion |
-| `finding-duplicate-functions` | Dedupe and consolidation review |
-| `better-auth`, `tenant-isolation-patterns`, `money-vo-discipline` | Auth, tenancy, and money discipline |
-| `stripe-best-practices`, `abacatepay-integration` | Payments review when installed |
-| `ci-cd` | CI helper scripts referenced by `/etrnl-dev-ci` |
+| Skill | Typical use | Attribution |
+| --- | --- | --- |
+| `eternal-best-practices` | Multi-tenant SaaS policy router | Eternal engineering practice |
+| `code-simplifier` | Clarity pass before completion | Personal / community skill bundle |
+| `finding-duplicate-functions` | Dedupe and consolidation review | Personal / community skill bundle |
+| `better-auth`, `tenant-isolation-patterns`, `money-vo-discipline` | Auth, tenancy, and money discipline | Community / upstream skill bundles |
+| `stripe-best-practices`, `abacatepay-integration` | Payments review | Community / upstream skill bundles |
+| `ci-cd` | CI helper scripts referenced by `/etrnl-dev-ci` | Community skill bundle |
+| `domain-*`, `i18n-localization`, and related domain skills | Domain-specific review gates | Community / upstream skill bundles |
 
-See [docs/skills.md](docs/skills.md) for the full companion table.
+The full inventory and routing notes live in [docs/skills.md](docs/skills.md).
 
 ## Research and design inspiration
 
@@ -44,7 +45,7 @@ Public research in `docs/research/` records competitive and starred-repo analysi
 | [Chachamaru127/claude-code-harness](https://github.com/Chachamaru127/claude-code-harness) | Quality gates, browser artifact contracts, review plateau ideas |
 | [infinri/Writ](https://github.com/infinri/Writ) | Mandatory-rule mechanical enforcement |
 | [gsd-build/get-shit-done](https://github.com/gsd-build/get-shit-done) | Workflow state and context breadcrumbs benchmark |
-| [gstack](https://github.com/gruckion/gstack) (George Mack stack) | QA, browser, ship, and review workflow patterns referenced in personal skill mappings |
+| [gstack](https://github.com/gruckion/gstack) (George Mack stack) | QA, browser, ship, and review workflow patterns referenced in bundled skill mappings |
 
 Full starred-repo notes: [docs/research/2026-06-03-starred-agent-stack-map.md](docs/research/2026-06-03-starred-agent-stack-map.md).
 

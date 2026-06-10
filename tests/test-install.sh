@@ -116,6 +116,10 @@ for skill in "${OWNED_SKILLS[@]}"; do
   assert_contains "installed Claude slash command $skill carries arguments" "$(cat "$CLAUDE_HOME/commands/$skill.md")" "User request: \$ARGUMENTS"
   assert_file "synced Codex skill $skill" "$CODEX_HOME/skills/$skill/SKILL.md"
 done
+for skill in "${BUNDLED_SKILLS[@]}"; do
+  assert_file "installed bundled Claude skill $skill" "$CLAUDE_HOME/skills/$skill/SKILL.md"
+  assert_file "synced bundled Codex skill $skill" "$CODEX_HOME/skills/$skill/SKILL.md"
+done
 assert_file "installed Claude common skill reference" "$CLAUDE_HOME/skills/common/typescript-triggers.md"
 assert_file "synced Codex common skill reference" "$CODEX_HOME/skills/common/typescript-triggers.md"
 assert_no_directory "removed legacy Claude etrnl-fix-issue" "$CLAUDE_HOME/skills/etrnl-fix-issue"
@@ -318,6 +322,10 @@ for skill in "${OWNED_SKILLS[@]}"; do
   assert_no_directory "rollback removed $skill" "$CLAUDE_HOME/skills/$skill"
   assert_no_file "rollback removed $skill slash command" "$CLAUDE_HOME/commands/$skill.md"
   assert_no_directory "rollback removed Codex $skill" "$CODEX_HOME/skills/$skill"
+done
+for skill in "${BUNDLED_SKILLS[@]}"; do
+  assert_no_directory "rollback removed bundled $skill" "$CLAUDE_HOME/skills/$skill"
+  assert_no_directory "rollback removed bundled Codex $skill" "$CODEX_HOME/skills/$skill"
 done
 assert_no_directory "rollback removed Claude common skill reference" "$CLAUDE_HOME/skills/common"
 assert_no_directory "rollback removed Codex common skill reference" "$CODEX_HOME/skills/common"

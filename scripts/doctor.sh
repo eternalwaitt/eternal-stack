@@ -709,27 +709,33 @@ elif [[ -f "$ROOT/scripts/update-check.mjs" ]]; then
   report_command "source update fingerprint available" "source update fingerprint failed" node "$ROOT/scripts/update-check.mjs" --fingerprint-source "$ROOT"
 fi
 
-companion_hits=0
-default_companion_skill_paths=(
-  "$HOME/.claude/skills/eternal-best-practices"
-  "$HOME/.agents/skills/eternal-best-practices"
-  "$HOME/.agents/skills/code-simplifier"
-  "$HOME/.agents/skills/universal/finding-duplicate-functions"
-  "$HOME/.codex/skills/brooks-audit"
-)
-if [[ -n "${COMPANION_SKILL_PATHS:-}" ]]; then
-  IFS=':' read -r -a companion_skill_paths <<<"$COMPANION_SKILL_PATHS"
-else
-  companion_skill_paths=("${default_companion_skill_paths[@]}")
-fi
-for skill_dir in "${companion_skill_paths[@]}"; do
-  [[ -z "$skill_dir" ]] && continue
-  [[ -d "$skill_dir" ]] && companion_hits=$((companion_hits + 1))
+bundled_hits=0
+bundled_missing=0
+for skill in "${BUNDLED_SKILLS[@]}"; do
+  skill_file="$ROOT/skills/bundled/$skill/SKILL.md"
+  if [[ ! -f "$skill_file" ]]; then
+    fail "bundled skill missing in repo: skills/bundled/$skill/SKILL.md"
+    bundled_missing=1
+    continue
+  fi
+  bundled_hits=$((bundled_hits + 1))
 done
-if (( companion_hits > 0 )); then
-  ok "companion skills detected: $companion_hits"
-else
-  ok "companion skills not detected; routing will require manual fallback"
+if [[ "$bundled_missing" == "0" ]]; then
+  ok "bundled skills vendored in repo: $bundled_hits"
+fi
+installed_bundled=0
+claude_home="${CLAUDE_HOME:-$HOME/.claude}"
+if [[ -f "$claude_home/etrnl/install.json" ]]; then
+  for skill in "${BUNDLED_SKILLS[@]}"; do
+    [[ -f "$claude_home/skills/$skill/SKILL.md" ]] && installed_bundled=$((installed_bundled + 1))
+  done
+  if (( installed_bundled == ${#BUNDLED_SKILLS[@]} )); then
+    ok "bundled stack skills installed in Claude home: $installed_bundled"
+  elif (( installed_bundled > 0 )); then
+    fail "bundled stack skills partially installed in Claude home: $installed_bundled/${#BUNDLED_SKILLS[@]}"
+  else
+    fail "bundled stack skills missing in Claude home; rerun install.sh"
+  fi
 fi
 
 if [[ -f "$ROOT/scripts/changelog-release-check.mjs" && -f "$ROOT/CHANGELOG.md" ]]; then

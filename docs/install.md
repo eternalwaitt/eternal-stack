@@ -55,7 +55,8 @@ The installer:
 - installs `~/.claude/scripts/update-check.mjs`, `update.sh`, and `uninstall.sh` so installed Claude sessions can explain, detect, and repair drift from the source checkout
 - installs `~/.claude/scripts/tool-stack-check.mjs` and `bootstrap-tools.sh` so CodeGraph, Beads, MCP config, and repo-local indexes/databases can be checked or bootstrapped from the installed Eternal Stack
 - installs `~/.claude/scripts/stack-profile-check.mjs` so profile manifests can be validated before install, staged rollout, and doctor runs
-- installs repo-owned `etrnl-*` skills, scripts, script libraries, and `~/.codex/etrnl/install.json` into `~/.codex` so Codex sessions can run the same skill helpers without depending on `~/.claude`
+- installs repo-owned `etrnl-*` skills and bundled skills from `skills/bundled/` into `~/.claude/skills/` and `~/.codex/skills/`
+- installs scripts, script libraries, and `~/.codex/etrnl/install.json` into `~/.codex` so Codex sessions can run the same skill helpers without depending on `~/.claude`
 - runs `settings-audit.mjs --fix` so duplicate hook commands are compacted and the legacy race-prone rate limiter is replaced with `cc-rate-limiter.sh`
 - runs the hook and workflow-tool test harnesses plus the post-upgrade canary
 - applies safe observer hooks after the vanilla reset, including once-per-session `UserPromptSubmit` `CLAUDE.md` reinjection and the advisory rate limiter

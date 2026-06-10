@@ -14,6 +14,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Removed
 
+### Security
+
+### Deprecated
+
+## v0.4.0
+
+2026-06-10
+
+
+### Added
+
+- Vendor 21 bundled stack skills under `skills/bundled/` and sync them to Claude/Codex homes during install (`scripts/vendor-bundled-skills.sh`, `BUNDLED_SKILLS` in `scripts/lib/skill-lists.sh`).
+
+### Changed
+
+- Reframe stack boundaries: bundled policy/review/domain skills are part of Eternal Stack, not optional externals (`AGENTS.md`, `docs/skills.md`, `CREDITS.md`, `docs/eternal-stack-coverage.md`, `rules/etrnl/domains.md`).
+- Install and doctor verify bundled skill trees from `skills/bundled/`; install dry-run fails when any bundled source is missing.
+- Rollback restores bundled skills from install backup; `update-check.mjs` ignores maintainer-only `vendor-bundled-skills.sh`.
+
 ## v0.3.0
 
 2026-06-09
@@ -176,3 +195,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - Add 85-check fixture harness.
 - Add install, update, uninstall, and doctor scripts.
 - Add concise skill templates for commit, PR, test, issue fixing, dependency work, plan writing/execution, review, adversarial review, parallel fan-out, and agent file maintenance.
+

@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  pull_request:
+    branches: ["**"]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  static:
+    name: Type Check + Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@REPLACE_WITH_PINNED_SHA
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: pnpm/action-setup@REPLACE_WITH_PINNED_SHA
+        with:
+          version: 10
+      - uses: actions/setup-node@REPLACE_WITH_PINNED_SHA
+        with:
+          node-version: "20"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm turbo run lint typecheck --affected
+
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@REPLACE_WITH_PINNED_SHA
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: pnpm/action-setup@REPLACE_WITH_PINNED_SHA
+        with:
+          version: 10
+      - uses: actions/setup-node@REPLACE_WITH_PINNED_SHA
+        with:
+          node-version: "20"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm turbo run test --affected
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@REPLACE_WITH_PINNED_SHA
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: pnpm/action-setup@REPLACE_WITH_PINNED_SHA
+        with:
+          version: 10
+      - uses: actions/setup-node@REPLACE_WITH_PINNED_SHA
+        with:
+          node-version: "20"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm turbo run build --affected
+
+  quality:
+    name: Required CI
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [static, test, build]
+    if: always()
+    steps:
+      - name: Verify required jobs
+        env:
+          STATIC_RESULT: ${{ needs.static.result }}
+          TEST_RESULT: ${{ needs.test.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+        run: |
+          for result in "$STATIC_RESULT" "$TEST_RESULT" "$BUILD_RESULT"; do
+            if [ "$result" != "success" ]; then
+              echo "At least one required CI job failed." >&2
+              exit 1
+            fi
+          done

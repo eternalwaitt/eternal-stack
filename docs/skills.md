@@ -11,7 +11,7 @@ Claude Code personal and project skills use hyphenated command names. If this Et
 | `/etrnl-dev-autoplan` | Model or user | Creates readiness-compatible execution plans with task groups, subagent candidates, verification gates, question policy, mandatory deep-stack artifacts, and an autoplan parity scorecard for final plans. |
 | `/etrnl-dev-brainstorm` | Model or user | Turns ambiguous ideas into approved design/spec files before implementation planning. |
 | `/etrnl-dev-ci` | Model or user | Designs, audits, hardens, debugs, and repairs CI/CD lanes, GitHub Actions, branch protection, artifact/deploy gates, OIDC, SBOM/provenance, rollback, flaky CI, and slow builds. |
-| `/etrnl-audit-code` | User only | Runs the canonical code-health router: inventory, Health Stack, deterministic gates, companion audits, ledger, and no-skips closure. |
+| `/etrnl-audit-code` | User only | Runs the canonical code-health router: inventory, Health Stack, deterministic gates, bundled-skill audits, ledger, and no-skips closure. |
 | `/etrnl-code-review-excellence` | Model or user | Orchestrates code review excellence: classifies the task, loads `references/` modules (audit-checks, Brooks foundation/architecture/onboarding), and runs the registered `code-excellence` deep-audit category when needed. |
 | `/etrnl-deep-audit` | Model or user | Runs orchestrator-included application deep-audit categories through a shared artifact envelope, shared worklists, category reports, lane receipts, and `all_registered` coverage statements. Bundled categories `shared-reuse` and `repo-hygiene` load from `references/categories/`. |
 | `/etrnl-deep-audit-ux` | Model or user | Runs the `ui-ux-product` deep-audit category for accessibility, responsive visual QA, interaction quality, hierarchy, states, empty paths, and product copy — separate from `all_registered` so UI/UX depth can evolve independently. |
@@ -51,7 +51,7 @@ Claude Code personal and project skills use hyphenated command names. If this Et
 | `references/brooks-architecture.md` | Module dependency graph, layering, Conway's Law, testability seams |
 | `references/brooks-onboarding.md` | Codebase tour and new-developer orientation |
 
-Successor to the external companion skill `brooks-audit` when the Eternal Stack is installed.
+Brooks bundled content for this stack; prefer these references over a separate `brooks-audit` install.
 
 ## Backend Patterns
 
@@ -69,7 +69,7 @@ Successor to the external companion skill `brooks-audit` when the Eternal Stack 
 | `references/observability.md` | Structured logs, tracing, RED metrics, SLI/SLO, health checks, error handling |
 | `references/architecture.md` | Service layers, boundaries, events/outbox, CQRS, sagas |
 
-Successor to the external companion skill `backend-patterns` when installed locally.
+Bundled backend guidance for this stack; supersedes a separate `backend-patterns` install.
 
 ## Deep Audit Skills
 
@@ -96,32 +96,39 @@ Direct category examples:
 /etrnl-audit-tooling --category tooling-ecosystem
 ```
 
-## Companion Skills
+## Bundled skills
+
+Eternal Stack installs as two cooperating layers:
+
+1. **`etrnl-*` orchestration** — repo-owned commands, hooks, scripts, and agents from this repository.
+2. **Bundled review and domain skills** — policy, simplification, dedupe, domain, auth, and payments skills that complete the loops `etrnl-*` workflows enforce.
+
+Bundled skills are vendored under `skills/bundled/<name>/` in this repository. `scripts/install.sh` copies each tree to `~/.claude/skills/<name>` and `~/.codex/skills/<name>`. Maintainers refresh vendored copies from canonical host trees with `scripts/vendor-bundled-skills.sh`.
+
+When the same guidance exists under `skills/etrnl-*/references/`, prefer the repo module first; load the bundled skill when the task needs the full surface or hooks require it by name.
 
 Hindsight is not an ETRNL execution skill and is not compact handoff authority. It is optional semantic recall/export behind `scripts/canary-hindsight.sh`; accepted lessons are first stored as ETRNL `lesson` events.
 
-Beads is not an ETRNL companion execution skill. It is allowed as explicit backlog, blocker, dependency, claim, and discovered-follow-up state only. Active ETRNL tasks, phases, checks, compact handoff packets, execution-ledger evidence, and review evidence stay in ETRNL state and ledgers. Raw `bd prime --full` output is rejected by `node scripts/etrnl-state.mjs bead-prime-audit`.
+Beads is not an ETRNL bundled execution skill. It is allowed as explicit backlog, blocker, dependency, claim, and discovered-follow-up state only. Active ETRNL tasks, phases, checks, compact handoff packets, execution-ledger evidence, and review evidence stay in ETRNL state and ledgers. Raw `bd prime --full` output is rejected by `node scripts/etrnl-state.mjs bead-prime-audit`.
 
-These skills are not owned by this repo, but the Eternal Stack knows about them and routes to them when installed. Keeping them outside the `etrnl-*` family avoids hiding the repo boundary while preserving the stronger workflow from the original planning sessions.
-
-| Skill | Owner | Used For |
+| Skill | Bundle role | Used for |
 | --- | --- | --- |
-| `eternal-best-practices` | External/personal eternal skill | Stack policy router for auth, tenant isolation, money, i18n, Prisma, soft deletes, and domain-sensitive work. |
-| `domain-*` | External domain skills | Domain-specific review gates for cloud, web, fintech, IoT, embedded, ML, and similar surfaces when installed. |
-| `better-auth` | External backend skill | Auth-specific implementation review when protected auth paths are edited. |
-| `tenant-isolation-patterns` | External backend skill | Tenant boundary review for multi-tenant data and permission paths. |
-| `money-vo-discipline` | External domain skill | Money/value-object discipline for financial and billing paths. |
-| `prisma-expert` | External data skill | Prisma schema, migration, and query reference; vendored into `references/prisma.md` when the Eternal Stack is installed — use the repo module instead of loading the companion directly. |
-| `sql-optimization-patterns` | External data skill | SQL query optimization and EXPLAIN analysis; vendored into `references/sql-optimization.md` when the Eternal Stack is installed — use the repo module instead of loading the companion directly. |
-| `i18n-localization` | External domain skill | Locale and translation review for user-facing internationalized surfaces. |
-| `stripe-best-practices` | External payment skill | Stripe payment and billing review when installed. |
-| `abacatepay-integration` | External payment skill | AbacatePay payment integration review when installed. |
-| `ci-cd` | External/ci-cd companion skill | CI helper scripts such as `audit_github_actions.py` referenced by `skills/etrnl-dev-ci/SKILL.md`. |
-| `code-simplifier` | External skill | Clarity and simplification pass before final scoring/completion. |
-| `finding-duplicate-functions` | External skill | Dedupe review for repeated logic and consolidation work. |
-| `brooks-audit` | External/local skill | Brooks architecture and onboarding reference; vendored into `etrnl-code-review-excellence/references/brooks-*.md` when the Eternal Stack is installed — use the repo modules instead of loading the companion directly. |
-| `backend-patterns` | External/personal skill | Legacy monolithic backend guidance; prefer repo-owned `/etrnl-backend-patterns` when the Eternal Stack is installed. |
-| `orpc-patterns` | External/personal skill | Full-stack oRPC reference; vendored into `references/orpc.md` when the Eternal Stack is installed — use the repo module instead of loading the companion directly. |
+| `eternal-best-practices` | Bundled policy | Auth, tenant isolation, money, i18n, Prisma, soft deletes, and domain-sensitive work. |
+| `domain-*` | Bundled domain | Cloud, web, fintech, IoT, embedded, ML, and similar review gates. |
+| `better-auth` | Bundled auth | Auth implementation review on protected auth paths. |
+| `tenant-isolation-patterns` | Bundled tenancy | Multi-tenant data and permission boundaries. |
+| `money-vo-discipline` | Bundled finance | Money/value-object discipline on financial and billing paths. |
+| `i18n-localization` | Bundled i18n | Locale and translation review on user-facing surfaces. |
+| `stripe-best-practices` | Bundled payments | Stripe payment and billing review. |
+| `abacatepay-integration` | Bundled payments | AbacatePay PIX integration review. |
+| `ci-cd` | Bundled CI | Helper scripts such as `audit_github_actions.py` referenced by `skills/etrnl-dev-ci/SKILL.md`. |
+| `code-simplifier` | Bundled review | Clarity and simplification pass before final scoring or completion. |
+| `finding-duplicate-functions` | Bundled review | Dedupe review for repeated logic and consolidation work. |
+| `prisma-expert` | Inlined + bundled | Prisma depth; default to `etrnl-backend-patterns/references/prisma.md` in this repo. |
+| `sql-optimization-patterns` | Inlined + bundled | SQL optimization depth; default to `etrnl-backend-patterns/references/sql-optimization.md`. |
+| `orpc-patterns` | Inlined + bundled | oRPC depth; default to `etrnl-backend-patterns/references/orpc.md`. |
+| `brooks-audit` | Inlined | Default to `etrnl-code-review-excellence/references/brooks-*.md`. |
+| `backend-patterns` | Superseded | Use `/etrnl-backend-patterns` instead. |
 
 ## Deterministic Helpers
 

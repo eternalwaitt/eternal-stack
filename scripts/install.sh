@@ -162,6 +162,32 @@ sync_owned_skills() {
   done
 }
 
+sync_bundled_skills() {
+  local source_dir="$1"
+  local target_dir="$2"
+  local backup_dir="${3:-}"
+  local skill
+  if [[ ! -d "$source_dir" ]]; then
+    printf 'fatal: missing bundled skills directory %s\n' "$source_dir" >&2
+    return 1
+  fi
+  mkdir -p "$target_dir"
+  if [[ -n "$backup_dir" ]]; then
+    mkdir -p "$backup_dir"
+  fi
+  for skill in "${BUNDLED_SKILLS[@]}"; do
+    if [[ ! -d "$source_dir/$skill" || ! -f "$source_dir/$skill/SKILL.md" ]]; then
+      printf 'fatal: missing bundled skill source %s/%s\n' "$source_dir" "$skill" >&2
+      return 1
+    fi
+    if [[ -n "$backup_dir" && -d "$target_dir/$skill" ]]; then
+      cp -R -- "$target_dir/${skill:?}" "$backup_dir/${skill:?}"
+    fi
+    rm -rf -- "$target_dir/${skill:?}"
+    cp -R -- "$source_dir/${skill:?}" "$target_dir/${skill:?}"
+  done
+}
+
 sync_skill_support_dir() {
   local source_dir="$1"
   local target_dir="$2"
@@ -337,6 +363,10 @@ validate_source_install_inputs() {
     [[ -d "$ROOT/skills/$skill" ]] || missing+=("$ROOT/skills/$skill")
     [[ -s "$ROOT/skills/$skill/SKILL.md" ]] || missing+=("$ROOT/skills/$skill/SKILL.md")
   done
+  for skill in "${BUNDLED_SKILLS[@]}"; do
+    [[ -d "$ROOT/skills/bundled/$skill" ]] || missing+=("$ROOT/skills/bundled/$skill")
+    [[ -s "$ROOT/skills/bundled/$skill/SKILL.md" ]] || missing+=("$ROOT/skills/bundled/$skill/SKILL.md")
+  done
   if (( ${#missing[@]} > 0 )); then
     printf 'install dry-run failed; missing source files:\n' >&2
     printf '  %s\n' "${missing[@]}" >&2
@@ -428,7 +458,7 @@ for skill in "${OWNED_SKILLS[@]}"; do
 done
 
 mkdir -p "$BACKUP/skills"
-for skill in "${OWNED_SKILLS[@]}"; do
+for skill in "${OWNED_SKILLS[@]}" "${BUNDLED_SKILLS[@]}"; do
   if [[ -d "$TARGET/skills/$skill" ]]; then
     cp -R -- "$TARGET/skills/$skill" "$BACKUP/skills/$skill"
   fi
@@ -482,7 +512,9 @@ remove_removed_skill_commands "$TARGET/commands"
 mkdir -p "$TARGET/hooks" "$TARGET/scripts" "$TARGET/docs/templates" "$TARGET/skills" "$TARGET/agents" "$TARGET/commands" "$TARGET/rules" "$TARGET/tests/lib" "$TARGET/tests/fixtures"
 copy_dir_contents "$ROOT/hooks" "$TARGET/hooks"
 sync_owned_skills "$ROOT/skills" "$TARGET/skills"
-sync_owned_skills "$ROOT/skills" "$CODEX_TARGET/skills" "$BACKUP/codex-skills"
+sync_bundled_skills "$ROOT/skills/bundled" "$TARGET/skills" "$BACKUP/skills"
+sync_owned_skills "$ROOT/skills" "$CODEX_TARGET/skills"
+sync_bundled_skills "$ROOT/skills/bundled" "$CODEX_TARGET/skills" "$BACKUP/codex-skills"
 sync_skill_support_dir "$ROOT/skills" "$TARGET/skills" "$BACKUP/skills" common
 sync_skill_support_dir "$ROOT/skills" "$CODEX_TARGET/skills" "$BACKUP/codex-skills" common
 mkdir -p "$TARGET/skills/metadata" "$CODEX_TARGET/skills/metadata"
@@ -670,6 +702,10 @@ verify_install_state() {
     [[ -f "$TARGET/skills/$file/SKILL.md" ]] || missing+=("skills/$file/SKILL.md")
     [[ -f "$TARGET/commands/$file.md" ]] || missing+=("commands/$file.md")
     [[ -f "$CODEX_TARGET/skills/$file/SKILL.md" ]] || missing+=("codex skills/$file/SKILL.md")
+  done
+  for file in "${BUNDLED_SKILLS[@]}"; do
+    [[ -f "$TARGET/skills/$file/SKILL.md" ]] || missing+=("skills/$file/SKILL.md (bundled)")
+    [[ -f "$CODEX_TARGET/skills/$file/SKILL.md" ]] || missing+=("codex skills/$file/SKILL.md (bundled)")
   done
   [[ -f "$TARGET/skills/common/typescript-triggers.md" ]] || missing+=("skills/common/typescript-triggers.md")
   [[ -f "$CODEX_TARGET/skills/common/typescript-triggers.md" ]] || missing+=("codex skills/common/typescript-triggers.md")
