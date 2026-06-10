@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-This directory holds durable control-plane decisions that should outlive one implementation plan.
+This directory holds durable Eternal Stack decisions that should outlive one implementation plan.
 
 ## Index
 

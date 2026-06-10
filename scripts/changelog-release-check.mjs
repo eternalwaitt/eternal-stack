@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { gitSubprocessLimits } from "./lib/env-utils.mjs";
@@ -13,9 +13,17 @@ const GIT_LIMITS = gitSubprocessLimits({
   timeoutMs: DEFAULT_GIT_TIMEOUT_MS,
   maxBufferBytes: DEFAULT_GIT_MAX_BUFFER,
 });
+const KEEP_A_CHANGELOG_CATEGORIES = new Set([
+  "### Added",
+  "### Changed",
+  "### Fixed",
+  "### Removed",
+  "### Security",
+  "### Deprecated",
+]);
 
 function usage() {
-  console.error("usage: changelog-release-check.mjs [--root <path>] [--allow-unreleased] [--strict-unreleased]");
+  console.error("usage: changelog-release-check.mjs [--root <path>] [--allow-unreleased] [--strict-unreleased] [--skip-version-file] [--skip-categories]");
   console.error("--strict-unreleased takes precedence over --allow-unreleased when both are present.");
   process.exit(2);
 }
@@ -53,13 +61,16 @@ function git(argsForGit, root) {
 function parseReleaseHeading(line) {
   const match = line.match(/^## (v\d+\.\d+\.\d+)\s*$/);
   if (!match) return null;
-  return { version: match[1] };
+  return { version: match[1], lineIndex: -1 };
 }
 
 function parseReleaseSections(lines) {
-  return lines
-    .map((line) => parseReleaseHeading(line))
-    .filter(Boolean);
+  const sections = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const parsed = parseReleaseHeading(lines[index]);
+    if (parsed) sections.push({ ...parsed, lineIndex: index });
+  }
+  return sections;
 }
 
 function semverParts(version) {
@@ -116,6 +127,59 @@ function meaningfulLines(sourceLines) {
   return sourceLines.filter((line) => stripHtmlComments(line, state).trim() !== "");
 }
 
+function releaseSectionBody(lines, startIndex) {
+  const nextRelease = lines.slice(startIndex + 1).findIndex((line) => /^## v\d+\.\d+\.\d+\s*$/.test(line.trim()));
+  const endIndex = nextRelease < 0 ? lines.length : startIndex + 1 + nextRelease;
+  return lines.slice(startIndex + 1, endIndex);
+}
+
+function validateReleaseCategories(lines, releaseSections, skipCategories) {
+  const errors = [];
+  if (skipCategories) return errors;
+  for (const release of releaseSections) {
+    const body = releaseSectionBody(lines, release.lineIndex);
+    const categoriesPresent = new Set(
+      body
+        .map((line) => line.trim())
+        .filter((line) => KEEP_A_CHANGELOG_CATEGORIES.has(line)),
+    );
+    if (categoriesPresent.size === 0) {
+      errors.push(`${release.version} must include at least one Keep a Changelog category (### Added, Changed, Fixed, Removed, Security, or Deprecated).`);
+      continue;
+    }
+    let activeCategory = "";
+    let bulletsInCategory = 0;
+    let categoryHasBullet = false;
+    let anyBullet = false;
+    for (const rawLine of body) {
+      const line = rawLine.trim();
+      if (KEEP_A_CHANGELOG_CATEGORIES.has(line)) {
+        if (activeCategory && !categoryHasBullet) {
+          errors.push(`${release.version} category ${activeCategory} is empty.`);
+        }
+        activeCategory = line;
+        bulletsInCategory = 0;
+        categoryHasBullet = false;
+        continue;
+      }
+      if (/^-\s+/.test(line)) {
+        anyBullet = true;
+        if (activeCategory) {
+          bulletsInCategory += 1;
+          categoryHasBullet = true;
+        }
+      }
+    }
+    if (activeCategory && !categoryHasBullet) {
+      errors.push(`${release.version} category ${activeCategory} is empty.`);
+    }
+    if (!anyBullet) {
+      errors.push(`${release.version} must include at least one changelog bullet.`);
+    }
+  }
+  return errors;
+}
+
 function validateUnreleasedSection(sourceLines) {
   const errors = [];
   const unreleasedIndex = sourceLines.findIndex((line) => line.trim() === "## Unreleased");
@@ -131,12 +195,48 @@ function validateUnreleasedSection(sourceLines) {
     return { topRelease, unreleasedEntries, errors };
   }
   const nextHeadingIndex = unreleasedIndex + 1 + nextHeadingOffset;
-  unreleasedEntries = meaningfulLines(sourceLines.slice(unreleasedIndex + 1, nextHeadingIndex));
+  unreleasedEntries = meaningfulLines(sourceLines.slice(unreleasedIndex + 1, nextHeadingIndex))
+    .filter((line) => !KEEP_A_CHANGELOG_CATEGORIES.has(line.trim()));
   topRelease = parseReleaseHeading(sourceLines[nextHeadingIndex]);
   if (!topRelease) {
     errors.push(`First release heading must be a semantic version heading like "## vX.Y.Z": ${sourceLines[nextHeadingIndex]}`);
+  } else {
+    topRelease.lineIndex = nextHeadingIndex;
   }
   return { topRelease, unreleasedEntries, errors };
+}
+
+function validateVersionFile(root, topRelease, skipVersionFile) {
+  const errors = [];
+  if (skipVersionFile || !topRelease) return errors;
+  const versionPath = path.join(root, "VERSION");
+  if (!existsSync(versionPath)) {
+    errors.push("VERSION file missing. Add VERSION as the single source of truth for the current release.");
+    return errors;
+  }
+  const version = readFileSync(versionPath, "utf8").trim().replace(/^v/i, "");
+  const expected = topRelease.version.replace(/^v/, "");
+  if (version !== expected) {
+    errors.push(`VERSION (${version}) does not match top changelog release (${expected}).`);
+  }
+  return errors;
+}
+
+function validateTopReleaseTagged(root, topRelease, skipVersionFile) {
+  const errors = [];
+  if (skipVersionFile || !topRelease) return errors;
+  const versionPath = path.join(root, "VERSION");
+  if (!existsSync(versionPath)) return errors;
+  const version = readFileSync(versionPath, "utf8").trim().replace(/^v/i, "");
+  if (version !== topRelease.version.replace(/^v/, "")) return errors;
+
+  const inGit = git(["rev-parse", "--is-inside-work-tree"], root);
+  if (!inGit.ok || inGit.stdout !== "true") return errors;
+  const tags = new Set(git(["tag", "--list", "v[0-9]*"], root).stdout.split(/\r?\n/).filter(Boolean));
+  if (!tags.has(topRelease.version)) {
+    errors.push(`Release ${topRelease.version} is documented in CHANGELOG.md and VERSION but is not tagged. Run: node scripts/release.mjs tag`);
+  }
+  return errors;
 }
 
 function validateGitTagAlignment(root, releaseVersions, topRelease) {
@@ -170,8 +270,6 @@ function validateUntaggedReleaseDrift(root, releaseSections) {
   if (!inGit.ok || inGit.stdout !== "true" || releaseSections.length === 0) return errors;
   const tags = new Set(git(["tag", "--list", "v[0-9]*"], root).stdout.split(/\r?\n/).filter(Boolean));
   if (tags.size === 0) return errors;
-  const latestTag = git(["tag", "--list", "v[0-9]*", "--sort=-v:refname"], root).stdout.split(/\r?\n/).filter(Boolean)[0] || "";
-  if (!latestTag) return errors;
   const untaggedOlderSections = releaseSections
     .slice(1)
     .filter((release) => !tags.has(release.version))
@@ -186,6 +284,8 @@ function validateUntaggedReleaseDrift(root, releaseSections) {
 
 const root = path.resolve(argValue("--root", path.join(scriptDir, "..")));
 const allowUnreleased = args.includes("--allow-unreleased") && !args.includes("--strict-unreleased");
+const skipVersionFile = args.includes("--skip-version-file");
+const skipCategories = args.includes("--skip-categories");
 const changelogPath = path.join(root, "CHANGELOG.md");
 let lines = [];
 try {
@@ -205,6 +305,9 @@ if (unreleasedEntries.length > 0 && !allowUnreleased) {
   const preview = unreleasedEntries.slice(0, 3).join(" | ");
   errors.push(`CHANGELOG.md has ${unreleasedEntries.length} entries under ## Unreleased: ${preview}. Move them into a semantic version section before claiming repo health.`);
 }
+errors.push(...validateReleaseCategories(lines, releaseSections, skipCategories));
+errors.push(...validateVersionFile(root, topRelease, skipVersionFile));
+errors.push(...validateTopReleaseTagged(root, topRelease, skipVersionFile));
 errors.push(...validateGitTagAlignment(root, releaseVersions, topRelease));
 errors.push(...validateUntaggedReleaseDrift(root, releaseSections));
 

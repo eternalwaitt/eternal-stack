@@ -582,7 +582,7 @@ expect(parsed[5], "single quoted value", "single-quoted branch");
 expect(parsed[6], "plain token", "unquoted escaped space branch");
 expect(parsed[7], "escaped space token", "unquoted multi-escape branch");
 JS
-for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger etrnl-state execute-evidence-check execution-wave-check tool-effectiveness tool-stack-check stack-profile-check code-health-ledger-check documentation-comment-health documentation-health-ledger-check review-log project-buglog browser-qa-report context-state live-hook-noise-report session-audit workflow-health prompt-budget-check skill-update-prompt changelog-release-check port-guard update-check settings-audit deep-stack-check; do
+for script in agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger etrnl-state execute-evidence-check execution-wave-check tool-effectiveness tool-stack-check stack-profile-check code-health-ledger-check documentation-comment-health documentation-health-ledger-check review-log project-buglog browser-qa-report context-state live-hook-noise-report session-audit workflow-health prompt-budget-check skill-update-prompt changelog-release-check release port-guard update-check settings-audit deep-stack-check; do
   assert_command "$script syntax" node --check "$ROOT/scripts/$script.mjs"
 done
 assert_command "core stack profile check passes" node "$ROOT/scripts/stack-profile-check.mjs" "$ROOT/templates/stack-profile.core.json"
@@ -1160,8 +1160,11 @@ assert_command "prompt budget owned-only ignores external skills" node "$ROOT/sc
 
 changelog_good="$TMPROOT/changelog-good"
 mkdir -p "$changelog_good"
-printf '%s\n' '# Changelog' '' '## Unreleased' '' '## v0.1.1' '' '- Release note.' >"$changelog_good/CHANGELOG.md"
-assert_command "changelog check accepts empty Unreleased" node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_good" --strict-unreleased
+printf '%s\n' \
+  '# Changelog' '' '## Unreleased' '' '### Added' '' \
+  '## v0.1.1' '' '2026-01-01' '' '### Added' '' '- Release note.' \
+  >"$changelog_good/CHANGELOG.md"
+assert_command "changelog check accepts empty Unreleased" node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_good" --strict-unreleased --skip-version-file
 changelog_missing="$TMPROOT/changelog-missing"
 mkdir -p "$changelog_missing"
 if missing_out="$(node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_missing" 2>&1)"; then
@@ -1171,45 +1174,70 @@ else
 fi
 changelog_comments="$TMPROOT/changelog-comments"
 mkdir -p "$changelog_comments"
-printf '%s\n' '# Changelog' '' '## Unreleased' '' '<!-- hidden note' '- still hidden' '-->' '<!-- inline hidden -->' '<!-->' '<!-- ---->' '## v0.1.1' '' '- Release note.' >"$changelog_comments/CHANGELOG.md"
-assert_command "changelog check ignores HTML comments" node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_comments" --strict-unreleased
+printf '%s\n' \
+  '# Changelog' '' '## Unreleased' '' '### Added' '' '<!-- hidden note' '- still hidden' '-->' '<!-- inline hidden -->' '<!-->' '<!-- ---->' \
+  '## v0.1.1' '' '2026-01-01' '' '### Added' '' '- Release note.' \
+  >"$changelog_comments/CHANGELOG.md"
+assert_command "changelog check ignores HTML comments" node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_comments" --strict-unreleased --skip-version-file
 changelog_bad="$TMPROOT/changelog-bad"
 mkdir -p "$changelog_bad"
-printf '%s\n' '# Changelog' '' '## Unreleased' '' '- Pending release note.' '' '## v0.1.0' '' '- Previous release.' >"$changelog_bad/CHANGELOG.md"
-if node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_bad" --strict-unreleased >/dev/null 2>&1; then
+printf '%s\n' \
+  '# Changelog' '' '## Unreleased' '' '### Added' '' '- Pending release note.' '' \
+  '## v0.1.0' '' '2026-01-01' '' '### Added' '' '- Previous release.' \
+  >"$changelog_bad/CHANGELOG.md"
+if node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_bad" --strict-unreleased --skip-version-file >/dev/null 2>&1; then
   not_ok "changelog check rejects Unreleased entries"
 else
   ok "changelog check rejects Unreleased entries"
 fi
-assert_command "changelog check allows Unreleased entries with allow flag" node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_bad" --allow-unreleased
+assert_command "changelog check allows Unreleased entries with allow flag" node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_bad" --allow-unreleased --skip-version-file
 changelog_repo="$TMPROOT/changelog-repo"
 mkdir -p "$changelog_repo"
-printf '%s\n' '# Changelog' '' '## Unreleased' '' '## v0.1.0' '' '- Initial release.' >"$changelog_repo/CHANGELOG.md"
+printf '%s\n' \
+  '# Changelog' '' '## Unreleased' '' '### Added' '' \
+  '## v0.1.0' '' '2026-01-01' '' '### Added' '' '- Initial release.' \
+  >"$changelog_repo/CHANGELOG.md"
+printf '%s\n' '0.1.0' >"$changelog_repo/VERSION"
 git -C "$changelog_repo" init -q -b main
 git -C "$changelog_repo" config user.email "test@example.com"
 git -C "$changelog_repo" config user.name "Test User"
-git -C "$changelog_repo" add CHANGELOG.md
+git -C "$changelog_repo" add CHANGELOG.md VERSION
 git -C "$changelog_repo" commit -qm "release v0.1.0"
 git -C "$changelog_repo" tag v0.1.0
 printf '%s\n' 'changed' >"$changelog_repo/README.md"
 git -C "$changelog_repo" add README.md
 git -C "$changelog_repo" commit -qm "workflow change"
-if node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_repo" >/dev/null 2>&1; then
+if node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_repo" --skip-version-file >/dev/null 2>&1; then
   not_ok "changelog check requires new release after tag"
 else
   ok "changelog check requires new release after tag"
 fi
-printf '%s\n' '# Changelog' '' '## Unreleased' '' '## v0.1.1' '' '- Workflow change.' '' '## v0.1.0' '' '- Initial release.' >"$changelog_repo/CHANGELOG.md"
-assert_command "changelog check accepts release after tag" node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_repo"
-printf '%s\n' '# Changelog' '' '## Unreleased' '' '## v0.1.2' '' '- Current pending release.' '' '## v0.1.1' '' '- Untagged older release.' '' '## v0.1.0' '' '- Initial release.' >"$changelog_repo/CHANGELOG.md"
-if drift_out="$(node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_repo" 2>&1)"; then
+printf '%s\n' \
+  '# Changelog' '' '## Unreleased' '' '### Added' '' \
+  '## v0.1.1' '' '2026-01-02' '' '### Added' '' '- Workflow change.' '' \
+  '## v0.1.0' '' '2026-01-01' '' '### Added' '' '- Initial release.' \
+  >"$changelog_repo/CHANGELOG.md"
+assert_command "changelog check accepts release after tag" node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_repo" --skip-version-file
+printf '%s\n' \
+  '# Changelog' '' '## Unreleased' '' '### Added' '' \
+  '## v0.1.2' '' '2026-01-03' '' '### Added' '' '- Current pending release.' '' \
+  '## v0.1.1' '' '2026-01-02' '' '### Added' '' '- Untagged older release.' '' \
+  '## v0.1.0' '' '2026-01-01' '' '### Added' '' '- Initial release.' \
+  >"$changelog_repo/CHANGELOG.md"
+if drift_out="$(node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_repo" --skip-version-file 2>&1)"; then
   not_ok "changelog check rejects untagged older release sections"
 else
   assert_contains "changelog check rejects untagged older release sections" "$drift_out" "untagged release sections below the top pending release"
 fi
 git -C "$changelog_repo" tag v0.1.2
-printf '%s\n' '# Changelog' '' '## Unreleased' '' '## v0.1.3' '' '- Current pending release.' '' '## v0.1.2' '' '- Tagged release.' '' '## v0.1.1' '' '- Older untagged release.' '' '## v0.1.0' '' '- Initial release.' >"$changelog_repo/CHANGELOG.md"
-if drift_out="$(node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_repo" 2>&1)"; then
+printf '%s\n' \
+  '# Changelog' '' '## Unreleased' '' '### Added' '' \
+  '## v0.1.3' '' '2026-01-04' '' '### Added' '' '- Current pending release.' '' \
+  '## v0.1.2' '' '2026-01-03' '' '### Added' '' '- Tagged release.' '' \
+  '## v0.1.1' '' '2026-01-02' '' '### Added' '' '- Older untagged release.' '' \
+  '## v0.1.0' '' '2026-01-01' '' '### Added' '' '- Initial release.' \
+  >"$changelog_repo/CHANGELOG.md"
+if drift_out="$(node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_repo" --skip-version-file 2>&1)"; then
   not_ok "changelog check rejects older untagged sections below a tagged release"
 else
   assert_contains "changelog check rejects older untagged sections below a tagged release" "$drift_out" "untagged release sections below the top pending release"
@@ -1217,7 +1245,10 @@ fi
 
 changelog_malformed_tag="$TMPROOT/changelog-malformed-tag"
 mkdir -p "$changelog_malformed_tag"
-printf '%s\n' '# Changelog' '' '## Unreleased' '' '## v0.1.1' '' '- Release note.' >"$changelog_malformed_tag/CHANGELOG.md"
+printf '%s\n' \
+  '# Changelog' '' '## Unreleased' '' '### Added' '' \
+  '## v0.1.1' '' '2026-01-01' '' '### Added' '' '- Release note.' \
+  >"$changelog_malformed_tag/CHANGELOG.md"
 git -C "$changelog_malformed_tag" init -q -b main
 git -C "$changelog_malformed_tag" config user.email "test@example.com"
 git -C "$changelog_malformed_tag" config user.name "Test User"
@@ -1227,7 +1258,7 @@ git -C "$changelog_malformed_tag" tag v0.1.0-beta
 printf '%s\n' 'changed' >"$changelog_malformed_tag/README.md"
 git -C "$changelog_malformed_tag" add README.md
 git -C "$changelog_malformed_tag" commit -qm "workflow change"
-if malformed_out="$(node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_malformed_tag" 2>&1)"; then
+if malformed_out="$(node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_malformed_tag" --skip-version-file 2>&1)"; then
   not_ok "changelog check rejects malformed semver tag"
 else
   assert_contains "changelog check rejects malformed semver tag" "$malformed_out" "Invalid semver version: v0.1.0-beta"

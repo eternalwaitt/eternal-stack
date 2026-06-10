@@ -733,7 +733,7 @@ else
 fi
 
 if [[ -f "$ROOT/scripts/changelog-release-check.mjs" && -f "$ROOT/CHANGELOG.md" ]]; then
-  if changelog_out="$(node "$ROOT/scripts/changelog-release-check.mjs" 2>&1)"; then
+  if changelog_out="$(node "$ROOT/scripts/changelog-release-check.mjs" --strict-unreleased 2>&1)"; then
     while IFS= read -r line; do
       [[ -n "$line" ]] && ok "changelog: $line"
     done <<<"$changelog_out"

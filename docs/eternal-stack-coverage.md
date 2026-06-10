@@ -20,6 +20,7 @@ Status key: `done` means implemented in this repo; `live-gated` means intentiona
 | Hindsight memory consolidation | live-gated: canary verifies strict config; actual migration/removal of competing memory systems remains a personal live operation. |
 | Plugin/MCP cleanup | live-gated: plan requires inventory and explicit local rollout before removing plugins, MCPs, or permissions. |
 | Shareable repo boundary | done: public templates exclude private identity, accounts, transcripts, secrets, and memories. |
+| Release and public docs | done: `VERSION`, Keep a Changelog `CHANGELOG.md`, `docs/RELEASING.md`, `scripts/release.mjs`, `changelog-release-check.mjs`, `README.md`, `CREDITS.md`, root `AGENTS.md`/`CLAUDE.md`, and aligned `docs/skills.md` / `docs/health-stack.md`. |
 
 ## Companion Skills
 

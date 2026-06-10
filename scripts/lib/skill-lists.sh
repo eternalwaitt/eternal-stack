@@ -149,6 +149,7 @@ INSTALL_SCRIPTS=(
   skill-update-prompt.mjs
   stack-profile-check.mjs
   changelog-release-check.mjs
+  release.mjs
   port-guard.mjs
   research-competitor-intel.mjs
   update-check.mjs

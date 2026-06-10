@@ -1,5 +1,7 @@
 # Install
 
+Eternal Stack: [github.com/eternalwaitt/eternal-stack](https://github.com/eternalwaitt/eternal-stack). Overview and doc map: [README.md](../README.md).
+
 ```bash
 ./scripts/install.sh --profile core
 ./scripts/doctor.sh

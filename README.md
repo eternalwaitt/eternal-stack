@@ -1,87 +1,93 @@
 # Eternal Stack
 
-A small, deterministic hook layer for Claude Code.
+Deterministic hooks, skills, and install profiles for [Claude Code](https://docs.anthropic.com/en/docs/claude-code). Eternal Stack enforces the habits prose cannot reliably enforce: read before edit, verify before claiming done, execute approved plans without pausing between mechanical phases, and keep repo-owned workflows in the `etrnl-*` namespace.
 
-It enforces the work habits that prose cannot reliably enforce:
+**Current release:** see [VERSION](VERSION) and [CHANGELOG.md](CHANGELOG.md).
 
-- read before edit
-- search before creating code
-- verify before claiming done
-- execute approved plans without pausing between mechanical phases
-- default non-trivial workflow decisions to completeness 10/10
-- run autoplan through CEO, engineering, design/DX when relevant, and adversarial review
-- execute in dependency waves with file-overlap checks before parallel work
-- require structured task packets for subagents
-- reinject global/project `CLAUDE.md` context in Claude startup order on every prompt with a kill switch
-- track local run ledgers under `~/.claude/etrnl/runs/`
-- track durable review, browser QA, and context artifacts under `~/.claude/etrnl/artifacts/`
-- avoid command loops
-- replace legacy rate limiting with a locked, debounced observer hook
-- force local dev servers onto explicit checked ports
-- block silent fallbacks and suppressions
-- enforce evidence before agreement when the user challenges a claim
-- audit and repair installed Claude settings drift
-- keep side-effect workflows user-invoked
-- preserve rollback and diagnostics before stricter rollout
-- namespace repo-owned skills and agents as `etrnl-*`
-- keep companion review skills mapped without pretending this repo owns them
-- run whole-codebase health through a deterministic inventory and findings ledger
+## Why Eternal Stack
 
-## Install
+| Problem | Eternal Stack response |
+| --- | --- |
+| Agents skip verification | Stop hooks and ledgers block unverified completion claims |
+| Silent skill drift | `skill-contract-check.mjs` and install metadata detect source vs installed drift |
+| Thin plans shipped to execution | `plan-readiness-check.mjs` and deep-stack artifacts gate final plans |
+| Unbounded parallel edits | Task packets, wave overlap checks, and write-scope enforcement |
+| Settings rot on reinstall | Merge-in-place hooks, settings audit, rollback backups |
+
+## Quick start
 
 ```bash
-git clone <repo>
+git clone https://github.com/eternalwaitt/eternal-stack.git
 cd eternal-stack
 ./scripts/install.sh --profile core
 ./scripts/doctor.sh
-# optional: ./scripts/doctor.sh --jobs 8   (or DOCTOR_JOBS=8)
 ```
 
-The `core` profile is the default when `ETRNL_STACK_PROFILE` is unset; it installs the safe observer stack with repo-owned ETRNL agents and verification tests. The `full` profile adds CodeGraph, Beads, Hindsight, and canaries. See [docs/install.md](docs/install.md) for profile details, strict mode, hooks, rollback, migration behavior, and deeper references such as `AGENTS.md`, `templates/CLAUDE.md`, and `docs/skills.md`.
+The `core` profile installs the observer stack, repo-owned `etrnl-*` agents, and verification tests. The `full` profile adds optional CodeGraph, Beads, and Hindsight companions. See [docs/install.md](docs/install.md) for profiles, strict mode, rollback, and migration.
 
-Installs write `~/.claude/etrnl/install.json` and `~/.codex/etrnl/install.json` so Claude and Codex can detect source/install drift from their own installed homes.
-Run `~/.claude/scripts/update.sh` or `./scripts/update.sh` for manual updates.
-Local auto-update from the configured source checkout is enabled by default; set `ETRNL_AUTO_UPDATE=0` to disable it.
-The installed update check also reports CodeGraph and Beads drift; requested Claude `etrnl-*` skills inject an advisory update/bootstrap prompt through hooks, and Codex `etrnl-*` skills run `~/.codex/scripts/skill-update-prompt.mjs` as their first step.
-
-Hard blockers are shipped but not enabled automatically. Enable them after tests, doctor, rollback, and a fresh Claude smoke pass.
-For local strict rollout, run `ETRNL_ENABLE_STRICT=1 ./scripts/install.sh`.
-
-## Commands
+Install writes `~/.claude/etrnl/install.json` and `~/.codex/etrnl/install.json` so each host can detect source drift. Local auto-update from your checkout is on by default; set `ETRNL_AUTO_UPDATE=0` to disable.
 
 ```bash
-./scripts/doctor.sh
-./scripts/update.sh
-./scripts/uninstall.sh
-./scripts/canary-websearch.sh
-./scripts/canary-hindsight.sh
+~/.claude/scripts/update.sh    # or ./scripts/update.sh from the repo
+./scripts/doctor.sh            # optional: ./scripts/doctor.sh --jobs 8
 tests/test-hooks.sh
-tests/test-install.sh
-node scripts/code-health-inventory.mjs
-node scripts/workflow-health.mjs
-node scripts/review-log.mjs summary
-node scripts/browser-qa-report.mjs summary
-node scripts/context-state.mjs list
-node scripts/port-guard.mjs pick --start 3100
-node scripts/settings-audit.mjs ~/.claude/settings.json --json
-node scripts/update-check.mjs --json
-node scripts/tool-stack-check.mjs --explain --project "$PWD"
-node scripts/stack-profile-check.mjs templates/stack-profile.full.json
-scripts/bootstrap-tools.sh check --project "$PWD"
-node scripts/replay-hook-fixtures.mjs
 ```
 
-`port-guard.mjs pick` scans the `--start` to `--end` range, defaulting from `CLAUDE_GUARD_PORT_START` and `CLAUDE_GUARD_PORT_END`. Keep ranges narrow because `pickPort` calls `portIsFree` for each candidate; if hundreds of ports are occupied, narrow the range before considering a shorter timeout or parallel probing.
+## What you get
 
-Use `docs/eternal-stack-coverage.md` to compare the repo against the original implementation plan and identify live-gated operations.
-Use `docs/adr/README.md` for durable architecture and documentation-system decisions; `docs/plans/` remains historical implementation evidence.
+- **Hooks** — PreToolUse guards, PostToolBatch observer, prompt routing, compact recovery, stop verification, sycophancy blockers, port guard, and more ([tests/test-hooks.sh](tests/test-hooks.sh) exercises 85+ fixtures).
+- **Skills** — Repo-owned `/etrnl-*` commands for planning, execution, audits, CI, commits, PRs, and operations ([docs/skills.md](docs/skills.md)).
+- **Scripts** — Deterministic helpers for ledgers, browser QA, workflow health, code-health inventory, deep-audit validation, and release hygiene.
+- **Agents** — Bounded `etrnl-executor`, reviewers, scout, adversary, and browser-QA subagents installed to `~/.claude/agents/`.
+
+## Profiles
+
+| Profile | Includes |
+| --- | --- |
+| `core` | Hooks, skills, agents, doctor, rollback, ETRNL state — safe default |
+| `full` | Everything in `core` plus CodeGraph/Beads bootstrap paths and Hindsight canaries |
+
+Enable hard blockers only after doctor, hooks tests, rollback rehearsal, and a fresh Claude smoke pass:
+
+```bash
+ETRNL_ENABLE_STRICT=1 ./scripts/install.sh
+```
+
+## Documentation
+
+| Doc | Contents |
+| --- | --- |
+| [AGENTS.md](AGENTS.md) | Agent and contributor rules |
+| [CLAUDE.md](CLAUDE.md) | Tiny Claude Code wrapper (imports `AGENTS.md`) |
+| [docs/install.md](docs/install.md) | Install, update, uninstall, profiles |
+| [docs/eternal-stack-coverage.md](docs/eternal-stack-coverage.md) | Capability coverage map |
+| [docs/skills.md](docs/skills.md) | Owned vs companion skills |
+| [docs/health-stack.md](docs/health-stack.md) | Code and documentation health gates |
+| [docs/RELEASING.md](docs/RELEASING.md) | Semver, changelog categories, tagging |
+| [CREDITS.md](CREDITS.md) | Vendored and inspirational sources |
+
+## Releasing
+
+Eternal Stack uses [Semantic Versioning](https://semver.org/) with [Keep a Changelog](https://keepachangelog.com/) categories. Maintainers cut releases with:
+
+```bash
+node scripts/release.mjs prepare 0.4.0
+node scripts/changelog-release-check.mjs --strict-unreleased
+node scripts/release.mjs tag
+```
+
+See [docs/RELEASING.md](docs/RELEASING.md) for the full workflow.
 
 ## Safety
 
-Emergency bypass:
+Emergency bypass (use sparingly):
 
 ```bash
 export CLAUDE_GUARD_DISABLED=1
 ```
 
-Private identity, accounts, credentials, transcripts, memories, and local permissions do not belong in this repo.
+This repository is public-safe: no private identity, accounts, credentials, transcripts, or local memories belong in tracked files.
+
+## Credits
+
+Vendored Brooks, oRPC, Prisma, and SQL reference modules; companion skill mappings; and starred-repo research are documented in [CREDITS.md](CREDITS.md).

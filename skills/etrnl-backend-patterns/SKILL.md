@@ -13,7 +13,7 @@ Single entry point for backend design work. Load `references/routing.md` before 
 1. Classify the request against `references/routing.md`.
 2. Load the minimum reference set — one or two modules by default, at most three unless the user asks for a full backend review.
 3. State the loaded modules in the first reply (`Loaded: api, security`).
-4. Apply the loaded references to the user's task. Prefer vendored modules in this skill (`references/orpc.md`, `references/prisma.md`, `references/sql-optimization.md`) before external companions. Pull companion skills (`eternal-best-practices`, `better-auth`, `tenant-isolation-patterns`, `orpc-patterns`, `prisma-expert`, `sql-optimization-patterns`) only when the task crosses boundaries not covered by the loaded reference modules.
+4. Apply the loaded references to the user's task. Use vendored modules in this skill (`references/orpc.md`, `references/prisma.md`, `references/sql-optimization.md`) before external companions. Pull companion skills (`eternal-best-practices`, `better-auth`, `tenant-isolation-patterns`, `orpc-patterns`, `prisma-expert`, `sql-optimization-patterns`) only when the task crosses boundaries not covered by the loaded reference modules.
 5. For auditing an existing backend, use `etrnl-audit-security` or `etrnl-audit-production` instead of this skill.
 
 ## Module Files

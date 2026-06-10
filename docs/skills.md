@@ -164,7 +164,8 @@ These skills are not owned by this repo, but the Eternal Stack knows about them 
 | `prompt-budget-check.mjs` | `~/.claude/scripts/prompt-budget-check.mjs` | Fails oversized skills or agents before prompt bloat becomes default context. |
 | `port-guard.mjs` | `~/.claude/scripts/port-guard.mjs` | Checks or picks explicit free local dev-server ports before commands run. |
 | `project-buglog.mjs` | `~/.claude/scripts/project-buglog.mjs` | Records and suggests project-local repeated bug memories with cross-session fingerprints, redaction, file/project JSON output, stale-hint filtering, and no transcript storage. |
-| `changelog-release-check.mjs` | `~/.claude/scripts/changelog-release-check.mjs` | Enforces semantic-version release hygiene so `Unreleased` does not hide shipped work on `main`. |
+| `changelog-release-check.mjs` | `~/.claude/scripts/changelog-release-check.mjs` | Enforces Keep a Changelog categories, `VERSION` alignment, tag parity, and empty `## Unreleased` on release commits (`--strict-unreleased`). |
+| `release.mjs` | source checkout only | Maintainer helper: `prepare <X.Y.Z>`, `tag`, and `check` for semver releases. See `docs/RELEASING.md`. |
 | `research-competitor-intel.mjs` | `~/.claude/scripts/research-competitor-intel.mjs` | Validates pinned competitor manifests, evidence rows, parity scorecards, and refresh cadence. |
 | `skill-contract-check.mjs` | `~/.claude/scripts/skill-contract-check.mjs` | Fails when repo-owned skills drift from docs, helper scripts, readiness contracts, directive-language rules, model/context inheritance, SessionStart hints, or installed copies. |
 | `skill-behavior-smoke.mjs` | `~/.claude/scripts/skill-behavior-smoke.mjs` | Runs end-to-end helper smoke checks for the skill behaviors that must fail closed before live use. |

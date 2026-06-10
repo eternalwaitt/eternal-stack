@@ -35,6 +35,8 @@ tests/test-workflow-tools.sh
 tests/test-install.sh
 tests/test-read-stdin.sh
 node scripts/replay-hook-fixtures.mjs
+node scripts/changelog-release-check.mjs --strict-unreleased
+node scripts/release.mjs check
 scripts/doctor.sh [--jobs N]  # parallel syntax + heavy suites; default jobs=4, override with DOCTOR_JOBS
 node scripts/settings-audit.mjs templates/settings.json --strict-conflicts
 node scripts/settings-audit.mjs templates/settings.strict.json --strict-conflicts
@@ -84,6 +86,7 @@ node --check \
   scripts/stack-profile-check.mjs \
   scripts/prompt-budget-check.mjs \
   scripts/changelog-release-check.mjs \
+  scripts/release.mjs \
   scripts/port-guard.mjs \
   scripts/lib/read-stdin.mjs \
   scripts/skill-contract-check.mjs \
@@ -164,7 +167,7 @@ scripts/post-upgrade-canary.sh
 Doctor reports installed hooks and agents, strict/observer mode, ledger and artifact directories, stale runs, unresolved review findings, browser/context artifact counts, prompt-budget drift, settings-audit external hook inventory, and optional Codex/Gemini/browser/design tool availability. Missing optional tools are reported as `not installed`; they are not hard failures unless a plan explicitly requires them.
 Doctor runs `tests/test-read-stdin.sh` and executes `scripts/replay-hook-fixtures.mjs` in the heavy async batch (not syntax-only). Use `scripts/doctor.sh --jobs N` or `DOCTOR_JOBS` to tune parallel syntax and heavy-suite concurrency.
 `execution-wave-check.mjs` JSON output includes `schemaVersion`, `waves`, and `drift`. `drift` reports added/removed plans, wave changes, and order-insensitive file membership changes. With `--strict`, the command fails when any wave has `parallelSafe === false` or when `drift.length > 0`.
-It also enforces changelog release hygiene: `## Unreleased` must stay empty on every branch, all entries belong under a semantic version section, and post-tag commits require the first version section to advance beyond the latest git tag.
+It also enforces changelog release hygiene via `changelog-release-check.mjs --strict-unreleased` and `release.mjs check`: `## Unreleased` must stay empty on release commits, each shipped section uses Keep a Changelog categories, `VERSION` matches the top release, and git tags align with shipped versions. Maintainer workflow: `docs/RELEASING.md`.
 Research artifacts record real extraction timestamps (`generatedAt`, `lastValidated`, `nextScan`) so staleness checks and refresh cadence remain auditable and current.
 `docs/research/top10-lock.json` is a committed reproducibility snapshot (includes `schemaVersion`) and is regenerated intentionally using `node scripts/research-competitor-intel.mjs extract --manifest docs/research/top10-lock.json --repos-root <repos-dir> --out docs/research/capability-evidence.json --write-manifest` when refreshing the competitor lock set.
 `docs/research/parity-scorecard.schema.json` (`scorecards.minItems`) is coupled to `scripts/lib/skill-lists.sh` `OWNED_SKILLS`; when skills change, update both surfaces in the same release and rerun `tests/test-workflow-tools.sh`.
