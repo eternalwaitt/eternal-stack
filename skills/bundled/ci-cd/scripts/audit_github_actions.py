@@ -69,7 +69,17 @@ def audit_workflow(path: Path, root: Path, findings: list[tuple[str, str, str, s
     if "timeout-minutes:" not in text:
         add(findings, "low", rel, "-", "No `timeout-minutes`; stuck jobs can consume runner time indefinitely.")
 
+    in_run_block = False
+    run_block_indent = 0
     for idx, line in enumerate(lines, 1):
+        indent = len(line) - len(line.lstrip(" "))
+        stripped = line.strip()
+        if re.match(r"^\s*run\s*:\s*(\||>)?\s*$", line):
+            in_run_block = True
+            run_block_indent = indent
+        elif in_run_block and stripped and indent <= run_block_indent:
+            in_run_block = False
+
         match = ACTION_REF_RE.search(line)
         if match:
             action_ref = match.group(2)
@@ -79,7 +89,8 @@ def audit_workflow(path: Path, root: Path, findings: list[tuple[str, str, str, s
                 add(findings, "medium", rel, idx, f"Action `{match.group(1)}@{action_ref}` is not pinned to a commit SHA.")
 
         if "${{ github.event" in line:
-            add(findings, "medium", rel, idx, "GitHub event context used directly; ensure it is not interpolated into shell commands.")
+            sev = "high" if in_run_block or re.search(r"\brun\s*:", line) else "medium"
+            add(findings, sev, rel, idx, "GitHub event context used directly; ensure it is not interpolated into shell commands.")
 
         secret_match = re.search(
             r"^\s*[A-Z0-9_]*(PASSWORD|SECRET|TOKEN)[A-Z0-9_]*\s*:\s*([^#\s]+)",

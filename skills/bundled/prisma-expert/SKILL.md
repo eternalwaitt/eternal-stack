@@ -637,40 +637,33 @@ model Post {
 ```
 
 ```typescript
-// Tenant-scoped queries — pair with tenant-isolation-patterns for middleware and auth gates.
-function withTenant(tenantId: string) {
-  const enforceTenantWhere = (where: Record<string, unknown> = {}) => {
-    if ("tenantId" in where && where.tenantId !== tenantId) {
-      throw new Error("Cross-tenant access denied");
-    }
-    return { ...where, tenantId };
-  };
-  const enforceTenantData = (data: Record<string, unknown>) => {
-    if ("tenantId" in data && data.tenantId !== tenantId) {
-      throw new Error("Cross-tenant write denied");
-    }
-    return { ...data, tenantId };
-  };
+// Every Prisma query must include tenantId — no exceptions (see tenant-isolation-patterns).
+const users = await prisma.user.findMany({
+  where: { tenantId: ctx.tenantId },
+});
 
-  return {
-    user: {
-      findMany: (args: { where?: Record<string, unknown> } = {}) =>
-        prisma.user.findMany({
-          ...args,
-          where: enforceTenantWhere(args.where),
-        }),
-      create: (args: { data: Record<string, unknown> }) =>
-        prisma.user.create({
-          ...args,
-          data: enforceTenantData(args.data),
-        }),
+await prisma.user.create({
+  data: {
+    ...input,
+    tenantId: ctx.tenantId,
+  },
+});
+
+// Nested reads must scope relations too; parent filters do not inherit.
+const author = await prisma.user.findFirst({
+  where: {
+    id: input.authorId,
+    tenantId: ctx.tenantId,
+  },
+  include: {
+    posts: {
+      where: {
+        tenantId: ctx.tenantId,
+        deletedAt: null,
+      },
     },
-  };
-}
-
-// Usage
-const tenantPrisma = withTenant(currentTenantId);
-const users = await tenantPrisma.user.findMany();
+  },
+});
 ```
 
 ## Integration
