@@ -5,12 +5,9 @@
   "privacy": {
     "bannedTokens": [
       "metacards",
-      "veloz",
-      "agency",
-      "mimo",
-      "vivaz",
-      "sbcc",
-      "tcg-collector",
+      "mimo-finance",
+      "vivaz-website",
+      "sbcc-portal",
       "rifasgg",
       "finans"
     ],

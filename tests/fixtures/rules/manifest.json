@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "modules": {
+    "test-fixture-module": {
+      "id": "test-fixture-module",
+      "sourcePath": "tests/fixtures/rules/fixture.md",
+      "paths": ["src/**/*.ts", "src/**/*.tsx"],
+      "globs": ["src/**/*.ts", "src/**/*.tsx"],
+      "description": "Fixture rule module for sync/init tests.",
+      "hosts": ["claude", "codex", "cursor"],
+      "verify": "pnpm test",
+      "checksum": "placeholder-checksum-replaced-by-sync"
+    }
+  },
+  "privacy": {
+    "bannedTokens": ["BANNED_SECRET_TOKEN"]
+  }
+}

@@ -1,9 +1,8 @@
 ---
-id: eternal-saas-global-stack
-globs: ["**"]
-description: "Eternal SaaS stack overview: tech choices, commands, deployment surface."
-hosts: [claude, codex, cursor]
+globs:
+  - "**"
 alwaysApply: false
+description: "Eternal SaaS stack overview: tech choices, commands, deployment surface."
 ---
 
 # Stack: Eternal SaaS
