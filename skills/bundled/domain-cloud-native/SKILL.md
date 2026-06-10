@@ -160,7 +160,7 @@ async fn ready(State(db): State<Arc<DbPool>>) -> StatusCode {
 
 | When | See |
 |------|-----|
-| Async patterns | m07-concurrency |
 | HTTP endpoints | domain-web |
-| Error handling | m13-domain-error |
-| Resource lifecycle | m12-lifecycle |
+| Error handling | eternal-best-practices |
+| Data layer | prisma-expert |
+| Financial precision | domain-fintech |

@@ -27,14 +27,10 @@ jobs:
         env:
           IMAGE_DIGEST: ${{ inputs.image_digest }}
         run: |
-          case "$IMAGE_DIGEST" in
-            sha256:[a-f0-9][a-f0-9]*)
-              ;;
-            *)
-              echo "image_digest must be an immutable sha256 digest." >&2
-              exit 1
-              ;;
-          esac
+          if ! printf '%s' "$IMAGE_DIGEST" | grep -Eq '^sha256:[a-f0-9]{64}$'; then
+            echo "image_digest must be a full immutable sha256 digest." >&2
+            exit 1
+          fi
 
       - name: Deploy
         env:

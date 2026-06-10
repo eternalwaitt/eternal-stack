@@ -45,7 +45,7 @@ Public research in `docs/research/` records competitive and starred-repo analysi
 | [Chachamaru127/claude-code-harness](https://github.com/Chachamaru127/claude-code-harness) | Quality gates, browser artifact contracts, review plateau ideas |
 | [infinri/Writ](https://github.com/infinri/Writ) | Mandatory-rule mechanical enforcement |
 | [gsd-build/get-shit-done](https://github.com/gsd-build/get-shit-done) | Workflow state and context breadcrumbs benchmark |
-| [gstack](https://github.com/gruckion/gstack) (George Mack stack) | QA, browser, ship, and review workflow patterns referenced in bundled skill mappings |
+| [gstack](https://github.com/garrytan/gstack) | QA, browser, ship, and review workflow patterns referenced in bundled skill mappings |
 
 Full starred-repo notes: [docs/research/2026-06-03-starred-agent-stack-map.md](docs/research/2026-06-03-starred-agent-stack-map.md).
 

@@ -35,7 +35,7 @@ For OpenAPI/client form workflows, use `parseFormData` and `getIssueMessage` fro
 ```ts
 const [error, data, isDefined] = await safe(client.project.create({ name }));
 
-if (isDefined && error.code === "NAME_TAKEN") {
+if (isDefined && error?.code === "NAME_TAKEN") {
   return { field: "name", message: `Name ${error.data.name} is taken` };
 }
 

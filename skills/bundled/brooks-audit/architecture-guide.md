@@ -24,17 +24,21 @@ proactive reading below and proceed to Step 1.
 **Otherwise, proactively read the project using these tools:**
 
 1. **Top-level structure** — glob top two levels to identify module boundaries:
-   ```
+
+   ```text
    Glob: **/*(depth 2, directories only)
    ```
+
 2. **Entry points** — read the package manifest or main config file (e.g., `package.json`,
    `go.mod`, `pom.xml`, `Cargo.toml`, `pyproject.toml`) to confirm language, framework,
    and declared dependencies.
 3. **Dependency edges** — grep import statements to discover inter-module calls. Run once
    per language present; limit to the first 200 matches to avoid token overrun:
-   ```
+
+   ```text
    Grep: "^\s*(import|from|require\(|use )" across *.ts|*.py|*.go|*.rs|*.java
    ```
+
 4. **Large modules** — for any top-level directory with > 10 files, read the file matching
    `index.*`, `main.*`, or `__init__.*` to understand its stated responsibility.
 

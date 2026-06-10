@@ -16,6 +16,7 @@ Integrate PIX payments and subscription billing into Brazilian SaaS applications
 **AbacatePay** is a Brazilian payment gateway specialized in PIX and credit card payments with developer-friendly APIs and competitive pricing.
 
 ### Fee Structure
+
 - **PIX:** R$ 0.80 flat fee per transaction
 - **Credit Card:** 3.5% + R$ 0.60 per transaction
 - **No monthly fees**

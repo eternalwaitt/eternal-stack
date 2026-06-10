@@ -59,7 +59,6 @@ def find_locale_files(project_path: Path) -> list:
         "**/lang/**/*.json",
         "**/i18n/**/*.json",
         "**/messages/*.json",
-        "**/*.po", # gettext
     ]
     files = []
     for pattern in patterns:
@@ -104,12 +103,17 @@ def check_locale_completeness(locale_files: list) -> dict:
     # Compare keys across locales
     all_langs = sorted(list(locales.keys()))
     base_lang = 'en' if 'en' in locales else all_langs[0]
-    
-    for namespace in locales.get(base_lang, {}):
+
+    all_namespaces = set()
+    for lang in all_langs:
+        all_namespaces.update(locales.get(lang, {}).keys())
+
+    for namespace in sorted(all_namespaces):
         base_keys = locales[base_lang].get(namespace, set())
         for lang in all_langs:
-            if lang == base_lang: continue
-            
+            if lang == base_lang:
+                continue
+
             other_keys = locales.get(lang, {}).get(namespace, set())
             missing = base_keys - other_keys
             if missing:
@@ -127,7 +131,8 @@ def check_locale_completeness(locale_files: list) -> dict:
 def flatten_keys(d, prefix=''):
     """Flatten nested dict keys."""
     keys = set()
-    if not isinstance(d, dict): return keys
+    if not isinstance(d, dict):
+        return keys
     for k, v in d.items():
         new_key = f"{prefix}.{k}" if prefix else k
         if isinstance(v, dict):
@@ -200,20 +205,24 @@ def check_hardcoded_strings(project_path: Path) -> dict:
                 for match in matches:
                     text = match.group(0)
                     # Filter out obviously false positives
-                    if not any(c.isalpha() for c in text): continue
-                    if 'use client' in text or 'use strict' in text: continue
-                    if '//@ts-ignore' in text: continue
-                    if 'from \'' in text or 'import ' in text: continue
-                    
-                    if not has_i18n:
-                        hardcoded_found = True
-                        if len(hardcoded_examples) < 20:
-                            hardcoded_examples.append(f"{file_path.relative_to(project_path)}: {text.strip()[:60]}...")
-                        break 
+                    if not any(c.isalpha() for c in text):
+                        continue
+                    if 'use client' in text or 'use strict' in text:
+                        continue
+                    if '//@ts-ignore' in text:
+                        continue
+                    if 'from \'' in text or 'import ' in text:
+                        continue
+
+                    hardcoded_found = True
+                    if len(hardcoded_examples) < 20:
+                        hardcoded_examples.append(f"{file_path.relative_to(project_path)}: {text.strip()[:60]}...")
+                    break
             
             if hardcoded_found:
                 files_with_hardcoded += 1
-        except Exception:
+        except (OSError, UnicodeError, ValueError) as exc:
+            issues.append(f"[!] Failed to scan {file_path}: {exc}")
             continue
             
     passed.append(f"[OK] Analyzed {len(code_files)} code files")

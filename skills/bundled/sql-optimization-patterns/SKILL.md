@@ -502,10 +502,4 @@ ORDER BY pg_relation_size(indexrelid) DESC;
 
 ## Resources
 
-- **references/postgres-optimization-guide.md**: PostgreSQL-specific optimization
-- **references/mysql-optimization-guide.md**: MySQL/MariaDB optimization
-- **references/query-plan-analysis.md**: Deep dive into EXPLAIN plans
-- **assets/index-strategy-checklist.md**: When and how to create indexes
-- **assets/query-optimization-checklist.md**: Step-by-step optimization guide
-- **scripts/analyze-slow-queries.sql**: Identify slow queries in your database
-- **scripts/index-recommendations.sql**: Generate index recommendations
+This bundled skill keeps optimization guidance inline in `SKILL.md` (query patterns, EXPLAIN usage, and index strategy examples above). For stack-specific tenancy and repository scoping, pair with `tenant-isolation-patterns` and `prisma-expert` when installed.

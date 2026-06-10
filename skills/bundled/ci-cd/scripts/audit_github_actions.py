@@ -78,7 +78,7 @@ def audit_workflow(path: Path, root: Path, findings: list[tuple[str, str, str, s
             if not HEX40_RE.match(action_ref):
                 add(findings, "medium", rel, idx, f"Action `{match.group(1)}@{action_ref}` is not pinned to a commit SHA.")
 
-        if "${{ github.event" in line and "run:" not in line:
+        if "${{ github.event" in line:
             add(findings, "medium", rel, idx, "GitHub event context used directly; ensure it is not interpolated into shell commands.")
 
         secret_match = re.search(

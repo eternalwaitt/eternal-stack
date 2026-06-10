@@ -637,19 +637,34 @@ model Post {
 ```
 
 ```typescript
-// Tenant-scoped queries
+// Tenant-scoped queries — pair with tenant-isolation-patterns for middleware and auth gates.
 function withTenant(tenantId: string) {
+  const enforceTenantWhere = (where: Record<string, unknown> = {}) => {
+    if ("tenantId" in where && where.tenantId !== tenantId) {
+      throw new Error("Cross-tenant access denied");
+    }
+    return { ...where, tenantId };
+  };
+  const enforceTenantData = (data: Record<string, unknown>) => {
+    if ("tenantId" in data && data.tenantId !== tenantId) {
+      throw new Error("Cross-tenant write denied");
+    }
+    return { ...data, tenantId };
+  };
+
   return {
     user: {
-      findMany: (args) => prisma.user.findMany({
-        ...args,
-        where: { ...args?.where, tenantId }
-      }),
-      create: (args) => prisma.user.create({
-        ...args,
-        data: { ...args.data, tenantId }
-      })
-    }
+      findMany: (args: { where?: Record<string, unknown> } = {}) =>
+        prisma.user.findMany({
+          ...args,
+          where: enforceTenantWhere(args.where),
+        }),
+      create: (args: { data: Record<string, unknown> }) =>
+        prisma.user.create({
+          ...args,
+          data: enforceTenantData(args.data),
+        }),
+    },
   };
 }
 

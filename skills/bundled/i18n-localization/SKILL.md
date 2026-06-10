@@ -69,7 +69,7 @@ print(_("Welcome to our app"))
 
 ## 4. File Structure
 
-```
+```text
 locales/
 ├── en/
 │   ├── common.json

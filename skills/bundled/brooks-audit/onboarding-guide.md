@@ -25,7 +25,7 @@ Draw the same Mermaid dependency graph as architecture audit Step 1, but color n
 
 Add numbered labels: `CoreModule["1. CoreModule"]`
 
-```
+```mermaid
 classDef start fill:#339af0,color:#fff
 classDef next fill:#9775fa,color:#fff
 classDef last fill:#ced4da
@@ -62,7 +62,7 @@ their first contribution: modules with good test coverage, clear boundaries, low
 
 ## Output Template
 
-```
+```markdown
 # Codebase Tour: [Project Name]
 
 ## Overview
