@@ -2,7 +2,7 @@
 
 @AGENTS.md
 
-Namespaced rules live under `rules/etrnl/`. Installed templates and docs are under `~/.claude/docs/templates/`.
+Namespaced rules install under `~/.claude/rules/etrnl/`. Startup templates live under `~/.claude/docs/templates/`.
 
 Use hooks for enforcement, skills for repeatable workflows, and this file only for Claude-specific routing. Keep shared guidance in `AGENTS.md`; do not duplicate it here.
 

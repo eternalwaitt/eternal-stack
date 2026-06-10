@@ -77,7 +77,7 @@ If changelog sections were added without tags (for example `v0.2.0` and `v0.3.0`
 
 ```bash
 git tag -a v0.2.0 ad73e45 -m "v0.2.0: Eternal Stack rebrand"
-git tag -a v0.3.0 <merge-commit> -m "v0.3.0: deep-audit consolidation"
+git tag -a v0.3.0 <merge-commit> -m "v0.3.0: deep-audit consolidation and release hygiene"
 git push origin --tags
 ```
 

@@ -1,6 +1,6 @@
 # Credits and attributions
 
-Eternal Stack is an opinionated Claude Code control plane: hooks, skills, scripts, and install profiles. It combines Eternal engineering practice with ideas and reference material from the wider agent-tooling community.
+Eternal Stack is an opinionated Claude Code stack: hooks, skills, scripts, and install profiles. It combines Eternal engineering practice with ideas and reference material from the wider agent-tooling community.
 
 ## Vendored reference material
 
