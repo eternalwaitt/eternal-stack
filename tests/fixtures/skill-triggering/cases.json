@@ -6,6 +6,24 @@
     "unexpectedSkills": ["etrnl-dev-execute"]
   },
   {
+    "name": "prune AGENTS prompt routes etrnl-ops-agent-files",
+    "prompt": "prune AGENTS.md — it's gotten too long with gotchas",
+    "expectedSkills": ["etrnl-ops-agent-files"],
+    "unexpectedSkills": ["etrnl-dev-execute"]
+  },
+  {
+    "name": "rule bloat prompt routes etrnl-ops-agent-files",
+    "prompt": "there's a lot of rule bloat in the startup files, help me trim them",
+    "expectedSkills": ["etrnl-ops-agent-files"],
+    "unexpectedSkills": ["etrnl-dev-execute"]
+  },
+  {
+    "name": "CLAUDE.md too long prompt routes etrnl-ops-agent-files",
+    "prompt": "CLAUDE.md too long — help me slim it down",
+    "expectedSkills": ["etrnl-ops-agent-files"],
+    "unexpectedSkills": ["etrnl-dev-execute"]
+  },
+  {
     "name": "autoplan prompt routes etrnl-dev-autoplan",
     "prompt": "autoplan .claude/plans/example.md and run all reviews automatically",
     "expectedSkills": ["etrnl-dev-autoplan"],
