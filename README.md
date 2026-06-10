@@ -1,12 +1,12 @@
 # Eternal Stack
 
-> Hooks and skills that make Claude Code actually finish what it starts.
+> Hooks and skills that keep Claude Code honest about "done."
 
-I got tired of AI agents that say "done" when they aren't. That mark tasks complete without verifying. That skip the plan you approved and start improvising halfway through. That drift silently until something breaks.
+I kept hitting the same failure modes: the agent marking work complete without running checks, drifting off the plan we agreed on, or improvising a safer subset halfway through.
 
-Eternal Stack is my answer to that. It's a set of hooks, skills, and install profiles for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that enforce the habits that matter — read before editing, verify before claiming done, finish the plan you agreed to — and make them impossible to quietly skip.
+Eternal Stack is hooks, skills, and install profiles for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that encode the habits I actually want — read before editing, verify before claiming done, finish the approved plan — in places the model cannot quietly skip.
 
-I run this in production every day to build real software. It's opinionated by design.
+I run this daily on real projects. The defaults are conservative; strict blockers are opt-in.
 
 **Current release:** [VERSION](VERSION) — [CHANGELOG](CHANGELOG.md)
 
@@ -14,7 +14,7 @@ I run this in production every day to build real software. It's opinionated by d
 
 ## The problems it solves
 
-Every Claude Code power user eventually hits the same wall: the agent is *smart* but it isn't *disciplined*. It wants to be helpful so badly that it'll declare victory prematurely, silently switch approaches mid-task, or drift away from what you actually agreed to build.
+Most power users eventually hit the same wall: the agent is capable but undisciplined. It declares victory early, switches approach mid-task, or drifts from what you agreed to build.
 
 | The thing that keeps happening | What Eternal Stack does about it |
 | --- | --- |
@@ -51,11 +51,11 @@ tests/test-hooks.sh
 
 ## What ships with it
 
-**Hooks** — the enforcement layer. PreToolUse guards, PostToolBatch observer, prompt routing, compact recovery, stop verification, sycophancy blockers, port guard, and more. [tests/test-hooks.sh](tests/test-hooks.sh) exercises 85+ fixtures. These run automatically; you don't think about them.
+**Hooks** — enforcement at tool boundaries. Full catalog and lifecycle wiring: [docs/hooks.md](docs/hooks.md). Pretool and stop rules: [docs/guards.md](docs/guards.md). Regression: [tests/test-hooks.sh](tests/test-hooks.sh).
 
-**Skills** — the orchestration layer. Repo-owned `/etrnl-*` commands for planning, execution, audits, CI, commits, PRs, and operations. They call each other cleanly and stay namespaced so they don't collide with anything else you've installed. Full inventory in [docs/skills.md](docs/skills.md).
+**Skills** — repeatable workflows as `/etrnl-*` commands, grouped by namespace (`dev`, `audit`, `ops`, `comm`). Inventory: [docs/skills.md](docs/skills.md).
 
-**Scripts** — deterministic helpers for ledgers, browser QA, workflow health, code-health inventory, deep-audit validation, and release hygiene. Boring in the best way — they do one thing and always do it the same way.
+**Scripts** — deterministic helpers for ledgers, browser QA, workflow health, code-health inventory, deep-audit validation, and release hygiene.
 
 **Agents** — bounded subagents (`etrnl-executor`, reviewers, scout, adversary, browser-QA) installed to `~/.claude/agents/`. They have narrow scopes and write limits by design.
 
@@ -84,8 +84,10 @@ Don't skip those steps. Strict mode with untested hooks will interrupt things yo
 | --- | --- |
 | [AGENTS.md](AGENTS.md) | Agent and contributor rules — how this repo works |
 | [CLAUDE.md](CLAUDE.md) | Thin Claude Code wrapper that imports `AGENTS.md` |
+| [docs/hooks.md](docs/hooks.md) | Hook reference: every `cc-*` entrypoint, events, default vs strict |
+| [docs/guards.md](docs/guards.md) | Pretool deny catalog, stop-verifier gates, fail-open matrix |
 | [docs/install.md](docs/install.md) | Install, update, uninstall, profiles, strict mode |
-| [docs/skills.md](docs/skills.md) | `etrnl-*` orchestration and bundled skill inventory |
+| [docs/skills.md](docs/skills.md) | `etrnl-*` skills by namespace and bundled inventory |
 | [docs/health-stack.md](docs/health-stack.md) | Code and documentation health gates |
 | [docs/eternal-stack-coverage.md](docs/eternal-stack-coverage.md) | Capability coverage map |
 | [docs/RELEASING.md](docs/RELEASING.md) | Maintainer release workflow |

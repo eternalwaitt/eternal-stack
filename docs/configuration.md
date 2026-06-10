@@ -4,7 +4,7 @@ Profiles:
 
 - Core install: observer hooks, prompt router, prompt expansion, `CLAUDE.md` reinjection, skill recorder, locked advisory rate limiter, session cleanup, scripts, docs, rules, skills, agents, settings audit, and Codex skill/runtime sync.
 - Full install: core plus CodeGraph, Beads, Hindsight plugin/config, stack profile metadata, memory posture checks, and canaries.
-- Strict mode: adds `PreToolUse` guard, post-write quality checks, `PostToolUseFailure` repeated-failure blocker, `Stop` verifier, `SubagentStop` recorder, compact recovery, WebSearch canary, and Hindsight canary to the selected core or full profile.
+- Strict mode: adds `PreToolUse` guard, post-write sycophancy and quality checks, `PostToolUseFailure` repeated-failure blocker, and `SubagentStop` recorder on top of the default template. Default install already registers `Stop` verifier, compact recovery, RTK `rg` compat, and observer hooks.
 - Private overlay: identity, accounts, local permissions, and project-specific preferences.
 
 Codex should receive shared standards through `AGENTS.md`, `AGENTS.override.md` where intentional, Codex hooks, or Codex skills. Claude-specific hook wiring should stay in Claude settings.

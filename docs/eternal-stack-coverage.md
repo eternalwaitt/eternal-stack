@@ -5,7 +5,7 @@ Status key: `done` means implemented in this repo; `live-gated` means intentiona
 | Planned area | Current coverage |
 | --- | --- |
 | Hook library and state | done: JSON, state, paths, preflight, code policy, complexity, cleanup, and event-extract helpers. |
-| Observer hooks | done: prompt routing, prompt expansion, `CLAUDE.md` reinjection, advisory locked rate limiting, post-tool batch observation, and session cleanup. |
+| Observer hooks | done: prompt routing, prompt expansion, `CLAUDE.md` reinjection, advisory locked rate limiting, post-tool batch observation, and session cleanup. Reference: `docs/hooks.md` (catalog), `docs/guards.md` (deny rules). |
 | Strict blockers | done: Bash, directory `Read`, shell output-limiter, edit/write, WebSearch, agent/task, evidence-first, stale verification, requested-skill, domain-skill, first-failure context, repeated-failure, Stop, and SubagentStop gates. |
 | Compact recovery | done: PreCompact/PostCompact state with timestamp/count metadata plus SessionStart recovery, workflow status, and skill hints. |
 | Skill set | done: `etrnl-*` orchestration family, canonical `/etrnl-dev-ci`, plus bundled policy/review/domain skills documented in `docs/skills.md`. |

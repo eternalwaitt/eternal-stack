@@ -1339,6 +1339,14 @@ else
 fi
 bad_plan_json="$(node "$ROOT/scripts/plan-readiness-check.mjs" "$bad_plan" --json 2>/dev/null || true)"
 assert_json_expr "plan readiness emits repair hints" "$bad_plan_json" '(.repairHints | length) > 0'
+tbd_name_plan="$TMPROOT/tbd-name-plan.md"
+cp "$ROOT/hooks/fixtures/plans/good-plan.md" "$tbd_name_plan"
+printf '%s\n' '' '- Pilot repo: agency-tbd backfill.' >>"$tbd_name_plan"
+tbd_name_json="$(node "$ROOT/scripts/plan-readiness-check.mjs" "$tbd_name_plan" --json --allow-transitional-deep-stack 2>/dev/null || true)"
+assert_json_expr "plan readiness allows hyphenated tbd repo names" "$tbd_name_json" '([.failures[].name] | index("tbd")) == null'
+printf '%s\n' '- Budget: TBD before rollout.' >>"$tbd_name_plan"
+tbd_marker_json="$(node "$ROOT/scripts/plan-readiness-check.mjs" "$tbd_name_plan" --json --allow-transitional-deep-stack 2>/dev/null || true)"
+assert_json_expr "plan readiness still rejects standalone TBD markers" "$tbd_marker_json" '([.failures[].name] | index("tbd")) != null'
 good_plan="$TMPROOT/good-plan.md"
 cp "$ROOT/hooks/fixtures/plans/good-plan.md" "$good_plan"
 if good_plan_missing_deep_out="$(node "$ROOT/scripts/plan-readiness-check.mjs" "$good_plan" 2>&1)"; then

@@ -1,6 +1,6 @@
 # Install
 
-Eternal Stack: [github.com/eternalwaitt/eternal-stack](https://github.com/eternalwaitt/eternal-stack). Overview and doc map: [README.md](../README.md).
+Public home: [github.com/eternalwaitt/eternal-stack](https://github.com/eternalwaitt/eternal-stack). Overview and doc map: [README.md](../README.md). Hook reference: [hooks.md](hooks.md). Guard rules: [guards.md](guards.md).
 
 ```bash
 ./scripts/install.sh --profile core
@@ -60,7 +60,7 @@ The installer:
 - runs `settings-audit.mjs --fix` so duplicate hook commands are compacted and the legacy race-prone rate limiter is replaced with `cc-rate-limiter.sh`
 - runs the hook and workflow-tool test harnesses plus the post-upgrade canary
 - applies safe observer hooks after the vanilla reset, including once-per-session `UserPromptSubmit` `CLAUDE.md` reinjection and the advisory rate limiter
-- merges strict blocker hooks, including `PreToolUse`, `Stop`, and `SubagentStop`, only when `ETRNL_ENABLE_STRICT=1`
+- merges strict-only blocker hooks (`PreToolUse` guard, post-write quality/sycophancy, `PostToolUseFailure`, `SubagentStop`) only when `ETRNL_ENABLE_STRICT=1`; default install already registers observer hooks, compact recovery, RTK `rg` compat, and the `Stop` verifier
 - records the evidence-before-agreement lesson to ETRNL state first, then exports it to Hindsight only when the Hindsight canary is green
 
 ## Hindsight Marketplace Access

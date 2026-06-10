@@ -19,8 +19,10 @@ This repo builds Eternal's opinionated stack of skills, hooks, and rules for Cla
 | Doc | Use when |
 | --- | --- |
 | [README.md](README.md) | Public onboarding, profiles, doc index |
+| [docs/hooks.md](docs/hooks.md) | Hook reference: catalog, lifecycle wiring, per-hook behavior, libraries |
+| [docs/guards.md](docs/guards.md) | Pretool deny rules, stop-verifier gates, fail-open matrix |
 | [docs/install.md](docs/install.md) | Install, update, rollback, strict mode |
-| [docs/skills.md](docs/skills.md) | `etrnl-*` orchestration plus bundled skills and script inventory |
+| [docs/skills.md](docs/skills.md) | `etrnl-*` skills by namespace plus bundled inventory and scripts |
 | [docs/health-stack.md](docs/health-stack.md) | Doctor gates and audit workflows |
 | [docs/RELEASING.md](docs/RELEASING.md) | Semver, changelog categories, tags |
 | [CREDITS.md](CREDITS.md) | Vendored and inspirational attribution |

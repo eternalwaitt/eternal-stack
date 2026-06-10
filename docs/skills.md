@@ -1,48 +1,90 @@
 # ETRNL Skills
 
-ETRNL is the Claude etrnl skill family. Every skill shipped by this repo uses the `etrnl-` prefix so its origin is obvious in slash commands, hook state, and session summaries.
+Repo-owned skills use the `etrnl-` prefix so slash commands, hook state, and session summaries stay traceable to Eternal Stack.
 
-Claude Code personal and project skills use hyphenated command names. If this Eternal Stack later ships as a Claude plugin, the plugin namespace can become `etrnl:<skill>`, but the installed skill commands in this repo are `etrnl-*`. Install materializes `~/.claude/commands/etrnl-*.md` shims from the repo-owned skill contracts so slash invocation works even when Claude Code does not expose `~/.claude/skills` directly.
+Claude Code exposes them as `/etrnl-*` commands. Install writes `~/.claude/commands/etrnl-*.md` shims from each skill contract. If this stack ships as a Claude plugin later, the namespace may become `etrnl:<skill>`, but installed commands today remain `etrnl-*`.
+
+## Namespaces
+
+Pick the namespace that matches the job. Operations skills are host maintenance — they are not part of the dev plan → execute → commit loop.
+
+| Prefix | Scope | When to use |
+| --- | --- | --- |
+| `etrnl-dev-*` | Project work | Plan, execute, test, debug, commit, PR, CI, dependencies |
+| `etrnl-audit-*` | Quality gates | Code health, security, performance, docs, browser QA, deep audits |
+| `etrnl-ops-*` | Host and stack maintenance | Save/restore workflow context, reclaim disk, tune agent instruction files |
+| `etrnl-comm-*` | Outbound communication | Private email reply checks before send |
+| `etrnl-backend-patterns`, `etrnl-code-review-excellence`, `etrnl-deep-audit*` | Reference orchestrators | Load `references/` modules on demand; not thin one-shot commands |
+
+Hooks route prompts to these skills and enforce guardrails at tool boundaries. See [hooks.md](hooks.md).
+
+## Development (`etrnl-dev-*`)
+
+Planning, execution, verification, and shipping for a codebase you are building.
 
 | Command | Invocation | Purpose |
 | --- | --- | --- |
-| `/etrnl-ops-agent-files` | Model or user | Maintains AGENTS.md, CLAUDE.md, rules, and agent instruction files without bloat. |
-| `/etrnl-backend-patterns` | Model or user | Orchestrates backend design guidance: classifies the task, loads only the needed `references/` modules (orpc, api, data, prisma, sql-optimization, security, resilience, observability, architecture), and applies them without exposing separate slash commands per concern. |
-| `/etrnl-dev-autoplan` | Model or user | Creates readiness-compatible execution plans with task groups, subagent candidates, verification gates, question policy, mandatory deep-stack artifacts, and an autoplan parity scorecard for final plans. |
-| `/etrnl-dev-brainstorm` | Model or user | Turns ambiguous ideas into approved design/spec files before implementation planning. |
-| `/etrnl-dev-ci` | Model or user | Designs, audits, hardens, debugs, and repairs CI/CD lanes, GitHub Actions, branch protection, artifact/deploy gates, OIDC, SBOM/provenance, rollback, flaky CI, and slow builds. |
+| `/etrnl-dev-brainstorm` | Model or user | Turns ambiguous ideas into approved design/spec files before planning. |
+| `/etrnl-dev-plan` | Model or user | Creates a plan file, reviews it, improves it, then finalizes it. |
+| `/etrnl-dev-autoplan` | Model or user | Creates readiness-compatible execution plans with task groups, subagent candidates, verification gates, question policy, mandatory deep-stack artifacts, and an autoplan parity scorecard. |
+| `/etrnl-dev-execute` | User only | Executes an approved readiness-checked plan end to end with test-first source tasks, run ledger, write-mode implementation subagents, reviews, and verification. |
+| `/etrnl-dev-test` | User only | Runs project preflight and reports or fixes failures. |
+| `/etrnl-dev-debug` | User only | Debugs bugs, failing tests, CI failures, production issues, and unexpected behavior through root-cause evidence before fixes. |
+| `/etrnl-dev-commit` | User only | Reviews, verifies, stages, and commits relevant work. |
+| `/etrnl-dev-pr` | User only | Prepares or updates pull requests with verification evidence, CI state, review feedback, and a closed readiness loop. |
+| `/etrnl-dev-ci` | Model or user | Designs, audits, hardens, debugs, and repairs CI/CD lanes, GitHub Actions, branch protection, deploy gates, OIDC, SBOM/provenance, rollback, flaky CI, and slow builds. |
+| `/etrnl-dev-deps` | User only | Handles targeted dependency maintenance with migration checks, catalog consolidation, bot PR triage, and rollback evidence. |
+| `/etrnl-dev-stress-test` | Model or user | Stress-tests architecture, rollout, migration, automation, and safety assumptions. |
+
+## Audits and review (`etrnl-audit-*`, deep audit)
+
+Whole-repo or category audits with deterministic ledgers and artifact contracts.
+
+| Command | Invocation | Purpose |
+| --- | --- | --- |
 | `/etrnl-audit-code` | User only | Runs the canonical code-health router: inventory, Health Stack, deterministic gates, bundled-skill audits, ledger, and no-skips closure. |
-| `/etrnl-code-review-excellence` | Model or user | Orchestrates code review excellence: classifies the task, loads `references/` modules (audit-checks, Brooks foundation/architecture/onboarding), and runs the registered `code-excellence` deep-audit category when needed. |
-| `/etrnl-deep-audit` | Model or user | Runs orchestrator-included application deep-audit categories through a shared artifact envelope, shared worklists, category reports, lane receipts, and `all_registered` coverage statements. Bundled categories `shared-reuse` and `repo-hygiene` load from `references/categories/`. |
-| `/etrnl-deep-audit-ux` | Model or user | Runs the `ui-ux-product` deep-audit category for accessibility, responsive visual QA, interaction quality, hierarchy, states, empty paths, and product copy - separate from `all_registered` so UI/UX depth can evolve independently. |
-| `/etrnl-audit-docs` | Model or user | Runs documentation-health audits and fixes across READMEs, docs, ADRs, runbooks, API/runtime docs, AI context, and code comments with inventory, drift evidence, and parallel review lanes. |
+| `/etrnl-audit-docs` | Model or user | Runs documentation-health audits across READMEs, docs, ADRs, runbooks, API/runtime docs, AI context, and code comments. |
+| `/etrnl-audit-security` | Model or user | Runs the registered security deep-audit category with exploitable-bug evidence and explicit non-findings. |
+| `/etrnl-audit-performance` | Model or user | Runs the registered performance deep-audit category with route matrix evidence, cold/warm measurements, and lane receipts. |
+| `/etrnl-audit-production` | Model or user | Runs the registered production-readiness deep-audit category with applicability gates and source-limited blockers. |
+| `/etrnl-audit-tooling` | Model or user | Runs the registered tooling-ecosystem deep-audit category across local setup, lint/format/type gates, CI parity, and rollback paths. |
+| `/etrnl-audit-browser` | User only | Produces browser QA reports with route, viewport, screenshot, console, network, accessibility, and responsive evidence. |
+| `/etrnl-deep-audit` | Model or user | Orchestrates registered application deep-audit categories through shared worklists, category reports, lane receipts, and coverage statements. |
+| `/etrnl-deep-audit-ux` | Model or user | Runs the `ui-ux-product` category separately so UI/UX depth can evolve without blocking `all_registered` orchestration. |
+| `/etrnl-code-review-excellence` | Model or user | Code-excellence review and Brooks-style structural audit via on-demand `references/` modules. |
+
+## Operations (`etrnl-ops-*`)
+
+Host, session, and stack maintenance. These skills do not implement product features and do not replace `/etrnl-dev-execute`.
+
+| Command | Invocation | Purpose |
+| --- | --- | --- |
 | `/etrnl-ops-context-save` | User or model | Saves concise resumable workflow state without storing transcripts or credentials. |
 | `/etrnl-ops-context-restore` | User or model | Restores a saved context summary and flags stale continuation state. |
-| `/etrnl-ops-disk-cleanup` | User only | Reclaims local disk space with host/filesystem evidence, a dry-run manifest, approved transient path classes, `trash` deletion, and before/after free-space verification. |
-| `/etrnl-audit-security` | Model or user | Runs the registered security deep-audit category with exploitable-bug evidence, source/sink tracing, missing-control checks, reachability, confidence, and explicit non-findings. |
-| `/etrnl-dev-commit` | User only | Reviews, verifies, stages, and commits relevant work. |
-| `/etrnl-dev-deps` | User only | Handles targeted dependency maintenance with migration checks, catalog consolidation, bot PR triage, and rollback evidence. |
+| `/etrnl-ops-disk-cleanup` | User only | Reclaims local disk space with host/filesystem evidence, a dry-run manifest, approved transient path classes, `trash` deletion, and before/after free-space verification. Hooks pair with this skill to block `rm -rf` and unapproved paths. |
+| `/etrnl-ops-agent-files` | Model or user | Maintains AGENTS.md, CLAUDE.md, rules, and agent instruction files without bloat. |
+
+## Communications (`etrnl-comm-*`)
+
+| Command | Invocation | Purpose |
+| --- | --- | --- |
 | `/etrnl-comm-email-reply-quality` | Model or user | Checks private outgoing email replies for banned dash typography, natural Brazilian Portuguese, AI tells, and humanizer cleanup before approval or send. |
-| `/etrnl-dev-stress-test` | Model or user | Stress-tests architecture, rollout, migration, automation, and safety assumptions. |
-| `/etrnl-dev-execute` | User only | Executes an approved readiness-checked implementation plan end to end with test-first source tasks, run ledger, write-mode implementation subagents for parallel-safe multi-file work, reviews, and verification. |
-| `/etrnl-dev-debug` | User only | Debugs bugs, failing tests, CI failures, production issues, tracked issues, and unexpected behavior through root-cause evidence before fixes. |
-| `/etrnl-audit-performance` | Model or user | Runs the registered performance deep-audit category with route matrix evidence, cold and warm measurements, response bytes, shared worklist hashes, and six lane receipts. |
-| `/etrnl-dev-pr` | User only | Prepares or updates pull requests with verification evidence, CI state, review feedback, CodeRabbit findings, and a closed readiness loop. |
-| `/etrnl-audit-production` | Model or user | Runs the registered production-readiness deep-audit category with no-sampling checks, applicability gates, `CONFIRMED_CLEAN`, skipped-check reasons, and source-limited blockers. |
-| `/etrnl-audit-browser` | User only | Produces browser QA reports with route, viewport, screenshot, console, network, accessibility, and responsive evidence. |
-| `/etrnl-audit-tooling` | Model or user | Runs the registered tooling-ecosystem deep-audit category across local setup, command parity, lint/format/type gates, tests, update/rollback paths, live installed-state checks, and tooling hardening. |
-| `/etrnl-dev-test` | User only | Runs project preflight and reports or fixes failures. |
-| `/etrnl-dev-plan` | Model or user | Creates a plan file, reviews it, improves it, then finalizes it. |
+
+## Reference orchestrators
+
+| Command | Invocation | Purpose |
+| --- | --- | --- |
+| `/etrnl-backend-patterns` | Model or user | Classifies backend tasks and loads only the needed `references/` modules (oRPC, API, data, Prisma, SQL, security, resilience, observability, architecture). |
 
 ## Custom Commands
 
 | Command | Invocation | Purpose |
 | --- | --- | --- |
-| `/email-triage <account>` | User only | Runs private email triage in two phases: first archive/label every current INBOX item and provider-verify Inbox Zero with the local private email CLI, then render one action/reply queue item only after verification reports `inbox_zero_verified: true`, `inbox_count: 0`, and either `gmail_mutated: true` or `queue_ready_without_mutation: true`; visible reply drafts require the local draft checker before approval. |
+| `/email-triage <account>` | User only | Runs private email triage in two phases: archive/label INBOX items and provider-verify Inbox Zero, then render one action/reply queue item only after verification reports `inbox_zero_verified: true`, `inbox_count: 0`, and either `gmail_mutated: true` or `queue_ready_without_mutation: true`; visible reply drafts require the local draft checker before approval. |
 
 ## Code Review Excellence
 
-`/etrnl-code-review-excellence` is the single slash entry for code-excellence review and Brooks-style structural audit. Reference modules live under `skills/etrnl-code-review-excellence/references/` and load on demand - they are not separate owned skills or commands.
+`/etrnl-code-review-excellence` is the single slash entry for code-excellence review and Brooks-style structural audit. Reference modules live under `skills/etrnl-code-review-excellence/references/` and load on demand — they are not separate owned skills or commands.
 
 | Module file | Covers |
 | --- | --- |
@@ -55,7 +97,7 @@ Brooks bundled content for this stack; prefer these references over a separate `
 
 ## Backend Patterns
 
-`/etrnl-backend-patterns` is the single slash entry for server-side design work. Reference modules live under `skills/etrnl-backend-patterns/references/` and are loaded on demand by the orchestrator - they are not separate owned skills or commands.
+`/etrnl-backend-patterns` is the single slash entry for server-side design work. Reference modules live under `skills/etrnl-backend-patterns/references/` and are loaded on demand by the orchestrator — they are not separate owned skills or commands.
 
 | Module file | Covers |
 | --- | --- |
@@ -98,10 +140,10 @@ Direct category examples:
 
 ## Bundled skills
 
-Eternal Stack installs as two cooperating layers:
+Eternal Stack installs two cooperating layers:
 
-1. **`etrnl-*` orchestration** - repo-owned commands, hooks, scripts, and agents from this repository.
-2. **Bundled review and domain skills** - policy, simplification, dedupe, domain, auth, and payments skills that complete the loops `etrnl-*` workflows enforce.
+1. **`etrnl-*` orchestration** — repo-owned commands, hooks, scripts, and agents from this repository.
+2. **Bundled review and domain skills** — policy, simplification, dedupe, domain, auth, and payments skills that complete the loops `etrnl-*` workflows enforce.
 
 Bundled skills are vendored under `skills/bundled/<name>/` in this repository. `scripts/install.sh` copies each tree to `~/.claude/skills/<name>` and `~/.codex/skills/<name>`. Maintainers refresh vendored copies from canonical host trees with `scripts/vendor-bundled-skills.sh`.
 
@@ -139,7 +181,7 @@ Beads is not an ETRNL bundled execution skill. It is allowed as explicit backlog
 | `code-health-ledger-check.mjs` | `~/.claude/scripts/code-health-ledger-check.mjs` | Blocks code-health completion unless inventory, action-item counters, terminal findings, resolution plan, and final gate evidence are present. |
 | `documentation-comment-health.mjs` | `~/.claude/scripts/documentation-comment-health.mjs` | Inventories exported JS/TS targets and their leading TSDoc/JSDoc coverage so documentation-health runs cannot pass with comment sampling only. |
 | `documentation-health-ledger-check.mjs` | `~/.claude/scripts/documentation-health-ledger-check.mjs` | Blocks documentation-health completion unless coverage, source-truth, freshness/drift, comment, AI-context, terminal-ledger, and validation evidence are present. |
-| `disk-cleanup-manifest.mjs` | `~/.claude/scripts/disk-cleanup-manifest.mjs` | Validates disk-cleanup dry-run manifests with absolute paths, byte estimates, risk tiers, approval requirements, and no recursive `rm` or whole-Trash cleanup. |
+| `disk-cleanup-manifest.mjs` | `~/.claude/scripts/disk-cleanup-manifest.mjs` | Validates disk-cleanup dry-run manifests with absolute paths, byte estimates, risk tiers, approval requirements, and no recursive `rm` or whole-Trash cleanup. Used by `/etrnl-ops-disk-cleanup`, not dev workflows. |
 | `merge-settings.mjs` | `~/.claude/scripts/merge-settings.mjs` | Merges etrnl hooks into existing Claude settings without replacing unrelated local configuration. |
 | `plan-readiness-check.mjs` | `~/.claude/scripts/plan-readiness-check.mjs` | Rejects thin plans before they are marked final or executed; final plans require a validated deep-stack artifact bundle unless a legacy transitional flag is explicitly used. |
 | `deep-stack-check.mjs` | `~/.claude/scripts/deep-stack-check.mjs` | Creates and validates the Hybrid Deep Stack artifact bundle for final plans: sanitized source manifest, skill matrix, review phase records, TDD evidence, reuse inventory/bindings, findings ledger, completion audit/reconciliation, risk tier, TypeScript trigger evidence, and install proof. |

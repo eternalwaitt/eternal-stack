@@ -255,7 +255,8 @@ const optionalMetadata = {
   deepStackArtifacts: /^Deep stack artifacts:\s*\S/im.test(text),
 };
 
-forbidPattern('tbd', /\bTBD\b/i, 'plan still contains TBD');
+// Hyphen guards prevent matching hyphenated proper names such as the agency-tbd repo.
+forbidPattern('tbd', /(?<!-)\bTBD\b(?!-)/i, 'plan still contains TBD');
 // Word boundaries prevent matching TODO inside "TODOS.md".
 forbidPattern('todo', /\bTODO\b/i, 'plan still contains TODO');
 forbidPattern('handle_edge_cases', /handle edge cases/i, 'replace vague "handle edge cases" with concrete cases');
