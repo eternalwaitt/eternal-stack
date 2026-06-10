@@ -1,0 +1,34 @@
+{
+  "session_id": "fixture-task-valid",
+  "tool_name": "Task",
+  "tool_input": {
+    "packet": {
+      "mode": "write",
+      "taskId": "T1",
+      "lineageId": "wave-1.T1",
+      "goal": "implement task T1",
+      "contextSummary": "approved plan exists",
+      "cwd": "/repo",
+      "scope": "scripts only",
+      "readSet": [
+        "scripts",
+        "tests"
+      ],
+      "writeScope": "scripts/example.mjs",
+      "forbiddenPaths": [
+        "package.json"
+      ],
+      "expectedOutput": "changed files and verification",
+      "verificationCommand": "pnpm test",
+      "modelTier": "sonnet",
+      "timeoutSec": 1200,
+      "retryPolicy": {
+        "maxRetries": 1,
+        "backoff": "linear",
+        "initialDelayMs": 1000
+      },
+      "noRevert": true,
+      "webSearchGuidance": "no WebSearch unless official docs are required"
+    }
+  }
+}

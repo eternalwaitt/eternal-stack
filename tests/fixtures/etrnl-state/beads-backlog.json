@@ -1,0 +1,9 @@
+{
+  "eventKind": "context_entry",
+  "sessionId": "fixture-beads",
+  "data": {
+    "entryType": "follow_up",
+    "title": "Write compact recovery smoke",
+    "source": "compact-state-plan"
+  }
+}

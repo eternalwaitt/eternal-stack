@@ -1,0 +1,9 @@
+{
+  "skill": "etrnl-dev-autoplan",
+  "executionMode": "file-backed planning with CEO/DX/adversarial review",
+  "ownershipRule": "reuse existing helpers and docs before adding plan surfaces",
+  "fallback": "evidence-pending handoff with explicit blockers",
+  "testDiscipline": "deterministic plan-readiness and deep-stack gates",
+  "riskTiering": "after-deep-review-only",
+  "deepStackArtifacts": true
+}

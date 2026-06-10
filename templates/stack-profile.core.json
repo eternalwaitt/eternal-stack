@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "profile": "core",
+  "description": "ETRNL core harness without global semantic memory or backlog services.",
+  "installCommand": "./scripts/install.sh --profile core",
+  "components": {
+    "etrnl": {
+      "enabled": true,
+      "authority": "compact-handoff",
+      "installs": [
+        "claude-hooks",
+        "claude-skills",
+        "claude-agents",
+        "claude-commands",
+        "codex-skills",
+        "rules",
+        "scripts",
+        "settings-audit"
+      ],
+      "requiredHooks": [
+        "cc-sessionstart-restore.sh",
+        "cc-precompact-save.sh",
+        "cc-postcompact-record.sh",
+        "cc-stop-verifier.sh"
+      ],
+      "requiredHooksIntent": "compact-handoff and stop-gate minimum; templates/settings.json owns the broader lifecycle hook set",
+      "healthChecks": [
+        "tests/test-hooks.sh",
+        "tests/test-workflow-tools.sh",
+        "scripts/doctor.sh"
+      ]
+    },
+    "hindsight": {
+      "enabled": false,
+      "reason": "core profile does not install third-party memory plugins"
+    },
+    "beads": {
+      "enabled": false,
+      "reason": "core profile does not install backlog databases"
+    },
+    "codegraph": {
+      "enabled": false,
+      "reason": "core profile does not install global code navigation tools"
+    }
+  },
+  "settings": {
+    "template": "templates/settings.json",
+    "stockBoundary": "repo-owned harness hooks only",
+    "unsupportedTopLevelKeys": [
+      "autoCompactWindow",
+      "skipAutoPermissionPrompt"
+    ]
+  },
+  "rollback": {
+    "installMetadataTarget": "~/.claude/etrnl/install.json",
+    "required": true
+  }
+}

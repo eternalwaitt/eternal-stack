@@ -1,0 +1,267 @@
+#!/usr/bin/env bash
+#
+# Centralized skill identifiers for the Eternal Stack.
+# Used by install, doctor, and domain-sensitive hook gates.
+# Add new repo-owned skills to OWNED_SKILLS by directory name only, then run doctor.
+# Keep hooks/lib/skill-hints.sh fallback `skills=(...)` synchronized with OWNED_SKILLS.
+# REMOVED_SKILLS names are one-way cleanup targets. They are backed up and removed during install.
+
+OWNED_SKILLS=(
+  etrnl-ops-agent-files
+  etrnl-backend-patterns
+  etrnl-dev-autoplan
+  etrnl-dev-brainstorm
+  etrnl-dev-ci
+  etrnl-audit-code
+  etrnl-code-review-excellence
+  etrnl-dev-commit
+  etrnl-ops-context-restore
+  etrnl-ops-context-save
+  etrnl-deep-audit
+  etrnl-deep-audit-ux
+  etrnl-dev-deps
+  etrnl-ops-disk-cleanup
+  etrnl-audit-docs
+  etrnl-comm-email-reply-quality
+  etrnl-dev-execute
+  etrnl-dev-debug
+  etrnl-audit-performance
+  etrnl-dev-plan
+  etrnl-audit-production
+  etrnl-dev-pr
+  etrnl-audit-browser
+  etrnl-audit-security
+  etrnl-audit-tooling
+  etrnl-dev-stress-test
+  etrnl-dev-test
+)
+
+# Bundled policy/review/domain skills vendored under skills/bundled/ and installed
+# to ~/.claude/skills/<name> and ~/.codex/skills/<name>. Refresh with scripts/vendor-bundled-skills.sh.
+BUNDLED_SKILLS=(
+  abacatepay-integration
+  better-auth
+  brooks-audit
+  ci-cd
+  code-simplifier
+  domain-cli
+  domain-cloud-native
+  domain-embedded
+  domain-fintech
+  domain-iot
+  domain-ml
+  domain-web
+  eternal-best-practices
+  finding-duplicate-functions
+  i18n-localization
+  money-vo-discipline
+  orpc-patterns
+  prisma-expert
+  sql-optimization-patterns
+  stripe-best-practices
+  tenant-isolation-patterns
+)
+
+OWNED_AGENTS=(
+  etrnl-adversary
+  etrnl-browser-qa
+  etrnl-design-reviewer
+  etrnl-dx-reviewer
+  etrnl-executor
+  etrnl-investigator
+  etrnl-quality-reviewer
+  etrnl-scout
+  etrnl-spec-reviewer
+)
+
+OWNED_COMMANDS=(
+  email-triage
+)
+
+CRITICAL_HOOKS=(
+  cc-sessionstart-restore.sh
+  cc-pretooluse-guard.sh
+  cc-rate-limiter.sh
+  cc-posttoolbatch-observer.sh
+  cc-stop-verifier.sh
+  cc-posttoolusefailure-diagnose.sh
+  cc-precompact-save.sh
+  cc-postcompact-record.sh
+  cc-sessionend-save.sh
+)
+
+CRITICAL_SCRIPTS=(
+  code-health-ledger-check.mjs
+  documentation-comment-health.mjs
+  documentation-health-ledger-check.mjs
+  disk-cleanup-manifest.mjs
+  execution-ledger.mjs
+  etrnl-state.mjs
+  execute-evidence-check.mjs
+  tool-effectiveness.mjs
+  deep-stack-check.mjs
+  deep-audit-artifact-check.mjs
+  plan-readiness-check.mjs
+  performance-baseline.mjs
+  pr-preflight.mjs
+  live-hook-noise-report.mjs
+  session-audit.mjs
+  agent-task-packet-check.mjs
+  guard-override-token.mjs
+  lib/audit-exclusions.mjs
+  lib/bash-array-parser.mjs
+  lib/cli-args.mjs
+  lib/codex-memory-scan.sh
+  lib/deep-audit-categories.mjs
+  lib/deep-stack-artifacts.mjs
+  lib/env-utils.mjs
+  lib/etrnl-state-core.mjs
+  lib/evidence-trace.mjs
+  lib/plan-headings.mjs
+  lib/text-matchers.mjs
+  lib/skill-lists.sh
+  merge-settings.mjs
+  settings-audit.mjs
+  replay-hook-fixtures.mjs
+  skill-contract-check.mjs
+  skill-behavior-smoke.mjs
+  skill-update-prompt.mjs
+  stack-profile-check.mjs
+  tool-stack-check.mjs
+  update-check.mjs
+  codex-rtk-pre-tool-use.sh
+)
+
+# Scripts copied verbatim (same basename) into $TARGET/scripts during install.
+# Drives both the copy loop and the dry-run preflight so they cannot drift.
+# doctor.sh is copied under a different name and validated separately.
+INSTALL_SCRIPTS=(
+  install.sh
+  code-health-inventory.mjs
+  code-health-ledger-check.mjs
+  documentation-comment-health.mjs
+  documentation-health-ledger-check.mjs
+  disk-cleanup-manifest.mjs
+  merge-settings.mjs
+  settings-audit.mjs
+  deep-stack-check.mjs
+  deep-audit-artifact-check.mjs
+  plan-readiness-check.mjs
+  performance-baseline.mjs
+  pr-preflight.mjs
+  agent-task-packet-check.mjs
+  guard-override-token.mjs
+  replay-hook-fixtures.mjs
+  etrnl-state.mjs
+  execution-ledger.mjs
+  execute-evidence-check.mjs
+  execution-wave-check.mjs
+  tool-effectiveness.mjs
+  review-log.mjs
+  project-buglog.mjs
+  browser-qa-report.mjs
+  context-state.mjs
+  live-hook-noise-report.mjs
+  session-audit.mjs
+  workflow-health.mjs
+  prompt-budget-check.mjs
+  skill-contract-check.mjs
+  skill-behavior-smoke.mjs
+  skill-update-prompt.mjs
+  stack-profile-check.mjs
+  changelog-release-check.mjs
+  release.mjs
+  port-guard.mjs
+  update-check.mjs
+  tool-stack-check.mjs
+  codex-rtk-pre-tool-use.sh
+  bootstrap-tools.sh
+  update.sh
+  uninstall.sh
+  canary-websearch.sh
+  canary-hindsight.sh
+  post-upgrade-canary.sh
+  rollback-local.sh
+)
+
+REMOVED_SKILLS=(
+  agent-file-doctor
+  code-health
+  code-review
+  commit
+  deps
+  devils-advocate
+  etrnl-agent-files
+  etrnl-autoplan
+  etrnl-brainstorm
+  etrnl-ci-cd
+  etrnl-code-health
+  etrnl-commit
+  etrnl-context-restore
+  etrnl-context-save
+  etrnl-deps
+  etrnl-documentation-health
+  etrnl-email-reply-quality
+  etrnl-execute
+  etrnl-fix-issue
+  etrnl-parallel
+  etrnl-performance-audit
+  etrnl-production-readiness
+  etrnl-pr
+  etrnl-qa-browser
+  etrnl-run-plan
+  etrnl-security-audit
+  etrnl-stress-test
+  etrnl-systematic-debugging
+  etrnl-test
+  etrnl-backend-api
+  etrnl-backend-architecture
+  etrnl-backend-data
+  etrnl-backend-observability
+  etrnl-backend-resilience
+  etrnl-backend-security
+  etrnl-audit
+  etrnl-audit-excellence
+  etrnl-audit-repo
+  etrnl-audit-reuse
+  etrnl-audit-ux
+  etrnl-dev-parallel
+  etrnl-dev-review
+  execute-plan
+  fix-issue
+  parallel-fan-out
+  pr
+  test
+  writing-plans
+  eternal-control-agent-file-doctor
+  eternal-control-brainstorming
+  eternal-control-code-health
+  eternal-control-code-review
+  eternal-control-commit
+  eternal-control-deps
+  eternal-control-devils-advocate
+  eternal-control-execute-plan
+  eternal-control-fix-issue
+  eternal-control-parallel-fan-out
+  eternal-control-pr
+  eternal-control-test
+  eternal-control-writing-plans
+  eternal-agent-file-doctor
+  eternal-code-health
+  eternal-code-review
+  eternal-commit
+  eternal-deps
+  eternal-devils-advocate
+  eternal-execute-plan
+  eternal-fix-issue
+  eternal-parallel-fan-out
+  eternal-pr
+  eternal-test
+  eternal-writing-plans
+)
+
+# Bundled domain-sensitive skills that gate protected edits in hooks.
+DOMAIN_COMPANION_SKILL_PATTERN='^(eternal-best-practices|domain-[a-z0-9_-]+|better-auth|tenant-isolation(-patterns)?|money-vo-discipline|prisma-expert|i18n-localization|stripe-best-practices|abacatepay-integration)$'
+
+# Keep shellcheck aware these sourced constants are intentionally read by callers.
+: "${OWNED_SKILLS[*]}" "${BUNDLED_SKILLS[*]}" "${OWNED_AGENTS[*]}" "${OWNED_COMMANDS[*]}" "${CRITICAL_HOOKS[*]}" "${CRITICAL_SCRIPTS[*]}" "${INSTALL_SCRIPTS[*]}" "${REMOVED_SKILLS[*]}" "$DOMAIN_COMPANION_SKILL_PATTERN"

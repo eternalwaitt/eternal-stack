@@ -1,0 +1,21 @@
+{
+  "hook": "cc-pretooluse-guard.sh",
+  "expected": { "kind": "allow" },
+  "payload": {
+    "session_id": "replay-6",
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Task",
+    "tool_input": {
+      "packet": {
+        "mode": "read-only",
+        "goal": "inspect architecture",
+        "contextSummary": "planning only",
+        "cwd": "/repo",
+        "scope": "hooks and scripts",
+        "readSet": ["hooks", "scripts"],
+        "expectedOutput": "findings summary",
+        "noRevert": true
+      }
+    }
+  }
+}

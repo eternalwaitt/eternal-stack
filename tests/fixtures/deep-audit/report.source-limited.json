@@ -1,0 +1,290 @@
+{
+  "schemaVersion": 1,
+  "auditId": "deep-audit-source-limited",
+  "categoryRegistryVersion": "2026-06-09.1",
+  "registeredCategories": [
+    "code-excellence",
+    "ui-ux-product",
+    "production-readiness",
+    "security",
+    "performance",
+    "shared-reuse",
+    "repo-hygiene",
+    "tooling-ecosystem"
+  ],
+  "knownUnimplementedCategories": [
+    "api-data",
+    "payments",
+    "privacy-compliance"
+  ],
+  "coverageStatement": "Coverage: production-readiness partially completed (source-limited: 17/18 checks blocked, 1 check passed). Known not-yet-registered audit domains: api-data, payments, privacy-compliance. This is not a claim that every possible audit domain has run.",
+  "targetLabel": "synthetic-app",
+  "targetFingerprint": "repo:synthetic-app@source-limited",
+  "requestedCategories": [
+    "production-readiness"
+  ],
+  "runArtifactLabel": "deep-audit-source-limited-run",
+  "worklists": {
+    "prod_pages": {
+      "count": 0,
+      "sha256": "sha256:prod_pages",
+      "artifactLabel": "prod-pages"
+    },
+    "prod_procedures": {
+      "count": 0,
+      "sha256": "sha256:prod_procedures",
+      "artifactLabel": "prod-procedures"
+    },
+    "prod_routes": {
+      "count": 0,
+      "sha256": "sha256:prod_routes",
+      "artifactLabel": "prod-routes"
+    },
+    "prod_actions": {
+      "count": 0,
+      "sha256": "sha256:prod_actions",
+      "artifactLabel": "prod-actions"
+    },
+    "prod_webhooks": {
+      "count": 0,
+      "sha256": "sha256:prod_webhooks",
+      "artifactLabel": "prod-webhooks"
+    },
+    "prod_queues": {
+      "count": 0,
+      "sha256": "sha256:prod_queues",
+      "artifactLabel": "prod-queues"
+    },
+    "prod_crons": {
+      "count": 0,
+      "sha256": "sha256:prod_crons",
+      "artifactLabel": "prod-crons"
+    },
+    "prod_notifications": {
+      "count": 0,
+      "sha256": "sha256:prod_notifications",
+      "artifactLabel": "prod-notifications"
+    },
+    "prod_uploads": {
+      "count": 0,
+      "sha256": "sha256:prod_uploads",
+      "artifactLabel": "prod-uploads"
+    },
+    "prod_exports": {
+      "count": 0,
+      "sha256": "sha256:prod_exports",
+      "artifactLabel": "prod-exports"
+    },
+    "prod_schema": {
+      "count": 0,
+      "sha256": "sha256:prod_schema",
+      "artifactLabel": "prod-schema"
+    },
+    "prod_client": {
+      "count": 0,
+      "sha256": "sha256:prod_client",
+      "artifactLabel": "prod-client"
+    },
+    "prod_mutations": {
+      "count": 0,
+      "sha256": "sha256:prod_mutations",
+      "artifactLabel": "prod-mutations"
+    },
+    "prod_tenant": {
+      "count": 0,
+      "sha256": "sha256:prod_tenant",
+      "artifactLabel": "prod-tenant"
+    },
+    "prod_dates": {
+      "count": 0,
+      "sha256": "sha256:prod_dates",
+      "artifactLabel": "prod-dates"
+    },
+    "prod_raw_env_files": {
+      "count": 0,
+      "sha256": "sha256:prod_raw_env_files",
+      "artifactLabel": "prod-raw-env-files"
+    },
+    "prod_error_boundaries": {
+      "count": 0,
+      "sha256": "sha256:prod_error_boundaries",
+      "artifactLabel": "prod-error-boundaries"
+    },
+    "sec_entrypoints": {
+      "count": 1,
+      "sha256": "sha256:sec_entrypoints",
+      "artifactLabel": "sec-entrypoints"
+    },
+    "sec_authz": {
+      "count": 1,
+      "sha256": "sha256:sec_authz",
+      "artifactLabel": "sec-authz"
+    },
+    "sec_inputs": {
+      "count": 1,
+      "sha256": "sha256:sec_inputs",
+      "artifactLabel": "sec-inputs"
+    },
+    "sec_sinks": {
+      "count": 1,
+      "sha256": "sha256:sec_sinks",
+      "artifactLabel": "sec-sinks"
+    },
+    "sec_secrets": {
+      "count": 1,
+      "sha256": "sha256:sec_secrets",
+      "artifactLabel": "sec-secrets"
+    },
+    "sec_uploads": {
+      "count": 1,
+      "sha256": "sha256:sec_uploads",
+      "artifactLabel": "sec-uploads"
+    },
+    "sec_webhooks": {
+      "count": 1,
+      "sha256": "sha256:sec_webhooks",
+      "artifactLabel": "sec-webhooks"
+    },
+    "sec_dependencies": {
+      "count": 1,
+      "sha256": "sha256:sec_dependencies",
+      "artifactLabel": "sec-dependencies"
+    }
+  },
+  "categoryReports": [
+    {
+      "categoryId": "production-readiness",
+      "status": "source_limited",
+      "consumedWorklistHashes": {
+        "prod_pages": "sha256:prod_pages",
+        "prod_procedures": "sha256:prod_procedures",
+        "prod_routes": "sha256:prod_routes",
+        "prod_actions": "sha256:prod_actions",
+        "prod_webhooks": "sha256:prod_webhooks",
+        "prod_queues": "sha256:prod_queues",
+        "prod_crons": "sha256:prod_crons",
+        "prod_notifications": "sha256:prod_notifications",
+        "prod_uploads": "sha256:prod_uploads",
+        "prod_exports": "sha256:prod_exports",
+        "prod_schema": "sha256:prod_schema",
+        "prod_client": "sha256:prod_client",
+        "prod_mutations": "sha256:prod_mutations",
+        "prod_tenant": "sha256:prod_tenant",
+        "prod_dates": "sha256:prod_dates",
+        "prod_raw_env_files": "sha256:prod_raw_env_files",
+        "prod_error_boundaries": "sha256:prod_error_boundaries"
+      },
+      "checks": [
+        {
+          "checkId": "prod-01-state-coverage",
+          "status": "source_limited",
+          "sourceLimitedBlocker": "auth_blocker: synthetic auth fixture unavailable"
+        },
+        {
+          "checkId": "prod-02-transition-integrity",
+          "status": "source_limited",
+          "sourceLimitedBlocker": "auth_blocker: synthetic auth fixture unavailable"
+        },
+        {
+          "checkId": "prod-03-validation-boundaries",
+          "status": "source_limited",
+          "sourceLimitedBlocker": "auth_blocker: synthetic auth fixture unavailable"
+        },
+        {
+          "checkId": "prod-04-timezone-locale-market",
+          "status": "source_limited",
+          "sourceLimitedBlocker": "auth_blocker: synthetic auth fixture unavailable"
+        },
+        {
+          "checkId": "prod-05-concurrent-write-safety",
+          "status": "source_limited",
+          "sourceLimitedBlocker": "auth_blocker: synthetic auth fixture unavailable"
+        },
+        {
+          "checkId": "prod-06-auth-tier-enforcement",
+          "status": "source_limited",
+          "sourceLimitedBlocker": "auth_blocker: synthetic auth fixture unavailable"
+        },
+        {
+          "checkId": "prod-07-webhook-safety",
+          "status": "source_limited",
+          "sourceLimitedBlocker": "auth_blocker: synthetic auth fixture unavailable"
+        },
+        {
+          "checkId": "prod-08-notification-deduplication",
+          "status": "source_limited",
+          "sourceLimitedBlocker": "auth_blocker: synthetic auth fixture unavailable"
+        },
+        {
+          "checkId": "prod-09-serverless-platform-failures",
+          "status": "source_limited",
+          "sourceLimitedBlocker": "auth_blocker: synthetic auth fixture unavailable"
+        },
+        {
+          "checkId": "prod-10-tenant-isolation",
+          "status": "source_limited",
+          "sourceLimitedBlocker": "auth_blocker: synthetic auth fixture unavailable"
+        },
+        {
+          "checkId": "prod-11-file-upload-atomicity",
+          "status": "source_limited",
+          "sourceLimitedBlocker": "auth_blocker: synthetic auth fixture unavailable"
+        },
+        {
+          "checkId": "prod-12-migration-pii-logs",
+          "status": "source_limited",
+          "sourceLimitedBlocker": "auth_blocker: synthetic auth fixture unavailable"
+        },
+        {
+          "checkId": "prod-13-schema-correctness",
+          "status": "source_limited",
+          "sourceLimitedBlocker": "auth_blocker: synthetic auth fixture unavailable"
+        },
+        {
+          "checkId": "prod-14-export-parity",
+          "status": "source_limited",
+          "sourceLimitedBlocker": "auth_blocker: synthetic auth fixture unavailable"
+        },
+        {
+          "checkId": "prod-15-path-route-correctness",
+          "status": "source_limited",
+          "sourceLimitedBlocker": "auth_blocker: synthetic auth fixture unavailable"
+        },
+        {
+          "checkId": "prod-16-raw-env-access",
+          "status": "source_limited",
+          "sourceLimitedBlocker": "auth_blocker: synthetic auth fixture unavailable"
+        },
+        {
+          "checkId": "prod-17-error-boundaries",
+          "status": "source_limited",
+          "sourceLimitedBlocker": "auth_blocker: synthetic auth fixture unavailable"
+        },
+        {
+          "checkId": "prod-18-operability-prr",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Operability PRR - 0 findings"
+        }
+      ]
+    }
+  ],
+  "laneReceipts": [],
+  "confirmedClean": [
+    "production-readiness/prod-18-operability-prr"
+  ],
+  "checksSkipped": [],
+  "findings": [],
+  "sourceLimitedBlockers": [
+    "auth_blocker: synthetic auth fixture unavailable"
+  ],
+  "synthesis": {
+    "status": "source_limited",
+    "summary": "Production readiness blocked by missing synthetic auth fixture."
+  },
+  "verification": [
+    {
+      "command": "node scripts/deep-audit-artifact-check.mjs validate --artifact tests/fixtures/deep-audit/report.source-limited.json",
+      "status": "passed"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "session_id": "fixture-packet-valid",
+  "tool_name": "Task",
+  "tool_input": {
+    "packet": {
+      "mode": "write",
+      "taskId": "T3",
+      "lineageId": "wave-1.T3",
+      "goal": "update CHANGELOG with M-one release notes",
+      "contextSummary": "etrnl-dev-commit task; write scope is CHANGELOG.md only",
+      "cwd": "/repo",
+      "scope": "CHANGELOG.md",
+      "readSet": ["CHANGELOG.md", ".claude/plans"],
+      "writeScope": "CHANGELOG.md",
+      "forbiddenPaths": ["hooks", "scripts", "skills"],
+      "expectedOutput": "CHANGELOG updated with release section",
+      "verificationCommand": "node scripts/changelog-release-check.mjs",
+      "modelTier": "haiku",
+      "timeoutSec": 120,
+      "retryPolicy": {"maxRetries": 2, "backoff": "linear", "initialDelayMs": 500},
+      "noRevert": true,
+      "webSearchGuidance": "no WebSearch needed"
+    }
+  }
+}

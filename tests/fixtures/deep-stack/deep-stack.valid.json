@@ -1,0 +1,144 @@
+{
+  "schemaVersion": 1,
+  "artifactType": "deep-stack-plan",
+  "planPath": "tests/fixtures/deep-stack/plan.deep-stack.valid.md",
+  "deepReview": {
+    "status": "passed",
+    "phases": ["ceo", "engineering", "dx", "adversarial", "specialist", "reuse", "simplifier"],
+    "completedAt": "2026-06-01T12:00:00Z"
+  },
+  "sourceManifest": {
+    "sources": [
+      {
+        "sourceId": "repo-eternal-stack",
+        "version": "current",
+        "commit": "0000000000000000000000000000000000000000",
+        "hash": "sha256:fixture",
+        "capturedAt": "2026-06-01T12:00:00Z",
+        "refreshCommand": "node scripts/deep-stack-check.mjs create --plan tests/fixtures/deep-stack/plan.deep-stack.valid.md --out tests/fixtures/deep-stack",
+        "requiredFiles": ["scripts/plan-readiness-check.mjs", "scripts/deep-stack-check.mjs", "scripts/agent-task-packet-check.mjs"]
+      }
+    ]
+  },
+  "skillMatrix": [
+    {
+      "skill": "code-simplifier",
+      "status": "required",
+      "trigger": "source changes",
+      "evidence": "source review lane required"
+    },
+    {
+      "skill": "typescript-advanced-types",
+      "status": "not_applicable",
+      "trigger": "plain TypeScript implementation",
+      "evidence": "ordinary TypeScript verification is enough",
+      "notApplicableRationale": "No public types, API contracts, runtime validation, generated types, state machines, branded IDs, reusable type utilities, or cross-layer DTO/domain boundaries are touched."
+    }
+  ],
+  "reuseInventory": {
+    "searchedPaths": ["scripts", "skills", "tests"],
+    "existingAnalogs": ["scripts/plan-readiness-check.mjs"],
+    "candidateHelpers": ["scripts/lib/cli-args.mjs"],
+    "candidateTests": ["tests/test-workflow-tools.sh"],
+    "decisions": [
+      {
+        "surface": "deep-stack-check.mjs",
+        "newSurface": true,
+        "reuseDecision": "reuse existing readiness owner and add one consolidated CLI",
+        "newSurfaceJustification": "A single operator command avoids seven validator entrypoints while preserving existing gate ownership."
+      }
+    ]
+  },
+  "findings": [
+    {
+      "severity": "high",
+      "status": "fixed",
+      "path": ".claude/plans/2026-06-01-etrnl-deep-stack-top-level-plan.md",
+      "category": "hybrid-routing",
+      "fix": "Encoded risk tier contract.",
+      "owner": "parent",
+      "fingerprint": "fixture-fixed"
+    }
+  ],
+  "completionAudit": [
+    {
+      "planItem": "bootstrap contract",
+      "classification": "DONE",
+      "evidence": "fixture",
+      "diffPaths": ["scripts/deep-stack-check.mjs"],
+      "reason": "implemented",
+      "impact": "low"
+    }
+  ],
+  "reviewPhases": [
+    { "role": "ceo", "status": "passed", "checkedInputs": ["plan", "artifact"], "findingsCount": 0, "openHighCount": 0, "disposition": "no blocker findings", "completedAt": "2026-06-01T12:00:00Z" },
+    { "role": "engineering", "status": "passed", "checkedInputs": ["plan", "artifact"], "findingsCount": 1, "openHighCount": 0, "disposition": "fixture finding fixed", "completedAt": "2026-06-01T12:00:00Z" },
+    { "role": "dx", "status": "passed", "checkedInputs": ["plan", "tests"], "findingsCount": 0, "openHighCount": 0, "disposition": "operator flow clear", "completedAt": "2026-06-01T12:00:00Z" },
+    { "role": "adversarial", "status": "passed", "checkedInputs": ["plan", "riskTier"], "findingsCount": 0, "openHighCount": 0, "disposition": "no bypass found", "completedAt": "2026-06-01T12:00:00Z" },
+    { "role": "specialist", "status": "passed", "checkedInputs": ["skillMatrix"], "findingsCount": 0, "openHighCount": 0, "disposition": "no specialist blocker", "completedAt": "2026-06-01T12:00:00Z" },
+    { "role": "reuse", "status": "passed", "checkedInputs": ["reuseInventory"], "findingsCount": 0, "openHighCount": 0, "disposition": "reuse path recorded", "completedAt": "2026-06-01T12:00:00Z" },
+    { "role": "simplifier", "status": "passed", "checkedInputs": ["diff shape"], "findingsCount": 0, "openHighCount": 0, "disposition": "minimal helper surface", "completedAt": "2026-06-01T12:00:00Z" }
+  ],
+  "tddEvidence": [
+    {
+      "taskId": "T1",
+      "sourceFiles": ["scripts/deep-stack-check.mjs"],
+      "status": "not_applicable",
+      "rationaleWhenNotTestFirst": "Fixture validates planning artifact behavior already covered by workflow tests."
+    }
+  ],
+  "completionReconciliation": [
+    {
+      "planItemId": "phase-1",
+      "requestedOutcome": "Deep-stack artifact validation exists.",
+      "classification": "DONE",
+      "evidence": "tests/test-workflow-tools.sh deep-stack artifact validates",
+      "changedReason": "",
+      "acceptedBy": "",
+      "impact": "low"
+    }
+  ],
+  "reuseBindings": [
+    {
+      "taskId": "T1",
+      "createsNewSurface": true,
+      "searchedPaths": ["scripts", "tests"],
+      "analogs": ["scripts/plan-readiness-check.mjs"],
+      "decision": "Extend existing deep-stack CLI and artifact library.",
+      "newSurfaceJustification": "The fixture represents the existing consolidated validator path."
+    }
+  ],
+  "typeTriggerEvidence": [
+    {
+      "file": "scripts/deep-stack-check.mjs",
+      "triggerSurface": "plain CLI surface",
+      "ordinaryVerification": "node --check scripts/deep-stack-check.mjs",
+      "advancedReviewStatus": "not_applicable"
+    }
+  ],
+  "installProof": {
+    "sourceGate": { "status": "passed", "evidence": "tests/test-workflow-tools.sh" },
+    "stagedInstall": { "status": "not_applicable", "evidence": "fixture is not a Tier 3 install artifact" },
+    "stagedDoctor": { "status": "not_applicable", "evidence": "fixture is not a Tier 3 install artifact" },
+    "rollbackVerification": { "status": "not_applicable", "evidence": "fixture is not a Tier 3 install artifact" },
+    "liveInstallDecision": { "status": "not_applicable", "evidence": "live install requires explicit request" },
+    "postUpgradeCanary": { "status": "not_applicable", "evidence": "fixture is not a Tier 3 install artifact" }
+  },
+  "riskTier": {
+    "tier": 2,
+    "deepReviewPassed": true,
+    "reason": "Multi-file source workflow after deep review.",
+    "requiredArtifacts": ["findings", "completionAudit", "reviewPhases", "tddEvidence", "completionReconciliation", "reuseBindings", "typeTriggerEvidence", "installProof"],
+    "verificationGate": "tests/test-workflow-tools.sh",
+    "acceptedRisks": []
+  },
+  "typescript": {
+    "ordinaryVerification": "tsc --noEmit or project-equivalent check",
+    "advancedTypes": {
+      "status": "not_applicable",
+      "triggerEvidence": [],
+      "applicableSurfaces": [],
+      "notApplicableRationale": "Plain implementation does not touch advanced TypeScript surfaces."
+    }
+  }
+}

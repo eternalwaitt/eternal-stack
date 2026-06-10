@@ -1,0 +1,10 @@
+{
+  "rowType": "AUTH_BLOCKER",
+  "blockers": [
+    {
+      "route": "/admin",
+      "reason": "authenticated fixture unavailable",
+      "status": "source_limited"
+    }
+  ]
+}

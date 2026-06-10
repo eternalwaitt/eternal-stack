@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "auditId": "invalid-category",
+  "categoryRegistryVersion": "2026-06-09.1",
+  "registeredCategories": [
+    "code-excellence",
+    "ui-ux-product",
+    "production-readiness",
+    "security",
+    "performance",
+    "shared-reuse",
+    "repo-hygiene",
+    "tooling-ecosystem"
+  ],
+  "knownUnimplementedCategories": [
+    "api-data",
+    "payments",
+    "privacy-compliance"
+  ],
+  "coverageStatement": "Coverage: unknown-category. Known not-yet-registered audit domains: api-data, payments, privacy-compliance.",
+  "targetLabel": "synthetic-app",
+  "targetFingerprint": "repo:synthetic-app@invalid-category",
+  "requestedCategories": [
+    "unknown-category"
+  ],
+  "runArtifactLabel": "invalid-category-run",
+  "worklists": {
+    "sec_entrypoints": {
+      "count": 1,
+      "sha256": "sha256:sec_entrypoints",
+      "artifactLabel": "sec-entrypoints"
+    },
+    "sec_authz": {
+      "count": 1,
+      "sha256": "sha256:sec_authz",
+      "artifactLabel": "sec-authz"
+    },
+    "sec_inputs": {
+      "count": 1,
+      "sha256": "sha256:sec_inputs",
+      "artifactLabel": "sec-inputs"
+    },
+    "sec_sinks": {
+      "count": 1,
+      "sha256": "sha256:sec_sinks",
+      "artifactLabel": "sec-sinks"
+    },
+    "sec_secrets": {
+      "count": 1,
+      "sha256": "sha256:sec_secrets",
+      "artifactLabel": "sec-secrets"
+    },
+    "sec_uploads": {
+      "count": 1,
+      "sha256": "sha256:sec_uploads",
+      "artifactLabel": "sec-uploads"
+    },
+    "sec_webhooks": {
+      "count": 1,
+      "sha256": "sha256:sec_webhooks",
+      "artifactLabel": "sec-webhooks"
+    },
+    "sec_dependencies": {
+      "count": 1,
+      "sha256": "sha256:sec_dependencies",
+      "artifactLabel": "sec-dependencies"
+    }
+  },
+  "categoryReports": [],
+  "laneReceipts": [],
+  "confirmedClean": [],
+  "checksSkipped": [],
+  "findings": [],
+  "sourceLimitedBlockers": [],
+  "synthesis": {
+    "status": "source_limited"
+  },
+  "verification": [],
+  "_fixtureIntent": "This fixture intentionally triggers CATEGORY_UNKNOWN through requestedCategories including unknown-category. selectedCategories() drops invalid requests, so the structural worklists are present only to keep the envelope realistic and are not consumed."
+}

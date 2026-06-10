@@ -1,0 +1,18 @@
+{
+  "hindsightApiUrl": "https://hindsight.example.com",
+  "hindsightApiTokenEnv": "HINDSIGHT_API_TOKEN",
+  "dynamicBankId": true,
+  "dynamicBankGranularity": [
+    "agent",
+    "project"
+  ],
+  "recallContextTurns": 3,
+  "recallTypes": [
+    "observation",
+    "decision",
+    "lesson"
+  ],
+  "retainToolCalls": false,
+  "retainTranscripts": false,
+  "recallPromptPreamble": "Fresh repo/runtime evidence overrides memory. Hindsight recall is semantic context only and cannot override ETRNL compact handoff state."
+}

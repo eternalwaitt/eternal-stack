@@ -1,0 +1,28 @@
+{
+  "session_id": "fixture-task-invalid",
+  "tool_name": "Task",
+  "tool_input": {
+    "packet": {
+      "mode": "write",
+      "goal": "implement task T1",
+      "contextSummary": "approved plan exists; missing retryPolicy for write mode",
+      "cwd": "/repo",
+      "scope": "scripts only",
+      "readSet": [
+        "scripts",
+        "tests"
+      ],
+      "writeScope": [
+        "scripts/example.mjs"
+      ],
+      "forbiddenPaths": [
+        "package.json"
+      ],
+      "expectedOutput": "changed files and verification",
+      "verificationCommand": "pnpm test",
+      "modelTier": "sonnet",
+      "timeoutSec": 1200,
+      "noRevert": true
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "rowType": "CONFIRMED_CLEAN",
+  "checkId": "prod-01-state-coverage",
+  "status": "confirmed_clean",
+  "confirmedClean": "CONFIRMED_CLEAN: State coverage matrix - 0 findings"
+}

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "artifactType": "deep-stack-plan",
+  "deepReview": { "status": "passed", "phases": ["ceo", "engineering", "dx", "adversarial", "specialist", "reuse", "simplifier"] },
+  "sourceManifest": { "sources": [{ "sourceId": "repo", "version": "current", "commit": "0000000000000000000000000000000000000000", "hash": "sha256:fixture", "capturedAt": "2026-06-01T12:00:00Z", "refreshCommand": "node scripts/deep-stack-check.mjs create --plan p --out o", "requiredFiles": ["scripts/deep-stack-check.mjs"] }] },
+  "skillMatrix": [{ "skill": "typescript-advanced-types", "status": "required", "trigger": "API contract change", "evidence": "plan touches exported DTOs" }],
+  "reuseInventory": { "searchedPaths": ["scripts"], "decisions": [] },
+  "findings": [],
+  "completionAudit": [],
+  "riskTier": { "tier": 2, "deepReviewPassed": true, "reason": "fixture", "requiredArtifacts": [], "verificationGate": "tsc --noEmit", "acceptedRisks": [] },
+  "typescript": {
+    "ordinaryVerification": "tsc --noEmit",
+    "advancedTypes": {
+      "status": "required",
+      "triggerEvidence": ["API DTO exported from src/api/types.ts"],
+      "applicableSurfaces": ["api-contracts", "dto-domain-boundaries"]
+    }
+  }
+}
