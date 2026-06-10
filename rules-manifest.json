@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "schemaVersion": 1,
+  "description": "Eternal Stack rules manifest. Tracks module metadata, host targets, checksums, and privacy gates for the eternal-saas rule pack.",
+  "privacy": {
+    "bannedTokens": [
+      "metacards",
+      "veloz",
+      "agency",
+      "mimo",
+      "vivaz",
+      "sbcc",
+      "tcg-collector",
+      "rifasgg",
+      "finans"
+    ],
+    "policy": "sync-rule-exports.mjs --check fails when any tracked rule file contains a banned token. Client repo names, account facts, credentials, and personal identity must stay in local gitignored overlays."
+  },
+  "profiles": {
+    "eternal-saas": {
+      "description": "Full SaaS stack: TypeScript, Next.js, oRPC, Prisma, auth/tenancy, payments, i18n.",
+      "modules": [
+        "global/00-stack",
+        "global/10-gotchas",
+        "global/20-verify",
+        "project/stack",
+        "project/typescript",
+        "project/oxlint",
+        "project/next",
+        "project/react",
+        "project/orpc",
+        "project/prisma",
+        "project/auth-tenancy",
+        "project/imports",
+        "project/components",
+        "project/testing",
+        "project/i18n",
+        "project/money",
+        "project/deploy-onveloz",
+        "project/local-overrides"
+      ]
+    },
+    "eternal-saas-tcg": {
+      "description": "eternal-saas plus TCG-specific contract rules.",
+      "extends": "eternal-saas",
+      "modules": [
+        "project/tcg-contract"
+      ]
+    }
+  },
+  "moduleSchema": {
+    "description": "Each module entry in the manifest index (populated by sync-rule-exports.mjs).",
+    "fields": {
+      "id": "Unique module identifier matching the frontmatter id field.",
+      "paths": "Array of glob patterns for Claude Code paths: frontmatter scoping.",
+      "globs": "Array of glob patterns for Cursor .mdc globs frontmatter.",
+      "hosts": "Array of target hosts: claude, codex, cursor.",
+      "maxBytes": "Optional per-module byte cap; doctor warns when exceeded.",
+      "profile": "Profile or array of profiles this module belongs to.",
+      "verify": "Shell command to verify the rule is effective in the target repo.",
+      "codexNested": "Relative directory path; when set, sync emits a nested AGENTS.md for Codex depth.",
+      "checksum": "SHA-256 of the canonical module source file (populated by sync).",
+      "generatedAt": "ISO timestamp of last sync run."
+    }
+  },
+  "modules": {}
+}
