@@ -1,0 +1,34 @@
+---
+id: eternal-saas-imports
+paths:
+  - "apps/web/src/lib/**"
+  - "apps/web/src/app/api/**"
+globs:
+  - "apps/web/src/lib/**"
+  - "apps/web/src/app/api/**"
+description: "Import rules for lib/ and app/api/: modules-only, no features imports."
+hosts: [claude, codex, cursor]
+verify: "pnpm guard:essential"
+---
+
+# Import Rules for lib/ and app/api/
+
+`lib/` and `app/api/` must import from `@/modules/` only. Never import from `@/features/`.
+
+Features re-export from modules for UI consumption. The reverse direction is not allowed.
+
+```typescript
+// CORRECT (in lib/ or app/api/)
+import { ClientService } from '@/modules/clients/client.service'
+
+// WRONG — lib/api must not depend on features
+import { useClientData } from '@/features/clients/hooks/use-client-data'
+```
+
+Enforced by `pnpm guard:essential` (adr18-lib-imports guard).
+
+## verify
+
+```bash
+pnpm guard:essential
+```
