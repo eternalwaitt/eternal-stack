@@ -47,7 +47,7 @@ Do not redefine schemas across routers. Import shared input/output schemas from 
 
 ## Standards doc
 
-`docs/standards/ORPC_ROUTE_STANDARDS.md`
+Route standards are documented in the target project at `docs/standards/ORPC_ROUTE_STANDARDS.md`.
 
 ## verify
 
