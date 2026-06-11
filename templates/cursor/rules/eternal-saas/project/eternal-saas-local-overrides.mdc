@@ -13,7 +13,7 @@ Common overrides to add here:
 
 ## Package scope
 
-```
+```text
 Package scope: @your-package-name (replaces @workspace/ in examples)
 Design system path: @your-package-name/design-system/primitives
 Domain money path: @your-package-name/domain/money
@@ -22,7 +22,7 @@ Shared constants path: @your-package-name/shared-constants
 
 ## Project-specific guards
 
-```
+```text
 Guard command for this repo: pnpm guard:essential (or repo-specific variant)
 Tenant guard: pnpm guard:all (or repo-specific variant)
 ```

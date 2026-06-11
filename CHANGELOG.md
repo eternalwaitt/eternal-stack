@@ -6,6 +6,38 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## Unreleased
 
+### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+### Security
+
+### Deprecated
+
+## v0.5.1
+
+2026-06-11
+
+
+### Fixed
+
+- `scripts/init-project-rules.sh` — guard against unbound `--profile` value under `set -u`; implement profile-based filtering in `collect_modules()` so the `eternal-saas` profile correctly excludes `tcg-only` modules; add `.cursor/rules/` drift checks to `--check` mode.
+- `docs/hooks.md` and `hooks/README.md` — add `text` language specifier to directory-tree code fences.
+- `rules/eternal-saas/project/local-overrides.md` and `orpc.md` — add `text` language specifiers to unlabeled code fences.
+- `templates/AGENTS.override.codex.md` — normalize byte-budget figure to `32768` and clarify template vs installed startup file descriptions.
+
+### Changed
+
+- `rules/eternal-saas/global/20-verify.md` — improve `pnpm sanity` comment wording.
+
+### Added
+
+- `README.md`, `AGENTS.md`, `docs/install.md` — navigation links for `docs/migration.md`, `docs/configuration.md`, and `docs/troubleshooting.md`.
+
 ## v0.5.0
 
 2026-06-10
@@ -62,3 +94,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ### Security
 
 - Public repository boundary: no private identity, credentials, transcripts, or local planning artifacts in tracked files.
+

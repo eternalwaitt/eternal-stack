@@ -18,7 +18,13 @@ TARGET=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --profile) PROFILE="$2"; shift 2 ;;
+    --profile)
+      if [[ $# -lt 2 || "${2:-}" == -* ]]; then
+        echo "error: --profile requires a value (eternal-saas | eternal-saas-tcg)" >&2
+        exit 1
+      fi
+      PROFILE="$2"; shift 2
+      ;;
     --dry-run) DRY_RUN=1; shift ;;
     --check)   CHECK_MODE=1; shift ;;
     --force)   FORCE=1; shift ;;
@@ -61,11 +67,14 @@ file_sha256() {
 collect_modules() {
   local profile="$1"
   local files=()
-  # Always include global/ and project/ for eternal-saas
   while IFS= read -r -d '' f; do
+    local rel="${f#"$PACK_ROOT"/}"
+    # eternal-saas profile excludes tcg-only modules
+    if [[ "$profile" == "eternal-saas" && "$rel" == "project/tcg-contract.md" ]]; then
+      continue
+    fi
     files+=("$f")
   done < <(find "$PACK_ROOT/global" "$PACK_ROOT/project" -name '*.md' -print0 2>/dev/null | sort -z)
-  # eternal-saas-tcg: also include project/tcg-contract.md if present (created later)
   printf '%s\n' "${files[@]}"
 }
 
@@ -125,6 +134,15 @@ if [[ "$CHECK_MODE" -eq 1 ]]; then
       fi
     fi
     echo "current: $rel"
+    # Also verify cursor copy
+    cursor_dest="$CURSOR_RULES_DEST/$rel"
+    if [[ ! -f "$cursor_dest" ]]; then
+      echo "missing-cursor: $rel"
+      any_stale=1
+    elif [[ "$(file_sha256 "$cursor_dest")" != "$(file_sha256 "$src")" ]]; then
+      echo "cursor-modified: $rel"
+      any_modified=1
+    fi
   done < <(collect_modules "$PROFILE")
 
   if [[ "$any_modified" -gt 0 || "$any_stale" -gt 0 ]]; then

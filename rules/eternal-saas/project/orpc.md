@@ -19,7 +19,7 @@ All new routers go in `apps/web/src/lib/orpc/routers/`. Never create routes in `
 
 Always this sequence:
 
-```
+```text
 rateLimitPreset() → requirePermission() → requireFeature() → requireLimit() → auditMiddleware()
 ```
 

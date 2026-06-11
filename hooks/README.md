@@ -12,7 +12,7 @@ Bash and Python entrypoints Claude Code runs at session and tool lifecycle event
 
 ## Layout
 
-```
+```text
 hooks/
   cc-*.sh                 # Bash entrypoints (see catalog in docs/hooks.md)
   cc-hindsight-lesson.py  # Background lesson retain (not in settings.json)

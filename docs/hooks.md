@@ -268,7 +268,7 @@ node ~/.claude/scripts/replay-hook-fixtures.mjs
 
 ## Repository layout
 
-```
+```text
 hooks/
   cc-*.sh              # Bash hook entrypoints
   cc-hindsight-lesson.py
