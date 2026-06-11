@@ -392,6 +392,9 @@ if [[ "$DRY_RUN" == "1" ]]; then
   printf 'Dry run: would validate stack profile with scripts/stack-profile-check.mjs\n'
   printf 'Dry run: would install Eternal Stack files into %s\n' "$TARGET"
   printf 'Dry run: would install Codex skill/runtime files into %s\n' "$CODEX_TARGET"
+  printf 'Dry run: would install %s/AGENTS.md from templates/AGENTS.global.md (ETRNL_INSTALL_STARTUP gated)\n' "$CODEX_TARGET"
+  printf 'Dry run: would install %s/AGENTS.override.md from templates/AGENTS.override.codex.md (ETRNL_INSTALL_STARTUP gated)\n' "$CODEX_TARGET"
+  printf 'Dry run: would sync rules/eternal-saas/global to %s/rules/eternal-saas/global with atomic swap\n' "$TARGET"
   printf 'Dry run: would copy settings, stack profile, and Hindsight config templates\n'
   if [[ "$RESET_CLAUDE_SETTINGS" == "1" ]]; then
     printf 'Dry run: would back up %s/settings.json and reset it to vanilla while preserving enabledPlugins and statusLine before applying stack hooks\n' "$TARGET"
@@ -427,11 +430,21 @@ if [[ -d "$TARGET/rules/etrnl" ]]; then
   mkdir -p "$BACKUP/rules"
   cp -R -- "$TARGET/rules/etrnl" "$BACKUP/rules/etrnl"
 fi
+if [[ -d "$TARGET/rules/eternal-saas" ]]; then
+  mkdir -p "$BACKUP/rules"
+  cp -R -- "$TARGET/rules/eternal-saas" "$BACKUP/rules/eternal-saas"
+fi
 if [[ -d "$TARGET/rules/eternal-control" ]]; then
   mkdir -p "$BACKUP/rules"
   cp -R -- "$TARGET/rules/eternal-control" "$BACKUP/rules/eternal-control"
   legacy_rules_present=1
 fi
+mkdir -p "$BACKUP/codex-startup"
+for codex_startup_file in AGENTS.md AGENTS.override.md; do
+  if [[ -f "$CODEX_TARGET/$codex_startup_file" ]]; then
+    cp -- "$CODEX_TARGET/$codex_startup_file" "$BACKUP/codex-startup/$codex_startup_file"
+  fi
+done
 mkdir -p "$BACKUP/hooks"
 for hook_file in "${CRITICAL_HOOKS[@]}"; do
   if [[ -f "$TARGET/hooks/$hook_file" ]]; then
@@ -549,6 +562,31 @@ if [[ "${ETRNL_INSTALL_STARTUP:-0}" == "1" || ! -f "$TARGET/AGENTS.md" ]]; then
 fi
 if [[ "${ETRNL_INSTALL_STARTUP:-0}" == "1" || ! -f "$TARGET/CLAUDE.md" ]]; then
   cp -- "$ROOT/templates/CLAUDE.md" "$TARGET/CLAUDE.md"
+fi
+# Codex startup files — same ETRNL_INSTALL_STARTUP gating as Claude startup files
+if [[ "${ETRNL_INSTALL_STARTUP:-0}" == "1" || ! -f "$CODEX_TARGET/AGENTS.md" ]]; then
+  cp -- "$ROOT/templates/AGENTS.global.md" "$CODEX_TARGET/AGENTS.md"
+fi
+if [[ "${ETRNL_INSTALL_STARTUP:-0}" == "1" || ! -f "$CODEX_TARGET/AGENTS.override.md" ]]; then
+  cp -- "$ROOT/templates/AGENTS.override.codex.md" "$CODEX_TARGET/AGENTS.override.md"
+fi
+# Sync rules/eternal-saas/global to ~/.claude/rules/eternal-saas/global/ with atomic swap
+if [[ -d "$ROOT/rules/eternal-saas/global" ]]; then
+  eternal_saas_tmp="$TARGET/rules/eternal-saas/global.tmp"
+  eternal_saas_old="$TARGET/rules/eternal-saas/global.old"
+  mkdir -p "$TARGET/rules/eternal-saas"
+  rm -rf -- "$eternal_saas_tmp" "$eternal_saas_old"
+  cp -R -- "$ROOT/rules/eternal-saas/global" "$eternal_saas_tmp"
+  if [[ -d "$TARGET/rules/eternal-saas/global" ]]; then
+    mv -- "$TARGET/rules/eternal-saas/global" "$eternal_saas_old"
+  fi
+  if mv -- "$eternal_saas_tmp" "$TARGET/rules/eternal-saas/global"; then
+    rm -rf -- "$eternal_saas_old"
+  else
+    [[ ! -d "$eternal_saas_old" ]] || mv -- "$eternal_saas_old" "$TARGET/rules/eternal-saas/global"
+    rm -rf -- "$eternal_saas_tmp"
+    exit 1
+  fi
 fi
 cp -- "$ROOT/tests/test-hooks.sh" "$TARGET/tests/test-hooks.sh"
 cp -- "$ROOT/tests/test-workflow-tools.sh" "$TARGET/tests/test-workflow-tools.sh"

@@ -1339,6 +1339,14 @@ else
 fi
 bad_plan_json="$(node "$ROOT/scripts/plan-readiness-check.mjs" "$bad_plan" --json 2>/dev/null || true)"
 assert_json_expr "plan readiness emits repair hints" "$bad_plan_json" '(.repairHints | length) > 0'
+tbd_name_plan="$TMPROOT/tbd-name-plan.md"
+cp "$ROOT/hooks/fixtures/plans/good-plan.md" "$tbd_name_plan"
+printf '%s\n' '' '- Pilot repo: agency-tbd backfill.' >>"$tbd_name_plan"
+tbd_name_json="$(node "$ROOT/scripts/plan-readiness-check.mjs" "$tbd_name_plan" --json --allow-transitional-deep-stack 2>/dev/null || true)"
+assert_json_expr "plan readiness allows hyphenated tbd repo names" "$tbd_name_json" '([.failures[].name] | index("tbd")) == null'
+printf '%s\n' '- Budget: TBD before rollout.' >>"$tbd_name_plan"
+tbd_marker_json="$(node "$ROOT/scripts/plan-readiness-check.mjs" "$tbd_name_plan" --json --allow-transitional-deep-stack 2>/dev/null || true)"
+assert_json_expr "plan readiness still rejects standalone TBD markers" "$tbd_marker_json" '([.failures[].name] | index("tbd")) != null'
 good_plan="$TMPROOT/good-plan.md"
 cp "$ROOT/hooks/fixtures/plans/good-plan.md" "$good_plan"
 if good_plan_missing_deep_out="$(node "$ROOT/scripts/plan-readiness-check.mjs" "$good_plan" 2>&1)"; then
@@ -1594,6 +1602,122 @@ fi
 assert_command "settings valid" jq empty "$settings_file"
 if [[ -f "$ROOT/settings.local.json" ]]; then
   assert_command "settings.local valid" jq empty "$ROOT/settings.local.json"
+fi
+
+# --- sync-rule-exports.mjs and init-project-rules.sh (TG3 TDD) ---
+SYNC_SCRIPT="$ROOT/scripts/sync-rule-exports.mjs"
+INIT_SCRIPT="$ROOT/scripts/init-project-rules.sh"
+FIXTURE_RULES_DIR="$ROOT/tests/fixtures/rules"
+FIXTURE_MANIFEST="$FIXTURE_RULES_DIR/manifest.json"
+
+if [[ -f "$SYNC_SCRIPT" ]]; then
+  # sync emits .mdc with expected globs/description
+  sync_out_dir="$TMPROOT/sync-output"
+  mkdir -p "$sync_out_dir"
+  if node "$SYNC_SCRIPT" --source "$FIXTURE_RULES_DIR/fixture.md" --manifest "$FIXTURE_MANIFEST" --output "$sync_out_dir" 2>/dev/null; then
+    mdc_file="$sync_out_dir/test-fixture-module.mdc"
+    if [[ -f "$mdc_file" ]]; then
+      ok "sync emits .mdc file"
+      assert_contains "sync mdc has globs frontmatter" "$(cat "$mdc_file")" "globs"
+      assert_contains "sync mdc has description frontmatter" "$(cat "$mdc_file")" "Fixture rule module"
+    else
+      not_ok "sync emits .mdc file (file missing)"
+    fi
+  else
+    not_ok "sync runs without error"
+  fi
+
+  # sync --check is idempotent (stable checksums across two runs)
+  sync_out_dir2="$TMPROOT/sync-output2"
+  mkdir -p "$sync_out_dir2"
+  node "$SYNC_SCRIPT" --source "$FIXTURE_RULES_DIR/fixture.md" --manifest "$FIXTURE_MANIFEST" --output "$sync_out_dir2" 2>/dev/null || true
+  node "$SYNC_SCRIPT" --source "$FIXTURE_RULES_DIR/fixture.md" --manifest "$FIXTURE_MANIFEST" --output "$sync_out_dir2" 2>/dev/null || true
+  if node "$SYNC_SCRIPT" --check --source "$FIXTURE_RULES_DIR/fixture.md" --manifest "$FIXTURE_MANIFEST" --output "$sync_out_dir2" 2>/dev/null; then
+    ok "sync --check passes on stable output (idempotent)"
+  else
+    not_ok "sync --check passes on stable output (idempotent)"
+  fi
+
+  # sync --check fails on drift (mutated emitted file)
+  mdc_drift="$sync_out_dir2/test-fixture-module.mdc"
+  if [[ -f "$mdc_drift" ]]; then
+    printf '\n# DRIFT MUTATION\n' >> "$mdc_drift"
+    if node "$SYNC_SCRIPT" --check --source "$FIXTURE_RULES_DIR/fixture.md" --manifest "$FIXTURE_MANIFEST" --output "$sync_out_dir2" 2>/dev/null; then
+      not_ok "sync --check fails on drifted .mdc (should have failed)"
+    else
+      ok "sync --check fails on drifted .mdc"
+    fi
+  fi
+
+  # sync --check fails on banned token in source
+  banned_module="$TMPROOT/banned-fixture.md"
+  cp "$FIXTURE_RULES_DIR/fixture.md" "$banned_module"
+  printf '\nBANNED_SECRET_TOKEN is present here.\n' >> "$banned_module"
+  if node "$SYNC_SCRIPT" --check --source "$banned_module" --manifest "$FIXTURE_MANIFEST" --output "$sync_out_dir2" 2>/dev/null; then
+    not_ok "sync --check rejects banned token in source (should have failed)"
+  else
+    ok "sync --check rejects banned token in source"
+  fi
+else
+  not_ok "sync-rule-exports.mjs exists"
+  not_ok "sync emits .mdc file"
+  not_ok "sync --check passes on stable output (idempotent)"
+  not_ok "sync --check fails on drifted .mdc"
+  not_ok "sync --check rejects banned token in source"
+fi
+
+if [[ -f "$INIT_SCRIPT" ]]; then
+  # init --dry-run lists planned copies without writing
+  init_target="$TMPROOT/init-target"
+  mkdir -p "$init_target"
+  dry_out="$(bash "$INIT_SCRIPT" --profile eternal-saas --dry-run "$init_target" 2>&1)"
+  assert_contains "init dry-run mentions eternal-saas" "$dry_out" "eternal-saas"
+  if [[ -d "$init_target/.claude/rules/eternal-saas" ]]; then
+    not_ok "init --dry-run does not write files"
+  else
+    ok "init --dry-run does not write files"
+  fi
+
+  # init refuses missing --profile
+  if bash "$INIT_SCRIPT" --dry-run "$init_target" 2>/dev/null; then
+    not_ok "init refuses missing --profile"
+  else
+    ok "init refuses missing --profile"
+  fi
+
+  # init --check reports stale after manifest bump
+  real_target="$TMPROOT/init-real-target"
+  mkdir -p "$real_target"
+  bash "$INIT_SCRIPT" --profile eternal-saas "$real_target" >/dev/null 2>&1 || true
+  # simulate manifest bump by touching source (sleep ensures different mtime second)
+  sleep 1
+  touch "$ROOT/rules/eternal-saas/project/orpc.md"
+  check_out="$(bash "$INIT_SCRIPT" --check --profile eternal-saas "$real_target" 2>&1)" || true
+  assert_contains "init --check reports stale after manifest bump" "$check_out" "stale"
+  git -C "$ROOT" checkout -- rules/eternal-saas/project/orpc.md 2>/dev/null || true
+
+  # init --check reports locally-modified after target edit
+  target_orpc="$real_target/.claude/rules/eternal-saas/project/orpc.md"
+  if [[ -f "$target_orpc" ]]; then
+    printf '\n# local modification\n' >> "$target_orpc"
+    check_modified="$(bash "$INIT_SCRIPT" --check --profile eternal-saas "$real_target" 2>&1)" || true
+    assert_contains "init --check reports locally-modified" "$check_modified" "locally-modified"
+
+    # --force required to overwrite locally-modified
+    if bash "$INIT_SCRIPT" --profile eternal-saas "$real_target" 2>/dev/null; then
+      not_ok "init refuses to overwrite locally-modified without --force"
+    else
+      ok "init refuses to overwrite locally-modified without --force"
+    fi
+  fi
+else
+  not_ok "init-project-rules.sh exists"
+  not_ok "init dry-run mentions eternal-saas"
+  not_ok "init --dry-run does not write files"
+  not_ok "init refuses missing --profile"
+  not_ok "init --check reports stale after manifest bump"
+  not_ok "init --check reports locally-modified"
+  not_ok "init refuses to overwrite locally-modified without --force"
 fi
 
 finish_tests

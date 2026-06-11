@@ -126,6 +126,7 @@ if [[ "$DRY_RUN" == "1" ]]; then
     printf 'Dry run: would restore files: %s\n' "${restore_files[*]}"
   fi
   printf 'Dry run: would remove repo-owned agents, Claude/Codex skills, commands, and hooks before restoring backed-up copies.\n'
+  printf 'Dry run: would restore rules/eternal-saas and ~/.codex startup files from backup if present.\n'
   exit 0
 fi
 
@@ -292,6 +293,24 @@ for hook_file in "${CRITICAL_HOOKS[@]}"; do
       printf 'warning: failed to make %s executable; restored hook may not run\n' "$ROOT/hooks/$hook_file" >&2
     fi
     restored+=("hooks/$hook_file")
+    restored_count=$((restored_count + 1))
+  fi
+done
+
+# Restore rules/eternal-saas (global digest installed by install.sh)
+if [[ -d "$BACKUP/rules/eternal-saas" ]]; then
+  rm -rf -- "$ROOT/rules/eternal-saas"
+  mkdir -p "$ROOT/rules"
+  cp -R -- "$BACKUP/rules/eternal-saas" "$ROOT/rules/eternal-saas"
+  restored+=("rules/eternal-saas")
+  restored_count=$((restored_count + 1))
+fi
+
+# Restore Codex startup files installed by install.sh
+for codex_startup_file in AGENTS.md AGENTS.override.md; do
+  if [[ -f "$BACKUP/codex-startup/$codex_startup_file" ]]; then
+    cp -- "$BACKUP/codex-startup/$codex_startup_file" "$CODEX_TARGET/$codex_startup_file"
+    restored+=("codex-startup/$codex_startup_file")
     restored_count=$((restored_count + 1))
   fi
 done

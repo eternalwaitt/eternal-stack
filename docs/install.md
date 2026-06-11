@@ -1,6 +1,6 @@
 # Install
 
-Eternal Stack: [github.com/eternalwaitt/eternal-stack](https://github.com/eternalwaitt/eternal-stack). Overview and doc map: [README.md](../README.md).
+Public home: [github.com/eternalwaitt/eternal-stack](https://github.com/eternalwaitt/eternal-stack). Overview and doc map: [README.md](../README.md). Hook reference: [hooks.md](hooks.md). Guard rules: [guards.md](guards.md). Rollout sequencing: [migration.md](migration.md).
 
 ```bash
 ./scripts/install.sh --profile core
@@ -38,7 +38,8 @@ The installer:
 - copies etrnl assets:
   - public `AGENTS.md` baseline
   - tiny `CLAUDE.md` wrapper
-  - namespaced rules
+  - namespaced rules and cross-host rule pack (`rules/eternal-saas/global/` + `rules/eternal-saas/project/`)
+  - `init-project-rules.sh` — installs the rule pack into a target project for Claude, Codex, and Cursor
   - rollback script
   - canaries
   - hook test harness
@@ -60,7 +61,7 @@ The installer:
 - runs `settings-audit.mjs --fix` so duplicate hook commands are compacted and the legacy race-prone rate limiter is replaced with `cc-rate-limiter.sh`
 - runs the hook and workflow-tool test harnesses plus the post-upgrade canary
 - applies safe observer hooks after the vanilla reset, including once-per-session `UserPromptSubmit` `CLAUDE.md` reinjection and the advisory rate limiter
-- merges strict blocker hooks, including `PreToolUse`, `Stop`, and `SubagentStop`, only when `ETRNL_ENABLE_STRICT=1`
+- merges strict-only blocker hooks (`PreToolUse` guard, post-write quality/sycophancy, `PostToolUseFailure`, `SubagentStop`) only when `ETRNL_ENABLE_STRICT=1`; default install already registers observer hooks, compact recovery, RTK `rg` compat, and the `Stop` verifier
 - records the evidence-before-agreement lesson to ETRNL state first, then exports it to Hindsight only when the Hindsight canary is green
 
 ## Hindsight Marketplace Access
@@ -85,13 +86,30 @@ node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-pl
 
 `settings-audit.mjs` should report no duplicate hooks, no legacy `rate-limiter.sh` registrations, and no risky top-level settings such as `autoCompactWindow` or `skipAutoPermissionPrompt`. A normal install removes those from managed `settings.json` by resetting it before applying the stack, while preserving `enabledPlugins`. Its JSON output also lists plugin hook manifests and known outside-settings sources for audit visibility. `update-check.mjs --json` should show the recorded source checkout, installed/source commits, version, dirty-state flag, installed skill/agent counts, settings mode, stale installed script count, and whether a local or remote update is available.
 
+Project rules:
+
+```bash
+# Install rule pack into a target project (Claude + Cursor)
+~/.claude/scripts/init-project-rules.sh --profile eternal-saas /path/to/project
+
+# Preview what would be installed
+~/.claude/scripts/init-project-rules.sh --dry-run --profile eternal-saas /path/to/project
+
+# Check for drift or local modifications
+~/.claude/scripts/init-project-rules.sh --check --profile eternal-saas /path/to/project
+```
+
+Profiles: `eternal-saas` (SaaS monorepo) and `eternal-saas-tcg` (TCG collector variant). Every invocation requires an explicit `--profile`; no auto-detection runs against unrelated repos. The pack installs modules to `.claude/rules/eternal-saas/` and `.cursor/rules/eternal-saas/`. `--check` returns `current`, `stale`, or `locally-modified` without writing any files. `--force` is required to overwrite locally-modified files.
+
+After install, populate `.claude/rules/eternal-saas/project/local-overrides.md` with project-specific rules not covered by the pack. See `docs/rules.md` for the full module catalog and host-activation reference.
+
 Rollback:
 
 ```bash
 ~/.claude/scripts/rollback-local.sh
 ```
 
-Rollback removes current repo-owned `etrnl-*` agent, Claude/Codex skill, Codex script, and critical hook files, restores backed-up versions when they existed before install, and validates settings JSON when `jq` is available.
+Rollback removes current repo-owned `etrnl-*` agent, Claude/Codex skill, Codex script, and critical hook files, restores backed-up versions when they existed before install, and validates settings JSON when `jq` is available. It also restores the `rules/eternal-saas` global digest and any backed-up Codex startup files (`AGENTS.md`, `AGENTS.override.md`).
 
 Update:
 

@@ -26,7 +26,7 @@ Without an ADR policy, durable decisions can blend into historical plans and bec
 Use this documentation model:
 
 - Root docs stay concise and link to focused canonical docs.
-- `docs/health-stack.md`, `docs/skills.md`, `docs/install.md`, `docs/configuration.md`, `docs/guards.md`, and `docs/troubleshooting.md` are canonical for their scopes.
+- `docs/hooks.md`, `docs/guards.md`, `docs/health-stack.md`, `docs/skills.md`, `docs/install.md`, `docs/configuration.md`, and `docs/troubleshooting.md` are canonical for their scopes.
 - `skills/etrnl-*/SKILL.md` files are canonical workflow contracts for repo-owned skills.
 - `rules/etrnl/*.md` files are canonical shared rule modules.
 - Implementation plans and evidence packets stay outside tracked docs.

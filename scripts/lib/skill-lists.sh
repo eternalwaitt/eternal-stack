@@ -7,33 +7,38 @@
 # REMOVED_SKILLS names are one-way cleanup targets. They are backed up and removed during install.
 
 OWNED_SKILLS=(
-  etrnl-ops-agent-files
-  etrnl-backend-patterns
-  etrnl-dev-autoplan
+  # Development
   etrnl-dev-brainstorm
-  etrnl-dev-ci
-  etrnl-audit-code
-  etrnl-code-review-excellence
+  etrnl-dev-plan
+  etrnl-dev-autoplan
+  etrnl-dev-execute
+  etrnl-dev-test
+  etrnl-dev-debug
   etrnl-dev-commit
-  etrnl-ops-context-restore
-  etrnl-ops-context-save
+  etrnl-dev-pr
+  etrnl-dev-ci
+  etrnl-dev-deps
+  etrnl-dev-stress-test
+  # Audits and review
+  etrnl-audit-code
+  etrnl-audit-docs
+  etrnl-audit-security
+  etrnl-audit-performance
+  etrnl-audit-production
+  etrnl-audit-tooling
+  etrnl-audit-browser
   etrnl-deep-audit
   etrnl-deep-audit-ux
-  etrnl-dev-deps
+  etrnl-code-review-excellence
+  # Operations: host/stack maintenance, not dev execute flow
+  etrnl-ops-context-save
+  etrnl-ops-context-restore
   etrnl-ops-disk-cleanup
-  etrnl-audit-docs
+  etrnl-ops-agent-files
+  # Communications
   etrnl-comm-email-reply-quality
-  etrnl-dev-execute
-  etrnl-dev-debug
-  etrnl-audit-performance
-  etrnl-dev-plan
-  etrnl-audit-production
-  etrnl-dev-pr
-  etrnl-audit-browser
-  etrnl-audit-security
-  etrnl-audit-tooling
-  etrnl-dev-stress-test
-  etrnl-dev-test
+  # Reference orchestrators
+  etrnl-backend-patterns
 )
 
 # Bundled policy/review/domain skills vendored under skills/bundled/ and installed
@@ -182,7 +187,9 @@ INSTALL_SCRIPTS=(
   canary-hindsight.sh
   post-upgrade-canary.sh
   rollback-local.sh
+  init-project-rules.sh
 )
+
 
 REMOVED_SKILLS=(
   agent-file-doctor

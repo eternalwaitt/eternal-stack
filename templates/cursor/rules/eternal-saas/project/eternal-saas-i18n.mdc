@@ -1,0 +1,51 @@
+---
+globs:
+  - "apps/web/src/**/*.tsx"
+  - "apps/show-web/src/**/*.tsx"
+alwaysApply: false
+description: "i18n rules: next-intl v4, required locales, no hardcoded strings, type-cast patterns."
+---
+
+# i18n Rules
+
+## All user-facing strings via t()
+
+No hardcoded English (or any language) in UI code. All 3 locales required: `pt-BR`, `en-US`, `es-419`.
+
+```typescript
+// CORRECT
+const label = t('clients.add.button')
+
+// WRONG
+const label = 'Add client'
+```
+
+## next-intl v4 non-string params require double cast
+
+```typescript
+// CORRECT — double cast required for numeric params
+t("pagination.count", { count: total as unknown as string })
+
+// WRONG — type error at runtime
+t("pagination.count", { count: total })
+```
+
+## Client Components: use useTranslations()
+
+```typescript
+// Client component
+const t = useTranslations('namespace')
+
+// Server component
+const t = await getTranslations('namespace')
+```
+
+## Locale files
+
+Keep all three locale files in sync. A key missing in `pt-BR` or `es-419` is a bug.
+
+## verify
+
+```bash
+pnpm guard:essential
+```

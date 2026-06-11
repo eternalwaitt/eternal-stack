@@ -5,7 +5,7 @@ Status key: `done` means implemented in this repo; `live-gated` means intentiona
 | Planned area | Current coverage |
 | --- | --- |
 | Hook library and state | done: JSON, state, paths, preflight, code policy, complexity, cleanup, and event-extract helpers. |
-| Observer hooks | done: prompt routing, prompt expansion, `CLAUDE.md` reinjection, advisory locked rate limiting, post-tool batch observation, and session cleanup. |
+| Observer hooks | done: prompt routing, prompt expansion, `CLAUDE.md` reinjection, advisory locked rate limiting, post-tool batch observation, and session cleanup. Reference: `docs/hooks.md` (catalog), `docs/guards.md` (deny rules). |
 | Strict blockers | done: Bash, directory `Read`, shell output-limiter, edit/write, WebSearch, agent/task, evidence-first, stale verification, requested-skill, domain-skill, first-failure context, repeated-failure, Stop, and SubagentStop gates. |
 | Compact recovery | done: PreCompact/PostCompact state with timestamp/count metadata plus SessionStart recovery, workflow status, and skill hints. |
 | Skill set | done: `etrnl-*` orchestration family, canonical `/etrnl-dev-ci`, plus bundled policy/review/domain skills documented in `docs/skills.md`. |
@@ -15,8 +15,8 @@ Status key: `done` means implemented in this repo; `live-gated` means intentiona
 | Durable artifacts | done: deep-stack bundle, sanitized source manifest, skill matrix, review phase records, TDD evidence, reuse inventory and reuse bindings, findings ledger, completion audit and completion reconciliation, TypeScript trigger evidence, install proof, Hybrid risk tier, review log, browser QA v1/v2 reports with mandatory console/network summaries, route/viewport matrix counts, screenshot hashes, capture freshness, and provenance for completed v2 runs, context save/restore, artifact-required ledger checks, redacted cross-session project buglog hints, workflow-health summaries/status JSON, and local tool-effectiveness verdict summaries. |
 | Agent templates | done: default-installed executor/reviewer/investigator/scout/adversary/design/DX/browser QA `etrnl-*` agents. |
 | Shared startup guidance | done: public `AGENTS.md` template plus tiny Claude wrapper importing it. |
-| Rules | done: namespaced `rules/etrnl/*.md` to avoid clobbering existing user rules. |
-| Install/update/rollback/doctor | done: scripts, tests, rollback, canaries, rules, docs, templates, agents, settings audit/repair, installed update metadata, drift explain output, artifact helpers, post-upgrade browser-QA canary, installed-home doctor, and workflow-health helpers are installed or checked. |
+| Rules | done: namespaced `rules/etrnl/*.md` to avoid clobbering existing user rules; cross-host eternal-saas pack (`rules/eternal-saas/global/` + `rules/eternal-saas/project/`) with `rules-manifest.json` (schema v1, checksums, privacy gates); `scripts/init-project-rules.sh` deploys pack to any target repo with Claude+Cursor outputs; `scripts/sync-rule-exports.mjs` keeps `.mdc` Cursor twins in sync; doctor byte gate prevents Codex startup overflow. Reference: `docs/rules.md`. |
+| Install/update/rollback/doctor | done: scripts, tests, rollback (including `rules/eternal-saas` + Codex startup file restore), canaries, rules, docs, templates, agents, settings audit/repair, installed update metadata, drift explain output, artifact helpers, post-upgrade browser-QA canary, installed-home doctor, and workflow-health helpers are installed or checked. |
 | Hindsight memory consolidation | live-gated: canary verifies strict config; actual migration/removal of competing memory systems remains a personal live operation. |
 | Plugin/MCP cleanup | live-gated: plan requires inventory and explicit local rollout before removing plugins, MCPs, or permissions. |
 | Shareable repo boundary | done: public templates exclude private identity, accounts, transcripts, secrets, and memories. |

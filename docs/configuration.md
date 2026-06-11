@@ -4,12 +4,13 @@ Profiles:
 
 - Core install: observer hooks, prompt router, prompt expansion, `CLAUDE.md` reinjection, skill recorder, locked advisory rate limiter, session cleanup, scripts, docs, rules, skills, agents, settings audit, and Codex skill/runtime sync.
 - Full install: core plus CodeGraph, Beads, Hindsight plugin/config, stack profile metadata, memory posture checks, and canaries.
-- Strict mode: adds `PreToolUse` guard, post-write quality checks, `PostToolUseFailure` repeated-failure blocker, `Stop` verifier, `SubagentStop` recorder, compact recovery, WebSearch canary, and Hindsight canary to the selected core or full profile.
+- Strict mode: adds `PreToolUse` guard, post-write sycophancy and quality checks, `PostToolUseFailure` repeated-failure blocker, and `SubagentStop` recorder on top of the default template. Default install already registers `Stop` verifier, compact recovery, RTK `rg` compat, and observer hooks.
 - Private overlay: identity, accounts, local permissions, and project-specific preferences.
 
 Codex should receive shared standards through `AGENTS.md`, `AGENTS.override.md` where intentional, Codex hooks, or Codex skills. Claude-specific hook wiring should stay in Claude settings.
 
 Installed public rules live under `~/.claude/rules/etrnl/` so they do not clobber existing personal rule files.
+The cross-host eternal-saas pack installs as `~/.claude/rules/eternal-saas/` (global digest for Codex) and exports `.mdc` twins via `scripts/sync-rule-exports.mjs`. Project-level pack installs use `scripts/init-project-rules.sh --profile eternal-saas <repo>` and write to the target repo's `.claude/rules/eternal-saas/` and `.cursor/rules/eternal-saas/`. `rules-manifest.json` at the repo root is the schema-v1 authority for module checksums, privacy gates, and host metadata.
 Repo-owned ETRNL agents install into `~/.claude/agents/` by default. Local run ledgers stay under `~/.claude/etrnl/runs/`; review logs, browser QA reports, and context saves stay under `~/.claude/etrnl/artifacts/`. These local workflow records are never committed.
 
 Install:
