@@ -47,7 +47,7 @@ Do not redefine schemas across routers. Import shared input/output schemas from 
 
 ## Standards doc
 
-Route standards are documented in the target project at `docs/standards/ORPC_ROUTE_STANDARDS.md`.
+Create `docs/standards/ORPC_ROUTE_STANDARDS.md` in the target project to document oRPC route patterns and conventions for this codebase.
 
 ## verify
 

@@ -27,7 +27,7 @@ Run these before claiming work complete.
 ```bash
 pnpm test           # unit tests
 pnpm test:e2e       # end-to-end
-pnpm sanity         # browser smoke (requires dev server on PORT env or project dev script)
+pnpm sanity         # browser smoke (requires dev server running on PORT env var or project default)
 ```
 
 ## verify
