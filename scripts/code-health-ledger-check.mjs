@@ -64,6 +64,13 @@ function latestCodeHealthRequest(state) {
     .filter((item) => norm(item?.value) === CODE_HEALTH_SKILL)
     .map((item) => parseStamp(stamp(item)))
     .filter(Number.isFinite);
+  const prompt = String(state.lastPrompt || "").toLowerCase();
+  if (/code[- ]health|repo[- ]health|codebase[- ]health|no skips|whole codebase audit|entire codebase audit/.test(prompt)) {
+    const startedAt = parseStamp(state.startedAt);
+    if (Number.isFinite(startedAt)) {
+      times.push(startedAt);
+    }
+  }
   return times.length > 0 ? Math.max(...times) : 0;
 }
 

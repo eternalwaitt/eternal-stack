@@ -1,11 +1,11 @@
 ---
-name: orpc-fullstack
-description: Provides oRPC 1.x TypeScript API architecture and implementation guidance, refreshed for v1.14+. Use when building, reviewing, or modifying code that imports @orpc/*, mentions oRPC, type-safe RPC, OpenAPI-backed RPC contracts, RPC procedures, server route handlers, Hono/Next.js/TanStack Start adapters, TanStack Query clients, React Server Actions, AI SDK tools or streams, Better Auth middleware, WebSocket or event iterator features, file upload/download, CORS, observability, or oRPC security and migration decisions.
+name: orpc-patterns
+description: Provides oRPC 1.x TypeScript API architecture and implementation rules, refreshed for v1.14+. Use when building, reviewing, or modifying code that imports @orpc/*, mentions oRPC, type-safe RPC, OpenAPI-backed RPC contracts, RPC procedures, server route handlers, Hono/Next.js/TanStack Start adapters, TanStack Query clients, React Server Actions, AI SDK tools or streams, Better Auth middleware, WebSocket or event iterator features, file upload/download, CORS, observability, or oRPC security and migration decisions.
 ---
 
-# oRPC Fullstack
+# oRPC Patterns
 
-Use this skill to build and review oRPC APIs with current v1.14+ patterns. Prefer the project's existing oRPC layout before introducing new folders or abstractions.
+Use this skill to build and review oRPC APIs with current v1.14+ patterns. Defaults to the project's existing oRPC layout before introducing new folders or abstractions.
 
 ## Workflow
 

@@ -24,6 +24,10 @@ const explainMode = hasFlag("--explain");
 const force = hasFlag("--force");
 const projectPath = valueAfter("--project", valueAfter("--cwd", ""));
 const hindsightStrictChecks = /^(1|true|yes)$/i.test(process.env.HINDSIGHT_STRICT_CHECKS || "");
+const toolSpecs = {
+  codegraph: process.env.ETRNL_CODEGRAPH_NPM_SPEC || "@colbymchenry/codegraph@1.0.1",
+  beads: process.env.ETRNL_BEADS_NPM_SPEC || "@beads/bd@1.0.5",
+};
 
 function usage() {
   console.error("usage: tool-stack-check.mjs [--json|--explain] [--force] [--project <path>]");
@@ -426,8 +430,8 @@ const tools = [
     command: "codegraph",
     versionArgs: ["--version"],
     latest: () => npmLatest("@colbymchenry/codegraph"),
-    installCommand: "npm install -g @colbymchenry/codegraph && codegraph install --target all --location global --yes",
-    updateCommand: "npm install -g @colbymchenry/codegraph && codegraph install --target all --location global --yes",
+    installCommand: `npm install -g ${toolSpecs.codegraph} && codegraph install --target all --location global --yes`,
+    updateCommand: `npm install -g ${toolSpecs.codegraph} && codegraph install --target all --location global --yes`,
     healthCommand: "codegraph --version && codegraph install --print-config codex",
   },
   {
@@ -435,8 +439,8 @@ const tools = [
     command: "bd",
     versionArgs: ["version"],
     latest: () => npmLatestWithFallback("@beads/bd", () => brewLatest("beads")),
-    installCommand: "npm install -g @beads/bd",
-    updateCommand: "npm install -g @beads/bd",
+    installCommand: `npm install -g ${toolSpecs.beads}`,
+    updateCommand: `npm install -g ${toolSpecs.beads}`,
     healthCommand: "bd version && bd status --json",
   },
 ];

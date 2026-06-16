@@ -15,6 +15,9 @@ coverage/
 plans/
 docs/plans/
 docs/research/
+# Local privacy overlay is intentionally ignored without hiding all .eternal/ state.
+.eternal/privacy-banned-tokens.local
+rules-manifest.local.json
 
 # Never commit private Claude runtime data.
 settings.local.json

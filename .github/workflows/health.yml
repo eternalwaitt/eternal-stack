@@ -1,0 +1,52 @@
+name: health
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - "release/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  repo-health:
+    name: Repository Health Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+          cache: ""
+
+      - name: Install CLI dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq fd-find ripgrep shellcheck
+          sudo ln -sf "$(command -v fdfind)" /usr/local/bin/fd
+
+      - name: Validate generated rule exports
+        run: node scripts/sync-rule-exports.mjs --check
+
+      - name: Hook tests
+        run: tests/test-hooks.sh
+
+      - name: Workflow tool tests
+        run: tests/test-workflow-tools.sh
+
+      - name: Install and rollback tests
+        run: tests/test-install.sh
+
+      - name: Doctor
+        run: scripts/doctor.sh --jobs 4

@@ -42,10 +42,7 @@ DOCTOR_HEAVY_STARTED=0
 # shellcheck source=scripts/lib/skill-lists.sh
 source "$ROOT/scripts/lib/skill-lists.sh"
 
-doctor_cleanup() {
-  rm -rf -- "$DOCTOR_RESULT_DIR"
-}
-trap doctor_cleanup EXIT
+trap 'rm -rf -- "$DOCTOR_RESULT_DIR"' EXIT
 
 ok() { printf 'ok: %s\n' "$*"; }
 fail() { printf 'fail: %s\n' "$*" >&2; STATUS=1; }
@@ -325,7 +322,7 @@ check_startup_file_budget() {
   fi
 }
 
-for dep in jq git node rg fd; do
+for dep in jq git node rg fd shellcheck; do
   require_command "$dep"
 done
 if [[ -f "$ROOT/scripts/bootstrap-tools.sh" ]]; then
@@ -404,6 +401,9 @@ else
   fail "codex RTK hook script missing"
 fi
 run_parallel_syntax_checks
+if [[ -d "$ROOT/hooks" && -d "$ROOT/scripts" && -d "$ROOT/tests" ]]; then
+  report_command "shellcheck clean" "shellcheck failed" fd -t f -e sh . "$ROOT/hooks" "$ROOT/scripts" "$ROOT/tests" -X shellcheck -x
+fi
 if [[ -f "$ROOT/scripts/lib/read-stdin.mjs" ]]; then
   report_command "read-stdin helper syntax valid" "read-stdin helper syntax invalid" node --check "$ROOT/scripts/lib/read-stdin.mjs"
 else
@@ -636,14 +636,14 @@ codex_warn_threshold=$(( codex_byte_budget * 75 / 100 ))
 if [[ -f "$codex_target/AGENTS.md" ]]; then
   agents_bytes="$(wc -c < "$codex_target/AGENTS.md" | tr -d ' ')"
   if (( agents_bytes > codex_byte_budget )); then
-    fail "~/.codex/AGENTS.md exceeds byte budget ($agents_bytes > $codex_byte_budget)"
+    fail "\$HOME/.codex/AGENTS.md exceeds byte budget ($agents_bytes > $codex_byte_budget)"
   elif (( agents_bytes > codex_warn_threshold )); then
-    fail "~/.codex/AGENTS.md at $agents_bytes bytes (>75% of $codex_byte_budget budget)"
+    fail "\$HOME/.codex/AGENTS.md at $agents_bytes bytes (>75% of $codex_byte_budget budget)"
   else
-    ok "~/.codex/AGENTS.md within byte budget ($agents_bytes / $codex_byte_budget)"
+    ok "\$HOME/.codex/AGENTS.md within byte budget ($agents_bytes / $codex_byte_budget)"
   fi
 else
-  ok "~/.codex/AGENTS.md not installed (ETRNL_INSTALL_STARTUP gated)"
+  ok "\$HOME/.codex/AGENTS.md not installed (ETRNL_INSTALL_STARTUP gated)"
 fi
 optional_command gemini "optional Gemini escalation available" "optional Gemini escalation not installed"
 optional_command playwright-cli "optional browser QA tool available" "optional browser QA tool not installed"
@@ -680,6 +680,15 @@ if [[ -f "$ROOT/rules-manifest.json" ]]; then
       ok "rules-manifest.json bannedTokens=$banned_count"
     else
       fail "rules-manifest.json privacy.bannedTokens is empty — privacy gate inactive"
+    fi
+    module_count="$(jq -r '.modules | length' "$ROOT/rules-manifest.json" 2>/dev/null || echo "0")"
+    if (( module_count > 0 )); then
+      ok "rules-manifest.json modules indexed=$module_count"
+    else
+      fail "rules-manifest.json modules index is empty"
+    fi
+    if [[ -f "$ROOT/scripts/sync-rule-exports.mjs" ]]; then
+      report_command "rule exports synchronized" "rule export sync drift" node "$ROOT/scripts/sync-rule-exports.mjs" --check
     fi
   else
     fail "rules-manifest.json invalid JSON"
@@ -772,7 +781,7 @@ if [[ -f "$claude_home/etrnl/install.json" ]]; then
 fi
 
 if [[ -f "$ROOT/scripts/changelog-release-check.mjs" && -f "$ROOT/CHANGELOG.md" ]]; then
-  if changelog_out="$(node "$ROOT/scripts/changelog-release-check.mjs" --strict-unreleased --allow-clean-history-changelog 2>&1)"; then
+  if changelog_out="$(node "$ROOT/scripts/changelog-release-check.mjs" --strict-unreleased --allow-clean-history-changelog --allow-pending-release 2>&1)"; then
     while IFS= read -r line; do
       [[ -n "$line" ]] && ok "changelog: $line"
     done <<<"$changelog_out"
@@ -826,6 +835,64 @@ if git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1 && [[ -f "$ROO
     fail "private credential pattern found in repo"
   else
     ok "credential pattern scan clean"
+  fi
+  if [[ -f "$ROOT/rules-manifest.json" ]]; then
+    if ! command -v python3 >/dev/null 2>&1; then
+      fail "python3 unavailable; privacy banned-token scan cannot run"
+    elif privacy_out="$(python3 - "$ROOT" <<'PYEOF' 2>&1
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+manifest = json.loads((root / "rules-manifest.json").read_text())
+tokens = [str(token).lower() for token in manifest.get("privacy", {}).get("bannedTokens", []) if str(token).strip()]
+local_token_files = {str(rel_path) for rel_path in manifest.get("privacy", {}).get("localTokenFiles", [])}
+for rel_path in manifest.get("privacy", {}).get("localTokenFiles", []):
+    local_path = root / str(rel_path)
+    if not local_path.exists():
+        continue
+    if local_path.suffix == ".json":
+        parsed = json.loads(local_path.read_text())
+        if isinstance(parsed, list):
+            local_tokens = parsed
+        else:
+            local_tokens = parsed.get("privacy", {}).get("bannedTokens", parsed.get("bannedTokens", []))
+    else:
+        local_tokens = [
+            line.strip()
+            for line in local_path.read_text().splitlines()
+            if line.strip() and not line.strip().startswith("#")
+        ]
+    tokens.extend(str(token).lower() for token in local_tokens if str(token).strip())
+tokens = sorted(set(tokens))
+files = subprocess.check_output(["git", "-C", str(root), "ls-files"], text=True).splitlines()
+violations = []
+for rel in files:
+    if rel == "rules-manifest.json" or rel in local_token_files:
+        continue
+    path = root / rel
+    try:
+        if path.stat().st_size > 10 * 1024 * 1024:
+            continue
+        text = path.read_text(errors="ignore").lower()
+    except OSError:
+        continue
+    found_count = sum(1 for token in tokens if token in text)
+    if found_count:
+        violations.append(f"{rel}: banned token match count={found_count}")
+if violations:
+    print("\n".join(violations))
+    sys.exit(1)
+PYEOF
+    )"; then
+      ok "privacy banned-token scan clean"
+    else
+      while IFS= read -r line; do
+        [[ -n "$line" ]] && fail "privacy banned-token: $line"
+      done <<<"$privacy_out"
+    fi
   fi
 else
   ok "credential scan skipped outside source checkout"

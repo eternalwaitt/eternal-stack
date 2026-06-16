@@ -28,7 +28,9 @@ Eternal Stack is designed as a complete skill family. Policy, review, simplifica
 | `better-auth`, `tenant-isolation-patterns`, `money-vo-discipline` | Auth, tenancy, and money discipline | Community / upstream skill bundles |
 | `stripe-best-practices`, `abacatepay-integration` | Payments review | Community / upstream skill bundles |
 | `ci-cd` | CI helper scripts referenced by `/etrnl-dev-ci` | Community skill bundle |
-| `domain-*`, `i18n-localization`, and related domain skills | Domain-specific review gates | Community / upstream skill bundles |
+| `domain-cli`, `domain-cloud-native`, `domain-embedded`, `domain-fintech`, `domain-iot`, `domain-ml`, `domain-web` | Domain-specific review gates | Community / upstream skill bundles |
+| `prisma-expert` | Prisma schema and query review | Community / upstream skill bundle |
+| `i18n-localization` | Locale and translation review | Community / upstream skill bundle |
 
 The full inventory and routing notes live in [docs/skills.md](docs/skills.md).
 

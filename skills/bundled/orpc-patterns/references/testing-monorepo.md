@@ -38,9 +38,9 @@ Use TypeScript project references when clients consume server/router types.
 }
 ```
 
-Server packages that expose types should set `"composite": true`.
+Server packages that expose types must set `"composite": true`.
 
-## Recommended Structures
+## Documented Structures
 
 Contract-first:
 

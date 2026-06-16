@@ -180,6 +180,10 @@ const sourceState = (root) => {
   const branch = branchResult.ok && branchResult.stdout ? branchResult.stdout : "unknown";
   const upstreamResult = git(root, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"]);
   const dirtyResult = git(root, ["status", "--porcelain"]);
+  const sourceGitWarning = [
+    commitResult.ok ? "" : (commitResult.stderr || commitResult.stdout || "git metadata unavailable"),
+    dirtyResult.ok ? "" : (dirtyResult.stderr || dirtyResult.stdout || "git dirty-state unavailable"),
+  ].filter(Boolean).join("; ");
   return {
     sourceRoot: root,
     sourceCommit: commit,
@@ -188,9 +192,7 @@ const sourceState = (root) => {
     sourceUpstream: upstreamResult.ok ? upstreamResult.stdout : "",
     sourceDirty: dirtyResult.ok ? dirtyResult.stdout.length > 0 : false,
     sourceGitAvailable: commitResult.ok && dirtyResult.ok,
-    sourceGitWarning: commitResult.ok
-      ? ""
-      : commitResult.stderr || commitResult.stdout || "git metadata unavailable",
+    sourceGitWarning,
     sourceFingerprint: fingerprintSource(root),
     sourceVersion: sourceVersion(root),
   };
@@ -529,6 +531,8 @@ let autoSucceeded = false;
 const allowDirtyAutoUpdate = process.env.ETRNL_AUTO_UPDATE_DIRTY === "1";
 if (autoEnabled && localUpdateAvailable && source.sourceDirty && !allowDirtyAutoUpdate) {
   autoUpdate = "ETRNL_AUTO_UPDATE_SKIPPED dirty-source-checkout (set ETRNL_AUTO_UPDATE_DIRTY=1 to override)";
+} else if (autoEnabled && localUpdateAvailable && !source.sourceGitAvailable) {
+  autoUpdate = `ETRNL_AUTO_UPDATE_SKIPPED untrusted-source-git-state${source.sourceGitWarning ? `: ${source.sourceGitWarning}` : ""}`;
 } else if (autoEnabled && localUpdateAvailable) {
   const updateScriptPath = path.join(root, "scripts", "update.sh");
   if (!fs.existsSync(updateScriptPath)) {

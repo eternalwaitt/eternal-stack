@@ -120,7 +120,11 @@ function readJsonFromStdin() {
     process.stdin.on("end", () => {
       clearTimeout(timer);
       try {
-        resolve(JSON.parse(input || "{}"));
+        if (!input.trim()) {
+          reject(new Error("stdin closed without JSON; pipe JSON and close stdin/EOF"));
+          return;
+        }
+        resolve(JSON.parse(input));
       } catch (error) {
         reject(error);
       }

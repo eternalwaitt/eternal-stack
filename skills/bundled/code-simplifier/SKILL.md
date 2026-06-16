@@ -1,6 +1,6 @@
 ---
 name: code-simplifier
-description: "Simplify and refine code for clarity, consistency, and maintainability while preserving functionality. Use when asked to \"simplify\", \"clean up\", or \"refactor\" code, after writing complex code that could benefit from simplification, or when code has grown hard to follow."
+description: "Simplify and refine code for clarity, consistency, and maintainability while preserving functionality. Use when asked to \"simplify\", \"clean up\", or \"refactor\" code, after writing complex code that can benefit from simplification, or when code has grown hard to follow."
 version: 1.0.0
 source: unknown
 category: workflow
@@ -15,10 +15,10 @@ You will analyze recently modified code and apply refinements that:
 
 2. **Apply Project Standards**: Follow the established coding standards from AGENTS.md including:
    - Use ES modules with proper import sorting and extensions
-   - Prefer `function` keyword over arrow functions
+   - Use `function` declarations for exported or top-level named functions; arrow functions remain acceptable for callbacks, closures, React hook callbacks, and inline handlers
    - Use explicit return type annotations for top-level functions
    - Follow proper React component patterns with explicit Props types
-   - Use proper error handling patterns (avoid try/catch when possible)
+   - Use proper error handling patterns and avoid unnecessary exception-handling blocks
    - Maintain consistent naming conventions
 
 3. **Enhance Clarity**: Simplify code structure by:
@@ -27,10 +27,10 @@ You will analyze recently modified code and apply refinements that:
    - Improving readability through clear variable and function names
    - Consolidating related logic
    - Removing unnecessary comments that describe obvious code
-   - IMPORTANT: Avoid nested ternary operators - prefer switch statements or if/else chains for multiple conditions
+   - IMPORTANT: Avoid nested ternary operators - use switch statements or if/else chains for multiple conditions
    - Choose clarity over brevity - explicit code is often better than overly compact code
 
-4. **Maintain Balance**: Avoid over-simplification that could:
+4. **Maintain Balance**: Avoid over-simplification that can:
    - Reduce code clarity or maintainability
    - Create overly clever solutions that are hard to understand
    - Combine too many concerns into single functions or components

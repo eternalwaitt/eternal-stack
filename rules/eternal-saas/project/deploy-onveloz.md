@@ -8,7 +8,7 @@ globs:
   - "veloz.json"
   - "next.config*"
 description: "Onveloz deployment rules: manual deploy, no standalone output, env var safety."
-hosts: [claude, codex, cursor]
+hosts: [claude, cursor]
 verify: "pnpm ci:check"
 ---
 

@@ -5,7 +5,7 @@ paths:
 globs:
   - "**"
 description: "Project stack overview for Eternal SaaS repos: tech, architecture, commands reference."
-hosts: [claude, codex, cursor]
+hosts: [claude, cursor]
 alwaysApply: false
 verify: "pnpm ci:check"
 ---

@@ -7,7 +7,7 @@ globs:
   - "**/*.ts"
   - "**/*.tsx"
 description: "TypeScript rules: no any, Zod nullability, typed env config, no suppressions."
-hosts: [claude, codex, cursor]
+hosts: [claude, cursor]
 verify: "pnpm check-types"
 ---
 

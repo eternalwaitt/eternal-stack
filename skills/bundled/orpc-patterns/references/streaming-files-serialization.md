@@ -40,11 +40,11 @@ export const chat = os
   });
 ```
 
-On clients using AI SDK internals, prefer `eventIteratorToUnproxiedDataStream` when structured cloning would reject proxied event data.
+On clients using AI SDK internals, defaults to `eventIteratorToUnproxiedDataStream` when structured cloning would reject proxied event data.
 
 ## File Upload And Download
 
-Use schemas such as `z.file()` or `z.instanceof(File)`. For large files, prefer direct object-storage uploads and use oRPC for metadata/session creation.
+Use schemas such as `z.file()` or `z.instanceof(File)`. For large files, defaults to direct object-storage uploads and use oRPC for metadata/session creation.
 
 ## RPC JSON Serializer
 
@@ -54,4 +54,4 @@ Use custom serializer type IDs greater than the built-in range to avoid collisio
 
 ## SuperJSON
 
-Use SuperJSON only when the project already standardizes on it or needs its semantics. Prefer the standard oRPC serializer when it covers the value shapes.
+Use SuperJSON only when the project already standardizes on it or needs its semantics. Defaults to the standard oRPC serializer when it covers the value shapes.

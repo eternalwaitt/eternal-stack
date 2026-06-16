@@ -175,7 +175,7 @@ function worklistHashes(artifact) {
   return Object.fromEntries(objectEntries(artifact.worklists).map(([id, worklist]) => [id, worklist?.sha256 || worklist?.hash || ""]));
 }
 
-function validateConsumedHashes(item, category, artifact, artifactPath, errors, jsonPath) {
+function validateConsumedHashes(item, category, artifact, artifactPath, errors, jsonPath, requiredWorklists = category.requiredWorklists) {
   const consumed = item?.consumedWorklistHashes;
   if (!consumed || typeof consumed !== "object" || Array.isArray(consumed)) {
     errors.push(diagnostic("CONSUMED_WORKLIST_HASHES_MISSING", artifactPath, `${jsonPath} lacks consumedWorklistHashes.`, "Category reports and lane receipts must prove they consumed shared worklists.", "Copy the shared worklist hashes into consumedWorklistHashes.", jsonPath));
@@ -183,7 +183,7 @@ function validateConsumedHashes(item, category, artifact, artifactPath, errors, 
   }
   const hashes = worklistHashes(artifact);
   const worklists = artifact.worklists && typeof artifact.worklists === "object" ? artifact.worklists : {};
-  for (const worklistId of category.requiredWorklists) {
+  for (const worklistId of requiredWorklists) {
     if (!hasOwn(worklists, worklistId)) {
       errors.push(diagnostic("REQUIRED_WORKLIST_MISSING", artifactPath, `${jsonPath} cannot find required shared worklist ${worklistId}.`, "Selected categories must consume every required worklist from the orchestrator inventory.", `Add ${worklistId} to worklists with sha256 and artifactLabel.`, `$.worklists.${worklistId}`));
       continue;
@@ -391,7 +391,7 @@ function validateLaneReceipts(artifact, artifactPath, errors, selected) {
         if (!receipt.summary) {
           errors.push(diagnostic("LANE_RECEIPT_SUMMARY_MISSING", artifactPath, `${category.categoryId}/${lane.laneId} has no summary.`, "Fanout receipts need a human-readable completion summary before synthesis.", "Add a non-empty summary.", `${receiptPath}.summary`));
         }
-        validateConsumedHashes(receipt, category, artifact, artifactPath, errors, receiptPath);
+        validateConsumedHashes(receipt, category, artifact, artifactPath, errors, receiptPath, lane.allowedWorklists || category.requiredWorklists);
       }
     }
   }

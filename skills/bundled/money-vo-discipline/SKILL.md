@@ -1,16 +1,16 @@
 ---
 name: money-vo-discipline
-description: "Money value object discipline for agency-tbd - all monetary values must use the Money VO from @agency-tbd/domain, never raw numbers. BRL (R$) primary currency."
+description: "Money value object discipline for example-agency - all monetary values must use a project-owned Money VO, never raw numbers. BRL (R$) primary currency."
 version: 1.0.0
 source: unknown
 category: backend
-tags: [money, value-object, currency, brl, prices, amounts, fees, budgets, deals, prisma-json, formatters, agency-tbd, critical]
+tags: [money, value-object, currency, brl, prices, amounts, fees, budgets, deals, prisma-json, formatters, example-agency, critical]
 ---
-# Money Value Object Discipline - agency-tbd
+# Money Value Object Discipline - example-agency
 
 ## Purpose
 
-Prevent floating-point arithmetic bugs and inconsistent formatting by enforcing use of the `Money` value object from `@agency-tbd/domain` for every monetary value in the codebase. Raw `number` must never be used to represent money.
+Prevent floating-point arithmetic bugs and inconsistent formatting by enforcing use of a project-owned `Money` value object for every monetary value in the codebase. Raw `number` must never be used to represent money.
 
 ## The Rule
 
@@ -18,8 +18,10 @@ Prevent floating-point arithmetic bugs and inconsistent formatting by enforcing 
 
 ## Package
 
+`@example-suite/core-domain` is a fictional placeholder namespace used in these examples. Replace it with the project's real domain package or implement the Money VO in a local domain module before copying these imports.
+
 ```typescript
-import { Money } from '@agency-tbd/domain';
+import { Money } from '@example-suite/core-domain';
 ```
 
 ## Core Operations
@@ -57,7 +59,7 @@ formatMoney(price); // "R$ 10,00"
 Prisma stores `Json` columns as `unknown`. When a Money value is stored as JSON, cast with double assertion:
 
 ```typescript
-import { Money, type MoneyJSON } from '@agency-tbd/domain';
+import { Money, type MoneyJSON } from '@example-suite/core-domain';
 
 // Reading from Prisma
 const raw = deal.dealValue as unknown as MoneyJSON;
@@ -94,7 +96,7 @@ function applyFee(amountInCents: number) { /* ... */ }
 ## Correct End-to-End Example
 
 ```typescript
-import { Money, type MoneyJSON } from '@agency-tbd/domain';
+import { Money, type MoneyJSON } from '@example-suite/core-domain';
 import { formatMoney } from '~/lib/formatters';
 
 // Handler receives budget as cents integer from validated input

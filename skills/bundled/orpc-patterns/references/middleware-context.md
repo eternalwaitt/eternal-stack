@@ -58,4 +58,4 @@ export const updateProject = protectedProcedure
 
 ## Lifecycle Hooks
 
-Use oRPC lifecycle helpers/interceptors such as start, success, error, and finish handling for logging, metrics, and cleanup. Prefer central interceptors for cross-cutting concerns over handler-local logging.
+Use oRPC lifecycle helpers/interceptors such as start, success, error, and finish handling for logging, metrics, and cleanup. Defaults to central interceptors for cross-cutting concerns over handler-local logging.

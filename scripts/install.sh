@@ -368,7 +368,7 @@ validate_source_install_inputs() {
     [[ -s "$ROOT/skills/bundled/$skill/SKILL.md" ]] || missing+=("$ROOT/skills/bundled/$skill/SKILL.md")
   done
   if (( ${#missing[@]} > 0 )); then
-    printf 'install dry-run failed; missing source files:\n' >&2
+    printf 'install failed; missing source files:\n' >&2
     printf '  %s\n' "${missing[@]}" >&2
     return 1
   fi
@@ -386,8 +386,9 @@ migrate_legacy_runtime_dir() {
   fi
 }
 
+validate_source_install_inputs
+
 if [[ "$DRY_RUN" == "1" ]]; then
-  validate_source_install_inputs
   printf 'Dry run: profile=%s manifest=%s\n' "$PROFILE" "$PROFILE_MANIFEST"
   printf 'Dry run: would validate stack profile with scripts/stack-profile-check.mjs\n'
   printf 'Dry run: would install Eternal Stack files into %s\n' "$TARGET"

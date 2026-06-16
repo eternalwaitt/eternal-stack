@@ -7,7 +7,7 @@ globs:
   - "apps/web/src/lib/**"
   - "apps/web/src/app/api/**"
 description: "Import rules for lib/ and app/api/: modules-only, no features imports."
-hosts: [claude, codex, cursor]
+hosts: [claude, cursor]
 verify: "pnpm guard:essential"
 ---
 

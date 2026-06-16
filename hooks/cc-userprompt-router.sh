@@ -332,9 +332,9 @@ if [[ "$prompt_lower" =~ /email-triage|email[[:space:]-]+triage ]]; then
     email_triage_account="${BASH_REMATCH[2]}"
   fi
   if [[ -n "$email_triage_account" ]]; then
-    notes+=("Use /email-triage as two phases. Phase 1: Inbox Zero first. Run: vivaz-email triage guarded-run --account $email_triage_account --max-inbox 500 --apply --require-insights, then verify with vivaz-email triage verify --latest --account $email_triage_account. Do not open the queue unless verify reports inbox_zero_verified true and inbox_count 0. Phase 2: only after Inbox Zero, paste one generated queue item with vivaz-email triage queue --run-id <run-id> --mode reply --format markdown --next. Do not say triage complete while an item is active.")
+    notes+=("Use /email-triage as two phases. Phase 1: Inbox Zero first. Run: etrnl-email triage guarded-run --account $email_triage_account --max-inbox 500 --apply --require-insights, then verify with etrnl-email triage verify --latest --account $email_triage_account. Do not open the queue unless verify reports inbox_zero_verified true and inbox_count 0. Phase 2: only after Inbox Zero, paste one generated queue item with etrnl-email triage queue --run-id <run-id> --mode reply --format markdown --next. Do not say triage complete while an item is active.")
   else
-    notes+=("Use /email-triage as two phases. If no account id is present, ask for it. Phase 1: Inbox Zero first with vivaz-email triage guarded-run --account <id> --max-inbox 500 --apply --require-insights, then vivaz-email triage verify --latest --account <id>. Do not open the queue unless verify reports inbox_zero_verified true and inbox_count 0. Phase 2: only after Inbox Zero, paste one generated queue item with vivaz-email triage queue --run-id <run-id> --mode reply --format markdown --next. Do not say triage complete while an item is active.")
+    notes+=("Use /email-triage as two phases. If no account id is present, ask for it. Phase 1: Inbox Zero first with etrnl-email triage guarded-run --account <id> --max-inbox 500 --apply --require-insights, then etrnl-email triage verify --latest --account <id>. Do not open the queue unless verify reports inbox_zero_verified true and inbox_count 0. Phase 2: only after Inbox Zero, paste one generated queue item with etrnl-email triage queue --run-id <run-id> --mode reply --format markdown --next. Do not say triage complete while an item is active.")
   fi
 fi
 if [[ "$prompt_lower" =~ disk[[:space:]-]+cleanup|clean[[:space:]]+up[[:space:]]+disk|free[[:space:]]+(disk|ssd|storage)[[:space:]]+space|reclaim[[:space:]]+(disk|ssd|storage)[[:space:]]+space ]]; then
@@ -343,7 +343,7 @@ if [[ "$prompt_lower" =~ disk[[:space:]-]+cleanup|clean[[:space:]]+up[[:space:]]
 fi
 if [[ "$prompt_lower" =~ email[[:space:]-]+reply[[:space:]-]+quality|brazilian[[:space:]]+portuguese[[:space:]]+email|bad[[:space:]]+portuguese[[:space:]]+.*repl|em[[:space:]-]+dash.*email|humanize[[:space:]]+email[[:space:]]+reply|draft[[:space:]-]+checker|ai[[:space:]-]+tell.*email|vivaz[[:space:]]+email[[:space:]]+reply ]]; then
   record_skill "etrnl-comm-email-reply-quality"
-  notes+=("Use etrnl-comm-email-reply-quality: run vivaz-email drafts check, rewrite failed drafts with natural Brazilian Portuguese and humanizer cleanup, then rerun the checker before approval.")
+  notes+=("Use etrnl-comm-email-reply-quality: run etrnl-email drafts check, rewrite failed drafts with natural Brazilian Portuguese and humanizer cleanup, then rerun the checker before approval.")
 fi
 if [[ "$prompt_lower" =~ agent[[:space:]-]?files|instruction[[:space:]]+files|startup[[:space:]]+guidance|align[[:space:]]+.*agents\.md|align[[:space:]]+.*claude\.md|prune[[:space:]]+(agents|claude|rules)|rule[[:space:]-]?bloat|agents\.md[[:space:]]+(too[[:space:]]+long|too[[:space:]]+big|bloated)|claude\.md[[:space:]]+(too[[:space:]]+long|too[[:space:]]+big|bloated)|startup[[:space:]]+(file|context)[[:space:]]+(too[[:space:]]+long|bloated)|trim[[:space:]]+(agents|claude)\.md ]]; then
   record_skill "etrnl-ops-agent-files"

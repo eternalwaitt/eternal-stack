@@ -22,7 +22,7 @@ export const client: RouterClient<typeof router, ClientContext> = createORPCClie
 export const safeClient = createSafeClient(client);
 ```
 
-Use `safeClient` when a codebase prefers tuple errors broadly. Use normal clients with `safe(...)` only at specific call sites when throwing remains the project default.
+Use `safeClient` when a codebase defaults to tuple errors broadly. Use normal clients with `safe(...)` only at specific call sites when throwing remains the project default.
 
 ## Client Context
 
@@ -40,7 +40,7 @@ import type { ContractRouterClient } from "@orpc/contract";
 export const client: ContractRouterClient<typeof contract> = createORPCClient(link);
 ```
 
-Use `inferRPCMethodFromContractRouter(contract)` when method should follow contract metadata.
+Use `inferRPCMethodFromContractRouter(contract)` when method must follow contract metadata.
 
 ## Other Links
 

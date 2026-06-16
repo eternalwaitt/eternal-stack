@@ -1,12 +1,12 @@
 ---
 name: tenant-isolation-patterns
-description: "Multi-tenant data isolation rules for agency-tbd - every Prisma query must be scoped to the current tenant to prevent cross-tenant data leaks"
+description: "Multi-tenant data isolation rules for example-agency - every Prisma query must be scoped to the current tenant to prevent cross-tenant data leaks"
 version: 1.0.0
 source: unknown
 category: backend
-tags: [prisma, tenantId, multi-tenant, saas, data-isolation, agency-tbd, security, database, critical]
+tags: [prisma, tenantId, multi-tenant, saas, data-isolation, example-agency, security, database, critical]
 ---
-# Tenant Isolation Patterns - agency-tbd
+# Tenant Isolation Patterns - example-agency
 
 ## Purpose
 

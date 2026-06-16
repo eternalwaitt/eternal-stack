@@ -28,7 +28,7 @@ Only define `baseURL`/`secret` in config if env vars are NOT set. CLI looks for 
 
 | Option             | Notes                                         |
 | ------------------ | --------------------------------------------- |
-| `appName`          | Optional display name                         |
+| `appName`          | Opt-in display name                         |
 | `baseURL`          | Only if `BETTER_AUTH_URL` not set             |
 | `basePath`         | Default `/api/auth`. Set `/` for root.        |
 | `secret`           | Only if `BETTER_AUTH_SECRET` not set          |
@@ -131,15 +131,6 @@ When working on auth, delegate to:
 - **TanStack Start**: <https://www.better-auth.com/docs/integrations/tanstack>
 - **Expo**: <https://www.better-auth.com/docs/integrations/expo>
 
-## References
+## Topic References
 
-- [Database Adapters](references/database-adapters.md) - Drizzle, Kysely, Prisma adapters, Cloudflare Workers factory pattern
-- [Session Management](references/sessions.md) - Cookie cache, stateless sessions, storage priority, freshAge constraints
-- [Plugins and Social Auth](references/plugins.md) - Plugin setup, OAuth 2.1 provider, admin RBAC, social provider scopes
-- [Email and Password](references/email-password.md) - Verification, password reset, timing attack prevention, hashing (scrypt, argon2), token security
-- [Two-Factor Authentication](references/two-factor.md) - TOTP, email/SMS OTP, backup codes, trusted devices, 2FA session flow
-- [Organizations](references/organizations.md) - Multi-tenant orgs, teams, invitations, RBAC, dynamic access control, lifecycle hooks
-- [Configuration](references/configuration.md) - User/account config, rate limiting, hooks, CSRF, trusted origins, cookie/OAuth security, production checklist
-- [Framework Integration](references/frameworks.md) - TanStack Start setup, Expo/React Native, client imports, type safety
-- [Migration Guides](references/migration-guides.md) - Migrate from NextAuth/Auth.js, Clerk, or Supabase Auth with schema mappings and session strategies
-- [Troubleshooting](references/troubleshooting.md) - D1 consistency, CORS, OAuth redirect, admin 403, nanostore refresh, known bugs
+This bundle intentionally vendors a single compact skill file. Use the official Better Auth docs above for adapter, session, plugin, email/password, 2FA, organization, framework, migration, and troubleshooting details.

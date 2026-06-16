@@ -53,6 +53,7 @@ function emit(payload) {
 }
 
 function packageManagerGate() {
+  if (existsSync("scripts/doctor.sh")) return "scripts/doctor.sh";
   if (existsSync("pnpm-lock.yaml")) return "pnpm";
   if (existsSync("yarn.lock")) return "yarn";
   if (existsSync("bun.lockb")) return "bun";

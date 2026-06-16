@@ -121,30 +121,39 @@ function quoteForShell(value) {
 const bootstrapCommand = state.sourceRoot
   ? `bash ${quoteForShell(path.join(state.sourceRoot, "scripts", "bootstrap-tools.sh"))} install --yes`
   : "";
-const rawLines = [];
+const actionLines = [];
+const warningLines = [];
 if (state.localUpdateAvailable) {
-  rawLines.push(
+  actionLines.push(
     `ETRNL_UPDATE_AVAILABLE installed=${state.installedCommitShort || "unknown"} source=${state.sourceCommitShort || "unknown"} version=${state.sourceVersion || "unknown"} run="${updateCommand}"`,
   );
 }
 if (state.remote?.updateAvailable) {
-  rawLines.push(
+  actionLines.push(
     `ETRNL_REMOTE_UPDATE_AVAILABLE upstream=${state.remote.upstream || "unknown"} behind=${state.remote.behind || 0} run="${updateCommand} --pull"`,
   );
 }
 for (const tool of Object.values(toolStack.tools || {})) {
   if (tool?.updateAvailable) {
-    rawLines.push(
+    actionLines.push(
       `TOOL_STACK_UPDATE_AVAILABLE ${tool.id} current=${tool.currentVersion} latest=${tool.latestVersion} run="${tool.updateCommand}"`,
     );
   } else if (tool && (tool.kind === "claude-plugin" ? tool.pluginEnabled && !tool.pluginInstalled : tool.installed === false)) {
-    rawLines.push(`TOOL_STACK_MISSING ${tool.id} install="${tool.installCommand}"`);
+    actionLines.push(`TOOL_STACK_MISSING ${tool.id} install="${tool.installCommand}"`);
   }
 }
-if (state.warning) rawLines.push(`ETRNL_UPDATE_WARNING ${state.warning}`);
+if (state.warning) warningLines.push(`ETRNL_UPDATE_WARNING ${state.warning}`);
+if (state.sourceGitWarning) warningLines.push(`ETRNL_UPDATE_WARNING ${state.sourceGitWarning}`);
 
 const resultOk = state.ok !== false;
-const promptNeeded = Boolean(state.updateAvailable) || !resultOk || rawLines.length > 0;
+const promptNeeded = Boolean(
+  !resultOk ||
+    state.localUpdateAvailable ||
+    state.remote?.updateAvailable ||
+    missingTools.length ||
+    toolUpdates.length ||
+    actionLines.length,
+);
 emit({
   ok: resultOk,
   promptNeeded,
@@ -156,10 +165,11 @@ emit({
   remoteUpdateAvailable: Boolean(state.remote?.updateAvailable),
   missingTools,
   toolUpdates,
+  warnings: warningLines,
   updateCommand,
   bootstrapCommand,
   summary: promptNeeded
-    ? `etrnl=${state.localUpdateAvailable ? "stale" : "current"} tools=${[...missingTools, ...toolUpdates].join(",") || "current"}`
+    ? `etrnl=${resultOk ? (state.localUpdateAvailable ? "stale" : "current") : "degraded"} tools=${[...missingTools, ...toolUpdates].join(",") || "current"}`
     : "",
-  rawUpdateOutput: rawLines.join("\n"),
+  rawUpdateOutput: [...actionLines, ...warningLines].join("\n"),
 });

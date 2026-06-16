@@ -9,7 +9,7 @@ globs:
   - "packages/core-domain/**"
   - "apps/web/src/modules/**"
 description: "Prisma/DB rules: tenant isolation, PgBouncer crash, transactions, soft deletes, schema changes."
-hosts: [claude, codex, cursor]
+hosts: [claude, cursor]
 verify: "pnpm guard:all"
 ---
 

@@ -95,7 +95,7 @@ Produces a prioritized markdown report grouped by confidence level.
 ### Phase 6: Human Review
 
 Review the report. For HIGH confidence duplicates:
-1. Verify the recommended survivor has tests
+1. Verify the documented survivor has tests
 2. Update callers to use the survivor
 3. Delete the duplicates
 4. Run tests

@@ -156,7 +156,13 @@ Beads is not an ETRNL bundled execution skill. It is allowed as explicit backlog
 | Skill | Bundle role | Used for |
 | --- | --- | --- |
 | `eternal-best-practices` | Bundled policy | Auth, tenant isolation, money, i18n, Prisma, soft deletes, and domain-sensitive work. |
-| `domain-*` | Bundled domain | Cloud, web, fintech, IoT, embedded, ML, and similar review gates. |
+| `domain-cli` | Bundled domain | CLI application review gates. |
+| `domain-cloud-native` | Bundled domain | Cloud-native architecture and operations review gates. |
+| `domain-embedded` | Bundled domain | Embedded systems review gates. |
+| `domain-fintech` | Bundled domain | Fintech product and integration review gates. |
+| `domain-iot` | Bundled domain | IoT systems review gates. |
+| `domain-ml` | Bundled domain | ML system review gates. |
+| `domain-web` | Bundled domain | Web application review gates. |
 | `better-auth` | Bundled auth | Auth implementation review on protected auth paths. |
 | `tenant-isolation-patterns` | Bundled tenancy | Multi-tenant data and permission boundaries. |
 | `money-vo-discipline` | Bundled finance | Money/value-object discipline on financial and billing paths. |

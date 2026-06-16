@@ -4,14 +4,22 @@
   "description": "Eternal Stack rules manifest. Tracks module metadata, host targets, checksums, and privacy gates for the eternal-saas rule pack.",
   "privacy": {
     "bannedTokens": [
-      "metacards",
-      "mimo-finance",
-      "vivaz-website",
-      "sbcc-portal",
-      "rifasgg",
-      "finans"
+      "ETRNL_PRIVACY_SENTINEL_CLIENT",
+      "ETRNL_PRIVACY_SENTINEL_ACCOUNT",
+      "ETRNL_PRIVACY_SENTINEL_PROJECT",
+      "ETRNL_PRIVACY_SENTINEL_REPO",
+      "ETRNL_PRIVACY_SENTINEL_DOMAIN",
+      "ETRNL_PRIVACY_SENTINEL_EMAIL_RUNTIME",
+      "ETRNL_PRIVACY_SENTINEL_ACCOUNT_EMAIL",
+      "ETRNL_PRIVACY_SENTINEL_HOSTNAME",
+      "ETRNL_PRIVACY_SENTINEL_WORKSPACE",
+      "ETRNL_PRIVACY_SENTINEL_TRANSCRIPT"
     ],
-    "policy": "sync-rule-exports.mjs --check fails when any tracked rule file contains a banned token. Client repo names, account facts, credentials, and personal identity must stay in local gitignored overlays."
+    "localTokenFiles": [
+      ".eternal/privacy-banned-tokens.local",
+      "rules-manifest.local.json"
+    ],
+    "policy": "sync-rule-exports.mjs --check fails when any tracked rule file contains a banned token. Tracked tokens are generic placeholders only. Client repo names, account facts, credentials, and personal identity must stay in local gitignored overlays."
   },
   "profiles": {
     "eternal-saas": {
@@ -51,14 +59,483 @@
       "id": "Unique module identifier matching the frontmatter id field.",
       "paths": "Array of glob patterns for Claude Code paths: frontmatter scoping.",
       "globs": "Array of glob patterns for Cursor .mdc globs frontmatter.",
-      "hosts": "Array of target hosts: claude, codex, cursor.",
+      "hosts": "Array of target hosts for project rule modules: claude, cursor.",
       "maxBytes": "Optional per-module byte cap; doctor warns when exceeded.",
       "profile": "Profile or array of profiles this module belongs to.",
       "verify": "Shell command to verify the rule is effective in the target repo.",
-      "codexNested": "Relative directory path; when set, sync emits a nested AGENTS.md for Codex depth.",
       "checksum": "SHA-256 of the canonical module source file (populated by sync).",
       "generatedAt": "ISO timestamp of last sync run."
     }
   },
-  "modules": {}
+  "modules": {
+    "global/00-stack": {
+      "id": "eternal-saas-global-stack",
+      "paths": [
+        "**"
+      ],
+      "globs": [
+        "**"
+      ],
+      "hosts": [
+        "claude",
+        "cursor"
+      ],
+      "profile": [
+        "eternal-saas",
+        "eternal-saas-tcg"
+      ],
+      "verify": "",
+      "checksum": "f3ca8cfe627608ebe93df51d1f6947706fc0fe4eaa2a0232bc61ccb4ca629e56",
+      "mdcChecksum": "e747324b82fa041cd51ee9afb986acee575bfa9da4f5a78c05cd6a840eaa0811",
+      "cursorPath": "templates/cursor/rules/eternal-saas/global/eternal-saas-global-stack.mdc",
+      "generatedAt": "2026-06-16T18:32:06.269Z"
+    },
+    "global/10-gotchas": {
+      "id": "eternal-saas-global-gotchas",
+      "paths": [
+        "**"
+      ],
+      "globs": [
+        "**"
+      ],
+      "hosts": [
+        "claude",
+        "cursor"
+      ],
+      "profile": [
+        "eternal-saas",
+        "eternal-saas-tcg"
+      ],
+      "verify": "",
+      "checksum": "698233d7109523107053deadd63c8261cf92a3c2b3c4c2b9b3ea18ad10760b0b",
+      "mdcChecksum": "9884697f49a432b94fb133702debfe5f123e2d65eb42f0a4db1a41cef38f9c10",
+      "cursorPath": "templates/cursor/rules/eternal-saas/global/eternal-saas-global-gotchas.mdc",
+      "generatedAt": "2026-06-16T18:32:06.270Z"
+    },
+    "global/20-verify": {
+      "id": "eternal-saas-global-verify",
+      "paths": [
+        "**"
+      ],
+      "globs": [
+        "**"
+      ],
+      "hosts": [
+        "claude",
+        "cursor"
+      ],
+      "profile": [
+        "eternal-saas",
+        "eternal-saas-tcg"
+      ],
+      "verify": "",
+      "checksum": "d38a42fef2669bc11bb33a6f24abfbdfe91b42c3b989fd5dcf83e10a51b97da2",
+      "mdcChecksum": "7c8366e105aa168e41fd6a1a1f4793d5bb10cc09f371f2fd7f68d85cec8236b2",
+      "cursorPath": "templates/cursor/rules/eternal-saas/global/eternal-saas-global-verify.mdc",
+      "generatedAt": "2026-06-16T18:32:06.270Z"
+    },
+    "project/auth-tenancy": {
+      "id": "eternal-saas-auth-tenancy",
+      "paths": [
+        "packages/domain/**",
+        "packages/core-domain/**",
+        "apps/web/src/lib/auth/**"
+      ],
+      "globs": [
+        "packages/domain/**",
+        "packages/core-domain/**",
+        "apps/web/src/lib/auth/**"
+      ],
+      "hosts": [
+        "claude",
+        "cursor"
+      ],
+      "profile": [
+        "eternal-saas",
+        "eternal-saas-tcg"
+      ],
+      "verify": "pnpm guard:all",
+      "checksum": "d0da841e618581920401966a7b028ba01fddf391a717d897149fb1dbddf0c3d2",
+      "mdcChecksum": "bc5cb1502f4cbd1e72abe7b246fc56cd8c2800bc79a04c795866934db98e0851",
+      "cursorPath": "templates/cursor/rules/eternal-saas/project/eternal-saas-auth-tenancy.mdc",
+      "generatedAt": "2026-06-16T18:32:06.270Z"
+    },
+    "project/components": {
+      "id": "eternal-saas-components",
+      "paths": [
+        "apps/web/src/components/**",
+        "apps/show-web/src/components/**",
+        "apps/web/src/**/*.tsx",
+        "apps/show-web/src/**/*.tsx"
+      ],
+      "globs": [
+        "apps/web/src/components/**",
+        "apps/show-web/src/components/**"
+      ],
+      "hosts": [
+        "claude",
+        "cursor"
+      ],
+      "profile": [
+        "eternal-saas",
+        "eternal-saas-tcg"
+      ],
+      "verify": "pnpm check",
+      "checksum": "39d8859d4ebe9bfeb942709e419b6283aa5c3d0c4893d7b80e8dea0e8401fe46",
+      "mdcChecksum": "2bfae692153f61a0172b2142309bcd8d0e3bd27d4c827a0e085a0cb0629aa598",
+      "cursorPath": "templates/cursor/rules/eternal-saas/project/eternal-saas-components.mdc",
+      "generatedAt": "2026-06-16T18:32:06.270Z"
+    },
+    "project/deploy-onveloz": {
+      "id": "eternal-saas-deploy-onveloz",
+      "paths": [
+        "veloz.json",
+        "next.config*",
+        "apps/web/next.config*"
+      ],
+      "globs": [
+        "veloz.json",
+        "next.config*"
+      ],
+      "hosts": [
+        "claude",
+        "cursor"
+      ],
+      "profile": [
+        "eternal-saas",
+        "eternal-saas-tcg"
+      ],
+      "verify": "pnpm ci:check",
+      "checksum": "711ce3a8d9ce9f4b3c0d6342249d42648b2b69813f573a6eaa7d928958e23397",
+      "mdcChecksum": "c70a1d95288dfc1d8bff39fce4ab0b9070721279f76645201234aa16522f5a33",
+      "cursorPath": "templates/cursor/rules/eternal-saas/project/eternal-saas-deploy-onveloz.mdc",
+      "generatedAt": "2026-06-16T18:32:06.270Z"
+    },
+    "project/i18n": {
+      "id": "eternal-saas-i18n",
+      "paths": [
+        "apps/web/src/**/*.tsx",
+        "apps/web/src/**/*.ts",
+        "apps/show-web/src/**/*.tsx"
+      ],
+      "globs": [
+        "apps/web/src/**/*.tsx",
+        "apps/show-web/src/**/*.tsx"
+      ],
+      "hosts": [
+        "claude",
+        "cursor"
+      ],
+      "profile": [
+        "eternal-saas",
+        "eternal-saas-tcg"
+      ],
+      "verify": "pnpm guard:essential",
+      "checksum": "4859717adb4a917d7840eaf19c1da33a352fad4b1f4a032b1860decbf2c4dd7d",
+      "mdcChecksum": "c480a11f45958cd6aa634979608ca16e898e43f040144b4431b7c5d25030268a",
+      "cursorPath": "templates/cursor/rules/eternal-saas/project/eternal-saas-i18n.mdc",
+      "generatedAt": "2026-06-16T18:32:06.270Z"
+    },
+    "project/imports": {
+      "id": "eternal-saas-imports",
+      "paths": [
+        "apps/web/src/lib/**",
+        "apps/web/src/app/api/**"
+      ],
+      "globs": [
+        "apps/web/src/lib/**",
+        "apps/web/src/app/api/**"
+      ],
+      "hosts": [
+        "claude",
+        "cursor"
+      ],
+      "profile": [
+        "eternal-saas",
+        "eternal-saas-tcg"
+      ],
+      "verify": "pnpm guard:essential",
+      "checksum": "b64559303d82a7cad860614a81a8643c09185fec09388016a6f2272b15281542",
+      "mdcChecksum": "0935621b73782035013f47fe85395c02071b952f61723250036aa77cdf43fb2b",
+      "cursorPath": "templates/cursor/rules/eternal-saas/project/eternal-saas-imports.mdc",
+      "generatedAt": "2026-06-16T18:32:06.270Z"
+    },
+    "project/local-overrides": {
+      "id": "eternal-saas-local-overrides",
+      "paths": [
+        "**"
+      ],
+      "globs": [
+        "**"
+      ],
+      "hosts": [
+        "claude",
+        "cursor"
+      ],
+      "profile": [
+        "eternal-saas",
+        "eternal-saas-tcg"
+      ],
+      "verify": "",
+      "checksum": "37f6668ba6cd3fce208a244c0f37c4281e5df92e7650207ed791e2916d8826a0",
+      "mdcChecksum": "ba414a5461210f99bdde895e34ac15e7cc55c37b65385f906d11d4361f32f4f6",
+      "cursorPath": "templates/cursor/rules/eternal-saas/project/eternal-saas-local-overrides.mdc",
+      "generatedAt": "2026-06-16T18:32:06.270Z"
+    },
+    "project/money": {
+      "id": "eternal-saas-money",
+      "paths": [
+        "packages/domain/**",
+        "packages/core-domain/**",
+        "apps/web/src/modules/billing/**"
+      ],
+      "globs": [
+        "packages/domain/**",
+        "packages/core-domain/**",
+        "apps/web/src/modules/billing/**"
+      ],
+      "hosts": [
+        "claude",
+        "cursor"
+      ],
+      "profile": [
+        "eternal-saas",
+        "eternal-saas-tcg"
+      ],
+      "verify": "pnpm guard:essential",
+      "checksum": "f51e92c6588f95e3be27053f115b73c97c4ebc342f4981782877f36479f9f71b",
+      "mdcChecksum": "ca003e26ebefa8a5368bd7787a787830d28f66962195d1836cee89afc011319b",
+      "cursorPath": "templates/cursor/rules/eternal-saas/project/eternal-saas-money.mdc",
+      "generatedAt": "2026-06-16T18:32:06.270Z"
+    },
+    "project/next": {
+      "id": "eternal-saas-next",
+      "paths": [
+        "apps/web/src/app/**",
+        "apps/web/next.config*",
+        "apps/show-web/src/app/**"
+      ],
+      "globs": [
+        "apps/web/src/app/**",
+        "apps/web/next.config*"
+      ],
+      "hosts": [
+        "claude",
+        "cursor"
+      ],
+      "profile": [
+        "eternal-saas",
+        "eternal-saas-tcg"
+      ],
+      "verify": "pnpm check-types",
+      "checksum": "4280a03df5bd5499a560fb3095c7f42e0af4a83d727f751d5eb59aeb576d8b70",
+      "mdcChecksum": "d6ee69751e799f9f28d8e90b9f3a711cc1c941fe2d62e76c79e3af5a2392a929",
+      "cursorPath": "templates/cursor/rules/eternal-saas/project/eternal-saas-next.mdc",
+      "generatedAt": "2026-06-16T18:32:06.270Z"
+    },
+    "project/orpc": {
+      "id": "eternal-saas-orpc",
+      "paths": [
+        "apps/web/src/lib/orpc/**"
+      ],
+      "globs": [
+        "apps/web/src/lib/orpc/**"
+      ],
+      "hosts": [
+        "claude",
+        "cursor"
+      ],
+      "profile": [
+        "eternal-saas",
+        "eternal-saas-tcg"
+      ],
+      "verify": "pnpm guard:essential",
+      "checksum": "d1deb6dad897247fde02f094b4a439d8e0ad653f527eda0f522bb7c6bbfb9558",
+      "mdcChecksum": "66c28e2301cc4b5c2471735ef1a0eb7cb7ba8f19142c242b069b3492dca46d4c",
+      "cursorPath": "templates/cursor/rules/eternal-saas/project/eternal-saas-orpc.mdc",
+      "generatedAt": "2026-06-16T18:32:06.270Z"
+    },
+    "project/oxlint": {
+      "id": "eternal-saas-oxlint",
+      "paths": [
+        "**/*.ts",
+        "**/*.tsx"
+      ],
+      "globs": [
+        "**/*.ts",
+        "**/*.tsx"
+      ],
+      "hosts": [
+        "claude",
+        "cursor"
+      ],
+      "profile": [
+        "eternal-saas",
+        "eternal-saas-tcg"
+      ],
+      "verify": "pnpm check",
+      "checksum": "b01fef5ff55e3dfda8c041ae332032bd85d5e13e3a1aafddb471cca08be45643",
+      "mdcChecksum": "10fbf5b5bc44e91f52db40081ad8dce76ba882258be46f1e453e8a8955416e46",
+      "cursorPath": "templates/cursor/rules/eternal-saas/project/eternal-saas-oxlint.mdc",
+      "generatedAt": "2026-06-16T18:32:06.270Z"
+    },
+    "project/prisma": {
+      "id": "eternal-saas-prisma",
+      "paths": [
+        "packages/db/**",
+        "packages/core-domain/**",
+        "apps/web/src/modules/**"
+      ],
+      "globs": [
+        "packages/db/**",
+        "packages/core-domain/**",
+        "apps/web/src/modules/**"
+      ],
+      "hosts": [
+        "claude",
+        "cursor"
+      ],
+      "profile": [
+        "eternal-saas",
+        "eternal-saas-tcg"
+      ],
+      "verify": "pnpm guard:all",
+      "checksum": "ad9100b326b6fd745498c6a9c07f194d82cca6236348f7b5e6a42015691959e8",
+      "mdcChecksum": "6df83a374423fceec31cfe1b08a865f9beb569d6b8e962af26cfc097b90cd7db",
+      "cursorPath": "templates/cursor/rules/eternal-saas/project/eternal-saas-prisma.mdc",
+      "generatedAt": "2026-06-16T18:32:06.270Z"
+    },
+    "project/react": {
+      "id": "eternal-saas-react",
+      "paths": [
+        "apps/web/src/**/*.tsx",
+        "apps/show-web/src/**/*.tsx"
+      ],
+      "globs": [
+        "apps/web/src/**/*.tsx",
+        "apps/show-web/src/**/*.tsx"
+      ],
+      "hosts": [
+        "claude",
+        "cursor"
+      ],
+      "profile": [
+        "eternal-saas",
+        "eternal-saas-tcg"
+      ],
+      "verify": "pnpm check-types",
+      "checksum": "4efa234aa7843afd6e5c476a33a300b8685db5324c9959f5dc5f0ff63b24d9f6",
+      "mdcChecksum": "30325e003d5cb36eb46fad429de7a538f2c2b561c2da28836c846aea0c2c4563",
+      "cursorPath": "templates/cursor/rules/eternal-saas/project/eternal-saas-react.mdc",
+      "generatedAt": "2026-06-16T18:32:06.270Z"
+    },
+    "project/stack": {
+      "id": "eternal-saas-stack",
+      "paths": [
+        "**"
+      ],
+      "globs": [
+        "**"
+      ],
+      "hosts": [
+        "claude",
+        "cursor"
+      ],
+      "profile": [
+        "eternal-saas",
+        "eternal-saas-tcg"
+      ],
+      "verify": "pnpm ci:check",
+      "checksum": "f9d711659ffd7d5d6523dcf3049561ef1785da71510392e66ec96f8351164470",
+      "mdcChecksum": "ec4178d27ecec5afdea7cd6af2aa8e8ef61f671a53a63d9a6aef1c15bb23bd54",
+      "cursorPath": "templates/cursor/rules/eternal-saas/project/eternal-saas-stack.mdc",
+      "generatedAt": "2026-06-16T18:32:06.270Z"
+    },
+    "project/tcg-contract": {
+      "id": "eternal-saas-tcg-contract",
+      "paths": [
+        "apps/**/*tcg*/**",
+        "apps/**/*tcg-card*/**",
+        "apps/**/*trading-card*/**",
+        "apps/**/*collectible-card*/**",
+        "packages/**/*tcg*/**",
+        "packages/**/*tcg-card*/**",
+        "packages/**/*trading-card*/**",
+        "packages/**/*collectible-card*/**"
+      ],
+      "globs": [
+        "apps/**/tcg*",
+        "apps/**/tcg-card*",
+        "apps/**/trading-card*",
+        "apps/**/collectible-card*",
+        "packages/**/tcg*",
+        "packages/**/tcg-card*",
+        "packages/**/trading-card*",
+        "packages/**/collectible-card*"
+      ],
+      "hosts": [
+        "claude",
+        "cursor"
+      ],
+      "profile": [
+        "eternal-saas-tcg"
+      ],
+      "verify": "pnpm test",
+      "checksum": "64aa62c9bec37d35493c51b4569c387ec1cbcbff5d945fa4ce7224166a8e2cf7",
+      "mdcChecksum": "077c3e9b44f482cfc41d4e92852e3b12981c1a89cf54f71e75a071bdae5ffba2",
+      "cursorPath": "templates/cursor/rules/eternal-saas/project/eternal-saas-tcg-contract.mdc",
+      "generatedAt": "2026-06-16T18:32:06.270Z"
+    },
+    "project/testing": {
+      "id": "eternal-saas-testing",
+      "paths": [
+        "**/*.test.ts",
+        "**/*.spec.ts",
+        "**/*.test.tsx",
+        "**/*.property.test.ts"
+      ],
+      "globs": [
+        "**/*.test.ts",
+        "**/*.spec.ts",
+        "**/*.test.tsx"
+      ],
+      "hosts": [
+        "claude",
+        "cursor"
+      ],
+      "profile": [
+        "eternal-saas",
+        "eternal-saas-tcg"
+      ],
+      "verify": "pnpm test",
+      "checksum": "1a5aeb8a6f321d3d32e47e2861924a0d8e9f5ba948a513873f1a157d0e69565c",
+      "mdcChecksum": "bb308c25bebe0522aa8f938388050bcdcc50cff571d78083c76c415500c69978",
+      "cursorPath": "templates/cursor/rules/eternal-saas/project/eternal-saas-testing.mdc",
+      "generatedAt": "2026-06-16T18:32:06.270Z"
+    },
+    "project/typescript": {
+      "id": "eternal-saas-typescript",
+      "paths": [
+        "**/*.ts",
+        "**/*.tsx"
+      ],
+      "globs": [
+        "**/*.ts",
+        "**/*.tsx"
+      ],
+      "hosts": [
+        "claude",
+        "cursor"
+      ],
+      "profile": [
+        "eternal-saas",
+        "eternal-saas-tcg"
+      ],
+      "verify": "pnpm check-types",
+      "checksum": "d6895dc3083cef16598495c4c516cdd3c880f704f83c85f4f2be897f50dccfff",
+      "mdcChecksum": "fc7c872184ffbc65ce16f410bfdc1707dd94a9d3663a6760c24188e834571a35",
+      "cursorPath": "templates/cursor/rules/eternal-saas/project/eternal-saas-typescript.mdc",
+      "generatedAt": "2026-06-16T18:32:06.270Z"
+    }
+  }
 }

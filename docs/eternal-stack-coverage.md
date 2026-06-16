@@ -27,7 +27,13 @@ Status key: `done` means implemented in this repo; `live-gated` means intentiona
 Eternal Stack is a bundled skill family: `etrnl-*` orchestration from this repo plus policy, review, and domain skills that install on the host and are routed by hooks and workflows. See `docs/skills.md` for the full inventory. Representative bundled skills:
 
 - `eternal-best-practices`
-- `domain-*`
+- `domain-cli`
+- `domain-cloud-native`
+- `domain-embedded`
+- `domain-fintech`
+- `domain-iot`
+- `domain-ml`
+- `domain-web`
 - `better-auth`
 - `tenant-isolation-patterns`
 - `money-vo-discipline`

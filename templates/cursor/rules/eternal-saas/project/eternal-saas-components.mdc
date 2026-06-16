@@ -12,11 +12,11 @@ description: "Component patterns: design system imports, no barrel exports, desi
 
 ```typescript
 // CORRECT
-import { Button } from '@core-suite/design-system/primitives'
-import { Input } from '@core-suite/design-system/primitives'
+import { Button } from '@example-suite/design-system/primitives'
+import { Input } from '@example-suite/design-system/primitives'
 
 // WRONG — barrel import
-import { Button, Input } from '@core-suite/design-system'
+import { Button, Input } from '@example-suite/design-system'
 ```
 
 ## React Compiler active — no manual memoization

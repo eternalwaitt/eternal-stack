@@ -207,20 +207,20 @@ cc_disk_cleanup_active() {
 
 command_is_raw_email_triage_gmail_mutation() {
   local cmd="$1"
-  local vivaz_apply_regex='(^|[[:space:];&|])([^[:space:];&|]*/)?vivaz-email[[:space:]]+triage[[:space:]]+apply([[:space:]]|$)'
+  local email_apply_regex='(^|[[:space:];&|])([^[:space:];&|]*/)?etrnl-email[[:space:]]+triage[[:space:]]+apply([[:space:]]|$)'
   local gmail_mutation_regex='(gws|gmail)[^;&|]*(batchModify|modify|move|trash|delete)'
-  [[ "$cmd" =~ $vivaz_apply_regex ]] && return 1
+  [[ "$cmd" =~ $email_apply_regex ]] && return 1
   [[ "$cmd" =~ $gmail_mutation_regex ]]
 }
 
 command_is_email_triage_queue() {
   local cmd="$1"
-  [[ "$cmd" =~ (^|[[:space:];&|])([^[:space:];&|]*/)?vivaz-email[[:space:]]+triage[[:space:]]+queue([[:space:]]|$) ]]
+  [[ "$cmd" =~ (^|[[:space:];&|])([^[:space:];&|]*/)?etrnl-email[[:space:]]+triage[[:space:]]+queue([[:space:]]|$) ]]
 }
 
 command_is_email_triage_dry_run() {
   local cmd="$1"
-  [[ "$cmd" =~ (^|[[:space:];&|])([^[:space:];&|]*/)?vivaz-email[[:space:]]+triage[[:space:]]+run([[:space:]]|$) ]]
+  [[ "$cmd" =~ (^|[[:space:];&|])([^[:space:];&|]*/)?etrnl-email[[:space:]]+triage[[:space:]]+run([[:space:]]|$) ]]
 }
 
 command_is_email_triage_debug_dry_run() {
@@ -239,7 +239,7 @@ cc_email_triage_verify_seen() {
     email_triage_request_at as $since
     | any(.successfulCommands[]?;
         ((.at // "") >= $since)
-        and ((.command // "") | test("(^|[[:space:];&|])([^[:space:];&|]*/)?vivaz-email[[:space:]]+triage[[:space:]]+verify([[:space:]]|$)")))
+        and ((.command // "") | test("(^|[[:space:];&|])([^[:space:];&|]*/)?etrnl-email[[:space:]]+triage[[:space:]]+verify([[:space:]]|$)")))
   ' "$(cc_state_file)" >/dev/null 2>&1
 }
 
@@ -268,7 +268,7 @@ cc_email_triage_latest_account_after() {
     [.successfulCommands[]?
       | select((.at // "") >= $since)
       | (.command // "")
-      | select(test("(^|[[:space:];&|])([^[:space:];&|]*/)?vivaz-email[[:space:]]+triage[[:space:]]+(run|guarded-run)([[:space:]]|$)"))]
+      | select(test("(^|[[:space:];&|])([^[:space:];&|]*/)?etrnl-email[[:space:]]+triage[[:space:]]+(run|guarded-run)([[:space:]]|$)"))]
     | last // ""
   ' "$(cc_state_file)" 2>/dev/null)"
   account=""
@@ -280,7 +280,7 @@ cc_email_triage_latest_account_after() {
 
 cc_email_triage_cli() {
   local candidate resolved
-  for candidate in "${VIVAZ_EMAIL_BIN:-}" "${VIVAZ_EMAIL_CLI:-}"; do
+  for candidate in "${ETRNL_EMAIL_BIN:-}" "${ETRNL_EMAIL_CLI:-}"; do
     [[ -n "$candidate" ]] || continue
     if [[ -x "$candidate" ]]; then
       printf '%s\n' "$candidate"
@@ -291,8 +291,8 @@ cc_email_triage_cli() {
       return 0
     fi
   done
-  if command -v vivaz-email >/dev/null 2>&1; then
-    command -v vivaz-email
+  if command -v etrnl-email >/dev/null 2>&1; then
+    command -v etrnl-email
     return 0
   fi
   return 1
@@ -329,8 +329,25 @@ cc_email_triage_queue_verified() {
 
 command_writes_live_claude_hooks() {
   local cmd="$1"
-  local live_hook_write_re="(tee|cat|cp|mv|rsync|install|chmod|chown|rm|trash)[^;&|]*((\\\$HOME|~|/Users/[^[:space:]/]+)?/\\.claude/hooks)"
-  [[ "$cmd" =~ $live_hook_write_re ]]
+  local claude_home="${CLAUDE_HOME:-}"
+  local dollar='$'
+  local write_re='(tee|cat|cp|mv|rsync|install|chmod|chown|rm|trash)'
+  local live_hook_write_re="(tee|cat|cp|mv|rsync|install|chmod|chown|rm|trash)[^;&|]*((\\${dollar}CLAUDE_HOME|\\${dollar}\\{CLAUDE_HOME\\})/hooks|(\\${dollar}HOME|~|/Users/[^[:space:]/]+)?/\\.claude/hooks)"
+  [[ "$cmd" =~ $live_hook_write_re ]] && return 0
+  [[ -n "$claude_home" && "$cmd" =~ $write_re && "$cmd" == *"$claude_home/hooks"* ]]
+}
+
+path_is_live_claude_hooks() {
+  local path="$1" claude_home="${CLAUDE_HOME:-}"
+  case "$path" in
+    "$HOME/.claude/hooks"|"$HOME/.claude/hooks"/*) return 0 ;;
+  esac
+  if [[ -n "$claude_home" ]]; then
+    case "$path" in
+      "$claude_home/hooks"|"$claude_home/hooks"/*) return 0 ;;
+    esac
+  fi
+  return 1
 }
 
 command_is_dangerous_outside_cwd() {
@@ -655,23 +672,23 @@ handle_bash() {
   fi
 
   if cc_email_triage_active && command_is_raw_email_triage_gmail_mutation "$cmd"; then
-    deny "Raw Gmail mutation is blocked during email-triage. Phase 1 must use the VIVAZ runtime: vivaz-email triage guarded-run --account <id> --max-inbox 500 --apply --require-insights, then vivaz-email triage verify --latest --account <id>. Only after verified Inbox Zero, open the queue."
+    deny "Raw Gmail mutation is blocked during email-triage. Phase 1 must use etrnl-email triage guarded-run --account <id> --max-inbox 500 --apply --require-insights, then etrnl-email triage verify --latest --account <id>. Only after verified Inbox Zero, open the queue."
   fi
 
   if cc_email_triage_active && command_is_email_triage_dry_run "$cmd" && ! command_is_email_triage_debug_dry_run "$cmd"; then
-    deny "Dry email-triage runs are blocked during /email-triage. Phase 1 must clear INBOX with vivaz-email triage guarded-run --account <id> --max-inbox 500 --apply --require-insights, then vivaz-email triage verify --latest --account <id> before any queue item is shown."
+    deny "Dry email-triage runs are blocked during /email-triage. Phase 1 must clear INBOX with etrnl-email triage guarded-run --account <id> --max-inbox 500 --apply --require-insights, then etrnl-email triage verify --latest --account <id> before any queue item is shown."
   fi
 
   if cc_email_triage_active && command_is_email_triage_queue "$cmd" && ! cc_email_triage_verify_seen; then
-    deny "email-triage queue is blocked until Inbox Zero verification has run. First run vivaz-email triage guarded-run --account <id> --max-inbox 500 --apply --require-insights, then vivaz-email triage verify --latest --account <id>. Open the queue only after verify reports inbox_zero_verified true and inbox_count 0."
+    deny "email-triage queue is blocked until Inbox Zero verification has run. First run etrnl-email triage guarded-run --account <id> --max-inbox 500 --apply --require-insights, then etrnl-email triage verify --latest --account <id>. Open the queue only after verify reports inbox_zero_verified true and inbox_count 0."
   fi
 
   if cc_email_triage_active && command_is_email_triage_queue "$cmd" && ! cc_email_triage_queue_verified "$cmd"; then
-    deny "email-triage queue is blocked until provider verification proves Inbox Zero and either gmail_mutated true or queue_ready_without_mutation true. Run vivaz-email triage verify --latest --account <id> and require inbox_zero_verified true and inbox_count 0 before opening the queue."
+    deny "email-triage queue is blocked until provider verification proves Inbox Zero and either gmail_mutated true or queue_ready_without_mutation true. Run etrnl-email triage verify --latest --account <id> and require inbox_zero_verified true and inbox_count 0 before opening the queue."
   fi
 
   if command_writes_live_claude_hooks "$cmd"; then
-    deny "Live ~/.claude/hooks edits are blocked. Edit the source-controlled Eternal Stack hook, run the installer, and verify source/install sync instead."
+    deny "Live Claude hook edits are blocked. Edit the source-controlled Eternal Stack hook, run the installer, and verify source/install sync instead."
   fi
 
   if command_is_gws_write "$cmd" && ! jq -e '.verificationRuns[]? | .value | test("gws.*(account|whoami)|gmail.*(account|whoami)|drive.*(account|whoami)")' "$(cc_state_file)" >/dev/null 2>&1; then
@@ -726,11 +743,9 @@ handle_edit() {
   if violation="$(cc_policy_violation "$text")"; then
     deny "$violation"
   fi
-  case "$abs" in
-    "$HOME/.claude/hooks"|"$HOME/.claude/hooks"/*)
-      deny "Live ~/.claude/hooks edits are blocked. Edit source-controlled hooks and run the install/sync path."
-      ;;
-  esac
+  if path_is_live_claude_hooks "$abs"; then
+    deny "Live Claude hook edits are blocked: $abs. Edit source-controlled hooks and run the install/sync path."
+  fi
   if [[ -n "$abs" && "$current_tool" == "Write" && -e "$abs" && ! -f "$abs" && "$old_text_status" -ne 0 ]]; then
     deny "Cannot read existing content for safety checks: $abs"
   fi

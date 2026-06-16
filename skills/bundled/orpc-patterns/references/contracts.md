@@ -67,4 +67,4 @@ Use OpenAPI-to-contract when an external OpenAPI spec is authoritative. Review g
 - Shared contract package: schemas, contracts, public types.
 - Service package: implementations, context, auth, data access.
 - Client package/app: links, query utilities, hydration, safe-client policy.
-- Avoid runtime-importing server implementations into browser bundles; use type-only imports where possible.
+- Avoid runtime-importing server implementations into browser bundles; use type-only imports where available.

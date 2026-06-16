@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 /**
  * sync-rule-exports.mjs
- * Project markdown rule modules → Cursor .mdc twins.
- * Validates manifest checksums and privacy banned-token gate.
+ * Project markdown rule modules -> Cursor .mdc twins + manifest index.
  *
  * Usage:
  *   node scripts/sync-rule-exports.mjs [--check]
@@ -11,7 +10,7 @@
 
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSync } from 'node:fs';
-import { resolve, dirname, join, basename } from 'node:path';
+import { resolve, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -35,6 +34,32 @@ const singleOutput = singleOutputRel ? resolve(singleOutputRel) : null;
 
 function sha256(content) {
   return createHash('sha256').update(content).digest('hex');
+}
+
+function parseInlineArray(value) {
+  const items = [];
+  let current = '';
+  let quote = '';
+  for (const char of value) {
+    if ((char === '"' || char === "'") && !quote) {
+      quote = char;
+      current += char;
+      continue;
+    }
+    if (char === quote) {
+      quote = '';
+      current += char;
+      continue;
+    }
+    if (char === ',' && !quote) {
+      items.push(current.trim().replace(/^["']|["']$/g, ''));
+      current = '';
+      continue;
+    }
+    current += char;
+  }
+  if (current.trim()) items.push(current.trim().replace(/^["']|["']$/g, ''));
+  return items;
 }
 
 function parseFrontmatter(content) {
@@ -67,7 +92,7 @@ function parseFrontmatter(content) {
       continue;
     }
     if (rest.startsWith('[') && rest.endsWith(']')) {
-      frontmatter[key] = rest.slice(1, -1).split(',').map(s => s.trim().replace(/^["']|["']$/g, ''));
+      frontmatter[key] = parseInlineArray(rest.slice(1, -1));
     } else if (rest === 'true') {
       frontmatter[key] = true;
     } else if (rest === 'false') {
@@ -76,74 +101,66 @@ function parseFrontmatter(content) {
       frontmatter[key] = rest.replace(/^["']|["']$/g, '');
     }
   }
-  if (inList && currentKey) {
-    frontmatter[currentKey] = [...listValues];
-  }
+  if (inList && currentKey) frontmatter[currentKey] = [...listValues];
 
-  const body = content.slice(match[0].length).trimStart();
-  return { frontmatter, body };
+  return { frontmatter, body: content.slice(match[0].length).trimStart() };
+}
+
+function arrayValue(value) {
+  if (Array.isArray(value)) return value;
+  return value ? [value] : [];
 }
 
 function buildMdcContent(frontmatter, body) {
-  const globs = Array.isArray(frontmatter.globs) ? frontmatter.globs : [frontmatter.globs].filter(Boolean);
+  const globLines = arrayValue(frontmatter.globs).map((glob) => `  - "${glob}"`).join('\n');
   const description = (frontmatter.description || '').replace(/"/g, '\\"');
   const alwaysApply = frontmatter.alwaysApply ?? false;
-
-  const globLines = globs.map(g => `  - "${g}"`).join('\n');
-
-  return `---
-globs:
-${globLines}
-alwaysApply: ${alwaysApply}
-description: "${description}"
----
-
-${body}`;
+  return `---\nglobs:\n${globLines}\nalwaysApply: ${alwaysApply}\ndescription: "${description}"\n---\n\n${body}`;
 }
 
 function checkBannedTokens(content, bannedTokens) {
-  return bannedTokens.filter(token =>
-    content.toLowerCase().includes(token.toLowerCase())
-  );
+  return bannedTokens.filter((token) => content.toLowerCase().includes(String(token).toLowerCase()));
 }
 
 function loadManifest(manifestPath) {
   if (!existsSync(manifestPath)) throw new Error(`Manifest not found: ${manifestPath}`);
-  return JSON.parse(readFileSync(manifestPath, 'utf8'));
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  const bannedTokens = privacyTokens(manifest, dirname(manifestPath));
+  Object.defineProperty(manifest, '_privacyTokens', {
+    value: bannedTokens,
+    enumerable: false,
+  });
+  return manifest;
 }
 
-function processModule(sourcePath, outputDir, manifest, check) {
-  const content = readFileSync(sourcePath, 'utf8');
-  const { frontmatter, body } = parseFrontmatter(content);
-
-  if (!frontmatter.id) throw new Error(`Missing 'id' in frontmatter: ${sourcePath}`);
-  if (!frontmatter.globs) throw new Error(`Missing 'globs' in frontmatter: ${sourcePath}`);
-  if (!frontmatter.description) throw new Error(`Missing 'description' in frontmatter: ${sourcePath}`);
-
-  const bannedTokens = manifest.privacy?.bannedTokens ?? [];
-  const violations = checkBannedTokens(content, bannedTokens);
-  if (violations.length > 0) {
-    throw new Error(`Privacy violation in ${sourcePath}: banned tokens found: ${violations.join(', ')}`);
+function localPrivacyTokens(filePath) {
+  if (!existsSync(filePath)) return [];
+  const content = readFileSync(filePath, 'utf8');
+  if (filePath.endsWith('.json')) {
+    const parsed = JSON.parse(content);
+    if (Array.isArray(parsed)) return parsed;
+    return arrayValue(parsed.privacy?.bannedTokens || parsed.bannedTokens);
   }
+  return content
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#'));
+}
 
-  const mdcContent = buildMdcContent(frontmatter, body);
-  const mdcPath = join(outputDir, `${frontmatter.id}.mdc`);
-  const checksum = sha256(mdcContent);
-
-  if (check) {
-    if (!existsSync(mdcPath)) {
-      throw new Error(`Drift: expected ${mdcPath} does not exist. Run without --check to generate.`);
-    }
-    const existing = readFileSync(mdcPath, 'utf8');
-    if (existing !== mdcContent) {
-      throw new Error(`Drift detected in ${mdcPath}. Run without --check to regenerate.`);
-    }
-  } else {
-    mkdirSync(outputDir, { recursive: true });
-    writeFileSync(mdcPath, mdcContent, 'utf8');
+function privacyTokens(manifest, manifestDir) {
+  const tokens = [...arrayValue(manifest.privacy?.bannedTokens)];
+  for (const relPath of arrayValue(manifest.privacy?.localTokenFiles)) {
+    tokens.push(...localPrivacyTokens(resolve(manifestDir, relPath)));
   }
+  return [...new Set(tokens.map((token) => String(token).trim()).filter(Boolean))];
+}
 
-  return { id: frontmatter.id, checksum, mdcPath };
+function sourceRelKey(sourcePath, rulesRoot) {
+  return relative(rulesRoot, sourcePath).replace(/\\/g, '/').replace(/\.md$/, '');
+}
+
+function moduleSourcePath(key, rulesRoot) {
+  return join(rulesRoot, `${key}.md`);
 }
 
 function walkMd(dir) {
@@ -154,7 +171,103 @@ function walkMd(dir) {
     if (statSync(full).isDirectory()) files.push(...walkMd(full));
     else if (entry.endsWith('.md')) files.push(full);
   }
-  return files;
+  return files.sort((left, right) => left.localeCompare(right));
+}
+
+function expandProfileModules(manifest, profileName, seen = new Set()) {
+  if (seen.has(profileName)) throw new Error(`Profile cycle detected: ${profileName}`);
+  const profile = manifest.profiles?.[profileName];
+  if (!profile) throw new Error(`Unknown profile: ${profileName}`);
+  seen.add(profileName);
+  const inherited = profile.extends ? expandProfileModules(manifest, profile.extends, seen) : [];
+  return [...inherited, ...arrayValue(profile.modules)];
+}
+
+function expectedModuleKeys(manifest) {
+  const keys = new Set();
+  for (const profileName of Object.keys(manifest.profiles || {})) {
+    for (const key of expandProfileModules(manifest, profileName)) keys.add(key);
+  }
+  return [...keys].sort();
+}
+
+function processModule(sourcePath, outputDir, manifest, check) {
+  const content = readFileSync(sourcePath, 'utf8');
+  const { frontmatter, body } = parseFrontmatter(content);
+
+  if (!frontmatter.id) throw new Error(`Missing 'id' in frontmatter: ${sourcePath}`);
+  if (!frontmatter.globs) throw new Error(`Missing 'globs' in frontmatter: ${sourcePath}`);
+  if (!frontmatter.description) throw new Error(`Missing 'description' in frontmatter: ${sourcePath}`);
+  if (!frontmatter.hosts) throw new Error(`Missing 'hosts' in frontmatter: ${sourcePath}`);
+
+  const violations = checkBannedTokens(content, manifest._privacyTokens ?? manifest.privacy?.bannedTokens ?? []);
+  if (violations.length > 0) {
+    throw new Error(`Privacy violation in ${sourcePath}: banned token match count=${violations.length}`);
+  }
+
+  const mdcContent = buildMdcContent(frontmatter, body);
+  const mdcPath = join(outputDir, `${frontmatter.id}.mdc`);
+  if (check) {
+    if (!existsSync(mdcPath)) throw new Error(`Drift: expected ${mdcPath} does not exist. Run without --check to generate.`);
+    if (readFileSync(mdcPath, 'utf8') !== mdcContent) {
+      throw new Error(`Drift detected in ${mdcPath}. Run without --check to regenerate.`);
+    }
+  } else {
+    mkdirSync(outputDir, { recursive: true });
+    writeFileSync(mdcPath, mdcContent, 'utf8');
+  }
+
+  return {
+    id: frontmatter.id,
+    paths: arrayValue(frontmatter.paths || frontmatter.globs),
+    globs: arrayValue(frontmatter.globs),
+    hosts: arrayValue(frontmatter.hosts),
+    maxBytes: frontmatter.maxBytes,
+    verify: frontmatter.verify || '',
+    checksum: sha256(content),
+    mdcChecksum: sha256(mdcContent),
+    mdcPath,
+  };
+}
+
+function moduleProfiles(manifest, key) {
+  return Object.keys(manifest.profiles || {})
+    .filter((profileName) => expandProfileModules(manifest, profileName).includes(key))
+    .sort();
+}
+
+function buildIndex(manifest, moduleResults, previousModules) {
+  const modules = {};
+  for (const item of moduleResults) {
+    const profiles = moduleProfiles(manifest, item.key);
+    const previous = previousModules?.[item.key] || {};
+    modules[item.key] = {
+      id: item.result.id,
+      paths: item.result.paths,
+      globs: item.result.globs,
+      hosts: item.result.hosts,
+      profile: profiles,
+      verify: item.result.verify,
+      checksum: item.result.checksum,
+      mdcChecksum: item.result.mdcChecksum,
+      cursorPath: relative(ROOT, item.result.mdcPath).replace(/\\/g, '/'),
+      generatedAt: previous.generatedAt || new Date().toISOString(),
+    };
+    if (item.result.maxBytes !== undefined) modules[item.key].maxBytes = item.result.maxBytes;
+  }
+  return modules;
+}
+
+function canonicalManifest(manifest, modules) {
+  return `${JSON.stringify({ ...manifest, modules }, null, 2)}\n`;
+}
+
+function assertManifestIndex(manifestPath, manifest, modules) {
+  const expected = canonicalManifest(manifest, modules);
+  const actual = readFileSync(manifestPath, 'utf8');
+  if (actual !== expected) {
+    throw new Error(`Drift detected in ${relative(ROOT, manifestPath)} modules index. Run node scripts/sync-rule-exports.mjs to regenerate.`);
+  }
 }
 
 const errors = [];
@@ -178,22 +291,53 @@ if (singleSource) {
   const manifest = loadManifest(manifestPath);
   const rulesRoot = join(ROOT, 'rules', 'eternal-saas');
   const cursorOutputRoot = join(ROOT, 'templates', 'cursor', 'rules', 'eternal-saas');
-
+  const expectedKeys = expectedModuleKeys(manifest);
   const moduleFiles = walkMd(rulesRoot);
-  for (const filePath of moduleFiles) {
-    const rel = filePath.replace(rulesRoot + '/', '');
-    const subDir = dirname(rel);
-    const outputDir = subDir === '.' ? cursorOutputRoot : join(cursorOutputRoot, subDir);
+  const fileKeys = new Set(moduleFiles.map((filePath) => sourceRelKey(filePath, rulesRoot)));
+
+  for (const key of expectedKeys) {
+    if (!fileKeys.has(key)) errors.push(`${key}: manifest profile references missing module source`);
+  }
+  for (const key of fileKeys) {
+    if (!expectedKeys.includes(key)) errors.push(`${key}: module source is not referenced by any manifest profile`);
+  }
+
+  const moduleResults = [];
+  if (errors.length === 0) {
+    for (const key of expectedKeys) {
+      const filePath = moduleSourcePath(key, rulesRoot);
+      const rel = `${key}.md`;
+      const subDir = dirname(rel);
+      const outputDir = subDir === '.' ? cursorOutputRoot : join(cursorOutputRoot, subDir);
+      try {
+        const result = processModule(filePath, outputDir, manifest, checkMode);
+        moduleResults.push({ key, result });
+        console.log(checkMode ? `ok: ${rel}` : `Generated: ${result.mdcPath}`);
+      } catch (err) {
+        errors.push(`${rel}: ${err.message}`);
+        exitCode = 1;
+      }
+    }
+  }
+
+  if (errors.length === 0) {
     try {
-      const result = processModule(filePath, outputDir, manifest, checkMode);
-      console.log(checkMode ? `ok: ${rel}` : `Generated: ${result.mdcPath}`);
+      const modules = buildIndex(manifest, moduleResults, manifest.modules || {});
+      const cleanManifest = { ...manifest, modules: {} };
+      if (checkMode) {
+        assertManifestIndex(manifestPath, cleanManifest, modules);
+      } else {
+        writeFileSync(manifestPath, canonicalManifest(cleanManifest, modules), 'utf8');
+      }
     } catch (err) {
-      errors.push(`${rel}: ${err.message}`);
+      errors.push(err.message);
       exitCode = 1;
     }
   }
+
   if (errors.length > 0) {
-    for (const e of errors) console.error(`fail: ${e}`);
+    for (const error of errors) console.error(`fail: ${error}`);
+    exitCode = 1;
   }
 }
 

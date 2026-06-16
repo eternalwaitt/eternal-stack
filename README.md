@@ -53,7 +53,7 @@ tests/test-hooks.sh
 
 **Hooks** — enforcement at tool boundaries. Full catalog and lifecycle wiring: [docs/hooks.md](docs/hooks.md). Pretool and stop rules: [docs/guards.md](docs/guards.md). Regression: [tests/test-hooks.sh](tests/test-hooks.sh).
 
-**Skills** — repeatable workflows as `/etrnl-*` commands, grouped by namespace (`dev`, `audit`, `ops`, `comm`). Inventory: [docs/skills.md](docs/skills.md).
+**Skills** — repeatable workflows as `/etrnl-*` commands, grouped by namespace (`dev`, `audit`, `ops`, `comm`). Bundled domain skills include `domain-cli`, `domain-cloud-native`, `domain-embedded`, `domain-fintech`, `domain-iot`, `domain-ml`, and `domain-web`. Inventory: [docs/skills.md](docs/skills.md).
 
 **Scripts** — deterministic helpers for ledgers, browser QA, workflow health, code-health inventory, deep-audit validation, and release hygiene.
 

@@ -5,7 +5,7 @@ paths:
 globs:
   - "**"
 description: "Project-specific overrides for eternal-saas rules. Edit this file after init."
-hosts: [claude, codex, cursor]
+hosts: [claude, cursor]
 alwaysApply: false
 ---
 
