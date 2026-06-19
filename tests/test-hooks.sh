@@ -949,6 +949,28 @@ assert_contains "session start injects ETRNL skill hint" "$out" "ETRNL skills"
 compact_stale_stop="$(jq -cn '{session_id:"fixture-session",last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$compact_stale_stop")"
 assert_contains "stop verifier blocks stale compact verification" "$out" "Verification is stale after compact"
+session_reset_json="$(jq -cn '{session_id:"fixture-session",hook_event_name:"SessionStart",source:"startup"}')"
+out="$(run_hook cc-sessionstart-restore.sh "$session_reset_json")"
+if [[ "$out" == *"Compact recovery"* ]]; then
+  not_ok "session reset does not replay compact recovery: $out"
+else
+  ok "session reset does not replay compact recovery"
+fi
+assert_json_expr "session reset records durable start boundary" "$(jq -s -c . "$ETRNL_STATE_DIR/events.jsonl")" 'any(.[]; .eventKind == "session" and .sessionId == "fixture-session" and .data.status == "started" and .data.source == "startup")'
+reset_handoff_json="$(ETRNL_STATE_DIR="$ETRNL_STATE_DIR" node "$ROOT/scripts/etrnl-state.mjs" compact-handoff --session fixture-session --json)"
+assert_json_expr "session reset clears compact handoff for same session id" "$reset_handoff_json" '.found == false and .handoff == null'
+printf '%s\n' '{"eventKind":"compact_post","sessionId":"fixture-session","data":{"compactSummary":"before clear","verificationStale":true}}' \
+  | ETRNL_STATE_DIR="$ETRNL_STATE_DIR" node "$ROOT/scripts/etrnl-state.mjs" append --json >/dev/null
+session_clear_json="$(jq -cn '{session_id:"fixture-session",hook_event_name:"SessionStart",source:"clear"}')"
+out="$(run_hook cc-sessionstart-restore.sh "$session_clear_json")"
+if [[ "$out" == *"Compact recovery"* ]]; then
+  not_ok "session clear does not replay compact recovery: $out"
+else
+  ok "session clear does not replay compact recovery"
+fi
+assert_json_expr "session clear records durable start boundary" "$(jq -s -c . "$ETRNL_STATE_DIR/events.jsonl")" 'any(.[]; .eventKind == "session" and .sessionId == "fixture-session" and .data.status == "started" and .data.source == "clear")'
+clear_handoff_json="$(ETRNL_STATE_DIR="$ETRNL_STATE_DIR" node "$ROOT/scripts/etrnl-state.mjs" compact-handoff --session fixture-session --json)"
+assert_json_expr "session clear cuts off same-session compact handoff" "$clear_handoff_json" '.found == false and .handoff == null'
 
 node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-session-status --plan "$ROOT/hooks/fixtures/plans/good-plan.md" >/dev/null
 node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-session-status --task T1 --title Task --status in_progress

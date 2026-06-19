@@ -642,6 +642,16 @@ printf '%s\n' '{"eventKind":"compact_pre","sessionId":"single-compact","at":"202
   | ETRNL_STATE_DIR="$etrnl_single_compact_dir" node "$ROOT/scripts/etrnl-state.mjs" append --json >/dev/null
 etrnl_single_compact_json="$(ETRNL_STATE_DIR="$etrnl_single_compact_dir" node "$ROOT/scripts/etrnl-state.mjs" compact-handoff --session single-compact --json)"
 assert_json_expr "etrnl compact handoff uses one newest compact event" "$etrnl_single_compact_json" '.handoff.task == "pre task" and .handoff.nextAction == "pre next" and .handoff.summary == "pre summary"'
+etrnl_reset_dir="$TMPROOT/etrnl-state-reset"
+printf '%s\n' '{"eventKind":"compact_post","sessionId":"reset-session","at":"2026-06-05T03:00:00Z","data":{"compactSummary":"before reset","verificationStale":true}}' \
+  | ETRNL_STATE_DIR="$etrnl_reset_dir" node "$ROOT/scripts/etrnl-state.mjs" append --json >/dev/null
+printf '%s\n' '{"eventKind":"session","sessionId":"reset-session","at":"2026-06-05T04:00:00Z","data":{"status":"started","source":"startup"}}' \
+  | ETRNL_STATE_DIR="$etrnl_reset_dir" node "$ROOT/scripts/etrnl-state.mjs" append --json >/dev/null
+etrnl_reset_json="$(ETRNL_STATE_DIR="$etrnl_reset_dir" node "$ROOT/scripts/etrnl-state.mjs" compact-handoff --session reset-session --json)"
+assert_json_expr "etrnl compact handoff ignores compact before session reset" "$etrnl_reset_json" '.found == false and .handoff == null'
+assert_command "etrnl stop-status allows session reset after compact" env ETRNL_STATE_DIR="$etrnl_reset_dir" node "$ROOT/scripts/etrnl-state.mjs" stop-status --session reset-session --json
+etrnl_workflow_reset_json="$(ETRNL_STATE_DIR="$etrnl_reset_dir" node "$ROOT/scripts/workflow-health.mjs" status --session reset-session --json)"
+assert_json_expr "workflow status scopes compact state to reset session" "$etrnl_workflow_reset_json" '.compact.found == false and .compact.staleVerification == false'
 if ETRNL_STATE_DIR="$etrnl_state_dir" node "$ROOT/scripts/etrnl-state.mjs" stop-status --session fixture-compact --json >/dev/null 2>&1; then
   not_ok "etrnl stop-status blocks stale compact verification"
 else
