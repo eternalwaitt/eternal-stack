@@ -183,6 +183,10 @@ function validateConsumedHashes(item, category, artifact, artifactPath, errors, 
   }
   const hashes = worklistHashes(artifact);
   const worklists = artifact.worklists && typeof artifact.worklists === "object" ? artifact.worklists : {};
+  if (!Array.isArray(requiredWorklists)) {
+    errors.push(diagnostic("REQUIRED_WORKLISTS_INVALID", artifactPath, `${jsonPath} has invalid required worklist metadata.`, "Deep audit category registry entries must expose required or allowed worklists as arrays.", "Fix REGISTERED_DEEP_AUDIT_CATEGORIES so requiredWorklists or allowedWorklists is an array.", jsonPath));
+    return;
+  }
   for (const worklistId of requiredWorklists) {
     if (!hasOwn(worklists, worklistId)) {
       errors.push(diagnostic("REQUIRED_WORKLIST_MISSING", artifactPath, `${jsonPath} cannot find required shared worklist ${worklistId}.`, "Selected categories must consume every required worklist from the orchestrator inventory.", `Add ${worklistId} to worklists with sha256 and artifactLabel.`, `$.worklists.${worklistId}`));

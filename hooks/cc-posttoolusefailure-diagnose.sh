@@ -53,7 +53,7 @@ failure_hint() {
       return 0
       ;;
     *"triage_guard_ml_disagreed"*|*"ml archive review found"*disagreement*)
-      printf 'Email-triage ML disagreement is a recoverable guard path, not a question for the repository owner. Inspect the run with etrnl-email triage ml-reviews --latest --account <id> --limit 20, then patch deterministic rules/cache or rerun guarded-run with the exact run id from the runtime output.'
+      printf 'Email-triage ML disagreement is a recoverable guard path, not a question for the repository owner. Inspect the run with etrnl-email triage ml-reviews --latest --account <account-id> --limit 20, then patch deterministic rules/cache or rerun guarded-run with the exact run id from the runtime output.'
       return 0
       ;;
     *"veloz deploy"*|*"vercel deploy"*)

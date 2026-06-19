@@ -33,7 +33,7 @@ jobs:
       - name: Install CLI dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y jq fd-find ripgrep shellcheck
+          sudo apt-get install -y jq fd-find ripgrep shellcheck python3
           sudo ln -sf "$(command -v fdfind)" /usr/local/bin/fd
 
       - name: Validate generated rule exports

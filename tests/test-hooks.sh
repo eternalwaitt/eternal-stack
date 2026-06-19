@@ -510,7 +510,7 @@ email_prompt="$(jq -cn '{session_id:"fixture-email-prompt",prompt:"/email-triage
 out="$(run_hook cc-userprompt-router.sh "$email_prompt")"
 assert_contains "email prompt emits exact guarded command" "$out" "etrnl-email triage guarded-run --account fixture-account --max-inbox 500 --apply --require-insights"
 assert_contains "email prompt requires inbox zero verify" "$out" "etrnl-email triage verify --latest --account fixture-account"
-assert_contains "email prompt blocks queue before inbox zero" "$out" "Do not open the queue unless verify reports inbox_zero_verified true and inbox_count 0"
+assert_contains "email prompt blocks queue before inbox zero" "$out" "Do not open the queue unless verify reports inbox_zero_verified true, inbox_count 0, and either gmail_mutated true or queue_ready_without_mutation true"
 assert_contains "email prompt emits reply queue command" "$out" "etrnl-email triage queue --run-id <run-id> --mode reply --format markdown --next"
 email_prompt_state="$TMPROOT/claude-guard-fixture-email-prompt.json"
 assert_json_expr "email triage skill recorded" "$(jq -c . "$email_prompt_state")" 'any(.requestedSkills[]?.value; . == "email-triage")'

@@ -137,7 +137,7 @@ cat >"$canary_etrnl_email" <<'BASH'
 #!/usr/bin/env bash
 if [[ "$1 $2" == "triage verify" ]]; then
   if [[ "${ETRNL_EMAIL_VERIFY_NONZERO:-0}" == "1" ]]; then
-    printf '{"ok":true,"data":{"verified":true,"dry_run":false,"gmail_mutated":true,"inbox_zero_verified":true,"inbox_count":1}}\n'
+    printf '{"ok":true,"data":{"verified":true,"dry_run":false,"gmail_mutated":true,"inbox_zero_verified":false,"inbox_count":1}}\n'
   elif [[ "${ETRNL_EMAIL_VERIFY_READY:-0}" == "1" ]]; then
     printf '{"ok":true,"data":{"verified":true,"dry_run":true,"gmail_mutated":false,"inbox_zero_verified":true,"queue_ready_without_mutation":true,"inbox_count":0,"action_backlog_count":31}}\n'
   else

@@ -148,8 +148,6 @@ if (state.sourceGitWarning) warningLines.push(`ETRNL_UPDATE_WARNING ${state.sour
 const resultOk = state.ok !== false;
 const promptNeeded = Boolean(
   !resultOk ||
-    state.localUpdateAvailable ||
-    state.remote?.updateAvailable ||
     missingTools.length ||
     toolUpdates.length ||
     actionLines.length,
