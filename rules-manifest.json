@@ -59,7 +59,7 @@
       "id": "Unique module identifier matching the frontmatter id field.",
       "paths": "Array of glob patterns for Claude Code paths: frontmatter scoping.",
       "globs": "Array of glob patterns for Cursor .mdc globs frontmatter.",
-      "hosts": "Array of target hosts for project rule modules: claude, cursor.",
+      "hosts": "Array of target hosts for rule modules: claude, cursor.",
       "maxBytes": "Optional per-module byte cap; doctor warns when exceeded.",
       "profile": "Profile or array of profiles this module belongs to.",
       "verify": "Shell command to verify the rule is effective in the target repo.",

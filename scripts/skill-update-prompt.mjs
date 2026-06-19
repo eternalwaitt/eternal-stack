@@ -123,6 +123,12 @@ const bootstrapCommand = state.sourceRoot
   : "";
 const actionLines = [];
 const warningLines = [];
+function isToolMissing(tool) {
+  if (tool.kind === "claude-plugin") {
+    return tool.pluginEnabled && !tool.pluginInstalled;
+  }
+  return tool.installed === false;
+}
 if (state.localUpdateAvailable) {
   actionLines.push(
     `ETRNL_UPDATE_AVAILABLE installed=${state.installedCommitShort || "unknown"} source=${state.sourceCommitShort || "unknown"} version=${state.sourceVersion || "unknown"} run="${updateCommand}"`,
@@ -138,7 +144,7 @@ for (const tool of Object.values(toolStack.tools || {})) {
     actionLines.push(
       `TOOL_STACK_UPDATE_AVAILABLE ${tool.id} current=${tool.currentVersion} latest=${tool.latestVersion} run="${tool.updateCommand}"`,
     );
-  } else if (tool && (tool.kind === "claude-plugin" ? tool.pluginEnabled && !tool.pluginInstalled : tool.installed === false)) {
+  } else if (tool && isToolMissing(tool)) {
     actionLines.push(`TOOL_STACK_MISSING ${tool.id} install="${tool.installCommand}"`);
   }
 }

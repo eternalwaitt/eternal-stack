@@ -60,4 +60,5 @@ jobs:
         with:
           image-ref: ${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
           severity: HIGH,CRITICAL
+          # Reference-only until a baseline artifact or tracked issue lists confirmed exploitable findings with owners, dispositions, and target dates; then switch to exit-code: "1".
           exit-code: "0"
