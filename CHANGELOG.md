@@ -30,6 +30,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ### Changed
 
 - `scripts/sync-rule-exports.mjs` and `scripts/init-project-rules.sh` — manifest-driven rule sync now validates profile membership, generated Cursor exports, privacy overlays, and install-time Cursor checksums.
+- `scripts/init-project-rules.sh` — installs generated Cursor `.mdc` modules alongside Claude rules, validates Cursor exports, and tracks Cursor checksums in the install receipt.
 - `rules/eternal-saas/*` — rule host metadata now reflects Claude and Cursor support without claiming unsupported Codex nested context output.
 - `skills/bundled/stripe-best-practices` — hardens Stripe guidance from advisory wording to explicit policy gates for API versions, payment-surface selection, test/migration expectations, and Connect settlement/dispute behavior.
 
