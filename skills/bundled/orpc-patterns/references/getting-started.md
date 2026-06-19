@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Node.js 18+ works; Node.js 20+ is default for new projects.
+- Node.js 18+ works; Node.js 24+ is default for new projects.
 - Bun, Deno, and Cloudflare Workers are supported through adapters.
 - TypeScript strict mode is documented.
 - oRPC supports Zod, Valibot, Arktype, and any Standard Schema implementation.

@@ -30,7 +30,7 @@ If `guarded-run` exits with `TRIAGE_GUARD_ML_DISAGREED`, do not ask the reposito
 ```bash
 etrnl-email triage guarded-run --account <account-id> --max-inbox 500 --apply --require-insights
 etrnl-email triage ml-reviews --latest --account <account-id> --limit 20
-etrnl-email triage report --latest --account <account-id> --include-failures --format markdown
+etrnl-email triage report --run-id <run-id> --format markdown
 ```
 
 Phase 2 starts only after Inbox Zero is verified. Use the queue run id emitted by the runtime, then show exactly one action/reply queue item:
