@@ -18,7 +18,7 @@
 
 - Keep plain Server Actions for small UI-local mutations.
 - Move to oRPC when the mutation needs typed reuse, public API shape, OpenAPI, tests against a stable contract, or AI-agent-readable schemas.
-- Use `.actionable()` when one procedure must support both paths.
+- Use `.actionable()` when one procedure supports both paths.
 
 ## Form Validation
 
@@ -46,7 +46,7 @@ return data;
 ## Common Review Nits
 
 - Missing `.output(...)` on public procedures.
-- `OpenAPIHandler` used where `RPCHandler` must serve normal clients.
+- Use `RPCHandler` for normal clients. Use `OpenAPIHandler` when OpenAPI requirements define the surface.
 - GET client calls without procedure `route({ method: "GET" })`.
 - Contract-first implementation missing `.router(...)`.
 - Minified contract used with request/response validation plugins.

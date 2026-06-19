@@ -19,6 +19,7 @@
       ".eternal/privacy-banned-tokens.local",
       "rules-manifest.local.json"
     ],
+    "localTokenFilesFormat": ".eternal/privacy-banned-tokens.local is a newline-delimited token list with blank lines and # comments ignored. rules-manifest.local.json may be a JSON array, an object with privacy.bannedTokens, or an object with bannedTokens. Local tokens are merged additively with bannedTokens by scripts/sync-rule-exports.mjs and scripts/doctor.sh; they do not override tracked manifest fields.",
     "policy": "sync-rule-exports.mjs --check fails when any tracked rule file contains a banned token. Tracked tokens are generic placeholders only. Client repo names, account facts, credentials, and personal identity must stay in local gitignored overlays."
   },
   "profiles": {
