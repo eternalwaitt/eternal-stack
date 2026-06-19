@@ -652,6 +652,21 @@ assert_json_expr "etrnl compact handoff ignores compact before session reset" "$
 assert_command "etrnl stop-status allows session reset after compact" env ETRNL_STATE_DIR="$etrnl_reset_dir" node "$ROOT/scripts/etrnl-state.mjs" stop-status --session reset-session --json
 etrnl_workflow_reset_json="$(ETRNL_STATE_DIR="$etrnl_reset_dir" node "$ROOT/scripts/workflow-health.mjs" status --session reset-session --json)"
 assert_json_expr "workflow status scopes compact state to reset session" "$etrnl_workflow_reset_json" '.compact.found == false and .compact.staleVerification == false'
+etrnl_reset_fallback_json="$(node --input-type=module - "$ROOT" <<'JS'
+import path from "node:path";
+const root = process.argv[2];
+const { compactHandoff } = await import(path.join(root, "scripts/lib/etrnl-state-core.mjs"));
+const result = compactHandoff({
+  events: [
+    { eventKind: "compact_post", sessionId: "fallback-session", eventSeq: 7, at: "2026-06-05T03:00:00Z", data: { compactSummary: "before reset" } },
+    { eventKind: "session", sessionId: "fallback-session", at: "2026-06-05T04:00:00Z", data: { status: "started", source: "startup" } }
+  ],
+  session: "fallback-session"
+});
+process.stdout.write(JSON.stringify(result));
+JS
+)"
+assert_json_expr "etrnl compact handoff falls back to timestamps when reset seq is missing" "$etrnl_reset_fallback_json" '.found == false and .handoff == null'
 if ETRNL_STATE_DIR="$etrnl_state_dir" node "$ROOT/scripts/etrnl-state.mjs" stop-status --session fixture-compact --json >/dev/null 2>&1; then
   not_ok "etrnl stop-status blocks stale compact verification"
 else

@@ -338,7 +338,7 @@ function eventsAfterLatestSessionReset(events) {
   const resetTime = Date.parse(latestReset.at || "");
   return events.filter((event) => {
     const seq = Number(event.eventSeq || 0);
-    if (seq > 0 || resetSeq > 0) return seq > resetSeq;
+    if (seq > 0 && resetSeq > 0) return seq > resetSeq;
     const eventTime = Date.parse(event.at || "");
     return !Number.isFinite(resetTime) || !Number.isFinite(eventTime) || eventTime > resetTime;
   });

@@ -86,7 +86,7 @@ Don't skip those steps. Strict mode with untested hooks will interrupt things yo
 | [CLAUDE.md](CLAUDE.md) | Thin Claude Code wrapper that imports `AGENTS.md` |
 | [docs/hooks.md](docs/hooks.md) | Hook reference: every `cc-*` entrypoint, events, default vs strict |
 | [docs/guards.md](docs/guards.md) | Pretool deny catalog, stop-verifier gates, fail-open matrix |
-| [docs/rules.md](docs/rules.md) | Cross-host rule pack: module catalog, host activation, `init-project-rules.sh` |
+| [docs/rules.md](docs/rules.md) | Claude and Cursor rule pack: module catalog, host activation, `init-project-rules.sh` |
 | [docs/install.md](docs/install.md) | Install, update, uninstall, profiles, strict mode |
 | [docs/migration.md](docs/migration.md) | Rollout sequencing — safe migration order |
 | [docs/configuration.md](docs/configuration.md) | Profiles, strict mode, env var tuning |
