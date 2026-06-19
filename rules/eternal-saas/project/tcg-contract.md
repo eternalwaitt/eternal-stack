@@ -10,14 +10,14 @@ paths:
   - "packages/**/*trading-card*/**"
   - "packages/**/*collectible-card*/**"
 globs:
-  - "apps/**/tcg*"
-  - "apps/**/tcg-card*"
-  - "apps/**/trading-card*"
-  - "apps/**/collectible-card*"
-  - "packages/**/tcg*"
-  - "packages/**/tcg-card*"
-  - "packages/**/trading-card*"
-  - "packages/**/collectible-card*"
+  - "apps/**/*tcg*/**"
+  - "apps/**/*tcg-card*/**"
+  - "apps/**/*trading-card*/**"
+  - "apps/**/*collectible-card*/**"
+  - "packages/**/*tcg*/**"
+  - "packages/**/*tcg-card*/**"
+  - "packages/**/*trading-card*/**"
+  - "packages/**/*collectible-card*/**"
 description: "TCG rules: collectible-card domain contracts, inventory safety, and market-data verification."
 hosts: [claude, cursor]
 alwaysApply: false

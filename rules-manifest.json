@@ -464,14 +464,14 @@
         "packages/**/*collectible-card*/**"
       ],
       "globs": [
-        "apps/**/tcg*",
-        "apps/**/tcg-card*",
-        "apps/**/trading-card*",
-        "apps/**/collectible-card*",
-        "packages/**/tcg*",
-        "packages/**/tcg-card*",
-        "packages/**/trading-card*",
-        "packages/**/collectible-card*"
+        "apps/**/*tcg*/**",
+        "apps/**/*tcg-card*/**",
+        "apps/**/*trading-card*/**",
+        "apps/**/*collectible-card*/**",
+        "packages/**/*tcg*/**",
+        "packages/**/*tcg-card*/**",
+        "packages/**/*trading-card*/**",
+        "packages/**/*collectible-card*/**"
       ],
       "hosts": [
         "claude",
@@ -481,8 +481,8 @@
         "eternal-saas-tcg"
       ],
       "verify": "pnpm test",
-      "checksum": "64aa62c9bec37d35493c51b4569c387ec1cbcbff5d945fa4ce7224166a8e2cf7",
-      "mdcChecksum": "077c3e9b44f482cfc41d4e92852e3b12981c1a89cf54f71e75a071bdae5ffba2",
+      "checksum": "1d18155d4a032776c0f1feafdd102cc1d71f10dd7d024ef314d45d8095fa1fbf",
+      "mdcChecksum": "816cc60d8e9aa707a56ac0189407c3586fabc2bb5d0655c2100bafae89332a31",
       "cursorPath": "templates/cursor/rules/eternal-saas/project/eternal-saas-tcg-contract.mdc",
       "generatedAt": "2026-06-16T18:32:06.270Z"
     },

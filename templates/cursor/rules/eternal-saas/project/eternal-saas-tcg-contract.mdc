@@ -1,13 +1,13 @@
 ---
 globs:
-  - "apps/**/tcg*"
-  - "apps/**/tcg-card*"
-  - "apps/**/trading-card*"
-  - "apps/**/collectible-card*"
-  - "packages/**/tcg*"
-  - "packages/**/tcg-card*"
-  - "packages/**/trading-card*"
-  - "packages/**/collectible-card*"
+  - "apps/**/*tcg*/**"
+  - "apps/**/*tcg-card*/**"
+  - "apps/**/*trading-card*/**"
+  - "apps/**/*collectible-card*/**"
+  - "packages/**/*tcg*/**"
+  - "packages/**/*tcg-card*/**"
+  - "packages/**/*trading-card*/**"
+  - "packages/**/*collectible-card*/**"
 alwaysApply: false
 description: "TCG rules: collectible-card domain contracts, inventory safety, and market-data verification."
 ---
