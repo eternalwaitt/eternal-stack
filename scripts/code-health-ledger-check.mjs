@@ -2,6 +2,7 @@
 import { readStdinJson } from "./lib/read-stdin.mjs";
 
 const CODE_HEALTH_SKILL = "code-health";
+const FULL_CODEBASE_AUDIT_PATTERN = /\b(code[- ]health|repo[- ]health|codebase[- ]health|no\s+skips|whole\s+codebase\s+audit|entire\s+codebase\s+audit)\b/;
 const TERMINAL_DISPOSITIONS = new Set([
   "fixed",
   "false_positive_with_evidence",
@@ -65,7 +66,7 @@ function latestCodeHealthRequest(state) {
     .map((item) => parseStamp(stamp(item)))
     .filter(Number.isFinite);
   const prompt = String(state.lastPrompt || "").toLowerCase();
-  if (/code[- ]health|repo[- ]health|codebase[- ]health|no skips|whole codebase audit|entire codebase audit/.test(prompt)) {
+  if (FULL_CODEBASE_AUDIT_PATTERN.test(prompt)) {
     const startedAt = parseStamp(state.startedAt);
     if (Number.isFinite(startedAt)) {
       times.push(startedAt);

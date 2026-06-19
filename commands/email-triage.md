@@ -8,8 +8,8 @@ Account argument from the slash command: `$ARGUMENTS`
 
 Treat the argument as the account id. If it is empty, ask the repository owner for the account id and stop.
 
-Do not handwrite Gmail commands. Do not send email. Do not mutate Gmail outside the managed email runtime.
-Do not run `etrnl-email triage run` for this slash command. That is a dry classification path and does not clear INBOX.
+Do not handwrite Gmail commands, send email, or mutate Gmail outside the managed email runtime.
+Avoid `etrnl-email triage run` for this slash command; it is a dry classification path and does not clear INBOX.
 
 Phase 1 is Inbox Zero. Triage every email in INBOX, archive known bad-quality emails, label action/waiting/manual-review items, remove them from INBOX, and provider-verify INBOX is zero:
 

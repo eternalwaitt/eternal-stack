@@ -854,7 +854,11 @@ for rel_path in manifest.get("privacy", {}).get("localTokenFiles", []):
     if not local_path.exists():
         continue
     if local_path.suffix == ".json":
-        parsed = json.loads(local_path.read_text())
+        try:
+            parsed = json.loads(local_path.read_text())
+        except json.JSONDecodeError as error:
+            print(f"malformed JSON in {rel_path}: {error}", file=sys.stderr)
+            sys.exit(1)
         if isinstance(parsed, list):
             local_tokens = parsed
         else:

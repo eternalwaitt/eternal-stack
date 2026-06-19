@@ -147,13 +147,14 @@ cursor_rel_for() {
 if [[ "$DRY_RUN" -eq 1 && "$CHECK_MODE" -eq 0 ]]; then
   echo "dry-run: profile=$PROFILE target=$TARGET"
   echo "planned copies to $TARGET:"
+  modules_output="$(collect_modules)" || exit 1
   while IFS=$'\t' read -r key id; do
     [[ -n "$key" && -n "$id" ]] || continue
     rel="$key.md"
     cursor_rel="$(cursor_rel_for "$key" "$id")"
     echo "  copy -> .claude/rules/eternal-saas/$rel"
     echo "  copy -> .cursor/rules/eternal-saas/$cursor_rel"
-  done < <(collect_modules)
+  done <<<"$modules_output"
   echo "planned receipt: $MANIFEST_RECEIPT"
   exit 0
 fi
@@ -170,6 +171,7 @@ if [[ "$CHECK_MODE" -eq 1 ]]; then
   any_stale=0
   any_modified=0
 
+  modules_output="$(collect_modules)" || exit 1
   while IFS=$'\t' read -r key id; do
     [[ -n "$key" && -n "$id" ]] || continue
     rel="$key.md"
@@ -214,7 +216,7 @@ if [[ "$CHECK_MODE" -eq 1 ]]; then
         any_modified=1
       fi
     fi
-  done < <(collect_modules)
+  done <<<"$modules_output"
 
   if [[ "$any_modified" -gt 0 || "$any_stale" -gt 0 ]]; then
     exit 1
@@ -226,6 +228,7 @@ if [[ -f "$MANIFEST_RECEIPT" && "$FORCE" -eq 0 ]]; then
   receipt_sums="$(receipt_checksums checksums)"
   cursor_receipt_sums="$(receipt_checksums cursorChecksums)"
   modified_files=()
+  modules_output="$(collect_modules)" || exit 1
   while IFS=$'\t' read -r key id; do
     [[ -n "$key" && -n "$id" ]] || continue
     rel="$key.md"
@@ -249,7 +252,7 @@ if [[ -f "$MANIFEST_RECEIPT" && "$FORCE" -eq 0 ]]; then
         modified_files+=("$cursor_rel")
       fi
     fi
-  done < <(collect_modules)
+  done <<<"$modules_output"
   if [[ "${#modified_files[@]}" -gt 0 ]]; then
     echo "error: locally-modified files would be overwritten. Use --force to proceed:" >&2
     for file in "${modified_files[@]}"; do echo "  $file" >&2; done
@@ -262,6 +265,7 @@ checksums_tmp="$(mktemp)"
 cursor_checksums_tmp="$(mktemp)"
 trap 'rm -f "$checksums_tmp" "$cursor_checksums_tmp"' EXIT
 
+modules_output="$(collect_modules)" || exit 1
 while IFS=$'\t' read -r key id; do
   [[ -n "$key" && -n "$id" ]] || continue
   rel="$key.md"
@@ -280,7 +284,7 @@ while IFS=$'\t' read -r key id; do
   printf '%s\t%s\n' "$rel" "$sum" >> "$checksums_tmp"
   printf '%s\t%s\n' "$cursor_rel" "$cursor_sum" >> "$cursor_checksums_tmp"
   echo "installed: $rel"
-done < <(collect_modules)
+done <<<"$modules_output"
 
 mkdir -p "$(dirname "$MANIFEST_RECEIPT")"
 python3 - "$MANIFEST_RECEIPT" "$PROFILE" "$install_ts" "$checksums_tmp" "$cursor_checksums_tmp" <<'PYEOF'

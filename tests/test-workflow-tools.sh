@@ -223,6 +223,9 @@ if [[ "$code_health_bad_status" == "missing-inventory" ]]; then ok "code health 
 code_health_prompt_only_state="$(jq -nc '{requestedSkills:[],successfulCommands:[],verificationRuns:[],lastPrompt:"audit the entire codebase with no skips",startedAt:"2026-01-01T00:00:00Z"}')"
 code_health_prompt_only_status="$(jq -cn --argjson state "$code_health_prompt_only_state" --arg message "Done, code looks fine." '{state:$state,message:$message}' | node "$ROOT/scripts/code-health-ledger-check.mjs")"
 if [[ "$code_health_prompt_only_status" == "missing-inventory" ]]; then ok "code health checker blocks prompt-only audit bypass"; else not_ok "code health checker blocks prompt-only audit bypass: $code_health_prompt_only_status"; fi
+code_health_substring_state="$(jq -nc '{requestedSkills:[],successfulCommands:[],verificationRuns:[],lastPrompt:"decode-health labels are unrelated",startedAt:"2026-01-01T00:00:00Z"}')"
+code_health_substring_status="$(jq -cn --argjson state "$code_health_substring_state" --arg message "Done." '{state:$state,message:$message}' | node "$ROOT/scripts/code-health-ledger-check.mjs")"
+if [[ -z "$code_health_substring_status" ]]; then ok "code health checker ignores substring prompt matches"; else not_ok "code health checker ignores substring prompt matches: $code_health_substring_status"; fi
 
 code_health_state="$(jq -nc '{requestedSkills:[{value:"etrnl-audit-code",at:"2026-01-01T00:00:00Z"}],successfulCommands:[{value:"node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked",at:"2026-01-01T00:00:01Z"},{value:"tests/test-workflow-tools.sh",at:"2026-01-01T00:00:02Z"}],verificationRuns:[{value:"tests/test-workflow-tools.sh",at:"2026-01-01T00:00:02Z"}]}')"
 code_health_shallow_status="$(jq -cn --argjson state "$code_health_state" --arg message "Done, code looks fine." '{state:$state,message:$message}' | node "$ROOT/scripts/code-health-ledger-check.mjs")"
@@ -667,6 +670,21 @@ process.stdout.write(JSON.stringify(result));
 JS
 )"
 assert_json_expr "etrnl compact handoff falls back to timestamps when reset seq is missing" "$etrnl_reset_fallback_json" '.found == false and .handoff == null'
+etrnl_reset_time_primary_json="$(node --input-type=module - "$ROOT" <<'JS'
+import path from "node:path";
+const root = process.argv[2];
+const { compactHandoff } = await import(path.join(root, "scripts/lib/etrnl-state-core.mjs"));
+const result = compactHandoff({
+  events: [
+    { eventKind: "session", sessionId: "time-primary-session", eventSeq: 100, at: "2026-06-05T04:00:00Z", data: { status: "started", source: "startup" } },
+    { eventKind: "compact_post", sessionId: "time-primary-session", eventSeq: 1, at: "2026-06-05T05:00:00Z", data: { compactSummary: "after reset" } }
+  ],
+  session: "time-primary-session"
+});
+process.stdout.write(JSON.stringify(result));
+JS
+)"
+assert_json_expr "etrnl compact reset boundary uses timestamp before sequence" "$etrnl_reset_time_primary_json" '.found == true and .handoff.summary == "after reset"'
 if ETRNL_STATE_DIR="$etrnl_state_dir" node "$ROOT/scripts/etrnl-state.mjs" stop-status --session fixture-compact --json >/dev/null 2>&1; then
   not_ok "etrnl stop-status blocks stale compact verification"
 else
@@ -1798,6 +1816,11 @@ if [[ -f "$INIT_SCRIPT" ]]; then
   else
     ok "init refuses missing --profile"
   fi
+  if bash "$INIT_SCRIPT" --profile does-not-exist --dry-run "$init_target" >/dev/null 2>&1; then
+    not_ok "init propagates module collection errors"
+  else
+    ok "init propagates module collection errors"
+  fi
 
   # init --check reports stale after manifest bump
   real_target="$TMPROOT/init-real-target"
@@ -1844,6 +1867,7 @@ else
   not_ok "init dry-run mentions eternal-saas"
   not_ok "init --dry-run does not write files"
   not_ok "init refuses missing --profile"
+  not_ok "init propagates module collection errors"
   not_ok "init --check reports stale after manifest bump"
   not_ok "init --check reports locally-modified"
   not_ok "init refuses to overwrite locally-modified without --force"

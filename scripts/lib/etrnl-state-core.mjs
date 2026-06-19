@@ -337,10 +337,12 @@ function eventsAfterLatestSessionReset(events) {
   const resetSeq = Number(latestReset.eventSeq || 0);
   const resetTime = Date.parse(latestReset.at || "");
   return events.filter((event) => {
-    const seq = Number(event.eventSeq || 0);
-    if (seq > 0 && resetSeq > 0) return seq > resetSeq;
     const eventTime = Date.parse(event.at || "");
-    return !Number.isFinite(resetTime) || !Number.isFinite(eventTime) || eventTime > resetTime;
+    if (Number.isFinite(resetTime) && Number.isFinite(eventTime) && eventTime !== resetTime) {
+      return eventTime > resetTime;
+    }
+    const seq = Number(event.eventSeq || 0);
+    return seq > resetSeq;
   });
 }
 
@@ -348,7 +350,8 @@ function activeCompactEvents(events) {
   const bySession = new Map();
   for (const event of events) {
     const key = event.sessionId || "";
-    bySession.set(key, [...(bySession.get(key) || []), event]);
+    if (!bySession.has(key)) bySession.set(key, []);
+    bySession.get(key).push(event);
   }
   return [...bySession.values()].flatMap(eventsAfterLatestSessionReset);
 }

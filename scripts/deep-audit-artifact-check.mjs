@@ -184,7 +184,7 @@ function validateConsumedHashes(item, category, artifact, artifactPath, errors, 
   const hashes = worklistHashes(artifact);
   const worklists = artifact.worklists && typeof artifact.worklists === "object" ? artifact.worklists : {};
   if (!Array.isArray(requiredWorklists)) {
-    errors.push(diagnostic("REQUIRED_WORKLISTS_INVALID", artifactPath, `${jsonPath} has invalid required worklist metadata.`, "Deep audit category registry entries must expose required or allowed worklists as arrays.", "Fix REGISTERED_DEEP_AUDIT_CATEGORIES so requiredWorklists or allowedWorklists is an array.", jsonPath));
+    errors.push(diagnostic("REQUIRED_WORKLISTS_INVALID", artifactPath, `${jsonPath} has invalid required worklist metadata.`, "Category and lane worklist metadata must be arrays.", "Fix category.requiredWorklists or lane.allowedWorklists so the value is an array.", jsonPath));
     return;
   }
   for (const worklistId of requiredWorklists) {
@@ -395,7 +395,7 @@ function validateLaneReceipts(artifact, artifactPath, errors, selected) {
         if (!receipt.summary) {
           errors.push(diagnostic("LANE_RECEIPT_SUMMARY_MISSING", artifactPath, `${category.categoryId}/${lane.laneId} has no summary.`, "Fanout receipts need a human-readable completion summary before synthesis.", "Add a non-empty summary.", `${receiptPath}.summary`));
         }
-        validateConsumedHashes(receipt, category, artifact, artifactPath, errors, receiptPath, lane.allowedWorklists || category.requiredWorklists);
+        validateConsumedHashes(receipt, category, artifact, artifactPath, errors, receiptPath, lane.allowedWorklists ?? category.requiredWorklists);
       }
     }
   }
