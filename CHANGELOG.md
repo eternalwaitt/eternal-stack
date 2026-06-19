@@ -32,6 +32,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - `scripts/sync-rule-exports.mjs` and `scripts/init-project-rules.sh` — manifest-driven rule sync now validates profile membership, generated Cursor exports, privacy overlays, and install-time Cursor checksums.
 - `scripts/init-project-rules.sh` — installs generated Cursor `.mdc` modules alongside Claude rules, validates Cursor exports, and tracks Cursor checksums in the install receipt.
 - `rules/eternal-saas/*` — rule host metadata now reflects Claude and Cursor support without claiming unsupported Codex nested context output.
+- Email triage runtime references now use the `etrnl-email` command pattern across guards, canaries, slash commands, and fixtures instead of legacy `vivaz-email` naming.
+- Bundled skill namespaces now align around `@example-suite`, `money-vo-discipline`, and `orpc-patterns` naming across policy skills, routing lists, and vendored bundles.
 - `skills/bundled/stripe-best-practices` — hardens Stripe guidance from advisory wording to explicit policy gates for API versions, payment-surface selection, test/migration expectations, and Connect settlement/dispute behavior.
 
 ### Fixed

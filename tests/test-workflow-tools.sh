@@ -492,6 +492,11 @@ if perf_invalid_json="$(printf '{' | node "$ROOT/scripts/performance-baseline.mj
 else
   assert_contains "performance baseline reports invalid JSON" "$perf_invalid_json" "invalid JSON from stdin"
 fi
+if perf_empty_stdin="$(printf '' | node "$ROOT/scripts/performance-baseline.mjs" create 2>&1)"; then
+  not_ok "performance baseline rejects empty stdin"
+else
+  assert_contains "performance baseline rejects empty stdin" "$perf_empty_stdin" "stdin closed without JSON; pipe JSON and close stdin/EOF"
+fi
 if perf_stdin_timeout="$(ETRNL_STDIN_TIMEOUT_MS=1 node "$ROOT/scripts/performance-baseline.mjs" create < <(sleep 0.05) 2>&1)"; then
   not_ok "performance baseline fails when stdin does not close"
 else
