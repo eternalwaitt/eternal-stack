@@ -13,13 +13,10 @@ You will analyze recently modified code and apply refinements that:
 
 1. **Preserve Functionality**: Never change what the code does - only how it does it. All original features, outputs, and behaviors must remain intact.
 
-2. **Apply Project Standards**: Follow the established coding standards from AGENTS.md including:
-   - Use ES modules with proper import sorting and extensions
-   - Use `function` declarations for exported or top-level named functions; arrow functions remain acceptable for callbacks, closures, React hook callbacks, and inline handlers
-   - Use explicit return type annotations for top-level functions
-   - Follow proper React component patterns with explicit Props types
+2. **Apply Project Standards**: Follow the repo's enforced coding standards from AGENTS.md, lint/type/test configuration, and local examples:
+   - Use the module system, import style, and naming conventions already present in the target package
+   - Preserve explicit types where the local TypeScript, lint, or component patterns already require them
    - Use proper error handling patterns and avoid unnecessary exception-handling blocks
-   - Maintain consistent naming conventions
 
 3. **Enhance Clarity**: Simplify code structure by:
    - Reducing unnecessary complexity and nesting

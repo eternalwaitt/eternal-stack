@@ -426,7 +426,8 @@ function failedProjectStatus(resolved, message) {
 
 const tools = [
   // Admin-tool install commands interpolate trusted user environment specs.
-  // Shell metacharacters in ETRNL_*_NPM_SPEC values would execute locally by design.
+  // Set ETRNL_*_NPM_SPEC only from trusted administrator-controlled input;
+  // shell metacharacters in those values would execute locally by design.
   {
     id: "codegraph",
     command: "codegraph",

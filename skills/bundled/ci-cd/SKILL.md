@@ -115,7 +115,7 @@ Measure before and after. Report the long pole and the wall-clock critical path,
 - Use multi-stage Dockerfiles, copy dependency manifests before source for layer caching, and keep `.dockerignore` tight.
 - Run as non-root, set health checks where appropriate, avoid secrets in `ARG`/`ENV`, and avoid `:latest` base images in production.
 - Use BuildKit cache (`cache-from`/`cache-to`) and keep cache scopes stable but not over-broad.
-- Scan images with tools such as Trivy/Grype. Start in reference-only mode when a legacy image is noisy, then make confirmed high/critical exploitable findings blocking once the initial baseline is triaged.
+- Scan images with tools such as Trivy/Grype. Start in reference-only mode when a legacy image is noisy, then make confirmed high/critical exploitable findings blocking once a baseline artifact or tracked issue lists each finding with owner, disposition, and target date.
 - Generate SBOMs and provenance for release artifacts when the project is production-facing.
 
 ## DevSecOps and Supply Chain

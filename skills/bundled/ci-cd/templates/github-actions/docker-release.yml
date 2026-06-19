@@ -60,4 +60,4 @@ jobs:
         with:
           image-ref: ${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
           severity: HIGH,CRITICAL
-          exit-code: "1"
+          exit-code: "0"
