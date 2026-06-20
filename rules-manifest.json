@@ -65,6 +65,8 @@
       "profile": "Profile or array of profiles this module belongs to.",
       "verify": "Shell command to verify the rule is effective in the target repo.",
       "checksum": "SHA-256 of the canonical module source file (populated by sync).",
+      "mdcChecksum": "SHA-256 of the generated Cursor .mdc template file (populated by sync).",
+      "cursorPath": "Relative path to the generated Cursor .mdc template file.",
       "generatedAt": "ISO timestamp of last sync run."
     }
   },

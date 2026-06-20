@@ -1753,6 +1753,27 @@ if [[ -f "$SYNC_SCRIPT" ]]; then
     not_ok "sync --check passes on stable output (idempotent)"
   fi
 
+  escaped_quote_module="$TMPROOT/escaped-quote-fixture.md"
+  cat >"$escaped_quote_module" <<'MD'
+---
+id: escaped-quote-fixture
+paths: ["src/\"quoted\"/**/*.ts"]
+globs: ["src/\"quoted\"/**/*.ts"]
+description: "Escaped quote fixture."
+hosts: [claude, cursor]
+verify: "pnpm test"
+---
+
+# Escaped Quote Fixture
+MD
+  escaped_quote_out="$TMPROOT/sync-escaped-quote"
+  mkdir -p "$escaped_quote_out"
+  if node "$SYNC_SCRIPT" --source "$escaped_quote_module" --manifest "$FIXTURE_MANIFEST" --output "$escaped_quote_out" 2>/dev/null; then
+    assert_contains "sync preserves escaped quotes in inline arrays" "$(cat "$escaped_quote_out/escaped-quote-fixture.mdc")" 'src/\"quoted\"/**/*.ts'
+  else
+    not_ok "sync preserves escaped quotes in inline arrays"
+  fi
+
   # sync --check fails on drift (mutated emitted file)
   mdc_drift="$sync_out_dir2/test-fixture-module.mdc"
   if [[ -f "$mdc_drift" ]]; then

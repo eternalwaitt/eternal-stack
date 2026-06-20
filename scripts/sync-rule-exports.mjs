@@ -40,7 +40,18 @@ function parseInlineArray(value) {
   const items = [];
   let current = '';
   let quote = '';
+  let escaped = false;
   for (const char of value) {
+    if (escaped) {
+      current += char;
+      escaped = false;
+      continue;
+    }
+    if (char === '\\' && quote) {
+      current += char;
+      escaped = true;
+      continue;
+    }
     if ((char === '"' || char === "'") && !quote) {
       quote = char;
       current += char;

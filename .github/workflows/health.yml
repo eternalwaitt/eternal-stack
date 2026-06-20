@@ -30,7 +30,7 @@ jobs:
         with:
           node-version: "22"
           # No package install runs in this job; keep setup-node package-manager caching disabled.
-          cache: ""
+          package-manager-cache: false
 
       - name: Install CLI dependencies
         run: |
