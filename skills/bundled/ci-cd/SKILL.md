@@ -32,10 +32,10 @@ For broad CI/CD upgrades, use this sequence:
 
 - Produce the same artifact for the same commit. Avoid mutable deploy inputs unless they are resolved to an immutable digest before rollout.
 - Never print, commit, or document secret values. Store secrets in GitHub/GitLab/Jenkins secret stores, cloud secret managers, Vault, or sealed secrets.
-- Keep CI test secrets separate from staging/production secrets. CI must not need production credentials.
-- Pin external actions and base images deliberately. Defaults to commit SHAs for GitHub Actions in high-trust repos and immutable image digests for production bases.
-- Avoid direct `${{ github.event.* }}` interpolation inside shell `run:` blocks. Pass event data through env vars and quote carefully.
-- Do not skip failing gates to go green. Fix root causes, move unsuitable checks to the right lane, or make them reference with an explicit plan to harden later.
+- Keep CI test secrets separate from staging/production secrets. CI must not need production credentials. Manual review: validate the workflow architecture and secret boundaries.
+- Pin external actions and base images deliberately. Defaults to commit SHAs for GitHub Actions in high-trust repos and immutable image digests for production bases. Automated support: `audit_github_actions.py`.
+- Avoid direct `${{ github.event.* }}` interpolation inside shell `run:` blocks. Pass event data through env vars and quote carefully. Automated support: `audit_github_actions.py`.
+- Do not skip failing gates to go green. Fix root causes, move unsuitable checks to the right lane, or make them reference with an explicit plan to harden later. Manual review: confirm gate ownership and remediation plans.
 - Treat flaky tests as production risks. Quarantine only with owner, ticket, expiry, and replacement coverage.
 
 ## Quality Gates
