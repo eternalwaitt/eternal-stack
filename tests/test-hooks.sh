@@ -291,8 +291,10 @@ busy_ready="$TMPROOT/busy-port-ready"
 busy_error="$TMPROOT/busy-port-error"
 busy_pid=""
 cleanup_busy_port() {
-  [[ -n "$busy_pid" ]] && kill "$busy_pid" >/dev/null 2>&1 || true
-  [[ -n "$busy_pid" ]] && wait "$busy_pid" 2>/dev/null || true
+  if [[ -n "$busy_pid" ]]; then
+    kill "$busy_pid" >/dev/null 2>&1 || true
+    wait "$busy_pid" 2>/dev/null || true
+  fi
   rm -f -- "$busy_ready" "$busy_error"
 }
 trap 'cleanup_busy_port; cc_test_cleanup' EXIT
