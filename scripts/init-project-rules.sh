@@ -280,8 +280,8 @@ while IFS=$'\t' read -r key id; do
   dest_cursor="$CURSOR_RULES_DEST/$cursor_rel"
 
   mkdir -p "$(dirname "$dest_claude")" "$(dirname "$dest_cursor")"
-  cp "$src" "$dest_claude"
-  cp "$cursor_src" "$dest_cursor"
+  cp "$src" "$dest_claude" || { echo "error: failed to copy $rel" >&2; exit 1; }
+  cp "$cursor_src" "$dest_cursor" || { echo "error: failed to copy $cursor_rel" >&2; exit 1; }
 
   sum="$(file_sha256 "$dest_claude")"
   cursor_sum="$(file_sha256 "$dest_cursor")"
