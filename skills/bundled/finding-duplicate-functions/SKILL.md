@@ -92,10 +92,12 @@ Save each output as `./duplicates/{category}.json`.
 
 Produces a prioritized markdown report grouped by confidence level.
 
+Each duplicate entry includes `rules.action`, `rules.reason`, and `rules.survivor` when a survivor exists; these fields become the report action text and survivor annotation. See `scripts/find-duplicates-prompt.md` for the full duplicate JSON structure.
+
 ### Phase 6: Human Review
 
 Review the report. For HIGH confidence duplicates:
-1. Verify the recommended survivor has tests
+1. Verify the documented survivor has tests
 2. Update callers to use the survivor
 3. Delete the duplicates
 4. Run tests

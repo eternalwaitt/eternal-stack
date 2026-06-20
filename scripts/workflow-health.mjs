@@ -203,7 +203,7 @@ function effectivenessStats() {
 
 function compactStats() {
   try {
-    const handoff = compactHandoff({ latest: true });
+    const handoff = compactHandoff({ session: sessionFilter, latest: !sessionFilter });
     return {
       found: handoff.found,
       staleVerification: Boolean(handoff.handoff?.verificationStale),

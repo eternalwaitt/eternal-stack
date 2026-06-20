@@ -13,9 +13,9 @@ Use lanes rather than one giant workflow:
 | PR fast CI | pull request | yes | static checks, affected unit tests, affected build, smoke E2E |
 | Main CI | push to protected branch | yes | full graph tests, coverage thresholds, production build, artifact creation |
 | Image/release | main/tag/manual | yes for release | Docker build, scan, SBOM, provenance, signing, registry push |
-| Staging deploy | main/manual | usually yes | deploy immutable artifact, migrations, smoke, integration/E2E |
+| Staging deploy | main/manual | typically yes | deploy immutable artifact, migrations, smoke, integration/E2E |
 | Production deploy | manual/approval/tag | yes | environment approval, deploy, health checks, rollback, monitoring |
-| Scheduled | nightly/weekly | advisory or blocking by policy | full E2E, dependency audit, image scans, drift detection, flaky reports |
+| Scheduled | nightly/weekly | reference or blocking by policy | full E2E, dependency audit, image scans, drift detection, flaky reports |
 
 Keep PR CI fast enough that developers wait for it. Keep main/deploy authoritative enough that production safety does not depend on local hooks.
 
@@ -30,7 +30,7 @@ Use this checklist for every workflow:
 - Avoid `pull_request_target` unless the workflow never checks out or executes untrusted PR code with secrets.
 - Avoid direct `${{ github.event.* }}` expansion inside shell scripts; put values in `env:` and quote shell variables.
 - Use GitHub Environments for production secrets, URLs, and approvals.
-- Prefer OIDC to long-lived cloud provider keys.
+- Use OIDC as the default alternative to long-lived cloud provider keys.
 - Add CODEOWNERS coverage for `.github/workflows/` in repos where workflow changes can expose secrets or deploy production.
 - Use Dependabot/Renovate for action updates if actions are pinned to SHAs; pinning without an update path becomes silent drift.
 - Upload failure artifacts: Playwright reports, logs, screenshots, coverage, test XML, Terraform plans with secrets redacted.
@@ -53,7 +53,7 @@ Use this checklist for every workflow:
 ### Nx
 
 - Use `nx affected -t lint test build --base=<base> --head=<head>` in CI.
-- Prefer a base SHA from the latest successful protected-branch run when available, not merely the current branch tip.
+- Defaults to a base SHA from the latest successful protected-branch run when available, not merely the current branch tip.
 - Keep named inputs and implicit dependencies accurate for config/schema/generated-code changes.
 - Use remote caching with branch/fork trust boundaries.
 - For dependency lockfile changes, expect broad invalidation; that is a safety feature.

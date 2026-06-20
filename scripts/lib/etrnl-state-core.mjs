@@ -325,20 +325,52 @@ function latestEvent(events, predicate) {
   })[0] || null;
 }
 
+function isSessionResetBoundary(event) {
+  return event.eventKind === "session" &&
+    String(event.data?.status || "") === "started" &&
+    String(event.data?.source || "") !== "compact";
+}
+
+function eventsAfterLatestSessionReset(events) {
+  const latestReset = latestEvent(events, isSessionResetBoundary);
+  if (!latestReset) return events;
+  const resetSeq = Number(latestReset.eventSeq || 0);
+  const resetTime = Date.parse(latestReset.at || "");
+  return events.filter((event) => {
+    const eventTime = Date.parse(event.at || "");
+    if (Number.isFinite(resetTime) && Number.isFinite(eventTime) && eventTime !== resetTime) {
+      return eventTime > resetTime;
+    }
+    const seq = Number(event.eventSeq || 0);
+    return seq > resetSeq;
+  });
+}
+
+function activeCompactEvents(events) {
+  const bySession = new Map();
+  for (const event of events) {
+    const key = event.sessionId || "";
+    if (!bySession.has(key)) bySession.set(key, []);
+    bySession.get(key).push(event);
+  }
+  return [...bySession.values()].flatMap(eventsAfterLatestSessionReset);
+}
+
 /** Build the latest compact handoff packet and verification-staleness signal. */
 export function compactHandoff(options = {}) {
   const root = stateRoot(options.stateDir);
   const events = options.events || readEvents(root);
   const requestedSession = cleanSessionId(options.session);
-  const selected = options.latest
+  const selectedRaw = options.latest
     ? events
     : events.filter((event) => requestedSession && event.sessionId === requestedSession);
+  const selected = options.latest ? activeCompactEvents(selectedRaw) : eventsAfterLatestSessionReset(selectedRaw);
   const latestCompact = latestEvent(selected, (event) => event.eventKind === "compact_pre" || event.eventKind === "compact_post");
   if (!latestCompact) {
     return { ok: true, found: false, handoff: null, text: "", statePath: statePaths(root).events };
   }
   const sessionId = latestCompact.sessionId;
-  const sessionEvents = events.filter((event) => event.sessionId === sessionId);
+  const sessionEvents = eventsAfterLatestSessionReset(events.filter((event) => event.sessionId === sessionId));
   const latestPre = latestEvent(sessionEvents, (event) => event.eventKind === "compact_pre");
   const latestPost = latestEvent(sessionEvents, (event) => event.eventKind === "compact_post");
   const latestCheck = latestEvent(sessionEvents, (event) => event.eventKind === "check" && (event.data.category === "verification" || event.data.verification === true));

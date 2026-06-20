@@ -24,6 +24,7 @@ Install:
 - `local-daemon` mode requires a local Hindsight daemon or `uvx hindsight-embed`/`hindsight-embed`; set `HINDSIGHT_DAEMON_SOCKET` only when your local daemon uses a non-default socket.
 - `HINDSIGHT_API_URL` is required for `external-api` mode; `HINDSIGHT_API_TOKEN` remains an environment secret and is not written to tracked files.
 - `docker-server` mode requires Docker plus the Hindsight image selection, such as `HINDSIGHT_DOCKER_IMAGE` and `HINDSIGHT_DOCKER_TAG`; configure registry credentials and host port mapping outside tracked files.
+- `ETRNL_CODEGRAPH_NPM_SPEC` and `ETRNL_BEADS_NPM_SPEC` override admin-tool npm install specs for full-profile bootstrap. Set them only from trusted administrator-controlled environments; unsanitized input enables arbitrary local command execution through shell interpolation in npm install commands.
 
 Updater:
 

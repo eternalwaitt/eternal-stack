@@ -7,7 +7,7 @@ globs:
   - "apps/web/src/**/*.tsx"
   - "apps/show-web/src/**/*.tsx"
 description: "React patterns: React Compiler rules, memoization ban, client vs server logger."
-hosts: [claude, codex, cursor]
+hosts: [claude, cursor]
 verify: "pnpm check-types"
 ---
 

@@ -16,7 +16,7 @@ report - no Health Score, no Iron Law findings. Focus on explanation and orienta
 ### Step 2: Draw the Dependency Map
 
 Draw the same Mermaid dependency graph as architecture audit Step 1, but color nodes by
-**recommended reading order** using a DISTINCT palette from the severity palette
+**documented reading order** using a DISTINCT palette from the severity palette
 (which uses red/yellow/green). This avoids confusing "red = danger" with "red = read last":
 
 - 🔵 Blue (`#339af0`): start here - entry points, core domain
@@ -55,7 +55,7 @@ them to plain-language definitions. This applies Evans's Ubiquitous Language as 
 
 ### Step 6: Suggest First Tasks
 
-Based on the dependency map, suggest 2-3 low-risk areas where a new developer could make
+Based on the dependency map, suggest 2-3 low-risk areas where a new developer can make
 their first contribution: modules with good test coverage, clear boundaries, low coupling.
 
 ---

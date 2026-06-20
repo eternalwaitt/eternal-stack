@@ -10,7 +10,7 @@ globs:
   - "**/*.spec.ts"
   - "**/*.test.tsx"
 description: "Testing rules: AAA pattern, determinism, mock factories, assertion quality."
-hosts: [claude, codex, cursor]
+hosts: [claude, cursor]
 verify: "pnpm test"
 ---
 

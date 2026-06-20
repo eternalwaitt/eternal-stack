@@ -147,6 +147,8 @@ Eternal Stack installs two cooperating layers:
 
 Bundled skills are vendored under `skills/bundled/<name>/` in this repository. `scripts/install.sh` copies each tree to `~/.claude/skills/<name>` and `~/.codex/skills/<name>`. Maintainers refresh vendored copies from canonical host trees with `scripts/vendor-bundled-skills.sh`.
 
+The `eternal-saas-tcg` rules profile is not a bundled skill. It adds `rules/eternal-saas/project/tcg-contract.md` for TCG repositories, and that rule routes TCG-domain prompts into the same bundled policy and domain-skill enumeration as `eternal-best-practices`, `domain-cli`, `domain-cloud-native`, `domain-embedded`, `domain-fintech`, `domain-iot`, `domain-ml`, and `domain-web`.
+
 When the same guidance exists under `skills/etrnl-*/references/`, prefer the repo module first; load the bundled skill when the task needs the full surface or hooks require it by name.
 
 Hindsight is not an ETRNL execution skill and is not compact handoff authority. It is optional semantic recall/export behind `scripts/canary-hindsight.sh`; accepted lessons are first stored as ETRNL `lesson` events.
@@ -156,7 +158,13 @@ Beads is not an ETRNL bundled execution skill. It is allowed as explicit backlog
 | Skill | Bundle role | Used for |
 | --- | --- | --- |
 | `eternal-best-practices` | Bundled policy | Auth, tenant isolation, money, i18n, Prisma, soft deletes, and domain-sensitive work. |
-| `domain-*` | Bundled domain | Cloud, web, fintech, IoT, embedded, ML, and similar review gates. |
+| `domain-cli` | Bundled domain | CLI application review gates. |
+| `domain-cloud-native` | Bundled domain | Cloud-native architecture and operations review gates. |
+| `domain-embedded` | Bundled domain | Embedded systems review gates. |
+| `domain-fintech` | Bundled domain | Fintech product and integration review gates. |
+| `domain-iot` | Bundled domain | IoT systems review gates. |
+| `domain-ml` | Bundled domain | ML system review gates. |
+| `domain-web` | Bundled domain | Web application review gates. |
 | `better-auth` | Bundled auth | Auth implementation review on protected auth paths. |
 | `tenant-isolation-patterns` | Bundled tenancy | Multi-tenant data and permission boundaries. |
 | `money-vo-discipline` | Bundled finance | Money/value-object discipline on financial and billing paths. |

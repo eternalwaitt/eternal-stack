@@ -15,6 +15,8 @@ category: workflow
 
 **Auto-invoke when editing code** - Codex hooks reference this skill for blocker-level enforcement.
 
+Code samples use `@example-suite/core-domain` as a fictional placeholder namespace. Replace it with the project's real domain package or local domain modules.
+
 ---
 
 ## 🏗️ Architecture Pattern: Pragmatic Hexagonal Architecture
@@ -98,14 +100,14 @@ await prisma.campaign.update({
 
 ```typescript
 // ✅ Use tenant-safe repository (preferred)
-import { clientRepository } from '@core-suite/core-domain'
+import { clientRepository } from '@example-suite/core-domain'
 
 const clients = await clientRepository.findMany(tenantId, {
   where: { name: 'John' }
 })
 
 // ✅ Use helper for composite keys
-import { findManyForTenant } from '@core-suite/core-domain/repositories'
+import { findManyForTenant } from '@example-suite/core-domain/repositories'
 
 const campaigns = await findManyForTenant(prisma.campaign, tenantId, {
   where: { status: 'ACTIVE' },
@@ -115,7 +117,7 @@ const campaigns = await findManyForTenant(prisma.campaign, tenantId, {
 })
 
 // ✅ Update with tenant-safe helper
-import { updateOneForTenant } from '@core-suite/core-domain/repositories'
+import { updateOneForTenant } from '@example-suite/core-domain/repositories'
 
 await updateOneForTenant(prisma.campaign, tenantId, {
   where: { id: campaignId },
@@ -123,7 +125,7 @@ await updateOneForTenant(prisma.campaign, tenantId, {
 })
 ```
 
-**Repository Pattern (Recommended):**
+**Repository Pattern (Documented):**
 
 ```typescript
 // packages/core-domain/src/repositories/client.repository.ts
@@ -257,9 +259,11 @@ const agencyCut = campaign.totalValue * 0.20;  // ❌ Imprecise + no currency
 
 #### ✅ ALWAYS (Precise + currency-aware):
 
+`@example-suite/core-domain` is a fictional placeholder namespace in these examples. Use the project's real domain package or a local Money VO implementation.
+
 ```typescript
 // ✅ Money Value Object for all financial operations
-import { Money } from '@core-suite/core-domain'
+import { Money } from '@example-suite/core-domain'
 
 const price = Money.fromCents(15000)  // R$ 150.00
 const discount = Money.fromCents(3000)  // R$ 30.00
@@ -380,7 +384,7 @@ export function calculateSplits(params: {
 
 ```typescript
 // packages/domain/financial/calculate-splits.test.ts
-import { Money } from '@core-suite/core-domain'
+import { Money } from '@example-suite/core-domain'
 
 it('should calculate exact splits for R$ 1000 campaign', () => {
   const result = calculateSplits({
@@ -727,9 +731,9 @@ const campaigns = await orpcClient.campaigns.list({ limit: 20 })
 
 ```typescript
 // apps/web/src/app/api/campaigns/route.ts
-import { getTenantContext } from '@core-suite/core-auth/server'
+import { getTenantContext } from '@example-suite/core-auth/server'
 import { successResponse, errorResponse } from '@/lib/api/response-builder'
-import { CoreErrorCode } from '@core-suite/shared-constants'
+import { CoreErrorCode } from '@example-suite/shared-constants'
 
 export async function GET(request: NextRequest) {
   const startTime = Date.now()
@@ -761,7 +765,7 @@ export async function GET(request: NextRequest) {
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { campaignRepository } from '@core-suite/core-domain'
+import { campaignRepository } from '@example-suite/core-domain'
 import { getTenantContextFromAuth } from '@/lib/auth-helpers'
 
 export async function createCampaign(formData: FormData) {
@@ -810,7 +814,7 @@ throw new Error('not found')
 throw new Error('Campaign not found')
 ```
 
-#### ✅ PREFER (Centralized error codes):
+#### ✅ Defaults to (Centralized error codes):
 
 ```typescript
 // packages/shared-constants/src/error-codes.ts
@@ -836,7 +840,7 @@ export enum CoreErrorCode {
 }
 
 // Usage in oRPC:
-import { CoreErrorCode } from '@core-suite/shared-constants'
+import { CoreErrorCode } from '@example-suite/shared-constants'
 
 throw new ORPCError({
   code: 'NOT_FOUND',
@@ -876,7 +880,7 @@ return NextResponse.json({
 })
 ```
 
-#### ✅ PREFER (Response builders):
+#### ✅ Defaults to (Response builders):
 
 ```typescript
 // lib/api/response-builder.ts
@@ -991,11 +995,11 @@ export const campaignsRouter = router({
 // ❌ How do you test this? Need to mock Prisma, session, etc.
 ```
 
-#### ✅ PREFER (Thin controller + domain):
+#### ✅ Defaults to (Thin controller + domain):
 
 ```typescript
 // packages/domain/financial/calculate-splits.ts
-import { Money } from '@core-suite/core-domain'
+import { Money } from '@example-suite/core-domain'
 
 export type SplitParams = {
   totalValue: Money;
@@ -1049,7 +1053,7 @@ export function calculateSplits(params: SplitParams): PaymentSplit {
 
 // packages/domain/financial/calculate-splits.test.ts
 import { describe, it, expect } from 'vitest';
-import { Money } from '@core-suite/core-domain'
+import { Money } from '@example-suite/core-domain'
 import { calculateSplits } from './calculate-splits';
 
 describe('calculateSplits', () => {
@@ -1085,7 +1089,7 @@ describe('calculateSplits', () => {
 });
 
 // packages/api/src/routers/campaigns.ts - ✅ Thin controller
-import { calculateSplits } from '@agency-tbd/domain/financial/calculate-splits';
+import { calculateSplits } from '@example-suite/domain/financial/calculate-splits';
 
 export const campaignsRouter = router({
   calculatePayout: protectedProcedure
@@ -1220,7 +1224,7 @@ export const env = createEnv({
 });
 
 // Usage in any file:
-import { env } from "@agency-tbd/env";
+import { env } from "@example-suite/env";
 
 const dbUrl = env.DATABASE_URL;  // ✅ Type-safe, validated
 const apiKey = env.STRIPE_SECRET_KEY;  // ✅ Validated format
@@ -1229,7 +1233,7 @@ const apiKey = env.STRIPE_SECRET_KEY;  // ✅ Validated format
 **Benefits:**
 - ✅ App **fails fast** at startup (not in production after deploy)
 - ✅ Type-safe access (`env.DATABASE_URL` autocompletes)
-- ✅ Documents required vs optional vars
+- ✅ Documents required vs opt-in vars
 - ✅ Validates formats (URLs, API key prefixes, etc.)
 - ✅ Environment-specific validation (prod requires certain vars)
 
@@ -1262,7 +1266,7 @@ const client = { id: '123', name: 'Test' } as any
 const campaign = { id: '456' } as Campaign  // Missing required fields!
 ```
 
-#### ✅ PREFER (Centralized fixtures):
+#### ✅ Defaults to (Centralized fixtures):
 
 ```typescript
 // @/__tests__/fixtures/client.fixture.ts
@@ -1364,7 +1368,7 @@ export async function updateAppointment(params: {
 
 ---
 
-## 🟡 WARNING-Level Rules (Strong Recommendations)
+## 🟡 WARNING-Level Rules (Strong Rules)
 
 ### 12. Input Validation (oRPC + Zod)
 
@@ -1413,7 +1417,7 @@ export const campaignsRouter = router({
 ```typescript
 // packages/api/src/middleware/tracing.ts
 import { trace, context, SpanStatusCode } from '@opentelemetry/api';
-import { logger } from '@agency-tbd/observability';
+import { logger } from '@example-suite/observability';
 
 export const tracingMiddleware = t.middleware(async ({ ctx, next, path, type }) => {
   const tracer = trace.getTracer('agency-platform');
@@ -1574,12 +1578,12 @@ export const campaignsRouter = router({
 });
 ```
 
-#### ✅ PREFER (Async with queues):
+#### ✅ Defaults to (Async with queues):
 
 ```typescript
 // packages/queue/src/index.ts (BullMQ setup)
 import { Queue } from 'bullmq';
-import { redis } from '@agency-tbd/db';
+import { redis } from '@example-suite/db/client';
 
 export const emailQueue = new Queue('email', { connection: redis });
 export const notaFiscalQueue = new Queue('nota-fiscal', { connection: redis });
@@ -1616,7 +1620,7 @@ export const campaignsRouter = router({
 
 // packages/worker/src/processors/emailProcessor.ts
 import { Worker } from 'bullmq';
-import { sendEmail } from '@agency-tbd/email';
+import { sendEmail } from '@example-suite/email';
 
 export const emailWorker = new Worker('email', async (job) => {
   const { to, subject, template, data } = job.data;
@@ -1660,7 +1664,7 @@ export async function GET(req: Request) {
 }
 ```
 
-#### ✅ PREFER (Versioned endpoints):
+#### ✅ Defaults to (Versioned endpoints):
 
 ```typescript
 // apps/web/src/app/api/public/v1/campaigns/route.ts
@@ -1700,7 +1704,7 @@ export const CampaignV2Schema = z.object({
 - ✅ Document breaking changes in changelog
 
 **Non-breaking changes (OK in same version):**
-- ✅ Add optional fields
+- ✅ Add opt-in fields
 - ✅ Add new endpoints
 - ✅ Improve error messages
 
@@ -1730,7 +1734,7 @@ export const CampaignV2Schema = z.object({
 }
 
 // apps/web/src/components/CampaignCard.tsx
-import { prisma } from '@agency-tbd/db';  // ❌ Prisma in browser = 500KB + security leak
+import { prisma } from '@example-suite/db';  // ❌ Prisma in browser = 500KB + security leak
 const campaigns = await prisma.campaign.findMany();  // ❌ Runs in browser!
 ```
 
@@ -1754,10 +1758,10 @@ export { prisma } from './prisma';
 
 // Usage:
 // ✅ Frontend (types only)
-import type { Campaign } from '@agency-tbd/db';
+import type { Campaign } from '@example-suite/db';
 
 // ✅ Backend (client access)
-import { prisma } from '@agency-tbd/db/client';
+import { prisma } from '@example-suite/db/client';
 ```
 
 **Benefits:**
@@ -1888,7 +1892,7 @@ export async function instrumentAsync<T>(
 }
 
 // Usage in oRPC procedures:
-import { log, traceException, instrumentAsync } from '@agency-tbd/observability';
+import { log, traceException, instrumentAsync } from '@example-suite/observability';
 
 export const campaignsRouter = router({
   calculatePayout: protectedProcedure
@@ -1952,7 +1956,7 @@ pnpm add @opentelemetry/api @opentelemetry/sdk-node pino pino-pretty
 
 **MANDATORY production standards for all API routes (internal and public).**
 
-**See:** [ADR-0011: API Standards](../../../docs/adr/0011-api-standards-and-best-practices.md) for complete reference.
+**See:** the API standards in this skill plus the repo-specific `AGENTS.md` for local enforcement commands.
 
 #### ✅ Rate Limiting (MANDATORY):
 
@@ -2400,7 +2404,7 @@ const calculateCampaignFinancials = authenticatedProcedure
 | Lines | Action |
 |-------|--------|
 | 0-30  | ✅ OK (simple, focused function) |
-| 31-45 | ⚠️ Consider extracting if it has clear sections |
+| 31-45 | ⚠️ Evaluate extracting if it has clear sections |
 | 46-50 | 🟡 Extract before adding more code |
 | 51+   | 🔴 BLOCKER - Must extract immediately |
 
@@ -2708,7 +2712,6 @@ export const createContext = async ({ req, res }) => {
 
 **References:**
 - [Better-Auth Documentation](https://www.better-auth.com/docs)
-- [TECHNICAL-SPEC.md Section 5](../../../docs/TECHNICAL-SPEC.md#5-authentication--authorization)
 
 ---
 
@@ -2874,10 +2877,8 @@ Before committing any code, verify:
 
 ## 📚 Documentation References
 
-- [Technical Specification](../../../docs/TECHNICAL-SPEC.md) - Master implementation plan
-- [AGENTS.md](../../../AGENTS.md) - Quick reference guide
-- [Prisma Schema](../../../packages/db/prisma/schema.prisma) - Data model
-- [oRPC Route Standards](../../../docs/standards/ORPC_ROUTE_STANDARDS.md) - API standards
+- `AGENTS.md` - repository-specific quick reference guide
+- Project-local schema, API, and technical specification files when they exist in the target repository
 
 ---
 

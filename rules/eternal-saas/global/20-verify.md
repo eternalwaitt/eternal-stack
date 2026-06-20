@@ -2,7 +2,7 @@
 id: eternal-saas-global-verify
 globs: ["**"]
 description: "Verify commands reference for the Eternal SaaS stack."
-hosts: [claude, codex, cursor]
+hosts: [claude, cursor]
 alwaysApply: false
 ---
 

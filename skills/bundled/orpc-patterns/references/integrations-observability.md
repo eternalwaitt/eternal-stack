@@ -50,7 +50,7 @@ Use Pino integration or central interceptors for structured logs. Include proced
 
 ## React SWR And Pinia Colada
 
-Official integrations exist. Prefer them over hand-rolled cache wrappers if a project uses SWR or Pinia Colada instead of TanStack Query.
+Official integrations exist. Defaults to them over hand-rolled cache wrappers if a project uses SWR or Pinia Colada instead of TanStack Query.
 
 ## Rate Limit
 

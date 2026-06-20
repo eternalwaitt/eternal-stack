@@ -13,7 +13,7 @@
 ## Link Plugins
 
 - `BatchLinkPlugin`: client half of batching. Less useful with HTTP/2/HTTP/3 multiplexing; exclude streaming and file/blob responses.
-- `DedupeRequestsPlugin`: dedupe equivalent client requests, usually safe-read requests.
+- `DedupeRequestsPlugin`: dedupe equivalent client requests, typically safe-read requests.
 - `ClientRetryPlugin`: retry transport/procedure calls when not using TanStack Query retry.
 - `RetryAfterPlugin`: retry according to server `Retry-After` headers.
 - `SimpleCsrfProtectionLinkPlugin`: pair with the server CSRF plugin.

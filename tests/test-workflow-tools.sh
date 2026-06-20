@@ -220,6 +220,12 @@ if [[ "$doc_health_baseline_status" == "baseline-without-remediation" ]]; then o
 code_health_bad_state="$(jq -nc '{requestedSkills:[{value:"etrnl-audit-code",at:"2026-01-01T00:00:00Z"}],successfulCommands:[],verificationRuns:[] }')"
 code_health_bad_status="$(jq -cn --argjson state "$code_health_bad_state" --arg message "Done, code looks fine." '{state:$state,message:$message}' | node "$ROOT/scripts/code-health-ledger-check.mjs")"
 if [[ "$code_health_bad_status" == "missing-inventory" ]]; then ok "code health checker requires inventory"; else not_ok "code health checker requires inventory: $code_health_bad_status"; fi
+code_health_prompt_only_state="$(jq -nc '{requestedSkills:[],successfulCommands:[],verificationRuns:[],lastPrompt:"audit the entire codebase with no skips",startedAt:"2026-01-01T00:00:00Z"}')"
+code_health_prompt_only_status="$(jq -cn --argjson state "$code_health_prompt_only_state" --arg message "Done, code looks fine." '{state:$state,message:$message}' | node "$ROOT/scripts/code-health-ledger-check.mjs")"
+if [[ "$code_health_prompt_only_status" == "missing-inventory" ]]; then ok "code health checker blocks prompt-only audit bypass"; else not_ok "code health checker blocks prompt-only audit bypass: $code_health_prompt_only_status"; fi
+code_health_substring_state="$(jq -nc '{requestedSkills:[],successfulCommands:[],verificationRuns:[],lastPrompt:"decode-health labels are unrelated",startedAt:"2026-01-01T00:00:00Z"}')"
+code_health_substring_status="$(jq -cn --argjson state "$code_health_substring_state" --arg message "Done." '{state:$state,message:$message}' | node "$ROOT/scripts/code-health-ledger-check.mjs")"
+if [[ -z "$code_health_substring_status" ]]; then ok "code health checker ignores substring prompt matches"; else not_ok "code health checker ignores substring prompt matches: $code_health_substring_status"; fi
 
 code_health_state="$(jq -nc '{requestedSkills:[{value:"etrnl-audit-code",at:"2026-01-01T00:00:00Z"}],successfulCommands:[{value:"node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked",at:"2026-01-01T00:00:01Z"},{value:"tests/test-workflow-tools.sh",at:"2026-01-01T00:00:02Z"}],verificationRuns:[{value:"tests/test-workflow-tools.sh",at:"2026-01-01T00:00:02Z"}]}')"
 code_health_shallow_status="$(jq -cn --argjson state "$code_health_state" --arg message "Done, code looks fine." '{state:$state,message:$message}' | node "$ROOT/scripts/code-health-ledger-check.mjs")"
@@ -420,9 +426,23 @@ assert_command "tool-effectiveness syntax" node --check "$ROOT/scripts/tool-effe
 assert_command "tool stack check syntax" node --check "$ROOT/scripts/tool-stack-check.mjs"
 assert_command "stack profile check syntax" node --check "$ROOT/scripts/stack-profile-check.mjs"
 assert_command "skill update prompt syntax" node --check "$ROOT/scripts/skill-update-prompt.mjs"
+skill_warning_update="$TMPROOT/fake-skill-warning-update.mjs"
+printf '%s\n' \
+  '#!/usr/bin/env node' \
+  'console.log(JSON.stringify({ ok: false, updateAvailable: false, warning: "source-root-missing" }));' \
+  >"$skill_warning_update"
+skill_warning_json="$(ETRNL_UPDATE_CHECK_SCRIPT="$skill_warning_update" node "$ROOT/scripts/skill-update-prompt.mjs" --agent codex --skill etrnl-audit-excellence --json)"
+assert_json_expr "skill update prompt surfaces degraded warning-only checks" "$skill_warning_json" '.ok == false and .promptNeeded == true and .warnings[0] == "ETRNL_UPDATE_WARNING source-root-missing" and (.rawUpdateOutput | contains("ETRNL_UPDATE_WARNING source-root-missing"))'
+skill_warning_text="$(ETRNL_UPDATE_CHECK_SCRIPT="$skill_warning_update" node "$ROOT/scripts/skill-update-prompt.mjs" --agent codex --skill etrnl-audit-excellence)"
+if [[ "$skill_warning_text" == *"ETRNL_UPDATE_WARNING source-root-missing"* ]]; then
+  ok "skill update prompt emits degraded warning-only update prompt"
+else
+  not_ok "skill update prompt emits degraded warning-only update prompt: $skill_warning_text"
+fi
 assert_command "pr preflight syntax" node --check "$ROOT/scripts/pr-preflight.mjs"
 assert_command "live hook noise report syntax" node --check "$ROOT/scripts/live-hook-noise-report.mjs"
 assert_command "session audit syntax" node --check "$ROOT/scripts/session-audit.mjs"
+assert_command "privacy banned token check syntax" node --check "$ROOT/scripts/privacy-banned-token-check.mjs"
 assert_command "performance baseline syntax" node --check "$ROOT/scripts/performance-baseline.mjs"
 assert_command "disk cleanup manifest syntax" node --check "$ROOT/scripts/disk-cleanup-manifest.mjs"
 assert_command "pr preflight validates fixture" bash -c "printf '%s\n' '{\"branch\":\"feature\",\"dirty\":false,\"changedFiles\":[],\"blockers\":[],\"ghAvailable\":false}' | node \"\$0/scripts/pr-preflight.mjs\" validate --json >/dev/null" "$ROOT"
@@ -436,8 +456,11 @@ mkdir -p "$pr_preflight_repo"
 git -C "$pr_preflight_repo" init -q -b main
 git -C "$pr_preflight_repo" config user.email "test@example.com"
 git -C "$pr_preflight_repo" config user.name "Test User"
+mkdir -p "$pr_preflight_repo/scripts"
 printf '%s\n' '# Changelog' >"$pr_preflight_repo/CHANGELOG.md"
-git -C "$pr_preflight_repo" add CHANGELOG.md
+printf '%s\n' '#!/usr/bin/env bash' 'exit 0' >"$pr_preflight_repo/scripts/doctor.sh"
+chmod +x "$pr_preflight_repo/scripts/doctor.sh"
+git -C "$pr_preflight_repo" add CHANGELOG.md scripts/doctor.sh
 git -C "$pr_preflight_repo" commit -qm "initial"
 printf '%s\n' '# Changelog' 'changed' >"$pr_preflight_repo/CHANGELOG.md"
 printf '%s\n' 'scratch' >"$pr_preflight_repo/untracked.txt"
@@ -446,6 +469,8 @@ git -C "$pr_preflight_repo" mv CHANGELOG.md docs/CHANGELOG.md
 pr_preflight_status_json="$(cd "$pr_preflight_repo" && node "$ROOT/scripts/pr-preflight.mjs" status --json)"
 assert_json_expr "pr preflight preserves modified path names" "$pr_preflight_status_json" '.changedFiles == ["docs/CHANGELOG.md"]'
 assert_json_expr "pr preflight separates untracked files" "$pr_preflight_status_json" '.dirty == true and .untrackedFiles == ["untracked.txt"]'
+pr_preflight_repo_gate_json="$(cd "$pr_preflight_repo" && node "$ROOT/scripts/pr-preflight.mjs" status --json)"
+assert_json_expr "pr preflight suggests repo doctor gate" "$pr_preflight_repo_gate_json" '.suggestedLocalGate == "scripts/doctor.sh"'
 perf_baseline_fixture="$TMPROOT/performance-baseline.json"
 printf '%s\n' '{"schemaVersion":1,"baselineId":"base","targetLabel":"fixture","measurements":[{"route":"/","durationMs":100,"responseBytes":1000,"capturedAt":"2026-01-01T00:00:00Z"},{"route":"/removed","durationMs":75,"responseBytes":500,"capturedAt":"2026-01-01T00:00:00Z"}],"nextRun":{"command":"pnpm bench","thresholds":{"maxRegressionPct":20}}}' >"$perf_baseline_fixture"
 assert_command "performance baseline validates fixture" node "$ROOT/scripts/performance-baseline.mjs" validate "$perf_baseline_fixture"
@@ -467,6 +492,11 @@ if perf_invalid_json="$(printf '{' | node "$ROOT/scripts/performance-baseline.mj
   not_ok "performance baseline reports invalid JSON"
 else
   assert_contains "performance baseline reports invalid JSON" "$perf_invalid_json" "invalid JSON from stdin"
+fi
+if perf_empty_stdin="$(printf '' | node "$ROOT/scripts/performance-baseline.mjs" create 2>&1)"; then
+  not_ok "performance baseline rejects empty stdin"
+else
+  assert_contains "performance baseline rejects empty stdin" "$perf_empty_stdin" "stdin closed without JSON; pipe JSON and close stdin/EOF"
 fi
 if perf_stdin_timeout="$(ETRNL_STDIN_TIMEOUT_MS=1 node "$ROOT/scripts/performance-baseline.mjs" create < <(sleep 0.05) 2>&1)"; then
   not_ok "performance baseline fails when stdin does not close"
@@ -514,12 +544,116 @@ if disk_denormalized_path="$(printf '%s\n' "$disk_manifest_denormalized_path" | 
 else
   assert_contains "disk cleanup manifest rejects denormalized absolute paths" "$disk_denormalized_path" "path must be absolute"
 fi
+privacy_repo="$TMPROOT/privacy-token-check-repo"
+mkdir -p "$privacy_repo/.eternal" "$privacy_repo/docs"
+git -C "$privacy_repo" init -q
+git -C "$privacy_repo" config user.email test@example.com
+git -C "$privacy_repo" config user.name Test
+cat >"$privacy_repo/.gitignore" <<'EOF'
+/.eternal/privacy-banned-tokens.local
+/.eternal/privacy-banned-tokens-extra.json
+/rules-manifest.local.json
+EOF
+cat >"$privacy_repo/rules-manifest.json" <<'JSON'
+{
+  "schemaVersion": 1,
+  "privacy": {
+    "bannedTokens": ["TRACKED_PRIVATE_TOKEN"],
+    "localTokenFiles": [
+      ".eternal/privacy-banned-tokens.local",
+      ".eternal/privacy-banned-tokens-extra.json",
+      "rules-manifest.local.json"
+    ]
+  }
+}
+JSON
+printf '%s\n' '# comment' 'LOCAL_LINE_TOKEN' >"$privacy_repo/.eternal/privacy-banned-tokens.local"
+printf '%s\n' '{"bannedTokens":["LOCAL_TOP_TOKEN"]}' >"$privacy_repo/.eternal/privacy-banned-tokens-extra.json"
+printf '%s\n' '{"privacy":{"bannedTokens":["LOCAL_NESTED_TOKEN"]}}' >"$privacy_repo/rules-manifest.local.json"
+printf '%s\n' 'TRACKED_PRIVATE_TOKEN LOCAL_LINE_TOKEN LOCAL_TOP_TOKEN LOCAL_NESTED_TOKEN' >"$privacy_repo/docs/leak.md"
+git -C "$privacy_repo" add .gitignore rules-manifest.json docs/leak.md
+if privacy_violation_out="$(node "$ROOT/scripts/privacy-banned-token-check.mjs" "$privacy_repo" 2>&1)"; then
+  not_ok "privacy banned-token check reports tracked and local token matches"
+else
+  assert_contains "privacy banned-token check reports tracked and local token matches" "$privacy_violation_out" "docs/leak.md: banned token match count=4"
+fi
+
+privacy_ignore_repo="$TMPROOT/privacy-token-ignore-repo"
+mkdir -p "$privacy_ignore_repo"
+git -C "$privacy_ignore_repo" init -q
+cat >"$privacy_ignore_repo/rules-manifest.json" <<'JSON'
+{
+  "schemaVersion": 1,
+  "privacy": {
+    "bannedTokens": [],
+    "localTokenFiles": ["not-ignored.local"]
+  }
+}
+JSON
+git -C "$privacy_ignore_repo" add rules-manifest.json
+if privacy_ignore_out="$(node "$ROOT/scripts/privacy-banned-token-check.mjs" "$privacy_ignore_repo" 2>&1)"; then
+  not_ok "privacy banned-token check requires local token files to be gitignored"
+else
+  assert_contains "privacy banned-token check requires local token files to be gitignored" "$privacy_ignore_out" "local privacy token file is not gitignored"
+fi
+
+privacy_unsafe_repo="$TMPROOT/privacy-token-unsafe-repo"
+mkdir -p "$privacy_unsafe_repo"
+git -C "$privacy_unsafe_repo" init -q
+cat >"$privacy_unsafe_repo/rules-manifest.json" <<'JSON'
+{
+  "schemaVersion": 1,
+  "privacy": {
+    "bannedTokens": [],
+    "localTokenFiles": ["../outside.local"]
+  }
+}
+JSON
+git -C "$privacy_unsafe_repo" add rules-manifest.json
+if privacy_unsafe_out="$(node "$ROOT/scripts/privacy-banned-token-check.mjs" "$privacy_unsafe_repo" 2>&1)"; then
+  not_ok "privacy banned-token check rejects unsafe local token paths"
+else
+  assert_contains "privacy banned-token check rejects unsafe local token paths" "$privacy_unsafe_out" "safe relative path"
+fi
+
+privacy_encoding_repo="$TMPROOT/privacy-token-encoding-repo"
+mkdir -p "$privacy_encoding_repo/docs"
+git -C "$privacy_encoding_repo" init -q
+cat >"$privacy_encoding_repo/rules-manifest.json" <<'JSON'
+{
+  "schemaVersion": 1,
+  "privacy": {
+    "bannedTokens": ["NO_MATCH_TOKEN"],
+    "localTokenFiles": []
+  }
+}
+JSON
+printf '\xffnot a token\n' >"$privacy_encoding_repo/docs/binary.txt"
+git -C "$privacy_encoding_repo" add rules-manifest.json docs/binary.txt
+if privacy_encoding_out="$(node "$ROOT/scripts/privacy-banned-token-check.mjs" "$privacy_encoding_repo" 2>&1)"; then
+  assert_contains "privacy banned-token check warns on encoding issues" "$privacy_encoding_out" "warning: encoding issue"
+else
+  not_ok "privacy banned-token check warns on encoding issues"
+fi
 assert_command "deep-stack artifact library syntax" node --check "$ROOT/scripts/lib/deep-stack-artifacts.mjs"
 assert_command "deep-audit artifact check syntax" node --check "$ROOT/scripts/deep-audit-artifact-check.mjs"
 assert_command "deep-audit category registry syntax" node --check "$ROOT/scripts/lib/deep-audit-categories.mjs"
 assert_command "deep-audit valid artifact passes" node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$ROOT/tests/fixtures/deep-audit/report.valid.json"
 assert_command "deep-audit production direct artifact passes" node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$ROOT/tests/fixtures/deep-audit/report.production-valid.json"
 assert_command "deep-audit performance direct artifact passes" node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$ROOT/tests/fixtures/deep-audit/report.performance-valid.json"
+deep_audit_lane_scoped_fixture="$TMPROOT/deep-audit-lane-scoped.json"
+jq '
+  .laneReceipts |= map(
+    if .laneId == "database-query-performance" then .consumedWorklistHashes |= with_entries(select(.key == "perf_queries"))
+    elif .laneId == "server-response-caching" then .consumedWorklistHashes |= with_entries(select(.key == "perf_pages" or .key == "perf_route_handlers" or .key == "perf_dynamic_routes"))
+    elif .laneId == "bundle-code-splitting" then .consumedWorklistHashes |= with_entries(select(.key == "perf_client" or .key == "perf_dynamic" or .key == "perf_deps"))
+    elif .laneId == "react-rendering" then .consumedWorklistHashes |= with_entries(select(.key == "perf_client" or .key == "perf_pages" or .key == "perf_compiler_status"))
+    elif .laneId == "perceived-performance" then .consumedWorklistHashes |= with_entries(select(.key == "perf_pages" or .key == "perf_loading" or .key == "perf_client"))
+    elif .laneId == "infrastructure-network" then .consumedWorklistHashes |= with_entries(select(.key == "perf_route_handlers" or .key == "perf_next_configs" or .key == "perf_large_files"))
+    else . end
+  )
+' "$ROOT/tests/fixtures/deep-audit/report.performance-valid.json" >"$deep_audit_lane_scoped_fixture"
+assert_command "deep-audit lane receipts accept lane-scoped worklists" node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$deep_audit_lane_scoped_fixture"
 assert_command "deep-audit source-limited artifact passes" node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$ROOT/tests/fixtures/deep-audit/report.source-limited.json"
 assert_command "deep-audit fixture suite passes" node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate-fixtures
 assert_command "deep-audit registry validates" node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate-registry --root "$ROOT"
@@ -608,6 +742,46 @@ printf '%s\n' '{"eventKind":"compact_pre","sessionId":"single-compact","at":"202
   | ETRNL_STATE_DIR="$etrnl_single_compact_dir" node "$ROOT/scripts/etrnl-state.mjs" append --json >/dev/null
 etrnl_single_compact_json="$(ETRNL_STATE_DIR="$etrnl_single_compact_dir" node "$ROOT/scripts/etrnl-state.mjs" compact-handoff --session single-compact --json)"
 assert_json_expr "etrnl compact handoff uses one newest compact event" "$etrnl_single_compact_json" '.handoff.task == "pre task" and .handoff.nextAction == "pre next" and .handoff.summary == "pre summary"'
+etrnl_reset_dir="$TMPROOT/etrnl-state-reset"
+printf '%s\n' '{"eventKind":"compact_post","sessionId":"reset-session","at":"2026-06-05T03:00:00Z","data":{"compactSummary":"before reset","verificationStale":true}}' \
+  | ETRNL_STATE_DIR="$etrnl_reset_dir" node "$ROOT/scripts/etrnl-state.mjs" append --json >/dev/null
+printf '%s\n' '{"eventKind":"session","sessionId":"reset-session","at":"2026-06-05T04:00:00Z","data":{"status":"started","source":"startup"}}' \
+  | ETRNL_STATE_DIR="$etrnl_reset_dir" node "$ROOT/scripts/etrnl-state.mjs" append --json >/dev/null
+etrnl_reset_json="$(ETRNL_STATE_DIR="$etrnl_reset_dir" node "$ROOT/scripts/etrnl-state.mjs" compact-handoff --session reset-session --json)"
+assert_json_expr "etrnl compact handoff ignores compact before session reset" "$etrnl_reset_json" '.found == false and .handoff == null'
+assert_command "etrnl stop-status allows session reset after compact" env ETRNL_STATE_DIR="$etrnl_reset_dir" node "$ROOT/scripts/etrnl-state.mjs" stop-status --session reset-session --json
+etrnl_workflow_reset_json="$(ETRNL_STATE_DIR="$etrnl_reset_dir" node "$ROOT/scripts/workflow-health.mjs" status --session reset-session --json)"
+assert_json_expr "workflow status scopes compact state to reset session" "$etrnl_workflow_reset_json" '.compact.found == false and .compact.staleVerification == false'
+etrnl_reset_fallback_json="$(node --input-type=module - "$ROOT" <<'JS'
+import path from "node:path";
+const root = process.argv[2];
+const { compactHandoff } = await import(path.join(root, "scripts/lib/etrnl-state-core.mjs"));
+const result = compactHandoff({
+  events: [
+    { eventKind: "compact_post", sessionId: "fallback-session", eventSeq: 7, at: "2026-06-05T03:00:00Z", data: { compactSummary: "before reset" } },
+    { eventKind: "session", sessionId: "fallback-session", at: "2026-06-05T04:00:00Z", data: { status: "started", source: "startup" } }
+  ],
+  session: "fallback-session"
+});
+process.stdout.write(JSON.stringify(result));
+JS
+)"
+assert_json_expr "etrnl compact handoff falls back to timestamps when reset seq is missing" "$etrnl_reset_fallback_json" '.found == false and .handoff == null'
+etrnl_reset_time_primary_json="$(node --input-type=module - "$ROOT" <<'JS'
+import path from "node:path";
+const root = process.argv[2];
+const { compactHandoff } = await import(path.join(root, "scripts/lib/etrnl-state-core.mjs"));
+const result = compactHandoff({
+  events: [
+    { eventKind: "session", sessionId: "time-primary-session", eventSeq: 100, at: "2026-06-05T04:00:00Z", data: { status: "started", source: "startup" } },
+    { eventKind: "compact_post", sessionId: "time-primary-session", eventSeq: 1, at: "2026-06-05T05:00:00Z", data: { compactSummary: "after reset" } }
+  ],
+  session: "time-primary-session"
+});
+process.stdout.write(JSON.stringify(result));
+JS
+)"
+assert_json_expr "etrnl compact reset boundary uses timestamp before sequence" "$etrnl_reset_time_primary_json" '.found == true and .handoff.summary == "after reset"'
 if ETRNL_STATE_DIR="$etrnl_state_dir" node "$ROOT/scripts/etrnl-state.mjs" stop-status --session fixture-compact --json >/dev/null 2>&1; then
   not_ok "etrnl stop-status blocks stale compact verification"
 else
@@ -693,8 +867,27 @@ cat >"$TMPROOT/tool-stack-hindsight/claude-code.json" <<'JSON'
 JSON
 tool_stack_json="$(PATH="$tool_stack_bin:/usr/bin:/bin" CLAUDE_HOME="$TMPROOT/tool-stack-home" HINDSIGHT_HOME="$TMPROOT/tool-stack-hindsight" ETRNL_TOOL_STACK_STATE="$TMPROOT/tool-stack-state.json" "$node_bin" "$ROOT/scripts/tool-stack-check.mjs" --json --force)"
 assert_json_expr "tool stack checker detects codegraph update" "$tool_stack_json" '.tools.codegraph.installed == true and .tools.codegraph.currentVersion == "0.9.9" and .tools.codegraph.latestVersion == "1.0.0" and .tools.codegraph.updateAvailable == true'
+assert_json_expr "tool stack checker uses pinned global npm specs" "$tool_stack_json" '(.tools.codegraph.updateCommand | contains("@colbymchenry/codegraph@1.0.1")) and (.tools.beads.updateCommand | contains("@beads/bd@1.0.5"))'
 assert_json_expr "tool stack checker keeps beads current" "$tool_stack_json" '.tools.beads.installed == true and .tools.beads.currentVersion == "1.0.5" and .tools.beads.updateAvailable == false'
 assert_json_expr "tool stack checker reports Hindsight plugin posture" "$tool_stack_json" '.tools.hindsight.pluginEnabled == true and .tools.hindsight.pluginInstalled == true and .tools.hindsight.ok == true and .tools.hindsight.mode == "local-daemon"'
+unsafe_npm_specs=('@scope/pkg;rm' '@scope/pkg|cat' '@scope/pkg&cat' "\$(touch hacked)" "\`touch hacked\`" '')
+tool_stack_unsafe_error=""
+for env_name in ETRNL_CODEGRAPH_NPM_SPEC ETRNL_BEADS_NPM_SPEC; do
+  for unsafe_spec in "${unsafe_npm_specs[@]}"; do
+    if unsafe_out="$(env "$env_name=$unsafe_spec" PATH="$tool_stack_bin:/usr/bin:/bin" "$node_bin" "$ROOT/scripts/tool-stack-check.mjs" --json --force 2>&1)"; then
+      tool_stack_unsafe_error="$env_name accepted ${unsafe_spec:-<empty>}"
+      break 2
+    elif [[ "$unsafe_out" != *"unsafe $env_name npm spec"* ]]; then
+      tool_stack_unsafe_error="$env_name did not report unsafe spec for ${unsafe_spec:-<empty>}: $unsafe_out"
+      break 2
+    fi
+  done
+done
+if [[ -z "$tool_stack_unsafe_error" ]]; then
+  ok "tool stack checker rejects unsafe npm specs"
+else
+  not_ok "tool stack checker rejects unsafe npm specs: $tool_stack_unsafe_error"
+fi
 mkdir -p "$TMPROOT/tool-stack-home/plugins/cache/hindsight/hindsight-memory/0.7.1/hooks"
 printf '{}\n' >"$TMPROOT/tool-stack-home/plugins/cache/hindsight/hindsight-memory/0.7.1/hooks/hooks.json"
 hindsight_cache_json="$(PATH="/usr/bin:/bin" CLAUDE_HOME="$TMPROOT/tool-stack-home" HINDSIGHT_HOME="$TMPROOT/tool-stack-hindsight" ETRNL_TOOL_STACK_STATE="$TMPROOT/tool-stack-cache-state.json" "$node_bin" "$ROOT/scripts/tool-stack-check.mjs" --json --force)"
@@ -775,7 +968,7 @@ assert_json_expr "tool-effectiveness codex import sanitizes tool events" "$tool_
 assert_json_expr "tool-effectiveness codex import preserves explicit outcomes" "$tool_effectiveness_codex_import_json" '(.events[] | select(.tool == "codegraph") | .eligible == true and .toolUsed == true and .usefulWork == true and .downstreamArtifact == true) and (.events[] | select(.tool == "beads") | .eligible == false and .toolUsed == false and .usefulWork == false and .downstreamArtifact == false)'
 assert_command "update shell syntax" bash -n "$ROOT/scripts/update.sh"
 grep -Fq 'install.sh" --preserve-settings' "$ROOT/scripts/update.sh" || fail "update.sh must preserve settings on upgrade"
-grep -Fq 'post_upgrade_canary="$ROOT/scripts/post-upgrade-canary.sh"' "$ROOT/scripts/update.sh" || fail "update.sh must assign post_upgrade_canary before use"
+grep -Fq "post_upgrade_canary=\"\$ROOT/scripts/post-upgrade-canary.sh\"" "$ROOT/scripts/update.sh" || fail "update.sh must assign post_upgrade_canary before use"
 auto_update_source="$TMPROOT/auto-update-source"
 auto_update_home="$TMPROOT/auto-update-home"
 mkdir -p "$auto_update_source/scripts" "$auto_update_home/etrnl"
@@ -788,6 +981,9 @@ printf 'ran\n' >"$CLAUDE_HOME/auto-update-ran"
 BASH
 chmod +x "$auto_update_source/scripts/install.sh" "$auto_update_source/scripts/update.sh"
 printf '%s\n' '# Changelog' '' '## v0.0.1' >"$auto_update_source/CHANGELOG.md"
+git -C "$auto_update_source" init -q
+git -C "$auto_update_source" add CHANGELOG.md scripts/install.sh scripts/update.sh
+git -C "$auto_update_source" -c user.email='test@example.com' -c user.name='test' commit -q -m 'init'
 jq -n --arg sourceRoot "$auto_update_source" '{
   sourceRoot: $sourceRoot,
   sourceCommit: "unknown",
@@ -802,6 +998,28 @@ assert_no_file "update-check opt-out does not run updater" "$auto_update_home/au
 auto_default_json="$(CLAUDE_HOME="$auto_update_home" CODEX_HOME="$TMPROOT/auto-update-codex" ETRNL_HOME="$auto_update_home" node "$ROOT/scripts/update-check.mjs" --json)"
 assert_json_expr "update-check auto-runs local updater by default" "$auto_default_json" '.ok == true and .localUpdateAvailable == false and (.autoUpdate | startswith("ETRNL_AUTO_UPDATED "))'
 assert_file "update-check default auto ran updater" "$auto_update_home/auto-update-ran"
+untrusted_auto_source="$TMPROOT/untrusted-auto-source"
+untrusted_auto_home="$TMPROOT/untrusted-auto-home"
+mkdir -p "$untrusted_auto_source/scripts" "$untrusted_auto_home/etrnl"
+printf '%s\n' '#!/usr/bin/env bash' 'exit 0' >"$untrusted_auto_source/scripts/install.sh"
+cat >"$untrusted_auto_source/scripts/update.sh" <<'BASH'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+printf 'ran\n' >"$CLAUDE_HOME/auto-update-untrusted-ran"
+BASH
+chmod +x "$untrusted_auto_source/scripts/install.sh" "$untrusted_auto_source/scripts/update.sh"
+printf '%s\n' '# Changelog' '' '## v0.0.1' >"$untrusted_auto_source/CHANGELOG.md"
+jq -n --arg sourceRoot "$untrusted_auto_source" '{
+  sourceRoot: $sourceRoot,
+  sourceCommit: "unknown",
+  sourceCommitShort: "unknown",
+  sourceVersion: "v0.0.1",
+  sourceFingerprint: "stale",
+  settingsMode: "default"
+}' >"$untrusted_auto_home/etrnl/install.json"
+untrusted_skipped_json="$(CLAUDE_HOME="$untrusted_auto_home" CODEX_HOME="$TMPROOT/untrusted-auto-codex" ETRNL_HOME="$untrusted_auto_home" node "$ROOT/scripts/update-check.mjs" --json)"
+assert_json_expr "update-check skips auto-update on untrusted source git state" "$untrusted_skipped_json" '.autoUpdate | startswith("ETRNL_AUTO_UPDATE_SKIPPED untrusted-source-git-state")'
+assert_no_file "update-check untrusted skip does not run updater" "$untrusted_auto_home/auto-update-untrusted-ran"
 dirty_auto_source="$TMPROOT/dirty-auto-source"
 dirty_auto_home="$TMPROOT/dirty-auto-home"
 mkdir -p "$dirty_auto_source/scripts" "$dirty_auto_home/etrnl"
@@ -830,6 +1048,23 @@ dirty_skipped_json="$(CLAUDE_HOME="$dirty_auto_home" CODEX_HOME="$TMPROOT/dirty-
 assert_json_expr "update-check skips auto-update on dirty source checkout" "$dirty_skipped_json" '.autoUpdate | startswith("ETRNL_AUTO_UPDATE_SKIPPED")'
 assert_no_file "update-check dirty skip does not run updater" "$dirty_auto_home/auto-update-dirty-ran"
 assert_command "bootstrap tools shell syntax" bash -n "$ROOT/scripts/bootstrap-tools.sh"
+bootstrap_unsafe_error=""
+for env_name in ETRNL_CODEGRAPH_NPM_SPEC ETRNL_BEADS_NPM_SPEC; do
+  for unsafe_spec in "${unsafe_npm_specs[@]}"; do
+    if bootstrap_out="$(env "$env_name=$unsafe_spec" bash "$ROOT/scripts/bootstrap-tools.sh" install --profile full --dry-run 2>&1)"; then
+      bootstrap_unsafe_error="$env_name accepted ${unsafe_spec:-<empty>}"
+      break 2
+    elif [[ "$bootstrap_out" != *"unsafe $env_name npm spec"* ]]; then
+      bootstrap_unsafe_error="$env_name did not report unsafe spec for ${unsafe_spec:-<empty>}: $bootstrap_out"
+      break 2
+    fi
+  done
+done
+if [[ -z "$bootstrap_unsafe_error" ]]; then
+  ok "bootstrap tools rejects unsafe npm specs"
+else
+  not_ok "bootstrap tools rejects unsafe npm specs: $bootstrap_unsafe_error"
+fi
 merge_target="$TMPROOT/settings-target.json"
 merge_template="$TMPROOT/settings-template.json"
 printf '%s\n' "{\"hooks\":{\"SessionStart\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/cc-sessionstart-restore.sh\",\"timeout\":5}]},{\"hooks\":[{\"type\":\"command\",\"command\":\"bash $HOME/.claude/hooks/cc-sessionstart-restore.sh\",\"timeout\":7}]}],\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"bash $HOME/.claude/hooks/cc-stop-verifier.sh\",\"timeout\":5}]},{\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/cc-stop-verifier.sh\",\"timeout\":10}]},{\"hooks\":[{\"type\":\"command\",\"command\":\"bash /tmp$HOME/.claude/hooks/not-real.sh\",\"timeout\":1}]}]}}" >"$merge_target"
@@ -1066,6 +1301,13 @@ printf '%s\n' \
   '## v0.1.0' '' '2026-01-01' '' '### Added' '' '- Initial release.' \
   >"$changelog_repo/CHANGELOG.md"
 assert_command "changelog check accepts release after tag" node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_repo" --skip-version-file
+printf '%s\n' '0.1.1' >"$changelog_repo/VERSION"
+if pending_release_out="$(node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_repo" 2>&1)"; then
+  not_ok "changelog check rejects untagged pending release"
+else
+  assert_contains "changelog check rejects untagged pending release" "$pending_release_out" "not tagged"
+fi
+assert_command "changelog check allows pending release with flag" node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_repo" --allow-pending-release
 printf '%s\n' \
   '# Changelog' '' '## Unreleased' '' '### Added' '' \
   '## v0.1.2' '' '2026-01-03' '' '### Added' '' '- Current pending release.' '' \
@@ -1341,7 +1583,7 @@ bad_plan_json="$(node "$ROOT/scripts/plan-readiness-check.mjs" "$bad_plan" --jso
 assert_json_expr "plan readiness emits repair hints" "$bad_plan_json" '(.repairHints | length) > 0'
 tbd_name_plan="$TMPROOT/tbd-name-plan.md"
 cp "$ROOT/hooks/fixtures/plans/good-plan.md" "$tbd_name_plan"
-printf '%s\n' '' '- Pilot repo: agency-tbd backfill.' >>"$tbd_name_plan"
+printf '%s\n' '' '- Pilot repo: example-agency-tbd backfill.' >>"$tbd_name_plan"
 tbd_name_json="$(node "$ROOT/scripts/plan-readiness-check.mjs" "$tbd_name_plan" --json --allow-transitional-deep-stack 2>/dev/null || true)"
 assert_json_expr "plan readiness allows hyphenated tbd repo names" "$tbd_name_json" '([.failures[].name] | index("tbd")) == null'
 printf '%s\n' '- Budget: TBD before rollout.' >>"$tbd_name_plan"
@@ -1638,6 +1880,27 @@ if [[ -f "$SYNC_SCRIPT" ]]; then
     not_ok "sync --check passes on stable output (idempotent)"
   fi
 
+  escaped_quote_module="$TMPROOT/escaped-quote-fixture.md"
+  cat >"$escaped_quote_module" <<'MD'
+---
+id: escaped-quote-fixture
+paths: ["src/\"quoted\"/**/*.ts"]
+globs: ["src/\"quoted\"/**/*.ts"]
+description: "Escaped quote fixture."
+hosts: [claude, cursor]
+verify: "pnpm test"
+---
+
+# Escaped Quote Fixture
+MD
+  escaped_quote_out="$TMPROOT/sync-escaped-quote"
+  mkdir -p "$escaped_quote_out"
+  if node "$SYNC_SCRIPT" --source "$escaped_quote_module" --manifest "$FIXTURE_MANIFEST" --output "$escaped_quote_out" 2>/dev/null; then
+    assert_contains "sync preserves escaped quotes in inline arrays" "$(cat "$escaped_quote_out/escaped-quote-fixture.mdc")" 'src/\"quoted\"/**/*.ts'
+  else
+    not_ok "sync preserves escaped quotes in inline arrays"
+  fi
+
   # sync --check fails on drift (mutated emitted file)
   mdc_drift="$sync_out_dir2/test-fixture-module.mdc"
   if [[ -f "$mdc_drift" ]]; then
@@ -1658,12 +1921,33 @@ if [[ -f "$SYNC_SCRIPT" ]]; then
   else
     ok "sync --check rejects banned token in source"
   fi
+  local_privacy_manifest="$TMPROOT/local-privacy-manifest.json"
+  local_privacy_tokens="$TMPROOT/privacy-banned-tokens.local"
+  jq '.privacy.localTokenFiles = ["privacy-banned-tokens.local"]' "$FIXTURE_MANIFEST" >"$local_privacy_manifest"
+  printf '%s\n' 'LOCAL_PRIVATE_TOKEN' >"$local_privacy_tokens"
+  local_private_module="$TMPROOT/local-private-fixture.md"
+  cp "$FIXTURE_RULES_DIR/fixture.md" "$local_private_module"
+  printf '\nLOCAL_PRIVATE_TOKEN is present here.\n' >>"$local_private_module"
+  if local_privacy_out="$(node "$SYNC_SCRIPT" --check --source "$local_private_module" --manifest "$local_privacy_manifest" --output "$sync_out_dir2" 2>&1)"; then
+    not_ok "sync --check rejects local privacy token in source (should have failed)"
+  else
+    assert_contains "sync --check rejects local privacy token in source" "$local_privacy_out" "banned token match count=1"
+    if [[ "$local_privacy_out" == *"LOCAL_PRIVATE_TOKEN"* ]]; then
+      not_ok "sync --check redacts local privacy token value"
+    else
+      ok "sync --check redacts local privacy token value"
+    fi
+  fi
+  assert_command "repo rule sync validates manifest index" node "$SYNC_SCRIPT" --check
 else
   not_ok "sync-rule-exports.mjs exists"
   not_ok "sync emits .mdc file"
   not_ok "sync --check passes on stable output (idempotent)"
   not_ok "sync --check fails on drifted .mdc"
   not_ok "sync --check rejects banned token in source"
+  not_ok "sync --check rejects local privacy token in source"
+  not_ok "sync --check redacts local privacy token value"
+  not_ok "repo rule sync validates manifest index"
 fi
 
 if [[ -f "$INIT_SCRIPT" ]]; then
@@ -1672,6 +1956,7 @@ if [[ -f "$INIT_SCRIPT" ]]; then
   mkdir -p "$init_target"
   dry_out="$(bash "$INIT_SCRIPT" --profile eternal-saas --dry-run "$init_target" 2>&1)"
   assert_contains "init dry-run mentions eternal-saas" "$dry_out" "eternal-saas"
+  assert_contains "init dry-run installs Cursor mdc files" "$dry_out" ".cursor/rules/eternal-saas/project/eternal-saas-orpc.mdc"
   if [[ -d "$init_target/.claude/rules/eternal-saas" ]]; then
     not_ok "init --dry-run does not write files"
   else
@@ -1684,17 +1969,37 @@ if [[ -f "$INIT_SCRIPT" ]]; then
   else
     ok "init refuses missing --profile"
   fi
+  if bash "$INIT_SCRIPT" --profile does-not-exist --dry-run "$init_target" >/dev/null 2>&1; then
+    not_ok "init propagates module collection errors"
+  else
+    ok "init propagates module collection errors"
+  fi
 
   # init --check reports stale after manifest bump
   real_target="$TMPROOT/init-real-target"
   mkdir -p "$real_target"
   bash "$INIT_SCRIPT" --profile eternal-saas "$real_target" >/dev/null 2>&1 || true
-  # simulate manifest bump by touching source (sleep ensures different mtime second)
-  sleep 1
-  touch "$ROOT/rules/eternal-saas/project/orpc.md"
-  check_out="$(bash "$INIT_SCRIPT" --check --profile eternal-saas "$real_target" 2>&1)" || true
-  assert_contains "init --check reports stale after manifest bump" "$check_out" "stale"
-  git -C "$ROOT" checkout -- rules/eternal-saas/project/orpc.md 2>/dev/null || true
+  assert_file "init installs generated Cursor mdc files" "$real_target/.cursor/rules/eternal-saas/project/eternal-saas-orpc.mdc"
+  assert_no_file "init does not install raw Cursor markdown files" "$real_target/.cursor/rules/eternal-saas/project/orpc.md"
+  tcg_target="$TMPROOT/init-tcg-target"
+  mkdir -p "$tcg_target"
+  bash "$INIT_SCRIPT" --profile eternal-saas-tcg "$tcg_target" >/dev/null 2>&1 || true
+  assert_file "init tcg profile installs tcg contract module" "$tcg_target/.claude/rules/eternal-saas/project/tcg-contract.md"
+  # simulate manifest bump with an explicit future mtime; restore the source after the check.
+  orpc_source="$ROOT/rules/eternal-saas/project/orpc.md"
+  orpc_mtime_marker="$TMPROOT/orpc-source-mtime"
+  if [[ -f "$orpc_source" ]]; then
+    touch "$orpc_mtime_marker"
+    touch -r "$orpc_source" "$orpc_mtime_marker"
+    trap 'touch -r "$orpc_mtime_marker" "$orpc_source" 2>/dev/null || true; cc_test_cleanup' EXIT
+    touch -t 203001010000 "$orpc_source"
+    check_out="$(bash "$INIT_SCRIPT" --check --profile eternal-saas "$real_target" 2>&1)" || true
+    assert_contains "init --check reports stale after manifest bump" "$check_out" "stale"
+    touch -r "$orpc_mtime_marker" "$orpc_source"
+    trap cc_test_cleanup EXIT
+  else
+    not_ok "init --check source fixture exists"
+  fi
 
   # init --check reports locally-modified after target edit
   target_orpc="$real_target/.claude/rules/eternal-saas/project/orpc.md"
@@ -1715,6 +2020,7 @@ else
   not_ok "init dry-run mentions eternal-saas"
   not_ok "init --dry-run does not write files"
   not_ok "init refuses missing --profile"
+  not_ok "init propagates module collection errors"
   not_ok "init --check reports stale after manifest bump"
   not_ok "init --check reports locally-modified"
   not_ok "init refuses to overwrite locally-modified without --force"

@@ -457,7 +457,7 @@ curl -X POST https://api.abacatepay.com/v1/test/pix/simulate \
 
 ✅ **Verify webhook signatures** - Prevent fake webhooks
 ✅ **Idempotency** - Check if payment already processed
-✅ **Handle duplicates** - Webhooks may be sent multiple times
+✅ **Handle duplicates** - Webhooks can be sent multiple times
 ✅ **Log all events** - For debugging and auditing
 ✅ **Retry logic** - For failed API calls
 ✅ **Test mode first** - Always test before production

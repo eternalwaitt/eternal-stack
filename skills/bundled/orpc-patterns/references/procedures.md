@@ -26,7 +26,7 @@ export const findProject = os
 
 - `.handler(...)` is the only required step.
 - `.input(...)` validates external input.
-- `.output(...)` is recommended for public/shared APIs and inference stability.
+- `.output(...)` is documented for public/shared APIs and inference stability.
 - `.route(...)` matters for OpenAPI and GET/POST semantics.
 - `.errors(...)` gives clients typed error branches.
 - Throw `ORPCError` or `errors.CODE(...)`, not string literals.
@@ -41,14 +41,14 @@ export const createProject = os
   .actionable();
 ```
 
-- Use `.callable()` when server-side code should call the procedure like a local function.
-- Use `.actionable()` when React Server Actions or framework server functions should call it.
+- Use `.callable()` when server-side code must call the procedure like a local function.
+- Use `.actionable()` when React Server Actions or framework server functions must call it.
 - Keep auth, validation, and errors in the procedure chain so RPC and action callers share behavior.
 
 ## Route Methods
 
 - Use `GET` only for safe reads.
-- Mutations should stay `POST`, `PUT`, `PATCH`, or `DELETE`.
+- Mutations must stay `POST`, `PUT`, `PATCH`, or `DELETE`.
 - `RPCHandler` with the HTTP adapter enables strict GET handling by default; procedures must explicitly opt into GET.
 
 ## Output Validation

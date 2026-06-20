@@ -103,7 +103,7 @@ Rules:
 3. **Edges** - Solid arrows (`-->`) point FROM the depending module TO the dependency; use dotted arrows with label (`-.->|circular|`) for circular dependencies. If no circular dependencies exist, use only solid arrows
 4. **Node limit** - Keep the graph to ~50 nodes maximum; collapse low-risk leaf modules into their parent if needed
 5. **Fan-out** - For any node with fan-out > 5, use a descriptive label: `HighFanOutModule["ModuleName (fan-out: 7)"]`
-6. **Colors** - Apply `classDef` colors AFTER completing Steps 2-4: `critical` (red `#ff6b6b`) for nodes with Critical findings, `warning` (yellow `#ffd43b`) for Warning findings, `clean` (green `#51cf66`) for nodes with no findings or only Suggestions. If no findings at all, classify all nodes as `clean`
+6. **Colors** - Apply `classDef` colors AFTER completing Steps 2-4: `critical` (red `#ff6b6b`) for nodes with Critical findings, `warning` (yellow `#ffd43b`) for Warning or Rules findings, `clean` (green `#51cf66`) only for nodes with no findings. If no findings at all, classify all nodes as `clean`
 7. **Direction** - Default to `graph TD` (top-down); use `graph LR` only if the architecture is clearly a left-to-right pipeline
 
 ### Step 2: Scan for Dependency Disorder

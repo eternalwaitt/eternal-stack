@@ -40,7 +40,7 @@ const orpc = createTanstackQueryUtils(client, {
 
 ## Conditional Queries
 
-Prefer `skipToken` over `enabled: false` when input would otherwise be invalid.
+Defaults to `skipToken` over `enabled: false` when input would otherwise be invalid.
 
 ```ts
 import { skipToken, useQuery } from "@tanstack/react-query";
@@ -70,4 +70,4 @@ Use the oRPC/TanStack serializer path, such as `StandardRPCJsonSerializer`, when
 
 ## Retry
 
-For React Query calls, prefer TanStack Query's `retry` option over generic oRPC retry plugins unless non-React callers share the same retry policy.
+For React Query calls, defaults to TanStack Query's `retry` option over generic oRPC retry plugins unless non-React callers share the same retry policy.

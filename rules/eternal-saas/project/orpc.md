@@ -5,7 +5,7 @@ paths:
 globs:
   - "apps/web/src/lib/orpc/**"
 description: "oRPC route patterns: middleware order, auth context, error handling, deprecated packages."
-hosts: [claude, codex, cursor]
+hosts: [claude, cursor]
 verify: "pnpm guard:essential"
 ---
 

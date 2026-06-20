@@ -39,10 +39,10 @@ Return a JSON array of duplicate groups:
       }
     ],
     "differences": "<how implementations differ, if at all>",
-    "recommendation": {
+    "rules": {
       "action": "CONSOLIDATE|INVESTIGATE|KEEP_SEPARATE",
       "survivor": "<which function to keep, if CONSOLIDATE>",
-      "reason": "<why this recommendation>"
+      "reason": "<why this rule>"
     }
   }
 ]

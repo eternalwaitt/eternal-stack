@@ -1,10 +1,10 @@
 ---
 name: ci-cd
-description: This skill should be used when the user asks to design, audit, debug, optimize, or harden CI/CD pipelines; mentions GitHub Actions, GitLab CI, Jenkins, deployment automation, release gates, branch protection, Docker image builds, Turborepo, Nx, monorepos, pnpm workspaces, DevSecOps, SLSA, Cosign, SBOMs, OIDC, staging, canary, blue-green, rollback, flaky tests, or slow builds.
+description: This skill must be used when the user asks to design, audit, debug, optimize, or harden CI/CD pipelines; mentions GitHub Actions, GitLab CI, Jenkins, deployment automation, release gates, branch protection, Docker image builds, Turborepo, Nx, monorepos, pnpm workspaces, DevSecOps, SLSA, Cosign, SBOMs, OIDC, staging, canary, blue-green, rollback, flaky tests, or slow builds.
 ---
 # CI/CD Pipeline Engineering
 
-Design pipelines that are deterministic, fast to diagnose, hard to bypass accidentally, and safe to deploy from. Prefer current repository/runtime evidence over generic templates. For large audits, load `references/deep-playbook.md` and run `scripts/audit_github_actions.py` before editing.
+Design pipelines that are deterministic, fast to diagnose, hard to bypass accidentally, and safe to deploy from. Defaults to current repository/runtime evidence over generic templates. For large audits, load `references/deep-playbook.md` and run `scripts/audit_github_actions.py` before editing.
 
 ## Operating Model
 
@@ -17,8 +17,8 @@ Start by mapping the repo before editing pipeline files:
    - **PR CI**: fast signal for review readiness.
    - **Main CI**: full merge-integrity gate and artifact publication.
    - **Deploy workflow**: explicit environment gate, health check, rollback, and production evidence.
-   - **Nightly/scheduled**: slow, broad, or noisy checks that should not block every edit.
-4. Preserve existing required check names when possible by using an aggregate job. This avoids breaking branch protection while allowing internal fan-out.
+   - **Nightly/scheduled**: slow, broad, or noisy checks that must not block every edit.
+4. Preserve existing required check names when available by using an aggregate job. This avoids breaking branch protection while allowing internal fan-out.
 5. Verify every pipeline change with local syntax checks, a real CI run, and, for deployment changes, a real status/deploy dry run or production-safe smoke.
 
 For broad CI/CD upgrades, use this sequence:
@@ -32,10 +32,10 @@ For broad CI/CD upgrades, use this sequence:
 
 - Produce the same artifact for the same commit. Avoid mutable deploy inputs unless they are resolved to an immutable digest before rollout.
 - Never print, commit, or document secret values. Store secrets in GitHub/GitLab/Jenkins secret stores, cloud secret managers, Vault, or sealed secrets.
-- Keep CI test secrets separate from staging/production secrets. CI should not need production credentials.
-- Pin external actions and base images deliberately. Prefer commit SHAs for GitHub Actions in high-trust repos and immutable image digests for production bases.
-- Avoid direct `${{ github.event.* }}` interpolation inside shell `run:` blocks. Pass event data through env vars and quote carefully.
-- Do not skip failing gates to go green. Fix root causes, move unsuitable checks to the right lane, or make them advisory with an explicit plan to harden later.
+- Keep CI test secrets separate from staging/production secrets. CI must not need production credentials. Manual review: validate the workflow architecture and secret boundaries.
+- Pin external actions and base images deliberately. Defaults to commit SHAs for GitHub Actions in high-trust repos and immutable image digests for production bases. Automated support: `audit_github_actions.py`.
+- Avoid direct `${{ github.event.* }}` interpolation inside shell `run:` blocks. Pass event data through env vars and quote carefully. Automated support: `audit_github_actions.py`.
+- Do not skip failing gates to go green. Fix root causes, move unsuitable checks to the right lane, or make them reference with an explicit plan to harden later. Manual review: confirm gate ownership and remediation plans.
 - Treat flaky tests as production risks. Quarantine only with owner, ticket, expiry, and replacement coverage.
 
 ## Quality Gates
@@ -53,7 +53,7 @@ Use this default order, tuned per repo:
 9. Staging deploy and verification
 10. Production approval, deploy, health check, monitoring, rollback
 
-Prefer fail-fast ordering inside a job, but split independent work into parallel jobs. Do not duplicate equivalent work: for example, avoid running both `test` and `test:coverage` if coverage already executes the full unit suite.
+Defaults to fail-fast ordering inside a job, but split independent work into parallel jobs. Do not duplicate equivalent work: for example, avoid running both `test` and `test:coverage` if coverage already executes the full unit suite.
 
 ## Local Hooks vs CI
 
@@ -73,7 +73,7 @@ If hooks become slow enough that developers bypass them, move the slow check to 
 - Use path filters for docs-only changes, package-scoped changes, and Docker-only changes, but make filters conservative.
 - Upload artifacts on failure for debugging: Playwright reports, coverage, logs, screenshots, built assets, and test result XML.
 - Use GitHub Environments for production approval, environment-scoped secrets, deployment history, and URLs.
-- Prefer OIDC federation to long-lived cloud keys when deploying to AWS/GCP/Azure.
+- Use OIDC federation instead of long-lived cloud keys when deploying to AWS/GCP/Azure.
 - Use scheduled workflows for dependency audits, full E2E, long integration suites, image scans, and stale/flaky-test reports.
 
 ## Monorepos, Turborepo, Nx, and Workspaces
@@ -111,11 +111,11 @@ Measure before and after. Report the long pole and the wall-clock critical path,
 ## Docker and Artifact Pipelines
 
 - Build once, promote the same immutable artifact across environments.
-- Tag images with commit SHA and optionally branch/latest aliases; deploy by digest or SHA tag when possible.
+- Tag images with commit SHA and opt-in branch/latest aliases; deploy by digest or SHA tag when available.
 - Use multi-stage Dockerfiles, copy dependency manifests before source for layer caching, and keep `.dockerignore` tight.
 - Run as non-root, set health checks where appropriate, avoid secrets in `ARG`/`ENV`, and avoid `:latest` base images in production.
 - Use BuildKit cache (`cache-from`/`cache-to`) and keep cache scopes stable but not over-broad.
-- Scan images with tools such as Trivy/Grype; start advisory if noisy, then make high/critical exploitable findings blocking.
+- Scan images with tools such as Trivy/Grype. Start in reference-only mode when a legacy image is noisy, then make confirmed high/critical exploitable findings blocking once a baseline artifact or tracked issue lists each finding with owner, disposition, and target date.
 - Generate SBOMs and provenance for release artifacts when the project is production-facing.
 
 ## DevSecOps and Supply Chain
@@ -156,9 +156,9 @@ For Terraform, CloudFormation, Pulumi, Kubernetes, Helm, ArgoCD, or Flux:
 
 - Run format/validate/plan in PRs.
 - Keep apply/sync behind protected environments.
-- Upload plans as artifacts when useful, but do not leak secrets.
+- Upload plans as artifacts when needed, but do not leak secrets.
 - Detect drift on a schedule.
-- Prefer GitOps reconciliation for Kubernetes when a controller is already in use.
+- Defaults to GitOps reconciliation for Kubernetes when a controller is already in use.
 - Validate manifests with schema/policy tools before deploy.
 
 ## Branch Protection and Release Policy

@@ -76,9 +76,9 @@ fi
             (.functions | map("- `\(.name)` in `\(.file):\(.line)`" + if .notes then " - \(.notes)" else "" end) | join("\n")) +
             "\n\n" +
             "**Differences:** \(.differences // "None - identical implementations")\n\n" +
-            "**Recommendation:** \(.recommendation.action)" +
-            (if .recommendation.survivor then " (survivor: `\(.recommendation.survivor)`)" else "" end) +
-            " - \(.recommendation.reason)\n\n" +
+            "**Recommendation:** \(.rules.action)" +
+            (if .rules.survivor then " (survivor: `\(.rules.survivor)`)" else "" end) +
+            " - \(.rules.reason)\n\n" +
             "---\n"
         ' "$f" || {
             echo "Error: failed to parse/render $f" >&2
@@ -103,7 +103,7 @@ fi
             (.functions | map("- `\(.name)` in `\(.file):\(.line)`" + if .notes then " - \(.notes)" else "" end) | join("\n")) +
             "\n\n" +
             "**Differences:** \(.differences)\n\n" +
-            "**Recommendation:** \(.recommendation.action) - \(.recommendation.reason)\n\n" +
+            "**Recommendation:** \(.rules.action) - \(.rules.reason)\n\n" +
             "---\n"
         ' "$f" || {
             echo "Error: failed to parse/render $f" >&2

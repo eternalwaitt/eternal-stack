@@ -2,9 +2,9 @@
 
 ## Prerequisites
 
-- Node.js 18+ works; Node.js 20+ is preferred for new projects.
+- Node.js 18+ works; bundled CI templates default to Node.js 20 unless a project overrides them.
 - Bun, Deno, and Cloudflare Workers are supported through adapters.
-- TypeScript strict mode is recommended.
+- TypeScript strict mode is documented.
 - oRPC supports Zod, Valibot, Arktype, and any Standard Schema implementation.
 
 ## Install
@@ -13,7 +13,7 @@
 pnpm add @orpc/server @orpc/client
 ```
 
-Add optional packages only when needed:
+Add opt-in packages only when needed:
 
 ```sh
 pnpm add @orpc/contract @orpc/openapi @orpc/tanstack-query @orpc/otel

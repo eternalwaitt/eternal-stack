@@ -46,7 +46,7 @@ WHERE u.created_at > NOW() - INTERVAL '30 days';
 
 **Key Metrics to Watch:**
 
-- **Seq Scan**: Full table scan (usually slow for large tables)
+- **Seq Scan**: Full table scan (typically slow for large tables)
 - **Index Scan**: Using index (good)
 - **Index Only Scan**: Using index without touching table (best)
 - **Nested Loop**: Join method (okay for small datasets)
@@ -502,4 +502,4 @@ ORDER BY pg_relation_size(indexrelid) DESC;
 
 ## Resources
 
-This bundled skill keeps optimization guidance inline in `SKILL.md` (query patterns, EXPLAIN usage, and index strategy examples above). For stack-specific tenancy and repository scoping, pair with `tenant-isolation-patterns` and `prisma-expert` when installed.
+This bundled skill keeps optimization rules inline in `SKILL.md` (query patterns, EXPLAIN usage, and index strategy examples above). For stack-specific tenancy and repository scoping, pair with `tenant-isolation-patterns` and `prisma-expert` when installed.

@@ -8,7 +8,7 @@ globs:
   - "apps/web/src/app/**"
   - "apps/web/next.config*"
 description: "Next.js rules: output mode, env vars, proxy config, server vs client logger."
-hosts: [claude, codex, cursor]
+hosts: [claude, cursor]
 verify: "pnpm check-types"
 ---
 

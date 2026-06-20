@@ -294,9 +294,9 @@ record_tool() {
       if cc_command_is_review_verification "$command"; then
         cc_state_batch_append_value reviewRuns "$command"
       fi
-      local vivaz_triage_regex='(^|[[:space:];&|])(vivaz-email|[^[:space:];&|]*/vivaz-email)[[:space:]]+triage[[:space:]]+(verify|report)([[:space:]]|$)'
-      # Match standalone or path-prefixed `vivaz-email triage verify` or `report`; anchors avoid partial command-word matches.
-      if [[ "$command" =~ $vivaz_triage_regex ]]; then
+      local email_triage_regex='(^|[[:space:];&|])([^[:space:];&|]*/)?etrnl-email[[:space:]]+triage[[:space:]]+(verify|report)([[:space:]]|$)'
+      # Match standalone or path-prefixed `etrnl-email triage verify` or `report`; anchors avoid partial command-word matches.
+      if [[ "$command" =~ $email_triage_regex ]]; then
         cc_state_batch_append_value verificationRuns "$command"
       fi
       ;;

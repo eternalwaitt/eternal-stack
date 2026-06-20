@@ -9,7 +9,7 @@ globs:
   - "packages/core-domain/**"
   - "apps/web/src/modules/billing/**"
 description: "Money handling: Money value object, Prisma.Decimal conversion, DEFAULT_CURRENCY."
-hosts: [claude, codex, cursor]
+hosts: [claude, cursor]
 verify: "pnpm guard:essential"
 ---
 

@@ -29,8 +29,8 @@ category: frontend
 | Public web app    | ✅ Yes             |
 | SaaS product      | ✅ Yes             |
 | Internal tool     | ⚠️ Maybe           |
-| Single-region app | ⚠️ Consider future |
-| Personal project  | ❌ Optional        |
+| Single-region app | ⚠️ Evaluate future |
+| Personal project  | ❌ Opt-in        |
 
 ---
 

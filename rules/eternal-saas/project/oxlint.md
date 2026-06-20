@@ -7,7 +7,7 @@ globs:
   - "**/*.ts"
   - "**/*.tsx"
 description: "Linting and formatting rules: oxlint, oxfmt, no suppressions, Semgrep double-comment."
-hosts: [claude, codex, cursor]
+hosts: [claude, cursor]
 verify: "pnpm check"
 ---
 

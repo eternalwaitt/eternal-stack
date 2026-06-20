@@ -42,9 +42,9 @@ process.stdin.on("end", () => {
 cc_json_read_stdin
 cc_json_require_jq || exit 0
 cc_json_valid || exit 0
+source_name="$(cc_json_get '.source')"
 cc_state_init
 
-source_name="$(cc_json_get '.source')"
 cwd="$(cc_project_cwd)"
 branch=""
 dirty=""
@@ -53,6 +53,15 @@ if command -v git >/dev/null 2>&1 && git -C "$cwd" rev-parse --is-inside-work-tr
   dirty="$(git -C "$cwd" status --porcelain 2>/dev/null | wc -l | xargs)"
 fi
 cc_state_update --arg cwd "$cwd" ".cwd = \$cwd"
+if [[ "$source_name" != "compact" ]]; then
+  session_event="$(jq -cn \
+    --arg session "$(cc_session_id)" \
+    --arg cwd "$cwd" \
+    --arg source "${source_name:-unknown}" \
+    '{eventKind:"session",sessionId:$session,cwd:$cwd,data:{status:"started",source:$source}}')"
+  cc_etrnl_state_append_json "$session_event" || printf 'claude-guard warning: session-start event append failed\n' >&2
+  cc_state_update '.lastCompactSummary = "" | .lastCompactAt = "" | .compactCount = 0' || true
+fi
 
 skill_hint="$(get_etrnl_skill_hint)"
 if [[ "$source_name" == "compact" ]]; then

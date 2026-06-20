@@ -9,7 +9,7 @@ globs:
   - "apps/web/src/components/**"
   - "apps/show-web/src/components/**"
 description: "Component patterns: design system imports, no barrel exports, design system usage."
-hosts: [claude, codex, cursor]
+hosts: [claude, cursor]
 verify: "pnpm check"
 ---
 
@@ -19,11 +19,11 @@ verify: "pnpm check"
 
 ```typescript
 // CORRECT
-import { Button } from '@core-suite/design-system/primitives'
-import { Input } from '@core-suite/design-system/primitives'
+import { Button } from '@example-suite/design-system/primitives'
+import { Input } from '@example-suite/design-system/primitives'
 
 // WRONG — barrel import
-import { Button, Input } from '@core-suite/design-system'
+import { Button, Input } from '@example-suite/design-system'
 ```
 
 ## React Compiler active — no manual memoization

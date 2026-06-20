@@ -7,7 +7,7 @@ Rule modules live in `rules/` and ship as a cross-host pack. Each module is a fo
 | Host | Mechanism | Scope |
 | --- | --- | --- |
 | **Claude Code** | `.claude/rules/` in project or `~/.claude/rules/` globally; `paths:` frontmatter scopes to matched paths | Path-scoped or global |
-| **Codex** | `~/.codex/AGENTS.md` (global digest); nested `AGENTS.md` for depth (declared via `codexNested:` in manifest) | Digest in global; modules in nested |
+| **Codex** | `~/.codex/AGENTS.md` and `~/.codex/AGENTS.override.md` installed by `scripts/install.sh` | Global startup digest |
 | **Cursor** | `.cursor/rules/*.mdc` with `globs:` and `description:` frontmatter | Glob-matched per file |
 
 Cursor has no user-level rules directory — project `.mdc` files are the only automated surface. Global rules require manual copy to each project.
@@ -48,11 +48,11 @@ node scripts/sync-rule-exports.mjs --check
 
 ## Manifest
 
-`rules-manifest.json` at the repo root declares profiles, module metadata, and privacy `bannedTokens`. The `modules:` object is populated by `sync-rule-exports.mjs`. Schema version 1.
+`rules-manifest.json` at the repo root declares profiles, module metadata, and the generic privacy sentinel tokens used by the export check. The `modules:` object is populated by `sync-rule-exports.mjs`. Schema version 1.
 
 ## Privacy gate
 
-`sync-rule-exports.mjs --check` fails when any tracked rule file contains a token from `privacy.bannedTokens`. Client repo names, account facts, credentials, and personal identity must stay in local gitignored overlays, never in tracked rule files.
+`sync-rule-exports.mjs --check` fails when any tracked rule file contains a generic privacy sentinel token or a token from the optional untracked local privacy files. Keep tracked sentinels generic; client repo names, account facts, credentials, and personal identity belong only in local gitignored overlays, never in tracked files.
 
 ## Module authoring
 
@@ -66,7 +66,7 @@ paths:
 globs:
   - "apps/web/src/lib/**"
 description: "One-line description for context matching."
-hosts: [claude, codex, cursor]
+hosts: [claude, cursor]
 verify: "pnpm guard:essential"
 ---
 ```

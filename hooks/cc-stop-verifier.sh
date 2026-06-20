@@ -30,8 +30,14 @@ source "$SCRIPT_DIR/lib/cleanup.sh"
 #                                      [review/risk checks] -> allow
 
 cc_json_read_stdin
-cc_json_require_jq || exit 0
-cc_json_valid || exit 0
+if ! cc_json_require_jq; then
+  printf '{"decision":"block","reason":"Stop verifier cannot run because jq is unavailable. Install jq or disable the guard explicitly before claiming completion."}\n'
+  exit 0
+fi
+if ! cc_json_valid; then
+  cc_json_block "Stop verifier received invalid JSON. Re-run the completion gate with a valid hook payload before claiming completion."
+  exit 0
+fi
 cc_state_init
 
 if jq -e '.stop_hook_active == true' <<<"$HOOK_INPUT" >/dev/null; then
@@ -124,7 +130,7 @@ cc_email_triage_run_command_after() {
     [.successfulCommands[]?
       | select((.at // "") >= $since)
       | (.command // "")
-      | select(test("(^|[[:space:];&|])([^[:space:];&|]*/)?vivaz-email[[:space:]]+triage[[:space:]]+(run|guarded-run)([[:space:]]|$)"))]
+      | select(test("(^|[[:space:];&|])([^[:space:];&|]*/)?etrnl-email[[:space:]]+triage[[:space:]]+(run|guarded-run)([[:space:]]|$)"))]
     | length > 0
   ' <<<"$state" >/dev/null
 }
@@ -135,7 +141,7 @@ cc_email_triage_output_run_id_after() {
     [.successfulCommands[]?
       | select((.at // "") >= $since)
       | (.command // "")
-      | select(test("(^|[[:space:];&|])([^[:space:];&|]*/)?vivaz-email[[:space:]]+triage[[:space:]]+(queue|report)([[:space:]]|$)"))
+      | select(test("(^|[[:space:];&|])([^[:space:];&|]*/)?etrnl-email[[:space:]]+triage[[:space:]]+(queue|report)([[:space:]]|$)"))
       | select(test("(^|[[:space:]])--run-id(=|[[:space:]]+)"))]
     | last // ""
   ' <<<"$state")"
@@ -161,7 +167,7 @@ cc_email_triage_latest_account_after() {
     [.successfulCommands[]?
       | select((.at // "") >= $since)
       | (.command // "")
-      | select(test("(^|[[:space:];&|])([^[:space:];&|]*/)?vivaz-email[[:space:]]+triage[[:space:]]+(run|guarded-run)([[:space:]]|$)"))]
+      | select(test("(^|[[:space:];&|])([^[:space:];&|]*/)?etrnl-email[[:space:]]+triage[[:space:]]+(run|guarded-run)([[:space:]]|$)"))]
     | last // ""
   ' <<<"$state")"
   account=""
@@ -173,7 +179,7 @@ cc_email_triage_latest_account_after() {
 
 cc_email_triage_cli() {
   local candidate resolved
-  for candidate in "${VIVAZ_EMAIL_BIN:-}" "${VIVAZ_EMAIL_CLI:-}"; do
+  for candidate in "${ETRNL_EMAIL_BIN:-}" "${ETRNL_EMAIL_CLI:-}"; do
     [[ -n "$candidate" ]] || continue
     if [[ -x "$candidate" ]]; then
       printf '%s\n' "$candidate"
@@ -184,8 +190,8 @@ cc_email_triage_cli() {
       return 0
     fi
   done
-  if command -v vivaz-email >/dev/null 2>&1; then
-    command -v vivaz-email
+  if command -v etrnl-email >/dev/null 2>&1; then
+    command -v etrnl-email
     return 0
   fi
   return 1
@@ -370,15 +376,15 @@ if [[ "$claims_done" == "true" ]]; then
   if cc_email_triage_requested; then
     email_triage_since="$(cc_email_triage_request_at)"
     if ! cc_email_triage_evidence_after "$email_triage_since"; then
-      cc_json_block "email-triage phase 1 must clear INBOX first. Run vivaz-email triage guarded-run --account <id> --max-inbox 500 --apply --require-insights and verify Inbox Zero before opening the action queue."
+      cc_json_block "email-triage phase 1 must clear INBOX first. Run etrnl-email triage guarded-run --account <account-id> --max-inbox 500 --apply --require-insights and verify Inbox Zero before opening the action queue."
       exit 0
     fi
     if ! cc_email_triage_verify_latest "$email_triage_since"; then
-      cc_json_block "email-triage completion requires the latest vivaz-email triage ledger to verify successfully."
+      cc_json_block "email-triage completion requires the latest etrnl-email triage ledger to verify successfully."
       exit 0
     fi
     if ! cc_email_triage_verify_applied "$email_triage_since"; then
-      cc_json_block "email-triage Inbox Zero completion requires provider-verified INBOX zero and either gmail_mutated true or queue_ready_without_mutation true. Use vivaz-email triage guarded-run --account <id> --max-inbox 500 --apply --require-insights, verify inbox_count is 0, then open the action queue."
+      cc_json_block "email-triage Inbox Zero completion requires provider-verified INBOX zero and either gmail_mutated true or queue_ready_without_mutation true. Use etrnl-email triage guarded-run --account <account-id> --max-inbox 500 --apply --require-insights, verify inbox_count is 0, then open the action queue."
       exit 0
     fi
     if ! cc_email_triage_message_has_runtime_output; then

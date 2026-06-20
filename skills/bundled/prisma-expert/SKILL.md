@@ -9,7 +9,7 @@ category: universal
 
 ## Purpose
 
-Expert guidance for Prisma ORM across schema design, migrations, query optimization, relations, and database operations for PostgreSQL, MySQL, and SQLite.
+Expert rules for Prisma ORM across schema design, migrations, query optimization, relations, and database operations for PostgreSQL, MySQL, and SQLite.
 
 ## Schema Design
 

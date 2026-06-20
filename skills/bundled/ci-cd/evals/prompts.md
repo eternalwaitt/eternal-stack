@@ -16,4 +16,4 @@ Production deploy is manual to a VPS. Ask the agent to automate deployment safel
 
 ## Supply Chain
 
-Repo uses broad `permissions`, unpinned third-party actions, and cloud deploy keys in secrets. Ask the agent to harden CI/CD. Expected behavior: least privilege, action pinning/update path, OIDC where possible, `pull_request_target` review, CODEOWNERS for workflows, SBOM/provenance/signing when release artifacts exist.
+Repo uses broad `permissions`, unpinned third-party actions, and cloud deploy keys in secrets. Ask the agent to harden CI/CD. Expected behavior: least privilege, action pinning/update path, OIDC where available, `pull_request_target` only with explicit review and no untrusted PR code running with secrets, CODEOWNERS for workflows, SBOM/provenance/signing when release artifacts exist.

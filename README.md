@@ -53,7 +53,7 @@ tests/test-hooks.sh
 
 **Hooks** — enforcement at tool boundaries. Full catalog and lifecycle wiring: [docs/hooks.md](docs/hooks.md). Pretool and stop rules: [docs/guards.md](docs/guards.md). Regression: [tests/test-hooks.sh](tests/test-hooks.sh).
 
-**Skills** — repeatable workflows as `/etrnl-*` commands, grouped by namespace (`dev`, `audit`, `ops`, `comm`). Inventory: [docs/skills.md](docs/skills.md).
+**Skills** — repeatable workflows as `/etrnl-*` commands, grouped by namespace (`dev`, `audit`, `ops`, `comm`). Bundled domain skills include `domain-cli`, `domain-cloud-native`, `domain-embedded`, `domain-fintech`, `domain-iot`, `domain-ml`, and `domain-web`. Inventory: [docs/skills.md](docs/skills.md).
 
 **Scripts** — deterministic helpers for ledgers, browser QA, workflow health, code-health inventory, deep-audit validation, and release hygiene.
 
@@ -86,7 +86,7 @@ Don't skip those steps. Strict mode with untested hooks will interrupt things yo
 | [CLAUDE.md](CLAUDE.md) | Thin Claude Code wrapper that imports `AGENTS.md` |
 | [docs/hooks.md](docs/hooks.md) | Hook reference: every `cc-*` entrypoint, events, default vs strict |
 | [docs/guards.md](docs/guards.md) | Pretool deny catalog, stop-verifier gates, fail-open matrix |
-| [docs/rules.md](docs/rules.md) | Cross-host rule pack: module catalog, host activation, `init-project-rules.sh` |
+| [docs/rules.md](docs/rules.md) | Claude and Cursor rule pack: module catalog, host activation, `init-project-rules.sh` |
 | [docs/install.md](docs/install.md) | Install, update, uninstall, profiles, strict mode |
 | [docs/migration.md](docs/migration.md) | Rollout sequencing — safe migration order |
 | [docs/configuration.md](docs/configuration.md) | Profiles, strict mode, env var tuning |

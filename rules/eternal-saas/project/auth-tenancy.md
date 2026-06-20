@@ -9,7 +9,7 @@ globs:
   - "packages/core-domain/**"
   - "apps/web/src/lib/auth/**"
 description: "Auth and tenant isolation: context helpers, Better-Auth, tenant-safe queries."
-hosts: [claude, codex, cursor]
+hosts: [claude, cursor]
 verify: "pnpm guard:all"
 ---
 

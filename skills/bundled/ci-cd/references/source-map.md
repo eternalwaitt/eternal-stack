@@ -13,6 +13,6 @@ This skill intentionally synthesizes:
 
 Intentional exclusions:
 
-- Provider-specific full tutorials for AWS, GCP, Azure, Kubernetes, Jenkins, GitLab, and CircleCI. The skill contains decision guidance; load current official docs for implementation details.
+- Provider-specific full tutorials for AWS, GCP, Azure, Kubernetes, Jenkins, GitLab, and CircleCI. The skill contains decision rules; load current official docs for implementation details.
 - Organization-specific compliance controls. Use this skill for the baseline and add local policy references per org.
 - Copy-paste production workflows with real secrets or account identifiers. Templates use placeholders by design.

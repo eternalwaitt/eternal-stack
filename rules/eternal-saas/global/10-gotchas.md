@@ -2,7 +2,7 @@
 id: eternal-saas-global-gotchas
 globs: ["**"]
 description: "Top 15 cross-repo mistakes in the Eternal SaaS stack."
-hosts: [claude, codex, cursor]
+hosts: [claude, cursor]
 alwaysApply: false
 ---
 

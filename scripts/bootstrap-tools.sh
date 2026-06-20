@@ -12,9 +12,25 @@ SKIP_CODEGRAPH=0
 SKIP_BEADS=0
 SKIP_HINDSIGHT=0
 DRY_RUN=0
+# Admin-tool npm specs: set ETRNL_*_NPM_SPEC only from trusted administrator-controlled input.
+# Unsanitized values enable arbitrary command execution through shell interpolation.
+CODEGRAPH_NPM_SPEC="${ETRNL_CODEGRAPH_NPM_SPEC-@colbymchenry/codegraph@1.0.1}"
+BEADS_NPM_SPEC="${ETRNL_BEADS_NPM_SPEC-@beads/bd@1.0.5}"
 CONFIRM_SKIPPED=64
 PROFILE="${ETRNL_STACK_PROFILE:-core}"
 HINDSIGHT_MODE="${ETRNL_HINDSIGHT_MODE:-local-daemon}"
+
+validate_npm_spec() {
+  local name="$1"
+  local value="$2"
+  if [[ ! "$value" =~ ^(@[A-Za-z0-9._-]+/[A-Za-z0-9._-]+|[A-Za-z0-9._-]+)(@[A-Za-z0-9._~+-]+)?$ ]]; then
+    printf 'bootstrap error: unsafe %s npm spec: %s\n' "$name" "${value:-<empty>}" >&2
+    exit 2
+  fi
+}
+
+validate_npm_spec ETRNL_CODEGRAPH_NPM_SPEC "$CODEGRAPH_NPM_SPEC"
+validate_npm_spec ETRNL_BEADS_NPM_SPEC "$BEADS_NPM_SPEC"
 
 usage() {
   cat <<'EOF'
@@ -185,7 +201,7 @@ install_codegraph() {
     return 0
   fi
   if [[ "$DRY_RUN" == "1" ]]; then
-    printf 'dry-run: would install/verify CodeGraph package @colbymchenry/codegraph\n'
+    printf 'dry-run: would install/verify CodeGraph package %s\n' "$CODEGRAPH_NPM_SPEC"
     printf 'dry-run: would refresh CodeGraph MCP config for supported agents\n'
     return 0
   fi
@@ -198,9 +214,9 @@ install_codegraph() {
     [[ "$confirm_status" == "$CONFIRM_SKIPPED" ]] && return 0
     [[ "$confirm_status" == "0" ]] || return "$confirm_status"
     npm_status=0
-    npm install -g @colbymchenry/codegraph || npm_status=$?
+    npm install -g "$CODEGRAPH_NPM_SPEC" || npm_status=$?
     if [[ "$npm_status" != "0" ]]; then
-      printf 'bootstrap error: npm install failed for @colbymchenry/codegraph (exit %s)\n' "$npm_status" >&2
+      printf 'bootstrap error: npm install failed for %s (exit %s)\n' "$CODEGRAPH_NPM_SPEC" "$npm_status" >&2
       return "$npm_status"
     fi
     need_command codegraph || { printf 'bootstrap error: codegraph binary not found after npm install\n' >&2; return 1; }
@@ -221,7 +237,7 @@ install_beads() {
     return 0
   fi
   if [[ "$DRY_RUN" == "1" ]]; then
-    printf 'dry-run: would install/verify Beads package @beads/bd without raw setup hooks\n'
+    printf 'dry-run: would install/verify Beads package %s without raw setup hooks\n' "$BEADS_NPM_SPEC"
     return 0
   fi
   if need_command bd; then
@@ -234,9 +250,9 @@ install_beads() {
     [[ "$confirm_status" == "$CONFIRM_SKIPPED" ]] && return 0
     [[ "$confirm_status" == "0" ]] || return "$confirm_status"
     npm_status=0
-    npm install -g @beads/bd || npm_status=$?
+    npm install -g "$BEADS_NPM_SPEC" || npm_status=$?
     if [[ "$npm_status" != "0" ]]; then
-      printf 'bootstrap error: npm install failed for @beads/bd (exit %s)\n' "$npm_status" >&2
+      printf 'bootstrap error: npm install failed for %s (exit %s)\n' "$BEADS_NPM_SPEC" "$npm_status" >&2
       return "$npm_status"
     fi
     need_command bd || { printf 'bootstrap error: bd binary not found after npm install\n' >&2; return 1; }

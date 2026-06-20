@@ -71,7 +71,7 @@ From constraints to design (Layer 2):
 
 ## Use Case → Framework
 
-| Use Case | Recommended | Why |
+| Use Case | Documented | Why |
 |----------|-------------|-----|
 | Inference only | tract (ONNX) | Lightweight, portable |
 | Training + inference | candle, burn | Pure Rust, GPU |

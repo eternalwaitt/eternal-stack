@@ -23,9 +23,10 @@ const KEEP_A_CHANGELOG_CATEGORIES = new Set([
 ]);
 
 function usage() {
-  console.error("usage: changelog-release-check.mjs [--root <path>] [--allow-unreleased] [--strict-unreleased] [--allow-clean-history-changelog] [--skip-version-file] [--skip-categories]");
+  console.error("usage: changelog-release-check.mjs [--root <path>] [--allow-unreleased] [--strict-unreleased] [--allow-clean-history-changelog] [--allow-pending-release] [--skip-version-file] [--skip-categories]");
   console.error("--strict-unreleased takes precedence over --allow-unreleased when both are present.");
   console.error("--allow-clean-history-changelog permits older changelog sections without tags after a clean-root public release.");
+  console.error("--allow-pending-release permits VERSION to point at an untagged top changelog section for PR health checks.");
   console.error("--skip-version-file skips VERSION file alignment checks (test fixtures only).");
   console.error("--skip-categories skips Keep a Changelog category validation (test fixtures only).");
   process.exit(2);
@@ -225,9 +226,9 @@ function validateVersionFile(root, topRelease, skipVersionFile) {
   return errors;
 }
 
-function validateTopReleaseTagged(root, topRelease, skipVersionFile) {
+function validateTopReleaseTagged(root, topRelease, skipVersionFile, allowPendingRelease) {
   const errors = [];
-  if (skipVersionFile || !topRelease) return errors;
+  if (skipVersionFile || allowPendingRelease || !topRelease) return errors;
   const versionPath = path.join(root, "VERSION");
   if (!existsSync(versionPath)) return errors;
   const version = readFileSync(versionPath, "utf8").trim().replace(/^v/i, "");
@@ -289,6 +290,7 @@ function validateUntaggedReleaseDrift(root, releaseSections, allowCleanHistoryCh
 const root = path.resolve(argValue("--root", path.join(scriptDir, "..")));
 const allowUnreleased = args.includes("--allow-unreleased") && !args.includes("--strict-unreleased");
 const allowCleanHistoryChangelog = args.includes("--allow-clean-history-changelog");
+const allowPendingRelease = args.includes("--allow-pending-release");
 const skipVersionFile = args.includes("--skip-version-file");
 const skipCategories = args.includes("--skip-categories");
 const changelogPath = path.join(root, "CHANGELOG.md");
@@ -312,7 +314,7 @@ if (unreleasedEntries.length > 0 && !allowUnreleased) {
 }
 errors.push(...validateReleaseCategories(lines, releaseSections, skipCategories));
 errors.push(...validateVersionFile(root, topRelease, skipVersionFile));
-errors.push(...validateTopReleaseTagged(root, topRelease, skipVersionFile));
+errors.push(...validateTopReleaseTagged(root, topRelease, skipVersionFile, allowPendingRelease));
 errors.push(...validateGitTagAlignment(root, releaseVersions, topRelease));
 errors.push(...validateUntaggedReleaseDrift(root, releaseSections, allowCleanHistoryChangelog));
 

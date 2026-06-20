@@ -105,10 +105,10 @@ jq -nc '{
   commands: [],
   blockedCommands: [],
   verificationRuns: [],
-  lastPrompt: "/email-triage agencia",
+  lastPrompt: "/email-triage fixture-account",
   startedAt: "2026-01-01T00:00:00Z"
 }' >"$email_state"
-email_dry_payload="$(jq -nc '{session_id:"canary-email-triage",tool_name:"Bash",tool_input:{command:"vivaz-email triage run --account agencia --max-inbox 50"}}')"
+email_dry_payload="$(jq -nc '{session_id:"canary-email-triage",tool_name:"Bash",tool_input:{command:"etrnl-email triage run --account fixture-account --max-inbox 50"}}')"
 email_dry_out="$(printf '%s' "$email_dry_payload" | CLAUDE_GUARD_STATE_DIR="$canary_state" "$TARGET/hooks/cc-pretooluse-guard.sh")"
 if ! jq -e '.hookSpecificOutput.permissionDecision == "deny"' <<<"$email_dry_out" >/dev/null; then
   printf 'fail: email-triage canary accepted dry triage run: %s\n' "$email_dry_out" >&2
@@ -119,9 +119,9 @@ if [[ "$email_dry_out" != *"Dry email-triage runs are blocked"* ]]; then
   exit 1
 fi
 
-jq '.successfulCommands = [{command:"vivaz-email triage guarded-run --account agencia --max-inbox 500 --apply --require-insights", at:"2026-01-01T00:00:01Z"}]' "$email_state" >"$email_state.tmp"
+jq '.successfulCommands = [{command:"etrnl-email triage guarded-run --account fixture-account --max-inbox 500 --apply --require-insights", at:"2026-01-01T00:00:01Z"}]' "$email_state" >"$email_state.tmp"
 mv -- "$email_state.tmp" "$email_state"
-email_queue_payload="$(jq -nc '{session_id:"canary-email-triage",tool_name:"Bash",tool_input:{command:"vivaz-email triage queue --run-id triage_canary --mode reply --format markdown --next"}}')"
+email_queue_payload="$(jq -nc '{session_id:"canary-email-triage",tool_name:"Bash",tool_input:{command:"etrnl-email triage queue --run-id triage_canary --mode reply --format markdown --next"}}')"
 email_queue_out="$(printf '%s' "$email_queue_payload" | CLAUDE_GUARD_STATE_DIR="$canary_state" "$TARGET/hooks/cc-pretooluse-guard.sh")"
 if ! jq -e '.hookSpecificOutput.permissionDecision == "deny"' <<<"$email_queue_out" >/dev/null; then
   printf 'fail: email-triage canary accepted queue before verify: %s\n' "$email_queue_out" >&2
@@ -132,13 +132,13 @@ if [[ "$email_queue_out" != *"queue is blocked until Inbox Zero verification"* ]
   exit 1
 fi
 
-canary_vivaz_email="$canary_tmp/vivaz-email"
-cat >"$canary_vivaz_email" <<'BASH'
+canary_etrnl_email="$canary_tmp/etrnl-email"
+cat >"$canary_etrnl_email" <<'BASH'
 #!/usr/bin/env bash
 if [[ "$1 $2" == "triage verify" ]]; then
-  if [[ "${VIVAZ_EMAIL_VERIFY_NONZERO:-0}" == "1" ]]; then
-    printf '{"ok":true,"data":{"verified":true,"dry_run":false,"gmail_mutated":true,"inbox_zero_verified":true,"inbox_count":1}}\n'
-  elif [[ "${VIVAZ_EMAIL_VERIFY_READY:-0}" == "1" ]]; then
+  if [[ "${ETRNL_EMAIL_VERIFY_NONZERO:-0}" == "1" ]]; then
+    printf '{"ok":true,"data":{"verified":true,"dry_run":false,"gmail_mutated":true,"inbox_zero_verified":false,"inbox_count":1}}\n'
+  elif [[ "${ETRNL_EMAIL_VERIFY_READY:-0}" == "1" ]]; then
     printf '{"ok":true,"data":{"verified":true,"dry_run":true,"gmail_mutated":false,"inbox_zero_verified":true,"queue_ready_without_mutation":true,"inbox_count":0,"action_backlog_count":31}}\n'
   else
     printf '{"ok":true,"data":{"verified":true,"dry_run":false,"gmail_mutated":true,"inbox_zero_verified":true,"inbox_count":0}}\n'
@@ -147,25 +147,25 @@ if [[ "$1 $2" == "triage verify" ]]; then
 fi
 exit 0
 BASH
-chmod +x "$canary_vivaz_email"
+chmod +x "$canary_etrnl_email"
 jq '.successfulCommands = [
-  {command:"vivaz-email triage guarded-run --account agencia --max-inbox 500 --apply --require-insights", at:"2026-01-01T00:00:01Z"},
-  {command:"vivaz-email triage verify --latest --account agencia", at:"2026-01-01T00:00:02Z"}
+  {command:"etrnl-email triage guarded-run --account fixture-account --max-inbox 500 --apply --require-insights", at:"2026-01-01T00:00:01Z"},
+  {command:"etrnl-email triage verify --latest --account fixture-account", at:"2026-01-01T00:00:02Z"}
 ]' "$email_state" >"$email_state.tmp"
 mv -- "$email_state.tmp" "$email_state"
-email_queue_verified_out="$(printf '%s' "$email_queue_payload" | VIVAZ_EMAIL_BIN="$canary_vivaz_email" CLAUDE_GUARD_STATE_DIR="$canary_state" "$TARGET/hooks/cc-pretooluse-guard.sh")"
+email_queue_verified_out="$(printf '%s' "$email_queue_payload" | ETRNL_EMAIL_BIN="$canary_etrnl_email" CLAUDE_GUARD_STATE_DIR="$canary_state" "$TARGET/hooks/cc-pretooluse-guard.sh")"
 if ! jq -e '.continue == true' <<<"$email_queue_verified_out" >/dev/null; then
   printf 'fail: email-triage canary blocked provider-verified queue: %s\n' "$email_queue_verified_out" >&2
   exit 1
 fi
 
-email_queue_no_mutation_out="$(printf '%s' "$email_queue_payload" | VIVAZ_EMAIL_VERIFY_READY=1 VIVAZ_EMAIL_BIN="$canary_vivaz_email" CLAUDE_GUARD_STATE_DIR="$canary_state" "$TARGET/hooks/cc-pretooluse-guard.sh")"
+email_queue_no_mutation_out="$(printf '%s' "$email_queue_payload" | ETRNL_EMAIL_VERIFY_READY=1 ETRNL_EMAIL_BIN="$canary_etrnl_email" CLAUDE_GUARD_STATE_DIR="$canary_state" "$TARGET/hooks/cc-pretooluse-guard.sh")"
 if ! jq -e '.continue == true' <<<"$email_queue_no_mutation_out" >/dev/null; then
   printf 'fail: email-triage canary blocked no-mutation ready queue: %s\n' "$email_queue_no_mutation_out" >&2
   exit 1
 fi
 
-email_queue_bad_verify_out="$(printf '%s' "$email_queue_payload" | VIVAZ_EMAIL_VERIFY_NONZERO=1 VIVAZ_EMAIL_BIN="$canary_vivaz_email" CLAUDE_GUARD_STATE_DIR="$canary_state" "$TARGET/hooks/cc-pretooluse-guard.sh")"
+email_queue_bad_verify_out="$(printf '%s' "$email_queue_payload" | ETRNL_EMAIL_VERIFY_NONZERO=1 ETRNL_EMAIL_BIN="$canary_etrnl_email" CLAUDE_GUARD_STATE_DIR="$canary_state" "$TARGET/hooks/cc-pretooluse-guard.sh")"
 if ! jq -e '.hookSpecificOutput.permissionDecision == "deny"' <<<"$email_queue_bad_verify_out" >/dev/null; then
   printf 'fail: email-triage canary accepted queue after nonzero provider verify: %s\n' "$email_queue_bad_verify_out" >&2
   exit 1

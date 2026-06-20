@@ -153,11 +153,18 @@ function markdownFilesUnder(dir) {
 function assertDirectiveLanguage(file, text) {
   const relPath = path.relative(root, file) || file;
   const lines = text.split(/\r?\n/);
+  let inFence = false;
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
-    if (!line.trim()) continue;
+    if (/^\s*(```|~~~)/.test(line)) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence) continue;
+    const lineForScan = line.replace(/https?:\/\/[^)\]\s]+/g, "");
+    if (!lineForScan.trim()) continue;
     for (const entry of softDirectivePatterns) {
-      if (entry.pattern.test(line)) {
+      if (entry.pattern.test(lineForScan)) {
         fail(`${relPath}:${index + 1}: advisory wording "${entry.label}" is not allowed; use directive language or explicit unavailable/not-applicable/blocker wording`);
         break;
       }
@@ -185,6 +192,9 @@ const skillLists = read(skillListsPath);
 const ownedSkills = parseBashArray(skillLists, "OWNED_SKILLS", {
   onError: (detail) => fail(`scripts/lib/skill-lists.sh ${detail}`),
 });
+const bundledSkills = parseBashArray(skillLists, "BUNDLED_SKILLS", {
+  onError: (detail) => fail(`scripts/lib/skill-lists.sh ${detail}`),
+});
 const ownedAgents = parseBashArray(skillLists, "OWNED_AGENTS", {
   onError: (detail) => fail(`scripts/lib/skill-lists.sh ${detail}`),
 });
@@ -198,10 +208,19 @@ const actualSkills = existsSync(skillsDir)
   ? readdirSync(skillsDir).filter((name) => name.startsWith("etrnl-") && existsSync(path.join(skillsDir, name, "SKILL.md"))).sort()
   : [];
 const ownedSet = new Set(ownedSkills);
+const bundledDir = path.join(skillsDir, "bundled");
+const actualBundledSkills = existsSync(bundledDir)
+  ? readdirSync(bundledDir).filter((name) => existsSync(path.join(bundledDir, name, "SKILL.md"))).sort()
+  : [];
+const bundledSet = new Set(bundledSkills);
 const referencedInstalledHelpers = new Set();
 
 for (const skill of actualSkills) {
   if (!ownedSet.has(skill)) fail(`skills/${skill}/SKILL.md exists but is not listed in OWNED_SKILLS`);
+}
+
+for (const skill of actualBundledSkills) {
+  if (!bundledSet.has(skill)) fail(`skills/bundled/${skill}/SKILL.md exists but is not listed in BUNDLED_SKILLS`);
 }
 
 for (const skill of ownedSkills) {
@@ -241,6 +260,31 @@ for (const skill of ownedSkills) {
   }
   for (const match of text.matchAll(/`?((?:\.\/)?references\/[^`<>\s]+\.md)`?/g)) {
     assertFile(path.join(skillsDir, skill, match[1].replace(/^\.\//, "")), `${skill} reference`);
+  }
+}
+
+for (const skill of bundledSkills) {
+  const skillPath = path.join(skillsDir, "bundled", skill, "SKILL.md");
+  assertFile(skillPath, `bundled skill ${skill}`);
+  if (!existsSync(skillPath)) continue;
+  const relSkillPath = path.relative(root, skillPath) || `skills/bundled/${skill}/SKILL.md`;
+  const text = read(skillPath);
+  assertDirectiveLanguage(skillPath, text);
+  assertMandatoryRulesNameEnforcement(skillPath, text);
+  assertNoModelRoutingFrontmatter(text, relSkillPath);
+  for (const referencePath of markdownFilesUnder(path.join(skillsDir, "bundled", skill, "references"))) {
+    const referenceText = read(referencePath);
+    assertDirectiveLanguage(referencePath, referenceText);
+    assertMandatoryRulesNameEnforcement(referencePath, referenceText);
+  }
+  const frontmatterName = skillFrontmatterName(text, relSkillPath);
+  if (frontmatterName !== skill) fail(`${relSkillPath}: frontmatter name is ${frontmatterName || "<missing>"}, expected ${skill}`);
+  if (!docsSkills.includes(`\`${skill}\``)) fail(`${relSkillPath}: docs/skills.md missing bundled skill ${skill}`);
+  for (const match of text.matchAll(/`?((?:\.\/)?references\/[^`<>\s]+\.md)`?/g)) {
+    assertFile(path.join(skillsDir, "bundled", skill, match[1].replace(/^\.\//, "")), `${skill} reference`);
+  }
+  for (const match of text.matchAll(/`?((?:\.\/)?docs\/[^`<>\s]+\.md)`?/g)) {
+    assertFile(path.join(root, match[1].replace(/^\.\//, "")), `${skill} docs reference`);
   }
 }
 

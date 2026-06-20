@@ -7,6 +7,8 @@ Public home: [github.com/eternalwaitt/eternal-stack](https://github.com/eternalw
 ./scripts/doctor.sh
 ```
 
+Prerequisites: `bash`, `git`, `node`, `python3`, `jq`, `rg`, `fd`, `sg`, and `shellcheck` must be available on PATH. `python3` is required by rule receipt parsing, project-rule installation checks, Hindsight hook syntax checks, and the doctor privacy scan.
+
 Default install is intentionally usable but conservative: `--profile core` installs observer hooks, prompt routing, prompt expansion, once-per-session `CLAUDE.md` reinjection, the locked advisory rate limiter, post-tool observation, session cleanup, scripts, docs, rules, skills, and agents. Hard blockers and global memory/backlog/codegraph services stay opt-in.
 
 Breaking install behavior: managed `~/.claude/settings.json` is backed up and reset to a vanilla settings shell before the stack is applied unless `--preserve-settings` is supplied. Existing `enabledPlugins` entries are preserved so installs do not disable already-enabled Claude Code plugins. Live migration of memory systems, plugins, MCPs, broad permissions, and private overlays is a separate local rollout step, not an automatic install-time side effect.
@@ -39,7 +41,7 @@ The installer:
   - public `AGENTS.md` baseline
   - tiny `CLAUDE.md` wrapper
   - namespaced rules and cross-host rule pack (`rules/eternal-saas/global/` + `rules/eternal-saas/project/`)
-  - `init-project-rules.sh` — installs the rule pack into a target project for Claude, Codex, and Cursor
+  - `init-project-rules.sh` — installs the rule pack into a target project for Claude and Cursor
   - rollback script
   - canaries
   - hook test harness
