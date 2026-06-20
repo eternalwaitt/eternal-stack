@@ -25,6 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ### Added
 
 - `.github/workflows/health.yml` — CI health workflow for rule export sync, hook tests, workflow tests, install/rollback tests, and doctor.
+- `scripts/doctor.sh` — health checks now cover ShellCheck, rule module export drift, privacy scan enforcement, and pending-release changelog validation.
 - `rules/eternal-saas/project/tcg-contract.md` — scoped TCG/card-domain contract rule module and generated Cursor export.
 
 ### Changed
@@ -33,6 +34,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - `scripts/init-project-rules.sh` — installs generated Cursor `.mdc` modules alongside Claude rules, validates Cursor exports, and tracks Cursor checksums in the install receipt.
 - `rules/eternal-saas/*` — rule host metadata now reflects Claude and Cursor support without claiming unsupported Codex nested context output.
 - Email triage runtime references now use the `etrnl-email` command pattern across guards, canaries, slash commands, and fixtures instead of legacy `vivaz-email` naming.
+- `hooks/cc-sessionstart-restore.sh`, `scripts/lib/etrnl-state-core.mjs`, and `scripts/workflow-health.mjs` — track session reset boundaries so `/new` and `/clear` isolate stale compact handoff state.
+- `scripts/bootstrap-tools.sh` and `scripts/tool-stack-check.mjs` — support validated `ETRNL_CODEGRAPH_NPM_SPEC` and `ETRNL_BEADS_NPM_SPEC` overrides for pinned global tool installs.
 - Bundled skill namespaces now align around `@example-suite`, `money-vo-discipline`, and `orpc-patterns` naming across policy skills, routing lists, and vendored bundles.
 - `skills/bundled/stripe-best-practices` — hardens Stripe guidance from advisory wording to explicit policy gates for API versions, payment-surface selection, test/migration expectations, and Connect settlement/dispute behavior.
 
@@ -44,7 +47,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Security
 
-- `rules-manifest.json` and `scripts/doctor.sh` — remove tracked private project literals from the privacy gate and support gitignored local banned-token overlays with redacted diagnostics.
+- `rules-manifest.json`, `scripts/privacy-banned-token-check.mjs`, and `scripts/doctor.sh` — remove tracked private project literals from the privacy gate and support standalone or doctor-integrated banned-token scans with gitignored local overlays and redacted diagnostics.
 
 ## v0.5.1
 

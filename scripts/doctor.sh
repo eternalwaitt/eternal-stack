@@ -42,7 +42,7 @@ DOCTOR_HEAVY_STARTED=0
 # shellcheck source=scripts/lib/skill-lists.sh
 source "$ROOT/scripts/lib/skill-lists.sh"
 
-trap 'rm -rf -- "$DOCTOR_RESULT_DIR"' EXIT
+trap '[[ -n "${DOCTOR_RESULT_DIR:-}" ]] && rm -rf -- "$DOCTOR_RESULT_DIR"' EXIT
 
 ok() { printf 'ok: %s\n' "$*"; }
 fail() { printf 'fail: %s\n' "$*" >&2; STATUS=1; }
