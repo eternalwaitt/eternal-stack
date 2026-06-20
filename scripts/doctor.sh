@@ -849,6 +849,11 @@ root = Path(sys.argv[1])
 manifest = json.loads((root / "rules-manifest.json").read_text())
 tokens = [str(token).lower() for token in manifest.get("privacy", {}).get("bannedTokens", []) if str(token).strip()]
 local_token_files = {str(rel_path) for rel_path in manifest.get("privacy", {}).get("localTokenFiles", [])}
+for rel_path in sorted(local_token_files):
+    check = subprocess.run(["git", "-C", str(root), "check-ignore", "--quiet", "--", rel_path])
+    if check.returncode != 0:
+        print(f"local privacy token file is not gitignored: {rel_path}", file=sys.stderr)
+        sys.exit(1)
 for rel_path in manifest.get("privacy", {}).get("localTokenFiles", []):
     local_path = root / str(rel_path)
     if not local_path.exists():

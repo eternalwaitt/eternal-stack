@@ -137,7 +137,12 @@ function localPrivacyTokens(filePath) {
   if (!existsSync(filePath)) return [];
   const content = readFileSync(filePath, 'utf8');
   if (filePath.endsWith('.json')) {
-    const parsed = JSON.parse(content);
+    let parsed;
+    try {
+      parsed = JSON.parse(content);
+    } catch (error) {
+      throw new Error(`malformed local privacy JSON in ${filePath}: ${error.message}`);
+    }
     if (Array.isArray(parsed)) return parsed;
     return arrayValue(parsed.privacy?.bannedTokens || parsed.bannedTokens);
   }
@@ -166,9 +171,21 @@ function moduleSourcePath(key, rulesRoot) {
 function walkMd(dir) {
   const files = [];
   if (!existsSync(dir)) return files;
-  for (const entry of readdirSync(dir)) {
+  let entries;
+  try {
+    entries = readdirSync(dir);
+  } catch (error) {
+    throw new Error(`cannot read rule directory ${dir}: ${error.message}`);
+  }
+  for (const entry of entries) {
     const full = join(dir, entry);
-    if (statSync(full).isDirectory()) files.push(...walkMd(full));
+    let stat;
+    try {
+      stat = statSync(full);
+    } catch (error) {
+      throw new Error(`cannot stat rule path ${full}: ${error.message}`);
+    }
+    if (stat.isDirectory()) files.push(...walkMd(full));
     else if (entry.endsWith('.md')) files.push(full);
   }
   return files.sort((left, right) => left.localeCompare(right));
@@ -292,7 +309,13 @@ if (singleSource) {
   const rulesRoot = join(ROOT, 'rules', 'eternal-saas');
   const cursorOutputRoot = join(ROOT, 'templates', 'cursor', 'rules', 'eternal-saas');
   const expectedKeys = expectedModuleKeys(manifest);
-  const moduleFiles = walkMd(rulesRoot);
+  let moduleFiles = [];
+  try {
+    moduleFiles = walkMd(rulesRoot);
+  } catch (err) {
+    errors.push(err.message);
+    exitCode = 1;
+  }
   const fileKeys = new Set(moduleFiles.map((filePath) => sourceRelKey(filePath, rulesRoot)));
 
   for (const key of expectedKeys) {

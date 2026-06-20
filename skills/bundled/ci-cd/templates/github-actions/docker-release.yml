@@ -1,5 +1,8 @@
 name: Build and Publish Image
 
+# Production note: Trivy blocks HIGH/CRITICAL findings by default. Use the
+# documented non-blocking escape hatch only with a tracked baseline and owners.
+
 on:
   push:
     branches: [main]
@@ -60,5 +63,5 @@ jobs:
         with:
           image-ref: ${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
           severity: HIGH,CRITICAL
-          # Reference-only until a baseline artifact or tracked issue lists confirmed exploitable findings with owners, dispositions, and target dates; then switch to exit-code: "1".
-          exit-code: "0"
+          # Legacy-image escape hatch only: switch to "0" after recording a baseline artifact or tracked issue for each finding.
+          exit-code: "1"

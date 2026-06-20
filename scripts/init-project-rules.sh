@@ -49,7 +49,11 @@ CURSOR_RULES_DEST="$TARGET/.cursor/rules/eternal-saas"
 MANIFEST_RECEIPT="$CLAUDE_RULES_DEST/.manifest.json"
 
 file_sha256() {
-  shasum -a 256 "$1" 2>/dev/null | awk '{print $1}' || sha256sum "$1" | awk '{print $1}'
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" | awk '{print $1}'
+  else
+    sha256sum "$1" | awk '{print $1}'
+  fi
 }
 
 receipt_checksum_for() {
