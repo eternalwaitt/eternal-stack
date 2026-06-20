@@ -9,7 +9,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, lstatSync } from 'node:fs';
 import { resolve, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -192,10 +192,11 @@ function walkMd(dir) {
     const full = join(dir, entry);
     let stat;
     try {
-      stat = statSync(full);
+      stat = lstatSync(full);
     } catch (error) {
       throw new Error(`cannot stat rule path ${full}: ${error.message}`);
     }
+    if (stat.isSymbolicLink()) continue;
     if (stat.isDirectory()) files.push(...walkMd(full));
     else if (entry.endsWith('.md')) files.push(full);
   }
