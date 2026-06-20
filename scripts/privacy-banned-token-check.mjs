@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync, statSync } from 'node:fs';
-import { extname, resolve } from 'node:path';
+import { extname, isAbsolute, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { TextDecoder } from 'node:util';
 
@@ -33,6 +33,10 @@ function arrayValue(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function isSafeRelativePath(relPath) {
+  return !isAbsolute(relPath) && !relPath.split(/[\\/]+/).includes('..');
+}
+
 function localTokensFromJson(filePath, relPath) {
   let parsed;
   try {
@@ -60,6 +64,9 @@ try {
     .filter(Boolean);
 
   for (const relPath of [...localTokenFiles].sort()) {
+    if (!isSafeRelativePath(relPath)) {
+      throw new Error(`local privacy token file must be a safe relative path: ${relPath}`);
+    }
     const ignored = git(['check-ignore', '--quiet', '--', relPath]);
     if (ignored.status !== 0) {
       throw new Error(`local privacy token file is not gitignored: ${relPath}`);
@@ -84,6 +91,8 @@ try {
     if (relPath === 'rules-manifest.json' || localTokenFiles.has(relPath)) continue;
     const filePath = resolve(root, relPath);
     try {
+      // Performance guard: very large tracked files are skipped rather than fully decoded,
+      // so banned-token coverage intentionally applies to files at or below 10 MiB.
       if (statSync(filePath).size > 10 * 1024 * 1024) continue;
       const text = readUtf8(filePath).toLowerCase();
       const foundCount = uniqueTokens.filter((token) => text.includes(token)).length;

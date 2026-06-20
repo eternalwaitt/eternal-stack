@@ -324,6 +324,7 @@ if (singleSource) {
   const rulesRoot = join(ROOT, 'rules', 'eternal-saas');
   const cursorOutputRoot = join(ROOT, 'templates', 'cursor', 'rules', 'eternal-saas');
   const expectedKeys = expectedModuleKeys(manifest);
+  const expectedKeySet = new Set(expectedKeys);
   let moduleFiles = [];
   try {
     moduleFiles = walkMd(rulesRoot);
@@ -337,7 +338,7 @@ if (singleSource) {
     if (!fileKeys.has(key)) errors.push(`${key}: manifest profile references missing module source`);
   }
   for (const key of fileKeys) {
-    if (!expectedKeys.includes(key)) errors.push(`${key}: module source is not referenced by any manifest profile`);
+    if (!expectedKeySet.has(key)) errors.push(`${key}: module source is not referenced by any manifest profile`);
   }
 
   const moduleResults = [];

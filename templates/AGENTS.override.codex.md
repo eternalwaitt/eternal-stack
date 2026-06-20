@@ -15,4 +15,4 @@ Eternal Stack skills are available in `~/.codex/skills/etrnl-*`. Reference them 
 
 ## Startup files
 
-When installed: `~/.codex/AGENTS.md` provides the global baseline, `~/.codex/AGENTS.override.md` applies these Codex-specific overrides, and any project-level `AGENTS.md` in the repo root adds project context and overrides both.
+When installed: `~/.codex/AGENTS.md` provides the global baseline and `~/.codex/AGENTS.override.md` applies these Codex-specific overrides. Eternal Stack does not generate project-level Codex `AGENTS.md` files from the rules manifest.

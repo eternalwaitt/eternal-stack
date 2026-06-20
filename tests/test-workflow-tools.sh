@@ -597,6 +597,25 @@ else
   assert_contains "privacy banned-token check requires local token files to be gitignored" "$privacy_ignore_out" "local privacy token file is not gitignored"
 fi
 
+privacy_unsafe_repo="$TMPROOT/privacy-token-unsafe-repo"
+mkdir -p "$privacy_unsafe_repo"
+git -C "$privacy_unsafe_repo" init -q
+cat >"$privacy_unsafe_repo/rules-manifest.json" <<'JSON'
+{
+  "schemaVersion": 1,
+  "privacy": {
+    "bannedTokens": [],
+    "localTokenFiles": ["../outside.local"]
+  }
+}
+JSON
+git -C "$privacy_unsafe_repo" add rules-manifest.json
+if privacy_unsafe_out="$(node "$ROOT/scripts/privacy-banned-token-check.mjs" "$privacy_unsafe_repo" 2>&1)"; then
+  not_ok "privacy banned-token check rejects unsafe local token paths"
+else
+  assert_contains "privacy banned-token check rejects unsafe local token paths" "$privacy_unsafe_out" "safe relative path"
+fi
+
 privacy_encoding_repo="$TMPROOT/privacy-token-encoding-repo"
 mkdir -p "$privacy_encoding_repo/docs"
 git -C "$privacy_encoding_repo" init -q
