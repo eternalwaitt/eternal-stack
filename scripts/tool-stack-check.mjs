@@ -24,9 +24,19 @@ const explainMode = hasFlag("--explain");
 const force = hasFlag("--force");
 const projectPath = valueAfter("--project", valueAfter("--cwd", ""));
 const hindsightStrictChecks = /^(1|true|yes)$/i.test(process.env.HINDSIGHT_STRICT_CHECKS || "");
+const npmSpecPattern = /^(@[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+|[A-Za-z0-9._-]+)(@[A-Za-z0-9._~+-]+)?$/;
+function npmSpecFromEnv(name, fallback) {
+  if (!Object.prototype.hasOwnProperty.call(process.env, name)) return fallback;
+  const value = process.env[name] || "";
+  if (!npmSpecPattern.test(value)) {
+    console.error(`unsafe ${name} npm spec: ${value || "<empty>"}`);
+    process.exit(2);
+  }
+  return value;
+}
 const toolSpecs = {
-  codegraph: process.env.ETRNL_CODEGRAPH_NPM_SPEC || "@colbymchenry/codegraph@1.0.1",
-  beads: process.env.ETRNL_BEADS_NPM_SPEC || "@beads/bd@1.0.5",
+  codegraph: npmSpecFromEnv("ETRNL_CODEGRAPH_NPM_SPEC", "@colbymchenry/codegraph@1.0.1"),
+  beads: npmSpecFromEnv("ETRNL_BEADS_NPM_SPEC", "@beads/bd@1.0.5"),
 };
 
 function usage() {

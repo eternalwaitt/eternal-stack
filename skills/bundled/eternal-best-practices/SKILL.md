@@ -1583,7 +1583,7 @@ export const campaignsRouter = router({
 ```typescript
 // packages/queue/src/index.ts (BullMQ setup)
 import { Queue } from 'bullmq';
-import { redis } from '@example-suite/db';
+import { redis } from '@example-suite/db/client';
 
 export const emailQueue = new Queue('email', { connection: redis });
 export const notaFiscalQueue = new Queue('nota-fiscal', { connection: redis });

@@ -56,6 +56,16 @@ file_sha256() {
   fi
 }
 
+iso_to_epoch() {
+  python3 -c "
+from datetime import datetime
+import sys
+value = sys.argv[1]
+value = value[:-1] + '+00:00' if value.endswith('Z') else value
+print(int(datetime.fromisoformat(value).timestamp()))
+" "$1" 2>/dev/null || echo "0"
+}
+
 receipt_checksum_for() {
   local sums="$1"
   local rel="$2"
@@ -198,7 +208,7 @@ if [[ "$CHECK_MODE" -eq 1 ]]; then
     fi
     if [[ -n "$install_ts" ]]; then
       src_mtime="$(python3 -c "import os, sys; print(int(os.path.getmtime(sys.argv[1])))" "$src" 2>/dev/null || echo "0")"
-      install_epoch="$(python3 -c "from datetime import datetime; import sys; value = sys.argv[1]; value = value[:-1] + '+00:00' if value.endswith('Z') else value; print(int(datetime.fromisoformat(value).timestamp()))" "$install_ts" 2>/dev/null || echo "0")"
+      install_epoch="$(iso_to_epoch "$install_ts")"
       if [[ "$src_mtime" -gt "$install_epoch" ]]; then
         echo "stale: $rel"
         any_stale=1

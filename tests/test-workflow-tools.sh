@@ -851,6 +851,24 @@ assert_json_expr "tool stack checker detects codegraph update" "$tool_stack_json
 assert_json_expr "tool stack checker uses pinned global npm specs" "$tool_stack_json" '(.tools.codegraph.updateCommand | contains("@colbymchenry/codegraph@1.0.1")) and (.tools.beads.updateCommand | contains("@beads/bd@1.0.5"))'
 assert_json_expr "tool stack checker keeps beads current" "$tool_stack_json" '.tools.beads.installed == true and .tools.beads.currentVersion == "1.0.5" and .tools.beads.updateAvailable == false'
 assert_json_expr "tool stack checker reports Hindsight plugin posture" "$tool_stack_json" '.tools.hindsight.pluginEnabled == true and .tools.hindsight.pluginInstalled == true and .tools.hindsight.ok == true and .tools.hindsight.mode == "local-daemon"'
+unsafe_npm_specs=('@scope/pkg;rm' '@scope/pkg|cat' '@scope/pkg&cat' "\$(touch hacked)" "\`touch hacked\`" '')
+tool_stack_unsafe_error=""
+for env_name in ETRNL_CODEGRAPH_NPM_SPEC ETRNL_BEADS_NPM_SPEC; do
+  for unsafe_spec in "${unsafe_npm_specs[@]}"; do
+    if unsafe_out="$(env "$env_name=$unsafe_spec" PATH="$tool_stack_bin:/usr/bin:/bin" "$node_bin" "$ROOT/scripts/tool-stack-check.mjs" --json --force 2>&1)"; then
+      tool_stack_unsafe_error="$env_name accepted ${unsafe_spec:-<empty>}"
+      break 2
+    elif [[ "$unsafe_out" != *"unsafe $env_name npm spec"* ]]; then
+      tool_stack_unsafe_error="$env_name did not report unsafe spec for ${unsafe_spec:-<empty>}: $unsafe_out"
+      break 2
+    fi
+  done
+done
+if [[ -z "$tool_stack_unsafe_error" ]]; then
+  ok "tool stack checker rejects unsafe npm specs"
+else
+  not_ok "tool stack checker rejects unsafe npm specs: $tool_stack_unsafe_error"
+fi
 mkdir -p "$TMPROOT/tool-stack-home/plugins/cache/hindsight/hindsight-memory/0.7.1/hooks"
 printf '{}\n' >"$TMPROOT/tool-stack-home/plugins/cache/hindsight/hindsight-memory/0.7.1/hooks/hooks.json"
 hindsight_cache_json="$(PATH="/usr/bin:/bin" CLAUDE_HOME="$TMPROOT/tool-stack-home" HINDSIGHT_HOME="$TMPROOT/tool-stack-hindsight" ETRNL_TOOL_STACK_STATE="$TMPROOT/tool-stack-cache-state.json" "$node_bin" "$ROOT/scripts/tool-stack-check.mjs" --json --force)"
@@ -1011,6 +1029,23 @@ dirty_skipped_json="$(CLAUDE_HOME="$dirty_auto_home" CODEX_HOME="$TMPROOT/dirty-
 assert_json_expr "update-check skips auto-update on dirty source checkout" "$dirty_skipped_json" '.autoUpdate | startswith("ETRNL_AUTO_UPDATE_SKIPPED")'
 assert_no_file "update-check dirty skip does not run updater" "$dirty_auto_home/auto-update-dirty-ran"
 assert_command "bootstrap tools shell syntax" bash -n "$ROOT/scripts/bootstrap-tools.sh"
+bootstrap_unsafe_error=""
+for env_name in ETRNL_CODEGRAPH_NPM_SPEC ETRNL_BEADS_NPM_SPEC; do
+  for unsafe_spec in "${unsafe_npm_specs[@]}"; do
+    if bootstrap_out="$(env "$env_name=$unsafe_spec" bash "$ROOT/scripts/bootstrap-tools.sh" install --profile full --dry-run 2>&1)"; then
+      bootstrap_unsafe_error="$env_name accepted ${unsafe_spec:-<empty>}"
+      break 2
+    elif [[ "$bootstrap_out" != *"unsafe $env_name npm spec"* ]]; then
+      bootstrap_unsafe_error="$env_name did not report unsafe spec for ${unsafe_spec:-<empty>}: $bootstrap_out"
+      break 2
+    fi
+  done
+done
+if [[ -z "$bootstrap_unsafe_error" ]]; then
+  ok "bootstrap tools rejects unsafe npm specs"
+else
+  not_ok "bootstrap tools rejects unsafe npm specs: $bootstrap_unsafe_error"
+fi
 merge_target="$TMPROOT/settings-target.json"
 merge_template="$TMPROOT/settings-template.json"
 printf '%s\n' "{\"hooks\":{\"SessionStart\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/cc-sessionstart-restore.sh\",\"timeout\":5}]},{\"hooks\":[{\"type\":\"command\",\"command\":\"bash $HOME/.claude/hooks/cc-sessionstart-restore.sh\",\"timeout\":7}]}],\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"bash $HOME/.claude/hooks/cc-stop-verifier.sh\",\"timeout\":5}]},{\"hooks\":[{\"type\":\"command\",\"command\":\"bash ~/.claude/hooks/cc-stop-verifier.sh\",\"timeout\":10}]},{\"hooks\":[{\"type\":\"command\",\"command\":\"bash /tmp$HOME/.claude/hooks/not-real.sh\",\"timeout\":1}]}]}}" >"$merge_target"

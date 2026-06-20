@@ -147,7 +147,7 @@ Eternal Stack installs two cooperating layers:
 
 Bundled skills are vendored under `skills/bundled/<name>/` in this repository. `scripts/install.sh` copies each tree to `~/.claude/skills/<name>` and `~/.codex/skills/<name>`. Maintainers refresh vendored copies from canonical host trees with `scripts/vendor-bundled-skills.sh`.
 
-The `eternal-saas-tcg` rule profile adds `rules/eternal-saas/project/tcg-contract.md` for TCG repositories. That rule routes TCG-domain prompts into the same bundled policy and domain-skill enumeration as `eternal-best-practices` and the `domain-*` skills.
+The `eternal-saas-tcg` rule profile adds `rules/eternal-saas/project/tcg-contract.md` for TCG repositories. That rule routes TCG-domain prompts into the same bundled policy and domain-skill enumeration as `eternal-best-practices`, `domain-cli`, `domain-cloud-native`, `domain-embedded`, `domain-fintech`, `domain-iot`, `domain-ml`, and `domain-web`.
 
 When the same guidance exists under `skills/etrnl-*/references/`, prefer the repo module first; load the bundled skill when the task needs the full surface or hooks require it by name.
 

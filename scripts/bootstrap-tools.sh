@@ -14,11 +14,23 @@ SKIP_HINDSIGHT=0
 DRY_RUN=0
 # Admin-tool npm specs: set ETRNL_*_NPM_SPEC only from trusted administrator-controlled input.
 # Unsanitized values enable arbitrary command execution through shell interpolation.
-CODEGRAPH_NPM_SPEC="${ETRNL_CODEGRAPH_NPM_SPEC:-@colbymchenry/codegraph@1.0.1}"
-BEADS_NPM_SPEC="${ETRNL_BEADS_NPM_SPEC:-@beads/bd@1.0.5}"
+CODEGRAPH_NPM_SPEC="${ETRNL_CODEGRAPH_NPM_SPEC-@colbymchenry/codegraph@1.0.1}"
+BEADS_NPM_SPEC="${ETRNL_BEADS_NPM_SPEC-@beads/bd@1.0.5}"
 CONFIRM_SKIPPED=64
 PROFILE="${ETRNL_STACK_PROFILE:-core}"
 HINDSIGHT_MODE="${ETRNL_HINDSIGHT_MODE:-local-daemon}"
+
+validate_npm_spec() {
+  local name="$1"
+  local value="$2"
+  if [[ ! "$value" =~ ^(@[A-Za-z0-9._-]+/[A-Za-z0-9._-]+|[A-Za-z0-9._-]+)(@[A-Za-z0-9._~+-]+)?$ ]]; then
+    printf 'bootstrap error: unsafe %s npm spec: %s\n' "$name" "${value:-<empty>}" >&2
+    exit 2
+  fi
+}
+
+validate_npm_spec ETRNL_CODEGRAPH_NPM_SPEC "$CODEGRAPH_NPM_SPEC"
+validate_npm_spec ETRNL_BEADS_NPM_SPEC "$BEADS_NPM_SPEC"
 
 usage() {
   cat <<'EOF'

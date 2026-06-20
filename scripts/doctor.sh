@@ -837,9 +837,7 @@ if git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1 && [[ -f "$ROO
     ok "credential pattern scan clean"
   fi
   if [[ -f "$ROOT/rules-manifest.json" ]]; then
-    if ! command -v python3 >/dev/null 2>&1; then
-      fail "python3 unavailable; privacy banned-token scan cannot run"
-    elif privacy_out="$(node "$ROOT/scripts/privacy-banned-token-check.mjs" "$ROOT" 2>&1)"; then
+    if privacy_out="$(node "$ROOT/scripts/privacy-banned-token-check.mjs" "$ROOT" 2>&1)"; then
       if [[ -n "$privacy_out" ]]; then
         printf '%s\n' "$privacy_out" >&2
       fi
