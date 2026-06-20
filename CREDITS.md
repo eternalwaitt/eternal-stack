@@ -42,7 +42,7 @@ Eternal Stack reimplements useful mechanisms from public agent-tooling projects 
 | --- | --- |
 | [colbymchenry/codegraph](https://github.com/colbymchenry/codegraph) | Optional local code-graph MCP; bootstrap and health checks in `full` profile |
 | [hyhmrright/brooks-lint](https://github.com/hyhmrright/brooks-lint) | Review finding shape (Symptom → Source → Consequence → Remedy); vendored Brooks modules |
-| [rtk-ai/rtk](https://github.com/rtk-ai/rtk) | Codex deterministic command rewrite via `codex-rtk-pre-tool-use.sh` |
+| [rtk-ai/rtk](https://github.com/rtk-ai/rtk) | Optional Codex command rewrite helper via `codex-rtk-pre-tool-use.sh`; separate from the Claude/Cursor rule pack |
 | [GitHub/spec-kit](https://github.com/github/spec-kit) | Plan/readiness executability gates |
 | [Chachamaru127/claude-code-harness](https://github.com/Chachamaru127/claude-code-harness) | Quality gates, browser artifact contracts, review plateau ideas |
 | [infinri/Writ](https://github.com/infinri/Writ) | Mandatory-rule mechanical enforcement |
@@ -51,7 +51,7 @@ Eternal Stack reimplements useful mechanisms from public agent-tooling projects 
 
 ## Claude Code
 
-Eternal Stack targets [Claude Code](https://docs.anthropic.com/en/docs/claude-code) hook and skill surfaces. Codex parity helpers install under `~/.codex/etrnl/` when you use both hosts.
+Eternal Stack targets [Claude Code](https://docs.anthropic.com/en/docs/claude-code) hook and skill surfaces. The reusable rule pack exports to Claude and Cursor; optional Codex helper state installs under `~/.codex/etrnl/` when you use both hosts.
 
 ## Contributing upstream
 

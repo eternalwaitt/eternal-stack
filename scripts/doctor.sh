@@ -839,63 +839,10 @@ if git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1 && [[ -f "$ROO
   if [[ -f "$ROOT/rules-manifest.json" ]]; then
     if ! command -v python3 >/dev/null 2>&1; then
       fail "python3 unavailable; privacy banned-token scan cannot run"
-    elif privacy_out="$(python3 - "$ROOT" <<'PYEOF' 2>&1
-import json
-import subprocess
-import sys
-from pathlib import Path
-
-root = Path(sys.argv[1])
-manifest = json.loads((root / "rules-manifest.json").read_text())
-tokens = [str(token).lower() for token in manifest.get("privacy", {}).get("bannedTokens", []) if str(token).strip()]
-local_token_files = {str(rel_path) for rel_path in manifest.get("privacy", {}).get("localTokenFiles", [])}
-for rel_path in sorted(local_token_files):
-    check = subprocess.run(["git", "-C", str(root), "check-ignore", "--quiet", "--", rel_path])
-    if check.returncode != 0:
-        print(f"local privacy token file is not gitignored: {rel_path}", file=sys.stderr)
-        sys.exit(1)
-for rel_path in manifest.get("privacy", {}).get("localTokenFiles", []):
-    local_path = root / str(rel_path)
-    if not local_path.exists():
-        continue
-    if local_path.suffix == ".json":
-        try:
-            parsed = json.loads(local_path.read_text())
-        except json.JSONDecodeError as error:
-            print(f"malformed JSON in {rel_path}: {error}", file=sys.stderr)
-            sys.exit(1)
-        if isinstance(parsed, list):
-            local_tokens = parsed
-        else:
-            local_tokens = parsed.get("privacy", {}).get("bannedTokens", parsed.get("bannedTokens", []))
-    else:
-        local_tokens = [
-            line.strip()
-            for line in local_path.read_text().splitlines()
-            if line.strip() and not line.strip().startswith("#")
-        ]
-    tokens.extend(str(token).lower() for token in local_tokens if str(token).strip())
-tokens = sorted(set(tokens))
-files = subprocess.check_output(["git", "-C", str(root), "ls-files"], text=True).splitlines()
-violations = []
-for rel in files:
-    if rel == "rules-manifest.json" or rel in local_token_files:
-        continue
-    path = root / rel
-    try:
-        if path.stat().st_size > 10 * 1024 * 1024:
-            continue
-        text = path.read_text(errors="ignore").lower()
-    except OSError:
-        continue
-    found_count = sum(1 for token in tokens if token in text)
-    if found_count:
-        violations.append(f"{rel}: banned token match count={found_count}")
-if violations:
-    print("\n".join(violations))
-    sys.exit(1)
-PYEOF
-    )"; then
+    elif privacy_out="$(node "$ROOT/scripts/privacy-banned-token-check.mjs" "$ROOT" 2>&1)"; then
+      if [[ -n "$privacy_out" ]]; then
+        printf '%s\n' "$privacy_out" >&2
+      fi
       ok "privacy banned-token scan clean"
     else
       while IFS= read -r line; do

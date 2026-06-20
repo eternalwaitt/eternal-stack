@@ -17,7 +17,7 @@ concurrency:
 jobs:
   repo-health:
     name: Repository Health Checks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
       - name: Checkout
@@ -35,8 +35,9 @@ jobs:
       - name: Install CLI dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y jq fd-find ripgrep shellcheck python3
+          sudo apt-get install -y jq fd-find ripgrep shellcheck python3.12
           sudo ln -sf "$(command -v fdfind)" /usr/local/bin/fd
+          sudo ln -sf "$(command -v python3.12)" /usr/local/bin/python3
 
       - name: Validate generated rule exports
         run: node scripts/sync-rule-exports.mjs --check

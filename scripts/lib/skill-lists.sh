@@ -108,6 +108,7 @@ CRITICAL_SCRIPTS=(
   deep-audit-artifact-check.mjs
   plan-readiness-check.mjs
   performance-baseline.mjs
+  privacy-banned-token-check.mjs
   pr-preflight.mjs
   live-hook-noise-report.mjs
   session-audit.mjs
@@ -153,6 +154,7 @@ INSTALL_SCRIPTS=(
   deep-audit-artifact-check.mjs
   plan-readiness-check.mjs
   performance-baseline.mjs
+  privacy-banned-token-check.mjs
   pr-preflight.mjs
   agent-task-packet-check.mjs
   guard-override-token.mjs

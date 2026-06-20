@@ -12,6 +12,8 @@ SKIP_CODEGRAPH=0
 SKIP_BEADS=0
 SKIP_HINDSIGHT=0
 DRY_RUN=0
+# Admin-tool npm specs: set ETRNL_*_NPM_SPEC only from trusted administrator-controlled input.
+# Unsanitized values enable arbitrary command execution through shell interpolation.
 CODEGRAPH_NPM_SPEC="${ETRNL_CODEGRAPH_NPM_SPEC:-@colbymchenry/codegraph@1.0.1}"
 BEADS_NPM_SPEC="${ETRNL_BEADS_NPM_SPEC:-@beads/bd@1.0.5}"
 CONFIRM_SKIPPED=64

@@ -442,6 +442,7 @@ fi
 assert_command "pr preflight syntax" node --check "$ROOT/scripts/pr-preflight.mjs"
 assert_command "live hook noise report syntax" node --check "$ROOT/scripts/live-hook-noise-report.mjs"
 assert_command "session audit syntax" node --check "$ROOT/scripts/session-audit.mjs"
+assert_command "privacy banned token check syntax" node --check "$ROOT/scripts/privacy-banned-token-check.mjs"
 assert_command "performance baseline syntax" node --check "$ROOT/scripts/performance-baseline.mjs"
 assert_command "disk cleanup manifest syntax" node --check "$ROOT/scripts/disk-cleanup-manifest.mjs"
 assert_command "pr preflight validates fixture" bash -c "printf '%s\n' '{\"branch\":\"feature\",\"dirty\":false,\"changedFiles\":[],\"blockers\":[],\"ghAvailable\":false}' | node \"\$0/scripts/pr-preflight.mjs\" validate --json >/dev/null" "$ROOT"
@@ -542,6 +543,78 @@ if disk_denormalized_path="$(printf '%s\n' "$disk_manifest_denormalized_path" | 
   not_ok "disk cleanup manifest rejects denormalized absolute paths"
 else
   assert_contains "disk cleanup manifest rejects denormalized absolute paths" "$disk_denormalized_path" "path must be absolute"
+fi
+privacy_repo="$TMPROOT/privacy-token-check-repo"
+mkdir -p "$privacy_repo/.eternal" "$privacy_repo/docs"
+git -C "$privacy_repo" init -q
+git -C "$privacy_repo" config user.email test@example.com
+git -C "$privacy_repo" config user.name Test
+cat >"$privacy_repo/.gitignore" <<'EOF'
+/.eternal/privacy-banned-tokens.local
+/.eternal/privacy-banned-tokens-extra.json
+/rules-manifest.local.json
+EOF
+cat >"$privacy_repo/rules-manifest.json" <<'JSON'
+{
+  "schemaVersion": 1,
+  "privacy": {
+    "bannedTokens": ["TRACKED_PRIVATE_TOKEN"],
+    "localTokenFiles": [
+      ".eternal/privacy-banned-tokens.local",
+      ".eternal/privacy-banned-tokens-extra.json",
+      "rules-manifest.local.json"
+    ]
+  }
+}
+JSON
+printf '%s\n' '# comment' 'LOCAL_LINE_TOKEN' >"$privacy_repo/.eternal/privacy-banned-tokens.local"
+printf '%s\n' '{"bannedTokens":["LOCAL_TOP_TOKEN"]}' >"$privacy_repo/.eternal/privacy-banned-tokens-extra.json"
+printf '%s\n' '{"privacy":{"bannedTokens":["LOCAL_NESTED_TOKEN"]}}' >"$privacy_repo/rules-manifest.local.json"
+printf '%s\n' 'TRACKED_PRIVATE_TOKEN LOCAL_LINE_TOKEN LOCAL_TOP_TOKEN LOCAL_NESTED_TOKEN' >"$privacy_repo/docs/leak.md"
+git -C "$privacy_repo" add .gitignore rules-manifest.json docs/leak.md
+if privacy_violation_out="$(node "$ROOT/scripts/privacy-banned-token-check.mjs" "$privacy_repo" 2>&1)"; then
+  not_ok "privacy banned-token check reports tracked and local token matches"
+else
+  assert_contains "privacy banned-token check reports tracked and local token matches" "$privacy_violation_out" "docs/leak.md: banned token match count=4"
+fi
+
+privacy_ignore_repo="$TMPROOT/privacy-token-ignore-repo"
+mkdir -p "$privacy_ignore_repo"
+git -C "$privacy_ignore_repo" init -q
+cat >"$privacy_ignore_repo/rules-manifest.json" <<'JSON'
+{
+  "schemaVersion": 1,
+  "privacy": {
+    "bannedTokens": [],
+    "localTokenFiles": ["not-ignored.local"]
+  }
+}
+JSON
+git -C "$privacy_ignore_repo" add rules-manifest.json
+if privacy_ignore_out="$(node "$ROOT/scripts/privacy-banned-token-check.mjs" "$privacy_ignore_repo" 2>&1)"; then
+  not_ok "privacy banned-token check requires local token files to be gitignored"
+else
+  assert_contains "privacy banned-token check requires local token files to be gitignored" "$privacy_ignore_out" "local privacy token file is not gitignored"
+fi
+
+privacy_encoding_repo="$TMPROOT/privacy-token-encoding-repo"
+mkdir -p "$privacy_encoding_repo/docs"
+git -C "$privacy_encoding_repo" init -q
+cat >"$privacy_encoding_repo/rules-manifest.json" <<'JSON'
+{
+  "schemaVersion": 1,
+  "privacy": {
+    "bannedTokens": ["NO_MATCH_TOKEN"],
+    "localTokenFiles": []
+  }
+}
+JSON
+printf '\xffnot a token\n' >"$privacy_encoding_repo/docs/binary.txt"
+git -C "$privacy_encoding_repo" add rules-manifest.json docs/binary.txt
+if privacy_encoding_out="$(node "$ROOT/scripts/privacy-banned-token-check.mjs" "$privacy_encoding_repo" 2>&1)"; then
+  assert_contains "privacy banned-token check warns on encoding issues" "$privacy_encoding_out" "warning: encoding issue"
+else
+  not_ok "privacy banned-token check warns on encoding issues"
 fi
 assert_command "deep-stack artifact library syntax" node --check "$ROOT/scripts/lib/deep-stack-artifacts.mjs"
 assert_command "deep-audit artifact check syntax" node --check "$ROOT/scripts/deep-audit-artifact-check.mjs"
@@ -1858,15 +1931,14 @@ if [[ -f "$INIT_SCRIPT" ]]; then
   mkdir -p "$tcg_target"
   bash "$INIT_SCRIPT" --profile eternal-saas-tcg "$tcg_target" >/dev/null 2>&1 || true
   assert_file "init tcg profile installs tcg contract module" "$tcg_target/.claude/rules/eternal-saas/project/tcg-contract.md"
-  # simulate manifest bump by touching source (sleep ensures different mtime second)
+  # simulate manifest bump with an explicit future mtime; restore the source after the check.
   orpc_source="$ROOT/rules/eternal-saas/project/orpc.md"
   orpc_mtime_marker="$TMPROOT/orpc-source-mtime"
   if [[ -f "$orpc_source" ]]; then
     touch "$orpc_mtime_marker"
     touch -r "$orpc_source" "$orpc_mtime_marker"
     trap 'touch -r "$orpc_mtime_marker" "$orpc_source" 2>/dev/null || true; cc_test_cleanup' EXIT
-    sleep 1
-    touch "$orpc_source"
+    touch -t 203001010000 "$orpc_source"
     check_out="$(bash "$INIT_SCRIPT" --check --profile eternal-saas "$real_target" 2>&1)" || true
     assert_contains "init --check reports stale after manifest bump" "$check_out" "stale"
     touch -r "$orpc_mtime_marker" "$orpc_source"
