@@ -1841,6 +1841,7 @@ if [[ -f "$INIT_SCRIPT" ]]; then
   orpc_source="$ROOT/rules/eternal-saas/project/orpc.md"
   orpc_mtime_marker="$TMPROOT/orpc-source-mtime"
   if [[ -f "$orpc_source" ]]; then
+    touch "$orpc_mtime_marker"
     touch -r "$orpc_source" "$orpc_mtime_marker"
     trap 'touch -r "$orpc_mtime_marker" "$orpc_source" 2>/dev/null || true; cc_test_cleanup' EXIT
     sleep 1

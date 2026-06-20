@@ -672,19 +672,19 @@ handle_bash() {
   fi
 
   if cc_email_triage_active && command_is_raw_email_triage_gmail_mutation "$cmd"; then
-    deny "Raw Gmail mutation is blocked during email-triage. Phase 1 must use etrnl-email triage guarded-run --account <id> --max-inbox 500 --apply --require-insights, then etrnl-email triage verify --latest --account <id>. Only after verified Inbox Zero, open the queue."
+    deny "Raw Gmail mutation is blocked during email-triage. Phase 1 must use etrnl-email triage guarded-run --account <account-id> --max-inbox 500 --apply --require-insights, then etrnl-email triage verify --latest --account <account-id>. Only after verified Inbox Zero, open the queue."
   fi
 
   if cc_email_triage_active && command_is_email_triage_dry_run "$cmd" && ! command_is_email_triage_debug_dry_run "$cmd"; then
-    deny "Dry email-triage runs are blocked during /email-triage. Phase 1 must clear INBOX with etrnl-email triage guarded-run --account <id> --max-inbox 500 --apply --require-insights, then etrnl-email triage verify --latest --account <id> before any queue item is shown."
+    deny "Dry email-triage runs are blocked during /email-triage. Phase 1 must clear INBOX with etrnl-email triage guarded-run --account <account-id> --max-inbox 500 --apply --require-insights, then etrnl-email triage verify --latest --account <account-id> before any queue item is shown."
   fi
 
   if cc_email_triage_active && command_is_email_triage_queue "$cmd" && ! cc_email_triage_verify_seen; then
-    deny "email-triage queue is blocked until Inbox Zero verification has run. First run etrnl-email triage guarded-run --account <id> --max-inbox 500 --apply --require-insights, then etrnl-email triage verify --latest --account <id>. Open the queue only after verify reports inbox_zero_verified true and inbox_count 0."
+    deny "email-triage queue is blocked until Inbox Zero verification has run. First run etrnl-email triage guarded-run --account <account-id> --max-inbox 500 --apply --require-insights, then etrnl-email triage verify --latest --account <account-id>. Open the queue only after verify reports inbox_zero_verified true and inbox_count 0."
   fi
 
   if cc_email_triage_active && command_is_email_triage_queue "$cmd" && ! cc_email_triage_queue_verified "$cmd"; then
-    deny "email-triage queue is blocked until provider verification proves Inbox Zero and either gmail_mutated true or queue_ready_without_mutation true. Run etrnl-email triage verify --latest --account <id> and require inbox_zero_verified true and inbox_count 0 before opening the queue."
+    deny "email-triage queue is blocked until provider verification proves Inbox Zero and either gmail_mutated true or queue_ready_without_mutation true. Run etrnl-email triage verify --latest --account <account-id> and require inbox_zero_verified true and inbox_count 0 before opening the queue."
   fi
 
   if command_writes_live_claude_hooks "$cmd"; then

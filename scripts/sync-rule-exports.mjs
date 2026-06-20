@@ -196,6 +196,9 @@ function expandProfileModules(manifest, profileName, seen = new Set()) {
   const profile = manifest.profiles?.[profileName];
   if (!profile) throw new Error(`Unknown profile: ${profileName}`);
   seen.add(profileName);
+  if (profile.extends && typeof profile.extends !== 'string') {
+    throw new Error(`Profile ${profileName}: extends must be a single profile name string`);
+  }
   const inherited = profile.extends ? expandProfileModules(manifest, profile.extends, seen) : [];
   return [...inherited, ...arrayValue(profile.modules)];
 }

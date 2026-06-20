@@ -376,7 +376,7 @@ if [[ "$claims_done" == "true" ]]; then
   if cc_email_triage_requested; then
     email_triage_since="$(cc_email_triage_request_at)"
     if ! cc_email_triage_evidence_after "$email_triage_since"; then
-      cc_json_block "email-triage phase 1 must clear INBOX first. Run etrnl-email triage guarded-run --account <id> --max-inbox 500 --apply --require-insights and verify Inbox Zero before opening the action queue."
+      cc_json_block "email-triage phase 1 must clear INBOX first. Run etrnl-email triage guarded-run --account <account-id> --max-inbox 500 --apply --require-insights and verify Inbox Zero before opening the action queue."
       exit 0
     fi
     if ! cc_email_triage_verify_latest "$email_triage_since"; then
@@ -384,7 +384,7 @@ if [[ "$claims_done" == "true" ]]; then
       exit 0
     fi
     if ! cc_email_triage_verify_applied "$email_triage_since"; then
-      cc_json_block "email-triage Inbox Zero completion requires provider-verified INBOX zero and either gmail_mutated true or queue_ready_without_mutation true. Use etrnl-email triage guarded-run --account <id> --max-inbox 500 --apply --require-insights, verify inbox_count is 0, then open the action queue."
+      cc_json_block "email-triage Inbox Zero completion requires provider-verified INBOX zero and either gmail_mutated true or queue_ready_without_mutation true. Use etrnl-email triage guarded-run --account <account-id> --max-inbox 500 --apply --require-insights, verify inbox_count is 0, then open the action queue."
       exit 0
     fi
     if ! cc_email_triage_message_has_runtime_output; then
