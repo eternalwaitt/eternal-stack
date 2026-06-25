@@ -12,6 +12,7 @@ coverage/
 .claude/
 .gstack/
 .planning/
+.audit/
 plans/
 docs/plans/
 docs/research/

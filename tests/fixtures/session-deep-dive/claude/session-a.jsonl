@@ -1,0 +1,5 @@
+{"timestamp":"2026-06-24T10:00:00Z","source":"claude","session_id":"fixture-claude-a","type":"tool_use","tool_name":"mcp__codegraph__codegraph_explore","tool_input":{"query":"symbol map"}}
+{"timestamp":"2026-06-24T10:01:00Z","source":"claude","session_id":"fixture-claude-a","type":"tool_use","tool_name":"Read","tool_input":{"file_path":"src/app.ts"}}
+{"timestamp":"2026-06-24T10:02:00Z","source":"claude","session_id":"fixture-claude-a","type":"tool_use","tool_name":"Edit","tool_input":{"file_path":"src/app.ts"}}
+{"timestamp":"2026-06-24T10:03:00Z","source":"claude","session_id":"fixture-claude-a","type":"hook","hook":"Stop","status":"blocked","blockingError":{"blockingError":"Verification evidence is missing after code edits."}}
+{"timestamp":"2026-06-24T10:04:00Z","source":"claude","session_id":"fixture-claude-a","type":"tool_use","tool_name":"Bash","tool_input":{"command":"pnpm test"}}

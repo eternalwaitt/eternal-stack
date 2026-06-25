@@ -22,6 +22,7 @@ node scripts/etrnl-state.mjs validate --fixtures tests/fixtures/etrnl-state
 node scripts/etrnl-state.mjs doctor --compact --explain
 node scripts/tool-stack-check.mjs --json
 node scripts/live-hook-noise-report.mjs --since-days 3 --json
+node scripts/session-deep-dive.mjs --since-days 10 --json
 node scripts/session-audit.mjs --since-days 3 --json
 node scripts/stack-profile-check.mjs templates/stack-profile.core.json --json
 node scripts/stack-profile-check.mjs templates/stack-profile.full.json --json
@@ -36,6 +37,7 @@ scripts/doctor.sh [--jobs N]  # parallel syntax + heavy suites; default jobs=4, 
 node scripts/settings-audit.mjs templates/settings.json --strict-conflicts
 node scripts/settings-audit.mjs templates/settings.strict.json --strict-conflicts
 scripts/canary-hindsight.sh --json
+node scripts/canary-codex-hindsight.mjs --json
 node scripts/update-check.mjs --fingerprint-source .
 fd -t f -e sh . hooks scripts tests -x bash -n
 fd -t f -e sh . hooks scripts tests -X shellcheck -x
@@ -64,7 +66,9 @@ node --check \
   scripts/project-buglog.mjs \
   scripts/browser-qa-report.mjs \
   scripts/context-state.mjs \
+  scripts/canary-codex-hindsight.mjs \
   scripts/live-hook-noise-report.mjs \
+  scripts/session-deep-dive.mjs \
   scripts/session-audit.mjs \
   scripts/disk-cleanup-manifest.mjs \
   scripts/performance-baseline.mjs \
@@ -100,6 +104,7 @@ node scripts/workflow-health.mjs prune --older-than-days 30 --dry-run --all
 node scripts/tool-effectiveness.mjs summarize --since-days 7 --all --projects-config "$HOME/.claude/etrnl/tool-effectiveness/projects.json" --json
 node scripts/tool-effectiveness.mjs doctor --json
 node scripts/live-hook-noise-report.mjs --since-days 3 --json
+node scripts/session-deep-dive.mjs --since-days 10 --json
 node scripts/session-audit.mjs --since-days 3 --json
 node scripts/etrnl-state.mjs compact-handoff --latest --json
 node scripts/etrnl-state.mjs doctor --compact --explain
@@ -127,9 +132,10 @@ scripts/post-upgrade-canary.sh
 ```
 
 - `scripts/workflow-health.mjs` reads run ledgers in parallel with `ETRNL_LEDGER_READ_CONCURRENCY` (default `8`, capped at `12` for constrained systems). `workflow-health.mjs status` is the concise text surface used by SessionStart hints; `status --json` is the machine-readable surface for active run id, unfinished work, missing artifacts, browser/context freshness, phase/UAT state, stale run count, and the next deterministic action. Use `workflow-health.mjs doctor --strict` or `ETRNL_WORKFLOW_HEALTH_STRICT=1` when live runtime findings must fail closed instead of remaining diagnostic.
-- `tool-effectiveness.mjs` summarizes sanitized local tool events into deterministic `keep`, `enforce`, `repo-specific`, `remove-watch`, or `insufficient-data` verdicts. It reads hook tool-signal state, optional local event artifacts, and explicit Codex imports; it rejects raw prompts, transcript text, secrets, private transcript paths, and tracked private project names. Use the seven-day `summarize` command above to revisit CodeGraph, Beads, and stolen hook patterns without manual log reading.
+- `tool-effectiveness.mjs` summarizes sanitized local tool events into deterministic `keep`, `enforce`, `repo-specific`, `remove-watch`, or `insufficient-data` verdicts. It reads hook tool-signal state, optional local event artifacts, and explicit Codex imports; it rejects raw prompts, transcript text, secrets, private transcript paths, and tracked private project names. Its `quickWins` output flags missing metadata, low CodeGraph-before-edit coverage, dormant Beads posture, and noisy events before a tool is promoted to strict enforcement. Use the seven-day `summarize` command above to revisit CodeGraph, Beads, and hook patterns without manual log reading.
+- `session-deep-dive.mjs` scans recent Claude and Codex local session JSON/JSONL without echoing private text. Use it for 10-day usage reviews: it reports scanned file/row counts, code-eligible sessions, read/search/edit volume, CodeGraph/Beads/Hindsight signal counts, CodeGraph-before-first-edit coverage, high-work sessions without CodeGraph, Stop block categories, and immediate follow-up type.
 - `etrnl-state.mjs` is the canonical local state helper for compact lifecycle and small workflow events. It writes append-only JSONL under `~/.claude/etrnl/state`, rebuilds compact handoff views, rejects raw prompts/transcripts/private paths/secrets before append, and exposes `compact-handoff`, `stop-status`, `doctor`, `bead-link`, and `bead-prime-audit`. Hook hot paths may use bounded state appends and queries only.
-- `tool-stack-check.mjs` is the installed health surface for CodeGraph, Beads, and Hindsight plugin posture. Hindsight install detection prefers `claude plugin list` when the CLI is on PATH, then falls back to versioned directories under `~/.claude/plugins/cache/` so SessionStart and skill-update hooks do not false-positive when hook PATH lacks nvm-managed `claude`. `update-check.mjs` includes its missing/update signals, and `cc-userprompt-router.sh` uses that combined update signal to ask before requested `etrnl-*` skill invocations when CodeGraph, Beads, or repo-owned skills are stale.
+- `tool-stack-check.mjs` is the installed health surface for CodeGraph, Beads, and Hindsight plugin posture. Project checks include `.codegraph` health, `.beads` health, and Beads issue-count posture (`dormant-empty`, `active`, or `unknown`) from `bd -C <project> status --json`. Hindsight install detection prefers `claude plugin list` when the CLI is on PATH, then falls back to versioned directories under `~/.claude/plugins/cache/` so SessionStart and skill-update hooks do not false-positive when hook PATH lacks nvm-managed `claude`. It reports Codex Hindsight separately as `configured-unverified`, `installed-only`, or `unproven`; do not claim Hindsight works in Codex from Claude plugin health alone. `canary-codex-hindsight.mjs` is the matching truth canary and reports `runtimeProven:false` until a real Codex recall path exists. `update-check.mjs` includes missing/update signals, and `cc-userprompt-router.sh` uses that combined update signal to ask before requested `etrnl-*` skill invocations when CodeGraph, Beads, or repo-owned skills are stale.
 - `stack-profile-check.mjs` validates the public `core` and `full` stack manifests so installer dry-runs, staged installs, and doctor runs cannot silently omit Hindsight, Beads, or CodeGraph from the full profile.
 - `settings-audit.mjs` reports repo-owned hooks, outside-settings plugin hook manifests, memory-affecting plugin hooks, unsupported top-level settings such as `autoCompactWindow` and `skipAutoPermissionPrompt`, and enabled memory plugin config posture.
 - `cc-precompact-save.sh` records bounded `compact_pre` events, `cc-postcompact-record.sh` records Claude compact summaries as `compact_post` with stale-verification state, and synchronous `cc-sessionstart-restore.sh` injects only the bounded `compact-handoff` packet on `source=compact`.
@@ -164,6 +170,7 @@ It also enforces changelog release hygiene via `changelog-release-check.mjs --st
 ```bash
 scripts/canary-websearch.sh
 scripts/canary-hindsight.sh --json
+node scripts/canary-codex-hindsight.mjs --json
 ```
 
 ## Optional Repo-Health Tools

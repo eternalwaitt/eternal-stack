@@ -647,6 +647,13 @@ stop_json="$(fixture stop.json)"
 out="$(run_hook cc-stop-verifier.sh "$stop_json")"
 assert_json_expr "stop verifier blocks unverified completion" "$out" '.decision == "block"'
 
+evidence_advisory_stop="$(jq -cn '{session_id:"fixture-stop-evidence-advisory",last_assistant_message:"You are right. I will check the log next.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$evidence_advisory_stop")"
+assert_json_expr "stop verifier downgrades non-final evidence wording to advisory" "$out" '.continue == true and (.hookSpecificOutput.additionalContext | test("Evidence-before-agreement"))'
+evidence_completion_stop="$(jq -cn '{session_id:"fixture-stop-evidence-completion",last_assistant_message:"You are right. Done, tests pass.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$evidence_completion_stop")"
+assert_contains "stop verifier still blocks evidence wording on completion claim" "$out" "Evidence-before-agreement"
+
 browser_outstanding_stop="$(jq -cn '{session_id:"fixture-browser-outstanding",last_assistant_message:"Phases 0-10 complete. Only the manual browser pass is still outstanding - needs pnpm dev:web and a real browser.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$browser_outstanding_stop")"
 assert_contains "stop verifier blocks outstanding browser QA" "$out" "Outstanding browser QA"
@@ -661,6 +668,15 @@ if [[ -z "$out" ]]; then ok "stop verifier allows paused production status"; els
 true_completion_pending_stop="$(jq -cn '{session_id:"fixture-true-completion-pending-token",last_assistant_message:"Done. Tests pass. No live change needed; nothing pending.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$true_completion_pending_stop")"
 assert_contains "stop verifier keeps true completion despite incidental work-state token" "$out" "claim completion without verification evidence"
+
+compact_advisory_dir="$TMPROOT/etrnl-stop-compact-advisory"
+printf '%s\n' '{"eventKind":"compact_post","sessionId":"fixture-stop-compact-advisory","at":"2026-01-01T00:00:00Z","data":{"compactSummary":"status handoff","nextAction":"continue","task":"status"}}' \
+  | ETRNL_STATE_DIR="$compact_advisory_dir" node "$ROOT/scripts/etrnl-state.mjs" append --json >/dev/null
+compact_advisory_state="$TMPROOT/claude-guard-fixture-stop-compact-advisory.json"
+jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[{value:"tests/test-hooks.sh",at:"2026-01-01T00:00:01Z"}],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:false,planExecutionRequestedAt:"",lastPrompt:"status",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$compact_advisory_state"
+compact_advisory_stop="$(jq -cn '{session_id:"fixture-stop-compact-advisory",last_assistant_message:"Completed status update. Tests pass from the previous gate.",stop_hook_active:false}')"
+out="$(ETRNL_STATE_DIR="$compact_advisory_dir" run_hook cc-stop-verifier.sh "$compact_advisory_stop")"
+assert_json_expr "stop verifier downgrades compact stale status-only completion to advisory" "$out" '.continue == true and (.hookSpecificOutput.additionalContext | test("compact verification is stale"))'
 
 advice_state="$TMPROOT/claude-guard-fixture-advice.json"
 jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"which iPhone should I buy today?",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$advice_state"
@@ -907,7 +923,7 @@ if [[ -z "$out" ]]; then ok "etrnl-dev-execute implementation plus reviewer agen
 
 sycophancy_stop="$(jq -cn '{session_id:"fixture-session",last_assistant_message:"You are right - I will check.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$sycophancy_stop")"
-assert_contains "stop verifier blocks sycophancy" "$out" "Evidence-before-agreement"
+assert_json_expr "stop verifier advises on non-final sycophancy" "$out" '.continue == true and (.hookSpecificOutput.additionalContext | test("Evidence-before-agreement"))'
 
 deflection_stop="$(jq -cn '{session_id:"fixture-deflection-stop",last_assistant_message:"Tests fail, but this is a pre-existing issue and out of scope for my changes.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$deflection_stop")"
@@ -936,6 +952,7 @@ out="$(run_hook cc-sessionstart-restore.sh "$session_json")"
 assert_json_expr "session compact restores context" "$out" '.hookSpecificOutput.additionalContext | test("Compact recovery")'
 assert_json_expr "session compact uses ETRNL handoff fast path" "$out" '.hookSpecificOutput.additionalContext | test("verification_stale=true")'
 assert_contains "session start injects ETRNL skill hint" "$out" "ETRNL skills"
+jq '.edits["/tmp/compact-risk.ts"] = "2026-01-01T00:00:02Z"' "$TMPROOT/claude-guard-fixture-session.json" >"$TMPROOT/claude-guard-fixture-session.json.tmp" && mv "$TMPROOT/claude-guard-fixture-session.json.tmp" "$TMPROOT/claude-guard-fixture-session.json"
 compact_stale_stop="$(jq -cn '{session_id:"fixture-session",last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$compact_stale_stop")"
 assert_contains "stop verifier blocks stale compact verification" "$out" "Verification is stale after compact"

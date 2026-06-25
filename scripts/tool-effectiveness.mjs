@@ -119,6 +119,7 @@ function normalizeEvent(raw, source = "fixture") {
   if (rejectReason) return { rejected: true, reason: rejectReason, raw };
   const tool = String(raw.tool || raw.toolId || raw.name || "").trim();
   if (!tool) return { rejected: true, reason: "missing-tool", raw };
+  const known = (field) => Object.prototype.hasOwnProperty.call(raw, field);
   return {
     schemaVersion: 1,
     source: raw.source || source,
@@ -141,6 +142,14 @@ function normalizeEvent(raw, source = "fixture") {
     duplicateTruthState: Boolean(raw.duplicateTruthState),
     privacyFailure: Boolean(raw.privacyFailure),
     at: raw.at || new Date(0).toISOString(),
+    metadataKnown: {
+      usedBeforeFirstEdit: known("usedBeforeFirstEdit"),
+      usefulWork: known("usefulWork"),
+      downstreamArtifact: known("downstreamArtifact"),
+      verificationRecovered: known("verificationRecovered"),
+      readSearchCount: known("readSearchCount"),
+      repeatedEdits: known("repeatedEdits"),
+    },
   };
 }
 
@@ -274,6 +283,10 @@ function summarizeEvents(events, rejected = []) {
     const privacyRejectCount = rejected.filter((row) => row.tool === tool || row.toolKind === tool).length;
     const privacyFailure = used.some((row) => row.privacyFailure) || privacyRejectCount > 0;
     const duplicateTruthState = used.some((row) => row.duplicateTruthState);
+    const unknownMetadataCount = used.reduce((count, row) => {
+      const metadata = row.metadataKnown || {};
+      return count + Object.values(metadata).filter((known) => known === false).length;
+    }, 0);
     const score = Math.round(Math.max(0, Math.min(100,
       25 * autonomous + 20 * beforeUseful + 20 * explorationDelta + 15 * reworkDelta + 10 * verificationRecoveryRate + 10 * usefulArtifactRate - 30 * noiseRate - (privacyFailure ? 100 : 0),
     )));
@@ -292,18 +305,36 @@ function summarizeEvents(events, rejected = []) {
         usefulArtifactRate: Number(usefulArtifactRate.toFixed(3)),
         noiseRate: Number(noiseRate.toFixed(3)),
         privacyRejectCount,
+        unknownMetadataCount,
       },
+      quickWins: quickWinsFor(tool, {
+        eligible: eligible.length,
+        used: used.length,
+        beforeFirstEditRate: used.filter((row) => row.usedBeforeFirstEdit).length / Math.max(used.length, 1),
+        unknownMetadataCount,
+        noiseRate,
+      }),
     };
   }
   return { schemaVersion: 1, command: "summarize", tools, totals: { events: events.length, rejected: rejected.length } };
 }
 
 function verdictFor({ eligible, score, noiseRate, privacyFailure, duplicateTruthState, autonomous }) {
-  if (privacyFailure || duplicateTruthState || score < 50 || noiseRate > 0.4) return "remove-watch";
+  if (privacyFailure || duplicateTruthState) return "remove-watch";
   if (eligible < 5) return "insufficient-data";
+  if (score < 50 || noiseRate > 0.4) return "remove-watch";
   if (score >= 70 && noiseRate <= 0.25 && autonomous < 0.6) return "enforce";
   if (score >= 70 && noiseRate <= 0.25) return "keep";
   return "repo-specific";
+}
+
+function quickWinsFor(tool, metrics) {
+  const wins = [];
+  if (metrics.unknownMetadataCount > 0) wins.push("import richer metadata before treating missing fields as tool failure");
+  if (tool === "codegraph" && metrics.eligible >= 5 && metrics.beforeFirstEditRate < 0.6) wins.push("add CodeGraph-first advisory before high-read or edit-heavy code sessions");
+  if (tool === "beads" && metrics.used === 0) wins.push("choose dormant posture or seed Beads from accepted findings before enforcing usage");
+  if (metrics.noiseRate > 0.25) wins.push("inspect noisy events before promoting this tool to strict enforcement");
+  return wins;
 }
 
 function baseline(events) {

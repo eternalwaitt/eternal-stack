@@ -219,6 +219,7 @@ function projectStatus(projectRoot) {
   const beadsStatus = commandPath("bd")
     ? run("bd", ["-C", resolved, "status", "--json"], { timeout: 20_000 })
     : { ok: false, stdout: "", stderr: "", error: "bd-missing" };
+  const beadsSummary = parseBeadsStatus(beadsStatus.stdout);
   return {
     path: resolved,
     codegraphInitialized: fs.existsSync(codegraphDir),
@@ -227,8 +228,30 @@ function projectStatus(projectRoot) {
     beadsInitialized: fs.existsSync(beadsDir),
     beadsHealthy: beadsStatus.ok,
     beadsError: beadsStatus.ok ? "" : beadsStatus.stderr || beadsStatus.error,
+    beadsSummary,
     bootstrapCommand: `bash ${shellQuote(bootstrapToolsPath)} project --project ${shellQuote(resolved)}`,
   };
+}
+
+function parseBeadsStatus(stdout) {
+  if (!stdout) return { issueCountKnown: false, totalIssues: null, openIssues: null, posture: "unknown" };
+  try {
+    const parsed = JSON.parse(stdout);
+    const summary = parsed.summary && typeof parsed.summary === "object" ? parsed.summary : {};
+    const totalIssues = Number(parsed.total_issues ?? parsed.totalIssues ?? parsed.issues_total ?? parsed.issuesTotal ?? summary.total_issues ?? summary.totalIssues);
+    const openIssues = Number(parsed.open_issues ?? parsed.openIssues ?? parsed.open ?? parsed.active ?? summary.open_issues ?? summary.openIssues);
+    const issueCountKnown = Number.isFinite(totalIssues) || Number.isFinite(openIssues);
+    const normalizedTotal = Number.isFinite(totalIssues) ? totalIssues : null;
+    const normalizedOpen = Number.isFinite(openIssues) ? openIssues : null;
+    return {
+      issueCountKnown,
+      totalIssues: normalizedTotal,
+      openIssues: normalizedOpen,
+      posture: issueCountKnown && (normalizedTotal ?? normalizedOpen ?? 0) === 0 ? "dormant-empty" : issueCountKnown ? "active" : "unknown",
+    };
+  } catch {
+    return { issueCountKnown: false, totalIssues: null, openIssues: null, posture: "unknown" };
+  }
 }
 
 function hindsightConfigPath() {
@@ -379,6 +402,7 @@ function hindsightStatus() {
   const apiHealth = apiUrl ? curlHealth(apiUrl) : { ok: true, skipped: true, reason: mode === "local-daemon" ? "local daemon starts on demand; use canary for live port check" : "no api url configured" };
   if (pluginEnabled && apiUrl && !apiHealth.ok) issues.push(`Hindsight API health failed: ${apiHealth.error}`);
   const latest = githubLatestRelease(cache, "vectorize-io/hindsight", "hindsight");
+  const codexRuntime = codexHindsightRuntimeStatus();
   return {
     id: "hindsight",
     kind: "claude-plugin",
@@ -399,10 +423,36 @@ function hindsightStatus() {
     ok: !pluginEnabled || (pluginInstalled && configExists && issues.length === 0 && apiHealth.ok),
     issues,
     warnings,
+    codexRuntime,
     strictChecks: hindsightStrictChecks,
     installCommand: "claude plugin marketplace add vectorize-io/hindsight && claude plugin install hindsight-memory",
     updateCommand: "claude plugin update hindsight-memory",
     healthCommand: "scripts/canary-hindsight.sh",
+  };
+}
+
+function codexHindsightRuntimeStatus() {
+  const codexHome = process.env.CODEX_HOME ? path.resolve(process.env.CODEX_HOME) : path.join(os.homedir(), ".codex");
+  const configPath = path.join(codexHome, "config.toml");
+  const pluginRoot = path.join(codexHome, "plugins");
+  const configText = fs.existsSync(configPath) ? fs.readFileSync(configPath, "utf8") : "";
+  const configMentionsHindsight = /hindsight/i.test(configText);
+  const pluginCacheMentionsHindsight = fs.existsSync(pluginRoot) && listDirectoryNames(path.join(pluginRoot, "cache")).some((name) => /hindsight/i.test(name));
+  if (configMentionsHindsight) {
+    return {
+      status: "configured-unverified",
+      evidence: "Codex config mentions Hindsight; run a Codex-side canary before marking runtime proven.",
+    };
+  }
+  if (pluginCacheMentionsHindsight) {
+    return {
+      status: "installed-only",
+      evidence: "Codex plugin/cache surface mentions Hindsight, but no Codex runtime config was found.",
+    };
+  }
+  return {
+    status: "unproven",
+    evidence: "No Codex Hindsight runtime wiring found in Codex config.",
   };
 }
 
@@ -453,14 +503,16 @@ const project = projectStatus(projectPath);
 function formatToolVersion(tool) {
   if (!tool.currentVersion) return `${tool.id}: missing`;
   const latest = tool.latestVersion ? ` latest=${tool.latestVersion}` : "";
-  return `${tool.id}: ${tool.currentVersion}${latest}`;
+  const drift = tool.updateAvailable ? " update=available" : "";
+  return `${tool.id}: ${tool.currentVersion}${latest}${drift}`;
 }
 
 function formatHindsightStatus(hindsightRow) {
   if (!hindsightRow.pluginEnabled) return `hindsight: disabled mode=${hindsightRow.mode}`;
   const health = hindsightRow.ok ? "enabled healthy" : `enabled unhealthy (${hindsightRow.issues.join("; ")})`;
   const warnings = hindsightRow.warnings?.length ? ` warnings=${hindsightRow.warnings.join("; ")}` : "";
-  return `hindsight: ${health} mode=${hindsightRow.mode}${warnings}`;
+  const codex = hindsightRow.codexRuntime?.status ? ` codex=${hindsightRow.codexRuntime.status}` : "";
+  return `hindsight: ${health} mode=${hindsightRow.mode}${codex}${warnings}`;
 }
 
 function formatProjectStatus(label, healthy, initialized) {

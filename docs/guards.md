@@ -47,10 +47,10 @@ Blocks completion claims on `Stop` when evidence is missing or stale. Runs in de
 
 Checks include:
 
-- Evidence-discipline violations (agreement before verification).
+- Evidence-discipline violations (agreement before verification). Completion claims still block; non-final status updates receive advisory context instead of a hard Stop block.
 - Completion language (`done`, `fixed`, `tests pass`, and similar) without matching verification runs after source edits.
 - Incomplete execution-ledger evidence when a plan run is active.
-- Stale verification after compact (`compact_post` marks verification stale until re-run).
+- Stale verification after compact (`compact_post` marks verification stale until re-run). Status-only completions are advisory unless a plan run or edits make verification relevant.
 - Dated source evidence for advice/search-style answers.
 - Required artifacts: review logs, browser QA reports, context saves, skill-specific ledgers.
 - Deflection language that labels failures as pre-existing or out-of-scope without evidence.

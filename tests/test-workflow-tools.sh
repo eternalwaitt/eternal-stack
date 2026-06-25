@@ -417,7 +417,9 @@ assert_json_expr "code-health inventory keeps generic action names below hotspot
 assert_command "plan readiness syntax" node --check "$ROOT/scripts/plan-readiness-check.mjs"
 assert_command "deep-stack check syntax" node --check "$ROOT/scripts/deep-stack-check.mjs"
 assert_command "tool-effectiveness syntax" node --check "$ROOT/scripts/tool-effectiveness.mjs"
+assert_command "session deep dive syntax" node --check "$ROOT/scripts/session-deep-dive.mjs"
 assert_command "tool stack check syntax" node --check "$ROOT/scripts/tool-stack-check.mjs"
+assert_command "codex hindsight canary syntax" node --check "$ROOT/scripts/canary-codex-hindsight.mjs"
 assert_command "stack profile check syntax" node --check "$ROOT/scripts/stack-profile-check.mjs"
 assert_command "skill update prompt syntax" node --check "$ROOT/scripts/skill-update-prompt.mjs"
 assert_command "pr preflight syntax" node --check "$ROOT/scripts/pr-preflight.mjs"
@@ -642,6 +644,14 @@ if [[ "$1" == "version" ]]; then
   printf 'bd version 1.0.5 (fixture)\n'
   exit 0
 fi
+if [[ "$1 $2" == "status --json" ]]; then
+  printf '{"schema_version":1,"summary":{"total_issues":0,"open_issues":0}}\n'
+  exit 0
+fi
+if [[ "$1" == "-C" && "$3 $4" == "status --json" ]]; then
+  printf '{"schema_version":1,"summary":{"total_issues":0,"open_issues":0}}\n'
+  exit 0
+fi
 exit 0
 BASH
 cat >"$tool_stack_bin/npm" <<'BASH'
@@ -691,14 +701,19 @@ cat >"$TMPROOT/tool-stack-hindsight/claude-code.json" <<'JSON'
   "recallPromptPreamble": "Fresh repo/runtime evidence overrides memory."
 }
 JSON
-tool_stack_json="$(PATH="$tool_stack_bin:/usr/bin:/bin" CLAUDE_HOME="$TMPROOT/tool-stack-home" HINDSIGHT_HOME="$TMPROOT/tool-stack-hindsight" ETRNL_TOOL_STACK_STATE="$TMPROOT/tool-stack-state.json" "$node_bin" "$ROOT/scripts/tool-stack-check.mjs" --json --force)"
+tool_stack_json="$(PATH="$tool_stack_bin:/usr/bin:/bin" CLAUDE_HOME="$TMPROOT/tool-stack-home" HINDSIGHT_HOME="$TMPROOT/tool-stack-hindsight" ETRNL_TOOL_STACK_STATE="$TMPROOT/tool-stack-state.json" "$node_bin" "$ROOT/scripts/tool-stack-check.mjs" --json --force --project "$ROOT")"
 assert_json_expr "tool stack checker detects codegraph update" "$tool_stack_json" '.tools.codegraph.installed == true and .tools.codegraph.currentVersion == "0.9.9" and .tools.codegraph.latestVersion == "1.0.0" and .tools.codegraph.updateAvailable == true'
 assert_json_expr "tool stack checker keeps beads current" "$tool_stack_json" '.tools.beads.installed == true and .tools.beads.currentVersion == "1.0.5" and .tools.beads.updateAvailable == false'
+assert_json_expr "tool stack checker classifies empty Beads project" "$tool_stack_json" '.project.beadsSummary.issueCountKnown == true and .project.beadsSummary.totalIssues == 0 and .project.beadsSummary.openIssues == 0 and .project.beadsSummary.posture == "dormant-empty"'
 assert_json_expr "tool stack checker reports Hindsight plugin posture" "$tool_stack_json" '.tools.hindsight.pluginEnabled == true and .tools.hindsight.pluginInstalled == true and .tools.hindsight.ok == true and .tools.hindsight.mode == "local-daemon"'
 mkdir -p "$TMPROOT/tool-stack-home/plugins/cache/hindsight/hindsight-memory/0.7.1/hooks"
 printf '{}\n' >"$TMPROOT/tool-stack-home/plugins/cache/hindsight/hindsight-memory/0.7.1/hooks/hooks.json"
 hindsight_cache_json="$(PATH="/usr/bin:/bin" CLAUDE_HOME="$TMPROOT/tool-stack-home" HINDSIGHT_HOME="$TMPROOT/tool-stack-hindsight" ETRNL_TOOL_STACK_STATE="$TMPROOT/tool-stack-cache-state.json" "$node_bin" "$ROOT/scripts/tool-stack-check.mjs" --json --force)"
 assert_json_expr "tool stack checker detects Hindsight from plugin cache without claude on PATH" "$hindsight_cache_json" '.tools.hindsight.pluginInstalled == true and .tools.hindsight.pluginInstallSource == "plugin-cache" and .tools.hindsight.installed == true and .tools.hindsight.ok == true and .tools.hindsight.currentVersion == "0.7.1"'
+codex_hindsight_empty_home="$TMPROOT/codex-hindsight-empty"
+mkdir -p "$codex_hindsight_empty_home"
+codex_hindsight_json="$(node "$ROOT/scripts/canary-codex-hindsight.mjs" --codex-home "$codex_hindsight_empty_home" --json)"
+assert_json_expr "codex hindsight canary reports unproven runtime" "$codex_hindsight_json" '.ok == true and .status == "unproven" and .runtimeProven == false'
 hindsight_update_output="$(PATH="/usr/bin:/bin" CLAUDE_HOME="$TMPROOT/tool-stack-home" HINDSIGHT_HOME="$TMPROOT/tool-stack-hindsight" ETRNL_TOOL_STACK_STATE="$TMPROOT/tool-stack-cache-state.json" "$node_bin" "$ROOT/scripts/update-check.mjs" 2>&1 || true)"
 if [[ "$hindsight_update_output" == *"TOOL_STACK_MISSING hindsight"* ]]; then
   not_ok "update-check does not false-positive missing Hindsight when plugin cache is present"
@@ -717,6 +732,12 @@ hindsight_transcripts_config="$TMPROOT/tool-stack-hindsight/transcripts-claude-c
 jq '.retainTranscripts = true' "$TMPROOT/tool-stack-hindsight/claude-code.json" >"$hindsight_transcripts_config"
 hindsight_transcripts_json="$(PATH="$tool_stack_bin:/usr/bin:/bin" "$ROOT/scripts/canary-hindsight.sh" --settings "$TMPROOT/tool-stack-home/settings.json" --config "$hindsight_transcripts_config" --json 2>/dev/null || true)"
 assert_json_expr "hindsight canary rejects unsafe transcript retention" "$hindsight_transcripts_json" '.ok == false and .code == "config-unsafe"'
+session_deep_dive_json="$(node "$ROOT/scripts/session-deep-dive.mjs" --fixture "$ROOT/tests/fixtures/session-deep-dive" --json)"
+assert_json_expr "session deep dive summarizes Claude and Codex fixtures" "$session_deep_dive_json" '.schemaVersion == 1 and .totals.sessionCount == 4 and .totals.codeEligibleSessions == 3'
+assert_json_expr "session deep dive counts aggregate tool signals" "$session_deep_dive_json" '.totals.edits == 2 and .totals.reads == 4 and .totals.searches == 3 and .totals.codegraphCalls == 1 and .totals.beadsCalls == 1 and .totals.hindsightSignals == 1'
+assert_json_expr "session deep dive classifies Stop outcomes" "$session_deep_dive_json" '.totals.stopBlocks == 2 and .stopCategories.verification == 1 and .stopCategories.skill == 1 and .immediateFollowUp.textOnly == 1 and .immediateFollowUp.tool == 1'
+assert_json_expr "session deep dive detects high-work no-CodeGraph sessions" "$session_deep_dive_json" '.totals.highWorkNoCodeGraphSessions == 1 and .beforeFirstEdit.codegraph == 1 and .beforeFirstEdit.beads == 0'
+assert_json_expr "session deep dive output stays privacy safe" "$session_deep_dive_json" '.privacy.outputSafe == true and .privacy.inputRowsWithPrivateMaterial == 0 and ((tostring | test("/Users/|/home/|sk-|BEGIN .*PRIVATE KEY|fixture transcript")) | not)'
 tool_effectiveness_fixtures_json="$(node "$ROOT/scripts/tool-effectiveness.mjs" summarize --fixtures "$ROOT/tests/fixtures/tool-effectiveness" --json)"
 assert_command "tool-effectiveness fixtures validate" node "$ROOT/scripts/tool-effectiveness.mjs" validate-fixtures --fixtures "$ROOT/tests/fixtures/tool-effectiveness"
 assert_json_expr "tool-effectiveness codegraph keep verdict" "$tool_effectiveness_fixtures_json" '.tools.codegraph.verdict == "keep" and .tools.codegraph.evidence.eligibleSessions >= 5'
@@ -1249,6 +1270,15 @@ live_hook_json="$(node "$ROOT/scripts/live-hook-noise-report.mjs" --root "$sessi
 assert_json_expr "live hook report counts blocking and non-blocking errors" "$live_hook_json" '.counts.nonBlocking == 1 and .counts.blocking == 2 and .topHooks[0].count >= 1'
 assert_json_expr "live hook report redacts private paths and emails" "$live_hook_json" '((.topReasons | tostring) | contains("/Users/example") | not) and ((.topReasons | tostring) | contains("test@example.com") | not)'
 assert_json_expr "live hook report redacts Windows paths and provider tokens" "$live_hook_json" '((.topReasons | tostring) | contains("C:\\Users") | not) and ((.topReasons | tostring) | contains("sk_live_123") | not)'
+hook_noise_root="$TMPROOT/hook-noise-claude"
+mkdir -p "$hook_noise_root/projects/project-a"
+cp "$ROOT/tests/fixtures/hook-noise/session.jsonl" "$hook_noise_root/projects/project-a/session.jsonl"
+hook_noise_fixture_json="$(node "$ROOT/scripts/live-hook-noise-report.mjs" --root "$hook_noise_root" --since-days 3650 --json)"
+assert_json_expr "live hook report extracts nested Stop reasons" "$hook_noise_fixture_json" 'any(.topReasons[]; .value == "Run tests before final answer") and any(.topReasons[]; .value == "Missing reviewer evidence before completion")'
+assert_json_expr "live hook report classifies Stop actioned follow-up" "$hook_noise_fixture_json" '.counts.actionedOutcomes.text_only_follow_up == 1 and .counts.actionedOutcomes.tool_follow_up == 1'
+assert_json_expr "live hook report classifies Stop categories" "$hook_noise_fixture_json" '.counts.categories.blocking == 2 and .counts.categories.cancelled == 1 and .counts.categories.system == 1'
+assert_json_expr "live hook report includes status and token estimates" "$hook_noise_fixture_json" '.counts.statuses.blocking == 2 and .tokenCostEstimate.actionedFollowUpTokens == 46'
+assert_json_expr "live hook report tracks no-action Stop reasons" "$hook_noise_fixture_json" 'any(.topNoActionStopReasons[]; .value == "Run tests before final answer" and .count == 1)'
 session_audit_json="$(node "$ROOT/scripts/session-audit.mjs" --claude-root "$session_scan_root/claude" --codex-memory-root "$session_scan_root/codex" --since-days 30 --json)"
 assert_json_expr "session audit combines claude hooks and codex memory signals" "$session_audit_json" '.claude.counts.blocking == 2 and .codexMemory.filesScanned == 1 and any(.codexMemory.keywordHits[]; .keyword == "CodeRabbit")'
 wave_json="$(printf '{"useWorktrees":true,"submodules":["vendor/lib"],"plans":[{"id":"T1","wave":1,"files":["src/a.ts"]},{"id":"T2","wave":1,"files":["src/a.ts"]},{"id":"T3","wave":2,"files":["vendor/lib/x.ts"]}]}' | node "$ROOT/scripts/execution-wave-check.mjs")"

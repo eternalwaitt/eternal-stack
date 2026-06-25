@@ -4,7 +4,8 @@
     "beads": "keep",
     "beads-duplicate-fixture": "remove-watch",
     "codegraph": "keep",
-    "hook-patterns": "keep"
+    "hook-patterns": "keep",
+    "unknown-metadata": "insufficient-data"
   },
   "events": [
     {
@@ -103,6 +104,13 @@
       "baselineReadSearchCount": 10,
       "repeatedEdits": 2,
       "baselineRepeatedEdits": 2
+    },
+    {
+      "caseId": "unknown-metadata-low-sample",
+      "tool": "unknown-metadata",
+      "projectHash": "project-zeta",
+      "eligible": true,
+      "toolUsed": true
     },
     {
       "caseId": "beads-resume-1",

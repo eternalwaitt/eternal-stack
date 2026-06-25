@@ -276,7 +276,7 @@ run_parallel_syntax_checks() {
     agent-task-packet-check guard-override-token replay-hook-fixtures execution-ledger etrnl-state
     execute-evidence-check execution-wave-check tool-effectiveness tool-stack-check stack-profile-check
     code-health-ledger-check documentation-comment-health documentation-health-ledger-check review-log
-    project-buglog browser-qa-report context-state live-hook-noise-report session-audit workflow-health
+    project-buglog browser-qa-report context-state canary-codex-hindsight live-hook-noise-report session-deep-dive session-audit workflow-health
     prompt-budget-check skill-contract-check skill-behavior-smoke skill-update-prompt disk-cleanup-manifest
     performance-baseline pr-preflight changelog-release-check port-guard update-check
     settings-audit

@@ -1,0 +1,6 @@
+{"timestamp":"2026-01-01T00:00:00.000Z","message":{"role":"assistant","content":[{"type":"hook_blocking_error","hookName":"cc-stop-verifier.sh","hookEventName":"Stop","blockingError":{"blockingError":"Run tests before final answer"}}],"usage":{"input_tokens":120,"output_tokens":30}}}
+{"timestamp":"2026-01-01T00:00:01.000Z","message":{"role":"assistant","content":[{"type":"text","text":"I need to run the workflow test first."}],"usage":{"input_tokens":12,"output_tokens":9}}}
+{"timestamp":"2026-01-01T00:01:00.000Z","message":{"role":"assistant","content":[{"type":"hook_blocking_error","hookName":"cc-stop-verifier.sh","hookEventName":"Stop","blockingError":{"blockingError":{"reason":"Missing reviewer evidence before completion"}}}],"usage":{"input_tokens":80,"output_tokens":20}}}
+{"timestamp":"2026-01-01T00:01:01.000Z","message":{"role":"assistant","content":[{"type":"tool_use","name":"Bash","input":{"command":"tests/test-workflow-tools.sh"}}],"usage":{"input_tokens":20,"output_tokens":5}}}
+{"timestamp":"2026-01-01T00:02:00.000Z","message":{"role":"assistant","content":[{"type":"hook_cancelled","hookName":"operator-cancel","message":"cancelled by fixture"}]}}
+{"timestamp":"2026-01-01T00:03:00.000Z","message":{"role":"system","content":[{"type":"hook_success","hookName":"system-observer","message":"observer ok"}]}}

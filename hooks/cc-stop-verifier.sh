@@ -42,12 +42,6 @@ message="$(cc_json_get '.last_assistant_message // .message // .response')"
 message_lower="$(printf '%s' "$message" | tr '[:upper:]' '[:lower:]')"
 state="$(cc_state_read)"
 cwd="$(cc_project_cwd)"
-if violation="$(cc_evidence_discipline_violation "$message")"; then
-  cc_state_append_value evidenceDisciplineViolations "$violation"
-  python3 "$SCRIPT_DIR/cc-hindsight-lesson.py" >/dev/null 2>&1 &
-  cc_json_block "$violation"
-  exit 0
-fi
 
 claims_done=false
 if [[ "$message_lower" =~ (done|complete|completed|implemented|fixed|passes|shipped|deployed|tests[[:space:]]+pass) ]]; then
@@ -80,6 +74,17 @@ cc_deferred_status_update() {
 
 if [[ "$claims_done" == "true" ]] && cc_deferred_status_update; then
   claims_done=false
+fi
+
+if violation="$(cc_evidence_discipline_violation "$message")"; then
+  cc_state_append_value evidenceDisciplineViolations "$violation"
+  python3 "$SCRIPT_DIR/cc-hindsight-lesson.py" >/dev/null 2>&1 &
+  if [[ "$claims_done" == "true" ]]; then
+    cc_json_block "$violation"
+  else
+    cc_json_allow_context "Stop" "$violation"
+  fi
+  exit 0
 fi
 
 NORM_JQ='
@@ -345,7 +350,11 @@ if [[ "$claims_done" == "true" ]]; then
       stop_err="$(head -n 1 "$stop_err_file" 2>/dev/null || true)"
       stop_reason="ETRNL stop-status check failed. Verification is stale after compact."
       [[ -z "$stop_err" ]] || stop_reason="$stop_reason $stop_err"
-      cc_json_block "$stop_reason"
+      if cc_plan_execution_requested || cc_state_has_edits; then
+        cc_json_block "$stop_reason"
+      else
+        cc_json_allow_context "Stop" "Advisory: compact verification is stale. Rerun the relevant verification gate before final delivery when edits or plan execution are active."
+      fi
       exit 0
     fi
     if [[ -z "$stop_status_json" ]] || ! jq -e . >/dev/null 2>&1 <<<"$stop_status_json"; then
@@ -356,7 +365,11 @@ if [[ "$claims_done" == "true" ]]; then
     fi
     stop_reason="$(jq -r 'if .staleVerificationAfterCompact == true then (.blockReason // .message // "Verification is stale after compact.") else "" end' <<<"$stop_status_json")"
     if [[ -n "$stop_reason" ]]; then
-      cc_json_block "$stop_reason"
+      if cc_plan_execution_requested || cc_state_has_edits; then
+        cc_json_block "$stop_reason"
+      else
+        cc_json_allow_context "Stop" "Advisory: compact verification is stale. Rerun the relevant verification gate before final delivery when edits or plan execution are active."
+      fi
       exit 0
     fi
   fi

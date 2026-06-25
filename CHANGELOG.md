@@ -18,6 +18,59 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Deprecated
 
+## v0.5.3
+
+2026-06-25
+
+### Added
+
+- `scripts/session-deep-dive.mjs` — privacy-safe Claude and Codex session aggregation for recent usage reviews, including CodeGraph, Beads, Hindsight, read/search/edit, Stop outcome, and high-work/no-CodeGraph counters.
+- `scripts/canary-codex-hindsight.mjs` — Codex Hindsight truth canary that reports runtime posture without overclaiming Claude plugin health as Codex recall support.
+- `tests/fixtures/session-deep-dive/` and `tests/fixtures/hook-noise/` — sanitized fixtures for cross-host session parsing and hook-noise classification.
+
+### Changed
+
+- `scripts/live-hook-noise-report.mjs` — classify Stop statuses, categories, actioned follow-ups, no-action Stop reasons, and token-volume estimates from local hook logs.
+- `scripts/tool-effectiveness.mjs` — report unknown metadata and quick-win remediation hints before promoting CodeGraph, Beads, or hook-pattern signals to strict enforcement.
+- `scripts/tool-stack-check.mjs` — report Beads issue-count posture and distinguish Claude Hindsight health from unproven Codex Hindsight runtime wiring.
+- `docs/health-stack.md`, `docs/hooks.md`, `docs/guards.md`, and `docs/skills.md` — document the new session deep-dive, Stop advisory behavior, Beads posture, and Codex Hindsight limits.
+
+### Fixed
+
+- `hooks/cc-stop-verifier.sh` — downgrade non-final evidence-discipline wording and status-only compact-stale Stop events to advisory context while retaining hard blocks for completion claims, active plan execution, and source edits.
+- `scripts/lib/skill-lists.sh` and `scripts/doctor.sh` — install and syntax-check the new session deep-dive and Codex Hindsight canary helpers so source and installed environments stay aligned.
+
+## v0.5.2
+
+2026-06-16
+
+### Added
+
+- `.github/workflows/health.yml` — CI health workflow for rule export sync, hook tests, workflow tests, install/rollback tests, and doctor.
+- `scripts/doctor.sh` — health checks now cover ShellCheck, rule module export drift, privacy scan enforcement, and pending-release changelog validation.
+- `rules/eternal-saas/project/tcg-contract.md` — scoped TCG/card-domain contract rule module and generated Cursor export.
+
+### Changed
+
+- `scripts/sync-rule-exports.mjs` and `scripts/init-project-rules.sh` — manifest-driven rule sync now validates profile membership, generated Cursor exports, privacy overlays, and install-time Cursor checksums.
+- `scripts/init-project-rules.sh` — installs generated Cursor `.mdc` modules alongside Claude rules, validates Cursor exports, and tracks Cursor checksums in the install receipt.
+- `rules/eternal-saas/*` — rule host metadata now reflects Claude and Cursor support without claiming unsupported Codex nested context output.
+- Email triage runtime references now use the `etrnl-email` command pattern across guards, canaries, slash commands, and fixtures instead of legacy `vivaz-email` naming.
+- `hooks/cc-sessionstart-restore.sh`, `scripts/lib/etrnl-state-core.mjs`, and `scripts/workflow-health.mjs` — track session reset boundaries so `/new` and `/clear` isolate stale compact handoff state.
+- `scripts/bootstrap-tools.sh` and `scripts/tool-stack-check.mjs` — support validated `ETRNL_CODEGRAPH_NPM_SPEC` and `ETRNL_BEADS_NPM_SPEC` overrides for pinned global tool installs.
+- Bundled skill namespaces now align around `@example-suite`, `money-vo-discipline`, and `orpc-patterns` naming across policy skills, routing lists, and vendored bundles.
+- `skills/bundled/stripe-best-practices` — hardens Stripe guidance from advisory wording to explicit policy gates for API versions, payment-surface selection, test/migration expectations, and Connect settlement/dispute behavior.
+
+### Fixed
+
+- `scripts/install.sh` — validate source install inputs before any non-dry-run mutation.
+- `hooks/cc-stop-verifier.sh`, `hooks/cc-pretooluse-guard.sh`, and `scripts/code-health-ledger-check.mjs` — close enforcement gaps for invalid Stop JSON, live hook writes, and prompt-only code-health audits.
+- `scripts/update-check.mjs`, `scripts/skill-contract-check.mjs`, `scripts/tool-stack-check.mjs`, and `scripts/doctor.sh` — harden update trust, bundled skill contracts, pinned tool install specs, ShellCheck, privacy scanning, and rule export drift detection.
+
+### Security
+
+- `rules-manifest.json`, `scripts/privacy-banned-token-check.mjs`, and `scripts/doctor.sh` — remove tracked private project literals from the privacy gate and support standalone or doctor-integrated banned-token scans with gitignored local overlays and redacted diagnostics.
+
 ## v0.5.1
 
 2026-06-11
@@ -53,14 +106,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - `templates/AGENTS.global.md` — portable ~32-line cross-host agent baseline for Codex startup.
 - `templates/AGENTS.override.codex.md` — Codex-specific startup deltas (no slash commands, no hooks, byte budget, skills path).
 - `docs/rules.md` — cross-host rules reference: module catalog, host activation per tool, install and drift-check commands.
-- `docs/adr/0003-cross-host-rule-stack.md` — decision record for the Exodia cross-host rule architecture.
+- `docs/adr/0003-exodia-cross-host-rules.md` — decision record for the Exodia cross-host rule architecture.
 - Codex byte gate in `scripts/doctor.sh` — warns when `~/.codex/AGENTS.md` exceeds 75 % of the configured `project_doc_max_bytes` limit.
 - Manifest assertions in `scripts/doctor.sh` — validates `rules-manifest.json` schema version, `bannedTokens` non-empty, and `rules/eternal-saas/global/` module count.
 - Rollback now restores `rules/eternal-saas` global digest and backed-up Codex startup files (`AGENTS.md`, `AGENTS.override.md`).
 - `scripts/lib/skill-lists.sh` now includes `init-project-rules.sh` in `INSTALL_SCRIPTS` so it deploys to both Claude and Codex homes.
 - Prompt router extended: "prune AGENTS/claude/rules", "rule bloat", "AGENTS.md/CLAUDE.md too long", "trim AGENTS/CLAUDE.md", and "startup file/context too long" prompts now route to `etrnl-ops-agent-files`. Three new skill-triggering fixture cases added.
-- Six project pilots with the eternal-saas pack: core-suite, agency-tbd, tcg-collector, mimo-finance, vivaz-website, and sbcc-portal — each with project-specific `local-overrides.md`, pruned `AGENTS.md`, and removed old flat rule files.
-- sbcc-portal `.gitignore` updated to track `.claude/rules/` while keeping local session state ignored.
+- Six private project pilots with the eternal-saas pack, each with project-specific `local-overrides.md`, pruned `AGENTS.md`, and removed old flat rule files.
+- One private pilot `.gitignore` updated to track `.claude/rules/` while keeping local session state ignored.
 
 ### Changed
 
@@ -73,7 +126,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Fixed
 
-- `scripts/plan-readiness-check.mjs` no longer flags hyphenated proper names such as the `agency-tbd` repo as a `TBD` placeholder; standalone `TBD` markers still fail (regression tests in `tests/test-workflow-tools.sh`).
+- `scripts/plan-readiness-check.mjs` no longer flags hyphenated proper names such as the `example-agency` repo as a `TBD` placeholder; standalone `TBD` markers still fail (regression tests in `tests/test-workflow-tools.sh`).
 - `scripts/update-check.mjs` now correctly marks `sync-rule-exports.mjs` as source-only (not installed) to prevent false drift failures.
 - `scripts/update-check.mjs` renamed map includes `doctor.sh → doctor-etrnl.sh` to suppress stale-scripts drift false positives.
 
@@ -94,4 +147,3 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ### Security
 
 - Public repository boundary: no private identity, credentials, transcripts, or local planning artifacts in tracked files.
-

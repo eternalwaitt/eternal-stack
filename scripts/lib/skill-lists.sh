@@ -109,7 +109,9 @@ CRITICAL_SCRIPTS=(
   plan-readiness-check.mjs
   performance-baseline.mjs
   pr-preflight.mjs
+  canary-codex-hindsight.mjs
   live-hook-noise-report.mjs
+  session-deep-dive.mjs
   session-audit.mjs
   agent-task-packet-check.mjs
   guard-override-token.mjs
@@ -166,7 +168,9 @@ INSTALL_SCRIPTS=(
   project-buglog.mjs
   browser-qa-report.mjs
   context-state.mjs
+  canary-codex-hindsight.mjs
   live-hook-noise-report.mjs
+  session-deep-dive.mjs
   session-audit.mjs
   workflow-health.mjs
   prompt-budget-check.mjs

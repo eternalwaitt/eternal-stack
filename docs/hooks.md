@@ -182,13 +182,13 @@ Runs when the assistant attempts to end its turn (`Stop`). Present in **both** d
 
 Gate sequence:
 
-1. Evidence-discipline check (agreement without verification).
+1. Evidence-discipline check (agreement without verification). Blocks only completion claims; non-final status updates receive advisory context.
 2. Completion-claim detection (`done`, `fixed`, `tests pass`, and similar) with exceptions for explicit non-final status updates.
 3. Execution-ledger completeness when a plan run is active.
-4. Fresh verification after source edits; stale verification after compact blocks completion until re-run.
+4. Fresh verification after source edits; stale verification after compact blocks completion when edits or plan execution are active, and otherwise returns advisory context.
 5. Skill-specific completion checkers (documentation-health, code-health, email-triage, browser QA, schema migrations, and others wired in the hook).
 
-Allows paused or awaiting-approval handoffs without treating weak "done" phrasing as completion.
+Allows paused or awaiting-approval handoffs without treating weak "done" phrasing as completion. This keeps Stop noise measurable without spending another blocked turn on status-only handoffs.
 
 May spawn `cc-hindsight-lesson.py` on evidence-discipline violations.
 
