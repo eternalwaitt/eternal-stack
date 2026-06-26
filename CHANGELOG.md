@@ -18,6 +18,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Deprecated
 
+## v0.5.4
+
+2026-06-25
+
+### Fixed
+
+- `scripts/doctor.sh` — when run from an installed Claude home, validate repo-vendored bundled skills against the recorded `sourceRoot` instead of falsely looking for `skills/bundled/*` under `~/.claude`.
+
 ## v0.5.3
 
 2026-06-25

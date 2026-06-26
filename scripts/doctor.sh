@@ -28,6 +28,14 @@ done
 if [[ ! "$DOCTOR_JOBS" =~ ^[0-9]+$ ]] || (( DOCTOR_JOBS < 1 )); then
   DOCTOR_JOBS=4
 fi
+
+SOURCE_ROOT="$ROOT"
+if [[ -f "$ROOT/etrnl/install.json" ]]; then
+  installed_source_root="$(jq -r '.sourceRoot // ""' "$ROOT/etrnl/install.json" 2>/dev/null || true)"
+  if [[ -n "$installed_source_root" && -f "$installed_source_root/scripts/install.sh" ]]; then
+    SOURCE_ROOT="$installed_source_root"
+  fi
+fi
 if (( ${#DOCTOR_ARGS[@]} > 0 )); then
   set -- "${DOCTOR_ARGS[@]}"
 else
@@ -745,7 +753,7 @@ fi
 bundled_hits=0
 bundled_missing=0
 for skill in "${BUNDLED_SKILLS[@]}"; do
-  skill_file="$ROOT/skills/bundled/$skill/SKILL.md"
+  skill_file="$SOURCE_ROOT/skills/bundled/$skill/SKILL.md"
   if [[ ! -f "$skill_file" ]]; then
     fail "bundled skill missing in repo: skills/bundled/$skill/SKILL.md"
     bundled_missing=1
