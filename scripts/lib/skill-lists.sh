@@ -182,6 +182,7 @@ INSTALL_SCRIPTS=(
   skill-update-prompt.mjs
   stack-profile-check.mjs
   changelog-release-check.mjs
+  changelog-scaffold.mjs
   release.mjs
   port-guard.mjs
   update-check.mjs

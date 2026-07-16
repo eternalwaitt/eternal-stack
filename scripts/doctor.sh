@@ -249,6 +249,10 @@ start_heavy_async_checks() {
     wait_for_doctor_job_slot "$DOCTOR_JOBS"
     queue_heavy_async_command "heavy-replay-fixtures" "replay fixtures clean" "replay fixtures failed" node "$ROOT/scripts/replay-hook-fixtures.mjs"
   fi
+  if [[ -x "$ROOT/tests/run-node-tests.sh" ]]; then
+    wait_for_doctor_job_slot "$DOCTOR_JOBS"
+    queue_heavy_async_command "heavy-node-tests" "node test suites pass" "node test suites fail" "$ROOT/tests/run-node-tests.sh"
+  fi
 }
 
 flush_heavy_async_checks() {
@@ -286,8 +290,8 @@ run_parallel_syntax_checks() {
     code-health-ledger-check documentation-comment-health documentation-health-ledger-check review-log
     project-buglog browser-qa-report context-state canary-codex-hindsight live-hook-noise-report session-deep-dive session-audit workflow-health
     prompt-budget-check skill-contract-check skill-behavior-smoke skill-update-prompt disk-cleanup-manifest
-    performance-baseline pr-preflight changelog-release-check port-guard update-check
-    settings-audit
+    performance-baseline pr-preflight changelog-release-check changelog-scaffold port-guard update-check
+    settings-audit review-rules review-learn
   )
   for script in "${syntax_scripts[@]}"; do
     if [[ -f "$ROOT/scripts/$script.mjs" ]]; then
@@ -780,7 +784,7 @@ if [[ -f "$claude_home/etrnl/install.json" ]]; then
 fi
 
 if [[ -f "$ROOT/scripts/changelog-release-check.mjs" && -f "$ROOT/CHANGELOG.md" ]]; then
-  if changelog_out="$(node "$ROOT/scripts/changelog-release-check.mjs" --strict-unreleased --allow-clean-history-changelog 2>&1)"; then
+  if changelog_out="$(node "$ROOT/scripts/changelog-release-check.mjs" --active-dev --allow-clean-history-changelog 2>&1)"; then
     while IFS= read -r line; do
       [[ -n "$line" ]] && ok "changelog: $line"
     done <<<"$changelog_out"

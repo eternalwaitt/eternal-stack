@@ -23,7 +23,8 @@ const KEEP_A_CHANGELOG_CATEGORIES = new Set([
 ]);
 
 function usage() {
-  console.error("usage: changelog-release-check.mjs [--root <path>] [--allow-unreleased] [--strict-unreleased] [--allow-clean-history-changelog] [--skip-version-file] [--skip-categories]");
+  console.error("usage: changelog-release-check.mjs [--root <path>] [--active-dev] [--allow-unreleased] [--strict-unreleased] [--allow-clean-history-changelog] [--skip-version-file] [--skip-categories]");
+  console.error("--active-dev treats a populated ## Unreleased and an un-cut top release as healthy mid-cycle state (for doctor / active development); only a changelog behind the latest tag fails.");
   console.error("--strict-unreleased takes precedence over --allow-unreleased when both are present.");
   console.error("--allow-clean-history-changelog permits older changelog sections without tags after a clean-root public release.");
   console.error("--skip-version-file skips VERSION file alignment checks (test fixtures only).");
@@ -183,7 +184,7 @@ function validateReleaseCategories(lines, releaseSections, skipCategories) {
   return errors;
 }
 
-function validateUnreleasedSection(sourceLines) {
+function validateUnreleasedSection(sourceLines, activeDev) {
   const errors = [];
   const unreleasedIndex = sourceLines.findIndex((line) => line.trim() === "## Unreleased");
   let topRelease = null;
@@ -194,6 +195,13 @@ function validateUnreleasedSection(sourceLines) {
   }
   const nextHeadingOffset = sourceLines.slice(unreleasedIndex + 1).findIndex((line) => /^##\s+/.test(line));
   if (nextHeadingOffset < 0) {
+    // A freshly-scaffolded changelog has only ## Unreleased and no cut release
+    // yet — a valid pre-first-release state that --active-dev tolerates.
+    if (activeDev) {
+      unreleasedEntries = meaningfulLines(sourceLines.slice(unreleasedIndex + 1))
+        .filter((line) => !KEEP_A_CHANGELOG_CATEGORIES.has(line.trim()));
+      return { topRelease, unreleasedEntries, errors };
+    }
     errors.push("CHANGELOG.md missing a release section after ## Unreleased.");
     return { topRelease, unreleasedEntries, errors };
   }
@@ -225,9 +233,9 @@ function validateVersionFile(root, topRelease, skipVersionFile) {
   return errors;
 }
 
-function validateTopReleaseTagged(root, topRelease, skipVersionFile) {
+function validateTopReleaseTagged(root, topRelease, skipVersionFile, activeDev) {
   const errors = [];
-  if (skipVersionFile || !topRelease) return errors;
+  if (activeDev || skipVersionFile || !topRelease) return errors;
   const versionPath = path.join(root, "VERSION");
   if (!existsSync(versionPath)) return errors;
   const version = readFileSync(versionPath, "utf8").trim().replace(/^v/i, "");
@@ -242,7 +250,7 @@ function validateTopReleaseTagged(root, topRelease, skipVersionFile) {
   return errors;
 }
 
-function validateGitTagAlignment(root, releaseVersions, topRelease) {
+function validateGitTagAlignment(root, releaseVersions, topRelease, activeDev) {
   const errors = [];
   const inGit = git(["rev-parse", "--is-inside-work-tree"], root);
   if (!inGit.ok || inGit.stdout !== "true") return errors;
@@ -257,7 +265,13 @@ function validateGitTagAlignment(root, releaseVersions, topRelease) {
     return errors;
   }
   try {
-    if (compareSemver(topRelease.version, latestTag) <= 0) {
+    const cmp = compareSemver(topRelease.version, latestTag);
+    // Changelog behind the tag is always drift. Top release equal to the tag
+    // with commits after it is a healthy mid-cycle state under --active-dev
+    // (the next section is cut at release time, not on every WIP commit).
+    if (cmp < 0) {
+      errors.push(`CHANGELOG.md top release ${topRelease.version} is behind the latest tag ${latestTag}. Add the ${latestTag} section.`);
+    } else if (cmp === 0 && !activeDev) {
       errors.push(`HEAD has commits after ${latestTag}, but the latest changelog release is still ${topRelease.version}. Cut the next semantic version section.`);
     }
   } catch (error) {
@@ -287,7 +301,8 @@ function validateUntaggedReleaseDrift(root, releaseSections, allowCleanHistoryCh
 }
 
 const root = path.resolve(argValue("--root", path.join(scriptDir, "..")));
-const allowUnreleased = args.includes("--allow-unreleased") && !args.includes("--strict-unreleased");
+const activeDev = args.includes("--active-dev") && !args.includes("--strict-unreleased");
+const allowUnreleased = (args.includes("--allow-unreleased") || activeDev) && !args.includes("--strict-unreleased");
 const allowCleanHistoryChangelog = args.includes("--allow-clean-history-changelog");
 const skipVersionFile = args.includes("--skip-version-file");
 const skipCategories = args.includes("--skip-categories");
@@ -301,7 +316,7 @@ try {
 }
 const errors = [];
 
-const unreleasedResult = validateUnreleasedSection(lines);
+const unreleasedResult = validateUnreleasedSection(lines, activeDev);
 const { topRelease, unreleasedEntries } = unreleasedResult;
 errors.push(...unreleasedResult.errors);
 const releaseSections = parseReleaseSections(lines);
@@ -312,8 +327,8 @@ if (unreleasedEntries.length > 0 && !allowUnreleased) {
 }
 errors.push(...validateReleaseCategories(lines, releaseSections, skipCategories));
 errors.push(...validateVersionFile(root, topRelease, skipVersionFile));
-errors.push(...validateTopReleaseTagged(root, topRelease, skipVersionFile));
-errors.push(...validateGitTagAlignment(root, releaseVersions, topRelease));
+errors.push(...validateTopReleaseTagged(root, topRelease, skipVersionFile, activeDev));
+errors.push(...validateGitTagAlignment(root, releaseVersions, topRelease, activeDev));
 errors.push(...validateUntaggedReleaseDrift(root, releaseSections, allowCleanHistoryChangelog));
 
 if (errors.length > 0) fail(errors);
