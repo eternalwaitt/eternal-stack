@@ -62,6 +62,7 @@ Run the full review gauntlet before finalizing any non-trivial plan. Planning, a
 2. Engineering review:
    - Validate architecture, data flow, failure modes, rollback, tests, parallelization, reuse, latency, install risk, and type boundaries.
    - Reuse `references/review-contract.md` instead of duplicating a long prompt.
+   - Run `references/coderabbit-preemption.md` so plan tasks pre-empt each CodeRabbit finding class (deterministic guard, spec checklist, review lens) before code exists.
 3. Design review, when UI scope exists:
    - Check information hierarchy, interaction states, responsive behavior, accessibility, and existing design-system reuse.
    - Add a design/mock artifact slot when visuals would materially reduce ambiguity.

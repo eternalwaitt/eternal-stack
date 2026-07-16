@@ -29,7 +29,8 @@ Process:
 2. For plans with `Deep stack artifacts:`, verify the artifact path is present, source evidence is sanitized, high/blocker findings are terminal, completion audit policy is explicit, and execution tiering happens only after deep review passes.
 3. Check each task packet for goal, context summary, exact scope, read set, write scope or read-only status, forbidden files, expected output, verification command, model tier, timeout, retry policy, no-revert instruction, and WebSearch guidance.
 4. For deep-stack write packets, require `deepStackExecution`, `deepStackArtifacts`, `riskTier`, `completionEvidence`, `tddRequired`, `tddEvidence`, `reuseArtifact`, `simplifierEvidence`, `specReviewRequired`, `qualityReviewRequired`, and `simplifierReviewRequired`.
-5. Classify findings as blocking or non-blocking.
+5. Confirm each packet addresses the applicable `coderabbit-preemption.md` Tier B spec items for its changed surfaces (oRPC middleware, migration parity, tenant scope, Money minor-unit scale, PII in logs, Zod/Prisma nullability parity) and names the Tier C categories the quality reviewer must hunt. Treat a missing high-risk Tier B item as a blocking finding.
+6. Classify findings as blocking or non-blocking.
 
 Output format:
 - `ETRNL_TASK_ID: <id or plan-review>`
