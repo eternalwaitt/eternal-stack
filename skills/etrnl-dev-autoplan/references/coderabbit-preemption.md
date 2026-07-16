@@ -1,6 +1,6 @@
 # CodeRabbit Preemption Checklist
 
-Catch — at **plan/spec time** and **pre-push** — the issues CodeRabbit reliably flags in review, so plan→execute cycles need fewer CodeRabbit rounds. Grounded in 196 mined PRs (1,383 deduplicated findings) across the SaaS and stack repos.
+Catch — at **plan/spec time** and **pre-push** — the issues CodeRabbit reliably flags in review, so plan→execute cycles need fewer CodeRabbit rounds. Grounded in a mined corpus of 2,310 CodeRabbit findings across four SaaS product repos plus the stack repo (refreshed 2026-07). A fresh re-mine confirmed the top-14 finding classes by severity-weighted frequency are already covered here 12/14; the two gaps below (pagination bounds, session-pending UI) are folded in.
 
 **Method.** Three tiers, split by *where each class is cheapest to catch*. Use the path→risk router (`schemas/review-classification-rules-v1.json`) to decide which lenses and checklist items apply to the changed files, and `schemas/quality-na-rules.json` to suppress lenses that do not apply (e.g. concurrency on a docs-only change). Do not run every item on every change.
 
@@ -49,6 +49,8 @@ Bake the applicable items into the plan's task acceptance and the spec. These pr
 - `next-intl` v4 non-string params use the documented double-cast.
 - No PII (tokens, emails, raw URLs, full query inputs) in logs or support payloads.
 - `requireLimit` sentinel: `-1` means unlimited — never simplify to a bare `>=`.
+- List/report queries set an explicit row cap **and** a deterministic tie-breaker before `LIMIT`; a cap applied to combined/multi-dataset results is enforced *after* the merge, not per source; reset the cursor when the query key changes so pages do not bleed across filters.
+- Session/auth-gated UI does not render while `session status` is `pending` (no login/signup flash, no "no data" empty state before load resolves); per-row pending state is keyed by row id so concurrent row actions cannot desync.
 
 **Stack pack** (for `eternal-stack` itself): fenced-block languages, valid doc/file cross-references, shell `set -u` safety, flags documented must actually control behavior, cross-host integrity covers `.cursor`/Codex files, no rule-content duplication.
 
