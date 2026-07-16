@@ -144,13 +144,17 @@ function main() {
   }
 
   if (!args.dryRun) {
-    // The ledger is canonical JSON (idempotent rewrite = no diff). review-rules.json
-    // is a hand-formatted tracked config, so only write it when a promotion or
-    // escalation actually changed it — a no-op run must not reflow it.
-    writeFileSync(args.ledger, JSON.stringify(ledger, null, 2) + "\n");
+    // Order matters for crash consistency. The ledger's `promoted`/`cleanRuns` entries
+    // are what STOP a later run from re-installing a guard, so they must be committed
+    // only AFTER the guard is durably in review-rules.json. Write the rules first; if
+    // that write throws, we never persist the ledger, so a retry recovers and installs
+    // the missing guard. review-rules.json is a hand-formatted tracked config, so only
+    // write it when a promotion or escalation actually changed it — a no-op run must
+    // not reflow it. The ledger is canonical JSON (idempotent rewrite = no diff).
     if (promotions.length > 0 || escalations.length > 0) {
       writeFileSync(args.rules, JSON.stringify(rules, null, 2) + "\n");
     }
+    writeFileSync(args.ledger, JSON.stringify(ledger, null, 2) + "\n");
   }
 
   const metric = {

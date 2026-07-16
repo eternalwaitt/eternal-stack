@@ -108,21 +108,32 @@ function filesForRule(rule, root, changedSet) {
   const globs = Array.isArray(rule.scopeGlobs) ? rule.scopeGlobs : [];
   const found = new Set();
   // Canonical root: a scope-matching symlink (or a symlinked parent dir) could point
-  // outside the checkout, and the literal/AST engines would then read — and snippet —
-  // an external file (secret exfil). Reject symlinks with lstat and require the
-  // resolved path to stay under the real root.
+  // outside the checkout, and the engines would then read — and snippet — an external
+  // file (secret exfil). But a scoped file we refuse to read must FAIL CLOSED, not be
+  // silently skipped: skipping an unreadable in-scope test/source file turns it into a
+  // clean pass on a blocking gate. So reject symlinks (and paths resolving outside the
+  // checkout) with a throw — the caller maps it to cannot-evaluate (exit 2). Filter by
+  // the changed set FIRST so only files actually in scope for this run can fail it; an
+  // out-of-scope symlink elsewhere in the tree (e.g. a pnpm link) stays irrelevant.
   let realRoot;
   try { realRoot = realpathSync.native(root); } catch { realRoot = path.resolve(root); }
   for (const g of globs) {
     for (const rel of globSync(g, { cwd: root })) {
+      if (changedSet && !changedSet.has(rel)) continue;
       const abs = path.join(root, rel);
       let st;
-      try { st = lstatSync(abs); } catch { continue; }
-      if (st.isSymbolicLink() || !st.isFile()) continue;
+      try { st = lstatSync(abs); }
+      catch (e) { throw new Error(`rule ${rule.ruleId}: cannot stat scoped file ${rel} (fail closed): ${e.message}`); }
+      if (st.isSymbolicLink()) {
+        throw new Error(`rule ${rule.ruleId}: scoped file ${rel} is a symlink; refusing to read it (fail closed)`);
+      }
+      if (!st.isFile()) continue; // a directory matched by the glob is not scannable content
       let real;
-      try { real = realpathSync.native(abs); } catch { continue; }
-      if (real !== realRoot && !real.startsWith(realRoot + path.sep)) continue;
-      if (changedSet && !changedSet.has(rel)) continue;
+      try { real = realpathSync.native(abs); }
+      catch (e) { throw new Error(`rule ${rule.ruleId}: cannot resolve scoped file ${rel} (fail closed): ${e.message}`); }
+      if (real !== realRoot && !real.startsWith(realRoot + path.sep)) {
+        throw new Error(`rule ${rule.ruleId}: scoped file ${rel} resolves outside the checkout (fail closed)`);
+      }
       found.add(rel);
     }
   }
@@ -143,6 +154,38 @@ function evalLiteral(rule, root, files) {
     lines.forEach((line, i) => {
       if (hay(line).includes(target)) hits.push({ file: rel, line: i + 1, snippet: line.trim().slice(0, 120) });
     });
+  }
+  return hits;
+}
+
+function evalRegex(rule, root, files) {
+  const source = rule.regex?.pattern;
+  if (typeof source !== "string" || source.length === 0) {
+    throw new Error(`rule ${rule.ruleId}: regex engine requires a pattern`);
+  }
+  const authored = typeof rule.regex.flags === "string" ? rule.regex.flags : "";
+  // Force the global flag so exec() walks every match. Unlike the literal engine, the
+  // scan is over the WHOLE file, not line-by-line — that is what makes detection
+  // whitespace/newline tolerant: `it.only(`, `it.only (`, and a line-broken
+  // `it\n  .only(` all match one pattern. Line numbers are derived from the offset.
+  const flags = authored.includes("g") ? authored : authored + "g";
+  let re;
+  try { re = new RegExp(source, flags); }
+  catch (e) { throw new Error(`rule ${rule.ruleId}: invalid regex pattern: ${e.message}`); }
+  const hits = [];
+  for (const rel of files) {
+    const text = readFileSync(path.join(root, rel), "utf8");
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      const before = text.slice(0, m.index);
+      const line = before.split("\n").length; // 1-based line of the match start
+      const lineStart = before.lastIndexOf("\n") + 1;
+      let lineEnd = text.indexOf("\n", m.index);
+      if (lineEnd === -1) lineEnd = text.length;
+      hits.push({ file: rel, line, snippet: text.slice(lineStart, lineEnd).trim().slice(0, 120) });
+      if (m.index === re.lastIndex) re.lastIndex++; // never spin on a zero-width match
+    }
   }
   return hits;
 }
@@ -205,9 +248,11 @@ function main() {
     const files = filesForRule(rule, args.root, changedSet);
     const hits = rule.engine === "literal"
       ? evalLiteral(rule, args.root, files)
-      : rule.engine === "ast_grep"
-        ? evalAstGrep(rule, args.root, files)
-        : (() => { throw new Error(`rule ${rule.ruleId}: unknown engine "${rule.engine}"`); })();
+      : rule.engine === "regex"
+        ? evalRegex(rule, args.root, files)
+        : rule.engine === "ast_grep"
+          ? evalAstGrep(rule, args.root, files)
+          : (() => { throw new Error(`rule ${rule.ruleId}: unknown engine "${rule.engine}"`); })();
     for (const hit of hits) {
       findings.push({
         ruleId: rule.ruleId, mode: ruleMode(rule), lensId: rule.lensId,

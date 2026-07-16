@@ -95,9 +95,13 @@ cc_trivial_nonruntime_diff() {
   [[ -n "$root" ]] || return 1
   edit_paths="$(jq -r '((.edits // {}) | keys)[]?' <<<"$state" 2>/dev/null)"
   # Working-tree changes by ANY means; strip the 2-char XY status + space, and
-  # for renames keep the destination path (after " -> ").
-  git_paths="$(git -C "$root" -c core.quotepath=false status --porcelain=v1 --untracked-files=all 2>/dev/null \
-    | sed -e 's/^...//' -e 's/.* -> //')"
+  # for renames keep the destination path (after " -> "). Capture git's status
+  # separately from the sed pipe so a git failure is not masked by sed's exit code:
+  # if git errored, git_paths would be empty and a docs-only edit set could wrongly
+  # activate the fast path. Fail closed (return 1 -> full verification) instead.
+  local git_status
+  git_status="$(git -C "$root" -c core.quotepath=false status --porcelain=v1 --untracked-files=all 2>/dev/null)" || return 1
+  git_paths="$(sed -e 's/^...//' -e 's/.* -> //' <<<"$git_status")" || return 1
   all_paths="$(printf '%s\n%s\n' "$edit_paths" "$git_paths" | grep -v '^[[:space:]]*$' | sort -u)"
   [[ -n "$all_paths" ]] || return 1
   verdict="$(printf '%s\n' "$all_paths" | node "$classifier" classify --root "$root" --stdin-json --json 2>/dev/null)" || return 1

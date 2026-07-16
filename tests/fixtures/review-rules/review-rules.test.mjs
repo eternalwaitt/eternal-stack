@@ -31,9 +31,9 @@ function gitRepo(root) {
 }
 
 const focusedRule = {
-  ruleId: "no-focused-tests", engine: "literal", mode: "block", scopeGlobs: ["*.test.ts"],
+  ruleId: "no-focused-tests", engine: "regex", mode: "block", scopeGlobs: ["*.test.ts"],
   lensId: "test_delta", findingKind: "test", category: "focused-test", severity: "high",
-  astGrep: null, literal: { needle: ".only(", caseSensitive: true },
+  astGrep: null, literal: null, regex: { pattern: "\\.\\s*only\\s*\\(", flags: "" },
 };
 
 const astRule = {
@@ -111,9 +111,11 @@ test("--base treats an all-zero remote SHA as an initial push (diffs against the
   assert.deepEqual(out.findings.map((f) => f.file), ["a.test.ts"]);
 });
 
-test("a symlinked scope-matching file is rejected, not read (no out-of-checkout exfil)", () => {
-  // A changed repo symlink can point outside the checkout; statSync follows it and the
-  // literal/AST engines would read — and snippet — the external file. lstat must reject.
+test("a symlinked scope-matching file fails closed (exit 2), it is not silently skipped", () => {
+  // A changed repo symlink can point outside the checkout; realpath following it would
+  // read — and snippet — the external file (exfil). But merely SKIPPING it is also
+  // wrong: an unreadable in-scope test file must not become a clean pass on a blocking
+  // gate. So the runner throws -> cannot-evaluate (exit 2, status error), never exit 0.
   const dir = mkdtempSync(path.join(tmpdir(), "rr-symlink-"));
   const outside = mkdtempSync(path.join(tmpdir(), "rr-outside-"));
   writeFileSync(path.join(outside, "secret.test.ts"), 'it.only("leak", () => {});\n');
@@ -121,8 +123,24 @@ test("a symlinked scope-matching file is rejected, not read (no out-of-checkout 
   writeFileSync(path.join(dir, "real.test.ts"), 'it("ok", () => {});\n');
   const cfg = { schemaVersion: 1, rulesetId: "t", version: 1, enabledRuleIds: ["no-focused-tests"], rules: [focusedRule] };
   const { code, out } = run(cfg, dir);
-  assert.equal(out.findings.length, 0, JSON.stringify(out.findings));
-  assert.equal(code, 0, "the symlinked focused test is skipped, so the gate stays clean");
+  assert.equal(code, 2, "a symlinked scoped file must fail closed, not pass");
+  assert.equal(out.status, "error");
+  assert.match(out.error, /symlink/i);
+});
+
+test("the focused-test guard is whitespace/newline tolerant (`.only (` and line-broken calls)", () => {
+  // The old literal `.only(` needle missed a space before the paren and dot-on-next-line
+  // chains. The regex engine scans the whole file so all these focused forms are caught.
+  const dir = mkdtempSync(path.join(tmpdir(), "rr-ws-"));
+  writeFileSync(path.join(dir, "space.test.ts"), 'it.only ("x", () => {});\n');
+  writeFileSync(path.join(dir, "gap.test.ts"), 'describe .  only("y", () => {});\n');
+  writeFileSync(path.join(dir, "broken.test.ts"), 'it\n  .only("z", () => {});\n');
+  writeFileSync(path.join(dir, "clean.test.ts"), 'it("ok", () => {});\nconst readonly = 1;\nx.onlyChild();\n');
+  const cfg = { schemaVersion: 1, rulesetId: "t", version: 1, enabledRuleIds: ["no-focused-tests"], rules: [focusedRule] };
+  const { code, out } = run({ ...cfg, rules: [{ ...focusedRule, scopeGlobs: ["*.test.ts"] }] }, dir);
+  assert.equal(code, 1);
+  assert.deepEqual(out.findings.map((f) => f.file).sort(), ["broken.test.ts", "gap.test.ts", "space.test.ts"],
+    "spaced/line-broken .only are all caught; readonly and .onlyChild( are not false positives");
 });
 
 test("warn-mode matches report but do not fail the gate", () => {
@@ -142,22 +160,26 @@ test("clean tree passes with zero findings", () => {
   assert.equal(out.findings.length, 0);
 });
 
-test("--changed-only evaluates working-tree changes, not committed-clean files", () => {
+test("--changed-only evaluates working-tree changes (untracked AND modified-tracked), not committed-clean files", () => {
   const dir = mkdtempSync(path.join(tmpdir(), "rr-changed-"));
   gitRepo(dir);
   writeFileSync(path.join(dir, "clean.test.ts"), 'it.only("clean", () => {});\n');
+  // mod.test.ts is committed clean, then MODIFIED in the working tree — a tracked
+  // edit must be in changed-only scope, not just brand-new untracked files.
+  writeFileSync(path.join(dir, "mod.test.ts"), 'it("placeholder", () => {});\n');
   git(dir, ["add", "-A"]);
   git(dir, ["commit", "-q", "-m", "seed"]);
+  writeFileSync(path.join(dir, "mod.test.ts"), 'it.only("mod", () => {});\n');
   // dirty.test.ts is a new untracked change; clean.test.ts stays committed-clean.
   writeFileSync(path.join(dir, "dirty.test.ts"), 'it.only("dirty", () => {});\n');
   const cfg = { schemaVersion: 1, rulesetId: "t", version: 1, enabledRuleIds: ["no-focused-tests"], rules: [focusedRule] };
 
   const full = run(cfg, dir);
-  assert.deepEqual(full.out.findings.map((f) => f.file).sort(), ["clean.test.ts", "dirty.test.ts"]);
+  assert.deepEqual(full.out.findings.map((f) => f.file).sort(), ["clean.test.ts", "dirty.test.ts", "mod.test.ts"]);
 
   const changed = run(cfg, dir, { changedOnly: true });
-  assert.deepEqual(changed.out.findings.map((f) => f.file), ["dirty.test.ts"],
-    "changed-only must exclude committed-clean files");
+  assert.deepEqual(changed.out.findings.map((f) => f.file).sort(), ["dirty.test.ts", "mod.test.ts"],
+    "changed-only covers the modified tracked file and the untracked file, but excludes committed-clean");
 });
 
 test("a malformed ast-grep pattern fails closed (exit 2, status error), not a false pass", () => {

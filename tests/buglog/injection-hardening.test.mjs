@@ -39,12 +39,18 @@ test("explicit instruction-override phrases are neutralized", () => {
 
 test("benign multi-clause bug text is preserved (override matchers stay within one clause)", () => {
   // The verb/anchor/noun words all appear but across UNRELATED clauses separated by a
-  // semicolon; the tightened filler budgets keep them out of range so genuine
+  // semicolon; the filler budgets exclude the `;` clause separator so genuine
   // diagnostic text survives intact instead of being silently rewritten.
-  const benign = "ignore stale cache entries; the previous request failed with a timeout message";
-  const stored = recordAndRead(benign);
-  assert.equal(stored, benign, "benign multi-clause text must not be neutralized");
-  assert.ok(!stored.includes("[neutralized-instruction]"), stored);
+  for (const benign of [
+    "ignore stale cache entries; the previous request failed with a timeout message",
+    // verb + middle-anchor + noun ALL within budget by char count — only the `;`
+    // clause-boundary exclusion keeps this from wrongly matching as an override.
+    "ignore the cache; instructions to reproduce follow below",
+  ]) {
+    const stored = recordAndRead(benign);
+    assert.equal(stored, benign, `benign multi-clause text must not be neutralized: ${benign}`);
+    assert.ok(!stored.includes("[neutralized-instruction]"), stored);
+  }
 });
 
 test("chat-template and model special tokens are neutralized", () => {

@@ -39,7 +39,7 @@ Run `node scripts/review-rules.mjs check --base <remote_sha>` in a pre-push hook
 Bake the applicable items into the plan's task acceptance and the spec. These preempt the **Critical/Major** Data-Integrity and Security findings a linter cannot see. Apply per the risk router; the SaaS pack below is the default overlay for `agency-tbd` / `eternal-saas`.
 
 **SaaS domain pack** (from the repo's own gotchas — CodeRabbit mostly enforces these back at you):
-- oRPC procedures carry the full mandatory middleware stack (auth + tenant); use the required versioned path.
+- oRPC procedures carry the full mandatory middleware stack (auth + tenant); use the required, versioned path.
 - Every Prisma schema/enum change ships a paired forward migration (`db:migrate`), never `db:push`.
 - Every query filters `tenantId` (and `locationId` for multi-location); use tenant-safe repositories.
 - Soft-delete semantics preserved in queries **and** test-fixture cleanup.

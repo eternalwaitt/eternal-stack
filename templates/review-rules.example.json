@@ -56,7 +56,7 @@
     },
     {
       "ruleId": "no-focused-tests",
-      "engine": "literal",
+      "engine": "regex",
       "scopeGlobs": [
         "**/*.test.js",
         "**/*.test.ts",
@@ -81,9 +81,10 @@
         "disableRuleId": "no-focused-tests"
       },
       "astGrep": null,
-      "literal": {
-        "needle": ".only(",
-        "caseSensitive": true
+      "literal": null,
+      "regex": {
+        "pattern": "\\.\\s*only\\s*\\(",
+        "flags": ""
       }
     }
   ]
