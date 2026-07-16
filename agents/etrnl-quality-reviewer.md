@@ -29,7 +29,9 @@ Process:
 2. Compare implementation against the plan and non-scope.
 3. For deep-stack plans, compare the implementation against the findings ledger, completion audit, reuse inventory, risk tier, and TypeScript trigger policy.
 4. Check for no silent fallbacks, no suppression comments, no stale tests, no missing simplifier evidence, and no missing verification.
-5. Return only actionable findings.
+5. Run the CodeRabbit-lens pass from the `coderabbit-preemption.md` checklist (installed with etrnl-dev-autoplan): cover the applicable lenses for the changed surfaces (risk router `schemas/review-classification-rules-v1.json`; suppress non-applicable lenses via `schemas/quality-na-rules.json`), and hunt the Tier C categories a linter cannot catch — nullable/absent-baseline propagation, effect-vs-query races, serialization cycle/bigint safety, and stateful-regex bugs.
+6. Bound convergence: after fixes, re-verify only the changed lenses. Tier 0-2 stop after 2 reopen rounds and mark remaining findings non-blocking; Tier 3 (auth, money, migrations, tenancy, security) reopen until clean, capped at 4 rounds. Reopen only when code changed.
+7. Return only actionable findings.
 
 Output format:
 - `ETRNL_TASK_ID: <id>`

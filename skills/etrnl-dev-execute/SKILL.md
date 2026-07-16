@@ -101,6 +101,18 @@ Completion means every item inside the plan's `Execution scope` is verified or e
    - `etrnl-code-review-excellence` when the plan or project expects Brooks health or code-excellence review.
    - If a triggered companion skill is unavailable, record the missing skill, impact, and compensating check in the ledger before continuing.
 
+## Bounded CodeRabbit-lens review (risk-tiered)
+
+After the final edit of a task or wave, run one targeted CodeRabbit-preemption pass instead of an open-ended review loop:
+
+1. Run `node scripts/review-rules.mjs check --changed-only` first and fix every block-mode match; do not spend review budget on the deterministic tail.
+2. Run `etrnl-quality-reviewer` over the diff using the `coderabbit-preemption.md` checklist lenses (installed with etrnl-dev-autoplan), scoped by the risk router (`schemas/review-classification-rules-v1.json`) to the changed surfaces; suppress non-applicable lenses via `schemas/quality-na-rules.json`.
+3. After fixes, re-verify only the changed lenses. Do not rebuild a full matrix.
+4. Reopen caps keep the pass thorough without looping:
+   - Tier 0-2: at most 2 reopen rounds, then record remaining findings as non-blocking notes and proceed.
+   - Tier 3 (auth, money, migrations, tenancy, security): reopen until clean, capped at 4 rounds; a still-open blocker at the cap stops the wave for a repository-owner decision.
+   - Reopen only when code changed; never reopen on finding-churn alone.
+
 ## Verification
 
 After each phase:
