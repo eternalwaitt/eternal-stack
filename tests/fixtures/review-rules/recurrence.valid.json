@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "rulesetId": "fixture-rules",
+  "candidateRule": {
+    "ruleId": "no-focused-tests",
+    "engine": "literal",
+    "scopeGlobs": ["**/*.test.ts"],
+    "lensId": "test_delta",
+    "findingKind": "test",
+    "category": "focused-test",
+    "rationaleHash": "1111111111111111111111111111111111111111111111111111111111111111",
+    "sourcePrCount": 1,
+    "severity": "high",
+    "ownerRole": "repository-owner",
+    "version": 1,
+    "rollback": {"disableRuleId": "no-focused-tests"},
+    "astGrep": null,
+    "literal": {"needle": ".only(", "caseSensitive": true}
+  },
+  "recurrenceRows": [
+    {
+      "prIdentityHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sourceFindingId": "1111111111111111111111111111111111111111111111111111111111111111",
+      "truePositiveEvidenceHash": "2111111111111111111111111111111111111111111111111111111111111111"
+    },
+    {
+      "prIdentityHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "sourceFindingId": "1222222222222222222222222222222222222222222222222222222222222222",
+      "truePositiveEvidenceHash": "2222222222222222222222222222222222222222222222222222222222222222"
+    },
+    {
+      "prIdentityHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "sourceFindingId": "1333333333333333333333333333333333333333333333333333333333333333",
+      "truePositiveEvidenceHash": "2333333333333333333333333333333333333333333333333333333333333333"
+    },
+    {
+      "prIdentityHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sourceFindingId": "1444444444444444444444444444444444444444444444444444444444444444",
+      "truePositiveEvidenceHash": "2444444444444444444444444444444444444444444444444444444444444444"
+    }
+  ],
+  "fixturePlan": {
+    "failingFixtureSha256": "3111111111111111111111111111111111111111111111111111111111111111",
+    "passingFixtureSha256": "3222222222222222222222222222222222222222222222222222222222222222",
+    "nearMissFixtureSha256": "3333333333333333333333333333333333333333333333333333333333333333",
+    "commandsSha256": "3444444444444444444444444444444444444444444444444444444444444444"
+  },
+  "blastRadius": {
+    "evaluatedEntryCount": 12,
+    "matchCount": 4,
+    "projectionSha256": "4555555555555555555555555555555555555555555555555555555555555555"
+  }
+}
