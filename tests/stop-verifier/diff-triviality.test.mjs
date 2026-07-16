@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, copyFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, copyFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -103,4 +103,27 @@ test("a missing classification schema is never trivial (fail-safe)", () => {
   const v = JSON.parse(res.stdout);
   assert.equal(v.trivial, false);
   assert.equal(v.reason, "schema-missing");
+});
+
+test("an unreadable/malformed classification schema is never trivial (fail-safe)", () => {
+  // A present-but-corrupt schema must fail closed, not throw or classify trivial.
+  const sandbox = mkdtempSync(path.join(tmpdir(), "dt-badschema-"));
+  mkdirSync(path.join(sandbox, "scripts"));
+  mkdirSync(path.join(sandbox, "schemas"));
+  copyFileSync(script, path.join(sandbox, "scripts", "diff-triviality.mjs"));
+  writeFileSync(path.join(sandbox, "schemas", "review-classification-rules-v1.json"), "{ not valid json ]");
+  const res = spawnSync("node", [path.join(sandbox, "scripts", "diff-triviality.mjs"), "classify", "--json", "docs/guide.md"],
+    { encoding: "utf8" });
+  assert.equal(res.status, 0, res.stderr);
+  const v = JSON.parse(res.stdout);
+  assert.equal(v.trivial, false);
+  assert.equal(v.reason, "schema-invalid");
+});
+
+test("an absolute path outside --root is forced runtime, not stripped into the metadata allowlist", () => {
+  const root = "/tmp/example-repo";
+  const v = classify(["/tmp/CHANGELOG.md", `${root}/docs/a.md`], root);
+  assert.equal(v.trivial, false);
+  assert.ok(v.runtime.includes("/tmp/CHANGELOG.md"), JSON.stringify(v.runtime));
+  assert.deepEqual(v.nonRuntime, ["docs/a.md"]);
 });

@@ -86,6 +86,15 @@ test("scaffold seeds VERSION from the latest strict-semver tag", () => {
   assert.equal(readFileSync(path.join(root, "VERSION"), "utf8").trim(), "1.2.3");
 });
 
+test("scaffold seeds the newest STABLE tag when a newer prerelease tag exists", () => {
+  const root = freshRoot();
+  gitRepo(root);
+  git(root, ["tag", "v1.2.3"]);
+  git(root, ["tag", "v2.0.0-rc.1"]); // newer by refname, but not seedable
+  run(scaffold, ["scaffold", "--root", root]);
+  assert.equal(readFileSync(path.join(root, "VERSION"), "utf8").trim(), "1.2.3");
+});
+
 test("scaffold rejects a non-semver --seed instead of silently falling back", () => {
   const root = freshRoot();
   const res = run(scaffold, ["scaffold", "--root", root, "--seed", "2.0.0-rc.1"]);

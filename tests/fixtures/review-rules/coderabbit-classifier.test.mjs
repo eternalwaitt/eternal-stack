@@ -34,6 +34,16 @@ test("weak signals stay subordinate to test_gap", () => {
   assert.equal(findingKind("The test fixture is missing an assertion"), "test_gap");
 });
 
+test("defect keywords are word-bounded: debug/trace do not trip bug/race", () => {
+  // "debug" contains "bug" and "trace" contains "race" — substring matches would
+  // misroute these coverage notes to defect instead of test_gap.
+  assert.equal(findingKind("Add a test for the debug helper output"), "test_gap");
+  assert.equal(findingKind("Missing test coverage for the stack trace formatter"), "test_gap");
+  // A genuine bug/race still classifies as defect.
+  assert.equal(findingKind("There is a bug in the reducer"), "defect");
+  assert.equal(findingKind("Fix the race condition in the queue"), "defect");
+});
+
 test("convention and advisory buckets", () => {
   assert.equal(findingKind("Hardcoded BRL string; use DEFAULT_CURRENCY"), "convention_gap");
   assert.equal(findingKind("Naming: rename foo to fooCount"), "convention_gap");

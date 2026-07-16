@@ -36,7 +36,10 @@
       "scopeGlobs": [
         "**/*.test.js",
         "**/*.test.ts",
-        "**/*.test.tsx"
+        "**/*.test.tsx",
+        "**/*.spec.js",
+        "**/*.spec.ts",
+        "**/*.spec.tsx"
       ],
       "lensId": "test_delta",
       "findingKind": "test",

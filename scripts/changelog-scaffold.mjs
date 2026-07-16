@@ -51,6 +51,17 @@ function latestTag() {
   return (res.stdout || "").split(/\r?\n/).filter(Boolean)[0] || "";
 }
 
+// Newest strict-semver tag (vX.Y.Z), skipping prereleases like v2.3.4-rc.1. Used
+// only to seed VERSION: with both v1.2.3 and a newer v2.0.0-rc.1, the seed must be
+// 1.2.3, not a prerelease the companion release-check would reject. detect() keeps
+// using latestTag() so a prerelease-only repo still reports as release-managed.
+function latestStableTag() {
+  const res = spawnSync("git", ["-C", root, "tag", "--list", "v[0-9]*", "--sort=-v:refname"],
+    { encoding: "utf8", timeout: 5000 });
+  if (res.status !== 0) return "";
+  return (res.stdout || "").split(/\r?\n/).find((t) => /^v\d+\.\d+\.\d+$/.test(t)) || "";
+}
+
 function repoName() {
   const pkg = path.join(root, "package.json");
   if (existsSync(pkg)) {
@@ -78,21 +89,22 @@ if (command === "detect") {
   emit(state, `changelog: hasChangelog=${state.hasChangelog} hasVersion=${state.hasVersion} hasUnreleased=${state.hasUnreleased} releaseManaged=${state.isReleaseManaged}`);
 } else if (command === "scaffold") {
   const created = [];
+  // Validate an explicit --seed BEFORE any filesystem write so a bad seed fails
+  // atomically — never leaving a half-scaffolded CHANGELOG.md with no VERSION.
+  const versionMissing = !existsSync(versionPath);
+  const explicitSeed = versionMissing ? arg("--seed") : "";
+  if (explicitSeed && !/^\d+\.\d+\.\d+$/.test(explicitSeed)) {
+    process.stderr.write(`changelog-scaffold: --seed must be X.Y.Z, got "${explicitSeed}"\n`);
+    process.exit(2);
+  }
   if (!existsSync(changelogPath)) {
     writeFileSync(changelogPath, CHANGELOG_TEMPLATE(repoName()));
     created.push("CHANGELOG.md");
   }
-  if (!existsSync(versionPath)) {
-    // Never seed a non-semver VERSION (e.g. from a prerelease tag like v2.3.4-rc.1),
-    // which the companion release-check would reject. Error on an explicit bad
-    // --seed rather than silently falling back.
-    const explicitSeed = arg("--seed");
-    if (explicitSeed && !/^\d+\.\d+\.\d+$/.test(explicitSeed)) {
-      process.stderr.write(`changelog-scaffold: --seed must be X.Y.Z, got "${explicitSeed}"\n`);
-      process.exit(2);
-    }
-    const derived = latestTag().replace(/^v/, "");
-    const seed = explicitSeed || (/^\d+\.\d+\.\d+$/.test(derived) ? derived : "0.1.0");
+  if (versionMissing) {
+    // Seed from the newest strict-semver tag (never a prerelease), else 0.1.0.
+    const derived = latestStableTag().replace(/^v/, "");
+    const seed = explicitSeed || derived || "0.1.0";
     writeFileSync(versionPath, `${seed}\n`);
     created.push("VERSION");
   }

@@ -16,10 +16,18 @@
       "classificationTagsAll": [],
       "classificationTagsAny": [
         "asset",
-        "ci",
         "documentation",
         "generated",
         "vendor"
+      ],
+      "classificationTagsNone": [
+        "application",
+        "ci",
+        "migration",
+        "schema",
+        "script",
+        "source",
+        "test"
       ],
       "riskTagsNone": [
         "concurrency"
@@ -34,10 +42,18 @@
       "classificationTagsAll": [],
       "classificationTagsAny": [
         "asset",
-        "ci",
         "documentation",
         "generated",
         "vendor"
+      ],
+      "classificationTagsNone": [
+        "application",
+        "ci",
+        "migration",
+        "schema",
+        "script",
+        "source",
+        "test"
       ],
       "riskTagsNone": [
         "finance",

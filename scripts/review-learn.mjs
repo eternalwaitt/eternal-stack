@@ -16,7 +16,7 @@ import path from "node:path";
 import { classify } from "./lib/coderabbit-classifier.mjs";
 
 function parseArgs(argv) {
-  const out = { findings: null, root: process.cwd(), rules: null, ledger: null, templates: null, threshold: 3, dryRun: false, json: false };
+  const out = { findings: null, root: process.cwd(), rules: null, ledger: null, templates: null, reviewId: null, threshold: 3, dryRun: false, json: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "learn") continue;
@@ -25,7 +25,14 @@ function parseArgs(argv) {
     else if (a === "--rules") out.rules = argv[++i];
     else if (a === "--ledger") out.ledger = argv[++i];
     else if (a === "--templates") out.templates = argv[++i];
-    else if (a === "--threshold") out.threshold = Number(argv[++i]);
+    else if (a === "--review-id") out.reviewId = argv[++i];
+    else if (a === "--threshold") {
+      const threshold = Number(argv[++i]);
+      if (!Number.isSafeInteger(threshold) || threshold < 1) {
+        throw new Error("--threshold must be a positive integer");
+      }
+      out.threshold = threshold;
+    }
     else if (a === "--dry-run") out.dryRun = true;
     else if (a === "--json") out.json = true;
     else throw new Error(`unknown argument: ${a}`);
@@ -51,37 +58,61 @@ function main() {
   const classified = findings.map((f) => ({ finding: f, ...classify(f) }));
   const seen = new Set(classified.map((c) => c.key));
 
-  for (const key of seen) ledger.recurrences[key] = (ledger.recurrences[key] || 0) + 1;
-
   const promotions = [], candidates = [], escalations = [];
 
-  // Promote keys that reached the threshold and are not already promoted.
-  for (const c of classified) {
-    if (ledger.promoted[c.key] || (ledger.recurrences[c.key] || 0) < args.threshold) continue;
-    if (c.templateRuleId && !rules.rules.some((r) => r.ruleId === c.templateRuleId)) {
-      const tmpl = templates.rules.find((r) => r.ruleId === c.templateRuleId);
-      if (tmpl) {
-        rules.rules.push({ ...tmpl, mode: "warn", version: (tmpl.version || 1) });
-        if (!rules.enabledRuleIds.includes(tmpl.ruleId)) rules.enabledRuleIds.push(tmpl.ruleId);
-        ledger.promoted[c.key] = { type: "guard", ruleId: tmpl.ruleId, mode: "warn" };
-        ledger.cleanRuns[tmpl.ruleId] = 0;
-        promotions.push({ key: c.key, ruleId: tmpl.ruleId, mode: "warn" });
-        continue;
+  // Idempotency: a stable --review-id identifies the review that surfaced these
+  // findings. Re-processing the same review (a retry, a re-run) must not re-count
+  // recurrences or advance clean-run streaks — that would let repeated processing
+  // of ONE review promote a warn guard and then escalate it to block. When a
+  // review-id is omitted (legacy callers), each run counts as before.
+  ledger.processedReviews ||= [];
+  const alreadyProcessed = Boolean(args.reviewId) && ledger.processedReviews.includes(args.reviewId);
+
+  if (!alreadyProcessed) {
+    for (const key of seen) ledger.recurrences[key] = (ledger.recurrences[key] || 0) + 1;
+
+    // Promote keys that reached the threshold and are not already promoted.
+    for (const c of classified) {
+      if (ledger.promoted[c.key] || (ledger.recurrences[c.key] || 0) < args.threshold) continue;
+      if (c.templateRuleId) {
+        const existing = rules.rules.find((r) => r.ruleId === c.templateRuleId);
+        if (existing) {
+          // A guard for this class already exists (e.g. no-expect-any ships enabled).
+          // Record the recurrence as a guard promotion against the existing rule, not
+          // a duplicate checklist candidate; the escalation loop below owns cleanRuns.
+          if (!rules.enabledRuleIds.includes(existing.ruleId)) rules.enabledRuleIds.push(existing.ruleId);
+          const mode = existing.mode || "warn";
+          ledger.promoted[c.key] = { type: "guard", ruleId: existing.ruleId, mode };
+          if (!(existing.ruleId in ledger.cleanRuns)) ledger.cleanRuns[existing.ruleId] = 0;
+          promotions.push({ key: c.key, ruleId: existing.ruleId, mode });
+          continue;
+        }
+        const tmpl = templates.rules.find((r) => r.ruleId === c.templateRuleId);
+        if (tmpl) {
+          rules.rules.push({ ...tmpl, mode: "warn", version: (tmpl.version || 1) });
+          if (!rules.enabledRuleIds.includes(tmpl.ruleId)) rules.enabledRuleIds.push(tmpl.ruleId);
+          ledger.promoted[c.key] = { type: "guard", ruleId: tmpl.ruleId, mode: "warn" };
+          ledger.cleanRuns[tmpl.ruleId] = 0;
+          promotions.push({ key: c.key, ruleId: tmpl.ruleId, mode: "warn" });
+          continue;
+        }
+      }
+      ledger.promoted[c.key] = { type: "checklist_candidate", control: c.control, severity: c.severity, category: c.finding.category || c.kind, lensId: c.finding.lensId || null };
+      candidates.push({ key: c.key, control: c.control, category: c.finding.category || c.kind });
+    }
+
+    // Escalate warn-mode guards to block after 2 runs with no recurrence.
+    for (const [key, p] of Object.entries(ledger.promoted)) {
+      if (p.type !== "guard" || p.mode !== "warn") continue;
+      if (seen.has(key)) { ledger.cleanRuns[p.ruleId] = 0; continue; }
+      ledger.cleanRuns[p.ruleId] = (ledger.cleanRuns[p.ruleId] || 0) + 1;
+      if (ledger.cleanRuns[p.ruleId] >= 2) {
+        const rule = rules.rules.find((r) => r.ruleId === p.ruleId);
+        if (rule) { rule.mode = "block"; p.mode = "block"; escalations.push({ ruleId: p.ruleId, mode: "block" }); }
       }
     }
-    ledger.promoted[c.key] = { type: "checklist_candidate", control: c.control, severity: c.severity, category: c.finding.category || c.kind, lensId: c.finding.lensId || null };
-    candidates.push({ key: c.key, control: c.control, category: c.finding.category || c.kind });
-  }
 
-  // Escalate warn-mode guards to block after 2 runs with no recurrence.
-  for (const [key, p] of Object.entries(ledger.promoted)) {
-    if (p.type !== "guard" || p.mode !== "warn") continue;
-    if (seen.has(key)) { ledger.cleanRuns[p.ruleId] = 0; continue; }
-    ledger.cleanRuns[p.ruleId] = (ledger.cleanRuns[p.ruleId] || 0) + 1;
-    if (ledger.cleanRuns[p.ruleId] >= 2) {
-      const rule = rules.rules.find((r) => r.ruleId === p.ruleId);
-      if (rule) { rule.mode = "block"; p.mode = "block"; escalations.push({ ruleId: p.ruleId, mode: "block" }); }
-    }
+    if (args.reviewId) ledger.processedReviews.push(args.reviewId);
   }
 
   if (!args.dryRun) {
@@ -98,13 +129,14 @@ function main() {
     schemaVersion: 1,
     findingsProcessed: findings.length,
     distinctKeys: seen.size,
+    alreadyProcessed,
     newGuardPromotions: promotions,
     newChecklistCandidates: candidates,
     escalations,
   };
   process.stdout.write(args.json
     ? JSON.stringify(metric, null, 2) + "\n"
-    : `review-learn: ${findings.length} findings, ${promotions.length} guard promotion(s), ${candidates.length} checklist candidate(s), ${escalations.length} escalation(s)\n`);
+    : `review-learn: ${findings.length} findings, ${promotions.length} guard promotion(s), ${candidates.length} checklist candidate(s), ${escalations.length} escalation(s)${alreadyProcessed ? " (review already processed; no-op)" : ""}\n`);
 }
 
 main();

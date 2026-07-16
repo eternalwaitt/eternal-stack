@@ -70,14 +70,17 @@ function neutralizeInjection(value) {
 }
 
 function redactText(value) {
-  return neutralizeInjection(String(value || "")
+  // Neutralize (NFKC-fold + strip zero-width + defang injection) BEFORE redaction:
+  // otherwise a fullwidth- or zero-width-disguised secret slips past the ASCII
+  // secret regexes and only THEN normalizes to plaintext, persisting unredacted.
+  return neutralizeInjection(value)
     .replace(/-----BEGIN[A-Z ]*PRIVATE KEY-----[\s\S]*?-----END[A-Z ]*PRIVATE KEY-----/g, "[REDACTED_PRIVATE_KEY]")
     .replace(/\bsk_(?:live|test)_[A-Za-z0-9_=-]{8,}\b/g, "[REDACTED_TOKEN]")
     .replace(/\bsk-[A-Za-z0-9_-]{20,}\b/g, "[REDACTED_TOKEN]")
     .replace(/\b(AKIA|ASIA)[A-Z0-9]{16}\b/g, "[REDACTED_AWS_KEY]")
     .replace(/\b(aws_secret_access_key|aws_session_token|password|passwd|token|api[_-]?key)\s*=\s*[^ \n\r\t]+/gi, "$1=[REDACTED]")
     .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, "[REDACTED_JWT]")
-    .replace(/\b(Bearer)\s+[A-Za-z0-9._~+/=-]{16,}\b/g, "$1 [REDACTED]"));
+    .replace(/\b(Bearer)\s+[A-Za-z0-9._~+/=-]{16,}\b/g, "$1 [REDACTED]");
 }
 
 function fingerprint(record) {

@@ -16,7 +16,7 @@
 //   node scripts/diff-triviality.mjs classify --root <dir> --stdin-json   # paths as JSON array on stdin
 //   node scripts/diff-triviality.mjs classify --root <dir> --git          # paths from `git diff --name-only HEAD`
 
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, realpathSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -87,8 +87,11 @@ function globToRegExp(glob) {
 
 function loadPathRules() {
   const schema = JSON.parse(readFileSync(schemaPath, "utf8"));
+  // A malformed schema must not silently classify everything as trivial: a
+  // non-array `rules` is a corrupt taxonomy, not "no rules".
+  if (!Array.isArray(schema.rules)) throw new Error("schema.rules must be an array");
   // Only path-glob rules classify a bare path; content/risk rules need file bodies.
-  return (schema.rules || [])
+  return schema.rules
     .filter((r) => (r.match?.pathGlobs || []).length > 0 && (r.addClassificationTags || []).length > 0)
     .map((r) => ({
       ruleId: r.ruleId,
@@ -97,13 +100,27 @@ function loadPathRules() {
     }));
 }
 
+// Resolve symlinks so an in-root path is not mistaken for an escape. On macOS the
+// caller's root (git toplevel) is /private/var/... while a recorded edit path may
+// use the /var/... symlink; without canonicalizing, path.relative reads "../".
+function realOr(p) {
+  try { return realpathSync.native(p); } catch { return p; }
+}
+
+// Returns the repo-relative path, or null when the path escapes --root. A null is
+// forced to runtime by the caller: an out-of-root path like /tmp/CHANGELOG.md must
+// never be stripped to `tmp/CHANGELOG.md` and inherit the metadata allowlist, which
+// would let an out-of-scope file make the whole diff trivial (fail-safe).
 function normalize(p, root) {
   let rel = p.replace(/\\/g, "/");
   if (path.isAbsolute(rel) && root) {
-    const r = path.relative(root, rel).replace(/\\/g, "/");
-    if (r && !r.startsWith("..")) rel = r;
+    const r = path.relative(root, realOr(rel)).replace(/\\/g, "/");
+    if (r === ".." || r.startsWith("../") || path.isAbsolute(r)) return null;
+    rel = r;
   }
-  return rel.replace(/^\.\//, "").replace(/^\/+/, "");
+  rel = rel.replace(/^\.\//, "").replace(/^\/+/, "");
+  if (rel === ".." || rel.startsWith("../")) return null;
+  return rel;
 }
 
 function isMetadata(rel) {
@@ -156,7 +173,7 @@ function main() {
     process.stderr.write("usage: diff-triviality.mjs classify [--root <dir>] [--json] [--git|--stdin-json] [path ...]\n");
     process.exit(2);
   }
-  const root = path.resolve(value("--root", process.cwd()));
+  const root = realOr(path.resolve(value("--root", process.cwd())));
   if (!existsSync(schemaPath)) {
     // No schema => cannot prove triviality => never trivial (fail-safe).
     emit({ trivial: false, reason: "schema-missing", total: 0, runtime: [], nonRuntime: [] }, flag("--json"));
@@ -167,13 +184,21 @@ function main() {
   else if (flag("--stdin-json")) paths = readStdinPaths();
   paths = [...new Set(paths.filter(Boolean))];
 
-  const rules = loadPathRules();
+  let rules;
+  try {
+    rules = loadPathRules();
+  } catch {
+    // Unreadable or malformed schema => cannot prove triviality => never trivial.
+    emit({ trivial: false, reason: "schema-invalid", total: 0, runtime: [], nonRuntime: [] }, flag("--json"));
+    return;
+  }
   const runtime = [];
   const nonRuntime = [];
   for (const p of paths) {
     const rel = normalize(p, root);
-    const { runtime: isRuntime } = classifyPath(rel, rules);
-    (isRuntime ? runtime : nonRuntime).push(rel);
+    // A path outside --root (rel === null) is forced runtime and reported verbatim.
+    const { runtime: isRuntime } = rel === null ? { runtime: true } : classifyPath(rel, rules);
+    (isRuntime ? runtime : nonRuntime).push(rel ?? p);
   }
   const trivial = paths.length > 0 && runtime.length === 0;
   emit({ trivial, total: paths.length, runtime: runtime.sort(), nonRuntime: nonRuntime.sort() }, flag("--json"));

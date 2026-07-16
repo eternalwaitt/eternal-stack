@@ -5,7 +5,10 @@
 //
 // Usage:
 //   node scripts/review-rules.mjs check [--config <path>] [--root <dir>]
-//                                       [--changed-only] [--json]
+//                                       [--changed-only] [--base <ref>] [--json]
+// --changed-only scopes to the working tree (pre-commit / local); --base <ref>
+// scopes to the outgoing commit range <ref>...HEAD (pre-push, where the worktree
+// is clean) and fails closed when <ref> cannot be resolved.
 // Exit 1 when any block-mode rule matches; warn-mode matches report but pass.
 
 import { readFileSync, existsSync, statSync, globSync } from "node:fs";
@@ -13,12 +16,13 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 
 function parseArgs(argv) {
-  const out = { config: null, root: process.cwd(), changedOnly: false, json: false };
+  const out = { config: null, root: process.cwd(), changedOnly: false, base: null, json: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--config") out.config = argv[++i];
     else if (a === "--root") out.root = path.resolve(argv[++i]);
     else if (a === "--changed-only") out.changedOnly = true;
+    else if (a === "--base") out.base = argv[++i];
     else if (a === "--json") out.json = true;
     else if (a === "check") continue;
     else throw new Error(`unknown argument: ${a}`);
@@ -49,17 +53,34 @@ function ruleMode(rule) {
 }
 
 function activeRules(config) {
-  const allow = Array.isArray(config.enabledRuleIds) && config.enabledRuleIds.length > 0
-    ? new Set(config.enabledRuleIds)
-    : null;
+  const known = new Set(config.rules.map((r) => r.ruleId));
+  const enabled = Array.isArray(config.enabledRuleIds) ? config.enabledRuleIds : [];
+  // A typo in enabledRuleIds would otherwise select zero rules and report a clean
+  // pass — a false pass on a blocking gate. Fail closed instead.
+  for (const id of enabled) {
+    if (!known.has(id)) throw new Error(`enabledRuleIds references unknown ruleId "${id}"`);
+  }
+  const allow = enabled.length > 0 ? new Set(enabled) : null;
   return config.rules.filter((r) => ruleMode(r) !== "off" && (!allow || allow.has(r.ruleId)));
 }
 
-function changedFiles(root) {
+function changedFiles(root, base) {
   const run = (args) => spawnSync("git", args, { cwd: root, encoding: "utf8" });
+  const set = new Set();
+  if (base) {
+    // Pre-push scope: the outgoing commit range base...HEAD, NOT the working tree.
+    // A real pre-push runs with the to-be-pushed commit already at HEAD and a clean
+    // worktree, so `git diff HEAD` would see nothing. Fail closed when base cannot
+    // be resolved rather than silently checking zero files.
+    const range = run(["diff", "--name-only", "--diff-filter=d", `${base}...HEAD`]);
+    if (range.status !== 0) {
+      throw new Error(`cannot resolve --base "${base}" (outgoing range ${base}...HEAD): ${(range.stderr || "").trim()}`);
+    }
+    for (const line of (range.stdout || "").split("\n")) if (line.trim()) set.add(line.trim());
+    return set;
+  }
   const tracked = run(["diff", "--name-only", "--diff-filter=d", "HEAD"]);
   const untracked = run(["ls-files", "--others", "--exclude-standard"]);
-  const set = new Set();
   for (const out of [tracked.stdout, untracked.stdout]) {
     if (!out) continue;
     for (const line of out.split("\n")) if (line.trim()) set.add(line.trim());
@@ -117,6 +138,16 @@ function evalAstGrep(rule, root, files) {
   if (res.error) {
     throw new Error(`rule ${rule.ruleId}: ast-grep failed to run: ${res.error.message}`);
   }
+  // ast-grep run exit codes: 0 = matches, 1 = no matches (normal), >=2 = usage/
+  // argument error (e.g. an invalid --lang). A killing signal or an exit >=2 must
+  // fail closed — treating that empty stdout as "no matches" would silently pass a
+  // blocking guard.
+  if (res.signal) {
+    throw new Error(`rule ${rule.ruleId}: ast-grep terminated by signal ${res.signal}`);
+  }
+  if (typeof res.status === "number" && res.status >= 2) {
+    throw new Error(`rule ${rule.ruleId}: ast-grep exited ${res.status} (cannot evaluate): ${(res.stderr || "").trim().slice(0, 200)}`);
+  }
   // A malformed pattern makes ast-grep emit an ERROR-node warning on stderr and
   // return an empty match set with exit 0. Detect it so a broken rule fails
   // closed (cannot-evaluate) instead of silently passing a blocking guard.
@@ -137,7 +168,9 @@ function evalAstGrep(rule, root, files) {
 function main() {
   const args = parseArgs(process.argv.slice(2));
   const config = loadConfig(args.config, args.root);
-  const changedSet = args.changedOnly ? changedFiles(args.root) : null;
+  // --base implies changed scoping over the outgoing range (pre-push); --changed-only
+  // without --base scopes to the working tree (pre-commit / local).
+  const changedSet = (args.changedOnly || args.base) ? changedFiles(args.root, args.base) : null;
   const rules = activeRules(config);
 
   const findings = [];

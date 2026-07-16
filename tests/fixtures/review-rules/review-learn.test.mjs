@@ -18,14 +18,17 @@ function freshRoot() {
   return root;
 }
 
-function runLearn(root, findings) {
+function runLearn(root, findings, { reviewId = null } = {}) {
   const fp = path.join(root, "findings.json");
   writeFileSync(fp, JSON.stringify(findings));
-  const res = spawnSync("node", [learn, "learn", "--findings", fp, "--root", root, "--json"], { encoding: "utf8" });
+  const args = [learn, "learn", "--findings", fp, "--root", root, "--json"];
+  if (reviewId) args.push("--review-id", reviewId);
+  const res = spawnSync("node", args, { encoding: "utf8" });
   assert.equal(res.status, 0, res.stderr);
   return {
     metric: JSON.parse(res.stdout),
     rules: JSON.parse(readFileSync(path.join(root, "review-rules.json"), "utf8")),
+    ledger: JSON.parse(readFileSync(path.join(root, "review-learnings.json"), "utf8")),
   };
 }
 
@@ -61,4 +64,48 @@ test("a non-template finding becomes a checklist candidate, not a guard", () => 
   assert.equal(third.metric.newGuardPromotions.length, 0);
   assert.equal(third.metric.newChecklistCandidates.length, 1);
   assert.equal(third.rules.rules.length, 0, "no deterministic rule invented from prose");
+});
+
+test("re-processing the same --review-id leaves recurrence counters unchanged (idempotent)", () => {
+  const root = freshRoot();
+  const first = runLearn(root, asAny, { reviewId: "pr-42-review-1" });
+  const recurrenceAfterFirst = first.ledger.recurrences;
+  // Re-run the SAME review id twice more: must not advance recurrence counts.
+  const again = runLearn(root, asAny, { reviewId: "pr-42-review-1" });
+  runLearn(root, asAny, { reviewId: "pr-42-review-1" });
+  const final = runLearn(root, asAny, { reviewId: "pr-42-review-1" });
+  assert.equal(again.metric.alreadyProcessed, true, "the second run is a no-op");
+  assert.deepEqual(final.ledger.recurrences, recurrenceAfterFirst, "counts frozen at the first processing");
+  assert.equal(final.metric.newGuardPromotions.length, 0, "reprocessing never promotes");
+
+  // A DISTINCT review id with the same class DOES count as a new recurrence.
+  const distinct = runLearn(root, asAny, { reviewId: "pr-43-review-1" });
+  const key = Object.keys(recurrenceAfterFirst)[0];
+  assert.equal(distinct.ledger.recurrences[key], recurrenceAfterFirst[key] + 1, "a new review advances the count");
+});
+
+test("--threshold rejects non-positive-integer values", () => {
+  const root = freshRoot();
+  const fp = path.join(root, "findings.json");
+  writeFileSync(fp, JSON.stringify(asAny));
+  for (const bad of ["0", "-1", "1.5", "abc"]) {
+    const res = spawnSync("node", [learn, "learn", "--findings", fp, "--root", root, "--threshold", bad, "--json"], { encoding: "utf8" });
+    assert.notEqual(res.status, 0, `threshold ${bad} must be rejected`);
+    assert.match(res.stderr, /threshold must be a positive integer/);
+  }
+});
+
+test("an already-present guard records a promotion, not a duplicate checklist candidate", () => {
+  const root = freshRoot();
+  // Seed the guard as if no-expect-any already shipped enabled in review-rules.json.
+  writeFileSync(path.join(root, "review-rules.json"), JSON.stringify({
+    schemaVersion: 1, rulesetId: "t", version: 1,
+    enabledRuleIds: ["no-expect-any"],
+    rules: [{ ruleId: "no-expect-any", mode: "warn", version: 1 }],
+  }));
+  runLearn(root, asAny); runLearn(root, asAny);
+  const third = runLearn(root, asAny); // threshold reached with the guard already present
+  assert.equal(third.metric.newGuardPromotions.length, 1, "existing guard recorded as a promotion");
+  assert.equal(third.metric.newChecklistCandidates.length, 0, "not relabeled as a checklist candidate");
+  assert.equal(third.rules.rules.filter((r) => r.ruleId === "no-expect-any").length, 1, "no duplicate rule appended");
 });

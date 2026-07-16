@@ -21,7 +21,7 @@
       "ruleId": "no-focused-tests",
       "engine": "literal",
       "mode": "block",
-      "scopeGlobs": ["**/*.test.ts", "**/*.test.tsx", "**/*.test.js"],
+      "scopeGlobs": ["**/*.test.ts", "**/*.test.tsx", "**/*.test.js", "**/*.spec.ts", "**/*.spec.tsx", "**/*.spec.js"],
       "lensId": "test_delta",
       "findingKind": "test",
       "category": "focused-test",
