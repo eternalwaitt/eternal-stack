@@ -11,10 +11,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - Lean CodeRabbit preemption: a three-tier system that catches CodeRabbit-class findings at plan and pre-push time to shrink review round-trips. Tier A `scripts/review-rules.mjs` runs ast-grep and literal guards from `review-rules.json` over changed files (`no-expect-any`, `no-focused-tests` ship enabled). Tier B `skills/etrnl-dev-autoplan/references/coderabbit-preemption.md` turns each recurring finding class into a plan-time checklist and spec-review item across the ten review lenses plus a SaaS domain pack. Tier C is a bounded, risk-tiered review lens wired into `etrnl-dev-execute` and `etrnl-quality-reviewer`.
 - `scripts/review-learn.mjs` and `scripts/lib/coderabbit-classifier.mjs` — a fully-automatic learning loop that classifies each PR's review findings, tracks recurrence in `review-learnings.json`, and at three recurrences auto-promotes a template-matching class to a warn-mode `review-rules.json` guard (escalating to block after two clean runs) or a checklist candidate for autoplan. Wired into `etrnl-dev-pr`.
 - `docs/adr/0004-coderabbit-preemption-lean.md` — records the extract-data / re-express-code / leave-the-cathedral salvage decision and the lean three-tier + learning-loop architecture.
+- `templates/review-rules.saas.example.json` — an opt-in warn-mode overlay for `eternal-saas` repos with the highest-frequency mechanically-catchable mined classes (React-Compiler `useCallback`/`useMemo` manual memo, unchecked `searchParams.get(...) as T` casts), verified against ast-grep 0.43.0 with a fixture test.
+- `agents/etrnl-consumer-tracer.md` — a read-only agent that enumerates every call site of a changed field/filter/helper and reports which siblings the diff left stale, wired into the bounded review loop for money/tenant/soft-delete/nullable changes. Targets the mined corpus's most severe recurring class (a change applied to some but not all consumers).
 
 ### Changed
 
 - `skills/etrnl-dev-autoplan/SKILL.md` gains a scope-freeze anti-drift step: restate the goal in one sentence, require every task group to trace to it, read a review backlog as a catalog rather than a mandate to build infrastructure, reject unrequested integrity/tamper/receipt scope, and commit each task group independently.
+- `skills/etrnl-dev-autoplan/references/coderabbit-preemption.md` — added the two mined checklist gaps (pagination/LIMIT bounds, session-pending UI) and the SaaS overlay pointer; provenance refreshed to the 2,310-finding corpus.
 
 ### Fixed
 

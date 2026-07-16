@@ -23,7 +23,7 @@ For each changed area, confirm which lenses apply and note the risk:
 
 ## Tier A — Deterministic (pre-push guard; never let these reach CodeRabbit)
 
-Run `node scripts/review-rules.mjs check --changed-only` before push (engines: ast-grep + literal; block/warn modes; rules in `review-rules.json`). These are the "quick win" tail CodeRabbit posts every PR:
+Run `node scripts/review-rules.mjs check --changed-only` before push (engines: ast-grep + literal; block/warn modes; rules in `review-rules.json`). SaaS-on-`eternal-saas` repos can additionally enable the opt-in overlay `templates/review-rules.saas.example.json` (`--config` that file): warn-mode guards for React-Compiler manual memo (`useCallback`/`useMemo`) and unchecked `searchParams.get(...) as T` casts — the highest-frequency mechanically-catchable classes from the mined corpus, held in warn until the learning loop escalates them. These are the "quick win" tail CodeRabbit posts every PR:
 
 - Markdown fenced code block missing a language specifier (`.md`, `.mdc`).
 - `as <PascalCaseEnum>` cast applied to `searchParams.get(...)`, `process.env`, or other untrusted input without an adjacent allowlist/validation check.

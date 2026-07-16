@@ -237,6 +237,7 @@ These repo-owned agents are installed by default into `~/.claude/agents/`. They 
 | `etrnl-executor` | Bounded implementation worker for a single task packet. |
 | `etrnl-spec-reviewer` | Read-only plan and task-packet review before implementation. |
 | `etrnl-quality-reviewer` | Read-only post-implementation quality review. |
+| `etrnl-consumer-tracer` | Read-only cross-consumer tracer: enumerates every call site of a changed field/filter/helper and reports which siblings the diff left stale. |
 | `etrnl-investigator` | Read-only root-cause diagnosis for repeated failures or blockers. |
 | `etrnl-scout` | Read-only repo discovery and existing-pattern mapping. |
 | `etrnl-adversary` | Read-only Codex-style challenge pass for plans, diffs, and completion claims. |

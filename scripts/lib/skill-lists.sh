@@ -70,6 +70,7 @@ BUNDLED_SKILLS=(
 OWNED_AGENTS=(
   etrnl-adversary
   etrnl-browser-qa
+  etrnl-consumer-tracer
   etrnl-design-reviewer
   etrnl-dx-reviewer
   etrnl-executor
