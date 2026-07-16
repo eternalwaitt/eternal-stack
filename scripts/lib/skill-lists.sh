@@ -165,6 +165,8 @@ INSTALL_SCRIPTS=(
   execution-wave-check.mjs
   tool-effectiveness.mjs
   review-log.mjs
+  review-rules.mjs
+  review-learn.mjs
   project-buglog.mjs
   browser-qa-report.mjs
   context-state.mjs

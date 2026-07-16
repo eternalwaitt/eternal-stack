@@ -121,6 +121,7 @@ node scripts/deep-stack-check.mjs validate-install-proof --artifact <artifact-pa
 node scripts/prompt-budget-check.mjs .
 node scripts/prompt-budget-check.mjs ~/.claude --owned-only
 node scripts/review-log.mjs summary
+node scripts/review-rules.mjs check --changed-only
 node scripts/project-buglog.mjs validate
 node scripts/project-buglog.mjs suggest --file <path> --json
 node scripts/project-buglog.mjs suggest-project --json
@@ -141,6 +142,7 @@ scripts/post-upgrade-canary.sh
 - `cc-precompact-save.sh` records bounded `compact_pre` events, `cc-postcompact-record.sh` records Claude compact summaries as `compact_post` with stale-verification state, and synchronous `cc-sessionstart-restore.sh` injects only the bounded `compact-handoff` packet on `source=compact`.
 - `browser-qa-report.mjs` supports schema v1 plus schema v2 matrix reports; a completed v2 report must include route/viewport rows, numeric `consoleErrors` and `failedRequests`, fresh screenshot captures, matching `screenshotSha256`, and provenance with tool, target URL, command, and capture time.
 - `pr-preflight.mjs` reports branch, upstream, dirty state, existing PR, GitHub auth, PR checks, and local gate hints before PR creation or readiness claims.
+- `review-rules.mjs` is the pre-push CodeRabbit-preemption guard (Tier A). It runs the ast-grep and literal rules in `review-rules.json` over changed files (`check --changed-only`); block-mode matches exit non-zero and fail the local gate, warn-mode matches report without failing. It shares no code with the receipt/ledger subsystem. `review-learn.mjs` closes the loop: it classifies each PR's review findings with `lib/coderabbit-classifier.mjs`, tracks recurrence in `review-learnings.json`, and at three recurrences auto-promotes a template-matching class to a warn-mode `review-rules.json` guard (auto-escalating to block after two clean runs) or records a checklist candidate for `etrnl-dev-autoplan`. Tiers B (plan checklist `skills/etrnl-dev-autoplan/references/coderabbit-preemption.md`) and C (bounded execute/quality review lens) carry the classes a linter cannot catch. See [ADR 0004](adr/0004-coderabbit-preemption-lean.md).
 - `performance-baseline.mjs` validates repeatable performance baseline artifacts with measurements, thresholds, and `nextRun.command`; use `trend` to compare before/after baselines.
 - `disk-cleanup-manifest.mjs` validates cleanup manifests before mutation, requiring absolute paths, safe commands, risk tiers, and explicit approval fields for tier 2 or tier 3 rows.
 - `project-buglog.mjs suggest --json` emits redacted local suggestions with severity, fingerprint, last-seen, and suggested guard; `suggest-project --json` aggregates repeated lessons across files, gives cross-session project hints without returning the raw cwd, and includes up to 5 most recent affected files for generic repeat-edit patterns. Hooks debounce these hints and honor `ETRNL_LEARNING_HINTS=0`.

@@ -52,6 +52,15 @@ Mandatory stages:
    - Score context recovery, reuse, review coverage, external evidence, test-first plan, artifact validity, execution handoff, and open-risk closure from 0 to 10.
    - Final verdict requires every score at 9 or 10. Lower scores force `Blocked until <specific blocker>`.
 
+## Scope freeze (anti-drift)
+
+Freeze scope before drafting task groups, and hold it through execution:
+
+1. Restate the goal in one sentence. Every task group must trace to that sentence; drop any task group that does not.
+2. Treat a review or audit backlog as a catalog, not a mandate to build infrastructure. "Add all findings, even nits" means record each finding as a checklist line or a single deterministic guard, not a new subsystem, receipt store, or ledger. When a finding class needs more than a guard or a checklist line, mark it a review lens and stop there.
+3. Reject integrity, tamper-proofing, cryptographic-receipt, and provenance-hardening scope unless the one-sentence goal names it. These are the recurring drift vectors; a plan that grows one without an explicit ask is over-engineered — cut it.
+4. Commit each task group independently so value lands incrementally and a drifting task group reverts alone.
+
 ## Full Deep Stack Review
 
 Run the full review gauntlet before finalizing any non-trivial plan. Planning, autoplan, and review stay deep by default. Execution tiering is allowed only after deep review passes and the plan records a valid `Deep stack artifacts:` bundle.

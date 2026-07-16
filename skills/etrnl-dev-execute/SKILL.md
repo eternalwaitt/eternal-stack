@@ -103,15 +103,7 @@ Completion means every item inside the plan's `Execution scope` is verified or e
 
 ## Bounded CodeRabbit-lens review (risk-tiered)
 
-After the final edit of a task or wave, run one targeted CodeRabbit-preemption pass instead of an open-ended review loop:
-
-1. Run `node scripts/review-rules.mjs check --changed-only` first and fix every block-mode match; do not spend review budget on the deterministic tail.
-2. Run `etrnl-quality-reviewer` over the diff using the `coderabbit-preemption.md` checklist lenses (installed with etrnl-dev-autoplan), scoped by the risk router (`schemas/review-classification-rules-v1.json`) to the changed surfaces; suppress non-applicable lenses via `schemas/quality-na-rules.json`.
-3. After fixes, re-verify only the changed lenses. Do not rebuild a full matrix.
-4. Reopen caps keep the pass thorough without looping:
-   - Tier 0-2: at most 2 reopen rounds, then record remaining findings as non-blocking notes and proceed.
-   - Tier 3 (auth, money, migrations, tenancy, security): reopen until clean, capped at 4 rounds; a still-open blocker at the cap stops the wave for a repository-owner decision.
-   - Reopen only when code changed; never reopen on finding-churn alone.
+After the final edit of a task or wave, run one targeted CodeRabbit-preemption pass, not an open-ended loop. Load `references/bounded-review.md` for the procedure: the pre-push guard, the changed-surface quality lenses, and the risk-tiered reopen caps.
 
 ## Verification
 

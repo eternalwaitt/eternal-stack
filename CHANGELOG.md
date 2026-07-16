@@ -8,7 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Added
 
+- Lean CodeRabbit preemption: a three-tier system that catches CodeRabbit-class findings at plan and pre-push time to shrink review round-trips. Tier A `scripts/review-rules.mjs` runs ast-grep and literal guards from `review-rules.json` over changed files (`no-expect-any`, `no-focused-tests` ship enabled). Tier B `skills/etrnl-dev-autoplan/references/coderabbit-preemption.md` turns each recurring finding class into a plan-time checklist and spec-review item across the ten review lenses plus a SaaS domain pack. Tier C is a bounded, risk-tiered review lens wired into `etrnl-dev-execute` and `etrnl-quality-reviewer`.
+- `scripts/review-learn.mjs` and `scripts/lib/coderabbit-classifier.mjs` — a fully-automatic learning loop that classifies each PR's review findings, tracks recurrence in `review-learnings.json`, and at three recurrences auto-promotes a template-matching class to a warn-mode `review-rules.json` guard (escalating to block after two clean runs) or a checklist candidate for autoplan. Wired into `etrnl-dev-pr`.
+- `docs/adr/0004-coderabbit-preemption-lean.md` — records the extract-data / re-express-code / leave-the-cathedral salvage decision and the lean three-tier + learning-loop architecture.
+
 ### Changed
+
+- `skills/etrnl-dev-autoplan/SKILL.md` gains a scope-freeze anti-drift step: restate the goal in one sentence, require every task group to trace to it, read a review backlog as a catalog rather than a mandate to build infrastructure, reject unrequested integrity/tamper/receipt scope, and commit each task group independently.
 
 ### Fixed
 
@@ -155,3 +161,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ### Security
 
 - Public repository boundary: no private identity, credentials, transcripts, or local planning artifacts in tracked files.
+
