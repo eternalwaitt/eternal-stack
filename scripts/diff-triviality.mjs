@@ -27,6 +27,15 @@ const schemaPath = path.join(here, "..", "schemas", "review-classification-rules
 const RUNTIME_TAGS = new Set(["application", "source", "schema", "script", "test", "ci", "migration"]);
 const NON_RUNTIME_TAGS = new Set(["documentation", "asset", "generated", "vendor", "metadata"]);
 
+// Data/config/executable extensions affect behavior. They carry no source tag in
+// the path taxonomy, so a file like docs/config.json or generated/migrate.sql
+// would otherwise inherit only the directory's documentation/generated tag and be
+// judged non-runtime. Treat these as runtime regardless of directory (fail-safe).
+const DATA_CONFIG_EXTS = new Set([
+  "json", "jsonc", "json5", "yaml", "yml", "toml", "ini", "cfg", "conf", "env",
+  "sql", "graphql", "gql", "proto", "xml", "plist", "properties", "lock",
+]);
+
 // Metadata files that execute nothing and match no taxonomy glob. Kept tight on
 // purpose: anything ambiguous (.npmrc, Dockerfile, *.env) stays runtime.
 const METADATA_BASENAMES = new Set([
@@ -102,6 +111,12 @@ function isMetadata(rel) {
   return METADATA_BASENAMES.has(base) || METADATA_PATTERNS.some((re) => re.test(base));
 }
 
+function extensionOf(rel) {
+  const base = rel.split("/").pop() || rel;
+  const dot = base.lastIndexOf(".");
+  return dot > 0 ? base.slice(dot + 1).toLowerCase() : "";
+}
+
 function classifyPath(rel, rules) {
   const tags = new Set();
   for (const rule of rules) {
@@ -110,8 +125,10 @@ function classifyPath(rel, rules) {
   if (tags.size === 0 && isMetadata(rel)) tags.add("metadata");
   const hasRuntime = [...tags].some((t) => RUNTIME_TAGS.has(t));
   const hasNonRuntime = [...tags].some((t) => NON_RUNTIME_TAGS.has(t));
-  // Runtime wins on conflict; unclassified paths (fallback => source) are runtime.
-  const runtime = hasRuntime || !hasNonRuntime;
+  const isDataConfig = DATA_CONFIG_EXTS.has(extensionOf(rel));
+  // Runtime wins on conflict; a data/config extension forces runtime even under a
+  // documentation/generated directory; unclassified paths (fallback => source) are runtime.
+  const runtime = hasRuntime || isDataConfig || !hasNonRuntime;
   return { tags: [...tags].sort(), runtime };
 }
 

@@ -6,9 +6,14 @@ export function findingKind(summary = "", body = "", severity = "") {
   const title = String(summary).toLowerCase();
   const text = `${summary} ${body}`.toLowerCase();
   if (/^(good|correctly|solid|well done|looks good)\b/.test(title) && !/\b(but|however|missing|incorrect|broken|fails?)\b/.test(title)) return "praise";
+  // Strong defect signals outrank a bare mention of "test": a security/data-loss
+  // bug that merely notes missing coverage is a defect to fix, not a test-template
+  // candidate. Weaker signals (missing/does not/fail) stay below test_gap so a
+  // plain "missing test coverage" finding still routes to a test template.
+  if (/bug|incorrect|wrong|race|security|overwrite|leak|lost update/.test(text)) return "defect";
   if (/\btest(?:s|ing)?\b|coverage|regression|assert|fixture/.test(text)) return "test_gap";
   if (/path instruction|convention|hardcod|stale comment|duplicate|unused|naming/.test(text)) return "convention_gap";
-  if (/bug|incorrect|wrong|race|security|missing|does not|fail|overwrite|leak|lost update/.test(text)) return "defect";
+  if (/missing|does not|fail/.test(text)) return "defect";
   if (/consider|could|suggest|advisory/.test(text) || /trivial|minor|quick win|low value/i.test(severity)) return "advisory";
   return "defect";
 }

@@ -85,8 +85,13 @@ function main() {
   }
 
   if (!args.dryRun) {
+    // The ledger is canonical JSON (idempotent rewrite = no diff). review-rules.json
+    // is a hand-formatted tracked config, so only write it when a promotion or
+    // escalation actually changed it — a no-op run must not reflow it.
     writeFileSync(args.ledger, JSON.stringify(ledger, null, 2) + "\n");
-    writeFileSync(args.rules, JSON.stringify(rules, null, 2) + "\n");
+    if (promotions.length > 0 || escalations.length > 0) {
+      writeFileSync(args.rules, JSON.stringify(rules, null, 2) + "\n");
+    }
   }
 
   const metric = {

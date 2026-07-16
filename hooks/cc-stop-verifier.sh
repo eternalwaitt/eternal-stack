@@ -76,19 +76,31 @@ if [[ "$claims_done" == "true" ]] && cc_deferred_status_update; then
   claims_done=false
 fi
 
-# Triviality fast-path: when every path edited this session is non-runtime
-# (documentation, asset, generated, vendor, or a known metadata file), a
-# second-pass CODE review adds friction without risk. Returns 0 only when the
-# classifier proves the whole edit set is non-runtime; any code/schema/script/
-# test/CI/migration path — or classifier absence — leaves the gate in force.
+# Triviality fast-path: a completion claim is "trivial" only when EVERY path the
+# session changed — by any means — is non-runtime (documentation, asset,
+# generated, vendor, or a known metadata file). The change set is the UNION of
+# the Edit/Write/MultiEdit `.edits` keys AND the git working tree
+# (`git status --porcelain`), so a source file mutated via Bash (`sed -i`, a
+# redirect, `git apply`, a codegen script) cannot hide behind a docs-only edit
+# set. Returns 0 only when the classifier proves the whole union is non-runtime;
+# a non-git tree, an empty set, classifier/node/git absence, or any runtime path
+# leaves every gate in force (fail-safe).
 cc_trivial_nonruntime_diff() {
   local classifier="$SCRIPT_DIR/../scripts/diff-triviality.mjs"
   [[ -f "$classifier" ]] || return 1
   command -v node >/dev/null 2>&1 || return 1
-  local paths_json verdict
-  paths_json="$(jq -c '((.edits // {}) | keys)' <<<"$state" 2>/dev/null)" || return 1
-  [[ -n "$paths_json" && "$paths_json" != "[]" && "$paths_json" != "null" ]] || return 1
-  verdict="$(printf '%s' "$paths_json" | node "$classifier" classify --root "$cwd" --stdin-json --json 2>/dev/null)" || return 1
+  command -v git >/dev/null 2>&1 || return 1
+  local root edit_paths git_paths all_paths verdict
+  root="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)" || return 1
+  [[ -n "$root" ]] || return 1
+  edit_paths="$(jq -r '((.edits // {}) | keys)[]?' <<<"$state" 2>/dev/null)"
+  # Working-tree changes by ANY means; strip the 2-char XY status + space, and
+  # for renames keep the destination path (after " -> ").
+  git_paths="$(git -C "$root" -c core.quotepath=false status --porcelain=v1 --untracked-files=all 2>/dev/null \
+    | sed -e 's/^...//' -e 's/.* -> //')"
+  all_paths="$(printf '%s\n%s\n' "$edit_paths" "$git_paths" | grep -v '^[[:space:]]*$' | sort -u)"
+  [[ -n "$all_paths" ]] || return 1
+  verdict="$(printf '%s\n' "$all_paths" | node "$classifier" classify --root "$root" --stdin-json --json 2>/dev/null)" || return 1
   jq -e '.trivial == true' <<<"$verdict" >/dev/null 2>&1
 }
 
@@ -337,10 +349,14 @@ fi
 
 if [[ "$claims_done" == "true" ]]; then
   email_triage_verified=false
-  # Non-runtime ("trivial") diffs skip the runtime-freshness and second-pass-code-review
-  # gates below: docs/asset/generated/vendor/metadata edits execute nothing, so a stale
-  # verification run or a code review is friction, not risk. Ledger, schema/migration,
-  # requested-skill, evidence-discipline, and audit-report gates still apply.
+  # Non-runtime ("trivial") diffs skip exactly three gates below — the
+  # zero-verification gate, the stale-verification gate, and the
+  # second-pass-code-review gate — because docs/asset/generated/vendor/metadata
+  # changes execute nothing, so demanding a verification run or a code review is
+  # friction, not risk. Triviality is computed over the git working tree unioned
+  # with the session edit set (see cc_trivial_nonruntime_diff), so a Bash-mutated
+  # runtime file cannot slip through. Ledger, schema/migration, requested-skill,
+  # evidence-discipline, and audit-report gates still apply unconditionally.
   trivial_diff=false
   if cc_trivial_nonruntime_diff; then
     trivial_diff=true

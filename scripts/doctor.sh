@@ -346,6 +346,20 @@ else
   fail "bootstrap-tools script missing"
 fi
 optional_command sg "sg available" "sg unavailable; live hooks fail open"
+optional_command ast-grep "ast-grep available (review-rules ast_grep rules can evaluate)" "ast-grep unavailable; review-rules ast_grep rules exit 2 (cannot-evaluate), not a false pass"
+
+# The Stop-verifier triviality fast-path needs schemas/ beside scripts/. When
+# doctor runs as the installed doctor-etrnl.sh, ROOT is the install home, so this
+# functional classify also proves schemas/ shipped (node --check cannot: a
+# missing schema silently degrades diff-triviality to schema-missing/never-fires).
+if [[ -f "$ROOT/scripts/diff-triviality.mjs" ]]; then
+  if triviality_out="$(node "$ROOT/scripts/diff-triviality.mjs" classify --json README.md 2>/dev/null)" \
+    && printf '%s' "$triviality_out" | jq -e '.trivial == true' >/dev/null 2>&1; then
+    ok "diff-triviality resolves its schema (Stop-verifier fast-path live)"
+  else
+    fail "diff-triviality cannot resolve schemas/review-classification-rules-v1.json; Stop-verifier fast-path is dead (install schemas/)"
+  fi
+fi
 
 if [[ -f "$ROOT/hooks/lib/skill-hints.sh" ]]; then
   if rg -q 'skill-lists\.sh' "$ROOT/hooks/lib/skill-hints.sh" \

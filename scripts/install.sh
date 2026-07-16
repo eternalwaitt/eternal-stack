@@ -296,6 +296,11 @@ copy_control_scripts() {
   done
   mkdir -p "$target_home/scripts/lib"
   copy_dir_contents "$ROOT/scripts/lib" "$target_home/scripts/lib"
+  # diff-triviality.mjs (Stop-verifier fast-path) resolves its taxonomy at
+  # <script-dir>/../schemas, so the schemas dir must ship alongside scripts or
+  # the fast-path silently never fires on an installed host.
+  mkdir -p "$target_home/schemas"
+  copy_dir_contents "$ROOT/schemas" "$target_home/schemas"
 }
 
 copy_profile_templates() {
@@ -337,9 +342,10 @@ validate_source_install_inputs() {
     "$ROOT/tests/lib/busy-port-server.mjs"; do
     [[ -f "$file" ]] || missing+=("$file")
   done
-  for file in hooks skills docs rules/etrnl tests/fixtures scripts/lib templates/hindsight; do
+  for file in hooks skills docs rules/etrnl tests/fixtures scripts/lib templates/hindsight schemas; do
     [[ -d "$ROOT/$file" ]] || missing+=("$ROOT/$file")
   done
+  [[ -f "$ROOT/schemas/review-classification-rules-v1.json" ]] || missing+=("$ROOT/schemas/review-classification-rules-v1.json")
   for file in "${CRITICAL_HOOKS[@]}"; do
     [[ -f "$ROOT/hooks/$file" ]] || missing+=("$ROOT/hooks/$file")
   done

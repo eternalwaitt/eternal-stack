@@ -45,18 +45,28 @@ function normalizeSummary(summary) {
 // ("user: null crashes", "revert the previous migration") is preserved intact.
 function neutralizeInjection(value) {
   return String(value || "")
-    // Chat-template / model special tokens — never legitimate in a bug note.
-    .replace(/<\|[^\n|>]{0,40}\|>/g, "[neutralized-token]")
+    // Canonicalize so compatibility/fullwidth glyphs and zero-width joiners cannot
+    // slip a control phrase past the matchers below. Best-effort: cross-script
+    // homoglyphs are not covered, so these notes remain untrusted context.
+    .normalize("NFKC")
+    .replace(/[\u200B-\u200D\u2060\uFEFF]/g, "")
+    // Chat-template / model special tokens — never legitimate in a bug note. The
+    // 60-char cap comfortably exceeds every real tokenizer token and stays bounded.
+    .replace(/<\|[^\n|>]{0,60}\|>/g, "[neutralized-token]")
     .replace(/\[\/?INST\]/gi, "[neutralized-token]")
     .replace(/<<\/?SYS>>/gi, "[neutralized-token]")
     // Explicit instruction-override phrases: verb ... (previous|all) ... noun.
     .replace(/\b(?:ignore|disregard|forget|override|bypass)\b[^.\n]{0,40}?\b(?:previous|prior|above|earlier|preceding|all|any|the)\b[^.\n]{0,24}?\b(?:instructions?|prompts?|context|messages?|rules?|guardrails?|directives?|system\s+prompt)\b/gi, "[neutralized-instruction]")
     .replace(/\bignore\s+everything\s+(?:above|before|prior)\b/gi, "[neutralized-instruction]")
-    .replace(/\byou\s+are\s+now\s+(?:a\s+|an\s+)?/gi, "[neutralized-instruction] ")
+    // Role-play override — only when a persona/role noun follows, so benign text
+    // like "you are now on the wrong branch" is preserved intact.
+    .replace(/\byou\s+are\s+now\s+(?:a\s+|an\s+|the\s+)?(?:developer|dev|assistant|ai|model|bot|chatbot|agent|admin|administrator|root|superuser|sudo|shell|terminal|dan|stan|jailbroken|unrestricted|uncensored|unfiltered|persona|character|role|god|master)\b/gi, "[neutralized-instruction]")
     .replace(/\bnew\s+(?:instructions?|prompt|system\s+prompt)\s*:/gi, "[neutralized-instruction]")
     .replace(/\b(?:reveal|print|show|output|repeat|leak)\s+(?:your\s+|the\s+)?(?:system\s+prompt|system\s+message|instructions|guardrails)\b/gi, "[neutralized-instruction]")
-    // Line-leading conversational role markers used to fake a turn boundary.
-    .replace(/(^|\n)\s*(?:#{1,6}\s*)?(?:system|assistant|developer)\s*:\s/gi, "$1[neutralized-role] ");
+    // Line-leading fake conversation turns. Case-SENSITIVE lowercase on purpose:
+    // injection payloads use lowercase role turns, while capitalized "System:"
+    // appears in legitimate stack traces/log lines and must be preserved.
+    .replace(/(^|\n)[ \t]*(?:#{1,6}[ \t]*)?(?:system|assistant|developer)[ \t]*:[ \t]/g, "$1[neutralized-role] ");
 }
 
 function redactText(value) {

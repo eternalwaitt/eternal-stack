@@ -112,7 +112,16 @@ function evalAstGrep(rule, root, files) {
     { cwd: root, encoding: "utf8", maxBuffer: 32 * 1024 * 1024 },
   );
   if (res.error && res.error.code === "ENOENT") {
-    throw new Error("ast-grep is not installed; cannot evaluate ast_grep rules");
+    throw new Error("ast-grep is not installed; cannot evaluate ast_grep rules (install ast-grep — see docs/health-stack.md)");
+  }
+  if (res.error) {
+    throw new Error(`rule ${rule.ruleId}: ast-grep failed to run: ${res.error.message}`);
+  }
+  // A malformed pattern makes ast-grep emit an ERROR-node warning on stderr and
+  // return an empty match set with exit 0. Detect it so a broken rule fails
+  // closed (cannot-evaluate) instead of silently passing a blocking guard.
+  if (/ERROR node/i.test(res.stderr || "")) {
+    throw new Error(`rule ${rule.ruleId}: malformed ast-grep pattern (ast-grep reported an ERROR node)`);
   }
   const raw = (res.stdout || "").trim();
   if (!raw) return [];
@@ -158,7 +167,24 @@ function main() {
     }
     process.stdout.write(`review-rules: ${blocking.length} blocking, ${findings.length - blocking.length} warn\n`);
   }
-  process.exit(blocking.length ? 1 : 0);
+  process.exit(blocking.length ? EXIT_BLOCK : EXIT_PASS);
 }
 
-main();
+// Exit codes are a contract for callers (pre-push, CI): 0 pass, 1 a block-mode
+// rule matched, 2 the run could not be evaluated (ast-grep missing/broken,
+// malformed pattern, invalid config). A cannot-evaluate must never be mistaken
+// for a clean pass, and an infrastructure failure must never look like a block.
+const EXIT_PASS = 0;
+const EXIT_BLOCK = 1;
+const EXIT_CANNOT_EVALUATE = 2;
+
+try {
+  main();
+} catch (err) {
+  const msg = err && err.message ? err.message : String(err);
+  if (process.argv.includes("--json")) {
+    process.stdout.write(JSON.stringify({ schemaVersion: 1, status: "error", error: msg, findings: [] }, null, 2) + "\n");
+  }
+  process.stderr.write(`review-rules: cannot evaluate: ${msg}\n`);
+  process.exit(EXIT_CANNOT_EVALUATE);
+}

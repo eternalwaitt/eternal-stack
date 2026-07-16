@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { mkdtempSync, mkdirSync, copyFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -75,4 +77,30 @@ test("stdin JSON array is accepted (the Stop-verifier call path)", () => {
   const v = JSON.parse(res.stdout);
   assert.equal(v.trivial, false);
   assert.deepEqual(v.runtime, ["src/app.ts"]);
+});
+
+test("a data/config extension forces runtime even under a docs/ or generated/ directory", () => {
+  // These carry no source tag from the path taxonomy, so only the extension
+  // allowlist keeps them out of the non-runtime bucket (fail-safe).
+  for (const p of ["docs/config.json", "docs/data.yaml", "generated/migrate.sql", "docs/schema.graphql", "assets/app.toml"]) {
+    const v = classify([p]);
+    assert.equal(v.trivial, false, `expected ${p} to be runtime`);
+    assert.deepEqual(v.runtime, [p]);
+  }
+});
+
+test("a missing classification schema is never trivial (fail-safe)", () => {
+  // Run a copy of the script from a location with no sibling schemas/ dir so the
+  // schema lookup misses; the whole set must then read as non-trivial regardless
+  // of how docs-like the paths are.
+  const sandbox = mkdtempSync(path.join(tmpdir(), "dt-noschema-"));
+  mkdirSync(path.join(sandbox, "scripts"));
+  const orphan = path.join(sandbox, "scripts", "diff-triviality.mjs");
+  copyFileSync(script, orphan);
+  const res = spawnSync("node", [orphan, "classify", "--json", "docs/guide.md", "README.md"],
+    { encoding: "utf8" });
+  assert.equal(res.status, 0, res.stderr);
+  const v = JSON.parse(res.stdout);
+  assert.equal(v.trivial, false);
+  assert.equal(v.reason, "schema-missing");
 });

@@ -83,7 +83,16 @@ if (command === "detect") {
     created.push("CHANGELOG.md");
   }
   if (!existsSync(versionPath)) {
-    const seed = arg("--seed") || latestTag().replace(/^v/, "") || "0.1.0";
+    // Never seed a non-semver VERSION (e.g. from a prerelease tag like v2.3.4-rc.1),
+    // which the companion release-check would reject. Error on an explicit bad
+    // --seed rather than silently falling back.
+    const explicitSeed = arg("--seed");
+    if (explicitSeed && !/^\d+\.\d+\.\d+$/.test(explicitSeed)) {
+      process.stderr.write(`changelog-scaffold: --seed must be X.Y.Z, got "${explicitSeed}"\n`);
+      process.exit(2);
+    }
+    const derived = latestTag().replace(/^v/, "");
+    const seed = explicitSeed || (/^\d+\.\d+\.\d+$/.test(derived) ? derived : "0.1.0");
     writeFileSync(versionPath, `${seed}\n`);
     created.push("VERSION");
   }

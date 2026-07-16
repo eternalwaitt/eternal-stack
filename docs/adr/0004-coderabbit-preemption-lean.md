@@ -44,9 +44,16 @@ Execution review reopens are bounded so review never loops forever. Tier 0-2 cha
 
 `etrnl-dev-autoplan` carries a scope-freeze step: restate the goal in one sentence, require every task group to trace to it, read a review/audit backlog as a catalog rather than a mandate to build infrastructure, and reject integrity/tamper/receipt/provenance scope unless the one-sentence goal names it. Each task group commits independently so a drifting task group reverts alone.
 
+### 6. Triviality fast-path classifies the real working tree, not just recorded edits
+
+Pure docs/changelog work should not be gated on a code review or a test run. `scripts/diff-triviality.mjs` classifies a changed-path set against the salvaged `schemas/review-classification-rules-v1.json`, and `hooks/cc-stop-verifier.sh` uses it to skip the stale-verification, zero-verification, and second-pass-code-review gates when the whole change is provably non-runtime.
+
+The input boundary is deliberate: the fast-path classifies the **union of the recorded edit set (`state.edits`) and the git working tree (`git status --porcelain`)**, not `state.edits` alone. `state.edits` is populated only by Edit/Write/MultiEdit — a source file mutated through a Bash command (`sed`, a heredoc, a codegen script) never appears there. Classifying edits alone would let such a change ride under a docs-only completion claim and skip the very gates meant to catch it. Unioning in the working tree closes that bypass. The classifier is fail-safe on both axes: any source/schema/script/test/CI/migration/data-config or unclassified path — or a missing schema — marks the whole change non-trivial and keeps every gate in force.
+
 ## Consequences
 
 - The lean stack is additive on `main`: no hook surgery, no migration. Installed hosts reinstall from the lean branch to pick it up.
 - The receipt/ledger subsystem is not maintained here; if durable evidence provenance is ever a real requirement, it needs its own ADR and explicit user ask, not a silent regrowth.
 - The learning loop can promote a wrong guard; warn-mode-first plus the two-clean-run escalation gate, plus the ability to revert a single `review-rules.json` entry, contain that risk.
 - Auditability of "why did this guard exist" now lives in `review-learnings.json` recurrence counts, not in a cryptographic receipt chain. That is a deliberate trade of tamper-evidence for leanness.
+- The triviality fast-path only ever relaxes a gate, never adds one, and only on a provably non-runtime change; its git-working-tree input means a Bash-mutated source file cannot slip through a docs-only completion claim. A repo with no git working tree (or no schema) simply keeps every gate — the fast-path degrades to the prior always-gate behavior.
