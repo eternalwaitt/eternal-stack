@@ -46,3 +46,18 @@ test("runtime-lens N/A rules require the absence of runtime tags (no mixed-tag s
       `${id} excludes source/application so runtime files keep the lens`);
   }
 });
+
+test("nonui-artifact keeps the UI lens for real code (a .test.tsx component), suppresses pure non-UI artifacts", () => {
+  // A UI test file (.test.tsx) carries source+application+test; suppressing its
+  // ui_accessibility_i18n lens would be a false negative. The same mixed-tag guard
+  // the other two rules got must exclude application/source here too. But genuinely
+  // non-UI artifacts (ci, schema, script, migration) stay suppressible.
+  const na = rule(qualityNa, "nonui-artifact");
+  const none = na.classificationTagsNone || [];
+  assert.ok(none.includes("application") && none.includes("source"),
+    "application/source excluded so a .test.tsx UI component keeps the UI lens");
+  for (const tag of ["ci", "schema", "script", "migration"]) {
+    assert.ok(na.classificationTagsAny.includes(tag), `${tag} (no UI) remains suppressible`);
+    assert.ok(!none.includes(tag), `${tag} is not over-excluded from suppression`);
+  }
+});

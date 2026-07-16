@@ -79,8 +79,15 @@ function changedFiles(root, base) {
     for (const line of (range.stdout || "").split("\n")) if (line.trim()) set.add(line.trim());
     return set;
   }
+  // Working-tree scope (pre-commit/local). Fail closed the same way --base does:
+  // if either git command errors (no commits yet, corrupt repo, git missing),
+  // stdout is empty and the loop would treat it as "zero changed files" — a false
+  // clean pass. Throw so the gate reports cannot-evaluate instead of green.
   const tracked = run(["diff", "--name-only", "--diff-filter=d", "HEAD"]);
   const untracked = run(["ls-files", "--others", "--exclude-standard"]);
+  if (tracked.status !== 0 || untracked.status !== 0) {
+    throw new Error(`cannot determine changed files: ${(tracked.stderr || untracked.stderr || "").trim()}`);
+  }
   for (const out of [tracked.stdout, untracked.stdout]) {
     if (!out) continue;
     for (const line of out.split("\n")) if (line.trim()) set.add(line.trim());

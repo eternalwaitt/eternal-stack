@@ -78,6 +78,10 @@
         "test",
         "vendor"
       ],
+      "classificationTagsNone": [
+        "application",
+        "source"
+      ],
       "riskTagsNone": [
         "ui"
       ],

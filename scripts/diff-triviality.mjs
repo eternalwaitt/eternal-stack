@@ -111,13 +111,17 @@ function realOr(p) {
 // forced to runtime by the caller: an out-of-root path like /tmp/CHANGELOG.md must
 // never be stripped to `tmp/CHANGELOG.md` and inherit the metadata allowlist, which
 // would let an out-of-scope file make the whole diff trivial (fail-safe).
+//
+// BOTH absolute and relative inputs are resolved against the canonical root first.
+// A relative traversal like `docs/../../CHANGELOG.md` does not literally start with
+// "../", so without resolving it it would survive to the metadata allowlist and mark
+// an escaped file trivial. realOr canonicalizes symlinks (macOS /var -> /private/var)
+// so an in-root path is never mistaken for an escape.
 function normalize(p, root) {
-  let rel = p.replace(/\\/g, "/");
-  if (path.isAbsolute(rel) && root) {
-    const r = path.relative(root, realOr(rel)).replace(/\\/g, "/");
-    if (r === ".." || r.startsWith("../") || path.isAbsolute(r)) return null;
-    rel = r;
-  }
+  const input = p.replace(/\\/g, "/");
+  const candidate = path.isAbsolute(input) ? input : path.resolve(root, input);
+  let rel = path.relative(root, realOr(candidate)).replace(/\\/g, "/");
+  if (rel === ".." || rel.startsWith("../") || path.isAbsolute(rel)) return null;
   rel = rel.replace(/^\.\//, "").replace(/^\/+/, "");
   if (rel === ".." || rel.startsWith("../")) return null;
   return rel;

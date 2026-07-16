@@ -37,9 +37,13 @@
         "**/*.test.js",
         "**/*.test.ts",
         "**/*.test.tsx",
+        "**/*.test.mjs",
+        "**/*.test.cjs",
         "**/*.spec.js",
         "**/*.spec.ts",
-        "**/*.spec.tsx"
+        "**/*.spec.tsx",
+        "**/*.spec.mjs",
+        "**/*.spec.cjs"
       ],
       "lensId": "test_delta",
       "findingKind": "test",

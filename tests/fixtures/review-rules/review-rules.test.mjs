@@ -62,20 +62,25 @@ test("literal rule flags a focused test", () => {
   assert.deepEqual(out.findings.map((f) => f.file), ["a.test.ts"]);
 });
 
-test("the shipped no-focused-tests rule catches focused tests in .spec.{ts,tsx,js} files", () => {
+test("the shipped no-focused-tests rule catches focused tests in .spec.* and Node ESM (.mjs) test files", () => {
   // Exercises the REAL review-rules.json scopeGlobs (not a mirror) so the added
-  // **/*.spec.* patterns are proven to match, not just present in the config.
+  // **/*.spec.* and **/*.{test,spec}.mjs patterns are proven to match, not just
+  // present in the config. The repo's own suite is .test.mjs, so a missing .mjs
+  // glob would let a focused test bypass the guard in this very repository.
   const realConfig = JSON.parse(readFileSync(path.join(repoRoot, "review-rules.json"), "utf8"));
   const dir = mkdtempSync(path.join(tmpdir(), "rr-spec-"));
   writeFileSync(path.join(dir, "a.spec.ts"), 'it.only("x", () => {});\n');
   writeFileSync(path.join(dir, "b.spec.tsx"), 'describe.only("y", () => {});\n');
   writeFileSync(path.join(dir, "c.spec.js"), 'test.only("z", () => {});\n');
+  writeFileSync(path.join(dir, "d.test.mjs"), 'test.only("m", () => {});\n');
+  writeFileSync(path.join(dir, "e.spec.mjs"), 'it.only("n", () => {});\n');
   writeFileSync(path.join(dir, "clean.spec.ts"), 'it("ok", () => {});\n');
   const cfg = { ...realConfig, enabledRuleIds: ["no-focused-tests"] };
   const { code, out } = run(cfg, dir);
   assert.equal(code, 1);
-  assert.deepEqual(out.findings.map((f) => f.file).sort(), ["a.spec.ts", "b.spec.tsx", "c.spec.js"].sort(),
-    "focused tests in .spec.ts/.spec.tsx/.spec.js are all caught; the non-focused .spec.ts is not");
+  assert.deepEqual(out.findings.map((f) => f.file).sort(),
+    ["a.spec.ts", "b.spec.tsx", "c.spec.js", "d.test.mjs", "e.spec.mjs"].sort(),
+    "focused tests across .spec.{ts,tsx,js} and .{test,spec}.mjs are all caught; the non-focused .spec.ts is not");
 });
 
 test("warn-mode matches report but do not fail the gate", () => {
@@ -159,6 +164,19 @@ test("--base scopes to the outgoing commit range, catching commits a clean workt
   const ranged = run(cfg, dir, { base: "base-ref" });
   assert.equal(ranged.code, 1);
   assert.deepEqual(ranged.out.findings.map((f) => f.file), ["dirty.test.ts"]);
+});
+
+test("--changed-only fails closed when the working tree is not a git repo (no false clean pass)", () => {
+  // A git failure on the working-tree scope must error, not silently yield an
+  // empty change set that reads as a clean pass — the same fail-closed contract
+  // as --base. A bare mkdtemp dir has no .git ancestor, so `git diff HEAD` fails.
+  const dir = mkdtempSync(path.join(tmpdir(), "rr-nogit-"));
+  writeFileSync(path.join(dir, "a.test.ts"), 'it.only("x", () => {});\n');
+  const cfg = { schemaVersion: 1, rulesetId: "t", version: 1, enabledRuleIds: ["no-focused-tests"], rules: [focusedRule] };
+  const { code, out } = run(cfg, dir, { changedOnly: true });
+  assert.equal(code, 2);
+  assert.equal(out.status, "error");
+  assert.match(out.error, /cannot determine changed files/);
 });
 
 test("--base fails closed when the ref cannot be resolved", () => {

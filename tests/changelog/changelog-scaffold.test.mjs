@@ -103,6 +103,32 @@ test("scaffold rejects a non-semver --seed instead of silently falling back", ()
   assert.equal(existsSync(path.join(root, "VERSION")), false);
 });
 
+test("scaffold does not seed VERSION from a leading-zero (non-strict SemVer) tag", () => {
+  const root = freshRoot();
+  gitRepo(root);
+  git(root, ["tag", "v01.02.03"]); // leading zeros — not strict SemVer, must be skipped
+  const res = run(scaffold, ["scaffold", "--root", root]);
+  assert.equal(res.status, 0, res.stderr);
+  assert.equal(readFileSync(path.join(root, "VERSION"), "utf8").trim(), "0.1.0");
+});
+
+test("scaffold seeds the strict tag and ignores a higher-sorting leading-zero tag", () => {
+  const root = freshRoot();
+  gitRepo(root);
+  git(root, ["tag", "v01.5.0"]); // sorts as 1.5.0 but is non-strict — skip it
+  git(root, ["tag", "v1.0.0"]);  // the only strict-SemVer tag
+  run(scaffold, ["scaffold", "--root", root]);
+  assert.equal(readFileSync(path.join(root, "VERSION"), "utf8").trim(), "1.0.0");
+});
+
+test("scaffold rejects a leading-zero --seed (strict SemVer, atomic)", () => {
+  const root = freshRoot();
+  const res = run(scaffold, ["scaffold", "--root", root, "--seed", "01.2.3"]);
+  assert.equal(res.status, 2);
+  assert.match(res.stderr, /--seed must be X\.Y\.Z/);
+  assert.equal(existsSync(path.join(root, "VERSION")), false);
+});
+
 test("--active-dev still fails when the latest git tag is absent from the changelog", () => {
   const root = freshRoot();
   gitRepo(root);

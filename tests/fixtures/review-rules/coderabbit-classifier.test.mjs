@@ -42,6 +42,10 @@ test("defect keywords are word-bounded: debug/trace do not trip bug/race", () =>
   // A genuine bug/race still classifies as defect.
   assert.equal(findingKind("There is a bug in the reducer"), "defect");
   assert.equal(findingKind("Fix the race condition in the queue"), "defect");
+  // Plural "races" must also route to defect even alongside a test mention;
+  // "traces" (plural of trace) must NOT — the boundary holds on both stems.
+  assert.equal(findingKind("Fix the data races; add regression tests"), "defect");
+  assert.equal(findingKind("Add a test for the stack traces panel"), "test_gap");
 });
 
 test("convention and advisory buckets", () => {

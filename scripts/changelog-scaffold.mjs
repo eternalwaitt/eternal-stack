@@ -23,6 +23,13 @@ const json = argv.includes("--json");
 const changelogPath = path.join(root, "CHANGELOG.md");
 const versionPath = path.join(root, "VERSION");
 
+// Strict SemVer core: each numeric component is `0` or has no leading zero, so
+// `01.2.3` is rejected. One source of truth for both tag selection and --seed
+// validation, keeping the two sites from drifting apart.
+const SEMVER_CORE = "(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)";
+const STABLE_TAG_RE = new RegExp(`^v${SEMVER_CORE}$`);
+const SEED_RE = new RegExp(`^${SEMVER_CORE}$`);
+
 const CHANGELOG_TEMPLATE = (name) => `# Changelog
 
 All notable changes to ${name} are documented here.
@@ -59,7 +66,7 @@ function latestStableTag() {
   const res = spawnSync("git", ["-C", root, "tag", "--list", "v[0-9]*", "--sort=-v:refname"],
     { encoding: "utf8", timeout: 5000 });
   if (res.status !== 0) return "";
-  return (res.stdout || "").split(/\r?\n/).find((t) => /^v\d+\.\d+\.\d+$/.test(t)) || "";
+  return (res.stdout || "").split(/\r?\n/).find((t) => STABLE_TAG_RE.test(t)) || "";
 }
 
 function repoName() {
@@ -93,7 +100,7 @@ if (command === "detect") {
   // atomically — never leaving a half-scaffolded CHANGELOG.md with no VERSION.
   const versionMissing = !existsSync(versionPath);
   const explicitSeed = versionMissing ? arg("--seed") : "";
-  if (explicitSeed && !/^\d+\.\d+\.\d+$/.test(explicitSeed)) {
+  if (explicitSeed && !SEED_RE.test(explicitSeed)) {
     process.stderr.write(`changelog-scaffold: --seed must be X.Y.Z, got "${explicitSeed}"\n`);
     process.exit(2);
   }

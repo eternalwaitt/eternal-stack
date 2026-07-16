@@ -10,7 +10,7 @@ export function findingKind(summary = "", body = "", severity = "") {
   // bug that merely notes missing coverage is a defect to fix, not a test-template
   // candidate. Weaker signals (missing/does not/fail) stay below test_gap so a
   // plain "missing test coverage" finding still routes to a test template.
-  if (/\bbugs?\b|incorrect|wrong|\brace\b|security|overwrite|leak|lost update/.test(text)) return "defect";
+  if (/\bbugs?\b|incorrect|wrong|\braces?\b|security|overwrite|leak|lost update/.test(text)) return "defect";
   if (/\btest(?:s|ing)?\b|coverage|regression|assert|fixture/.test(text)) return "test_gap";
   if (/path instruction|convention|hardcod|stale comment|duplicate|unused|naming/.test(text)) return "convention_gap";
   if (/missing|does not|fail/.test(text)) return "defect";

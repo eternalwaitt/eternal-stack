@@ -127,3 +127,14 @@ test("an absolute path outside --root is forced runtime, not stripped into the m
   assert.ok(v.runtime.includes("/tmp/CHANGELOG.md"), JSON.stringify(v.runtime));
   assert.deepEqual(v.nonRuntime, ["docs/a.md"]);
 });
+
+test("a relative traversal that escapes --root is forced runtime, not trivialized via the metadata allowlist", () => {
+  // docs/../../CHANGELOG.md resolves above the root; it must NOT be reduced to a
+  // bare CHANGELOG.md and inherit the metadata allowlist, which would mark the diff
+  // trivial and bypass the Stop gate.
+  const root = "/tmp/example-repo";
+  const v = classify(["docs/../../CHANGELOG.md", "docs/a.md"], root);
+  assert.equal(v.trivial, false);
+  assert.ok(v.runtime.includes("docs/../../CHANGELOG.md"), JSON.stringify(v.runtime));
+  assert.deepEqual(v.nonRuntime, ["docs/a.md"]);
+});
