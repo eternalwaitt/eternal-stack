@@ -56,12 +56,12 @@ function neutralizeInjection(value) {
     .replace(/\[\/?INST\]/gi, "[neutralized-token]")
     .replace(/<<\/?SYS>>/gi, "[neutralized-token]")
     // Explicit instruction-override phrases: verb ... (previous|all) ... noun. Filler
-    // budgets are kept short (24/16) AND exclude clause separators (. ; newline) so the
+    // budgets are kept short (24/16) AND exclude clause separators (. , ; newline) so the
     // three anchors must sit in ONE clause: a real "ignore previous instructions"
-    // matches, but words spread across separate clauses ("ignore the cache; instructions
-    // follow" or "ignore stale entries; the previous request failed") stay outside a
-    // single clause and are preserved intact.
-    .replace(/\b(?:ignore|disregard|forget|override|bypass)\b[^.;\n]{0,24}?\b(?:previous|prior|above|earlier|preceding|all|any|the)\b[^.;\n]{0,16}?\b(?:instructions?|prompts?|context|messages?|rules?|guardrails?|directives?|system\s+prompt)\b/gi, "[neutralized-instruction]")
+    // matches, but words spread across separate clauses ("ignore this, previous message
+    // was a mistake" or "ignore stale entries; the previous request failed") stay outside
+    // a single clause and are preserved intact.
+    .replace(/\b(?:ignore|disregard|forget|override|bypass)\b[^.,;\n]{0,24}?\b(?:previous|prior|above|earlier|preceding|all|any|the)\b[^.,;\n]{0,16}?\b(?:instructions?|prompts?|context|messages?|rules?|guardrails?|directives?|system\s+prompt)\b/gi, "[neutralized-instruction]")
     .replace(/\bignore\s+everything\s+(?:above|before|prior)\b/gi, "[neutralized-instruction]")
     // Role-play override — only when a persona/role noun follows, so benign text
     // like "you are now on the wrong branch" is preserved intact.

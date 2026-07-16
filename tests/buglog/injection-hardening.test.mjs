@@ -46,6 +46,8 @@ test("benign multi-clause bug text is preserved (override matchers stay within o
     // verb + middle-anchor + noun ALL within budget by char count — only the `;`
     // clause-boundary exclusion keeps this from wrongly matching as an override.
     "ignore the cache; instructions to reproduce follow below",
+    // same failure mode across a COMMA-separated clause boundary, not a semicolon.
+    "ignore this, previous message was sent by mistake",
   ]) {
     const stored = recordAndRead(benign);
     assert.equal(stored, benign, `benign multi-clause text must not be neutralized: ${benign}`);
