@@ -76,6 +76,22 @@ if [[ "$claims_done" == "true" ]] && cc_deferred_status_update; then
   claims_done=false
 fi
 
+# Triviality fast-path: when every path edited this session is non-runtime
+# (documentation, asset, generated, vendor, or a known metadata file), a
+# second-pass CODE review adds friction without risk. Returns 0 only when the
+# classifier proves the whole edit set is non-runtime; any code/schema/script/
+# test/CI/migration path — or classifier absence — leaves the gate in force.
+cc_trivial_nonruntime_diff() {
+  local classifier="$SCRIPT_DIR/../scripts/diff-triviality.mjs"
+  [[ -f "$classifier" ]] || return 1
+  command -v node >/dev/null 2>&1 || return 1
+  local paths_json verdict
+  paths_json="$(jq -c '((.edits // {}) | keys)' <<<"$state" 2>/dev/null)" || return 1
+  [[ -n "$paths_json" && "$paths_json" != "[]" && "$paths_json" != "null" ]] || return 1
+  verdict="$(printf '%s' "$paths_json" | node "$classifier" classify --root "$cwd" --stdin-json --json 2>/dev/null)" || return 1
+  jq -e '.trivial == true' <<<"$verdict" >/dev/null 2>&1
+}
+
 if violation="$(cc_evidence_discipline_violation "$message")"; then
   cc_state_append_value evidenceDisciplineViolations "$violation"
   python3 "$SCRIPT_DIR/cc-hindsight-lesson.py" >/dev/null 2>&1 &
@@ -321,6 +337,14 @@ fi
 
 if [[ "$claims_done" == "true" ]]; then
   email_triage_verified=false
+  # Non-runtime ("trivial") diffs skip the runtime-freshness and second-pass-code-review
+  # gates below: docs/asset/generated/vendor/metadata edits execute nothing, so a stale
+  # verification run or a code review is friction, not risk. Ledger, schema/migration,
+  # requested-skill, evidence-discipline, and audit-report gates still apply.
+  trivial_diff=false
+  if cc_trivial_nonruntime_diff; then
+    trivial_diff=true
+  fi
   MIGRATION_CMD_REGEX='((npx|bunx|yarn(\s+dlx)?|pnpm(\s+(dlx|exec))?|npm(\s+(run|exec))?)\s+([^;&|]+\s+)*?(--\s+)?)?\bprisma\b\s+\bmigrate\b\s+(status|deploy|resolve)\b'
   if [[ "$browser_qa_outstanding" == "true" ]]; then
     cc_json_block "Outstanding browser QA is not a completion state. Run the planned dev server and browser workflow when available, record the browser QA artifact, or mark the task blocked with the exact missing tool/error."
@@ -404,7 +428,7 @@ if [[ "$claims_done" == "true" ]]; then
     fi
     email_triage_verified=true
   fi
-  if [[ "$email_triage_verified" != "true" ]] && jq -e '((.verificationRuns | length) == 0)' <<<"$state" >/dev/null; then
+  if [[ "$email_triage_verified" != "true" && "$trivial_diff" != "true" ]] && jq -e '((.verificationRuns | length) == 0)' <<<"$state" >/dev/null; then
     cc_json_block "You are trying to claim completion without verification evidence. Re-read the request, map each requested outcome to changed files or command results, run project preflight, verify user-visible behavior, then answer with evidence."
     exit 0
   fi
@@ -604,7 +628,7 @@ else:
     cc_json_block "Guard state contains malformed verification timestamps. Re-run the project preflight so stale-verification checks can compare ISO timestamps safely."
     exit 0
   fi
-  if [[ "$timestamp_status" == "stale" ]]; then
+  if [[ "$trivial_diff" != "true" && "$timestamp_status" == "stale" ]]; then
     cc_json_block "You are trying to claim completion with stale verification. Edits happened after the last recorded verification. Re-run the project preflight or the plan's final verification gate, then answer with evidence."
     exit 0
   fi
@@ -656,7 +680,7 @@ else:
       exit 0
       ;;
   esac
-  if jq -e '
+  if [[ "$trivial_diff" != "true" ]] && jq -e '
     def source_edit_count:
       (.edits // {})
       | to_entries

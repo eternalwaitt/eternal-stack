@@ -824,6 +824,23 @@ jq '.reviewRuns = [{value:"etrnl-spec-reviewer",at:"2026-01-01T00:00:03Z"}]' "$r
 out="$(run_hook cc-stop-verifier.sh "$review_stop")"
 if [[ -z "$out" ]]; then ok "second-pass review evidence satisfies broad edits"; else not_ok "second-pass review evidence should satisfy broad edits: $out"; fi
 
+# Triviality fast-path: a non-runtime (docs/changelog-only) diff skips the
+# stale-verification and second-pass-review gates even when repeated edits and
+# review triggers would otherwise fire, because nothing in the diff executes.
+trivial_docs_state="$TMPROOT/claude-guard-fixture-trivial-docs.json"
+jq -nc --arg a "$TMPROOT/example/docs/guide.md" --arg b "$TMPROOT/example/CHANGELOG.md" '{schemaVersion:4,reads:{},searches:{},edits:{($a):"2026-01-01T00:00:05Z",($b):"2026-01-01T00:00:05Z"},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{($a):"2026-01-01T00:00:05Z"},reviewTriggers:[("repeated edits: "+$a)],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:false,planExecutionRequestedAt:"",lastPrompt:"",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$trivial_docs_state"
+trivial_docs_stop="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-trivial-docs",cwd:$root,last_assistant_message:"Done. Updated the changelog and docs.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$trivial_docs_stop")"
+if [[ -z "$out" ]]; then ok "trivial docs-only diff skips stale + second-pass-review gates"; else not_ok "trivial docs-only diff should be allowed: $out"; fi
+
+# Negative control: a docs edit mixed with real source edits is NOT trivial, so
+# the second-pass-review gate still fires (fast-path never relaxes runtime diffs).
+mixed_review_state="$TMPROOT/claude-guard-fixture-mixed-review.json"
+jq -nc --arg d "$TMPROOT/example/docs/guide.md" --arg a "$TMPROOT/example/src/a.ts" --arg b "$TMPROOT/example/src/b.ts" --arg c "$TMPROOT/example/src/c.ts" '{schemaVersion:4,reads:{},searches:{},edits:{($d):"2026-01-01T00:00:01Z",($a):"2026-01-01T00:00:01Z",($b):"2026-01-01T00:00:01Z",($c):"2026-01-01T00:00:01Z"},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[{value:"pnpm test",at:"2026-01-01T00:00:02Z"}],qualityRuns:[{value:"pnpm test",at:"2026-01-01T00:00:02Z"}],testRuns:[{value:"pnpm test",at:"2026-01-01T00:00:02Z"}],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:false,planExecutionRequestedAt:"",lastPrompt:"",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$mixed_review_state"
+mixed_review_stop="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-mixed-review",cwd:$root,last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$mixed_review_stop")"
+assert_contains "docs+source diff is not trivial; second-pass review still required" "$out" "second-pass review"
+
 requested_state="$TMPROOT/claude-guard-fixture-requested.json"
 jq -nc '{schemaVersion:1,reads:{},searches:{},edits:{},commands:[],failures:[],skillCalls:[],requestedSkills:[{value:"etrnl-dev-plan",at:"2026-01-01T00:00:00Z"}],evidenceChallenges:[],evidenceDisciplineViolations:[],verificationRuns:[{value:"pnpm test",at:"2026-01-01T00:00:01Z"}],newFileSearches:[],lastPrompt:"",lastCompactSummary:"",cwd:"",settingsFingerprint:"",startedAt:""}' >"$requested_state"
 requested_stop="$(jq -cn '{session_id:"fixture-requested",last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"

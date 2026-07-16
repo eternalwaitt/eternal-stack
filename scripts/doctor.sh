@@ -291,7 +291,7 @@ run_parallel_syntax_checks() {
     project-buglog browser-qa-report context-state canary-codex-hindsight live-hook-noise-report session-deep-dive session-audit workflow-health
     prompt-budget-check skill-contract-check skill-behavior-smoke skill-update-prompt disk-cleanup-manifest
     performance-baseline pr-preflight changelog-release-check changelog-scaffold port-guard update-check
-    settings-audit review-rules review-learn
+    settings-audit review-rules review-learn diff-triviality
   )
   for script in "${syntax_scripts[@]}"; do
     if [[ -f "$ROOT/scripts/$script.mjs" ]]; then

@@ -168,6 +168,7 @@ INSTALL_SCRIPTS=(
   review-log.mjs
   review-rules.mjs
   review-learn.mjs
+  diff-triviality.mjs
   project-buglog.mjs
   browser-qa-report.mjs
   context-state.mjs
