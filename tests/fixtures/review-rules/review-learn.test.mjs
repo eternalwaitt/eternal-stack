@@ -96,6 +96,26 @@ test("--threshold rejects non-positive-integer values", () => {
   }
 });
 
+test("findings tagged with an excluded disposition are dropped, never promoted", () => {
+  const root = freshRoot();
+  const tagged = [{ ...asAny[0], disposition: "false-positive" }];
+  // Three recurrences of a false-positive would promote a warn guard without the
+  // disposition backstop; with it, the item is dropped on every run.
+  runLearn(root, tagged); runLearn(root, tagged);
+  const third = runLearn(root, tagged);
+  assert.equal(third.metric.droppedByDisposition, 1);
+  assert.equal(third.metric.findingsProcessed, 0);
+  assert.equal(third.metric.newGuardPromotions.length, 0);
+  assert.equal(third.rules.rules.length, 0, "an excluded-disposition finding never becomes a guard");
+
+  // Control: the SAME finding WITHOUT a disposition still promotes at threshold, so
+  // the backstop is scoped to excluded tags and does not break normal learning.
+  const root2 = freshRoot();
+  runLearn(root2, asAny); runLearn(root2, asAny);
+  const promoted = runLearn(root2, asAny);
+  assert.equal(promoted.metric.newGuardPromotions.length, 1, "undisposed valid finding still promotes");
+});
+
 test("clean-run escalation is counted per guard ruleId, not per recurrence key", () => {
   const root = freshRoot();
   const keyA = classify(asAny[0]).key; // the recurrence key this review surfaces

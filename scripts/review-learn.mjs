@@ -46,16 +46,36 @@ function parseArgs(argv) {
 
 const readJson = (p, fallback) => (existsSync(p) ? JSON.parse(readFileSync(p, "utf8")) : fallback);
 
+// Dispositions that must never train the loop. A PR triage classifies each review
+// item (etrnl-dev-pr); only genuinely-valid items should recur into guards.
+const EXCLUDED_DISPOSITIONS = new Set([
+  "false-positive", "false_positive", "falsepositive",
+  "source-limited", "source_limited", "sourcelimited",
+  "owner-deferred", "owner_deferred", "deferred", "wont-fix", "wontfix", "invalid",
+]);
+
 function main() {
   const args = parseArgs(process.argv.slice(2));
   const findings = readJson(path.resolve(args.findings), null);
   if (!Array.isArray(findings)) throw new Error("findings must be a JSON array");
 
+  // Only confirmed-valid findings train the loop. A finding may carry an optional
+  // `disposition` from the PR triage step (etrnl-dev-pr): items explicitly marked
+  // false-positive / source-limited / owner-deferred are dropped here so a
+  // mis-curated findings file cannot promote a review mistake into a recurring guard.
+  // Findings with no disposition are trusted — the caller vouched for them — so the
+  // mechanical primitive stays backward-compatible.
+  const admissible = findings.filter((f) => {
+    const d = f && typeof f.disposition === "string" ? f.disposition.toLowerCase().trim() : "";
+    return !EXCLUDED_DISPOSITIONS.has(d);
+  });
+  const droppedByDisposition = findings.length - admissible.length;
+
   const ledger = readJson(args.ledger, { schemaVersion: 1, recurrences: {}, promoted: {}, cleanRuns: {} });
   const rules = readJson(args.rules, { schemaVersion: 1, rulesetId: "learned", version: 1, enabledRuleIds: [], rules: [] });
   const templates = readJson(args.templates, { rules: [] });
 
-  const classified = findings.map((f) => ({ finding: f, ...classify(f) }));
+  const classified = admissible.map((f) => ({ finding: f, ...classify(f) }));
   const seen = new Set(classified.map((c) => c.key));
 
   const promotions = [], candidates = [], escalations = [];
@@ -135,7 +155,8 @@ function main() {
 
   const metric = {
     schemaVersion: 1,
-    findingsProcessed: findings.length,
+    findingsProcessed: admissible.length,
+    droppedByDisposition,
     distinctKeys: seen.size,
     alreadyProcessed,
     newGuardPromotions: promotions,
@@ -144,7 +165,7 @@ function main() {
   };
   process.stdout.write(args.json
     ? JSON.stringify(metric, null, 2) + "\n"
-    : `review-learn: ${findings.length} findings, ${promotions.length} guard promotion(s), ${candidates.length} checklist candidate(s), ${escalations.length} escalation(s)${alreadyProcessed ? " (review already processed; no-op)" : ""}\n`);
+    : `review-learn: ${admissible.length} findings${droppedByDisposition ? ` (+${droppedByDisposition} dropped by disposition)` : ""}, ${promotions.length} guard promotion(s), ${candidates.length} checklist candidate(s), ${escalations.length} escalation(s)${alreadyProcessed ? " (review already processed; no-op)" : ""}\n`);
 }
 
 main();
