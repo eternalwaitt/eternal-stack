@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "rulesetId": "repository-review",
+  "version": 1,
+  "enabledRuleIds": [],
+  "rules": [
+    {
+      "ruleId": "no-expect-any",
+      "engine": "ast_grep",
+      "scopeGlobs": [
+        "src/**/*.ts"
+      ],
+      "lensId": "types_schema_contracts",
+      "findingKind": "maintainability",
+      "category": "unsafe-type-escape",
+      "rationaleHash": "a7cbab0879c654ca910c328e5e5c0552fb49ba281cfacbe4466c44b360d3f7e6",
+      "sourcePrCount": 3,
+      "severity": "medium",
+      "ownerRole": "repository-owner",
+      "version": 1,
+      "rollback": {
+        "disableRuleId": "no-expect-any"
+      },
+      "astGrep": {
+        "language": "typescript",
+        "pattern": "$VALUE as any",
+        "inside": null,
+        "not": []
+      },
+      "literal": null
+    },
+    {
+      "ruleId": "no-expect-any-tsx",
+      "engine": "ast_grep",
+      "scopeGlobs": [
+        "src/**/*.tsx"
+      ],
+      "lensId": "types_schema_contracts",
+      "findingKind": "maintainability",
+      "category": "unsafe-type-escape",
+      "rationaleHash": "a7cbab0879c654ca910c328e5e5c0552fb49ba281cfacbe4466c44b360d3f7e6",
+      "sourcePrCount": 3,
+      "severity": "medium",
+      "ownerRole": "repository-owner",
+      "version": 1,
+      "rollback": {
+        "disableRuleId": "no-expect-any-tsx"
+      },
+      "astGrep": {
+        "language": "tsx",
+        "pattern": "$VALUE as any",
+        "inside": null,
+        "not": []
+      },
+      "literal": null
+    },
+    {
+      "ruleId": "no-focused-tests",
+      "engine": "regex",
+      "scopeGlobs": [
+        "**/*.test.js",
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "**/*.test.mjs",
+        "**/*.test.cjs",
+        "**/*.spec.js",
+        "**/*.spec.ts",
+        "**/*.spec.tsx",
+        "**/*.spec.mjs",
+        "**/*.spec.cjs"
+      ],
+      "lensId": "test_delta",
+      "findingKind": "test",
+      "category": "focused-test",
+      "rationaleHash": "80548f2ec5356e9a30d4bc209970ecf17661d27e42a6d04ec25b602414717f1c",
+      "sourcePrCount": 3,
+      "severity": "high",
+      "ownerRole": "repository-owner",
+      "version": 1,
+      "rollback": {
+        "disableRuleId": "no-focused-tests"
+      },
+      "astGrep": null,
+      "literal": null,
+      "regex": {
+        "pattern": "\\.\\s*only\\s*\\(",
+        "flags": ""
+      }
+    }
+  ]
+}

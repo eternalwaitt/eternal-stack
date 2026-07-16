@@ -249,6 +249,10 @@ start_heavy_async_checks() {
     wait_for_doctor_job_slot "$DOCTOR_JOBS"
     queue_heavy_async_command "heavy-replay-fixtures" "replay fixtures clean" "replay fixtures failed" node "$ROOT/scripts/replay-hook-fixtures.mjs"
   fi
+  if [[ -x "$ROOT/tests/run-node-tests.sh" ]]; then
+    wait_for_doctor_job_slot "$DOCTOR_JOBS"
+    queue_heavy_async_command "heavy-node-tests" "node test suites pass" "node test suites fail" "$ROOT/tests/run-node-tests.sh"
+  fi
 }
 
 flush_heavy_async_checks() {
@@ -286,8 +290,8 @@ run_parallel_syntax_checks() {
     code-health-ledger-check documentation-comment-health documentation-health-ledger-check review-log
     project-buglog browser-qa-report context-state canary-codex-hindsight live-hook-noise-report session-deep-dive session-audit workflow-health
     prompt-budget-check skill-contract-check skill-behavior-smoke skill-update-prompt disk-cleanup-manifest
-    performance-baseline pr-preflight changelog-release-check port-guard update-check
-    settings-audit
+    performance-baseline pr-preflight changelog-release-check changelog-scaffold port-guard update-check
+    settings-audit review-rules review-learn diff-triviality
   )
   for script in "${syntax_scripts[@]}"; do
     if [[ -f "$ROOT/scripts/$script.mjs" ]]; then
@@ -342,6 +346,20 @@ else
   fail "bootstrap-tools script missing"
 fi
 optional_command sg "sg available" "sg unavailable; live hooks fail open"
+optional_command ast-grep "ast-grep available (review-rules ast_grep rules can evaluate)" "ast-grep unavailable; review-rules ast_grep rules exit 2 (cannot-evaluate), not a false pass"
+
+# The Stop-verifier triviality fast-path needs schemas/ beside scripts/. When
+# doctor runs as the installed doctor-etrnl.sh, ROOT is the install home, so this
+# functional classify also proves schemas/ shipped (node --check cannot: a
+# missing schema silently degrades diff-triviality to schema-missing/never-fires).
+if [[ -f "$ROOT/scripts/diff-triviality.mjs" ]]; then
+  if triviality_out="$(node "$ROOT/scripts/diff-triviality.mjs" classify --json README.md 2>/dev/null)" \
+    && printf '%s' "$triviality_out" | jq -e '.trivial == true' >/dev/null 2>&1; then
+    ok "diff-triviality resolves its schema (Stop-verifier fast-path live)"
+  else
+    fail "diff-triviality cannot resolve schemas/review-classification-rules-v1.json; Stop-verifier fast-path is dead (install schemas/)"
+  fi
+fi
 
 if [[ -f "$ROOT/hooks/lib/skill-hints.sh" ]]; then
   if rg -q 'skill-lists\.sh' "$ROOT/hooks/lib/skill-hints.sh" \
@@ -780,7 +798,7 @@ if [[ -f "$claude_home/etrnl/install.json" ]]; then
 fi
 
 if [[ -f "$ROOT/scripts/changelog-release-check.mjs" && -f "$ROOT/CHANGELOG.md" ]]; then
-  if changelog_out="$(node "$ROOT/scripts/changelog-release-check.mjs" --strict-unreleased --allow-clean-history-changelog 2>&1)"; then
+  if changelog_out="$(node "$ROOT/scripts/changelog-release-check.mjs" --active-dev --allow-clean-history-changelog 2>&1)"; then
     while IFS= read -r line; do
       [[ -n "$line" ]] && ok "changelog: $line"
     done <<<"$changelog_out"

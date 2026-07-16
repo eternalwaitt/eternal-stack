@@ -1,0 +1,847 @@
+{
+  "schemaVersion": 1,
+  "reviewTaxonomySha256": "a7e30d19eef6c0137333db1bcde182df517dd7bc35a403f4f91e36c7e3af1be3",
+  "fallbackPolicy": {
+    "kind": "unclassified_regular_file",
+    "addClassificationTags": [
+      "application",
+      "source"
+    ]
+  },
+  "rules": [
+    {
+      "ruleId": "asset-path",
+      "match": {
+        "pathGlobs": [
+          "**/*.gif",
+          "**/*.ico",
+          "**/*.jpeg",
+          "**/*.jpg",
+          "**/*.png",
+          "**/*.svg",
+          "**/*.webp",
+          "**/*.woff",
+          "**/*.woff2"
+        ],
+        "pathTokens": [],
+        "contentTokens": [],
+        "contentTokenGroupsAll": [],
+        "classificationTagsAny": [],
+        "classificationTagsNone": [],
+        "changeKinds": []
+      },
+      "addClassificationTags": [
+        "asset"
+      ],
+      "addRiskTags": []
+    },
+    {
+      "ruleId": "auth-content-risk",
+      "match": {
+        "pathGlobs": [],
+        "pathTokens": [],
+        "contentTokens": [],
+        "contentTokenGroupsAll": [
+          [
+            "auth",
+            "permission",
+            "session",
+            "token"
+          ],
+          [
+            "authorize",
+            "credential",
+            "request",
+            "user"
+          ]
+        ],
+        "classificationTagsAny": [
+          "application",
+          "schema",
+          "script",
+          "source"
+        ],
+        "classificationTagsNone": [
+          "asset",
+          "documentation",
+          "generated",
+          "vendor"
+        ],
+        "changeKinds": []
+      },
+      "addClassificationTags": [],
+      "addRiskTags": [
+        "auth",
+        "security"
+      ]
+    },
+    {
+      "ruleId": "auth-path-risk",
+      "match": {
+        "pathGlobs": [],
+        "pathTokens": [
+          "auth",
+          "security",
+          "session"
+        ],
+        "contentTokens": [],
+        "contentTokenGroupsAll": [],
+        "classificationTagsAny": [],
+        "classificationTagsNone": [],
+        "changeKinds": []
+      },
+      "addClassificationTags": [],
+      "addRiskTags": [
+        "auth",
+        "security"
+      ]
+    },
+    {
+      "ruleId": "ci-path",
+      "match": {
+        "pathGlobs": [
+          ".github/**"
+        ],
+        "pathTokens": [],
+        "contentTokens": [],
+        "contentTokenGroupsAll": [],
+        "classificationTagsAny": [],
+        "classificationTagsNone": [],
+        "changeKinds": []
+      },
+      "addClassificationTags": [
+        "ci"
+      ],
+      "addRiskTags": []
+    },
+    {
+      "ruleId": "concurrency-content-risk",
+      "match": {
+        "pathGlobs": [],
+        "pathTokens": [],
+        "contentTokens": [],
+        "contentTokenGroupsAll": [
+          [
+            "async",
+            "commit",
+            "idempotent",
+            "worker"
+          ],
+          [
+            "lock",
+            "queue",
+            "retry",
+            "transaction"
+          ]
+        ],
+        "classificationTagsAny": [
+          "application",
+          "schema",
+          "script",
+          "source"
+        ],
+        "classificationTagsNone": [
+          "asset",
+          "documentation",
+          "generated",
+          "vendor"
+        ],
+        "changeKinds": []
+      },
+      "addClassificationTags": [],
+      "addRiskTags": [
+        "concurrency"
+      ]
+    },
+    {
+      "ruleId": "concurrency-path-risk",
+      "match": {
+        "pathGlobs": [],
+        "pathTokens": [
+          "queue",
+          "transaction",
+          "worker"
+        ],
+        "contentTokens": [],
+        "contentTokenGroupsAll": [],
+        "classificationTagsAny": [],
+        "classificationTagsNone": [],
+        "changeKinds": []
+      },
+      "addClassificationTags": [],
+      "addRiskTags": [
+        "concurrency"
+      ]
+    },
+    {
+      "ruleId": "concurrency-literal-declaration",
+      "match": {
+        "pathGlobs": [],
+        "pathTokens": [],
+        "contentTokens": [
+          "concurrency"
+        ],
+        "contentTokenGroupsAll": [],
+        "classificationTagsAny": [
+          "application",
+          "ci",
+          "schema",
+          "script",
+          "source"
+        ],
+        "classificationTagsNone": [
+          "asset",
+          "documentation",
+          "generated",
+          "vendor"
+        ],
+        "changeKinds": []
+      },
+      "addClassificationTags": [],
+      "addRiskTags": [
+        "concurrency"
+      ]
+    },
+    {
+      "ruleId": "docs-path",
+      "match": {
+        "pathGlobs": [
+          "**/*.md",
+          "docs/**"
+        ],
+        "pathTokens": [],
+        "contentTokens": [],
+        "contentTokenGroupsAll": [],
+        "classificationTagsAny": [],
+        "classificationTagsNone": [],
+        "changeKinds": []
+      },
+      "addClassificationTags": [
+        "documentation"
+      ],
+      "addRiskTags": []
+    },
+    {
+      "ruleId": "finance-content-risk",
+      "match": {
+        "pathGlobs": [],
+        "pathTokens": [],
+        "contentTokens": [],
+        "contentTokenGroupsAll": [
+          [
+            "amount",
+            "cents",
+            "currency",
+            "money"
+          ],
+          [
+            "calculate",
+            "payment",
+            "price",
+            "round"
+          ]
+        ],
+        "classificationTagsAny": [
+          "application",
+          "schema",
+          "script",
+          "source"
+        ],
+        "classificationTagsNone": [
+          "asset",
+          "documentation",
+          "generated",
+          "vendor"
+        ],
+        "changeKinds": []
+      },
+      "addClassificationTags": [],
+      "addRiskTags": [
+        "finance"
+      ]
+    },
+    {
+      "ruleId": "finance-path-risk",
+      "match": {
+        "pathGlobs": [],
+        "pathTokens": [
+          "billing",
+          "payment",
+          "price"
+        ],
+        "contentTokens": [],
+        "contentTokenGroupsAll": [],
+        "classificationTagsAny": [],
+        "classificationTagsNone": [],
+        "changeKinds": []
+      },
+      "addClassificationTags": [],
+      "addRiskTags": [
+        "finance"
+      ]
+    },
+    {
+      "ruleId": "generated-path",
+      "match": {
+        "pathGlobs": [
+          "build/**",
+          "dist/**",
+          "generated/**"
+        ],
+        "pathTokens": [],
+        "contentTokens": [],
+        "contentTokenGroupsAll": [],
+        "classificationTagsAny": [],
+        "classificationTagsNone": [],
+        "changeKinds": []
+      },
+      "addClassificationTags": [
+        "generated"
+      ],
+      "addRiskTags": []
+    },
+    {
+      "ruleId": "i18n-content-risk",
+      "match": {
+        "pathGlobs": [],
+        "pathTokens": [],
+        "contentTokens": [],
+        "contentTokenGroupsAll": [
+          [
+            "date",
+            "i18n",
+            "locale",
+            "timezone"
+          ],
+          [
+            "display",
+            "format",
+            "parse",
+            "translate"
+          ]
+        ],
+        "classificationTagsAny": [
+          "application",
+          "schema",
+          "script",
+          "source"
+        ],
+        "classificationTagsNone": [
+          "asset",
+          "documentation",
+          "generated",
+          "vendor"
+        ],
+        "changeKinds": []
+      },
+      "addClassificationTags": [],
+      "addRiskTags": [
+        "i18n"
+      ]
+    },
+    {
+      "ruleId": "i18n-path-risk",
+      "match": {
+        "pathGlobs": [],
+        "pathTokens": [
+          "i18n",
+          "locale"
+        ],
+        "contentTokens": [],
+        "contentTokenGroupsAll": [],
+        "classificationTagsAny": [],
+        "classificationTagsNone": [],
+        "changeKinds": []
+      },
+      "addClassificationTags": [],
+      "addRiskTags": [
+        "i18n"
+      ]
+    },
+    {
+      "ruleId": "migration-content-risk",
+      "match": {
+        "pathGlobs": [],
+        "pathTokens": [],
+        "contentTokens": [],
+        "contentTokenGroupsAll": [
+          [
+            "alter",
+            "down",
+            "rollback",
+            "up"
+          ],
+          [
+            "migrate",
+            "migration",
+            "schema"
+          ]
+        ],
+        "classificationTagsAny": [
+          "application",
+          "schema",
+          "script",
+          "source"
+        ],
+        "classificationTagsNone": [
+          "asset",
+          "documentation",
+          "generated",
+          "vendor"
+        ],
+        "changeKinds": []
+      },
+      "addClassificationTags": [],
+      "addRiskTags": [
+        "migration"
+      ]
+    },
+    {
+      "ruleId": "migration-path",
+      "match": {
+        "pathGlobs": [
+          "**/*.migration.*",
+          "migrations/**",
+          "prisma/migrations/**"
+        ],
+        "pathTokens": [],
+        "contentTokens": [],
+        "contentTokenGroupsAll": [],
+        "classificationTagsAny": [],
+        "classificationTagsNone": [],
+        "changeKinds": []
+      },
+      "addClassificationTags": [
+        "migration"
+      ],
+      "addRiskTags": [
+        "migration"
+      ]
+    },
+    {
+      "ruleId": "migration-path-risk",
+      "match": {
+        "pathGlobs": [],
+        "pathTokens": [
+          "migration",
+          "migrations"
+        ],
+        "contentTokens": [],
+        "contentTokenGroupsAll": [],
+        "classificationTagsAny": [],
+        "classificationTagsNone": [],
+        "changeKinds": []
+      },
+      "addClassificationTags": [],
+      "addRiskTags": [
+        "migration"
+      ]
+    },
+    {
+      "ruleId": "performance-content-risk",
+      "match": {
+        "pathGlobs": [],
+        "pathTokens": [],
+        "contentTokens": [],
+        "contentTokenGroupsAll": [
+          [
+            "batch",
+            "cache",
+            "performance"
+          ],
+          [
+            "latency",
+            "memory",
+            "query",
+            "throughput"
+          ]
+        ],
+        "classificationTagsAny": [
+          "application",
+          "schema",
+          "script",
+          "source"
+        ],
+        "classificationTagsNone": [
+          "asset",
+          "documentation",
+          "generated",
+          "vendor"
+        ],
+        "changeKinds": []
+      },
+      "addClassificationTags": [],
+      "addRiskTags": [
+        "performance"
+      ]
+    },
+    {
+      "ruleId": "performance-path-risk",
+      "match": {
+        "pathGlobs": [],
+        "pathTokens": [
+          "benchmark",
+          "performance"
+        ],
+        "contentTokens": [],
+        "contentTokenGroupsAll": [],
+        "classificationTagsAny": [],
+        "classificationTagsNone": [],
+        "changeKinds": []
+      },
+      "addClassificationTags": [],
+      "addRiskTags": [
+        "performance"
+      ]
+    },
+    {
+      "ruleId": "privacy-content-risk",
+      "match": {
+        "pathGlobs": [],
+        "pathTokens": [],
+        "contentTokens": [],
+        "contentTokenGroupsAll": [
+          [
+            "account",
+            "customer",
+            "data",
+            "user"
+          ],
+          [
+            "personal",
+            "pii",
+            "privacy"
+          ]
+        ],
+        "classificationTagsAny": [
+          "application",
+          "schema",
+          "script",
+          "source"
+        ],
+        "classificationTagsNone": [
+          "asset",
+          "documentation",
+          "generated",
+          "vendor"
+        ],
+        "changeKinds": []
+      },
+      "addClassificationTags": [],
+      "addRiskTags": [
+        "privacy"
+      ]
+    },
+    {
+      "ruleId": "privacy-path-risk",
+      "match": {
+        "pathGlobs": [],
+        "pathTokens": [
+          "pii",
+          "privacy"
+        ],
+        "contentTokens": [],
+        "contentTokenGroupsAll": [],
+        "classificationTagsAny": [],
+        "classificationTagsNone": [],
+        "changeKinds": []
+      },
+      "addClassificationTags": [],
+      "addRiskTags": [
+        "privacy"
+      ]
+    },
+    {
+      "ruleId": "schema-path",
+      "match": {
+        "pathGlobs": [
+          "**/*.schema.*",
+          "schemas/**"
+        ],
+        "pathTokens": [],
+        "contentTokens": [],
+        "contentTokenGroupsAll": [],
+        "classificationTagsAny": [],
+        "classificationTagsNone": [],
+        "changeKinds": []
+      },
+      "addClassificationTags": [
+        "schema"
+      ],
+      "addRiskTags": []
+    },
+    {
+      "ruleId": "script-path",
+      "match": {
+        "pathGlobs": [
+          "**/*.sh",
+          "scripts/**"
+        ],
+        "pathTokens": [],
+        "contentTokens": [],
+        "contentTokenGroupsAll": [],
+        "classificationTagsAny": [],
+        "classificationTagsNone": [],
+        "changeKinds": []
+      },
+      "addClassificationTags": [
+        "script"
+      ],
+      "addRiskTags": []
+    },
+    {
+      "ruleId": "security-content-risk",
+      "match": {
+        "pathGlobs": [],
+        "pathTokens": [],
+        "contentTokens": [],
+        "contentTokenGroupsAll": [
+          [
+            "credential",
+            "input",
+            "request",
+            "response"
+          ],
+          [
+            "csrf",
+            "encrypt",
+            "secret",
+            "xss"
+          ]
+        ],
+        "classificationTagsAny": [
+          "application",
+          "schema",
+          "script",
+          "source"
+        ],
+        "classificationTagsNone": [
+          "asset",
+          "documentation",
+          "generated",
+          "vendor"
+        ],
+        "changeKinds": []
+      },
+      "addClassificationTags": [],
+      "addRiskTags": [
+        "security"
+      ]
+    },
+    {
+      "ruleId": "source-directory",
+      "match": {
+        "pathGlobs": [
+          "app/**",
+          "apps/**",
+          "lib/**",
+          "packages/**",
+          "services/**",
+          "src/**"
+        ],
+        "pathTokens": [],
+        "contentTokens": [],
+        "contentTokenGroupsAll": [],
+        "classificationTagsAny": [],
+        "classificationTagsNone": [],
+        "changeKinds": []
+      },
+      "addClassificationTags": [
+        "application",
+        "source"
+      ],
+      "addRiskTags": []
+    },
+    {
+      "ruleId": "source-extension",
+      "match": {
+        "pathGlobs": [
+          "**/*.c",
+          "**/*.cc",
+          "**/*.cpp",
+          "**/*.cs",
+          "**/*.go",
+          "**/*.java",
+          "**/*.js",
+          "**/*.jsx",
+          "**/*.kt",
+          "**/*.mjs",
+          "**/*.php",
+          "**/*.py",
+          "**/*.rb",
+          "**/*.rs",
+          "**/*.swift",
+          "**/*.ts",
+          "**/*.tsx",
+          "**/*.vue"
+        ],
+        "pathTokens": [],
+        "contentTokens": [],
+        "contentTokenGroupsAll": [],
+        "classificationTagsAny": [],
+        "classificationTagsNone": [],
+        "changeKinds": []
+      },
+      "addClassificationTags": [
+        "application",
+        "source"
+      ],
+      "addRiskTags": []
+    },
+    {
+      "ruleId": "tenancy-content-risk",
+      "match": {
+        "pathGlobs": [],
+        "pathTokens": [],
+        "contentTokens": [],
+        "contentTokenGroupsAll": [
+          [
+            "access",
+            "permission",
+            "scope",
+            "user"
+          ],
+          [
+            "role",
+            "tenant"
+          ]
+        ],
+        "classificationTagsAny": [
+          "application",
+          "schema",
+          "script",
+          "source"
+        ],
+        "classificationTagsNone": [
+          "asset",
+          "documentation",
+          "generated",
+          "vendor"
+        ],
+        "changeKinds": []
+      },
+      "addClassificationTags": [],
+      "addRiskTags": [
+        "tenancy"
+      ]
+    },
+    {
+      "ruleId": "tenancy-path-risk",
+      "match": {
+        "pathGlobs": [],
+        "pathTokens": [
+          "rbac",
+          "tenant"
+        ],
+        "contentTokens": [],
+        "contentTokenGroupsAll": [],
+        "classificationTagsAny": [],
+        "classificationTagsNone": [],
+        "changeKinds": []
+      },
+      "addClassificationTags": [],
+      "addRiskTags": [
+        "tenancy"
+      ]
+    },
+    {
+      "ruleId": "test-path",
+      "match": {
+        "pathGlobs": [
+          "**/*.spec.*",
+          "**/*.test.*",
+          "test/**",
+          "tests/**"
+        ],
+        "pathTokens": [],
+        "contentTokens": [],
+        "contentTokenGroupsAll": [],
+        "classificationTagsAny": [],
+        "classificationTagsNone": [],
+        "changeKinds": []
+      },
+      "addClassificationTags": [
+        "test"
+      ],
+      "addRiskTags": []
+    },
+    {
+      "ruleId": "ui-content-risk",
+      "match": {
+        "pathGlobs": [],
+        "pathTokens": [],
+        "contentTokens": [],
+        "contentTokenGroupsAll": [
+          [
+            "accessibility",
+            "component",
+            "style"
+          ],
+          [
+            "keyboard",
+            "layout",
+            "render",
+            "screen"
+          ]
+        ],
+        "classificationTagsAny": [
+          "application",
+          "schema",
+          "script",
+          "source"
+        ],
+        "classificationTagsNone": [
+          "asset",
+          "documentation",
+          "generated",
+          "vendor"
+        ],
+        "changeKinds": []
+      },
+      "addClassificationTags": [],
+      "addRiskTags": [
+        "ui"
+      ]
+    },
+    {
+      "ruleId": "ui-path-risk",
+      "match": {
+        "pathGlobs": [],
+        "pathTokens": [
+          "component",
+          "styles",
+          "ui"
+        ],
+        "contentTokens": [],
+        "contentTokenGroupsAll": [],
+        "classificationTagsAny": [],
+        "classificationTagsNone": [],
+        "changeKinds": []
+      },
+      "addClassificationTags": [],
+      "addRiskTags": [
+        "ui"
+      ]
+    },
+    {
+      "ruleId": "vendor-path",
+      "match": {
+        "pathGlobs": [
+          "node_modules/**",
+          "third_party/**",
+          "vendor/**"
+        ],
+        "pathTokens": [],
+        "contentTokens": [],
+        "contentTokenGroupsAll": [],
+        "classificationTagsAny": [],
+        "classificationTagsNone": [],
+        "changeKinds": []
+      },
+      "addClassificationTags": [
+        "vendor"
+      ],
+      "addRiskTags": []
+    }
+  ]
+}

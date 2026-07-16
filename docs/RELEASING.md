@@ -67,8 +67,9 @@ Checks:
 - When `VERSION` matches the top release, that tag must exist
 - When `HEAD` is ahead of the latest tag, the changelog top release must be newer than that tag
 
-`scripts/doctor.sh` runs `changelog-release-check.mjs --strict-unreleased` against the repo root.
-For the first clean-history public release, doctor also passes `--allow-clean-history-changelog` so older changelog sections can remain as prose history without requiring old git tags.
+`scripts/doctor.sh` runs `changelog-release-check.mjs --active-dev --allow-clean-history-changelog` against the repo root.
+`--active-dev` treats a populated `## Unreleased` and an un-cut top release as healthy mid-cycle state, so during active development only a changelog that has fallen behind the latest tag fails (the strict `--strict-unreleased` gate above is for cutting a release, not for doctor).
+For the first clean-history public release, `--allow-clean-history-changelog` also lets older changelog sections remain as prose history without requiring old git tags.
 
 When release or public-facing surfaces change, keep `README.md`, `AGENTS.md`, root `CLAUDE.md`, `templates/CLAUDE.md`, `CREDITS.md`, `docs/skills.md`, `docs/health-stack.md`, and `docs/eternal-stack-coverage.md` aligned in the same change.
 

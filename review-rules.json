@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "rulesetId": "eternal-stack-default",
+  "version": 1,
+  "enabledRuleIds": ["no-expect-any", "no-expect-any-tsx", "no-focused-tests"],
+  "rules": [
+    {
+      "ruleId": "no-expect-any",
+      "engine": "ast_grep",
+      "mode": "block",
+      "scopeGlobs": ["src/**/*.ts", "apps/**/*.ts", "packages/**/*.ts"],
+      "lensId": "types_schema_contracts",
+      "findingKind": "maintainability",
+      "category": "unsafe-type-escape",
+      "severity": "medium",
+      "sourcePrCount": 3,
+      "astGrep": { "language": "typescript", "pattern": "$VALUE as any" },
+      "literal": null
+    },
+    {
+      "ruleId": "no-expect-any-tsx",
+      "engine": "ast_grep",
+      "mode": "block",
+      "scopeGlobs": ["src/**/*.tsx", "apps/**/*.tsx", "packages/**/*.tsx"],
+      "lensId": "types_schema_contracts",
+      "findingKind": "maintainability",
+      "category": "unsafe-type-escape",
+      "severity": "medium",
+      "sourcePrCount": 3,
+      "astGrep": { "language": "tsx", "pattern": "$VALUE as any" },
+      "literal": null
+    },
+    {
+      "ruleId": "no-focused-tests",
+      "engine": "regex",
+      "mode": "block",
+      "scopeGlobs": ["**/*.test.ts", "**/*.test.tsx", "**/*.test.js", "**/*.test.mjs", "**/*.test.cjs", "**/*.spec.ts", "**/*.spec.tsx", "**/*.spec.js", "**/*.spec.mjs", "**/*.spec.cjs"],
+      "lensId": "test_delta",
+      "findingKind": "test",
+      "category": "focused-test",
+      "severity": "high",
+      "sourcePrCount": 3,
+      "astGrep": null,
+      "literal": null,
+      "regex": { "pattern": "\\.\\s*only\\s*\\(", "flags": "" }
+    }
+  ]
+}

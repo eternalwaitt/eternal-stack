@@ -1,0 +1,257 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, writeFileSync, mkdirSync, readFileSync, symlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(here, "..", "..", "..");
+const runner = path.join(repoRoot, "scripts", "review-rules.mjs");
+const astFixtures = path.join(here, "ast");
+
+function run(configObj, root, { changedOnly = false, base = null } = {}) {
+  const cfg = path.join(mkdtempSync(path.join(tmpdir(), "rr-")), "review-rules.json");
+  writeFileSync(cfg, JSON.stringify(configObj));
+  const args = [runner, "check", "--config", cfg, "--root", root];
+  if (changedOnly) args.push("--changed-only");
+  if (base) args.push("--base", base);
+  args.push("--json");
+  const res = spawnSync("node", args, { encoding: "utf8" });
+  return { code: res.status, out: JSON.parse(res.stdout) };
+}
+
+const git = (root, args) => spawnSync("git", ["-C", root, ...args], { encoding: "utf8" });
+function gitRepo(root) {
+  git(root, ["init", "-q"]);
+  git(root, ["config", "user.email", "t@example.com"]);
+  git(root, ["config", "user.name", "Test"]);
+  git(root, ["config", "commit.gpgsign", "false"]);
+}
+
+const focusedRule = {
+  ruleId: "no-focused-tests", engine: "regex", mode: "block", scopeGlobs: ["*.test.ts"],
+  lensId: "test_delta", findingKind: "test", category: "focused-test", severity: "high",
+  astGrep: null, literal: null, regex: { pattern: "\\.\\s*only\\s*\\(", flags: "" },
+};
+
+const astRule = {
+  ruleId: "no-expect-any", engine: "ast_grep", mode: "block", scopeGlobs: ["*.ts"],
+  lensId: "types_schema_contracts", findingKind: "maintainability", category: "unsafe-type-escape",
+  severity: "medium", astGrep: { language: "typescript", pattern: "$VALUE as any" }, literal: null,
+};
+
+test("ast_grep rule flags a real cast and is AST-aware (skips the string literal)", () => {
+  const { code, out } = run({ schemaVersion: 1, rulesetId: "t", version: 1, enabledRuleIds: ["no-expect-any"], rules: [astRule] }, astFixtures);
+  assert.equal(out.status, "block");
+  assert.equal(code, 1);
+  const files = out.findings.map((f) => f.file);
+  assert.deepEqual(files, ["failing.ts"], "only failing.ts should match; near-miss string + passing must not");
+});
+
+test("literal rule flags a focused test", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "rr-lit-"));
+  writeFileSync(path.join(dir, "a.test.ts"), 'it.only("x", () => {});\n');
+  writeFileSync(path.join(dir, "b.test.ts"), 'it("ok", () => {});\n');
+  const rule = { ruleId: "no-focused-tests", engine: "literal", mode: "block", scopeGlobs: ["*.test.ts"],
+    lensId: "test_delta", findingKind: "test", category: "focused-test", severity: "high",
+    astGrep: null, literal: { needle: ".only(", caseSensitive: true } };
+  const { code, out } = run({ schemaVersion: 1, rulesetId: "t", version: 1, enabledRuleIds: ["no-focused-tests"], rules: [rule] }, dir);
+  assert.equal(code, 1);
+  assert.deepEqual(out.findings.map((f) => f.file), ["a.test.ts"]);
+});
+
+test("the shipped no-focused-tests rule catches focused tests in .spec.* and Node ESM (.mjs) test files", () => {
+  // Exercises the REAL review-rules.json scopeGlobs (not a mirror) so the added
+  // **/*.spec.* and **/*.{test,spec}.mjs patterns are proven to match, not just
+  // present in the config. The repo's own suite is .test.mjs, so a missing .mjs
+  // glob would let a focused test bypass the guard in this very repository.
+  const realConfig = JSON.parse(readFileSync(path.join(repoRoot, "review-rules.json"), "utf8"));
+  const dir = mkdtempSync(path.join(tmpdir(), "rr-spec-"));
+  writeFileSync(path.join(dir, "a.spec.ts"), 'it.only("x", () => {});\n');
+  writeFileSync(path.join(dir, "b.spec.tsx"), 'describe.only("y", () => {});\n');
+  writeFileSync(path.join(dir, "c.spec.js"), 'test.only("z", () => {});\n');
+  writeFileSync(path.join(dir, "d.test.mjs"), 'test.only("m", () => {});\n');
+  writeFileSync(path.join(dir, "e.spec.mjs"), 'it.only("n", () => {});\n');
+  writeFileSync(path.join(dir, "clean.spec.ts"), 'it("ok", () => {});\n');
+  const cfg = { ...realConfig, enabledRuleIds: ["no-focused-tests"] };
+  const { code, out } = run(cfg, dir);
+  assert.equal(code, 1);
+  assert.deepEqual(out.findings.map((f) => f.file).sort(),
+    ["a.spec.ts", "b.spec.tsx", "c.spec.js", "d.test.mjs", "e.spec.mjs"].sort(),
+    "focused tests across .spec.{ts,tsx,js} and .{test,spec}.mjs are all caught; the non-focused .spec.ts is not");
+});
+
+test("the shipped config catches `as any` inside a .tsx JSX file (tsx parser variant)", () => {
+  // The typescript parser mis-parses JSX, so a single typescript-language rule lets
+  // `as any` slip through in .tsx files. The split no-expect-any-tsx (language: tsx)
+  // must catch it. Exercises the real shipped config end-to-end.
+  const realConfig = JSON.parse(readFileSync(path.join(repoRoot, "review-rules.json"), "utf8"));
+  const dir = mkdtempSync(path.join(tmpdir(), "rr-tsx-"));
+  mkdirSync(path.join(dir, "src"));
+  writeFileSync(path.join(dir, "src", "comp.tsx"), "export const C = ({ x }) => <div>{(x as any).y}</div>;\n");
+  const { code, out } = run({ ...realConfig, enabledRuleIds: ["no-expect-any-tsx"] }, dir);
+  assert.equal(code, 1);
+  assert.deepEqual(out.findings.map((f) => f.file), ["src/comp.tsx"]);
+});
+
+test("--base treats an all-zero remote SHA as an initial push (diffs against the empty tree)", () => {
+  // A brand-new remote branch reports an all-zero remote_sha on the pre-push stdin.
+  // base...HEAD cannot resolve, so the guard must diff HEAD against the empty tree
+  // and scan the whole outgoing history instead of hard-blocking every first push.
+  const dir = mkdtempSync(path.join(tmpdir(), "rr-init-"));
+  gitRepo(dir);
+  writeFileSync(path.join(dir, "a.test.ts"), 'it.only("x", () => {});\n');
+  git(dir, ["add", "-A"]);
+  git(dir, ["commit", "-q", "-m", "outgoing"]); // committed; worktree clean (pre-push shape)
+  const cfg = { schemaVersion: 1, rulesetId: "t", version: 1, enabledRuleIds: ["no-focused-tests"], rules: [focusedRule] };
+  const { code, out } = run(cfg, dir, { base: "0000000000000000000000000000000000000000" });
+  assert.equal(code, 1);
+  assert.deepEqual(out.findings.map((f) => f.file), ["a.test.ts"]);
+});
+
+test("a symlinked scope-matching file fails closed (exit 2), it is not silently skipped", () => {
+  // A changed repo symlink can point outside the checkout; realpath following it would
+  // read — and snippet — the external file (exfil). But merely SKIPPING it is also
+  // wrong: an unreadable in-scope test file must not become a clean pass on a blocking
+  // gate. So the runner throws -> cannot-evaluate (exit 2, status error), never exit 0.
+  const dir = mkdtempSync(path.join(tmpdir(), "rr-symlink-"));
+  const outside = mkdtempSync(path.join(tmpdir(), "rr-outside-"));
+  writeFileSync(path.join(outside, "secret.test.ts"), 'it.only("leak", () => {});\n');
+  symlinkSync(path.join(outside, "secret.test.ts"), path.join(dir, "evil.test.ts"));
+  writeFileSync(path.join(dir, "real.test.ts"), 'it("ok", () => {});\n');
+  const cfg = { schemaVersion: 1, rulesetId: "t", version: 1, enabledRuleIds: ["no-focused-tests"], rules: [focusedRule] };
+  const { code, out } = run(cfg, dir);
+  assert.equal(code, 2, "a symlinked scoped file must fail closed, not pass");
+  assert.equal(out.status, "error");
+  assert.match(out.error, /symlink/i);
+});
+
+test("the focused-test guard is whitespace/newline tolerant (`.only (` and line-broken calls)", () => {
+  // The old literal `.only(` needle missed a space before the paren and dot-on-next-line
+  // chains. The regex engine scans the whole file so all these focused forms are caught.
+  const dir = mkdtempSync(path.join(tmpdir(), "rr-ws-"));
+  writeFileSync(path.join(dir, "space.test.ts"), 'it.only ("x", () => {});\n');
+  writeFileSync(path.join(dir, "gap.test.ts"), 'describe .  only("y", () => {});\n');
+  writeFileSync(path.join(dir, "broken.test.ts"), 'it\n  .only("z", () => {});\n');
+  writeFileSync(path.join(dir, "clean.test.ts"), 'it("ok", () => {});\nconst readonly = 1;\nx.onlyChild();\n');
+  const cfg = { schemaVersion: 1, rulesetId: "t", version: 1, enabledRuleIds: ["no-focused-tests"], rules: [focusedRule] };
+  const { code, out } = run({ ...cfg, rules: [{ ...focusedRule, scopeGlobs: ["*.test.ts"] }] }, dir);
+  assert.equal(code, 1);
+  assert.deepEqual(out.findings.map((f) => f.file).sort(), ["broken.test.ts", "gap.test.ts", "space.test.ts"],
+    "spaced/line-broken .only are all caught; readonly and .onlyChild( are not false positives");
+});
+
+test("warn-mode matches report but do not fail the gate", () => {
+  const rule = { ...astRule, mode: "warn" };
+  const { code, out } = run({ schemaVersion: 1, rulesetId: "t", version: 1, enabledRuleIds: ["no-expect-any"], rules: [rule] }, astFixtures);
+  assert.equal(out.status, "pass", "warn matches keep status pass");
+  assert.equal(code, 0, "warn-mode must not fail the gate");
+  assert.equal(out.findings.length, 1);
+});
+
+test("clean tree passes with zero findings", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "rr-clean-"));
+  mkdirSync(path.join(dir, "src"));
+  writeFileSync(path.join(dir, "src", "ok.ts"), "export const x = 1;\n");
+  const { code, out } = run({ schemaVersion: 1, rulesetId: "t", version: 1, enabledRuleIds: ["no-expect-any"], rules: [{ ...astRule, scopeGlobs: ["src/**/*.ts"] }] }, dir);
+  assert.equal(code, 0);
+  assert.equal(out.findings.length, 0);
+});
+
+test("--changed-only evaluates working-tree changes (untracked AND modified-tracked), not committed-clean files", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "rr-changed-"));
+  gitRepo(dir);
+  writeFileSync(path.join(dir, "clean.test.ts"), 'it.only("clean", () => {});\n');
+  // mod.test.ts is committed clean, then MODIFIED in the working tree — a tracked
+  // edit must be in changed-only scope, not just brand-new untracked files.
+  writeFileSync(path.join(dir, "mod.test.ts"), 'it("placeholder", () => {});\n');
+  git(dir, ["add", "-A"]);
+  git(dir, ["commit", "-q", "-m", "seed"]);
+  writeFileSync(path.join(dir, "mod.test.ts"), 'it.only("mod", () => {});\n');
+  // dirty.test.ts is a new untracked change; clean.test.ts stays committed-clean.
+  writeFileSync(path.join(dir, "dirty.test.ts"), 'it.only("dirty", () => {});\n');
+  const cfg = { schemaVersion: 1, rulesetId: "t", version: 1, enabledRuleIds: ["no-focused-tests"], rules: [focusedRule] };
+
+  const full = run(cfg, dir);
+  assert.deepEqual(full.out.findings.map((f) => f.file).sort(), ["clean.test.ts", "dirty.test.ts", "mod.test.ts"]);
+
+  const changed = run(cfg, dir, { changedOnly: true });
+  assert.deepEqual(changed.out.findings.map((f) => f.file).sort(), ["dirty.test.ts", "mod.test.ts"],
+    "changed-only covers the modified tracked file and the untracked file, but excludes committed-clean");
+});
+
+test("a malformed ast-grep pattern fails closed (exit 2, status error), not a false pass", () => {
+  const rule = { ...astRule, astGrep: { language: "typescript", pattern: "const (((" } };
+  const { code, out } = run({ schemaVersion: 1, rulesetId: "t", version: 1, enabledRuleIds: ["no-expect-any"], rules: [rule] }, astFixtures);
+  assert.equal(code, 2);
+  assert.equal(out.status, "error");
+});
+
+test("an invalid ast-grep --lang fails closed (exit 2), not a silent no-match pass", () => {
+  const rule = { ...astRule, astGrep: { language: "definitely-not-a-language", pattern: "$V as any" } };
+  const { code, out } = run({ schemaVersion: 1, rulesetId: "t", version: 1, enabledRuleIds: ["no-expect-any"], rules: [rule] }, astFixtures);
+  assert.equal(code, 2);
+  assert.equal(out.status, "error");
+});
+
+test("a typo in enabledRuleIds fails closed (exit 2), not an empty clean pass", () => {
+  const { code, out } = run({ schemaVersion: 1, rulesetId: "t", version: 1, enabledRuleIds: ["no-expct-any"], rules: [astRule] }, astFixtures);
+  assert.equal(code, 2);
+  assert.equal(out.status, "error");
+  assert.match(out.error, /unknown ruleId/);
+});
+
+test("an invalid config (bad schemaVersion) fails closed (exit 2)", () => {
+  const { code, out } = run({ schemaVersion: 99, rules: [] }, astFixtures);
+  assert.equal(code, 2);
+  assert.equal(out.status, "error");
+});
+
+test("--base scopes to the outgoing commit range, catching commits a clean worktree hides", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "rr-base-"));
+  gitRepo(dir);
+  writeFileSync(path.join(dir, "clean.test.ts"), 'it("ok", () => {});\n');
+  git(dir, ["add", "-A"]);
+  git(dir, ["commit", "-q", "-m", "base"]);
+  git(dir, ["branch", "base-ref"]); // pre-push base marker
+  // A focused test committed on top; the worktree ends clean (the pre-push shape).
+  writeFileSync(path.join(dir, "dirty.test.ts"), 'it.only("x", () => {});\n');
+  git(dir, ["add", "-A"]);
+  git(dir, ["commit", "-q", "-m", "outgoing"]);
+  const cfg = { schemaVersion: 1, rulesetId: "t", version: 1, enabledRuleIds: ["no-focused-tests"], rules: [focusedRule] };
+
+  // --changed-only alone sees nothing: the change is committed, worktree is clean.
+  assert.equal(run(cfg, dir, { changedOnly: true }).out.findings.length, 0);
+  // --base sees the committed outgoing change and blocks.
+  const ranged = run(cfg, dir, { base: "base-ref" });
+  assert.equal(ranged.code, 1);
+  assert.deepEqual(ranged.out.findings.map((f) => f.file), ["dirty.test.ts"]);
+});
+
+test("--changed-only fails closed when the working tree is not a git repo (no false clean pass)", () => {
+  // A git failure on the working-tree scope must error, not silently yield an
+  // empty change set that reads as a clean pass — the same fail-closed contract
+  // as --base. A bare mkdtemp dir has no .git ancestor, so `git diff HEAD` fails.
+  const dir = mkdtempSync(path.join(tmpdir(), "rr-nogit-"));
+  writeFileSync(path.join(dir, "a.test.ts"), 'it.only("x", () => {});\n');
+  const cfg = { schemaVersion: 1, rulesetId: "t", version: 1, enabledRuleIds: ["no-focused-tests"], rules: [focusedRule] };
+  const { code, out } = run(cfg, dir, { changedOnly: true });
+  assert.equal(code, 2);
+  assert.equal(out.status, "error");
+  assert.match(out.error, /cannot determine changed files/);
+});
+
+test("--base fails closed when the ref cannot be resolved", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "rr-base-bad-"));
+  gitRepo(dir);
+  writeFileSync(path.join(dir, "a.test.ts"), 'it("ok", () => {});\n');
+  git(dir, ["add", "-A"]);
+  git(dir, ["commit", "-q", "-m", "seed"]);
+  const cfg = { schemaVersion: 1, rulesetId: "t", version: 1, enabledRuleIds: ["no-focused-tests"], rules: [focusedRule] };
+  const { code, out } = run(cfg, dir, { base: "no-such-ref" });
+  assert.equal(code, 2);
+  assert.equal(out.status, "error");
+  assert.match(out.error, /cannot resolve --base/);
+});

@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "rulesetId": "eternal-saas-overlay",
+  "version": 1,
+  "enabledRuleIds": [
+    "react-no-usecallback",
+    "react-no-usememo",
+    "input-searchparams-cast"
+  ],
+  "rules": [
+    {
+      "ruleId": "react-no-usecallback",
+      "engine": "ast_grep",
+      "mode": "warn",
+      "scopeGlobs": [
+        "apps/**/*.tsx",
+        "src/**/*.tsx",
+        "packages/**/*.tsx"
+      ],
+      "lensId": "reuse_maintainability",
+      "findingKind": "maintainability",
+      "category": "react-manual-memo",
+      "rationaleHash": "94fa61b2e806174f68e4c4b63628d460d2291a0806e07205a41f6e6ea542aed8",
+      "sourcePrCount": 9,
+      "severity": "medium",
+      "ownerRole": "repository-owner",
+      "version": 1,
+      "rollback": {
+        "disableRuleId": "react-no-usecallback"
+      },
+      "astGrep": {
+        "language": "tsx",
+        "pattern": "useCallback($$$ARGS)",
+        "inside": null,
+        "not": []
+      },
+      "literal": null
+    },
+    {
+      "ruleId": "react-no-usememo",
+      "engine": "ast_grep",
+      "mode": "warn",
+      "scopeGlobs": [
+        "apps/**/*.tsx",
+        "src/**/*.tsx",
+        "packages/**/*.tsx"
+      ],
+      "lensId": "reuse_maintainability",
+      "findingKind": "maintainability",
+      "category": "react-manual-memo",
+      "rationaleHash": "4da7de8f846bf893f7ef6fde513eae2e5220770a4125c0d024f4c979f7de070f",
+      "sourcePrCount": 9,
+      "severity": "medium",
+      "ownerRole": "repository-owner",
+      "version": 1,
+      "rollback": {
+        "disableRuleId": "react-no-usememo"
+      },
+      "astGrep": {
+        "language": "tsx",
+        "pattern": "useMemo($$$ARGS)",
+        "inside": null,
+        "not": []
+      },
+      "literal": null
+    },
+    {
+      "ruleId": "input-searchparams-cast",
+      "engine": "ast_grep",
+      "mode": "warn",
+      "scopeGlobs": [
+        "apps/**/*.ts",
+        "apps/**/*.tsx",
+        "src/**/*.ts",
+        "src/**/*.tsx"
+      ],
+      "lensId": "validation_fail_closed",
+      "findingKind": "bug",
+      "category": "unchecked-untrusted-cast",
+      "rationaleHash": "b008ba44180803f0761fb8919c650766488ac747e8ab7ace196bc28abc0a8e0e",
+      "sourcePrCount": 173,
+      "severity": "high",
+      "ownerRole": "repository-owner",
+      "version": 1,
+      "rollback": {
+        "disableRuleId": "input-searchparams-cast"
+      },
+      "astGrep": {
+        "language": "tsx",
+        "pattern": "searchParams.get($X) as $T",
+        "inside": null,
+        "not": []
+      },
+      "literal": null
+    }
+  ]
+}

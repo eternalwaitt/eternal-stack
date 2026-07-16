@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "classificationTags": [
+    "application",
+    "asset",
+    "ci",
+    "configuration",
+    "documentation",
+    "generated",
+    "migration",
+    "schema",
+    "script",
+    "source",
+    "test",
+    "vendor"
+  ],
+  "riskTags": [
+    "auth",
+    "concurrency",
+    "finance",
+    "i18n",
+    "migration",
+    "performance",
+    "privacy",
+    "security",
+    "tenancy",
+    "ui"
+  ],
+  "severities": [
+    "blocker",
+    "critical",
+    "high",
+    "medium",
+    "low",
+    "nit",
+    "nice_to_have"
+  ],
+  "findingKinds": [
+    "bug",
+    "security",
+    "performance",
+    "maintainability",
+    "test",
+    "documentation"
+  ],
+  "historicalNormalization": {
+    "severity": {
+      "blocker": "blocker",
+      "critical": "critical",
+      "high": "high",
+      "medium": "medium",
+      "low": "low",
+      "nit": "nit",
+      "nice_to_have": "nice_to_have",
+      "p0": "blocker",
+      "p1": "high",
+      "p2": "medium",
+      "p3": "low",
+      "major": "high",
+      "minor": "medium",
+      "trivial": "low",
+      "warning": "medium",
+      "info": "low",
+      "nitpick": "nit",
+      "unclassified": "low",
+      "unknown": "low"
+    },
+    "kind": {
+      "bug": "bug",
+      "security": "security",
+      "performance": "performance",
+      "maintainability": "maintainability",
+      "test": "test",
+      "documentation": "documentation",
+      "quick_win": "maintainability",
+      "low_value": "maintainability",
+      "refactor": "maintainability",
+      "unclassified": "maintainability",
+      "unknown": "maintainability"
+    },
+    "nonFindingKinds": [
+      "praise"
+    ]
+  }
+}

@@ -70,6 +70,7 @@ BUNDLED_SKILLS=(
 OWNED_AGENTS=(
   etrnl-adversary
   etrnl-browser-qa
+  etrnl-consumer-tracer
   etrnl-design-reviewer
   etrnl-dx-reviewer
   etrnl-executor
@@ -165,6 +166,9 @@ INSTALL_SCRIPTS=(
   execution-wave-check.mjs
   tool-effectiveness.mjs
   review-log.mjs
+  review-rules.mjs
+  review-learn.mjs
+  diff-triviality.mjs
   project-buglog.mjs
   browser-qa-report.mjs
   context-state.mjs
@@ -179,6 +183,7 @@ INSTALL_SCRIPTS=(
   skill-update-prompt.mjs
   stack-profile-check.mjs
   changelog-release-check.mjs
+  changelog-scaffold.mjs
   release.mjs
   port-guard.mjs
   update-check.mjs

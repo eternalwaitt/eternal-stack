@@ -25,6 +25,7 @@ Lead with findings. Treat the original request, written plan, actual diff, insta
    - Tests first: read changed tests, fixtures, and test names before production code; flag tests that assert implementation details instead of behavior.
    - Dependency discipline: flag new packages that duplicate built-ins, existing helpers, or framework primitives; verify peer and runtime impact.
    - Change size: flag diffs that are too large to review safely, especially broad formatting churn, mixed refactor plus behavior, or more than 800 changed source lines without a split rationale.
+   - CodeRabbit preemption: run `references/coderabbit-preemption.md`. Pin applicable lenses via `schemas/review-classification-rules-v1.json`, confirm the Tier A (deterministic) and Tier B (spec) items for the changed surfaces, and flag Tier C categories for the targeted review pass.
 6. Apply the engineering review frame:
    - Scope: existing code reused, minimal change set, explicit NOT in scope, distribution/install coverage.
    - Architecture: boundaries, dependency graph, data flow, scaling, auth/data access, rollback, and one failure scenario per new integration.

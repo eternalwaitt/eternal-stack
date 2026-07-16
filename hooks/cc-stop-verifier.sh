@@ -76,6 +76,38 @@ if [[ "$claims_done" == "true" ]] && cc_deferred_status_update; then
   claims_done=false
 fi
 
+# Triviality fast-path: a completion claim is "trivial" only when EVERY path the
+# session changed — by any means — is non-runtime (documentation, asset,
+# generated, vendor, or a known metadata file). The change set is the UNION of
+# the Edit/Write/MultiEdit `.edits` keys AND the git working tree
+# (`git status --porcelain`), so a source file mutated via Bash (`sed -i`, a
+# redirect, `git apply`, a codegen script) cannot hide behind a docs-only edit
+# set. Returns 0 only when the classifier proves the whole union is non-runtime;
+# a non-git tree, an empty set, classifier/node/git absence, or any runtime path
+# leaves every gate in force (fail-safe).
+cc_trivial_nonruntime_diff() {
+  local classifier="$SCRIPT_DIR/../scripts/diff-triviality.mjs"
+  [[ -f "$classifier" ]] || return 1
+  command -v node >/dev/null 2>&1 || return 1
+  command -v git >/dev/null 2>&1 || return 1
+  local root edit_paths git_paths all_paths verdict
+  root="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)" || return 1
+  [[ -n "$root" ]] || return 1
+  edit_paths="$(jq -r '((.edits // {}) | keys)[]?' <<<"$state" 2>/dev/null)"
+  # Working-tree changes by ANY means; strip the 2-char XY status + space, and
+  # for renames keep the destination path (after " -> "). Capture git's status
+  # separately from the sed pipe so a git failure is not masked by sed's exit code:
+  # if git errored, git_paths would be empty and a docs-only edit set could wrongly
+  # activate the fast path. Fail closed (return 1 -> full verification) instead.
+  local git_status
+  git_status="$(git -C "$root" -c core.quotepath=false status --porcelain=v1 --untracked-files=all 2>/dev/null)" || return 1
+  git_paths="$(sed -e 's/^...//' -e 's/.* -> //' <<<"$git_status")" || return 1
+  all_paths="$(printf '%s\n%s\n' "$edit_paths" "$git_paths" | grep -v '^[[:space:]]*$' | sort -u)"
+  [[ -n "$all_paths" ]] || return 1
+  verdict="$(printf '%s\n' "$all_paths" | node "$classifier" classify --root "$root" --stdin-json --json 2>/dev/null)" || return 1
+  jq -e '.trivial == true' <<<"$verdict" >/dev/null 2>&1
+}
+
 if violation="$(cc_evidence_discipline_violation "$message")"; then
   cc_state_append_value evidenceDisciplineViolations "$violation"
   python3 "$SCRIPT_DIR/cc-hindsight-lesson.py" >/dev/null 2>&1 &
@@ -321,6 +353,18 @@ fi
 
 if [[ "$claims_done" == "true" ]]; then
   email_triage_verified=false
+  # Non-runtime ("trivial") diffs skip exactly three gates below — the
+  # zero-verification gate, the stale-verification gate, and the
+  # second-pass-code-review gate — because docs/asset/generated/vendor/metadata
+  # changes execute nothing, so demanding a verification run or a code review is
+  # friction, not risk. Triviality is computed over the git working tree unioned
+  # with the session edit set (see cc_trivial_nonruntime_diff), so a Bash-mutated
+  # runtime file cannot slip through. Ledger, schema/migration, requested-skill,
+  # evidence-discipline, and audit-report gates still apply unconditionally.
+  trivial_diff=false
+  if cc_trivial_nonruntime_diff; then
+    trivial_diff=true
+  fi
   MIGRATION_CMD_REGEX='((npx|bunx|yarn(\s+dlx)?|pnpm(\s+(dlx|exec))?|npm(\s+(run|exec))?)\s+([^;&|]+\s+)*?(--\s+)?)?\bprisma\b\s+\bmigrate\b\s+(status|deploy|resolve)\b'
   if [[ "$browser_qa_outstanding" == "true" ]]; then
     cc_json_block "Outstanding browser QA is not a completion state. Run the planned dev server and browser workflow when available, record the browser QA artifact, or mark the task blocked with the exact missing tool/error."
@@ -404,7 +448,7 @@ if [[ "$claims_done" == "true" ]]; then
     fi
     email_triage_verified=true
   fi
-  if [[ "$email_triage_verified" != "true" ]] && jq -e '((.verificationRuns | length) == 0)' <<<"$state" >/dev/null; then
+  if [[ "$email_triage_verified" != "true" && "$trivial_diff" != "true" ]] && jq -e '((.verificationRuns | length) == 0)' <<<"$state" >/dev/null; then
     cc_json_block "You are trying to claim completion without verification evidence. Re-read the request, map each requested outcome to changed files or command results, run project preflight, verify user-visible behavior, then answer with evidence."
     exit 0
   fi
@@ -604,7 +648,7 @@ else:
     cc_json_block "Guard state contains malformed verification timestamps. Re-run the project preflight so stale-verification checks can compare ISO timestamps safely."
     exit 0
   fi
-  if [[ "$timestamp_status" == "stale" ]]; then
+  if [[ "$trivial_diff" != "true" && "$timestamp_status" == "stale" ]]; then
     cc_json_block "You are trying to claim completion with stale verification. Edits happened after the last recorded verification. Re-run the project preflight or the plan's final verification gate, then answer with evidence."
     exit 0
   fi
@@ -656,7 +700,7 @@ else:
       exit 0
       ;;
   esac
-  if jq -e '
+  if [[ "$trivial_diff" != "true" ]] && jq -e '
     def source_edit_count:
       (.edits // {})
       | to_entries

@@ -824,6 +824,55 @@ jq '.reviewRuns = [{value:"etrnl-spec-reviewer",at:"2026-01-01T00:00:03Z"}]' "$r
 out="$(run_hook cc-stop-verifier.sh "$review_stop")"
 if [[ -z "$out" ]]; then ok "second-pass review evidence satisfies broad edits"; else not_ok "second-pass review evidence should satisfy broad edits: $out"; fi
 
+# Triviality fast-path: a non-runtime (docs/changelog-only) diff skips the
+# stale-verification, zero-verification, and second-pass-review gates even when
+# repeated edits and review triggers would otherwise fire, because nothing in the
+# diff executes. The fast-path classifies the real git working tree (recorded
+# edits unioned with `git status`), so drive it from a dedicated repo whose only
+# changes are non-runtime files.
+trivial_docs_repo="$TMPROOT/trivial-docs-repo"
+mkdir -p "$trivial_docs_repo/docs"
+git -C "$trivial_docs_repo" init -q
+printf '# Guide\nupdated docs.\n' >"$trivial_docs_repo/docs/guide.md"
+printf '# Changelog\n\n## Unreleased\n' >"$trivial_docs_repo/CHANGELOG.md"
+trivial_docs_state="$TMPROOT/claude-guard-fixture-trivial-docs.json"
+jq -nc --arg a "$trivial_docs_repo/docs/guide.md" --arg b "$trivial_docs_repo/CHANGELOG.md" '{schemaVersion:4,reads:{},searches:{},edits:{($a):"2026-01-01T00:00:05Z",($b):"2026-01-01T00:00:05Z"},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{($a):"2026-01-01T00:00:05Z"},reviewTriggers:[("repeated edits: "+$a)],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:false,planExecutionRequestedAt:"",lastPrompt:"",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$trivial_docs_state"
+trivial_docs_stop="$(jq -cn --arg root "$trivial_docs_repo" '{session_id:"fixture-trivial-docs",cwd:$root,last_assistant_message:"Done. Updated the changelog and docs.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$trivial_docs_stop")"
+if [[ -z "$out" ]]; then ok "trivial docs-only diff skips stale + second-pass-review gates"; else not_ok "trivial docs-only diff should be allowed: $out"; fi
+
+# Negative control: a docs edit mixed with real source edits is NOT trivial, so
+# the second-pass-review gate still fires (fast-path never relaxes runtime diffs).
+# A real repo whose working tree carries runtime .ts files exercises the classifier.
+mixed_review_repo="$TMPROOT/mixed-review-repo"
+mkdir -p "$mixed_review_repo/docs" "$mixed_review_repo/src"
+git -C "$mixed_review_repo" init -q
+printf '# Guide\n' >"$mixed_review_repo/docs/guide.md"
+printf 'export const a = 1;\n' >"$mixed_review_repo/src/a.ts"
+printf 'export const b = 2;\n' >"$mixed_review_repo/src/b.ts"
+printf 'export const c = 3;\n' >"$mixed_review_repo/src/c.ts"
+mixed_review_state="$TMPROOT/claude-guard-fixture-mixed-review.json"
+jq -nc --arg d "$mixed_review_repo/docs/guide.md" --arg a "$mixed_review_repo/src/a.ts" --arg b "$mixed_review_repo/src/b.ts" --arg c "$mixed_review_repo/src/c.ts" '{schemaVersion:4,reads:{},searches:{},edits:{($d):"2026-01-01T00:00:01Z",($a):"2026-01-01T00:00:01Z",($b):"2026-01-01T00:00:01Z",($c):"2026-01-01T00:00:01Z"},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[{value:"pnpm test",at:"2026-01-01T00:00:02Z"}],qualityRuns:[{value:"pnpm test",at:"2026-01-01T00:00:02Z"}],testRuns:[{value:"pnpm test",at:"2026-01-01T00:00:02Z"}],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:false,planExecutionRequestedAt:"",lastPrompt:"",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$mixed_review_state"
+mixed_review_stop="$(jq -cn --arg root "$mixed_review_repo" '{session_id:"fixture-mixed-review",cwd:$root,last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$mixed_review_stop")"
+assert_contains "docs+source diff is not trivial; second-pass review still required" "$out" "second-pass review"
+
+# Bash-mutation bypass: `.edits` records only a docs file (Edit/Write populate it;
+# Bash does not), but the git working tree also carries a source file mutated via a
+# shell command. The old edits-only fast-path would call this trivial and skip the
+# zero-verification gate, letting an unreviewed runtime change ship. The git-union
+# in cc_trivial_nonruntime_diff sees src/app.ts and keeps the gate in force.
+bash_mutation_repo="$TMPROOT/bash-mutation-repo"
+mkdir -p "$bash_mutation_repo/docs" "$bash_mutation_repo/src"
+git -C "$bash_mutation_repo" init -q
+printf '# Notes\n' >"$bash_mutation_repo/docs/notes.md"
+printf 'export const value = 2;\n' >"$bash_mutation_repo/src/app.ts"
+bash_mutation_state="$TMPROOT/claude-guard-fixture-bash-mutation.json"
+jq -nc --arg d "$bash_mutation_repo/docs/notes.md" '{schemaVersion:4,reads:{},searches:{},edits:{($d):"2026-01-01T00:00:05Z"},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:false,planExecutionRequestedAt:"",lastPrompt:"",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$bash_mutation_state"
+bash_mutation_stop="$(jq -cn --arg root "$bash_mutation_repo" '{session_id:"fixture-bash-mutation",cwd:$root,last_assistant_message:"Done. Tweaked the notes.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$bash_mutation_stop")"
+assert_contains "bash-mutated source in git working tree defeats docs-only fast-path" "$out" "without verification evidence"
+
 requested_state="$TMPROOT/claude-guard-fixture-requested.json"
 jq -nc '{schemaVersion:1,reads:{},searches:{},edits:{},commands:[],failures:[],skillCalls:[],requestedSkills:[{value:"etrnl-dev-plan",at:"2026-01-01T00:00:00Z"}],evidenceChallenges:[],evidenceDisciplineViolations:[],verificationRuns:[{value:"pnpm test",at:"2026-01-01T00:00:01Z"}],newFileSearches:[],lastPrompt:"",lastCompactSummary:"",cwd:"",settingsFingerprint:"",startedAt:""}' >"$requested_state"
 requested_stop="$(jq -cn '{session_id:"fixture-requested",last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"

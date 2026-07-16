@@ -14,7 +14,7 @@ Treat CI/CD as an execution harness with lanes, evidence, and rollback, not as s
    - Package manager, workspace layout, build system, test runner, deployment target, protected branches, required checks, and current workflow files.
    - Existing hooks, package scripts, Dockerfiles, deploy scripts, branch-protection docs, environment names, and release notes.
 2. Separate lanes:
-   - Local hooks: cheap deterministic checks that block obvious bad pushes.
+   - Local hooks: cheap deterministic checks that block obvious bad pushes. Install the CodeRabbit-preemption guard as a pre-push step: git feeds each ref four fields on the hook's stdin (`local_ref local_sha remote_ref remote_sha`); pass the remote SHA as `node scripts/review-rules.mjs check --base <remote_sha>` so it scopes to the outgoing range `<remote_sha>...HEAD`, not the clean worktree. An all-zero remote SHA means a brand-new remote branch, so the guard diffs against Git's empty tree (checks the whole outgoing history) instead of blocking; any other unresolvable base fails closed. (`--changed-only` is the working-tree variant for pre-commit/local runs.)
    - PR CI: fast review-readiness signal.
    - Main CI: full merge-integrity gate and artifact publication.
    - Deploy workflow: explicit environment, immutable artifact, health check, rollback evidence, and post-deploy revision.

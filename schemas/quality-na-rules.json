@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "reviewTaxonomyVersion": 1,
+  "reviewTaxonomySha256": "a7e30d19eef6c0137333db1bcde182df517dd7bc35a403f4f91e36c7e3af1be3",
+  "reasonCodes": [
+    "domain_not_applicable",
+    "artifact_not_present",
+    "risk_not_triggered"
+  ],
+  "rules": [
+    {
+      "ruleId": "nonruntime-concurrency",
+      "lensIds": [
+        "transactions_concurrency"
+      ],
+      "classificationTagsAll": [],
+      "classificationTagsAny": [
+        "asset",
+        "documentation",
+        "generated",
+        "vendor"
+      ],
+      "classificationTagsNone": [
+        "application",
+        "ci",
+        "migration",
+        "schema",
+        "script",
+        "source",
+        "test"
+      ],
+      "riskTagsNone": [
+        "concurrency"
+      ],
+      "reasonCode": "domain_not_applicable"
+    },
+    {
+      "ruleId": "nonruntime-money-locale",
+      "lensIds": [
+        "money_time_locale"
+      ],
+      "classificationTagsAll": [],
+      "classificationTagsAny": [
+        "asset",
+        "documentation",
+        "generated",
+        "vendor"
+      ],
+      "classificationTagsNone": [
+        "application",
+        "ci",
+        "migration",
+        "schema",
+        "script",
+        "source",
+        "test"
+      ],
+      "riskTagsNone": [
+        "finance",
+        "i18n"
+      ],
+      "reasonCode": "domain_not_applicable"
+    },
+    {
+      "ruleId": "nonui-artifact",
+      "lensIds": [
+        "ui_accessibility_i18n"
+      ],
+      "classificationTagsAll": [],
+      "classificationTagsAny": [
+        "asset",
+        "ci",
+        "documentation",
+        "generated",
+        "migration",
+        "schema",
+        "script",
+        "test",
+        "vendor"
+      ],
+      "classificationTagsNone": [
+        "application",
+        "source"
+      ],
+      "riskTagsNone": [
+        "ui"
+      ],
+      "reasonCode": "domain_not_applicable"
+    }
+  ]
+}
