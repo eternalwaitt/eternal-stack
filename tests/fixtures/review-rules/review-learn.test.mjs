@@ -5,6 +5,7 @@ import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, copyFileSync } fro
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { classify } from "../../../scripts/lib/coderabbit-classifier.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..", "..");
@@ -93,6 +94,33 @@ test("--threshold rejects non-positive-integer values", () => {
     assert.notEqual(res.status, 0, `threshold ${bad} must be rejected`);
     assert.match(res.stderr, /threshold must be a positive integer/);
   }
+});
+
+test("clean-run escalation is counted per guard ruleId, not per recurrence key", () => {
+  const root = freshRoot();
+  const keyA = classify(asAny[0]).key; // the recurrence key this review surfaces
+  // Seed one warn guard promoted under TWO keys of the SAME ruleId, one clean run from
+  // block. The synthetic key is inserted FIRST so the old per-key loop would tick
+  // cleanRuns to 2 and escalate before the real (recurring) key could reset it.
+  writeFileSync(path.join(root, "review-rules.json"), JSON.stringify({
+    schemaVersion: 1, rulesetId: "t", version: 1,
+    enabledRuleIds: ["no-expect-any"],
+    rules: [{ ruleId: "no-expect-any", mode: "warn", version: 1 }],
+  }));
+  writeFileSync(path.join(root, "review-learnings.json"), JSON.stringify({
+    schemaVersion: 1,
+    recurrences: { "deterministic_guard:types_schema_contracts:other-escape": 3, [keyA]: 3 },
+    promoted: {
+      "deterministic_guard:types_schema_contracts:other-escape": { type: "guard", ruleId: "no-expect-any", mode: "warn" },
+      [keyA]: { type: "guard", ruleId: "no-expect-any", mode: "warn" },
+    },
+    cleanRuns: { "no-expect-any": 1 },
+  }));
+  const after = runLearn(root, asAny); // keyA recurs this review
+  const rule = after.rules.rules.find((r) => r.ruleId === "no-expect-any");
+  assert.equal(rule.mode, "warn", "a guard must NOT escalate when one of its keys recurred this review");
+  assert.equal(after.metric.escalations.length, 0);
+  assert.equal(after.ledger.cleanRuns["no-expect-any"], 0, "the recurrence resets the guard's clean-run streak");
 });
 
 test("an already-present guard records a promotion, not a duplicate checklist candidate", () => {

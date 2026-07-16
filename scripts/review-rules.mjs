@@ -11,7 +11,7 @@
 // is clean) and fails closed when <ref> cannot be resolved.
 // Exit 1 when any block-mode rule matches; warn-mode matches report but pass.
 
-import { readFileSync, existsSync, statSync, globSync } from "node:fs";
+import { readFileSync, existsSync, lstatSync, realpathSync, globSync } from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -64,15 +64,24 @@ function activeRules(config) {
   return config.rules.filter((r) => ruleMode(r) !== "off" && (!allow || allow.has(r.ruleId)));
 }
 
+// Git's canonical empty-tree object — `git hash-object -t tree /dev/null`. Diffing
+// against it yields every file in HEAD, which is what an initial push needs.
+const EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
+
 function changedFiles(root, base) {
   const run = (args) => spawnSync("git", args, { cwd: root, encoding: "utf8" });
   const set = new Set();
   if (base) {
     // Pre-push scope: the outgoing commit range base...HEAD, NOT the working tree.
     // A real pre-push runs with the to-be-pushed commit already at HEAD and a clean
-    // worktree, so `git diff HEAD` would see nothing. Fail closed when base cannot
-    // be resolved rather than silently checking zero files.
-    const range = run(["diff", "--name-only", "--diff-filter=d", `${base}...HEAD`]);
+    // worktree, so `git diff HEAD` would see nothing. `base` is the hook's fourth
+    // stdin field, remote_sha. On a brand-new remote branch remote_sha is all zeros
+    // (nothing there yet), so base...HEAD cannot resolve; diff HEAD against the empty
+    // tree so the initial push checks its whole history instead of hard-blocking.
+    const initialPush = /^0{40,}$/.test(base);
+    const range = initialPush
+      ? run(["diff", "--name-only", "--diff-filter=d", EMPTY_TREE, "HEAD"])
+      : run(["diff", "--name-only", "--diff-filter=d", `${base}...HEAD`]);
     if (range.status !== 0) {
       throw new Error(`cannot resolve --base "${base}" (outgoing range ${base}...HEAD): ${(range.stderr || "").trim()}`);
     }
@@ -98,10 +107,21 @@ function changedFiles(root, base) {
 function filesForRule(rule, root, changedSet) {
   const globs = Array.isArray(rule.scopeGlobs) ? rule.scopeGlobs : [];
   const found = new Set();
+  // Canonical root: a scope-matching symlink (or a symlinked parent dir) could point
+  // outside the checkout, and the literal/AST engines would then read — and snippet —
+  // an external file (secret exfil). Reject symlinks with lstat and require the
+  // resolved path to stay under the real root.
+  let realRoot;
+  try { realRoot = realpathSync.native(root); } catch { realRoot = path.resolve(root); }
   for (const g of globs) {
     for (const rel of globSync(g, { cwd: root })) {
       const abs = path.join(root, rel);
-      if (!existsSync(abs) || !statSync(abs).isFile()) continue;
+      let st;
+      try { st = lstatSync(abs); } catch { continue; }
+      if (st.isSymbolicLink() || !st.isFile()) continue;
+      let real;
+      try { real = realpathSync.native(abs); } catch { continue; }
+      if (real !== realRoot && !real.startsWith(realRoot + path.sep)) continue;
       if (changedSet && !changedSet.has(rel)) continue;
       found.add(rel);
     }

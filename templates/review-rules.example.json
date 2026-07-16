@@ -8,8 +8,7 @@
       "ruleId": "no-expect-any",
       "engine": "ast_grep",
       "scopeGlobs": [
-        "src/**/*.ts",
-        "src/**/*.tsx"
+        "src/**/*.ts"
       ],
       "lensId": "types_schema_contracts",
       "findingKind": "maintainability",
@@ -24,6 +23,31 @@
       },
       "astGrep": {
         "language": "typescript",
+        "pattern": "$VALUE as any",
+        "inside": null,
+        "not": []
+      },
+      "literal": null
+    },
+    {
+      "ruleId": "no-expect-any-tsx",
+      "engine": "ast_grep",
+      "scopeGlobs": [
+        "src/**/*.tsx"
+      ],
+      "lensId": "types_schema_contracts",
+      "findingKind": "maintainability",
+      "category": "unsafe-type-escape",
+      "rationaleHash": "a7cbab0879c654ca910c328e5e5c0552fb49ba281cfacbe4466c44b360d3f7e6",
+      "sourcePrCount": 3,
+      "severity": "medium",
+      "ownerRole": "repository-owner",
+      "version": 1,
+      "rollback": {
+        "disableRuleId": "no-expect-any-tsx"
+      },
+      "astGrep": {
+        "language": "tsx",
         "pattern": "$VALUE as any",
         "inside": null,
         "not": []

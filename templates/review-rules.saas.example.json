@@ -75,7 +75,7 @@
         "src/**/*.tsx"
       ],
       "lensId": "validation_fail_closed",
-      "findingKind": "defect",
+      "findingKind": "bug",
       "category": "unchecked-untrusted-cast",
       "rationaleHash": "b008ba44180803f0761fb8919c650766488ac747e8ab7ace196bc28abc0a8e0e",
       "sourcePrCount": 173,

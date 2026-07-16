@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, mkdirSync, readFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync, mkdirSync, readFileSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -81,6 +81,48 @@ test("the shipped no-focused-tests rule catches focused tests in .spec.* and Nod
   assert.deepEqual(out.findings.map((f) => f.file).sort(),
     ["a.spec.ts", "b.spec.tsx", "c.spec.js", "d.test.mjs", "e.spec.mjs"].sort(),
     "focused tests across .spec.{ts,tsx,js} and .{test,spec}.mjs are all caught; the non-focused .spec.ts is not");
+});
+
+test("the shipped config catches `as any` inside a .tsx JSX file (tsx parser variant)", () => {
+  // The typescript parser mis-parses JSX, so a single typescript-language rule lets
+  // `as any` slip through in .tsx files. The split no-expect-any-tsx (language: tsx)
+  // must catch it. Exercises the real shipped config end-to-end.
+  const realConfig = JSON.parse(readFileSync(path.join(repoRoot, "review-rules.json"), "utf8"));
+  const dir = mkdtempSync(path.join(tmpdir(), "rr-tsx-"));
+  mkdirSync(path.join(dir, "src"));
+  writeFileSync(path.join(dir, "src", "comp.tsx"), "export const C = ({ x }) => <div>{(x as any).y}</div>;\n");
+  const { code, out } = run({ ...realConfig, enabledRuleIds: ["no-expect-any-tsx"] }, dir);
+  assert.equal(code, 1);
+  assert.deepEqual(out.findings.map((f) => f.file), ["src/comp.tsx"]);
+});
+
+test("--base treats an all-zero remote SHA as an initial push (diffs against the empty tree)", () => {
+  // A brand-new remote branch reports an all-zero remote_sha on the pre-push stdin.
+  // base...HEAD cannot resolve, so the guard must diff HEAD against the empty tree
+  // and scan the whole outgoing history instead of hard-blocking every first push.
+  const dir = mkdtempSync(path.join(tmpdir(), "rr-init-"));
+  gitRepo(dir);
+  writeFileSync(path.join(dir, "a.test.ts"), 'it.only("x", () => {});\n');
+  git(dir, ["add", "-A"]);
+  git(dir, ["commit", "-q", "-m", "outgoing"]); // committed; worktree clean (pre-push shape)
+  const cfg = { schemaVersion: 1, rulesetId: "t", version: 1, enabledRuleIds: ["no-focused-tests"], rules: [focusedRule] };
+  const { code, out } = run(cfg, dir, { base: "0000000000000000000000000000000000000000" });
+  assert.equal(code, 1);
+  assert.deepEqual(out.findings.map((f) => f.file), ["a.test.ts"]);
+});
+
+test("a symlinked scope-matching file is rejected, not read (no out-of-checkout exfil)", () => {
+  // A changed repo symlink can point outside the checkout; statSync follows it and the
+  // literal/AST engines would read — and snippet — the external file. lstat must reject.
+  const dir = mkdtempSync(path.join(tmpdir(), "rr-symlink-"));
+  const outside = mkdtempSync(path.join(tmpdir(), "rr-outside-"));
+  writeFileSync(path.join(outside, "secret.test.ts"), 'it.only("leak", () => {});\n');
+  symlinkSync(path.join(outside, "secret.test.ts"), path.join(dir, "evil.test.ts"));
+  writeFileSync(path.join(dir, "real.test.ts"), 'it("ok", () => {});\n');
+  const cfg = { schemaVersion: 1, rulesetId: "t", version: 1, enabledRuleIds: ["no-focused-tests"], rules: [focusedRule] };
+  const { code, out } = run(cfg, dir);
+  assert.equal(out.findings.length, 0, JSON.stringify(out.findings));
+  assert.equal(code, 0, "the symlinked focused test is skipped, so the gate stays clean");
 });
 
 test("warn-mode matches report but do not fail the gate", () => {

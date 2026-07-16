@@ -154,10 +154,18 @@ function classifyPath(rel, rules) {
 }
 
 function gitChangedPaths(root) {
-  const res = spawnSync("git", ["-C", root, "diff", "--name-only", "HEAD"],
-    { encoding: "utf8", timeout: 5000 });
-  if (res.status !== 0) return [];
-  return (res.stdout || "").split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+  // Tracked changes (incl. deletions) UNION untracked new files: a brand-new runtime
+  // file (e.g. a fresh src/app.ts) must not be omitted, or the --git set could read as
+  // trivial. Mirrors the Stop-verifier's own edits ∪ working-tree union.
+  const git = (args) => spawnSync("git", ["-C", root, ...args], { encoding: "utf8", timeout: 5000 });
+  const tracked = git(["diff", "--name-only", "HEAD"]);
+  const untracked = git(["ls-files", "--others", "--exclude-standard"]);
+  if (tracked.status !== 0 || untracked.status !== 0) return [];
+  const set = new Set();
+  for (const out of [tracked.stdout, untracked.stdout]) {
+    for (const line of (out || "").split(/\r?\n/)) { const t = line.trim(); if (t) set.add(t); }
+  }
+  return [...set];
 }
 
 function readStdinPaths() {

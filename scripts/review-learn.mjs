@@ -101,10 +101,18 @@ function main() {
       candidates.push({ key: c.key, control: c.control, category: c.finding.category || c.kind });
     }
 
-    // Escalate warn-mode guards to block after 2 runs with no recurrence.
-    for (const [key, p] of Object.entries(ledger.promoted)) {
-      if (p.type !== "guard" || p.mode !== "warn") continue;
-      if (seen.has(key)) { ledger.cleanRuns[p.ruleId] = 0; continue; }
+    // Escalate warn-mode guards to block after 2 runs with no recurrence. Evaluate
+    // ONCE per guard ruleId, not once per recurrence key: several keys can promote
+    // the same ruleId, so a guard must reset if ANY of its keys recurred this review.
+    // Counting per key would let an absent sibling key tick a guard toward block even
+    // though another of its keys just recurred (and, by object order, escalate early).
+    const warnGuards = Object.entries(ledger.promoted).filter(([, p]) => p.type === "guard" && p.mode === "warn");
+    const recurredRuleIds = new Set(warnGuards.filter(([key]) => seen.has(key)).map(([, p]) => p.ruleId));
+    const evaluatedRuleIds = new Set();
+    for (const [, p] of warnGuards) {
+      if (evaluatedRuleIds.has(p.ruleId)) continue;
+      evaluatedRuleIds.add(p.ruleId);
+      if (recurredRuleIds.has(p.ruleId)) { ledger.cleanRuns[p.ruleId] = 0; continue; }
       ledger.cleanRuns[p.ruleId] = (ledger.cleanRuns[p.ruleId] || 0) + 1;
       if (ledger.cleanRuns[p.ruleId] >= 2) {
         const rule = rules.rules.find((r) => r.ruleId === p.ruleId);

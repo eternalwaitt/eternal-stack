@@ -128,6 +128,23 @@ test("an absolute path outside --root is forced runtime, not stripped into the m
   assert.deepEqual(v.nonRuntime, ["docs/a.md"]);
 });
 
+test("--git mode includes untracked files so a new runtime file is not misclassified as trivial", () => {
+  // gitChangedPaths must union tracked changes with untracked new files: a freshly
+  // created src/*.ts is untracked, and omitting it could make the set read as trivial.
+  const root = mkdtempSync(path.join(tmpdir(), "dt-git-"));
+  const git = (args) => spawnSync("git", ["-C", root, ...args], { encoding: "utf8" });
+  git(["init", "-q"]); git(["config", "user.email", "t@e.com"]); git(["config", "user.name", "T"]); git(["config", "commit.gpgsign", "false"]);
+  writeFileSync(path.join(root, "README.md"), "# doc\n");
+  git(["add", "-A"]); git(["commit", "-q", "-m", "seed"]);
+  mkdirSync(path.join(root, "src"));
+  writeFileSync(path.join(root, "src", "new.ts"), "export const x = 1;\n"); // untracked runtime file
+  const res = spawnSync("node", [script, "classify", "--root", root, "--git", "--json"], { encoding: "utf8" });
+  assert.equal(res.status, 0, res.stderr);
+  const v = JSON.parse(res.stdout);
+  assert.equal(v.trivial, false, JSON.stringify(v));
+  assert.ok(v.runtime.includes("src/new.ts"), JSON.stringify(v.runtime));
+});
+
 test("a relative traversal that escapes --root is forced runtime, not trivialized via the metadata allowlist", () => {
   // docs/../../CHANGELOG.md resolves above the root; it must NOT be reduced to a
   // bare CHANGELOG.md and inherit the metadata allowlist, which would mark the diff

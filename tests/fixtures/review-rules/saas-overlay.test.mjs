@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, mkdirSync } from "node:fs";
+import { mkdtempSync, writeFileSync, mkdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -35,6 +35,19 @@ export function C({ searchParams }) {
   assert.ok(out.findings.every((f) => f.mode === "warn"), "every overlay rule is warn-mode");
   assert.equal(out.status, "pass", "warn-only overlay passes the gate");
   assert.equal(status, 0, "warn matches exit 0");
+});
+
+test("every overlay rule's findingKind is in the canonical taxonomy vocabulary", () => {
+  // The overlay's findingKind must validate against schemas/review-taxonomy-v1.json —
+  // the classifier's internal kinds (e.g. "defect") are a different vocabulary and
+  // would fail a schema consumer. Guards against the two drifting apart again.
+  const taxonomy = JSON.parse(readFileSync(path.join(repoRoot, "schemas", "review-taxonomy-v1.json"), "utf8"));
+  const overlayCfg = JSON.parse(readFileSync(overlay, "utf8"));
+  const allowed = new Set(taxonomy.findingKinds);
+  for (const r of overlayCfg.rules) {
+    assert.ok(allowed.has(r.findingKind),
+      `rule ${r.ruleId} findingKind "${r.findingKind}" is not in the taxonomy vocabulary [${[...allowed].join(", ")}]`);
+  }
 });
 
 test("SaaS overlay does not flag validated input or memo-free code", () => {
