@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "rulesetId": "eternal-stack-default",
+  "version": 1,
+  "enabledRuleIds": ["no-expect-any", "no-focused-tests"],
+  "rules": [
+    {
+      "ruleId": "no-expect-any",
+      "engine": "ast_grep",
+      "mode": "block",
+      "scopeGlobs": ["src/**/*.ts", "src/**/*.tsx", "apps/**/*.ts", "apps/**/*.tsx", "packages/**/*.ts", "packages/**/*.tsx"],
+      "lensId": "types_schema_contracts",
+      "findingKind": "maintainability",
+      "category": "unsafe-type-escape",
+      "severity": "medium",
+      "sourcePrCount": 3,
+      "astGrep": { "language": "typescript", "pattern": "$VALUE as any" },
+      "literal": null
+    },
+    {
+      "ruleId": "no-focused-tests",
+      "engine": "literal",
+      "mode": "block",
+      "scopeGlobs": ["**/*.test.ts", "**/*.test.tsx", "**/*.test.js"],
+      "lensId": "test_delta",
+      "findingKind": "test",
+      "category": "focused-test",
+      "severity": "high",
+      "sourcePrCount": 3,
+      "astGrep": null,
+      "literal": { "needle": ".only(", "caseSensitive": true }
+    }
+  ]
+}

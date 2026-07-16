@@ -14,7 +14,7 @@ Treat CI/CD as an execution harness with lanes, evidence, and rollback, not as s
    - Package manager, workspace layout, build system, test runner, deployment target, protected branches, required checks, and current workflow files.
    - Existing hooks, package scripts, Dockerfiles, deploy scripts, branch-protection docs, environment names, and release notes.
 2. Separate lanes:
-   - Local hooks: cheap deterministic checks that block obvious bad pushes.
+   - Local hooks: cheap deterministic checks that block obvious bad pushes. Install the CodeRabbit-preemption guard as a pre-push step: `node scripts/review-rules.mjs check --changed-only` (blocks the mechanical CodeRabbit tail before it reaches review).
    - PR CI: fast review-readiness signal.
    - Main CI: full merge-integrity gate and artifact publication.
    - Deploy workflow: explicit environment, immutable artifact, health check, rollback evidence, and post-deploy revision.
