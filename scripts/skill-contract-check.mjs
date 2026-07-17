@@ -77,6 +77,33 @@ function skillFrontmatterBlock(text) {
   return match ? match[1] : "";
 }
 
+// P5 house style: every SKILL.md stays under the 500-line progressive-disclosure
+// budget, and every etrnl-audit-* skill carries the four fixed sections (see
+// skills/common/skill-template.md) so a run cannot skip rationalization rebuttals,
+// red flags, non-scope, or a countable red-capable Verification.
+const HOUSE_STYLE_SECTIONS = [
+  { label: "Common Rationalizations", re: /^#+\s+Common Rationalizations\b/m },
+  { label: "Red Flags", re: /^#+\s+Red Flags\b/m },
+  { label: "When NOT to use", re: /^#+\s+When NOT to use\b/im },
+  { label: "Verification", re: /^#+\s+Verification\b/m },
+];
+
+function assertHouseStyle(file, skill, text, relSkillPath) {
+  // An empty file is 0 lines; a newline-terminated file must not count the
+  // trailing empty split entry (a compliant 500-line file ending in "\n" is
+  // 500, not 501).
+  const lineCount = text === "" ? 0 : text.split("\n").length - (text.endsWith("\n") ? 1 : 0);
+  if (lineCount > 500) {
+    fail(`${relSkillPath}: ${lineCount} lines exceeds the 500-line SKILL.md budget; move depth into references/`);
+  }
+  if (!skill.startsWith("etrnl-audit-")) return;
+  for (const section of HOUSE_STYLE_SECTIONS) {
+    if (!section.re.test(text)) {
+      fail(`${relSkillPath}: audit skill missing required "## ${section.label}" section (house style — see skills/common/skill-template.md)`);
+    }
+  }
+}
+
 function assertNoModelRoutingFrontmatter(text, relSkillPath) {
   const frontmatter = skillFrontmatterBlock(text);
   if (!frontmatter) return;
@@ -213,6 +240,7 @@ for (const skill of ownedSkills) {
   assertDirectiveLanguage(skillPath, text);
   assertMandatoryRulesNameEnforcement(skillPath, text);
   assertNoModelRoutingFrontmatter(text, relSkillPath);
+  assertHouseStyle(skillPath, skill, text, relSkillPath);
   for (const referencePath of markdownFilesUnder(path.join(skillsDir, skill, "references"))) {
     const referenceText = read(referencePath);
     assertDirectiveLanguage(referencePath, referenceText);

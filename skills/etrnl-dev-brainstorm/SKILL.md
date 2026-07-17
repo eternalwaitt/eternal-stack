@@ -41,6 +41,15 @@ Do not implement, scaffold, or write an implementation plan until the design is 
    - Risks, verification, rollout, rollback, and owner/user impact are named.
 9. Ask the user to approve the saved spec before moving to `etrnl-dev-plan`.
 
+## Interview to confidence
+
+Before a fuzzy request graduates to a saved design/spec, run a bounded interview that resolves the unknowns and assigns a confidence score. A low-confidence spec is a re-work risk.
+
+1. List the open questions that would change the design. Ask them. Do not assume an answer.
+2. Assign a confidence level of low, medium, or high. Record the concrete evidence backing that level: the file, doc, runtime check, or user answer that settles each unknown.
+3. Gate: do not advance to `etrnl-dev-plan` or `etrnl-dev-autoplan` until confidence is high on scope, constraints, and acceptance. Do not ship a spec that is low or medium confidence on any of these three axes into the plan step.
+4. Record the resolved unknowns and their confidence in the saved design so the plan step inherits them.
+
 ## Output
 
 Keep chat conversational during discovery. Once approved, reply with the spec path, decisions made, unresolved questions, and the next required skill.

@@ -40,6 +40,9 @@ export function controlType(kind) {
 const TEMPLATE_TRIGGERS = Object.freeze([
   { match: /\bas any\b|`as any`|unsafe.*type|type[- ]escape/i, ruleId: "no-expect-any" },
   { match: /\.only\(|focused test|it\.only|describe\.only|test\.only/i, ruleId: "no-focused-tests" },
+  { match: /\.skip\(|\.skip\.each|skipped test|it\.skip|describe\.skip|test\.skip|\bxit\b|\bxdescribe\b|\bxtest\b/i, ruleId: "no-skipped-test" },
+  { match: /empty catch|swallow(?:ed|s|ing)? (?:the )?error|silent(?:ly)? (?:fail|catch|swallow)|catch\s*(?:\([^)]*\))?\s*\{\s*\}/i, ruleId: "no-empty-catch" },
+  { match: /redirect\([^)]*\)[^.]*\b(?:try|catch)\b|\b(?:try|catch)\b[^.]*redirect\([^)]*\)|notFound\([^)]*\)[^.]*catch|redirect[^.]*swallow|next\.?js redirect/i, ruleId: "nextjs-no-redirect-in-try-catch" },
 ]);
 
 export function matchTemplateRule(summary = "", body = "") {

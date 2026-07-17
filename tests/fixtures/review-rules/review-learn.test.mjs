@@ -19,11 +19,13 @@ function freshRoot() {
   return root;
 }
 
-function runLearn(root, findings, { reviewId = null } = {}) {
+function runLearn(root, findings, { reviewId = null, corpus = null, minPrecision = null } = {}) {
   const fp = path.join(root, "findings.json");
   writeFileSync(fp, JSON.stringify(findings));
   const args = [learn, "learn", "--findings", fp, "--root", root, "--json"];
   if (reviewId) args.push("--review-id", reviewId);
+  if (corpus) args.push("--corpus", corpus);
+  if (minPrecision !== null) args.push("--min-precision", String(minPrecision));
   const res = spawnSync("node", args, { encoding: "utf8" });
   assert.equal(res.status, 0, res.stderr);
   return {
@@ -156,4 +158,101 @@ test("an already-present guard records a promotion, not a duplicate checklist ca
   assert.equal(third.metric.newGuardPromotions.length, 1, "existing guard recorded as a promotion");
   assert.equal(third.metric.newChecklistCandidates.length, 0, "not relabeled as a checklist candidate");
   assert.equal(third.rules.rules.filter((r) => r.ruleId === "no-expect-any").length, 1, "no duplicate rule appended");
+});
+
+// A recurring empty-catch finding routes to the no-empty-catch template (regex
+// engine — no ast-grep dependency), so its precision is measurable against a
+// labelled corpus. The regex fires on ANY literally-empty catch block; a corpus
+// where a negative/ file also has a (legitimately) empty catch makes the rule
+// low precision — exactly the noisy-but-recurring class the gate must not promote.
+const emptyCatch = [{ summary: "Empty catch swallows the error", body: "catch block is empty and hides failures", severity: "major", lensId: "correctness_state", category: "silent-fallback" }];
+
+function lowPrecisionCorpus(root) {
+  const corpus = path.join(root, "corpus");
+  mkdirSync(path.join(corpus, "positive", "src"), { recursive: true });
+  mkdirSync(path.join(corpus, "negative", "src"), { recursive: true });
+  // positive: an empty catch that SHOULD fire (a genuine swallowed error).
+  writeFileSync(path.join(corpus, "positive", "src", "tp.ts"), "export function a() { try { risky(); } catch (e) {} }\n");
+  // negative: a literally-empty catch too, but here it is a false positive — the
+  // deterministic regex cannot tell intent, so it also fires. TP=1, FP=1 -> 0.5.
+  writeFileSync(path.join(corpus, "negative", "src", "fp.ts"), "export function b() { try { cleanup(); } catch (e) {} }\n");
+  return corpus;
+}
+
+// A positive-only corpus (matches in positive/, but negative/ is absent or empty)
+// carries NO false-positive evidence. Without the guard, fp would be 0 and
+// precision = TP/(TP+0) = 1, auto-promoting a noisy rule against zero negatives.
+function positiveOnlyCorpus(root, { emptyNegative = false } = {}) {
+  const corpus = path.join(root, "corpus");
+  mkdirSync(path.join(corpus, "positive", "src"), { recursive: true });
+  // positive: an empty catch that the rule DOES match (would be a true positive).
+  writeFileSync(path.join(corpus, "positive", "src", "tp.ts"), "export function a() { try { risky(); } catch (e) {} }\n");
+  // Optionally create an EMPTY negative/ dir (exists but holds no labelled file);
+  // otherwise leave negative/ absent entirely. Both must yield precision 0.
+  if (emptyNegative) mkdirSync(path.join(corpus, "negative"), { recursive: true });
+  return corpus;
+}
+
+for (const emptyNegative of [false, true]) {
+  const label = emptyNegative ? "empty negative/ dir" : "no negative/ dir";
+  test(`a positive-only corpus (${label}) yields precision 0 and does NOT promote a guard`, () => {
+    const root = freshRoot();
+    const corpus = positiveOnlyCorpus(root, { emptyNegative });
+    // 3 recurrences reach the frequency threshold and the rule matches positives, but
+    // there is NO false-positive evidence — precision must be 0, not 1, so the rule
+    // must be blocked by the precision gate instead of auto-promoted.
+    runLearn(root, emptyCatch, { corpus, minPrecision: 0.8 });
+    runLearn(root, emptyCatch, { corpus, minPrecision: 0.8 });
+    const third = runLearn(root, emptyCatch, { corpus, minPrecision: 0.8 });
+
+    assert.equal(third.metric.newGuardPromotions.length, 0, "no guard promoted with no negative corpus");
+    assert.equal(third.metric.newChecklistCandidates.length, 1, "recorded as a checklist candidate instead");
+    const candidate = third.metric.newChecklistCandidates[0];
+    assert.equal(candidate.blockedBy, "precision", "blocked by the precision gate");
+    assert.equal(candidate.precision, 0, "precision is 0 when there is no false-positive evidence");
+    assert.equal(third.rules.rules.filter((r) => r.ruleId === "no-empty-catch").length, 0, "no guard added to review-rules.json");
+    assert.ok(!third.rules.enabledRuleIds.includes("no-empty-catch"), "the rule is not enabled");
+    const key = classify(emptyCatch[0]).key;
+    const ledgerEntry = third.ledger.promoted[key];
+    assert.equal(ledgerEntry.type, "checklist_candidate");
+    assert.equal(ledgerEntry.blockedBy, "precision");
+    assert.equal(ledgerEntry.precision, 0);
+  });
+}
+
+test("a low-precision recurring finding does NOT promote; it becomes a precision-blocked checklist candidate", () => {
+  const root = freshRoot();
+  const corpus = lowPrecisionCorpus(root);
+  // 3 recurrences reach the frequency threshold, but the corpus proves the rule is
+  // noisy (precision 0.5 < 0.8), so it must NOT be installed as a guard.
+  runLearn(root, emptyCatch, { corpus, minPrecision: 0.8 });
+  runLearn(root, emptyCatch, { corpus, minPrecision: 0.8 });
+  const third = runLearn(root, emptyCatch, { corpus, minPrecision: 0.8 });
+
+  assert.equal(third.metric.newGuardPromotions.length, 0, "a low-precision class is never promoted to a guard");
+  assert.equal(third.metric.newChecklistCandidates.length, 1, "it is recorded as a checklist candidate instead");
+  const candidate = third.metric.newChecklistCandidates[0];
+  assert.equal(candidate.blockedBy, "precision", "the candidate is flagged as blocked by the precision gate");
+  assert.equal(candidate.precision, 0.5, "the measured precision is reported (TP/(TP+FP) = 1/2)");
+  assert.equal(third.rules.rules.filter((r) => r.ruleId === "no-empty-catch").length, 0, "no noisy guard added to review-rules.json");
+  assert.ok(!third.rules.enabledRuleIds.includes("no-empty-catch"), "the noisy rule is not enabled");
+  // The ledger records the block with the measured precision alongside sourcePrCount.
+  const key = classify(emptyCatch[0]).key;
+  const ledgerEntry = third.ledger.promoted[key];
+  assert.equal(ledgerEntry.type, "checklist_candidate");
+  assert.equal(ledgerEntry.blockedBy, "precision");
+  assert.equal(ledgerEntry.precision, 0.5);
+  assert.equal(ledgerEntry.sourcePrCount, 3, "sourcePrCount from the template is recorded alongside precision");
+
+  // Backward-compat: the SAME 3 recurrences WITHOUT --corpus still promote a guard,
+  // proving the precision gate is opt-in and does not change legacy behavior.
+  const legacyRoot = freshRoot();
+  runLearn(legacyRoot, emptyCatch);
+  runLearn(legacyRoot, emptyCatch);
+  const legacyThird = runLearn(legacyRoot, emptyCatch);
+  assert.equal(legacyThird.metric.newGuardPromotions.length, 1, "without a corpus the same class promotes (frequency-only gate)");
+  const rule = legacyThird.rules.rules.find((r) => r.ruleId === "no-empty-catch");
+  assert.ok(rule, "no-empty-catch guard was installed with no corpus supplied");
+  assert.equal(rule.mode, "warn", "legacy promotion still starts in warn mode");
+  assert.ok(legacyThird.rules.enabledRuleIds.includes("no-empty-catch"));
 });

@@ -73,7 +73,23 @@ test("control type routes by kind", () => {
 test("template triggers match known mechanical classes", () => {
   assert.equal(matchTemplateRule("Avoid `as any` cast", "unsafe type escape"), "no-expect-any");
   assert.equal(matchTemplateRule("Remove it.only from the suite"), "no-focused-tests");
+  assert.equal(matchTemplateRule("Delete the it.skip skipped test"), "no-skipped-test");
+  assert.equal(matchTemplateRule("This empty catch swallows the error"), "no-empty-catch");
+  assert.equal(matchTemplateRule("redirect() inside try/catch is swallowed by catch"), "nextjs-no-redirect-in-try-catch");
   assert.equal(matchTemplateRule("General prose with no trigger"), null);
+});
+
+test("template triggers match the CodeRabbit round-1 variants (parameterized skip, bare catch, redirect with args)", () => {
+  // #18: these recurring finding phrasings previously slipped past the triggers, so
+  // the guards they map to never got promoted. Each must now route to its rule.
+  // Parameterized skip: test.skip.each / it.skip.each.
+  assert.equal(matchTemplateRule("Drop the test.skip.each parameterized skip"), "no-skipped-test");
+  assert.equal(matchTemplateRule("The it.skip.each cases are all skipped"), "no-skipped-test");
+  // ES2019 optional catch binding: `catch {}` with no parens.
+  assert.equal(matchTemplateRule("This catch {} silently drops the error"), "no-empty-catch");
+  // redirect() called WITH arguments inside a try/catch.
+  assert.equal(matchTemplateRule("redirect('/login') inside the try block is swallowed by catch"), "nextjs-no-redirect-in-try-catch");
+  assert.equal(matchTemplateRule("The catch swallows the redirect('/home') call"), "nextjs-no-redirect-in-try-catch");
 });
 
 test("recurrence key is stable and hash-free", () => {

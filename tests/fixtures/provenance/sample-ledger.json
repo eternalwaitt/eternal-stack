@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 2,
+  "runId": "run-fixture-provenance-001",
+  "sessionId": "fixture-session",
+  "planPath": "plans/sample-feature.md",
+  "mode": "agent-os",
+  "startedAt": "2026-07-16T10:00:00Z",
+  "updatedAt": "2026-07-16T10:45:00Z",
+  "tasks": [
+    { "id": "TG1", "title": "Implement sample widget", "status": "verified" }
+  ],
+  "agents": [],
+  "reviews": [],
+  "tddEvidence": [
+    { "taskId": "TG1", "status": "verified", "sourceFiles": "src/widget.mjs" }
+  ],
+  "checks": [
+    { "name": "unit", "command": "node --test", "status": "passed" }
+  ],
+  "artifacts": [
+    { "type": "source", "path": "src/widget.mjs", "status": "recorded" }
+  ],
+  "requiredArtifacts": [],
+  "phases": []
+}

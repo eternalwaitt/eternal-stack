@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "title": "ETRNL Agent Output Contract v1",
+  "doc": "Lean, machine-checkable contract every etrnl agent emits at the end of its response. The validator (scripts/agent-output-contract.mjs) turns this from advisory prose into a hard gate: it parses the fenced block, checks the status enum, the per-finding line grammar, the deterministic status rule (status must MATCH the findings), two-tier verbosity for fenced-critical findings, and per-agent required fields. Not a JSON Schema for JSON payloads — a spec the validator reads.",
+  "block": {
+    "openMarker": "ETRNL_CONTRACT: v1",
+    "requiredKeys": ["ETRNL_AGENT", "ETRNL_TASK_ID", "ETRNL_STATUS", "ETRNL_LENSES", "ETRNL_FINDINGS"],
+    "keyLine": "^ETRNL_[A-Z_]+:\\s?.*$"
+  },
+  "status": {
+    "enum": ["verified", "changes_requested", "blocked", "completed"],
+    "reviewerStatuses": ["verified", "changes_requested", "blocked"],
+    "workerStatuses": ["completed", "blocked"],
+    "doc": "Two profiles. REVIEWER (default): status in reviewerStatuses; deterministic rule (enforced) — any finding with severity 'bug' -> blocked; else any finding -> changes_requested; else -> verified; a declared status that disagrees with the findings is a hard failure (anti-gaming). WORKER (scout/investigator/executor/consumer-tracer, which emit evidence/maps not verdicts): status in workerStatuses; any 'bug' finding still forces 'blocked', but 'completed' is valid with non-bug findings and 'blocked' is valid with zero findings (external blocker)."
+  },
+  "workerProfileAgents": [
+    "etrnl-scout",
+    "etrnl-investigator",
+    "etrnl-executor",
+    "etrnl-consumer-tracer"
+  ],
+  "severity": {
+    "enum": ["bug", "risk", "nit", "question"],
+    "blocking": ["bug"]
+  },
+  "category": {
+    "enum": [
+      "correctness",
+      "security",
+      "tenant",
+      "money",
+      "auth",
+      "validation",
+      "a11y",
+      "types",
+      "perf",
+      "test",
+      "reuse",
+      "docs",
+      "other"
+    ],
+    "fencedCritical": ["security", "tenant", "money", "auth", "validation", "a11y"],
+    "doc": "fencedCritical categories carry the ponytail safety fence: a deletion/simplification lens must never recommend removing one of these guards, and a 'bug' finding in one of them REQUIRES the long source->consequence chain (two-tier verbosity)."
+  },
+  "findingGrammar": {
+    "line": "^- (bug|risk|nit|question) \\| ([a-z0-9_]+) \\| (\\S.*?):(\\d+|0) \\| (.+?) \\| (.+)$",
+    "groups": ["severity", "category", "file", "line", "problem", "fix"],
+    "doc": "One finding per line: '- <severity> | <category> | <file>:<line> | <problem> | <fix>'. Use line 0 for file-level. For a blocking (bug) finding in a fencedCritical category the <problem> field MUST contain the chain arrow '->' (source -> consequence), so an exploit path is shown, not asserted."
+  },
+  "twoTier": {
+    "requireChainWhen": { "severity": "bug", "categoryIn": "fencedCritical" },
+    "chainToken": "->"
+  },
+  "perAgentRequiredKeys": {
+    "etrnl-adversary": ["ETRNL_ATTACK_CLASSES", "ETRNL_STOP_CYCLE"],
+    "etrnl-consumer-tracer": ["ETRNL_IMPACT_MAP"],
+    "etrnl-quality-reviewer": ["ETRNL_REOPEN_ROUNDS"],
+    "etrnl-scout": ["ETRNL_CONFIDENCE"],
+    "etrnl-investigator": ["ETRNL_CONFIDENCE"],
+    "etrnl-browser-qa": ["ETRNL_ROUTES_CHECKED", "ETRNL_VIEWPORTS_CHECKED", "ETRNL_REPORT_PATH", "ETRNL_READY_FOR_FINAL_GATE"],
+    "etrnl-spec-reviewer": ["ETRNL_EVIDENCE_CHECKED", "ETRNL_TIER_B_COVERAGE", "ETRNL_READY_TO_EXECUTE"],
+    "etrnl-test-wiring-auditor": ["ETRNL_REQUIRED_TESTS"]
+  },
+  "perAgentRequiredKeysDoc": "Beyond the base requiredKeys, each named agent must also emit these fields. Reviewers not listed only need the base contract. ETRNL_STOP_CYCLE for the adversary must be <=3 (doubt-driven 3-cycle cap). ETRNL_REQUIRED_TESTS for the test-wiring auditor must be a non-negative integer equal to the parsed finding count (each missing test-wiring gate is one test-category finding).",
+  "specializedKeyFormats": {
+    "ETRNL_REOPEN_ROUNDS": "^\\d+ \\(tier [0-3], cap (?:2|4)\\)$",
+    "ETRNL_READY_FOR_FINAL_GATE": "^(?:yes|no)$",
+    "ETRNL_READY_TO_EXECUTE": "^(?:yes|no)$",
+    "ETRNL_CONFIDENCE": "^(?:high|medium|low)$"
+  },
+  "specializedKeyFormatsDoc": "Machine-checkable value formats for present specialized keys with a deterministic grammar. When a present key names a format here, its value must match the anchored regex; a malformed value (e.g. 'ETRNL_REOPEN_ROUNDS: nonsense') is a hard violation. Keys with genuinely free-form values (lists, paths, prose maps like ETRNL_IMPACT_MAP, ETRNL_ROUTES_CHECKED, ETRNL_REPORT_PATH, ETRNL_ATTACK_CLASSES, ETRNL_TIER_B_COVERAGE, ETRNL_EVIDENCE_CHECKED) are intentionally absent and stay at the presence+non-empty floor. ETRNL_REOPEN_ROUNDS: '<n> (tier <0-3>, cap <2|4>)' per the quality-reviewer contract; boolean gates are yes|no; confidence is high|medium|low. ETRNL_STOP_CYCLE (1..3) and ETRNL_REQUIRED_TESTS (non-negative integer == finding count) keep their dedicated reconciliation checks in the validator."
+}

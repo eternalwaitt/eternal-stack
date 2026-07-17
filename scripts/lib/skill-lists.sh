@@ -19,6 +19,7 @@ OWNED_SKILLS=(
   etrnl-dev-ci
   etrnl-dev-deps
   etrnl-dev-stress-test
+  etrnl-dev-deprecate
   # Audits and review
   etrnl-audit-code
   etrnl-audit-docs
@@ -35,8 +36,11 @@ OWNED_SKILLS=(
   etrnl-ops-context-restore
   etrnl-ops-disk-cleanup
   etrnl-ops-agent-files
+  etrnl-ops-ship
   # Communications
   etrnl-comm-email-reply-quality
+  # Routing and orchestration
+  etrnl-router
   # Reference orchestrators
   etrnl-backend-patterns
 )
@@ -78,6 +82,7 @@ OWNED_AGENTS=(
   etrnl-quality-reviewer
   etrnl-scout
   etrnl-spec-reviewer
+  etrnl-test-wiring-auditor
 )
 
 OWNED_COMMANDS=(
@@ -104,6 +109,7 @@ CRITICAL_SCRIPTS=(
   execution-ledger.mjs
   etrnl-state.mjs
   execute-evidence-check.mjs
+  agent-output-contract.mjs
   tool-effectiveness.mjs
   deep-stack-check.mjs
   deep-audit-artifact-check.mjs
@@ -164,6 +170,9 @@ INSTALL_SCRIPTS=(
   execution-ledger.mjs
   execute-evidence-check.mjs
   execution-wave-check.mjs
+  agent-output-contract.mjs
+  token-savings.mjs
+  provenance.mjs
   tool-effectiveness.mjs
   review-log.mjs
   review-rules.mjs

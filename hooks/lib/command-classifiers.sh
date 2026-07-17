@@ -199,6 +199,168 @@ cc_command_is_browser_verification() {
     || [[ "$cmd" =~ (^|[[:space:];&|])curl[[:space:]]+ ]]
 }
 
+# Test RUNNER detection for the weakening guard. Unlike cc_command_is_test_verification,
+# this deliberately does NOT match the bare `test` token — that is the POSIX `test`/`[`
+# conditional builtin (e.g. `test -f x`), not a test suite. Matching it hard-denied
+# common shell idioms like `test -f x || true`, `echo test || true`, `grep test file || true`.
+# Here we require a genuine test-runner token. A bare `test` counts ONLY when it is
+# immediately followed by another test-runner keyword (never a `-` flag or `[`/`[[`).
+cc_command_is_test_runner() {
+  local cmd pm_re runner_re jsvm_re node_re toolchain_re projtest_re
+  cmd="$(cc_command_normalize "$1")"
+  pm_re='(^|[[:space:];&|])(rtk[[:space:]]+)?(pnpm|npm|yarn|bun)([[:space:]]+run)?[[:space:]]+test([[:space:];&|]|$)'
+  runner_re='(^|[[:space:];&|])(pytest|vitest|jest|mocha|rspec|phpunit)([[:space:];&|]|$)'
+  jsvm_re='(^|[[:space:];&|])(ava|tap)([[:space:];&|]|$)'
+  # Node's built-in test runner: `node --test` and `node --test=<pattern>` are real
+  # suites whose failure `|| true` would otherwise swallow undetected.
+  node_re='(^|[[:space:];&|])node[[:space:]]+--test([=[:space:];&|]|$)'
+  toolchain_re='(^|[[:space:];&|])(cargo|go|deno|composer|make|rake)[[:space:]]+test([[:space:];&|]|$)'
+  projtest_re='(^|[[:space:];&|])(bash[[:space:]]+)?([^[:space:];&|]*/)?(tests/test-[^[:space:];&|]*\.sh|run-node-tests)([[:space:];&|]|$)'
+  [[ "$cmd" =~ $pm_re ]] && return 0
+  [[ "$cmd" =~ $runner_re ]] && return 0
+  [[ "$cmd" =~ $jsvm_re ]] && return 0
+  [[ "$cmd" =~ $node_re ]] && return 0
+  [[ "$cmd" =~ $toolchain_re ]] && return 0
+  [[ "$cmd" =~ $projtest_re ]] && return 0
+  return 1
+}
+
+# Swallowed-runner detection for the weakening guard. Returns 0 when a genuine test
+# RUNNER (same token set as cc_command_is_test_runner) is directly followed — after
+# its own args — by `|| true`/`|| :`, so the runner's non-zero exit is discarded.
+# Unlike an end-of-segment anchor, the `|| true`/`|| :` is matched even when trailing
+# `&&`/further commands follow it inside a boolean list, so
+# `pnpm test || true && echo done` is caught. The runner's args are `[^|&;]*` — chars
+# that cannot cross into another command — so the swallow binds to the runner's OWN
+# command, keeping `cleanup || true; pnpm test` (swallow on cleanup, not the runner)
+# allowed. Callers scope this to a single statement segment.
+cc_command_runner_failure_swallowed() {
+  local seg pm_sw runner_sw jsvm_sw node_sw toolchain_sw projtest_sw
+  seg="$(cc_command_normalize "$1")"
+  # `[^|&;]*` after the runner keyword consumes its args without crossing a boolean
+  # operator; the trailing `[|][|][[:space:]]*(true|:)` is the swallow.
+  local swallow_tail='[^|&;]*[|][|][[:space:]]*(true|:)([[:space:];&|]|$)'
+  pm_sw="(^|[[:space:];&|])(rtk[[:space:]]+)?(pnpm|npm|yarn|bun)([[:space:]]+run)?[[:space:]]+test[[:space:]]*${swallow_tail}"
+  runner_sw="(^|[[:space:];&|])(pytest|vitest|jest|mocha|rspec|phpunit)[[:space:]]*${swallow_tail}"
+  jsvm_sw="(^|[[:space:];&|])(ava|tap)[[:space:]]*${swallow_tail}"
+  node_sw="(^|[[:space:];&|])node[[:space:]]+--test(=[^|&;]*)?[[:space:]]*${swallow_tail}"
+  toolchain_sw="(^|[[:space:];&|])(cargo|go|deno|composer|make|rake)[[:space:]]+test[[:space:]]*${swallow_tail}"
+  projtest_sw="(^|[[:space:];&|])(bash[[:space:]]+)?([^[:space:];&|]*/)?(tests/test-[^[:space:];&|]*\.sh|run-node-tests)[[:space:]]*${swallow_tail}"
+  [[ "$seg" =~ $pm_sw ]] && return 0
+  [[ "$seg" =~ $runner_sw ]] && return 0
+  [[ "$seg" =~ $jsvm_sw ]] && return 0
+  [[ "$seg" =~ $node_sw ]] && return 0
+  [[ "$seg" =~ $toolchain_sw ]] && return 0
+  [[ "$seg" =~ $projtest_sw ]] && return 0
+  return 1
+}
+
+# Test-weakening: neutralizing a red gate rather than fixing it. Covers the four
+# P3 patterns — swallowing a test failure with `|| true`/`|| :`, disabling errexit
+# with `set +e` around a test run, deleting a *.test/*.spec/__tests__ file, and
+# bypassing pre-commit/pre-push gates with git --no-verify.
+#
+# The swallow and set+e branches require a genuine test RUNNER token (see
+# cc_command_is_test_runner) rather than the bare `test` conditional builtin, so
+# legitimate idioms like `test -f x || true` and `grep test file || true` stay allowed.
+cc_command_is_test_weakening() {
+  local cmd sete_re restore_re rmtest_re noverify_re
+  cmd="$(cc_command_normalize "$1")"
+
+  # Statement-scoped weakening association. Splitting on `;` and newlines isolates
+  # each statement so the swallow/set+e verdict binds to the runner's OWN statement,
+  # not to any command anywhere in the string. This keeps `cleanup || true; pnpm test`
+  # and `set +e; cleanup; set -e; pnpm test` allowed while still denying
+  # `pnpm test || true` and `set +e; pnpm test`.
+  sete_re='(^|[[:space:]])set[[:space:]]+\+e([[:space:]]|$)'
+  restore_re='(^|[[:space:]])set[[:space:]]+(-e|-o[[:space:]]+errexit)([[:space:]]|$)'
+  local -a segments=()
+  local seg errexit_disabled=0
+  # Split on statement separators (semicolons and newlines) into segments.
+  local rest="$cmd"
+  while [[ "$rest" == *";"* || "$rest" == *$'\n'* ]]; do
+    if [[ "$rest" == *";"* && ( "$rest" != *$'\n'* || "${rest%%;*}" != *$'\n'* ) ]]; then
+      segments+=("${rest%%;*}")
+      rest="${rest#*;}"
+    else
+      segments+=("${rest%%$'\n'*}")
+      rest="${rest#*$'\n'}"
+    fi
+  done
+  segments+=("$rest")
+
+  for seg in "${segments[@]}"; do
+    # Within a statement segment, walk boolean-list sub-parts (`&&`/`||`) LEFT TO
+    # RIGHT so set +e / set -e apply positionally relative to the runner. This makes
+    # `set +e; set -e && pnpm test` ALLOW (errexit restored via `set -e &&` before the
+    # runner) while `set +e; pnpm test && set -e` still BLOCKs (the runner executes
+    # before the trailing restore). errexit_disabled carries across sub-parts and
+    # segments, matching shell scope.
+    local subrest="$seg" subpart
+    while :; do
+      # Peel the next boolean-list sub-part. Split on the first `&&` or `||`, keeping
+      # the operator out of the sub-part so a bare `||` does not read as a swallow.
+      if [[ "$subrest" == *"&&"* || "$subrest" == *"||"* ]]; then
+        local amp="${subrest%%&&*}" pipe="${subrest%%||*}"
+        if (( ${#amp} <= ${#pipe} )); then
+          subpart="$amp"
+          subrest="${subrest#*&&}"
+        else
+          subpart="$pipe"
+          subrest="${subrest#*||}"
+        fi
+      else
+        subpart="$subrest"
+        subrest=""
+      fi
+
+      if [[ "$subpart" =~ $sete_re ]]; then
+        errexit_disabled=1
+      fi
+      if [[ "$subpart" =~ $restore_re ]]; then
+        errexit_disabled=0
+      fi
+      if cc_command_is_test_runner "$subpart"; then
+        # set+e branch: errexit is still disabled when the runner executes.
+        if (( errexit_disabled )); then
+          return 0
+        fi
+      fi
+
+      [[ -n "$subrest" ]] || break
+    done
+
+    # Swallow branch runs over the WHOLE segment: the runner is directly followed
+    # (after its own args) by `|| true`/`|| :`, so its failure is swallowed. Matching
+    # the full segment lets the swallow bind inside a boolean list regardless of any
+    # trailing `&&`/further commands, catching `pnpm test || true && echo done`, while
+    # the runner-anchored `[^|&;]*` args keep `cleanup || true; pnpm test` allowed (the
+    # swallow is on cleanup's own statement, not the runner's).
+    if cc_command_is_test_runner "$seg" && cc_command_runner_failure_swallowed "$seg"; then
+      return 0
+    fi
+  done
+
+  # Deleting a test file: match *.test/*.spec/_test suffixes, or a nested __tests__/
+  # directory anywhere in an rm/trash argument.
+  rmtest_re='(^|[[:space:];&|])(rm|trash)([[:space:]]+-[^[:space:]]+)*[[:space:]][^;&|]*(\.(test|spec)\.[a-z]+|_test\.[a-z]+|/__tests__/)'
+  if [[ "$cmd" =~ $rmtest_re ]]; then
+    return 0
+  fi
+  # Root-level __tests__ directory (no slash, e.g. `rm -rf __tests__`) at a
+  # command-argument boundary — a separate matcher so the greedy `[^;&|]*` above
+  # cannot swallow the directory name past the boundary alternation.
+  rmtestroot_re='(^|[[:space:];&|])(rm|trash)([[:space:]]+-[^[:space:]]+)*[[:space:]]([^;&|]*[[:space:]/])?__tests__([[:space:]/]|$)'
+  if [[ "$cmd" =~ $rmtestroot_re ]]; then
+    return 0
+  fi
+  noverify_re='git[[:space:]][^;&|]*(commit|push)[^;&|]*--no-verify'
+  if [[ "$cmd" =~ $noverify_re ]]; then
+    return 0
+  fi
+  return 1
+}
+
 cc_command_is_review_verification() {
   local cmd
   cmd="$(cc_command_normalize "$1")"

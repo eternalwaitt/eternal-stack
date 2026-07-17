@@ -47,6 +47,48 @@ Completion requires all of these items:
 - Measured reports include a validated performance baseline with `nextRun.command`, thresholds, and trend inputs, or a source-limited reason that blocked repeat measurement capture.
 - The category report validates with `deep-audit-artifact-check.mjs`.
 
+## Common Rationalizations
+
+- "It feels fast on my machine." -> Local dev caches, warm connections, and seeded data hide N+1 and cold-start cost; capture measured cold and warm route latency in the artifact envelope.
+- "The bundle grew a little, ship it." -> Record the byte delta per route; a route that crosses its budget is a finding, not a footnote.
+- "The list only renders a few rows in dev." -> Test the paginated maximum; unbounded lists and per-row queries scale into hot-path thrash under real tenant data.
+- "React Compiler handles rendering, so skip the render lane." -> The compiler does not fix waterfalls, unstable keys, or unmemoizable prop factories in render; run the `react-rendering` lane and record its receipt.
+- "The slow query is one endpoint, not worth a full pass." -> One unindexed hot path degrades every tenant on that route; run `database-query-performance` and attach the query plan evidence.
+
+## Red Flags
+
+- Query issued inside a `.map`/`for`/`forEach` over a result set (classic N+1) instead of a batched `findMany`/`in`/`include` fetch.
+- `include: { _count }` on a Prisma `create`/`update`, or an unbounded `findMany` with no `take`/pagination on a user-facing route.
+- Route bundle byte size above its recorded budget, or a heavy dependency pulled into a client component with no dynamic import or code split.
+- List or table render with no stable `key`, or a new object/array/function literal built inline as a child prop on every render, forcing re-render thrash.
+- Blocking data fetch waterfall in a Server Component or route handler where independent fetches run sequentially instead of in parallel.
+- Missing cache directive, missing index on a filtered/sorted column, or a synchronous hot-path call with no measured cold and warm latency captured.
+
+## When NOT to use
+
+- Input validation, auth bypass, tenant-isolation leaks, or injection belong to `etrnl-audit-security`.
+- Correctness bugs, type errors, and diff-scoped review belong to `etrnl-quality-reviewer` and `etrnl-spec-reviewer`.
+- Production readiness, deploy config, observability wiring, and runbook coverage belong to `etrnl-audit-production`.
+- Whole-codebase inventory, dead code, and repo rot belong to `etrnl-audit-code`.
+
+## Verification
+
+Run counts every item. Any FAIL marks the run incomplete:
+
+- PASS/FAIL: Six lane receipts exist for `database-query-performance`, `server-response-caching`, `bundle-code-splitting`, `react-rendering`, `perceived-performance`, and `infrastructure-network`.
+- PASS/FAIL: Route matrix evidence records cold and warm latency, response bytes, and auth or fixture state for every user-facing route.
+- PASS/FAIL: Every registered `perf-*` check id from `scripts/lib/deep-audit-categories.mjs` appears exactly once in the category report.
+- PASS/FAIL: Measured runs attach a validated performance baseline with `nextRun.command`, thresholds, and trend inputs, or a named source-limited blocker.
+- PASS/FAIL: Dev compile time is separated from runtime latency, and authenticated or dynamic route blockers are explicit source-limited entries, not silent skips.
+
+Red-capable gate — this command exits non-zero when the category artifact is malformed, incomplete, or missing a required lane receipt:
+
+```bash
+node scripts/deep-audit-artifact-check.mjs validate --artifact <artifact-json>
+```
+
+Expected exit code: `0` when the artifact validates. A non-zero exit marks the run incomplete and names the failing lane, check id, or missing evidence field.
+
 ## References
 
 - `references/audit-checks.md`: performance worklists, six-lane check matrix, evidence rules, and report format.

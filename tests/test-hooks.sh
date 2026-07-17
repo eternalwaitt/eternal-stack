@@ -539,6 +539,27 @@ for (( i = 0; i < skill_trigger_count; i++ )); do
   done <<<"$unexpected_skills"
 done
 
+# CodeRabbit round-1 (FINDING #4): an explicit skill-selection meta-question that
+# also names a task ("which skill should I use to ship this feature?") must
+# short-circuit to record ONLY etrnl-router, not both etrnl-router and etrnl-ops-ship.
+router_precedence_session="fixture-router-precedence"
+router_precedence_event="$(jq -cn --arg session "$router_precedence_session" --arg prompt "which skill should I use to ship this feature?" '{session_id:$session,prompt:$prompt}')"
+run_hook cc-userprompt-router.sh "$router_precedence_event" >/dev/null || true
+router_precedence_state="$TMPROOT/claude-guard-$router_precedence_session.json"
+router_precedence_json="$(jq -c . "$router_precedence_state")"
+assert_json_expr "router precedence records exactly one skill (etrnl-router)" "$router_precedence_json" '(.requestedSkills | length) == 1 and .requestedSkills[0].value == "etrnl-router"'
+
+# CodeRabbit round-2 (FINDING #327): the explicit_skill_selection precedence guard
+# must also short-circuit the deprecation branch. "which skill should I use to retire
+# this endpoint?" names a deprecation task but is a routing meta-question, so it must
+# record ONLY etrnl-router, not etrnl-dev-deprecate as well.
+router_deprecate_session="fixture-router-deprecate-precedence"
+router_deprecate_event="$(jq -cn --arg session "$router_deprecate_session" --arg prompt "which skill should I use to retire this endpoint?" '{session_id:$session,prompt:$prompt}')"
+run_hook cc-userprompt-router.sh "$router_deprecate_event" >/dev/null || true
+router_deprecate_state="$TMPROOT/claude-guard-$router_deprecate_session.json"
+router_deprecate_json="$(jq -c . "$router_deprecate_state")"
+assert_json_expr "router precedence over deprecation records only etrnl-router" "$router_deprecate_json" '(.requestedSkills | length) == 1 and .requestedSkills[0].value == "etrnl-router"'
+
 skill_json="$(jq -cn '{session_id:"fixture-session",hook_event_name:"UserPromptExpansion",command_name:"etrnl-dev-autoplan"}')"
 run_hook cc-userprompt-expansion.sh "$skill_json" >/dev/null || true
 state_file="$TMPROOT/claude-guard-fixture-session.json"
@@ -657,6 +678,112 @@ assert_contains "stop verifier still blocks evidence wording on completion claim
 browser_outstanding_stop="$(jq -cn '{session_id:"fixture-browser-outstanding",last_assistant_message:"Phases 0-10 complete. Only the manual browser pass is still outstanding - needs pnpm dev:web and a real browser.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$browser_outstanding_stop")"
 assert_contains "stop verifier blocks outstanding browser QA" "$out" "Outstanding browser QA"
+
+# P1 agent-output-contract enforcement. SubagentStop blocks a gamed contract (status
+# disagrees with findings) and passes a valid one; Stop backstops a recorded violation.
+contract_gamed="$(jq -cn '{session_id:"fixture-contract-gamed",task_id:"CT1",agent_id:"ct-a1",subagent_type:"etrnl-quality-reviewer",last_assistant_message:"ETRNL_CONTRACT: v1\nETRNL_AGENT: etrnl-quality-reviewer\nETRNL_TASK_ID: CT1\nETRNL_STATUS: verified\nETRNL_LENSES: correctness\nETRNL_FINDINGS: 1\nETRNL_REOPEN_ROUNDS: 0\n- bug | correctness | a.ts:1 | crash | guard it"}')"
+out="$(run_hook cc-subagentstop-record.sh "$contract_gamed")"
+assert_json_expr "subagentstop blocks a gamed agent contract" "$out" '.decision == "block"'
+assert_contains "gamed contract block names the violation" "$out" "contract violation"
+contract_valid="$(jq -cn '{session_id:"fixture-contract-valid",task_id:"CT1",agent_id:"ct-a2",subagent_type:"etrnl-design-reviewer",last_assistant_message:"ETRNL_CONTRACT: v1\nETRNL_AGENT: etrnl-design-reviewer\nETRNL_TASK_ID: CT1\nETRNL_STATUS: verified\nETRNL_LENSES: layout\nETRNL_FINDINGS: 0"}')"
+out="$(run_hook cc-subagentstop-record.sh "$contract_valid")"
+if printf '%s' "$out" | grep -q '"decision":"block"'; then not_ok "subagentstop allows a valid agent contract: $out"; else ok "subagentstop allows a valid agent contract"; fi
+
+# CodeRabbit round-1: enforcement no longer trusts self-report or opt-in on the
+# marker. Agent identity is the TRUSTED .subagent_type; the validator owns the
+# missing-block-for-contracted-agent and identity-spoof decisions.
+# (a) A contracted agent (agents/etrnl-scout.md exists) that emits NO contract block
+#     is BLOCKED — it can no longer escape by omitting the marker.
+contract_missing_block="$(jq -cn '{session_id:"fixture-contract-missing-block",task_id:"CT2",agent_id:"ct-a3",subagent_type:"etrnl-scout",last_assistant_message:"Scanned the repo. Found the caller in app.ts and traced the flow. Done."}')"
+out="$(run_hook cc-subagentstop-record.sh "$contract_missing_block")"
+assert_json_expr "subagentstop blocks a contracted agent that omits the contract block" "$out" '.decision == "block"'
+assert_contains "missing-block block names the contracted agent" "$out" "etrnl-scout"
+# (b) A spoofed emitted ETRNL_AGENT (trusted subagent_type=etrnl-adversary, block
+#     claims etrnl-scout) is BLOCKED for identity spoofing.
+contract_spoof="$(jq -cn '{session_id:"fixture-contract-spoof",task_id:"CT2",agent_id:"ct-a4",subagent_type:"etrnl-adversary",last_assistant_message:"ETRNL_TASK_ID: CT2\nETRNL_CONTRACT: v1\nETRNL_AGENT: etrnl-scout\nETRNL_STATUS: verified\nETRNL_LENSES: correctness\nETRNL_FINDINGS: 0\nETRNL_CONFIDENCE: high"}')"
+out="$(run_hook cc-subagentstop-record.sh "$contract_spoof")"
+assert_json_expr "subagentstop blocks a spoofed emitted agent identity" "$out" '.decision == "block"'
+# (c) A non-contracted subagent (no agents/general-purpose.md) that emits NO block is ALLOWED.
+contract_noncontracted="$(jq -cn '{session_id:"fixture-contract-noncontracted",task_id:"CT2",agent_id:"ct-a5",subagent_type:"general-purpose",last_assistant_message:"Looked into the question and wrote a short summary. No contract block emitted."}')"
+out="$(run_hook cc-subagentstop-record.sh "$contract_noncontracted")"
+if printf '%s' "$out" | grep -q '"decision":"block"'; then not_ok "subagentstop allows a non-contracted subagent with no block: $out"; else ok "subagentstop allows a non-contracted subagent with no block"; fi
+
+# (d) A self-reported ETRNL_TASK_ID that names a DIFFERENT task than the trusted
+#     event.task_id is BLOCKED — it must not validate/record under another task.
+contract_taskid_mismatch="$(jq -cn '{session_id:"fixture-contract-taskid-mismatch",task_id:"CT2",agent_id:"ct-a6",subagent_type:"etrnl-design-reviewer",last_assistant_message:"ETRNL_CONTRACT: v1\nETRNL_AGENT: etrnl-design-reviewer\nETRNL_TASK_ID: OTHER-TASK\nETRNL_STATUS: verified\nETRNL_LENSES: layout\nETRNL_FINDINGS: 0"}')"
+out="$(run_hook cc-subagentstop-record.sh "$contract_taskid_mismatch")"
+assert_json_expr "subagentstop blocks a contract task id that conflicts with the trusted event" "$out" '.decision == "block"'
+
+# (e) A prefix ETRNL_TASK_ID matching the trusted event, placed BEFORE a block that
+#     declares a DIFFERENT id, must still block — the validator compares the trusted
+#     --task-id against the ETRNL_TASK_ID parsed from the EXTRACTED block, not the first
+#     match in the whole text, so a prefixed decoy cannot slip a real mismatch through.
+contract_taskid_prefix="$(jq -cn '{session_id:"fixture-contract-taskid-prefix",task_id:"CT2",agent_id:"ct-a7",subagent_type:"etrnl-design-reviewer",last_assistant_message:"ETRNL_TASK_ID: CT2\nSome preamble.\nETRNL_CONTRACT: v1\nETRNL_AGENT: etrnl-design-reviewer\nETRNL_TASK_ID: OTHER-TASK\nETRNL_STATUS: verified\nETRNL_LENSES: layout\nETRNL_FINDINGS: 0"}')"
+out="$(run_hook cc-subagentstop-record.sh "$contract_taskid_prefix")"
+assert_json_expr "subagentstop blocks a prefixed task id spoof (validator compares the extracted block)" "$out" '.decision == "block"'
+
+# (f) A response that carries an ETRNL_CONTRACT block but has NO trusted subagent identity
+#     (.subagent_type/.agent_type both absent) is BLOCKED — without authoritative identity
+#     the validator would run WITHOUT --agent, skipping per-agent required keys, worker
+#     status rules, and the stop-cycle cap, so a self-identified contract must not earn a
+#     generic pass. Fail closed rather than accept an unauthenticated contract.
+contract_no_identity="$(jq -cn '{session_id:"fixture-contract-no-identity",task_id:"CT3",agent_id:"ct-a8",last_assistant_message:"ETRNL_CONTRACT: v1\nETRNL_AGENT: etrnl-quality-reviewer\nETRNL_TASK_ID: CT3\nETRNL_STATUS: verified\nETRNL_LENSES: correctness\nETRNL_FINDINGS: 0"}')"
+out="$(run_hook cc-subagentstop-record.sh "$contract_no_identity")"
+assert_json_expr "subagentstop blocks a contract block emitted without a trusted subagent identity" "$out" '.decision == "block"'
+# The no-identity block must also PERSIST the violation to .contractVerdicts (keyed by the
+# trusted task:agent metadata) so cc-stop-verifier's backstop still fires on a later Stop.
+contract_no_identity_state="$CLAUDE_GUARD_STATE_DIR/claude-guard-fixture-contract-no-identity.json"
+if [[ -f "$contract_no_identity_state" ]]; then
+  assert_json_expr "subagentstop persists the no-identity contract violation for the stop backstop" "$(cat "$contract_no_identity_state")" '.contractVerdicts["CT3:ct-a8"].verdict == "violation"'
+else
+  not_ok "subagentstop should persist a no-identity contract violation state file"
+fi
+
+# A valid contract whose verdict cannot be PERSISTED must fail closed, not silently report
+# success — a swallowed state write would leave .contractVerdicts stale and let the Stop
+# backstop miss a real violation later. Point the guard state dir at a regular file so the
+# critical write fails, then confirm the hook blocks instead of allowing the stop.
+contract_unwritable_state_dir="$TMPROOT/state-notadir"
+printf 'x' >"$contract_unwritable_state_dir"
+out="$(CLAUDE_GUARD_STATE_DIR="$contract_unwritable_state_dir" run_hook cc-subagentstop-record.sh "$contract_valid")"
+assert_json_expr "subagentstop fails closed when a contract verdict cannot be persisted" "$out" '.decision == "block"'
+
+contract_backstop_state="$TMPROOT/claude-guard-fixture-contract-backstop.json"
+jq -nc '{schemaVersion:5,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},contractVerdicts:{"CT1:rev":{verdict:"violation",at:"2026-01-01T00:00:00Z"}},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],toolSignals:[],firstEditAt:"",firstEditGeneration:0,toolUseBeforeFirstEdit:{},toolNoise:{},effectivenessCounters:{},newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:false,planExecutionRequestedAt:"",lastPrompt:"",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$contract_backstop_state"
+contract_backstop_stop="$(jq -cn '{session_id:"fixture-contract-backstop",last_assistant_message:"Done. Implemented and tests pass.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$contract_backstop_stop")"
+assert_contains "stop verifier backstops an unresolved contract violation" "$out" "output contract failed validation"
+
+# P3 test-weakening deny checks: never let an agent neutralize a red gate.
+# Includes CodeRabbit round-1 additions: `node --test || true` (swallowed node
+# built-in runner) and `rm -rf __tests__` (root-level test dir with no slash).
+# CodeRabbit round-2 (FINDING #284): the swallow branch must catch a runner whose
+# `|| true` sits inside a boolean list with trailing commands — `pnpm test || true &&
+# echo done` hides the swallowed runner behind the trailing `&& echo done`.
+for tw in 'pnpm test || true' 'set +e; pnpm test' 'node --test || true' 'rm -rf __tests__' 'rm -f src/foo.test.ts' 'git commit --no-verify -m wip' 'pnpm test || true && echo done'; do
+  tw_json="$(jq -cn --arg c "$tw" '{session_id:"fixture-test-weaken",tool_name:"Bash",tool_input:{command:$c}}')"
+  out="$(run_hook cc-pretooluse-guard.sh "$tw_json")"
+  assert_json_expr "guard denies test-weakening: $tw" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+done
+tw_ok="$(jq -cn '{session_id:"fixture-test-weaken-ok",tool_name:"Bash",tool_input:{command:"pnpm test"}}')"
+out="$(run_hook cc-pretooluse-guard.sh "$tw_ok")"
+assert_json_expr "guard allows a clean test run" "$out" '.continue == true'
+
+# Regression: the test-weakening guard must NOT fire on the bare POSIX `test`/`[`
+# conditional builtin or the literal word "test" — only on genuine test RUNNERS.
+# Previously `test -f x || true`, `grep test file || true`, etc. were hard-denied.
+# CodeRabbit round-1 additions: statement-scoped weakening must ALLOW a test that
+# runs normally in its own statement even when an UNRELATED earlier statement is
+# swallowed (`cleanup || true; pnpm test`) or errexit is restored before the test
+# (`set +e; cleanup; set -e; pnpm test`).
+# CodeRabbit round-2 (FINDING #284): errexit restored via a boolean-joined `set -e &&`
+# before the runner must ALLOW — `set +e; set -e && pnpm test` re-arms errexit before
+# the test executes.
+for tw_allow in 'test -f x || true' 'test -d dir || mkdir dir' 'echo test || true' 'rg test file || true' '[ -f x ] || true' 'pnpm build || true' 'cleanup || true; pnpm test' 'set +e; cleanup; set -e; pnpm test' 'set +e; set -e && pnpm test'; do
+  tw_allow_json="$(jq -cn --arg c "$tw_allow" '{session_id:"fixture-test-weaken-allow",tool_name:"Bash",tool_input:{command:$c}}')"
+  out="$(run_hook cc-pretooluse-guard.sh "$tw_allow_json")"
+  assert_json_expr "guard allows non-runner conditional: $tw_allow" "$out" '(.hookSpecificOutput.permissionDecision // "allow") != "deny"'
+done
 
 paused_prod_state="$TMPROOT/claude-guard-fixture-paused-prod-status.json"
 jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:false,planExecutionRequestedAt:"",lastPrompt:"did u read the handoff file?",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$paused_prod_state"
