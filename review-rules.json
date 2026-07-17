@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "rulesetId": "eternal-stack-default",
   "version": 1,
-  "enabledRuleIds": ["no-expect-any", "no-expect-any-tsx", "no-focused-tests"],
+  "enabledRuleIds": ["no-expect-any", "no-expect-any-tsx", "no-focused-tests", "no-skipped-test", "no-empty-catch", "nextjs-no-redirect-in-try-catch"],
   "rules": [
     {
       "ruleId": "no-expect-any",
@@ -43,6 +43,48 @@
       "astGrep": null,
       "literal": null,
       "regex": { "pattern": "\\.\\s*only\\s*\\(", "flags": "" }
+    },
+    {
+      "ruleId": "no-skipped-test",
+      "engine": "regex",
+      "mode": "block",
+      "scopeGlobs": ["**/*.test.ts", "**/*.test.tsx", "**/*.test.js", "**/*.spec.ts", "**/*.spec.tsx", "**/*.spec.js"],
+      "lensId": "test_delta",
+      "findingKind": "test",
+      "category": "skipped-test",
+      "severity": "high",
+      "sourcePrCount": 3,
+      "astGrep": null,
+      "literal": null,
+      "regex": { "pattern": "(?:\\b(?:describe|it|test)\\s*\\.\\s*skip|\\b(?:xit|xdescribe|xtest))\\s*\\(", "flags": "" }
+    },
+    {
+      "ruleId": "no-empty-catch",
+      "engine": "regex",
+      "mode": "block",
+      "scopeGlobs": ["src/**/*.ts", "src/**/*.tsx", "apps/**/*.ts", "apps/**/*.tsx", "packages/**/*.ts", "packages/**/*.tsx"],
+      "lensId": "correctness_state",
+      "findingKind": "bug",
+      "category": "silent-fallback",
+      "severity": "high",
+      "sourcePrCount": 3,
+      "astGrep": null,
+      "literal": null,
+      "regex": { "pattern": "catch\\s*\\([^)]*\\)\\s*\\{\\s*\\}", "flags": "" }
+    },
+    {
+      "ruleId": "nextjs-no-redirect-in-try-catch",
+      "engine": "regex",
+      "mode": "block",
+      "scopeGlobs": ["app/**/*.ts", "app/**/*.tsx", "src/**/*.ts", "src/**/*.tsx", "apps/**/*.ts", "apps/**/*.tsx"],
+      "lensId": "correctness_state",
+      "findingKind": "bug",
+      "category": "nextjs-redirect-swallowed",
+      "severity": "high",
+      "sourcePrCount": 3,
+      "astGrep": null,
+      "literal": null,
+      "regex": { "pattern": "try\\s*\\{[^{}]*\\b(?:redirect|notFound)\\s*\\(", "flags": "" }
     }
   ]
 }

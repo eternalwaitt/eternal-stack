@@ -71,3 +71,46 @@ This reusable skill is the canonical browser QA workflow; `agents/etrnl-browser-
 - Browser QA report path
 - Findings, ordered by severity
 - Verification command and result
+
+## Common Rationalizations
+
+- "It renders fine, screenshots are busywork." -> A screenshot with its SHA256 is the only artifact that proves the route loaded at that viewport; capture `page.screenshot()` and hash it, or the row stays unproven.
+- "The console warnings are just noise from a library." -> Every `consoleErrors` and `pageErrors` entry gets recorded with its count; triage each one in the artifact, do not zero out the field to make the row pass.
+- "I checked desktop, mobile is basically the same layout." -> Build one matrix row per route x viewport; a collapsed nav, clipped touch target, or overflow that only appears at mobile width is a finding that the desktop row cannot show.
+- "No browser tooling is installed, so browser QA is manual." -> Resolve tooling in order (`playwright-cli`, `browser-use`, repo Playwright command) or emit the exact unavailable-tool blocker; do not mark browser QA outstanding.
+- "A 404 or 500 network call still rendered the page, ship it." -> Record every failed request in `failedRequests`; a broken API call behind a rendered shell is a defect, not a passed route.
+
+## Red Flags
+
+- A matrix row marked `passed` while its `consoleErrors` count is above zero or `pageErrors` is non-empty (passed rows require empty `pageErrors`).
+- A `status complete` report with a screenshot whose `screenshotSha256` does not match the on-disk file, a zero-byte screenshot, or a screenshot path outside the artifact root.
+- Fewer matrix rows than `routes x viewports`, so a route or viewport combination was silently dropped from coverage.
+- A failed row that omits `trace`, `traceSha256`, `video`, or `videoSha256` when the active tool produced those artifacts, leaving the failure without replay evidence.
+- A `failedRequests` entry for a 4xx or 5xx network response on a route the row still reports as `passed`.
+- An accessibility gap left unrecorded: an interactive element with no keyboard focus reachability, a form control with no label, or a touch target below the minimum hit area.
+- A stale `capturedAt` timestamp reused across rows, or missing provenance fields (`tool`, `targetUrl`, `command`, `capturedAt`) on a `status complete` artifact.
+
+## When NOT to use
+
+- Injection, auth bypass, tenant-isolation leaks, secrets exposure, and header hardening belong to `etrnl-audit-security`.
+- Diff-scoped correctness bugs, type errors, and spec conformance belong to `etrnl-quality-reviewer` and `etrnl-spec-reviewer`.
+- Route latency budgets, bundle byte deltas, N+1 queries, and cold/warm timing belong to `etrnl-audit-performance`.
+- Whole-codebase inventory, dead code, repo rot, and coverage-map gaps belong to `etrnl-audit-code`.
+
+## Verification
+
+Run counts every item. Any FAIL marks the run incomplete:
+
+- PASS/FAIL: One matrix row exists per `route x viewport` in the target set, with no dropped combination.
+- PASS/FAIL: Every row carries `route`, `viewport`, `status`, `consoleErrors` count, and `failedRequests`; passed rows keep `pageErrors` empty.
+- PASS/FAIL: Each screenshot exists under the artifact root, is non-empty, and its `screenshotSha256` matches the `hash` output for that file.
+- PASS/FAIL: Failed rows attach `trace`, `traceSha256`, `video`, and `videoSha256` when the active tool produced them, plus `pageErrors`.
+- PASS/FAIL: A `status complete` artifact carries provenance (`tool`, `targetUrl`, `command`, `capturedAt`) and fresh capture timestamps, or names the exact unavailable-tool blocker.
+
+Red-capable gate — this command exits non-zero when the report is malformed, incomplete, or has a screenshot hash or artifact-root mismatch:
+
+```bash
+node ~/.claude/scripts/browser-qa-report.mjs validate <report-path>
+```
+
+Expected exit code: `0` when the report validates. Exit `1` names each malformed or missing evidence field and marks the run incomplete; exit `2` reports a missing file path.

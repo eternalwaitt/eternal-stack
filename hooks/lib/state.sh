@@ -113,6 +113,7 @@ cc_state_default() {
     evidenceDisciplineViolations: [],
     evidenceViolationFingerprints: {},
     warningFingerprints: {},
+    contractVerdicts: {},
     verificationRuns: [],
     qualityRuns: [],
     testRuns: [],
@@ -199,6 +200,7 @@ def num(v): if (v | type) == "number" then v else 0 end;
   evidenceDisciplineViolations: arr(.evidenceDisciplineViolations),
   evidenceViolationFingerprints: obj(.evidenceViolationFingerprints),
   warningFingerprints: obj(.warningFingerprints),
+  contractVerdicts: obj(.contractVerdicts),
   verificationRuns: arr(.verificationRuns),
   qualityRuns: arr(.qualityRuns),
   testRuns: arr(.testRuns),
@@ -501,6 +503,23 @@ cc_state_record_warning_fingerprint() {
 cc_state_has_warning_fingerprint() {
   local fingerprint="$1"
   jq -e --arg fp "$fingerprint" '.warningFingerprints[$fp] != null' "$(cc_state_file)" >/dev/null 2>&1
+}
+
+# Per-reviewer agent-output-contract verdict, keyed by "<taskId>:<agentId>". The
+# key is overwritten each run so a fixed re-run clears an earlier violation (no
+# sticky false-block). The Stop backstop blocks while any key is still "violation".
+cc_state_record_contract_verdict() {
+  local key="$1"
+  local verdict="$2"
+  local now
+  now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  cc_state_update --critical --arg key "$key" --arg verdict "$verdict" --arg now "$now" \
+    ".contractVerdicts[\$key] = {verdict: \$verdict, at: \$now}"
+}
+
+cc_state_has_contract_violation() {
+  jq -e '[(.contractVerdicts // {})[] | select(.verdict == "violation")] | length > 0' \
+    "$(cc_state_file)" >/dev/null 2>&1
 }
 
 cc_state_record_prod_approval_marker() {

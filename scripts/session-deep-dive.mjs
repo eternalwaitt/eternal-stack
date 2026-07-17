@@ -1,8 +1,10 @@
 #!/usr/bin/env node
+import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { argValue } from "./lib/cli-args.mjs";
+import { gitSubprocessLimits } from "./lib/env-utils.mjs";
 
 const args = process.argv.slice(2);
 const jsonMode = args.includes("--json");
@@ -280,18 +282,209 @@ function assertOutputSafe(report) {
   }
 }
 
-try {
-  if (args.includes("--help")) usage();
-  const report = summarize();
-  if (jsonMode) console.log(JSON.stringify(report, null, 2));
-  else {
-    console.log(`session-deep-dive sessions=${report.totals.sessionCount} codeEligible=${report.totals.codeEligibleSessions}`);
-    console.log(`tools codegraph=${report.totals.codegraphCalls} beads=${report.totals.beadsCalls} hindsight=${report.totals.hindsightSignals}`);
-    console.log(`stopBlocks=${report.totals.stopBlocks} textOnlyRetries=${report.immediateFollowUp.textOnly}`);
+// --- `why <file>:<line>` provenance lookup ---------------------------------
+// This block is gated strictly on args[0] === "why". When the leading token is
+// anything else the module falls through to the original flag-only path below,
+// byte-for-byte unchanged, so doctor and existing callers are unaffected.
+const PROVENANCE_REF = "refs/notes/etrnl-provenance";
+const WHY_GIT_LIMITS = gitSubprocessLimits({ timeoutMs: 10_000, maxBufferBytes: 4 * 1024 * 1024 });
+
+function whyGit(gitArgs, cwd) {
+  const result = spawnSync("git", gitArgs, {
+    cwd,
+    encoding: "utf8",
+    timeout: WHY_GIT_LIMITS.timeout,
+    maxBuffer: WHY_GIT_LIMITS.maxBuffer,
+  });
+  return {
+    ok: result.status === 0 && !result.error,
+    missing: Boolean(result.error && result.error.code === "ENOENT"),
+    stdout: String(result.stdout || ""),
+    stderr: String(result.stderr || result.error?.message || "").trim(),
+  };
+}
+
+// Parse `<file>:<line>` from the last positional token, tolerating Windows drive
+// letters (C:\path:12) by splitting on the final colon only.
+function parseFileLine(token) {
+  const raw = String(token || "").trim();
+  const idx = raw.lastIndexOf(":");
+  if (idx <= 0 || idx === raw.length - 1) return null;
+  const file = raw.slice(0, idx);
+  const lineText = raw.slice(idx + 1);
+  if (!/^\d+$/.test(lineText)) return null;
+  return { file, line: Number.parseInt(lineText, 10) };
+}
+
+// Normalize a queried path to the repo-relative form the note stores.
+function relForRepo(file, repoRoot, cwd) {
+  const resolved = path.isAbsolute(file) ? file : path.resolve(cwd, file);
+  const relative = path.relative(repoRoot, resolved);
+  return !relative.startsWith("..") && !path.isAbsolute(relative) ? relative : file;
+}
+
+// A note may record a path as repo-relative or absolute. Exact-path matches are
+// authoritative; expose them separately from the basename fallback so callers
+// can prefer an exact hit globally (across all notes) before ever accepting a
+// looser basename match on a newer note.
+function noteExactMatch(note, queryRel) {
+  const files = Array.isArray(note.files) ? note.files : [];
+  return files.find((row) => row.path === queryRel) || null;
+}
+
+// Basename fallback used only when no exact path exists anywhere. Accept it ONLY
+// when it is unambiguous within this note (exactly one recorded file shares the
+// basename); two different files sharing a basename (packages/a/index.ts vs
+// packages/b/index.ts) must never cross-match to another file's provenance.
+function noteBasenameMatch(note, queryBase) {
+  const files = Array.isArray(note.files) ? note.files : [];
+  const hits = files.filter((row) => path.basename(String(row.path || "")) === queryBase);
+  return hits.length === 1 ? hits[0] : null;
+}
+
+function runWhy(whyArgs) {
+  const positional = whyArgs.find((token) => !token.startsWith("-"));
+  const parsed = parseFileLine(positional);
+  if (!parsed) {
+    console.error("usage: session-deep-dive.mjs why <file>:<line> [--ref refs/notes/etrnl-provenance] [--json]");
+    process.exit(2);
   }
-} catch (error) {
-  const detail = redactPrivate(error instanceof Error ? error.message : String(error));
-  if (jsonMode) console.log(JSON.stringify({ ok: false, error: detail }, null, 2));
-  else console.error(`session-deep-dive error: ${detail}`);
-  process.exit(2);
+  const wantJson = whyArgs.includes("--json");
+  const ref = argValue(whyArgs, "--ref", PROVENANCE_REF);
+  const cwd = path.resolve(argValue(whyArgs, "--cwd", process.cwd()));
+
+  const rootProbe = whyGit(["rev-parse", "--show-toplevel"], cwd);
+  if (rootProbe.missing) {
+    finishWhy(wantJson, { ok: false, error: "git is not installed or not on PATH" }, "why: git is unavailable", 3);
+    return;
+  }
+  if (!rootProbe.ok || !rootProbe.stdout.trim()) {
+    finishWhy(wantJson, { ok: false, error: "not inside a git work tree" }, "why: not inside a git repository", 3);
+    return;
+  }
+  const repoRoot = rootProbe.stdout.trim();
+  const queryRel = relForRepo(parsed.file, repoRoot, cwd);
+  const queryBase = path.basename(parsed.file);
+
+  // Full commit history (newest first) to order note-bearing commits topologically.
+  const listed = whyGit(["log", "--no-color", "--format=%H"], repoRoot);
+  const commits = whyGit(["notes", `--ref=${ref}`, "list"], repoRoot);
+  if (commits.missing) {
+    finishWhy(wantJson, { ok: false, error: "git is unavailable" }, "why: git is unavailable", 3);
+    return;
+  }
+  // A non-ENOENT git failure here (e.g. a corrupt notes ref, exit 128) is a real
+  // error — do NOT collapse it into the benign "no notes anchored" case, which
+  // would silently discard the failure and report found:false. The benign case
+  // is `git notes list` succeeding on a missing/empty ref (status 0, no output).
+  if (!commits.ok) {
+    const detail = commits.stderr || "git notes list failed";
+    finishWhy(wantJson, { ok: false, error: detail }, `why: ${detail}`, 3);
+    return;
+  }
+  const noteCommits = commits.stdout.split(/\r?\n/).map((row) => row.trim().split(/\s+/)[1]).filter(Boolean);
+  if (noteCommits.length === 0) {
+    const message = `no provenance notes found on ${ref}; run scripts/provenance.mjs anchor first`;
+    finishWhy(wantJson, { ok: true, found: false, ref, file: queryRel, line: parsed.line, reason: message }, `why: ${message}`, 0);
+    return;
+  }
+
+  // Walk commits in reverse-chronological order so newest provenance wins. Parse
+  // each note-bearing commit once, then resolve in two globally-ordered passes:
+  // (1) prefer an EXACT repo-relative path match on the newest note that has one,
+  // (2) only if no exact match exists ANYWHERE, accept an unambiguous basename
+  // match on the newest note. This prevents a basename hit on a newer note from
+  // masking an exact-path hit on an older note, and prevents two files that share
+  // a basename from cross-matching to each other's provenance (fail-closed).
+  const ordered = orderByHistory(repoRoot, noteCommits, ref, listed);
+  const notes = [];
+  for (const commit of ordered) {
+    const show = whyGit(["notes", `--ref=${ref}`, "show", commit], repoRoot);
+    if (!show.ok) continue;
+    try {
+      notes.push({ commit, note: JSON.parse(show.stdout) });
+    } catch {
+      // Skip unparseable notes rather than surfacing a note the caller can't use.
+    }
+  }
+
+  const resolve = (matcher) => {
+    for (const { commit, note } of notes) {
+      const match = matcher(note);
+      if (match) return { commit, note, match };
+    }
+    return null;
+  };
+  const hit =
+    resolve((note) => noteExactMatch(note, queryRel)) ||
+    resolve((note) => noteBasenameMatch(note, queryBase));
+
+  if (hit) {
+    const summary = hit.note.summary || {};
+    const answer = {
+      ok: true,
+      found: true,
+      ref,
+      file: queryRel,
+      line: parsed.line,
+      commit: hit.commit,
+      runId: summary.runId || "",
+      reason: summary.reason || "",
+      startedAt: summary.startedAt || "",
+      updatedAt: summary.updatedAt || "",
+      sha256: hit.match.sha256 || null,
+      kind: hit.match.kind || "",
+    };
+    if (wantJson) console.log(JSON.stringify(answer, null, 2));
+    else {
+      console.log(`why ${queryRel}:${parsed.line}`);
+      console.log(`last touched by commit ${hit.commit.slice(0, 12)} run=${answer.runId || "<unknown>"}`);
+      if (answer.reason) console.log(`reason: ${answer.reason}`);
+      console.log(`recorded sha256=${answer.sha256 || "<none>"} kind=${answer.kind || "<none>"}`);
+      if (answer.updatedAt) console.log(`ledger updatedAt=${answer.updatedAt}`);
+    }
+    return;
+  }
+
+  const message = `no provenance note records ${queryRel}`;
+  finishWhy(wantJson, { ok: true, found: false, ref, file: queryRel, line: parsed.line, reason: message }, `why: ${message}`, 0);
+}
+
+// Order note-bearing commits newest-first. Prefer git-history order (topological
+// via `git log`); fall back to the raw notes-list order when history is empty.
+function orderByHistory(repoRoot, noteCommits, ref, listed) {
+  const set = new Set(noteCommits);
+  const history = listed.ok
+    ? listed.stdout.split(/\r?\n/).map((row) => row.trim()).filter((row) => set.has(row))
+    : [];
+  if (history.length === set.size) return history;
+  const seen = new Set(history);
+  return [...history, ...noteCommits.filter((commit) => !seen.has(commit))];
+}
+
+function finishWhy(wantJson, jsonPayload, humanText, exitCode) {
+  if (wantJson) console.log(JSON.stringify(jsonPayload, null, 2));
+  else if (exitCode === 0) console.log(humanText);
+  else console.error(humanText);
+  process.exit(exitCode);
+}
+
+if (args[0] === "why") {
+  runWhy(args.slice(1));
+} else {
+  try {
+    if (args.includes("--help")) usage();
+    const report = summarize();
+    if (jsonMode) console.log(JSON.stringify(report, null, 2));
+    else {
+      console.log(`session-deep-dive sessions=${report.totals.sessionCount} codeEligible=${report.totals.codeEligibleSessions}`);
+      console.log(`tools codegraph=${report.totals.codegraphCalls} beads=${report.totals.beadsCalls} hindsight=${report.totals.hindsightSignals}`);
+      console.log(`stopBlocks=${report.totals.stopBlocks} textOnlyRetries=${report.immediateFollowUp.textOnly}`);
+    }
+  } catch (error) {
+    const detail = redactPrivate(error instanceof Error ? error.message : String(error));
+    if (jsonMode) console.log(JSON.stringify({ ok: false, error: detail }, null, 2));
+    else console.error(`session-deep-dive error: ${detail}`);
+    process.exit(2);
+  }
 }

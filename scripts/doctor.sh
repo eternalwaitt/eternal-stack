@@ -673,10 +673,29 @@ else
 fi
 optional_command gemini "optional Gemini escalation available" "optional Gemini escalation not installed"
 optional_command playwright-cli "optional browser QA tool available" "optional browser QA tool not installed"
+optional_command react-doctor "optional React/Next linter (react-doctor) available" "optional React/Next linter (react-doctor) not installed"
 if [[ -x "$HOME/.claude/skills/gstack/bin/design" || -x "$HOME/.agents/skills/gstack/bin/design" || -x "$HOME/.gstack/repos/gstack/bin/design" ]]; then
   ok "optional design/mock tool available"
 else
   ok "optional design/mock tool not installed"
+fi
+
+# P8 index-first discovery: when the repo is codegraph-indexed, etrnl-scout and
+# etrnl-investigator query the index before any grep/glob crawl. Advisory only.
+if [[ -d "$ROOT/.codegraph" ]]; then
+  ok "codegraph index present (index-first discovery active for scout/investigator)"
+else
+  ok "no codegraph index (index-first discovery not applicable)"
+fi
+
+# P7 measured learning loop: per-agent subagent output-token accounting. Advisory
+# only — token-savings exits 0 in the zero-record state, so this never fails doctor.
+if token_report="$(node "$ROOT/scripts/token-savings.mjs" report --json 2>/dev/null)"; then
+  token_total="$(printf '%s' "$token_report" | jq -r '.totals.totalOutputTokens // 0' 2>/dev/null || echo 0)"
+  token_negatives="$(printf '%s' "$token_report" | jq -r '.totals.netNegativeRecords // 0' 2>/dev/null || echo 0)"
+  ok "subagent token accounting: ${token_total} scored output tokens, ${token_negatives} net-negative record(s)"
+else
+  ok "subagent token accounting: report unavailable (no ledger records yet)"
 fi
 
 if [[ -d "$ROOT/rules/etrnl" ]]; then

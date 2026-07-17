@@ -451,6 +451,18 @@ if [[ "$prompt_lower" =~ run[[:space:]]+tests|test[[:space:]]+the[[:space:]]+rep
   record_skill "etrnl-dev-test"
   notes+=("Use etrnl-dev-test for project preflight and focused failure remediation.")
 fi
+if [[ "$prompt_lower" =~ deprecat|sunset[[:space:]]+.*(feature|api|endpoint|module|code)|retire[[:space:]]+.*(feature|api|endpoint|module)|remove[[:space:]]+.*(dead|legacy|unused|old)[[:space:]]+(code|module|feature)|delete[[:space:]]+.*(dead|legacy|unused)[[:space:]]+code|migrate[[:space:]]+.*callers[[:space:]]+.*(remov|delet) ]]; then
+  record_skill "etrnl-dev-deprecate"
+  notes+=("Use etrnl-dev-deprecate: audit every caller first, remove dead code rather than wrap it, ship the migration path before removal, set a removal deadline and owner, and never delete a tenant/Money/auth/validation/a11y/data-loss guard or its tests.")
+fi
+if [[ "$prompt_lower" =~ staged[[:space:]-]+rollout|ship[[:space:]]+.*(to[[:space:]]+users|to[[:space:]]+production|feature|change)|launch[[:space:]]+.*(to[[:space:]]+production|to[[:space:]]+users)|cut[[:space:]-]?over[[:space:]]+.*(release|traffic|users)|go[[:space:]/-]?no[[:space:]/-]?go|rollback[[:space:]]+readiness|promote[[:space:]]+.*(traffic|by[[:space:]]+signal) ]]; then
+  record_skill "etrnl-ops-ship"
+  notes+=("Use etrnl-ops-ship: stage the rollout with a promotion signal per stage, arm and rehearse a named rollback with a trigger threshold, instrument logs/metrics/alerts/traces BEFORE ship, and record a named go/no-go with etrnl-audit-production green.")
+fi
+if [[ "$prompt_lower" =~ which[[:space:]]+(etrnl[[:space:]-]?)?(skill|agent)|what[[:space:]]+(etrnl[[:space:]-]?)?skill[[:space:]]+should|route[[:space:]]+(this|my)[[:space:]]+(request|task|prompt)|which[[:space:]]+(skill|agent)[[:space:]]+should[[:space:]]+i[[:space:]]+use|pick[[:space:]]+the[[:space:]]+right[[:space:]]+(skill|agent)|help[[:space:]]+me[[:space:]]+(pick|choose)[[:space:]]+.*(skill|agent) ]]; then
+  record_skill "etrnl-router"
+  notes+=("Use etrnl-router: walk the decision tree over dev/audit/ops families and reviewer/worker agents, then invoke the single best-fit skill or agent under the always-on operating-behaviors preamble.")
+fi
 # Backend patterns orchestrator: route design/build prompts to one skill; it loads
 # only the references/ modules the task needs (orpc, api, data, prisma, sql-optimization,
 # security, resilience, observability, architecture). Do not route backend audits here.

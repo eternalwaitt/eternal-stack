@@ -86,6 +86,93 @@
         "pattern": "\\.\\s*only\\s*\\(",
         "flags": ""
       }
+    },
+    {
+      "ruleId": "no-skipped-test",
+      "engine": "regex",
+      "scopeGlobs": [
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "**/*.test.js",
+        "**/*.spec.ts",
+        "**/*.spec.tsx",
+        "**/*.spec.js"
+      ],
+      "lensId": "test_delta",
+      "findingKind": "test",
+      "category": "skipped-test",
+      "rationaleHash": "7c6b383eed0cbd67551825462d1393efb4811b204b6b61341ce4a90957e87120",
+      "sourcePrCount": 3,
+      "severity": "high",
+      "ownerRole": "repository-owner",
+      "version": 1,
+      "rollback": {
+        "disableRuleId": "no-skipped-test"
+      },
+      "astGrep": null,
+      "literal": null,
+      "regex": {
+        "pattern": "(?:\\b(?:describe|it|test)\\s*\\.\\s*skip|\\b(?:xit|xdescribe|xtest))\\s*\\(",
+        "flags": ""
+      }
+    },
+    {
+      "ruleId": "no-empty-catch",
+      "engine": "regex",
+      "scopeGlobs": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "apps/**/*.ts",
+        "apps/**/*.tsx",
+        "packages/**/*.ts",
+        "packages/**/*.tsx"
+      ],
+      "lensId": "correctness_state",
+      "findingKind": "bug",
+      "category": "silent-fallback",
+      "rationaleHash": "6ca740816be291af3a2d20173ed7e494595a388d6658767baaaccc795ad2b273",
+      "sourcePrCount": 3,
+      "severity": "high",
+      "ownerRole": "repository-owner",
+      "version": 1,
+      "rollback": {
+        "disableRuleId": "no-empty-catch"
+      },
+      "astGrep": null,
+      "literal": null,
+      "regex": {
+        "pattern": "catch\\s*\\([^)]*\\)\\s*\\{\\s*\\}",
+        "flags": ""
+      }
+    },
+    {
+      "ruleId": "nextjs-no-redirect-in-try-catch",
+      "engine": "regex",
+      "scopeGlobs": [
+        "app/**/*.ts",
+        "app/**/*.tsx",
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "apps/**/*.ts",
+        "apps/**/*.tsx"
+      ],
+      "lensId": "correctness_state",
+      "findingKind": "bug",
+      "category": "nextjs-redirect-swallowed",
+      "rationaleHash": "f4fb277aaff982f30f70707a8f60850348c3ee1b2ce04659430347f09a1bf012",
+      "sourcePrCount": 3,
+      "severity": "high",
+      "ownerRole": "repository-owner",
+      "version": 1,
+      "rollback": {
+        "disableRuleId": "nextjs-no-redirect-in-try-catch"
+      },
+      "astGrep": null,
+      "literal": null,
+      "regex": {
+        "pattern": "try\\s*\\{[^{}]*\\b(?:redirect|notFound)\\s*\\(",
+        "flags": ""
+      }
     }
   ]
 }

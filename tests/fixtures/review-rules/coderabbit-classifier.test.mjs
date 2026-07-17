@@ -73,6 +73,9 @@ test("control type routes by kind", () => {
 test("template triggers match known mechanical classes", () => {
   assert.equal(matchTemplateRule("Avoid `as any` cast", "unsafe type escape"), "no-expect-any");
   assert.equal(matchTemplateRule("Remove it.only from the suite"), "no-focused-tests");
+  assert.equal(matchTemplateRule("Delete the it.skip skipped test"), "no-skipped-test");
+  assert.equal(matchTemplateRule("This empty catch swallows the error"), "no-empty-catch");
+  assert.equal(matchTemplateRule("redirect() inside try/catch is swallowed by catch"), "nextjs-no-redirect-in-try-catch");
   assert.equal(matchTemplateRule("General prose with no trigger"), null);
 });
 

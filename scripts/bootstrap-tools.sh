@@ -11,6 +11,7 @@ SKIP_PROJECT=0
 SKIP_CODEGRAPH=0
 SKIP_BEADS=0
 SKIP_HINDSIGHT=0
+SKIP_REACT_DOCTOR="${SKIP_REACT_DOCTOR:-0}"
 DRY_RUN=0
 CONFIRM_SKIPPED=64
 PROFILE="${ETRNL_STACK_PROFILE:-core}"
@@ -333,6 +334,43 @@ install_hindsight() {
     >"$claude_home/etrnl/full-stack-services.json"
 }
 
+install_react_doctor() {
+  # Optional, fail-open React/Next linter (millionco/react-doctor). Never fatal:
+  # a missing npm, a failed install, or an absent binary must not block install.
+  local npm_status
+  if [[ "$SKIP_REACT_DOCTOR" == "1" ]]; then
+    printf 'skipped: react-doctor (SKIP_REACT_DOCTOR=1)\n'
+    return 0
+  fi
+  if [[ "$PROFILE" != "full" ]]; then
+    return 0
+  fi
+  if [[ "$DRY_RUN" == "1" ]]; then
+    printf 'dry-run: would install/verify optional react-doctor globally with npm (fail-open)\n'
+    return 0
+  fi
+  if need_command react-doctor; then
+    printf 'ok: react-doctor available\n'
+    return 0
+  fi
+  if ! need_command npm; then
+    printf 'note: npm not found; skipping optional react-doctor install (fail-open)\n'
+    return 0
+  fi
+  npm_status=0
+  npm install -g react-doctor || npm_status=$?
+  if [[ "$npm_status" != "0" ]]; then
+    printf 'note: optional react-doctor npm install failed (exit %s); continuing (fail-open)\n' "$npm_status"
+    return 0
+  fi
+  if need_command react-doctor; then
+    printf 'ok: react-doctor installed\n'
+  else
+    printf 'note: react-doctor binary not found after npm install; continuing (fail-open)\n'
+  fi
+  return 0
+}
+
 bootstrap_project() {
   local project="$1"
   local lock acquired confirm_status lock_retries lock_sleep attempt
@@ -420,6 +458,7 @@ case "$MODE" in
       install_codegraph
       install_beads
       install_hindsight
+      install_react_doctor
     fi
     if [[ "$SKIP_PROJECT" != "1" && -n "$PROJECT" ]]; then
       bootstrap_project "$PROJECT"

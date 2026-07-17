@@ -16,12 +16,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - `scripts/changelog-scaffold.mjs` — changelog and version maintenance for any project the stack runs against. `detect` reports whether a project is release-managed; `scaffold` creates a Keep a Changelog `CHANGELOG.md` and seeds `VERSION` (from the latest `v` tag, else `0.1.0`) only when absent, never overwriting. Wired into `scripts/doctor.sh` syntax checks and `INSTALL_SCRIPTS`.
 - `scripts/diff-triviality.mjs` and a Stop-verifier triviality fast-path — a deterministic non-runtime diff classifier (documentation, asset, generated, vendor, metadata) driven by `schemas/review-classification-rules-v1.json`. `hooks/cc-stop-verifier.sh` uses it to skip the stale-verification, zero-verification, and second-pass-code-review gates when the whole changed set — the recorded edits unioned with the git working tree — is provably non-runtime, so pure docs/changelog work is not gated on a code review or a test run. Fail-safe: any source/schema/script/test/CI/migration/data-or-config/unclassified path — or a missing schema — keeps every gate in force. Covered by `tests/stop-verifier/diff-triviality.test.mjs` and two `tests/test-hooks.sh` integration cases (docs-only allowed; docs+source still gated).
 - `tests/run-node-tests.sh` — a portable `node --test` runner over `tests/**/*.test.mjs`, wired into `scripts/doctor.sh` heavy checks so the review-rules, SaaS-overlay, learning-loop, and changelog suites are gate-enforced rather than only runnable by hand.
+- `scripts/agent-output-contract.mjs` and `schemas/agent-contract-v1.json` — a hook-validated agent output-contract floor. The validator checks a subagent's `ETRNL_CONTRACT: v1` block (status enum, per-finding grammar, per-agent required keys) and exits 0/1/2 fail-closed; `hooks/cc-subagentstop-record.sh` enforces it on SubagentStop and `hooks/cc-stop-verifier.sh` backstops it on Stop.
+- Three deterministic review-rules guards (`no-skipped-test`, `no-empty-catch`, `nextjs-no-redirect-in-try-catch`) added to `review-rules.json` with a `templates/` mirror, command-classifier triggers, and matching YAGNI/test-decay review lenses.
+- `agents/etrnl-test-wiring-auditor.md` — a read-only agent that verifies tests are actually wired into the suite and run rather than silently skipped or orphaned.
+- New `etrnl-router`, `etrnl-dev-deprecate`, and `etrnl-ops-ship` skills for request routing, deprecation workflows, and ship orchestration.
+- `scripts/token-savings.mjs` — measures per-agent subagent output-token cost (excluding a ~10% holdout), flags net-negative agents, and emits a doctor summary line.
+- `scripts/provenance.mjs` — records commit-anchored provenance via git notes, surfaced through the `scripts/session-deep-dive.mjs` `why <file>:<line>` lookup that traces a line back to the decision that produced it.
+- `scripts/lib/reversible-compression.mjs` — a reversible context-compression helper used by the brainstorm and context-save extensions.
 
 ### Changed
 
 - `scripts/changelog-release-check.mjs` gains an `--active-dev` mode: it tolerates a populated `## Unreleased` and pre-first-release repos so day-to-day work is not gated on cutting a tagged release, while `--strict-unreleased` remains the release-commit gate. `scripts/doctor.sh` now runs the changelog gate in `--active-dev` mode.
 - `skills/etrnl-dev-autoplan/SKILL.md` gains a scope-freeze anti-drift step: restate the goal in one sentence, require every task group to trace to it, read a review backlog as a catalog rather than a mandate to build infrastructure, reject unrequested integrity/tamper/receipt scope, and commit each task group independently.
 - `skills/etrnl-dev-autoplan/references/coderabbit-preemption.md` — added the two mined checklist gaps (pagination/LIMIT bounds, session-pending UI) and the SaaS overlay pointer; provenance refreshed to the 2,310-finding corpus.
+- 10 agents lifted onto the `ETRNL_CONTRACT: v1` output floor, with `disallowedTools`/executor bounds tightened and a `cc_command_is_test_weakening` deny added to the pretool guard and reviewer routing.
+- `scripts/skill-contract-check.mjs` now enforces the four house-style sections and the 500-line ceiling; the seven `etrnl-audit-*` skills were retrofitted onto those sections.
+- `scripts/review-learn.mjs` gained a precision gate before a class is promoted to a block-mode guard, and `scripts/doctor.sh` gained advisory summary lines for the new agent-contract and token-savings checks.
+- `agents/etrnl-scout.md` and `agents/etrnl-investigator.md` now discover index-first (CodeGraph before grep), and `skills/etrnl-dev-debug` became red-capable (able to reproduce a failing state before proposing a fix).
+- `skills/etrnl-dev-brainstorm` and the context-save workflow gained reversible-compression extensions via `scripts/lib/reversible-compression.mjs`.
 
 ### Fixed
 

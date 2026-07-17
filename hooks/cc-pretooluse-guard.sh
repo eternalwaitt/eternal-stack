@@ -632,6 +632,9 @@ handle_bash() {
   if [[ "$cmd" =~ $readiness_help_probe_re ]]; then
     deny "Do not probe plan-readiness-check.mjs with --help during execute startup. Run node ~/.claude/scripts/plan-readiness-check.mjs <plan-path> directly; if it fails, report or repair the concrete plan-readiness blocker."
   fi
+  if cc_command_is_test_weakening "$cmd"; then
+    deny "Test-weakening command blocked. Do not neutralize a red gate: no '|| true' / '|| :' on a test command, no 'set +e' around tests, no deleting *.test/*.spec/__tests__ files, and no 'git commit/push --no-verify'. Fix the failing test or the code, or state the exact technical blocker."
+  fi
 
   local success_count
   success_count="$(cc_state_count_successful_command "$cmd")"

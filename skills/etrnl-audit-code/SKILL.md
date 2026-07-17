@@ -103,6 +103,8 @@ For JS/TS repos, standardize on:
 - OpenGrep/Semgrep/CodeQL only where configured and useful.
 - Serena, Repomix, or Code2Prompt for AI context and symbol-aware navigation.
 
+Fail-open React/Next pass: when the changed set includes React/Next files (`.tsx`/`.jsx`, or `app/`/`src/` under Next), run `npx --no-install react-doctor --diff` (use `react-doctor --diff` when the binary is on PATH). Run it diff-only so legacy code produces no noise, and fold its findings into the ledger. This pass is fail-open: when react-doctor is not installed, record it as an unavailable check and continue the audit. Never block the audit on react-doctor's absence.
+
 ## Output
 
 For `snapshot` and `no-skips`, return:
@@ -113,3 +115,55 @@ For `snapshot` and `no-skips`, return:
 - findings by status;
 - unresolved blockers;
 - final gate status.
+
+## Common Rationalizations
+
+| Excuse | Rebuttal |
+| --- | --- |
+| "The lint pass was green, so the codebase is healthy." | Green lint proves style, not coverage. Run the inventory and disposition every tracked file before you claim health. |
+| "This directory is obviously dead, skip inventorying it." | Inventory it and mark it `accepted-risk` or delete it with evidence. Unlisted files are silent gaps, not exclusions. |
+| "Knip flagged 40 unused exports; too many to triage now." | Triage all 40 in the ledger. Every finding gets `fixed`, `false-positive`, `accepted-risk`, or `blocked` before done. |
+| "I only touched three files, so audit only those." | That is `pr-gate`, not whole-repo health. Whole-codebase health inventories every tracked file, not the diff. |
+| "The dead-code tool crashed on this repo, move on." | A tool failure blocks completion or gets an explicit accepted-risk disposition. Do not drop it silently. |
+
+## Red Flags
+
+- A tracked file returned by `code-health-inventory.mjs` that has no ledger row and no exclusion reason (unaccounted file).
+- A findings-ledger row whose Status is empty, `later`, `TODO`, or `follow-up` (non-terminal disposition banned by the no-skips contract).
+- An `accepted-risk` ledger row with no named owner or risk-acceptance evidence in the Evidence column.
+- A completion claim where `tests/test-hooks.sh` or `scripts/doctor.sh` ran only against changed files, not the full repo gate.
+- An external tool (Knip, jscpd, dependency-cruiser, Semgrep) run without the inventory exclusion set, so vendor and generated paths inflate finding counts.
+- A "docs health" or "dead code" verdict sourced from Fallow alone, treated as canonical instead of trial evidence.
+
+## When NOT to use
+
+- Deep security-vulnerability hunting on auth, tenancy, or payment surfaces: hand off to etrnl-audit-security.
+- Reviewing a single pull request or diff for correctness before merge: use etrnl-quality-reviewer.
+- Documentation-only health passes (TSDoc, README, ADR freshness) as the primary goal: use etrnl-audit-docs.
+- Runtime latency, bundle size, or query-plan profiling: use etrnl-audit-performance.
+
+## Verification
+
+PASS/FAIL checklist (any FAIL marks the run incomplete):
+
+- [ ] Inventory ran and every tracked file lands in the coverage map.
+- [ ] Every excluded path carries a reason.
+- [ ] Every findings-ledger row holds a terminal status (`fixed`, `false-positive`, `accepted-risk`, or `blocked`).
+- [ ] Every tool failure blocks completion or holds an explicit accepted-risk disposition.
+- [ ] Final verification reran the full repo gate, not changed-files-only.
+
+Red-capable gate (fails when the repo cannot be fully inventoried):
+
+```bash
+node scripts/code-health-inventory.mjs --json --quiet
+```
+
+Exit code 0 means every tracked file was classified into the coverage map. A non-zero exit (git failure, unknown option, or unreadable root) fails the inventory step and blocks a health verdict.
+
+No-skips ledger gate (fails when any finding carries a non-terminal disposition):
+
+```bash
+printf '%s' "$CODE_HEALTH_STATE_JSON" | node scripts/code-health-ledger-check.mjs
+```
+
+Empty stdout means the ledger passed. Any status token on stdout (`open-findings`, `open-action-items`, `accepted-risk-missing-owner`, `missing-inventory`, `missing-coverage-map`) names the exact defect and fails the run. A non-zero exit code (2) means the input JSON was malformed and also fails the run.

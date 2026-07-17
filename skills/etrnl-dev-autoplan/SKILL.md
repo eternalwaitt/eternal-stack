@@ -82,6 +82,8 @@ Run the full review gauntlet before finalizing any non-trivial plan. Planning, a
    - Challenge the most likely false assumption, hidden coupling, verification gaps, and shareable-repo leakage.
 6. Outside voices:
    - Use `etrnl-scout`, `etrnl-adversary`, `etrnl-design-reviewer`, and `etrnl-dx-reviewer` as read-only subagent candidates when scope is large enough.
+   - Load `references/reviewer-routing.md` to assign each reviewer agent its disjoint gate; never route two agents to the same gate.
+   - Load `references/reversible-compression.md` for every read-only subagent packet so each agent writes full evidence to a content-addressed artifact and returns only the receipt.
    - If Codex, Gemini, Octopus, gstack design, or GPT image/mock tooling is installed, mark it as an applicable escalation path; report missing tools instead of silently skipping them.
 7. Specialist convergence:
    - Run or explicitly disposition reuse, code-simplifier, code-review-excellence, advanced TypeScript, and domain-specific companion lanes.

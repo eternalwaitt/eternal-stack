@@ -38,3 +38,44 @@ Use this mode when the user asks to harden tooling, hooks, CI, PR loops, or the 
 ## Output
 
 Return coverage counts, findings by check id and severity, clean rows, skipped rows, not-applicable rows, source-limited blockers, command parity evidence, artifact path or blocker, and validation result.
+
+## Common Rationalizations
+
+- "Lockfile diff is noise from install order." → Regenerate the lockfile from the committed catalog and diff again; a persistent drift means a manifest pins a version the catalog does not carry. Record the offending package.
+- "The bootstrap script still runs on my machine." → Run `scripts/bootstrap-tools.sh` in a clean checkout and confirm every referenced tool resolves; a green local shell hides a missing `command -v` guard.
+- "package.json and the catalog agree, so versions are fine." → Diff every workspace manifest against the single catalog source, not one manifest; a duplicate pin in a second `package.json` bypasses the catalog.
+- "Doctor passed last release, tooling is unchanged." → Rerun `scripts/doctor.sh` on the current tree; a renamed or deleted script breaks the `report_command` invocation that references it by path.
+- "CI names match the docs I read." → Verify each documented command string against the real script name and CI job id; a doc that trails a renamed npm script sends contributors to a dead command.
+
+## Red Flags
+
+- A dependency version pinned directly in a workspace `package.json` that the catalog source (`pnpm-workspace.yaml` catalog block) also declares — the pin overrides the catalog and drifts silently.
+- A lockfile whose resolved version for a package differs from the catalog-declared version, proving the lockfile was regenerated against an off-catalog manifest.
+- A `report_command` or npm script that invokes a script path (`scripts/*.mjs`, `scripts/*.sh`) that no longer exists on disk — a rename left a dangling reference.
+- A documented command in `docs/` or `README.md` whose string does not match any real script name, CI job id, or npm script key.
+- A tool referenced in `scripts/bootstrap-tools.sh` with no `command -v` presence guard, so a missing binary fails silently instead of erroring.
+- A gate script that exits 0 on a defect it names (no `process.exit(1)` / `STATUS=1` on the failure branch), making the check unable to go red.
+
+## When NOT to use
+
+- Runtime dependency vulnerabilities, CVE triage, or supply-chain trust of a package: route to etrnl-audit-security.
+- Application-code correctness, function length, and typed-boundary review inside changed source: route to etrnl-quality-reviewer.
+- Documentation freshness, TSDoc coverage, and README/ADR drift as a whole: route to etrnl-audit-docs.
+- Production readiness, deploy config, and release-gate posture: route to etrnl-audit-production.
+
+## Verification
+
+PASS/FAIL checklist (any FAIL means the run is incomplete):
+
+- [ ] Every workspace manifest version reconciles against the single catalog source; zero off-catalog pins.
+- [ ] Lockfile regenerates with no diff against the committed catalog.
+- [ ] Every referenced script path (`report_command`, npm scripts, docs) resolves to an existing file.
+- [ ] `scripts/bootstrap-tools.sh` passes `bash -n` and guards each tool with a presence check.
+- [ ] Every documented command string matches a real script name or CI job id.
+- [ ] `scripts/doctor.sh` exits 0 on the current tree.
+
+Red-capable gate (fails when a referenced script is missing or a tooling gate breaks):
+
+```
+bash scripts/doctor.sh   # expected exit 0; exit 1 when a script is missing or a gate fails
+```

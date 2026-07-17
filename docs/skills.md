@@ -35,6 +35,7 @@ Planning, execution, verification, and shipping for a codebase you are building.
 | `/etrnl-dev-ci` | Model or user | Designs, audits, hardens, debugs, and repairs CI/CD lanes, GitHub Actions, branch protection, deploy gates, OIDC, SBOM/provenance, rollback, flaky CI, and slow builds. |
 | `/etrnl-dev-deps` | User only | Handles targeted dependency maintenance with migration checks, catalog consolidation, bot PR triage, and rollback evidence. |
 | `/etrnl-dev-stress-test` | Model or user | Stress-tests architecture, rollout, migration, automation, and safety assumptions. |
+| `/etrnl-dev-deprecate` | User only | Runs deprecation and migration with caller audits, removal-first bias, migration paths, removal deadline/owner, and a tenant/Money/auth/validation/a11y/data-loss guard fence. |
 
 ## Audits and review (`etrnl-audit-*`, deep audit)
 
@@ -63,6 +64,7 @@ Host, session, and stack maintenance. These skills do not implement product feat
 | `/etrnl-ops-context-restore` | User or model | Restores a saved context summary and flags stale continuation state. |
 | `/etrnl-ops-disk-cleanup` | User only | Reclaims local disk space with host/filesystem evidence, a dry-run manifest, approved transient path classes, `trash` deletion, and before/after free-space verification. Hooks pair with this skill to block `rm -rf` and unapproved paths. |
 | `/etrnl-ops-agent-files` | Model or user | Maintains AGENTS.md, CLAUDE.md, rules, and agent instruction files without bloat. |
+| `/etrnl-ops-ship` | User only | Runs ship/launch discipline: staged rollout, armed and rehearsed rollback, pre-ship observability instrumentation, and a named go/no-go gate. |
 
 ## Communications (`etrnl-comm-*`)
 
@@ -75,6 +77,7 @@ Host, session, and stack maintenance. These skills do not implement product feat
 | Command | Invocation | Purpose |
 | --- | --- | --- |
 | `/etrnl-backend-patterns` | Model or user | Classifies backend tasks and loads only the needed `references/` modules (oRPC, API, data, Prisma, SQL, security, resilience, observability, architecture). |
+| `/etrnl-router` | Model or user | Routes a request to the right `etrnl-*` skill or agent via a decision tree over dev/audit/ops families plus reviewer/worker agents, with an always-on operating-behaviors preamble. |
 
 ## Custom Commands
 
@@ -189,6 +192,7 @@ Beads is not an ETRNL bundled execution skill. It is allowed as explicit backlog
 | `lib/deep-audit-categories.mjs` | `~/.claude/scripts/lib/deep-audit-categories.mjs` | Defines registered deep-audit categories, known unimplemented domains, check ids, lane ids, required worklists, and reference paths. |
 | `lib/deep-stack-artifacts.mjs` | `~/.claude/scripts/lib/deep-stack-artifacts.mjs` | Shared deep-stack artifact schema and validators used by readiness, packet, install, and operator-facing section checks. |
 | `agent-task-packet-check.mjs` | `~/.claude/scripts/agent-task-packet-check.mjs` | Enforces structured subagent packet contracts with task identity, lineage identity, packet hashes, lane limits, child-agent policy, completion receipts, spec/quality reviewer contracts, and reuse/TDD/simplifier fields for new-surface or deep-stack writes. |
+| `agent-output-contract.mjs` | `~/.claude/scripts/agent-output-contract.mjs` | Validates a subagent's `ETRNL_CONTRACT: v1` block — status enum, per-finding grammar, and per-agent required keys — against `schemas/agent-contract-v1.json`; exit 0/1/2 fail-closed. Invoked by `hooks/cc-subagentstop-record.sh` and backstopped by `hooks/cc-stop-verifier.sh`. |
 | `performance-baseline.mjs` | `~/.claude/scripts/performance-baseline.mjs` | Creates, validates, and compares performance baseline artifacts with next-run thresholds. |
 | `pr-preflight.mjs` | `~/.claude/scripts/pr-preflight.mjs` | Reports PR readiness inputs: branch, upstream, dirty files, GitHub auth, existing PR, checks, and suggested local gate. |
 | `guard-override-token.mjs` | `~/.claude/scripts/guard-override-token.mjs` | Issues and verifies one-time signed override tokens for safety-critical prod/secret commands. |
@@ -209,7 +213,9 @@ Beads is not an ETRNL bundled execution skill. It is allowed as explicit backlog
 | `context-state.mjs` | `~/.claude/scripts/context-state.mjs` | Saves, validates, lists, and restores concise workflow context with stale-state detection. |
 | `canary-codex-hindsight.mjs` | `~/.claude/scripts/canary-codex-hindsight.mjs` | Reports Codex Hindsight runtime posture without overclaiming Claude plugin health as Codex recall support. |
 | `live-hook-noise-report.mjs` | `~/.claude/scripts/live-hook-noise-report.mjs` | Summarizes recent Claude hook success/error events from local JSONL logs, redacts private paths and emails, classifies Stop categories/actioned follow-ups, reports top no-action Stop reasons, estimates token volume from usage metadata, and can fail strict thresholds. |
-| `session-deep-dive.mjs` | `~/.claude/scripts/session-deep-dive.mjs` | Scans recent Claude and Codex local session JSON/JSONL with privacy-safe aggregate output for CodeGraph, Beads, Hindsight, read/search/edit volume, Stop outcomes, and high-work sessions without CodeGraph. |
+| `session-deep-dive.mjs` | `~/.claude/scripts/session-deep-dive.mjs` | Scans recent Claude and Codex local session JSON/JSONL with privacy-safe aggregate output for CodeGraph, Beads, Hindsight, read/search/edit volume, Stop outcomes, and high-work sessions without CodeGraph. The `why <file>:<line>` lookup surfaces commit-anchored provenance recorded by `provenance.mjs`. |
+| `token-savings.mjs` | `~/.claude/scripts/token-savings.mjs` | Measures per-agent subagent output-token cost, excluding a ~10% holdout, flags net-negative agents whose output cost outweighs their value, and emits the doctor summary line. |
+| `provenance.mjs` | `~/.claude/scripts/provenance.mjs` | Records commit-anchored provenance via git notes, powering the `session-deep-dive` `why <file>:<line>` lookup that traces a line back to the decision that produced it. |
 | `session-audit.mjs` | `~/.claude/scripts/session-audit.mjs` | Produces a privacy-bounded recent-session summary across Claude hook noise and Codex rollout-memory keyword signals. |
 | `workflow-health.mjs` | `~/.claude/scripts/workflow-health.mjs` | Summarizes recent ETRNL workflow runs, filtered `status --json`, doctor/prune diagnostics, stale runs, missing artifacts, UAT state, and next local action from local files. |
 | `tool-effectiveness.mjs` | `~/.claude/scripts/tool-effectiveness.mjs` | Summarizes sanitized local CodeGraph, Beads, Codex-import, and hook-pattern signals into deterministic keep/enforce/repo-specific/remove-watch/insufficient-data verdicts plus quick-win remediation hints. |
@@ -246,3 +252,4 @@ These repo-owned agents are installed by default into `~/.claude/agents/`. They 
 | `etrnl-design-reviewer` | Read-only UI/design reviewer for hierarchy, states, accessibility, and responsiveness. |
 | `etrnl-dx-reviewer` | Read-only developer-experience reviewer for install, commands, docs, errors, and rollback. |
 | `etrnl-browser-qa` | Browser evidence collector that produces `browser-qa-report.json` artifacts. |
+| `etrnl-test-wiring-auditor` | Read-only, diff-driven test-wiring auditor: maps each behavioral change to its required test and emits `PASS`/`ADD_REQUIRED` with `required_tests[]`; never proposes removing a test or weakening a gate. |

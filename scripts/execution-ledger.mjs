@@ -844,6 +844,14 @@ function recordSubagent() {
     process.exit(1);
   }
   const agentId = event.agent_id || event.subagent_id || `subagent-${Date.now()}`;
+  // Deterministic token accounting derived from the same captured output text.
+  // outputTokens is a fixed length/4 estimate (no wall-clock, no model call) so
+  // token-savings.mjs can attribute cost per agent role and flag net-negative work.
+  const outputTokens = Math.ceil(text.length / 4);
+  const findingsMatch = text.match(/ETRNL_FINDINGS[:=]\s*(\d+)/i);
+  const findingsCount = findingsMatch ? Number.parseInt(findingsMatch[1], 10) : 0;
+  const agentTypeMatch = text.match(/ETRNL_AGENT[:=]\s*([A-Za-z0-9_-]+)/i);
+  const agentType = agentTypeMatch ? agentTypeMatch[1] : null;
   updateJson(file, (ledger) => {
     if (!(ledger.tasks ?? []).some((task) => task.id === taskId)) {
       console.error(`Subagent output references unknown ETRNL_TASK_ID: ${taskId}.`);
@@ -851,7 +859,7 @@ function recordSubagent() {
     }
     const at = preciseNowIso();
     ledger.agents = ledger.agents ?? [];
-    ledger.agents.push({ id: agentId, role: "subagent", status: "completed", taskId, endedAt: at, completedAt: at });
+    ledger.agents.push({ id: agentId, role: "subagent", status: "completed", taskId, agentType, outputTokens, findingsCount, endedAt: at, completedAt: at });
     ledger.tasks = (ledger.tasks ?? []).map((task) => task.id === taskId ? { ...task, status: "reviewing", heartbeatAt: nowIso() } : task);
     ledger.updatedAt = nowIso();
     appendEvent(ledger, "subagent.completed", { agentId, taskId });

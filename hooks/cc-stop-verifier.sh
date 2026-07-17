@@ -370,6 +370,13 @@ if [[ "$claims_done" == "true" ]]; then
     cc_json_block "Outstanding browser QA is not a completion state. Run the planned dev server and browser workflow when available, record the browser QA artifact, or mark the task blocked with the exact missing tool/error."
     exit 0
   fi
+  # P1 agent-output-contract backstop: a reviewer subagent recorded a still-failing
+  # contract verdict (SubagentStop caught a malformed/gamed contract). The verdict
+  # clears on a passing re-run, so this only fires while a violation is unresolved.
+  if cc_state_has_contract_violation; then
+    cc_json_block "A reviewer subagent's output contract failed validation (agent-output-contract). Re-run the reviewer so it emits a valid ETRNL_CONTRACT: v1 block — status must match findings, and a fenced-critical (security/tenant/money/auth/validation/a11y) bug must show the source->consequence chain — then claim completion."
+    exit 0
+  fi
   ledger_args=(check-stop --session "$(cc_session_id)")
   if cc_plan_execution_requested; then
     ledger_args+=(--require-ledger --require-tasks --require-plan-phases)

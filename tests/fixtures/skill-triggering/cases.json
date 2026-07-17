@@ -322,5 +322,23 @@
     "prompt": "what changed here?",
     "expectedSkills": [],
     "unexpectedSkills": ["etrnl-dev-execute", "etrnl-dev-commit", "etrnl-dev-pr"]
+  },
+  {
+    "name": "deprecation prompt routes etrnl-dev-deprecate",
+    "prompt": "deprecate and remove the legacy checkout module and migrate its callers to the new one",
+    "expectedSkills": ["etrnl-dev-deprecate"],
+    "unexpectedSkills": ["etrnl-dev-deps"]
+  },
+  {
+    "name": "ship prompt routes etrnl-ops-ship",
+    "prompt": "ship this feature to users with staged rollout and rollback readiness",
+    "expectedSkills": ["etrnl-ops-ship"],
+    "unexpectedSkills": ["etrnl-dev-ci"]
+  },
+  {
+    "name": "router prompt routes etrnl-router",
+    "prompt": "which etrnl skill or agent should I use for this task",
+    "expectedSkills": ["etrnl-router"],
+    "unexpectedSkills": []
   }
 ]

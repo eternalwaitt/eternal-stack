@@ -658,6 +658,41 @@ browser_outstanding_stop="$(jq -cn '{session_id:"fixture-browser-outstanding",la
 out="$(run_hook cc-stop-verifier.sh "$browser_outstanding_stop")"
 assert_contains "stop verifier blocks outstanding browser QA" "$out" "Outstanding browser QA"
 
+# P1 agent-output-contract enforcement. SubagentStop blocks a gamed contract (status
+# disagrees with findings) and passes a valid one; Stop backstops a recorded violation.
+contract_gamed="$(jq -cn '{session_id:"fixture-contract-gamed",task_id:"CT1",agent_id:"ct-a1",subagent_type:"etrnl-quality-reviewer",last_assistant_message:"ETRNL_TASK_ID: CT1\nETRNL_CONTRACT: v1\nETRNL_AGENT: etrnl-quality-reviewer\nETRNL_STATUS: verified\nETRNL_LENSES: correctness\nETRNL_FINDINGS: 1\nETRNL_REOPEN_ROUNDS: 0\n- bug | correctness | a.ts:1 | crash | guard it"}')"
+out="$(run_hook cc-subagentstop-record.sh "$contract_gamed")"
+assert_json_expr "subagentstop blocks a gamed agent contract" "$out" '.decision == "block"'
+assert_contains "gamed contract block names the violation" "$out" "contract violation"
+contract_valid="$(jq -cn '{session_id:"fixture-contract-valid",task_id:"CT1",agent_id:"ct-a2",subagent_type:"etrnl-design-reviewer",last_assistant_message:"ETRNL_TASK_ID: CT1\nETRNL_CONTRACT: v1\nETRNL_AGENT: etrnl-design-reviewer\nETRNL_STATUS: verified\nETRNL_LENSES: layout\nETRNL_FINDINGS: 0"}')"
+out="$(run_hook cc-subagentstop-record.sh "$contract_valid")"
+if printf '%s' "$out" | grep -q '"decision":"block"'; then not_ok "subagentstop allows a valid agent contract: $out"; else ok "subagentstop allows a valid agent contract"; fi
+
+contract_backstop_state="$TMPROOT/claude-guard-fixture-contract-backstop.json"
+jq -nc '{schemaVersion:5,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},contractVerdicts:{"CT1:rev":{verdict:"violation",at:"2026-01-01T00:00:00Z"}},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],toolSignals:[],firstEditAt:"",firstEditGeneration:0,toolUseBeforeFirstEdit:{},toolNoise:{},effectivenessCounters:{},newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:false,planExecutionRequestedAt:"",lastPrompt:"",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$contract_backstop_state"
+contract_backstop_stop="$(jq -cn '{session_id:"fixture-contract-backstop",last_assistant_message:"Done. Implemented and tests pass.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$contract_backstop_stop")"
+assert_contains "stop verifier backstops an unresolved contract violation" "$out" "output contract failed validation"
+
+# P3 test-weakening deny checks: never let an agent neutralize a red gate.
+for tw in 'pnpm test || true' 'set +e; pnpm test' 'rm -f src/foo.test.ts' 'git commit --no-verify -m wip'; do
+  tw_json="$(jq -cn --arg c "$tw" '{session_id:"fixture-test-weaken",tool_name:"Bash",tool_input:{command:$c}}')"
+  out="$(run_hook cc-pretooluse-guard.sh "$tw_json")"
+  assert_json_expr "guard denies test-weakening: $tw" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+done
+tw_ok="$(jq -cn '{session_id:"fixture-test-weaken-ok",tool_name:"Bash",tool_input:{command:"pnpm test"}}')"
+out="$(run_hook cc-pretooluse-guard.sh "$tw_ok")"
+assert_json_expr "guard allows a clean test run" "$out" '.continue == true'
+
+# Regression: the test-weakening guard must NOT fire on the bare POSIX `test`/`[`
+# conditional builtin or the literal word "test" — only on genuine test RUNNERS.
+# Previously `test -f x || true`, `grep test file || true`, etc. were hard-denied.
+for tw_allow in 'test -f x || true' 'test -d dir || mkdir dir' 'echo test || true' 'rg test file || true' '[ -f x ] || true' 'pnpm build || true'; do
+  tw_allow_json="$(jq -cn --arg c "$tw_allow" '{session_id:"fixture-test-weaken-allow",tool_name:"Bash",tool_input:{command:$c}}')"
+  out="$(run_hook cc-pretooluse-guard.sh "$tw_allow_json")"
+  assert_json_expr "guard allows non-runner conditional: $tw_allow" "$out" '(.hookSpecificOutput.permissionDecision // "allow") != "deny"'
+done
+
 paused_prod_state="$TMPROOT/claude-guard-fixture-paused-prod-status.json"
 jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:false,planExecutionRequestedAt:"",lastPrompt:"did u read the handoff file?",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$paused_prod_state"
 paused_prod_message=$'Yes. It was injected as the restored handoff.\n\n1. Check PR #53 CI - green\n2. Merge - done\n3. Deploy to prod metacards-painel - was watching GHCR build-and-push, in_progress\n4. Set bruno to master in prod DB - only AFTER deploy\n\nBefore I SSH into prod: do you want me to proceed with the deploy once the GHCR build is green?\nNothing is live yet. Awaiting your answer before I SSH to prod.'

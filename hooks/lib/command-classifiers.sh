@@ -199,6 +199,58 @@ cc_command_is_browser_verification() {
     || [[ "$cmd" =~ (^|[[:space:];&|])curl[[:space:]]+ ]]
 }
 
+# Test RUNNER detection for the weakening guard. Unlike cc_command_is_test_verification,
+# this deliberately does NOT match the bare `test` token — that is the POSIX `test`/`[`
+# conditional builtin (e.g. `test -f x`), not a test suite. Matching it hard-denied
+# common shell idioms like `test -f x || true`, `echo test || true`, `grep test file || true`.
+# Here we require a genuine test-runner token. A bare `test` counts ONLY when it is
+# immediately followed by another test-runner keyword (never a `-` flag or `[`/`[[`).
+cc_command_is_test_runner() {
+  local cmd pm_re runner_re jsvm_re toolchain_re projtest_re
+  cmd="$(cc_command_normalize "$1")"
+  pm_re='(^|[[:space:];&|])(rtk[[:space:]]+)?(pnpm|npm|yarn|bun)([[:space:]]+run)?[[:space:]]+test([[:space:];&|]|$)'
+  runner_re='(^|[[:space:];&|])(pytest|vitest|jest|mocha|rspec|phpunit)([[:space:];&|]|$)'
+  jsvm_re='(^|[[:space:];&|])(ava|tap)([[:space:];&|]|$)'
+  toolchain_re='(^|[[:space:];&|])(cargo|go|deno|composer|make|rake)[[:space:]]+test([[:space:];&|]|$)'
+  projtest_re='(^|[[:space:];&|])(bash[[:space:]]+)?([^[:space:];&|]*/)?(tests/test-[^[:space:];&|]*\.sh|run-node-tests)([[:space:];&|]|$)'
+  [[ "$cmd" =~ $pm_re ]] && return 0
+  [[ "$cmd" =~ $runner_re ]] && return 0
+  [[ "$cmd" =~ $jsvm_re ]] && return 0
+  [[ "$cmd" =~ $toolchain_re ]] && return 0
+  [[ "$cmd" =~ $projtest_re ]] && return 0
+  return 1
+}
+
+# Test-weakening: neutralizing a red gate rather than fixing it. Covers the four
+# P3 patterns — swallowing a test failure with `|| true`/`|| :`, disabling errexit
+# with `set +e` around a test run, deleting a *.test/*.spec/__tests__ file, and
+# bypassing pre-commit/pre-push gates with git --no-verify.
+#
+# The swallow and set+e branches require a genuine test RUNNER token (see
+# cc_command_is_test_runner) rather than the bare `test` conditional builtin, so
+# legitimate idioms like `test -f x || true` and `grep test file || true` stay allowed.
+cc_command_is_test_weakening() {
+  local cmd swallow_re sete_re rmtest_re noverify_re
+  cmd="$(cc_command_normalize "$1")"
+  swallow_re='[|][|][[:space:]]*(true|:)([[:space:];&|]|$)'
+  if cc_command_is_test_runner "$cmd" && [[ "$cmd" =~ $swallow_re ]]; then
+    return 0
+  fi
+  sete_re='(^|[[:space:];&|])set[[:space:]]+\+e'
+  if [[ "$cmd" =~ $sete_re ]] && cc_command_is_test_runner "$cmd"; then
+    return 0
+  fi
+  rmtest_re='(^|[[:space:];&|])(rm|trash)([[:space:]]+-[^[:space:]]+)*[[:space:]][^;&|]*(\.(test|spec)\.[a-z]+|_test\.[a-z]+|/__tests__/)'
+  if [[ "$cmd" =~ $rmtest_re ]]; then
+    return 0
+  fi
+  noverify_re='git[[:space:]][^;&|]*(commit|push)[^;&|]*--no-verify'
+  if [[ "$cmd" =~ $noverify_re ]]; then
+    return 0
+  fi
+  return 1
+}
+
 cc_command_is_review_verification() {
   local cmd
   cmd="$(cc_command_normalize "$1")"

@@ -25,28 +25,21 @@ Infer mode from the request. If the user says "run", "execute", "fix", "bring to
 
 Documentation health is never satisfied by prose alone.
 
-- In `audit` mode, produce an actionable findings ledger and remediation plan. Every finding must include evidence, severity, owner/action needed when known, and the exact next remediation or terminal disposition path.
-- In `fix`/`execute` mode, remediate every valid item or terminally dispose it as `false_positive_with_evidence`, `accepted_risk_with_owner`, or `blocked` with evidence. Do not leave `open` items in the final state.
-- Baseline, ratchet, waiver, or snapshot creation is not remediation. Use it only when the user explicitly requests it, and record the unresolved item as `blocked` or `accepted_risk_with_owner` with owner, evidence, and reason.
-- Lowering the bar, creating a new baseline, or deferring work cannot be counted as a fix, a health improvement, or a closed finding unless the terminal disposition above is complete.
-- Deterministic docs gates and overall documentation health are separate. A green repo-owned docs gate proves the gate only; it does not prove documentation freshness against code, current runtime, active plans, or renamed architecture.
-- `FINAL_DOC_HEALTH_SCORE: 100/100` requires zero remaining stale docs, misleading docs, outdated claims, and stale active-plan/work-queue docs. Accepted or blocked stale documentation can close the ledger, but it lowers the final score.
-- `FINAL_DOC_HEALTH_SCORE: 100/100` also requires every documentation file in scope to be reviewed or explicitly excluded, plus recent commit and PR/change evidence checked for documentation impact.
-- Historical date stamps are not enough to treat stale text as harmless. A plan, handover, queue, migration note, or runbook is `archive` only when its path, title, or banner clearly marks it non-current and it cannot be mistaken for live architecture or operations.
+- `audit` mode produces an actionable findings ledger and remediation plan; every finding carries evidence, severity, owner/action when known, and the exact next remediation or terminal disposition.
+- `fix`/`execute` mode remediates every valid item or terminally disposes it (`false_positive_with_evidence`, `accepted_risk_with_owner`, or `blocked`, each with evidence); no `open` items remain.
+- Baseline, ratchet, waiver, snapshot creation, lowering the bar, or deferring work is not remediation or a health improvement. Use it only on explicit request, and record the item as `blocked` or `accepted_risk_with_owner` with owner, evidence, and reason.
+- A green repo-owned docs gate proves the gate only, not freshness against code, current runtime, active plans, or renamed architecture. `FINAL_DOC_HEALTH_SCORE: 100/100` requires zero remaining stale/misleading/outdated/stale-active-plan docs, every in-scope file reviewed or explicitly excluded, and recent commit plus PR/change evidence checked; accepted or blocked stale docs can close the ledger but lower the score.
+- Historical date stamps do not make stale text harmless. A plan, handover, queue, migration note, or runbook is `archive` only when its path, title, or banner clearly marks it non-current and it cannot be mistaken for live architecture or operations.
 
 ## Required Flow
 
 1. Read repo instructions first: `AGENTS.md`, `AGENTS.override.md`, `CLAUDE.md`, docs policy, and local health stack.
 2. Inspect git status and preserve unrelated local edits.
 3. Build an inventory before forming conclusions:
-   - Use `node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked` when installed.
-   - If unavailable, use `node scripts/code-health-inventory.mjs --json --include-untracked`.
-   - Fall back to tracked-file inventory with explicit `CHECKS_SKIPPED` reasons.
+   - Run `node scripts/code-health-inventory.mjs --json --include-untracked` (or the installed `~/.claude/scripts/` copy); fall back to a tracked-file inventory with explicit `CHECKS_SKIPPED` reasons.
    - List vendor, dependency, build output, cache, generated, fixture, local agent state, worktree, log, and audit-artifact paths as explicit exclusions with reasons. Do not audit them as documentation or comment action items.
 4. Run comment health inventory before conclusions:
-   - Use `node ~/.claude/scripts/documentation-comment-health.mjs --root . --json --include-untracked` when installed.
-   - If unavailable, use `node scripts/documentation-comment-health.mjs --root . --json --include-untracked`.
-   - If the repo has no JS/TS source surface, write `COMMENT_HEALTH_NOT_APPLICABLE:` with evidence from inventory.
+   - Run `node scripts/documentation-comment-health.mjs --root . --json --include-untracked` (or the installed `~/.claude/scripts/` copy). If the repo has no JS/TS source surface, write `COMMENT_HEALTH_NOT_APPLICABLE:` with evidence from inventory.
 5. Classify every documentation surface as `canonical`, `secondary`, `stale`, `misleading`, `archive`, `generated`, `duplicate`, `delete_candidate`, or `missing`.
 6. Map each important doc claim to a source of truth: scripts, package manifests, routes, schemas, migrations, tests, hooks, CI, deployment config, typed env modules, or actual installed/runtime state when relevant.
 7. Build a freshness and drift proof before scoring:
@@ -69,16 +62,7 @@ Documentation health is never satisfied by prose alone.
 
 Use parallel subagents for broad audits when lanes can be read-only or disjoint. Keep the parent session responsible for inventory, lane assignment, integration, final edits, and verification.
 
-Default read-only lanes:
-
-- root and contributor docs: README, CONTRIBUTING, install, troubleshooting, changelog, license, security.
-- architecture and ADRs: docs architecture, dependency direction, durable decisions, supersession links.
-- API/data/runtime docs: routes, contracts, schemas, env, migrations, deployment, runbooks, observability.
-- AI context and skills: AGENTS, CLAUDE, rules, `.cursorrules`, skill docs, agent prompts.
-- code comments: public exports, schemas, security/auth, domain policies, scripts, integrations, non-obvious UI components.
-- link and drift sweep: deleted paths, renamed commands, stale ports, providers, tools, old product names.
-
-For detailed packet templates, read `references/parallel-subagents.md`.
+Default read-only lanes: root/contributor docs; architecture and ADRs; API/data/runtime docs; AI context and skills; code comments on public/risky surfaces; and a link-and-drift sweep. Read `references/parallel-subagents.md` for the per-lane surface lists and packet templates.
 
 ## Audit Surfaces
 
@@ -130,7 +114,6 @@ Score rules:
 - 100/100 requires `DOCS_FILES_REVIEWED` to equal `DOCS_FILES_TOTAL` unless excluded paths are listed with reasons outside the total.
 - A run with no stale-reference searches, no checked doc claims, or no source-truth mappings is incomplete no matter how many repo gates passed.
 - A run with no recent commits reviewed or no recent-change docs-impact checks is incomplete. If GitHub PR access is unavailable, record `RECENT_PRS_REVIEWED: 0` and the exact `CHECKS_SKIPPED` reason; do not claim GitHub evidence was reviewed.
-- Accepted risk or blocked stale documentation is allowed as a ledger disposition only. It is incompatible with 100/100 overall documentation health.
 
 ## Comment Health
 
@@ -190,6 +173,49 @@ Before final completion:
 
 The stop hook enforces this contract with `documentation-health-ledger-check.mjs`.
 For this Eternal Stack, use `node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked` before conclusions and run at least one deterministic docs/skill validation gate before final completion.
+
+## Common Rationalizations
+
+- "Markdownlint and the link checker pass, so docs are healthy." -> A green lint/link gate proves formatting and dead links only. Run the source-of-truth mapping and stale-reference search; freshness is separate.
+- "The code changed but the docs read fine." -> Prose reading fine is not proof. Map each doc claim to the current command, route, schema, or env module and diff it against the renamed/removed concept.
+- "It is a plan/handover from a past date, so it is obviously historical." -> A date stamp is not an archive marker. Classify it `archive` only when its path, title, or banner marks it non-current; otherwise treat live-looking work-queue docs as agent-drift risk.
+- "This repo has no TSDoc convention, skip comment health." -> Run `documentation-comment-health.mjs` and report the counters, or write `COMMENT_HEALTH_NOT_APPLICABLE:` with inventory evidence. Silence is not a disposition.
+- "I sampled a few files and comments looked present." -> Sampling produces `MISSING_TSDOC_JSDOC_TARGETS: 0` lies. Use the full comment-health inventory count on public and risky surfaces, not a spot check.
+
+## Red Flags
+
+- A README/runbook command that no package manifest, task file, or script defines (renamed or deleted command still documented as live).
+- An env var documented in prose but absent from the typed env module or `.env.example` (or the inverse: present in the module, undocumented).
+- An API/RPC/GraphQL doc naming a route, procedure, or field that no router, contract, or schema file exports.
+- A public export, route/contract definition, schema/env boundary, or auth/permission function on a risky path with `hasLeadingDoc: false` in the comment-health inventory.
+- A comment or doc referencing a removed provider, old model name, dead port, superseded domain, or deprecated migration name that grep still finds in `docs/`, AI context, or code comments.
+- An active plan, work-queue, roadmap, or status doc describing in-progress work whose referenced files, branches, or PRs no longer exist.
+
+## When NOT to use
+
+- Whole-codebase health, dead code, repo rot, or PR gates across all tracked files -> `etrnl-audit-code`.
+- Runtime performance, bundle size, or query-latency claims behind the docs -> `etrnl-audit-performance`.
+- Security posture, secret exposure, or auth-vulnerability review of the documented surface -> `etrnl-audit-security`.
+- In-flight diff correctness, test quality, or implementation-vs-plan drift during execution -> `etrnl-quality-reviewer`.
+
+## Verification
+
+Every item is PASS/FAIL; any FAIL means the run is incomplete.
+
+1. Inventory ran (`code-health-inventory.mjs`) and `DOCS_FILES_REVIEWED` equals `DOCS_FILES_TOTAL` or excluded paths are listed with reasons outside the total.
+2. Comment-health inventory ran and reported the five `COMMENT_TARGETS_*` counters, or `COMMENT_HEALTH_NOT_APPLICABLE:` carries inventory evidence.
+3. Every `*_REMAINING` stale/outdated/misleading counter and `ACTIVE_PLAN_QUEUE_DOCS_STALE` reads `0` before any 100/100 claim.
+4. Recent commits reviewed and `RECENT_PRS_REVIEWED` is a real count or `CHECKS_SKIPPED` names the exact unavailable command.
+5. Every findings-ledger row carries a terminal disposition (`fixed`, `false_positive_with_evidence`, `accepted_risk_with_owner`, `blocked`); zero rows stay `open`.
+6. The red-capable gate below exits 0.
+
+Red-capable gate — fails (exit 1) when any public/risky export lacks a leading doc comment, exits 0 only at zero missing targets:
+
+```
+node scripts/documentation-comment-health.mjs --root . --json \
+  | node -e 'const d=JSON.parse(require("fs").readFileSync(0,"utf8"));process.exit(d.missingDocTargetCount>0?1:0)'
+# exit 0 => zero missing doc targets; exit 1 => missing-doc defect present
+```
 
 ## References
 
