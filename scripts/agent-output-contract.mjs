@@ -14,7 +14,7 @@
 // evaluate (missing input, unreadable schema, bad args). A cannot-evaluate must
 // never look like a clean pass, and a violation must never look like a crash.
 
-import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -42,10 +42,27 @@ function resolveAgentsDir(agentsDirArg) {
 // non-contracted), so normal non-contracted subagents pass through unaffected.
 function isContractedAgent(agentId, agentsDir) {
   if (!agentId) return false;
-  if (!agentsDir || !existsSync(agentsDir)) {
-    throw new Error("agents directory is unavailable; cannot determine contracted status");
+  // The registry must be a real directory. existsSync() alone would accept a regular
+  // FILE at agentsDir (then agents/<id>.md resolves false -> "non-contracted", letting an
+  // omitted contract pass). statSync().isDirectory() rejects that; a missing/unreadable
+  // dir throws -> exit 2 -> the hook fails closed.
+  let dirStat;
+  try {
+    dirStat = statSync(agentsDir);
+  } catch {
+    throw new Error("agents registry is unavailable; cannot determine contracted status");
   }
-  return existsSync(path.join(agentsDir, `${agentId}.md`));
+  if (!dirStat.isDirectory()) {
+    throw new Error("agents registry is not a directory; cannot determine contracted status");
+  }
+  // Only ENOENT (the file is genuinely absent) means "not contracted". Any other error
+  // (EACCES and friends) must NOT be masked as non-contracted — it is cannot-evaluate.
+  try {
+    return statSync(path.join(agentsDir, `${agentId}.md`)).isFile();
+  } catch (err) {
+    if (err && err.code === "ENOENT") return false;
+    throw new Error(`agents registry entry for ${agentId} is unreadable; cannot determine contracted status`);
+  }
 }
 
 const EXIT_PASS = 0;
@@ -53,11 +70,12 @@ const EXIT_VIOLATION = 1;
 const EXIT_CANNOT_EVALUATE = 2;
 
 function parseArgs(argv) {
-  const out = { cmd: null, agent: null, file: null, stdin: false, json: false, agentsDir: null };
+  const out = { cmd: null, agent: null, taskId: null, file: null, stdin: false, json: false, agentsDir: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "check" || a === "check-all-agents") out.cmd = a;
     else if (a === "--agent") out.agent = argv[++i];
+    else if (a === "--task-id") out.taskId = argv[++i];
     else if (a === "--file") out.file = argv[++i];
     else if (a === "--stdin") out.stdin = true;
     else if (a === "--json") out.json = true;
@@ -135,7 +153,7 @@ function hasNonEmpty(kv, key) {
 // line inside the block. agentsDir is the resolved agents directory used to
 // decide whether a missing block is a violation (contracted agent) or a no-op
 // (agent outside the contract rollout).
-function validateContract(text, agentId, schema, agentsDir) {
+function validateContract(text, agentId, schema, agentsDir, taskId = null) {
   const violations = [];
   const block = extractBlock(text, schema);
   if (!block) {
@@ -183,6 +201,21 @@ function validateContract(text, agentId, schema, agentsDir) {
     const emitted = kv.get("ETRNL_AGENT");
     if (emitted && emitted !== agentId) {
       violations.push(`emitted ETRNL_AGENT ${emitted} does not match trusted agent ${agentId}`);
+    }
+  }
+
+  // Task-ID trust check (round-4 finding): the trusted taskId (event.task_id, passed by
+  // the hook as --task-id) is authoritative. Reject a block whose ETRNL_TASK_ID differs
+  // from it, and reject DUPLICATE ETRNL_TASK_ID lines — an agent could prefix a matching
+  // id before a block declaring a different one to slip a hook-side first-match guard.
+  const taskIdLines = block.filter((l) => /^\s*ETRNL_TASK_ID\s*[:=]/.test(l));
+  if (taskIdLines.length > 1) {
+    violations.push(`duplicate ETRNL_TASK_ID fields in contract block (${taskIdLines.length})`);
+  }
+  if (taskId && kv.has("ETRNL_TASK_ID")) {
+    const emittedTask = kv.get("ETRNL_TASK_ID");
+    if (emittedTask && emittedTask !== taskId) {
+      violations.push(`emitted ETRNL_TASK_ID ${emittedTask} does not match trusted task ${taskId}`);
     }
   }
 
@@ -321,7 +354,7 @@ function main() {
   if (!text || !text.trim()) throw new Error("no contract text to evaluate (empty input)");
 
   const agentsDir = resolveAgentsDir(args.agentsDir);
-  const { violations } = validateContract(text, args.agent, schema, agentsDir);
+  const { violations } = validateContract(text, args.agent, schema, agentsDir, args.taskId);
   if (args.json) {
     process.stdout.write(JSON.stringify({ schemaVersion: 1, agent: args.agent || null, status: violations.length ? "violation" : "pass", violations }, null, 2) + "\n");
   } else if (violations.length === 0) {

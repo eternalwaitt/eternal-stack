@@ -714,6 +714,14 @@ contract_taskid_mismatch="$(jq -cn '{session_id:"fixture-contract-taskid-mismatc
 out="$(run_hook cc-subagentstop-record.sh "$contract_taskid_mismatch")"
 assert_json_expr "subagentstop blocks a contract task id that conflicts with the trusted event" "$out" '.decision == "block"'
 
+# (e) A prefix ETRNL_TASK_ID matching the trusted event, placed BEFORE a block that
+#     declares a DIFFERENT id, must still block — the validator compares the trusted
+#     --task-id against the ETRNL_TASK_ID parsed from the EXTRACTED block, not the first
+#     match in the whole text, so a prefixed decoy cannot slip a real mismatch through.
+contract_taskid_prefix="$(jq -cn '{session_id:"fixture-contract-taskid-prefix",task_id:"CT2",agent_id:"ct-a7",subagent_type:"etrnl-design-reviewer",last_assistant_message:"ETRNL_TASK_ID: CT2\nSome preamble.\nETRNL_CONTRACT: v1\nETRNL_AGENT: etrnl-design-reviewer\nETRNL_TASK_ID: OTHER-TASK\nETRNL_STATUS: verified\nETRNL_LENSES: layout\nETRNL_FINDINGS: 0"}')"
+out="$(run_hook cc-subagentstop-record.sh "$contract_taskid_prefix")"
+assert_json_expr "subagentstop blocks a prefixed task id spoof (validator compares the extracted block)" "$out" '.decision == "block"'
+
 contract_backstop_state="$TMPROOT/claude-guard-fixture-contract-backstop.json"
 jq -nc '{schemaVersion:5,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},contractVerdicts:{"CT1:rev":{verdict:"violation",at:"2026-01-01T00:00:00Z"}},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],toolSignals:[],firstEditAt:"",firstEditGeneration:0,toolUseBeforeFirstEdit:{},toolNoise:{},effectivenessCounters:{},newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:false,planExecutionRequestedAt:"",lastPrompt:"",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$contract_backstop_state"
 contract_backstop_stop="$(jq -cn '{session_id:"fixture-contract-backstop",last_assistant_message:"Done. Implemented and tests pass.",stop_hook_active:false}')"

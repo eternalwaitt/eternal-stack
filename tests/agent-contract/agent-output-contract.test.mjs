@@ -11,10 +11,11 @@ const repoRoot = path.resolve(here, "..", "..");
 const runner = path.join(repoRoot, "scripts", "agent-output-contract.mjs");
 
 // Validate a contract by piping it to --stdin (the path the SubagentStop hook uses).
-function check(text, { agent = null, agentsDir = null } = {}) {
+function check(text, { agent = null, agentsDir = null, taskId = null } = {}) {
   const args = [runner, "check", "--stdin", "--json"];
   if (agent) args.push("--agent", agent);
   if (agentsDir) args.push("--agents-dir", agentsDir);
+  if (taskId) args.push("--task-id", taskId);
   const res = spawnSync("node", args, { encoding: "utf8", input: text });
   return { code: res.status, out: res.stdout ? JSON.parse(res.stdout) : null };
 }
@@ -119,6 +120,47 @@ test("no contract block with an unavailable agents registry fails closed (exit 2
     agentsDir: path.join(tmpdir(), "etrnl-no-such-agents-dir-xyz"),
   });
   assert.equal(code, 2);
+});
+
+test("no contract block with an agents registry that is a regular file fails closed (exit 2)", () => {
+  // existsSync() would accept a regular file at agentsDir; statSync().isDirectory() must not.
+  const filePath = path.join(mkdtempSync(path.join(tmpdir(), "etrnl-agentsfile-")), "not-a-dir");
+  writeFileSync(filePath, "i am a file, not a registry\n");
+  const { code } = check("just some text, no contract here\n", { agent: "etrnl-scout", agentsDir: filePath });
+  assert.equal(code, 2);
+});
+
+test("contract ETRNL_TASK_ID that differs from the trusted --task-id is a violation", () => {
+  // validVerified declares ETRNL_TASK_ID: T-1; the hook passes the trusted event id.
+  const { code, out } = check(validVerified, { agent: "etrnl-design-reviewer", taskId: "T-2" });
+  assert.equal(code, 1);
+  assert.ok(out.violations.some((v) => v.includes("does not match trusted task T-2")));
+});
+
+test("a matching --task-id passes; a task id prefixed BEFORE the block cannot spoof it", () => {
+  // A prefix line before the ETRNL_CONTRACT marker is outside the extracted block, so the
+  // authoritative comparison is against the block's own ETRNL_TASK_ID.
+  const pass = check(validVerified, { agent: "etrnl-design-reviewer", taskId: "T-1" });
+  assert.equal(pass.code, 0);
+  const spoof = "ETRNL_TASK_ID: T-1\n" + validVerified.replace("ETRNL_TASK_ID: T-1", "ETRNL_TASK_ID: OTHER");
+  const { code, out } = check(spoof, { agent: "etrnl-design-reviewer", taskId: "T-1" });
+  assert.equal(code, 1);
+  assert.ok(out.violations.some((v) => v.includes("does not match trusted task T-1")));
+});
+
+test("duplicate ETRNL_TASK_ID lines inside the contract block are a violation", () => {
+  const dup = block([
+    "ETRNL_CONTRACT: v1",
+    "ETRNL_AGENT: etrnl-design-reviewer",
+    "ETRNL_TASK_ID: T-1",
+    "ETRNL_TASK_ID: T-1",
+    "ETRNL_STATUS: verified",
+    "ETRNL_LENSES: layout",
+    "ETRNL_FINDINGS: 0",
+  ]);
+  const { code, out } = check(dup, { agent: "etrnl-design-reviewer", taskId: "T-1" });
+  assert.equal(code, 1);
+  assert.ok(out.violations.some((v) => v.includes("duplicate ETRNL_TASK_ID")));
 });
 
 test("empty input is cannot-evaluate (exit 2), never a clean pass", () => {

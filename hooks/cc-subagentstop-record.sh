@@ -41,19 +41,18 @@ if command -v node >/dev/null 2>&1 \
   # prefixed self-reported id must not steer the verdict under the wrong task.
   trusted_task_id="$(cc_json_get '.task_id')"
   parsed_task_id="$(printf '%s\n' "$subagent_text" | sed -n 's/.*ETRNL_TASK_ID[:=][[:space:]]*\([A-Za-z0-9_.-]*\).*/\1/p' | head -n1)"
-  # A self-reported ETRNL_TASK_ID that names a DIFFERENT task than the trusted event
-  # must not pass: preferring .task_id protects the verdict key, but the emitted id
-  # could still claim another task. Block when both exist and differ.
-  if [[ -n "$trusted_task_id" && -n "$parsed_task_id" && "$trusted_task_id" != "$parsed_task_id" ]]; then
-    cc_json_block "ETRNL_TASK_ID ($parsed_task_id) does not match the trusted hook task ID ($trusted_task_id)."
-    exit 0
-  fi
   task_id="${trusted_task_id:-$parsed_task_id}"
   agent_id="$(cc_json_get '.agent_id // .subagent_id')"
   verdict_key="${task_id:-notask}:${agent_id:-${trusted_agent:-subagent}}"
 
   contract_args=(check --stdin)
   [[ -n "$trusted_agent" ]] && contract_args+=(--agent "$trusted_agent")
+  # Pass the TRUSTED event.task_id to the validator, which compares it against the
+  # ETRNL_TASK_ID parsed from the EXTRACTED contract block (and rejects duplicate
+  # ETRNL_TASK_ID lines). A hook-side first-match scan of the whole text is bypassable —
+  # an agent could prefix a matching ETRNL_TASK_ID before a block that declares another —
+  # so the authoritative comparison lives in the validator against the parsed block.
+  [[ -n "$trusted_task_id" ]] && contract_args+=(--task-id "$trusted_task_id")
   if contract_out="$(printf '%s\n' "$subagent_text" | node "$SCRIPT_DIR/../scripts/agent-output-contract.mjs" "${contract_args[@]}" 2>&1)"; then
     cc_state_record_contract_verdict "$verdict_key" "pass" || true
   else
