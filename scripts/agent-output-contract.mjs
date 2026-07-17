@@ -33,18 +33,19 @@ function resolveAgentsDir(agentsDirArg) {
 // agents dir. Used for the missing-block policy: only contracted agents are
 // required to emit a contract block.
 //
-// Fail SAFE (FINDING #57): if the agents dir cannot be resolved (missing/invalid
-// path) we CANNOT prove the agent is contracted, so return false — the caller then
-// treats the missing block as a no-op (exit 0) instead of a false violation or a
-// thrown crash (which the top-level catch would turn into exit 2). A missing agents
-// dir must never manufacture a contract violation or downgrade a real pass to a crash.
+// Fail CLOSED when the registry is unavailable. If the agents dir cannot be resolved
+// (missing/invalid path) we CANNOT prove the agent is NOT contracted, so returning
+// false would let an omitted contract from a real contracted agent pass. Instead throw
+// an evaluation error: the top-level catch turns it into exit 2, and the hook fails
+// closed on exit 2 (blocks, escapable via CLAUDE_GUARD_DISABLED=1). A resolvable dir
+// where the file is simply absent still returns false (the agent is genuinely
+// non-contracted), so normal non-contracted subagents pass through unaffected.
 function isContractedAgent(agentId, agentsDir) {
-  if (!agentId || !agentsDir) return false;
-  try {
-    return existsSync(path.join(agentsDir, `${agentId}.md`));
-  } catch {
-    return false;
+  if (!agentId) return false;
+  if (!agentsDir || !existsSync(agentsDir)) {
+    throw new Error("agents directory is unavailable; cannot determine contracted status");
   }
+  return existsSync(path.join(agentsDir, `${agentId}.md`));
 }
 
 const EXIT_PASS = 0;

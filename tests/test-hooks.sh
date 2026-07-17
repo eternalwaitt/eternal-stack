@@ -708,6 +708,12 @@ contract_noncontracted="$(jq -cn '{session_id:"fixture-contract-noncontracted",t
 out="$(run_hook cc-subagentstop-record.sh "$contract_noncontracted")"
 if printf '%s' "$out" | grep -q '"decision":"block"'; then not_ok "subagentstop allows a non-contracted subagent with no block: $out"; else ok "subagentstop allows a non-contracted subagent with no block"; fi
 
+# (d) A self-reported ETRNL_TASK_ID that names a DIFFERENT task than the trusted
+#     event.task_id is BLOCKED — it must not validate/record under another task.
+contract_taskid_mismatch="$(jq -cn '{session_id:"fixture-contract-taskid-mismatch",task_id:"CT2",agent_id:"ct-a6",subagent_type:"etrnl-design-reviewer",last_assistant_message:"ETRNL_CONTRACT: v1\nETRNL_AGENT: etrnl-design-reviewer\nETRNL_TASK_ID: OTHER-TASK\nETRNL_STATUS: verified\nETRNL_LENSES: layout\nETRNL_FINDINGS: 0"}')"
+out="$(run_hook cc-subagentstop-record.sh "$contract_taskid_mismatch")"
+assert_json_expr "subagentstop blocks a contract task id that conflicts with the trusted event" "$out" '.decision == "block"'
+
 contract_backstop_state="$TMPROOT/claude-guard-fixture-contract-backstop.json"
 jq -nc '{schemaVersion:5,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},contractVerdicts:{"CT1:rev":{verdict:"violation",at:"2026-01-01T00:00:00Z"}},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],toolSignals:[],firstEditAt:"",firstEditGeneration:0,toolUseBeforeFirstEdit:{},toolNoise:{},effectivenessCounters:{},newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:false,planExecutionRequestedAt:"",lastPrompt:"",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$contract_backstop_state"
 contract_backstop_stop="$(jq -cn '{session_id:"fixture-contract-backstop",last_assistant_message:"Done. Implemented and tests pass.",stop_hook_active:false}')"

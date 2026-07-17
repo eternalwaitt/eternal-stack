@@ -11,9 +11,10 @@ const repoRoot = path.resolve(here, "..", "..");
 const runner = path.join(repoRoot, "scripts", "agent-output-contract.mjs");
 
 // Validate a contract by piping it to --stdin (the path the SubagentStop hook uses).
-function check(text, { agent = null } = {}) {
+function check(text, { agent = null, agentsDir = null } = {}) {
   const args = [runner, "check", "--stdin", "--json"];
   if (agent) args.push("--agent", agent);
+  if (agentsDir) args.push("--agents-dir", agentsDir);
   const res = spawnSync("node", args, { encoding: "utf8", input: text });
   return { code: res.status, out: res.stdout ? JSON.parse(res.stdout) : null };
 }
@@ -108,6 +109,16 @@ test("no contract block for a contracted agent is a violation, not a crash", () 
   const { code, out } = check("just some text, no contract here\n", { agent: "etrnl-scout" });
   assert.equal(code, 1);
   assert.ok(out.violations.some((v) => v.includes("missing ETRNL_CONTRACT: v1 block for contracted agent etrnl-scout")));
+});
+
+test("no contract block with an unavailable agents registry fails closed (exit 2), never a silent pass", () => {
+  // The registry can't confirm the agent is non-contracted, so an omitted contract
+  // must NOT pass — it becomes cannot-evaluate (exit 2), which the hook blocks on.
+  const { code } = check("just some text, no contract here\n", {
+    agent: "etrnl-scout",
+    agentsDir: path.join(tmpdir(), "etrnl-no-such-agents-dir-xyz"),
+  });
+  assert.equal(code, 2);
 });
 
 test("empty input is cannot-evaluate (exit 2), never a clean pass", () => {

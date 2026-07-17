@@ -41,6 +41,13 @@ if command -v node >/dev/null 2>&1 \
   # prefixed self-reported id must not steer the verdict under the wrong task.
   trusted_task_id="$(cc_json_get '.task_id')"
   parsed_task_id="$(printf '%s\n' "$subagent_text" | sed -n 's/.*ETRNL_TASK_ID[:=][[:space:]]*\([A-Za-z0-9_.-]*\).*/\1/p' | head -n1)"
+  # A self-reported ETRNL_TASK_ID that names a DIFFERENT task than the trusted event
+  # must not pass: preferring .task_id protects the verdict key, but the emitted id
+  # could still claim another task. Block when both exist and differ.
+  if [[ -n "$trusted_task_id" && -n "$parsed_task_id" && "$trusted_task_id" != "$parsed_task_id" ]]; then
+    cc_json_block "ETRNL_TASK_ID ($parsed_task_id) does not match the trusted hook task ID ($trusted_task_id)."
+    exit 0
+  fi
   task_id="${trusted_task_id:-$parsed_task_id}"
   agent_id="$(cc_json_get '.agent_id // .subagent_id')"
   verdict_key="${task_id:-notask}:${agent_id:-${trusted_agent:-subagent}}"
