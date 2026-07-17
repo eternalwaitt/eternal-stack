@@ -32,9 +32,19 @@ function resolveAgentsDir(agentsDirArg) {
 // A contracted agent is one that has an agents/<agent>.md file in the resolved
 // agents dir. Used for the missing-block policy: only contracted agents are
 // required to emit a contract block.
+//
+// Fail SAFE (FINDING #57): if the agents dir cannot be resolved (missing/invalid
+// path) we CANNOT prove the agent is contracted, so return false — the caller then
+// treats the missing block as a no-op (exit 0) instead of a false violation or a
+// thrown crash (which the top-level catch would turn into exit 2). A missing agents
+// dir must never manufacture a contract violation or downgrade a real pass to a crash.
 function isContractedAgent(agentId, agentsDir) {
-  if (!agentId) return false;
-  return existsSync(path.join(agentsDir, `${agentId}.md`));
+  if (!agentId || !agentsDir) return false;
+  try {
+    return existsSync(path.join(agentsDir, `${agentId}.md`));
+  } catch {
+    return false;
+  }
 }
 
 const EXIT_PASS = 0;
@@ -148,6 +158,23 @@ function validateContract(text, agentId, schema, agentsDir) {
     if (!hasNonEmpty(kv, key)) violations.push(`agent ${agentId} missing or empty required key ${key}`);
   }
 
+  // Specialized-key VALUE validation (FINDING #149): presence + non-empty is not
+  // enough for keys with a deterministic machine-checkable grammar — e.g.
+  // "ETRNL_REOPEN_ROUNDS: nonsense" would otherwise pass despite lacking the
+  // required "<n> (tier <0-3>, cap <2|4>)" shape. For any PRESENT key that names a
+  // format in schema.specializedKeyFormats, its value must match the anchored regex.
+  // Genuinely free-form keys are intentionally absent from the map and stay at the
+  // presence+non-empty floor. ETRNL_STOP_CYCLE and ETRNL_REQUIRED_TESTS keep their
+  // dedicated reconciliation checks below.
+  const specializedFormats = schema.specializedKeyFormats || {};
+  for (const [key, pattern] of Object.entries(specializedFormats)) {
+    if (!kv.has(key)) continue;
+    const value = kv.get(key);
+    if (!new RegExp(pattern).test(value)) {
+      violations.push(`${key} value "${value}" does not match required format ${pattern}`);
+    }
+  }
+
   // Identity spoof check (FINDING #15): the emitted ETRNL_AGENT is self-reported
   // and must match the trusted --agent value. Profile selection below already
   // uses agentId (trusted), so this only guards against a spoofed emitted id.
@@ -193,16 +220,19 @@ function validateContract(text, agentId, schema, agentsDir) {
     }
   }
 
-  // Required-tests reconciliation (FINDING #12): the test-wiring auditor emits one
-  // required_tests line per missing gate, and each missing gate is one test-category
-  // finding. Mirror the ETRNL_FINDINGS reconciliation: ETRNL_REQUIRED_TESTS must be a
-  // non-negative integer and must equal the parsed finding count.
+  // Required-tests reconciliation (FINDING #12, FINDING #205): the test-wiring auditor
+  // emits one required_tests line per missing gate, and each missing gate is one
+  // test-CATEGORY finding. Reconcile ETRNL_REQUIRED_TESTS against the count of test-
+  // category findings ONLY — not findings.length — so an unrelated docs/correctness
+  // finding cannot satisfy the required-tests gate (anti-gaming). Keep the non-negative
+  // integer floor: a non-numeric/empty count must not silently skip reconciliation.
   const declaredRequiredTests = kv.get("ETRNL_REQUIRED_TESTS");
   if (declaredRequiredTests !== undefined) {
+    const requiredTestFindings = findings.filter((f) => f.category === "test").length;
     if (!/^\d+$/.test(declaredRequiredTests)) {
       violations.push(`ETRNL_REQUIRED_TESTS must be a non-negative integer, got "${declaredRequiredTests}"`);
-    } else if (Number(declaredRequiredTests) !== findings.length) {
-      violations.push(`ETRNL_REQUIRED_TESTS says ${declaredRequiredTests} but ${findings.length} finding line(s) parsed`);
+    } else if (Number(declaredRequiredTests) !== requiredTestFindings) {
+      violations.push(`ETRNL_REQUIRED_TESTS says ${declaredRequiredTests} but ${requiredTestFindings} test finding(s) parsed`);
     }
   }
 

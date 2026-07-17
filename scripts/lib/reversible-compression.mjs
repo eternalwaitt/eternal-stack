@@ -131,6 +131,39 @@ export function verifyArtifact(receipt, options = {}) {
   if (!fs.existsSync(artifactPath)) {
     return { ok: false, verified: false, reason: "artifact does not exist", artifactPath };
   }
+  // Canonicalize both the root and the artifact's parent directory before trusting
+  // the lexical identity match. path.resolve is purely lexical, so a symlinked PARENT
+  // directory (e.g. a symlinked agent dir) can redirect the real artifact location
+  // OUTSIDE the evidence root while the final path component still appears to be a
+  // regular file. realpathSync resolves every intermediate symlink, so we can require
+  // the artifact's real parent to be the canonical root or a directory beneath it.
+  let canonicalRoot = "";
+  let realParent = "";
+  try {
+    canonicalRoot = fs.realpathSync(root);
+    realParent = fs.realpathSync(path.dirname(artifactPath));
+  } catch (error) {
+    // A missing component (root or parent) is treated as a non-existent artifact
+    // rather than a thrown error, matching the not-exist/failure behavior above.
+    if (error && error.code === "ENOENT") {
+      return { ok: false, verified: false, reason: "artifact does not exist", artifactPath };
+    }
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to resolve evidence artifact path at ${artifactPath}: ${detail}`, { cause: error });
+  }
+  // Require the real parent to be the canonical root itself, or a directory strictly
+  // beneath it (canonical root + a path separator prefix). A symlinked parent that
+  // escapes the root fails this containment check before any bytes are read.
+  const isContained =
+    realParent === canonicalRoot || realParent.startsWith(canonicalRoot + path.sep);
+  if (!isContained) {
+    return {
+      ok: false,
+      verified: false,
+      reason: "artifact real parent directory escapes the evidence root",
+      artifactPath,
+    };
+  }
   // Only read regular files. A symlink, directory, device, or FIFO at the derived
   // path must never be dereferenced into "verified" evidence.
   let stat;

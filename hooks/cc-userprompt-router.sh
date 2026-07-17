@@ -461,7 +461,7 @@ if [[ "$prompt_lower" =~ run[[:space:]]+tests|test[[:space:]]+the[[:space:]]+rep
   record_skill "etrnl-dev-test"
   notes+=("Use etrnl-dev-test for project preflight and focused failure remediation.")
 fi
-if [[ "$prompt_lower" =~ deprecat|sunset[[:space:]]+.*(feature|api|endpoint|module|code)|retire[[:space:]]+.*(feature|api|endpoint|module)|remove[[:space:]]+.*(dead|legacy|unused|old)[[:space:]]+(code|module|feature)|delete[[:space:]]+.*(dead|legacy|unused)[[:space:]]+code|migrate[[:space:]]+.*callers[[:space:]]+.*(remov|delet) ]]; then
+if (( explicit_skill_selection == 0 )) && [[ "$prompt_lower" =~ deprecat|sunset[[:space:]]+.*(feature|api|endpoint|module|code)|retire[[:space:]]+.*(feature|api|endpoint|module)|remove[[:space:]]+.*(dead|legacy|unused|old)[[:space:]]+(code|module|feature)|delete[[:space:]]+.*(dead|legacy|unused)[[:space:]]+code|migrate[[:space:]]+.*callers[[:space:]]+.*(remov|delet) ]]; then
   record_skill "etrnl-dev-deprecate"
   notes+=("Use etrnl-dev-deprecate: audit every caller first, remove dead code rather than wrap it, ship the migration path before removal, set a removal deadline and owner, and never delete a tenant/Money/auth/validation/a11y/data-loss guard or its tests.")
 fi

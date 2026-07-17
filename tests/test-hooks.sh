@@ -549,6 +549,17 @@ router_precedence_state="$TMPROOT/claude-guard-$router_precedence_session.json"
 router_precedence_json="$(jq -c . "$router_precedence_state")"
 assert_json_expr "router precedence records exactly one skill (etrnl-router)" "$router_precedence_json" '(.requestedSkills | length) == 1 and .requestedSkills[0].value == "etrnl-router"'
 
+# CodeRabbit round-2 (FINDING #327): the explicit_skill_selection precedence guard
+# must also short-circuit the deprecation branch. "which skill should I use to retire
+# this endpoint?" names a deprecation task but is a routing meta-question, so it must
+# record ONLY etrnl-router, not etrnl-dev-deprecate as well.
+router_deprecate_session="fixture-router-deprecate-precedence"
+router_deprecate_event="$(jq -cn --arg session "$router_deprecate_session" --arg prompt "which skill should I use to retire this endpoint?" '{session_id:$session,prompt:$prompt}')"
+run_hook cc-userprompt-router.sh "$router_deprecate_event" >/dev/null || true
+router_deprecate_state="$TMPROOT/claude-guard-$router_deprecate_session.json"
+router_deprecate_json="$(jq -c . "$router_deprecate_state")"
+assert_json_expr "router precedence over deprecation records only etrnl-router" "$router_deprecate_json" '(.requestedSkills | length) == 1 and .requestedSkills[0].value == "etrnl-router"'
+
 skill_json="$(jq -cn '{session_id:"fixture-session",hook_event_name:"UserPromptExpansion",command_name:"etrnl-dev-autoplan"}')"
 run_hook cc-userprompt-expansion.sh "$skill_json" >/dev/null || true
 state_file="$TMPROOT/claude-guard-fixture-session.json"
@@ -706,7 +717,10 @@ assert_contains "stop verifier backstops an unresolved contract violation" "$out
 # P3 test-weakening deny checks: never let an agent neutralize a red gate.
 # Includes CodeRabbit round-1 additions: `node --test || true` (swallowed node
 # built-in runner) and `rm -rf __tests__` (root-level test dir with no slash).
-for tw in 'pnpm test || true' 'set +e; pnpm test' 'node --test || true' 'rm -rf __tests__' 'rm -f src/foo.test.ts' 'git commit --no-verify -m wip'; do
+# CodeRabbit round-2 (FINDING #284): the swallow branch must catch a runner whose
+# `|| true` sits inside a boolean list with trailing commands — `pnpm test || true &&
+# echo done` hides the swallowed runner behind the trailing `&& echo done`.
+for tw in 'pnpm test || true' 'set +e; pnpm test' 'node --test || true' 'rm -rf __tests__' 'rm -f src/foo.test.ts' 'git commit --no-verify -m wip' 'pnpm test || true && echo done'; do
   tw_json="$(jq -cn --arg c "$tw" '{session_id:"fixture-test-weaken",tool_name:"Bash",tool_input:{command:$c}}')"
   out="$(run_hook cc-pretooluse-guard.sh "$tw_json")"
   assert_json_expr "guard denies test-weakening: $tw" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
@@ -722,7 +736,10 @@ assert_json_expr "guard allows a clean test run" "$out" '.continue == true'
 # runs normally in its own statement even when an UNRELATED earlier statement is
 # swallowed (`cleanup || true; pnpm test`) or errexit is restored before the test
 # (`set +e; cleanup; set -e; pnpm test`).
-for tw_allow in 'test -f x || true' 'test -d dir || mkdir dir' 'echo test || true' 'rg test file || true' '[ -f x ] || true' 'pnpm build || true' 'cleanup || true; pnpm test' 'set +e; cleanup; set -e; pnpm test'; do
+# CodeRabbit round-2 (FINDING #284): errexit restored via a boolean-joined `set -e &&`
+# before the runner must ALLOW — `set +e; set -e && pnpm test` re-arms errexit before
+# the test executes.
+for tw_allow in 'test -f x || true' 'test -d dir || mkdir dir' 'echo test || true' 'rg test file || true' '[ -f x ] || true' 'pnpm build || true' 'cleanup || true; pnpm test' 'set +e; cleanup; set -e; pnpm test' 'set +e; set -e && pnpm test'; do
   tw_allow_json="$(jq -cn --arg c "$tw_allow" '{session_id:"fixture-test-weaken-allow",tool_name:"Bash",tool_input:{command:$c}}')"
   out="$(run_hook cc-pretooluse-guard.sh "$tw_allow_json")"
   assert_json_expr "guard allows non-runner conditional: $tw_allow" "$out" '(.hookSpecificOutput.permissionDecision // "allow") != "deny"'

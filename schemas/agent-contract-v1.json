@@ -61,5 +61,12 @@
     "etrnl-spec-reviewer": ["ETRNL_EVIDENCE_CHECKED", "ETRNL_TIER_B_COVERAGE", "ETRNL_READY_TO_EXECUTE"],
     "etrnl-test-wiring-auditor": ["ETRNL_REQUIRED_TESTS"]
   },
-  "perAgentRequiredKeysDoc": "Beyond the base requiredKeys, each named agent must also emit these fields. Reviewers not listed only need the base contract. ETRNL_STOP_CYCLE for the adversary must be <=3 (doubt-driven 3-cycle cap). ETRNL_REQUIRED_TESTS for the test-wiring auditor must be a non-negative integer equal to the parsed finding count (each missing test-wiring gate is one test-category finding)."
+  "perAgentRequiredKeysDoc": "Beyond the base requiredKeys, each named agent must also emit these fields. Reviewers not listed only need the base contract. ETRNL_STOP_CYCLE for the adversary must be <=3 (doubt-driven 3-cycle cap). ETRNL_REQUIRED_TESTS for the test-wiring auditor must be a non-negative integer equal to the parsed finding count (each missing test-wiring gate is one test-category finding).",
+  "specializedKeyFormats": {
+    "ETRNL_REOPEN_ROUNDS": "^\\d+ \\(tier [0-3], cap (?:2|4)\\)$",
+    "ETRNL_READY_FOR_FINAL_GATE": "^(?:yes|no)$",
+    "ETRNL_READY_TO_EXECUTE": "^(?:yes|no)$",
+    "ETRNL_CONFIDENCE": "^(?:high|medium|low)$"
+  },
+  "specializedKeyFormatsDoc": "Machine-checkable value formats for present specialized keys with a deterministic grammar. When a present key names a format here, its value must match the anchored regex; a malformed value (e.g. 'ETRNL_REOPEN_ROUNDS: nonsense') is a hard violation. Keys with genuinely free-form values (lists, paths, prose maps like ETRNL_IMPACT_MAP, ETRNL_ROUTES_CHECKED, ETRNL_REPORT_PATH, ETRNL_ATTACK_CLASSES, ETRNL_TIER_B_COVERAGE, ETRNL_EVIDENCE_CHECKED) are intentionally absent and stay at the presence+non-empty floor. ETRNL_REOPEN_ROUNDS: '<n> (tier <0-3>, cap <2|4>)' per the quality-reviewer contract; boolean gates are yes|no; confidence is high|medium|low. ETRNL_STOP_CYCLE (1..3) and ETRNL_REQUIRED_TESTS (non-negative integer == finding count) keep their dedicated reconciliation checks in the validator."
 }

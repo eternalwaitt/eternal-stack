@@ -15,16 +15,14 @@ cc_json_read_stdin
 cc_json_require_jq || exit 0
 cc_json_valid || exit 0
 
-# Existing behavior: append the subagent record to the execution ledger. A ledger
-# error (e.g. missing ETRNL_TASK_ID) blocks so the parent cannot claim completion.
-if ! output="$(node "$SCRIPT_DIR/../scripts/execution-ledger.mjs" record-subagent <<<"$HOOK_INPUT" 2>&1)"; then
-  cc_json_block "$output"
-  exit 0
-fi
-
-# P1 enforcement floor: validate the subagent's emitted output contract. The agent
-# identity comes from the TRUSTED hook event (.subagent_type // .agent_type), never
-# from the self-reported ETRNL_AGENT line in the subagent's text — that line is
+# P1 enforcement floor: validate the subagent's emitted output contract FIRST, before
+# any ledger append. Contract validation is the gate; only a passing (or not-applicable)
+# contract lets the record-subagent append run. Recording a completed-agent ledger row
+# for a rejected/retried subagent would pollute token-savings/provenance with a row per
+# failed attempt, so a blocking verdict returns before the append.
+#
+# The agent identity comes from the TRUSTED hook event (.subagent_type // .agent_type),
+# never from the self-reported ETRNL_AGENT line in the subagent's text — that line is
 # spoofable and must not decide worker-vs-reviewer profile or whether the agent is
 # contracted. We invoke the validator whenever node is available AND either the text
 # carries an ETRNL_CONTRACT block OR the trusted agent identity is known, so a
@@ -38,7 +36,12 @@ trusted_agent="$(cc_json_get '.subagent_type // .agent_type')"
 
 if command -v node >/dev/null 2>&1 \
   && { [[ "$subagent_text" == *"ETRNL_CONTRACT: v1"* ]] || [[ -n "$trusted_agent" ]]; }; then
-  task_id="$(printf '%s\n' "$subagent_text" | sed -n 's/.*ETRNL_TASK_ID[:=][[:space:]]*\([A-Za-z0-9_.-]*\).*/\1/p' | head -n1)"
+  # Derive task_id for the verdict key from the TRUSTED event.task_id first, falling
+  # back to the self-reported ETRNL_TASK_ID only when the event lacks it. A spoofed or
+  # prefixed self-reported id must not steer the verdict under the wrong task.
+  trusted_task_id="$(cc_json_get '.task_id')"
+  parsed_task_id="$(printf '%s\n' "$subagent_text" | sed -n 's/.*ETRNL_TASK_ID[:=][[:space:]]*\([A-Za-z0-9_.-]*\).*/\1/p' | head -n1)"
+  task_id="${trusted_task_id:-$parsed_task_id}"
   agent_id="$(cc_json_get '.agent_id // .subagent_id')"
   verdict_key="${task_id:-notask}:${agent_id:-${trusted_agent:-subagent}}"
 
@@ -49,13 +52,27 @@ if command -v node >/dev/null 2>&1 \
   else
     status=$?
     cc_state_record_contract_verdict "$verdict_key" "violation" || true
-    # Exit 2 (cannot-evaluate) fails open with a warning; exit 1 (real violation) blocks.
+    # Exit 1 (real violation) and exit 2 (cannot-evaluate) both BLOCK the subagent's
+    # stop — the advertised fail-closed floor must not let a schema/evaluator failure
+    # slip through. A genuine validator/install break stays escapable via
+    # CLAUDE_GUARD_DISABLED=1, so infrastructure failures do not become permanent
+    # deadlocks while a gamed/erroring contract can no longer fail open.
     if [[ "$status" == "1" ]]; then
       cc_json_block "Agent output contract violation (${trusted_agent:-subagent}):"$'\n'"$contract_out"$'\n'"Re-emit a valid ETRNL_CONTRACT: v1 block (status must match findings) before stopping."
       exit 0
     fi
-    printf 'claude-guard warning: agent-output-contract could not evaluate (%s): %s\n' "$status" "$contract_out" >&2
+    cc_json_block "Agent output contract could not be evaluated (status ${status}, ${trusted_agent:-subagent}):"$'\n'"$contract_out"$'\n'"Fail-closed floor: fix the contract block and re-emit. If this is a validator/install failure (not a gamed contract), the operator can set CLAUDE_GUARD_DISABLED=1 to recover."
+    exit 0
   fi
+fi
+
+# Contract passed or was not applicable: NOW append the subagent record to the
+# execution ledger. A ledger error (e.g. missing/unknown ETRNL_TASK_ID) blocks so the
+# parent cannot claim completion. Because this runs only on the contract pass path, a
+# rejected/retried subagent no longer adds a completed-agent row per attempt.
+if ! output="$(node "$SCRIPT_DIR/../scripts/execution-ledger.mjs" record-subagent <<<"$HOOK_INPUT" 2>&1)"; then
+  cc_json_block "$output"
+  exit 0
 fi
 
 exit 0

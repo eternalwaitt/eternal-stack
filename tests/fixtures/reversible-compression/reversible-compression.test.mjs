@@ -170,6 +170,52 @@ test("verifyArtifact rejects a symlink at the derived path", (t) => {
   }
 });
 
+test("verifyArtifact rejects an artifact reachable only through a symlinked parent directory outside the root", (t) => {
+  // path.resolve is purely lexical, so a symlinked PARENT directory can redirect the
+  // real artifact location OUTSIDE the canonical root while the final component still
+  // looks like a regular file. realpath-based containment must reject this before read.
+  const root = freshRoot();
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), "etrnl-revcomp-parent-"));
+  try {
+    // Build a real evidence file under the *outside* directory, under an agent-shaped
+    // subdir so the final component is a genuine regular file with matching content.
+    const receipt = writeEvidenceArtifact("etrnl-quality-reviewer", EVIDENCE, { root });
+    const agentId = receipt.agentId;
+    const fileName = path.basename(receipt.artifactPath);
+
+    const outsideAgentDir = path.join(outside, agentId);
+    fs.mkdirSync(outsideAgentDir, { recursive: true });
+    const realTarget = path.join(outsideAgentDir, fileName);
+    fs.writeFileSync(realTarget, EVIDENCE, { mode: 0o600 });
+
+    // Replace the in-root agent directory with a symlink to the outside agent dir.
+    // The derived path (root/agentId/file) now lexically matches the receipt identity,
+    // and lstat on the final component sees a regular file — but the real parent escapes.
+    const inRootAgentDir = path.join(root, agentId);
+    fs.rmSync(inRootAgentDir, { recursive: true, force: true });
+    try {
+      fs.symlinkSync(outsideAgentDir, inRootAgentDir);
+    } catch (error) {
+      t.skip(`symlink creation unsupported: ${error.message}`);
+      return;
+    }
+
+    // Sanity: the lexical derived path still equals the receipt path (identity passes),
+    // and lstat on the final component reports a regular file (the naive check passes).
+    const derived = artifactPathFor(agentId, receipt.contentHash, root);
+    assert.equal(path.resolve(receipt.artifactPath), path.resolve(derived), "identity still matches lexically");
+    assert.ok(fs.lstatSync(receipt.artifactPath).isFile(), "final component looks like a regular file");
+
+    const result = verifyArtifact(receipt, { root });
+    assert.equal(result.verified, false, "an artifact behind a symlinked parent outside the root is not verified");
+    assert.equal(result.ok, false);
+    assert.match(result.reason, /parent|escapes|root/, "reason names the containment/parent failure");
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+    fs.rmSync(outside, { recursive: true, force: true });
+  }
+});
+
 test("verifyArtifact verifies the happy path with the derived path and correct hash", () => {
   const root = freshRoot();
   try {

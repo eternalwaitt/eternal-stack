@@ -76,7 +76,7 @@ Do not ship until every item below is true and recorded:
 
 1. Caller audit is complete: `sg` structural search and `rg` text search both ran over the target symbol and its aliases, with the caller count and file paths recorded.
 2. Every deprecated symbol has zero remaining callers, OR each remaining caller is covered by a named migration ticket with an explicit removal date and a single owner. Count of live callers without a ticket: 0.
-3. No surface has two live paths. Count of behaviors served by both an old and a replacement path: 0.
+3. No internally-controlled migration has two live paths. Count of internally-controlled behaviors served by both an old and a replacement path: 0. A compliant external compatibility window is exempt from this zero-overlap rule; for each such window, verify all four controls are recorded and enforced: old-path telemetry, a single accountable owner, a hard removal deadline, and an explicit removal gate. Count of external compat windows missing any of the four controls: 0.
 4. Every deleted surface is fully removed: symbol, tests, types, schemas, exports, barrel entries, docs, and now-unused imports. Count of orphaned tests or dangling exports: 0.
 5. The safety fence held: count of tenant/Money/auth/validation/a11y/data-loss guards or their tests deleted to simplify: 0. Every guard on the removal path was moved intact to the replacement and re-verified.
 6. Project verification gates pass after the change: typecheck, lint, tests, and build. Runtime or browser smoke ran when the retired surface was user-facing.

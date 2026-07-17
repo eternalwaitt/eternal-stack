@@ -858,9 +858,14 @@ function recordSubagent() {
   const contractLines = text.split("\n");
   const contractStart = contractLines.findIndex((line) => line.trim() === "ETRNL_CONTRACT: v1");
   const contractBlock = contractStart === -1 ? "" : contractLines.slice(contractStart).join("\n");
-  const findingsMatch = contractBlock.match(/ETRNL_FINDINGS[:=]\s*(\d+)/i);
+  // LAST-value semantics: keyValues() in agent-output-contract.mjs sets the key on
+  // every match, so the final assignment wins when a key repeats in the block. The
+  // ledger must persist the SAME value the validator gates on, so take the last
+  // match (not String.match()'s first) for both keys. Keep the defaults (findingsCount
+  // 0, agentType null) when the key is absent.
+  const findingsMatch = [...contractBlock.matchAll(/ETRNL_FINDINGS[:=]\s*(\d+)/gi)].at(-1);
   const findingsCount = findingsMatch ? Number.parseInt(findingsMatch[1], 10) : 0;
-  const agentTypeMatch = contractBlock.match(/ETRNL_AGENT[:=]\s*([A-Za-z0-9_-]+)/i);
+  const agentTypeMatch = [...contractBlock.matchAll(/ETRNL_AGENT[:=]\s*([A-Za-z0-9_-]+)/gi)].at(-1);
   const agentType = agentTypeMatch ? agentTypeMatch[1] : null;
   updateJson(file, (ledger) => {
     if (!(ledger.tasks ?? []).some((task) => task.id === taskId)) {

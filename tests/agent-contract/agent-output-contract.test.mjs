@@ -317,7 +317,7 @@ test("test-wiring-auditor ETRNL_REQUIRED_TESTS that disagrees with the finding c
   ]);
   const { code, out } = check(text, { agent: "etrnl-test-wiring-auditor" });
   assert.equal(code, 1);
-  assert.ok(out.violations.some((v) => v.includes("ETRNL_REQUIRED_TESTS says 2 but 1 finding line(s) parsed")));
+  assert.ok(out.violations.some((v) => v.includes("ETRNL_REQUIRED_TESTS says 2 but 1 test finding(s) parsed")));
 });
 
 test("browser-qa with all specialized keys present passes", () => {
@@ -328,4 +328,62 @@ test("browser-qa with all specialized keys present passes", () => {
   ]);
   const { code } = check(text, { agent: "etrnl-browser-qa" });
   assert.equal(code, 0);
+});
+
+// --- ETRNL_REQUIRED_TESTS counts TEST-category findings only (FINDING #205) ---
+
+test("ETRNL_REQUIRED_TESTS satisfied only by a non-test finding is a violation", () => {
+  // One finding, but it is a docs finding — zero test-category findings. A required-
+  // tests count of 1 must NOT be satisfied by an unrelated finding.
+  const text = block([
+    "ETRNL_CONTRACT: v1", "ETRNL_AGENT: etrnl-test-wiring-auditor", "ETRNL_TASK_ID: T-1", "ETRNL_STATUS: changes_requested",
+    "ETRNL_LENSES: coverage", "ETRNL_FINDINGS: 1", "ETRNL_REQUIRED_TESTS: 1",
+    "- risk | docs | a.ts:1 | stale comment | update the doc",
+  ]);
+  const { code, out } = check(text, { agent: "etrnl-test-wiring-auditor" });
+  assert.equal(code, 1);
+  assert.ok(out.violations.some((v) => v.includes("ETRNL_REQUIRED_TESTS says 1 but 0 test finding(s) parsed")));
+});
+
+test("ETRNL_REQUIRED_TESTS equal to the test-category finding count passes", () => {
+  const text = block([
+    "ETRNL_CONTRACT: v1", "ETRNL_AGENT: etrnl-test-wiring-auditor", "ETRNL_TASK_ID: T-1", "ETRNL_STATUS: changes_requested",
+    "ETRNL_LENSES: coverage", "ETRNL_FINDINGS: 2", "ETRNL_REQUIRED_TESTS: 1",
+    "- risk | test | a.ts:1 | new branch uncovered | add a case exercising the branch",
+    "- risk | docs | a.ts:2 | stale comment | update the doc",
+  ]);
+  const { code } = check(text, { agent: "etrnl-test-wiring-auditor" });
+  assert.equal(code, 0);
+});
+
+// --- Specialized-key VALUE validation (FINDING #149) ---
+
+test("malformed specialized value (ETRNL_REOPEN_ROUNDS: nonsense) is a violation", () => {
+  const text = block([
+    "ETRNL_CONTRACT: v1", "ETRNL_AGENT: etrnl-quality-reviewer", "ETRNL_TASK_ID: T-1", "ETRNL_STATUS: verified",
+    "ETRNL_LENSES: reuse", "ETRNL_FINDINGS: 0", "ETRNL_REOPEN_ROUNDS: nonsense",
+  ]);
+  const { code, out } = check(text, { agent: "etrnl-quality-reviewer" });
+  assert.equal(code, 1);
+  assert.ok(out.violations.some((v) => v.includes("ETRNL_REOPEN_ROUNDS value \"nonsense\" does not match required format")));
+});
+
+test("well-formed specialized value (ETRNL_REOPEN_ROUNDS: 1 (tier 2, cap 4)) passes", () => {
+  const text = block([
+    "ETRNL_CONTRACT: v1", "ETRNL_AGENT: etrnl-quality-reviewer", "ETRNL_TASK_ID: T-1", "ETRNL_STATUS: verified",
+    "ETRNL_LENSES: reuse", "ETRNL_FINDINGS: 0", "ETRNL_REOPEN_ROUNDS: 1 (tier 2, cap 4)",
+  ]);
+  const { code } = check(text, { agent: "etrnl-quality-reviewer" });
+  assert.equal(code, 0);
+});
+
+test("malformed boolean gate (ETRNL_READY_TO_EXECUTE: maybe) is a violation", () => {
+  const text = block([
+    "ETRNL_CONTRACT: v1", "ETRNL_AGENT: etrnl-spec-reviewer", "ETRNL_TASK_ID: T-1", "ETRNL_STATUS: verified",
+    "ETRNL_LENSES: scope", "ETRNL_FINDINGS: 0",
+    "ETRNL_EVIDENCE_CHECKED: none", "ETRNL_TIER_B_COVERAGE: none-applicable", "ETRNL_READY_TO_EXECUTE: maybe",
+  ]);
+  const { code, out } = check(text, { agent: "etrnl-spec-reviewer" });
+  assert.equal(code, 1);
+  assert.ok(out.violations.some((v) => v.includes("ETRNL_READY_TO_EXECUTE value \"maybe\" does not match required format")));
 });
