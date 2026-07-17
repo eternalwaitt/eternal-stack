@@ -730,6 +730,14 @@ assert_json_expr "subagentstop blocks a prefixed task id spoof (validator compar
 contract_no_identity="$(jq -cn '{session_id:"fixture-contract-no-identity",task_id:"CT3",agent_id:"ct-a8",last_assistant_message:"ETRNL_CONTRACT: v1\nETRNL_AGENT: etrnl-quality-reviewer\nETRNL_TASK_ID: CT3\nETRNL_STATUS: verified\nETRNL_LENSES: correctness\nETRNL_FINDINGS: 0"}')"
 out="$(run_hook cc-subagentstop-record.sh "$contract_no_identity")"
 assert_json_expr "subagentstop blocks a contract block emitted without a trusted subagent identity" "$out" '.decision == "block"'
+# The no-identity block must also PERSIST the violation to .contractVerdicts (keyed by the
+# trusted task:agent metadata) so cc-stop-verifier's backstop still fires on a later Stop.
+contract_no_identity_state="$CLAUDE_GUARD_STATE_DIR/claude-guard-fixture-contract-no-identity.json"
+if [[ -f "$contract_no_identity_state" ]]; then
+  assert_json_expr "subagentstop persists the no-identity contract violation for the stop backstop" "$(cat "$contract_no_identity_state")" '.contractVerdicts["CT3:ct-a8"].verdict == "violation"'
+else
+  not_ok "subagentstop should persist a no-identity contract violation state file"
+fi
 
 contract_backstop_state="$TMPROOT/claude-guard-fixture-contract-backstop.json"
 jq -nc '{schemaVersion:5,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},contractVerdicts:{"CT1:rev":{verdict:"violation",at:"2026-01-01T00:00:00Z"}},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],toolSignals:[],firstEditAt:"",firstEditGeneration:0,toolUseBeforeFirstEdit:{},toolNoise:{},effectivenessCounters:{},newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:false,planExecutionRequestedAt:"",lastPrompt:"",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$contract_backstop_state"

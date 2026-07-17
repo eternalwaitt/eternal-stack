@@ -42,6 +42,13 @@ trusted_agent="$(cc_json_get '.subagent_type // .agent_type')"
 # contract. (The inverse case — trusted agent present, block absent — still flows into the
 # validator below, which blocks a contracted agent that omits the block.)
 if [[ -z "$trusted_agent" && "$subagent_text" == *"ETRNL_CONTRACT: v1"* ]]; then
+  # Persist the failure so cc-stop-verifier's .contractVerdicts backstop still fires on a
+  # later Stop even though we block the current stop here. Without this record a subsequent
+  # Stop could miss the failure. Key by the TRUSTED task/agent metadata (mirrors the
+  # validator path's verdict_key), falling back to notask/subagent when the event omits it.
+  trusted_task_id="$(cc_json_get '.task_id')"
+  trusted_agent_id="$(cc_json_get '.agent_id // .subagent_id')"
+  cc_state_record_contract_verdict "${trusted_task_id:-notask}:${trusted_agent_id:-subagent}" "violation" || true
   cc_json_block "Agent output contract could not be evaluated: an ETRNL_CONTRACT block was emitted without a trusted subagent identity (.subagent_type/.agent_type), so per-agent enforcement cannot be applied. Fail-closed floor: block until the trusted identity is present. If this environment genuinely does not provide the trusted identity (not a gamed contract), the operator can set CLAUDE_GUARD_DISABLED=1 to recover."
   exit 0
 fi
