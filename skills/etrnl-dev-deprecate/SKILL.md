@@ -41,10 +41,12 @@ Delete the full footprint in one change: the symbol, its tests, its types and Zo
 When the audit proves the surface is still used, never delete first. Sequence the retirement so no caller breaks:
 
 1. Ship the replacement surface with its own tests, types, and docs. Prove the replacement passes the project verification gates before touching any caller.
-2. Migrate every caller from the old surface to the replacement. Move callers in one pass; do not stop with a partial migration that leaves the codebase reading from both paths.
+2. Migrate every caller from the old surface to the replacement. For internally-controlled callers, move them in one pass; do not stop with a partial migration that leaves the codebase reading from both paths.
 3. Delete the old surface only after the caller count reaches zero. Re-run the step 1 audit to confirm zero remaining callers before the delete.
 
-Never leave two live paths for the same behavior. Two paths double the surface, split the tests, and let callers drift back to the retired one. If the replacement cannot fully cover a caller, the migration is blocked — record the blocker and the caller instead of shipping both paths.
+For internally-controlled callers, never leave two live paths for the same behavior: two paths double the surface, split the tests, and let callers drift back to the retired one. If the internal replacement cannot fully cover a caller, the migration is blocked — record the blocker and the caller instead of shipping both paths.
+
+Externally-consumed surfaces that cannot migrate atomically — public APIs, HTTP endpoints, webhooks, and independently deployed consumers — run a time-bounded compatibility window instead of a one-pass cutover. Keep both paths live only for such a surface, and only when the compat path defines all four: telemetry that reports old-path usage, a single accountable owner, a hard removal deadline, and an explicit removal gate (old-path usage reaches zero or the deadline forces the cutover). Record the four in the deprecation notes. A compat window without all four is two permanent live paths, not a migration.
 
 ### 4. Removal deadline and owner
 

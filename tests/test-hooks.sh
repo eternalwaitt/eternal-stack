@@ -539,6 +539,16 @@ for (( i = 0; i < skill_trigger_count; i++ )); do
   done <<<"$unexpected_skills"
 done
 
+# CodeRabbit round-1 (FINDING #4): an explicit skill-selection meta-question that
+# also names a task ("which skill should I use to ship this feature?") must
+# short-circuit to record ONLY etrnl-router, not both etrnl-router and etrnl-ops-ship.
+router_precedence_session="fixture-router-precedence"
+router_precedence_event="$(jq -cn --arg session "$router_precedence_session" --arg prompt "which skill should I use to ship this feature?" '{session_id:$session,prompt:$prompt}')"
+run_hook cc-userprompt-router.sh "$router_precedence_event" >/dev/null || true
+router_precedence_state="$TMPROOT/claude-guard-$router_precedence_session.json"
+router_precedence_json="$(jq -c . "$router_precedence_state")"
+assert_json_expr "router precedence records exactly one skill (etrnl-router)" "$router_precedence_json" '(.requestedSkills | length) == 1 and .requestedSkills[0].value == "etrnl-router"'
+
 skill_json="$(jq -cn '{session_id:"fixture-session",hook_event_name:"UserPromptExpansion",command_name:"etrnl-dev-autoplan"}')"
 run_hook cc-userprompt-expansion.sh "$skill_json" >/dev/null || true
 state_file="$TMPROOT/claude-guard-fixture-session.json"
@@ -660,13 +670,32 @@ assert_contains "stop verifier blocks outstanding browser QA" "$out" "Outstandin
 
 # P1 agent-output-contract enforcement. SubagentStop blocks a gamed contract (status
 # disagrees with findings) and passes a valid one; Stop backstops a recorded violation.
-contract_gamed="$(jq -cn '{session_id:"fixture-contract-gamed",task_id:"CT1",agent_id:"ct-a1",subagent_type:"etrnl-quality-reviewer",last_assistant_message:"ETRNL_TASK_ID: CT1\nETRNL_CONTRACT: v1\nETRNL_AGENT: etrnl-quality-reviewer\nETRNL_STATUS: verified\nETRNL_LENSES: correctness\nETRNL_FINDINGS: 1\nETRNL_REOPEN_ROUNDS: 0\n- bug | correctness | a.ts:1 | crash | guard it"}')"
+contract_gamed="$(jq -cn '{session_id:"fixture-contract-gamed",task_id:"CT1",agent_id:"ct-a1",subagent_type:"etrnl-quality-reviewer",last_assistant_message:"ETRNL_CONTRACT: v1\nETRNL_AGENT: etrnl-quality-reviewer\nETRNL_TASK_ID: CT1\nETRNL_STATUS: verified\nETRNL_LENSES: correctness\nETRNL_FINDINGS: 1\nETRNL_REOPEN_ROUNDS: 0\n- bug | correctness | a.ts:1 | crash | guard it"}')"
 out="$(run_hook cc-subagentstop-record.sh "$contract_gamed")"
 assert_json_expr "subagentstop blocks a gamed agent contract" "$out" '.decision == "block"'
 assert_contains "gamed contract block names the violation" "$out" "contract violation"
-contract_valid="$(jq -cn '{session_id:"fixture-contract-valid",task_id:"CT1",agent_id:"ct-a2",subagent_type:"etrnl-design-reviewer",last_assistant_message:"ETRNL_TASK_ID: CT1\nETRNL_CONTRACT: v1\nETRNL_AGENT: etrnl-design-reviewer\nETRNL_STATUS: verified\nETRNL_LENSES: layout\nETRNL_FINDINGS: 0"}')"
+contract_valid="$(jq -cn '{session_id:"fixture-contract-valid",task_id:"CT1",agent_id:"ct-a2",subagent_type:"etrnl-design-reviewer",last_assistant_message:"ETRNL_CONTRACT: v1\nETRNL_AGENT: etrnl-design-reviewer\nETRNL_TASK_ID: CT1\nETRNL_STATUS: verified\nETRNL_LENSES: layout\nETRNL_FINDINGS: 0"}')"
 out="$(run_hook cc-subagentstop-record.sh "$contract_valid")"
 if printf '%s' "$out" | grep -q '"decision":"block"'; then not_ok "subagentstop allows a valid agent contract: $out"; else ok "subagentstop allows a valid agent contract"; fi
+
+# CodeRabbit round-1: enforcement no longer trusts self-report or opt-in on the
+# marker. Agent identity is the TRUSTED .subagent_type; the validator owns the
+# missing-block-for-contracted-agent and identity-spoof decisions.
+# (a) A contracted agent (agents/etrnl-scout.md exists) that emits NO contract block
+#     is BLOCKED — it can no longer escape by omitting the marker.
+contract_missing_block="$(jq -cn '{session_id:"fixture-contract-missing-block",task_id:"CT2",agent_id:"ct-a3",subagent_type:"etrnl-scout",last_assistant_message:"Scanned the repo. Found the caller in app.ts and traced the flow. Done."}')"
+out="$(run_hook cc-subagentstop-record.sh "$contract_missing_block")"
+assert_json_expr "subagentstop blocks a contracted agent that omits the contract block" "$out" '.decision == "block"'
+assert_contains "missing-block block names the contracted agent" "$out" "etrnl-scout"
+# (b) A spoofed emitted ETRNL_AGENT (trusted subagent_type=etrnl-adversary, block
+#     claims etrnl-scout) is BLOCKED for identity spoofing.
+contract_spoof="$(jq -cn '{session_id:"fixture-contract-spoof",task_id:"CT2",agent_id:"ct-a4",subagent_type:"etrnl-adversary",last_assistant_message:"ETRNL_TASK_ID: CT2\nETRNL_CONTRACT: v1\nETRNL_AGENT: etrnl-scout\nETRNL_STATUS: verified\nETRNL_LENSES: correctness\nETRNL_FINDINGS: 0\nETRNL_CONFIDENCE: high"}')"
+out="$(run_hook cc-subagentstop-record.sh "$contract_spoof")"
+assert_json_expr "subagentstop blocks a spoofed emitted agent identity" "$out" '.decision == "block"'
+# (c) A non-contracted subagent (no agents/general-purpose.md) that emits NO block is ALLOWED.
+contract_noncontracted="$(jq -cn '{session_id:"fixture-contract-noncontracted",task_id:"CT2",agent_id:"ct-a5",subagent_type:"general-purpose",last_assistant_message:"Looked into the question and wrote a short summary. No contract block emitted."}')"
+out="$(run_hook cc-subagentstop-record.sh "$contract_noncontracted")"
+if printf '%s' "$out" | grep -q '"decision":"block"'; then not_ok "subagentstop allows a non-contracted subagent with no block: $out"; else ok "subagentstop allows a non-contracted subagent with no block"; fi
 
 contract_backstop_state="$TMPROOT/claude-guard-fixture-contract-backstop.json"
 jq -nc '{schemaVersion:5,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},contractVerdicts:{"CT1:rev":{verdict:"violation",at:"2026-01-01T00:00:00Z"}},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],toolSignals:[],firstEditAt:"",firstEditGeneration:0,toolUseBeforeFirstEdit:{},toolNoise:{},effectivenessCounters:{},newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:false,planExecutionRequestedAt:"",lastPrompt:"",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$contract_backstop_state"
@@ -675,7 +704,9 @@ out="$(run_hook cc-stop-verifier.sh "$contract_backstop_stop")"
 assert_contains "stop verifier backstops an unresolved contract violation" "$out" "output contract failed validation"
 
 # P3 test-weakening deny checks: never let an agent neutralize a red gate.
-for tw in 'pnpm test || true' 'set +e; pnpm test' 'rm -f src/foo.test.ts' 'git commit --no-verify -m wip'; do
+# Includes CodeRabbit round-1 additions: `node --test || true` (swallowed node
+# built-in runner) and `rm -rf __tests__` (root-level test dir with no slash).
+for tw in 'pnpm test || true' 'set +e; pnpm test' 'node --test || true' 'rm -rf __tests__' 'rm -f src/foo.test.ts' 'git commit --no-verify -m wip'; do
   tw_json="$(jq -cn --arg c "$tw" '{session_id:"fixture-test-weaken",tool_name:"Bash",tool_input:{command:$c}}')"
   out="$(run_hook cc-pretooluse-guard.sh "$tw_json")"
   assert_json_expr "guard denies test-weakening: $tw" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
@@ -687,7 +718,11 @@ assert_json_expr "guard allows a clean test run" "$out" '.continue == true'
 # Regression: the test-weakening guard must NOT fire on the bare POSIX `test`/`[`
 # conditional builtin or the literal word "test" — only on genuine test RUNNERS.
 # Previously `test -f x || true`, `grep test file || true`, etc. were hard-denied.
-for tw_allow in 'test -f x || true' 'test -d dir || mkdir dir' 'echo test || true' 'rg test file || true' '[ -f x ] || true' 'pnpm build || true'; do
+# CodeRabbit round-1 additions: statement-scoped weakening must ALLOW a test that
+# runs normally in its own statement even when an UNRELATED earlier statement is
+# swallowed (`cleanup || true; pnpm test`) or errexit is restored before the test
+# (`set +e; cleanup; set -e; pnpm test`).
+for tw_allow in 'test -f x || true' 'test -d dir || mkdir dir' 'echo test || true' 'rg test file || true' '[ -f x ] || true' 'pnpm build || true' 'cleanup || true; pnpm test' 'set +e; cleanup; set -e; pnpm test'; do
   tw_allow_json="$(jq -cn --arg c "$tw_allow" '{session_id:"fixture-test-weaken-allow",tool_name:"Bash",tool_input:{command:$c}}')"
   out="$(run_hook cc-pretooluse-guard.sh "$tw_allow_json")"
   assert_json_expr "guard allows non-runner conditional: $tw_allow" "$out" '(.hookSpecificOutput.permissionDecision // "allow") != "deny"'

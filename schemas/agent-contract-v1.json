@@ -4,7 +4,7 @@
   "doc": "Lean, machine-checkable contract every etrnl agent emits at the end of its response. The validator (scripts/agent-output-contract.mjs) turns this from advisory prose into a hard gate: it parses the fenced block, checks the status enum, the per-finding line grammar, the deterministic status rule (status must MATCH the findings), two-tier verbosity for fenced-critical findings, and per-agent required fields. Not a JSON Schema for JSON payloads — a spec the validator reads.",
   "block": {
     "openMarker": "ETRNL_CONTRACT: v1",
-    "requiredKeys": ["ETRNL_AGENT", "ETRNL_STATUS", "ETRNL_LENSES", "ETRNL_FINDINGS"],
+    "requiredKeys": ["ETRNL_AGENT", "ETRNL_TASK_ID", "ETRNL_STATUS", "ETRNL_LENSES", "ETRNL_FINDINGS"],
     "keyLine": "^ETRNL_[A-Z_]+:\\s?.*$"
   },
   "status": {
@@ -56,7 +56,10 @@
     "etrnl-consumer-tracer": ["ETRNL_IMPACT_MAP"],
     "etrnl-quality-reviewer": ["ETRNL_REOPEN_ROUNDS"],
     "etrnl-scout": ["ETRNL_CONFIDENCE"],
-    "etrnl-investigator": ["ETRNL_CONFIDENCE"]
+    "etrnl-investigator": ["ETRNL_CONFIDENCE"],
+    "etrnl-browser-qa": ["ETRNL_ROUTES_CHECKED", "ETRNL_VIEWPORTS_CHECKED", "ETRNL_REPORT_PATH", "ETRNL_READY_FOR_FINAL_GATE"],
+    "etrnl-spec-reviewer": ["ETRNL_EVIDENCE_CHECKED", "ETRNL_TIER_B_COVERAGE", "ETRNL_READY_TO_EXECUTE"],
+    "etrnl-test-wiring-auditor": ["ETRNL_REQUIRED_TESTS"]
   },
-  "perAgentRequiredKeysDoc": "Beyond the base requiredKeys, each named agent must also emit these fields. Reviewers not listed only need the base contract. ETRNL_STOP_CYCLE for the adversary must be <=3 (doubt-driven 3-cycle cap)."
+  "perAgentRequiredKeysDoc": "Beyond the base requiredKeys, each named agent must also emit these fields. Reviewers not listed only need the base contract. ETRNL_STOP_CYCLE for the adversary must be <=3 (doubt-driven 3-cycle cap). ETRNL_REQUIRED_TESTS for the test-wiring auditor must be a non-negative integer equal to the parsed finding count (each missing test-wiring gate is one test-category finding)."
 }

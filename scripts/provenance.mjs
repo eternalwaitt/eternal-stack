@@ -98,9 +98,11 @@ export function readLedger(ledgerPath) {
 
 /**
  * Collects the distinct file paths a ledger touched: every recorded artifact
- * path plus any TDD-evidence source files. Paths are returned repo-relative when
- * they resolve under the repo root, so provenance keys line up with the paths a
- * caller passes to `why <file>:<line>`.
+ * path plus any TDD-evidence source files. Only paths that resolve under the
+ * repo root are kept, and they are stored repo-relative so provenance keys line
+ * up with the paths a caller passes to `why <file>:<line>`. Paths that escape
+ * the repo root are omitted entirely: this note is committed and shared, so
+ * writing an absolute path would leak the local username and filesystem layout.
  *
  * @param {object} ledger Parsed run ledger.
  * @param {string} repoRoot Absolute git repository root.
@@ -114,7 +116,10 @@ export function collectTouchedFiles(ledger, repoRoot) {
     if (!value) return;
     const resolved = path.resolve(cwd, value);
     const relative = path.relative(repoRoot, resolved);
-    const key = !relative.startsWith("..") && !path.isAbsolute(relative) ? relative : resolved;
+    // Omit anything outside the repo root rather than storing an absolute path:
+    // the note is shared and an absolute path would leak local user/FS layout.
+    if (relative.startsWith("..") || path.isAbsolute(relative)) return;
+    const key = relative;
     if (seen.has(key)) return;
     seen.set(key, { path: key, resolved, kind });
   };

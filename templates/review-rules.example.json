@@ -94,25 +94,29 @@
         "**/*.test.ts",
         "**/*.test.tsx",
         "**/*.test.js",
+        "**/*.test.mjs",
+        "**/*.test.cjs",
         "**/*.spec.ts",
         "**/*.spec.tsx",
-        "**/*.spec.js"
+        "**/*.spec.js",
+        "**/*.spec.mjs",
+        "**/*.spec.cjs"
       ],
       "lensId": "test_delta",
       "findingKind": "test",
       "category": "skipped-test",
-      "rationaleHash": "7c6b383eed0cbd67551825462d1393efb4811b204b6b61341ce4a90957e87120",
+      "rationaleHash": "f62e35f87117817df020fc539b0cd2a272e6b792c07aa4dadf4eeff4c4d77b5e",
       "sourcePrCount": 3,
       "severity": "high",
       "ownerRole": "repository-owner",
-      "version": 1,
+      "version": 2,
       "rollback": {
         "disableRuleId": "no-skipped-test"
       },
       "astGrep": null,
       "literal": null,
       "regex": {
-        "pattern": "(?:\\b(?:describe|it|test)\\s*\\.\\s*skip|\\b(?:xit|xdescribe|xtest))\\s*\\(",
+        "pattern": "(?:\\b(?:describe|it|test)\\s*\\.\\s*skip(?:\\s*\\.\\s*each)?|\\b(?:xit|xdescribe|xtest))\\s*\\(",
         "flags": ""
       }
     },
@@ -130,18 +134,18 @@
       "lensId": "correctness_state",
       "findingKind": "bug",
       "category": "silent-fallback",
-      "rationaleHash": "6ca740816be291af3a2d20173ed7e494595a388d6658767baaaccc795ad2b273",
+      "rationaleHash": "25518f03204581c0870d589281786dd9f3afb064748029efad24afe109a82486",
       "sourcePrCount": 3,
       "severity": "high",
       "ownerRole": "repository-owner",
-      "version": 1,
+      "version": 2,
       "rollback": {
         "disableRuleId": "no-empty-catch"
       },
       "astGrep": null,
       "literal": null,
       "regex": {
-        "pattern": "catch\\s*\\([^)]*\\)\\s*\\{\\s*\\}",
+        "pattern": "catch\\s*(?:\\([^)]*\\))?\\s*\\{\\s*\\}",
         "flags": ""
       }
     },
@@ -159,18 +163,18 @@
       "lensId": "correctness_state",
       "findingKind": "bug",
       "category": "nextjs-redirect-swallowed",
-      "rationaleHash": "f4fb277aaff982f30f70707a8f60850348c3ee1b2ce04659430347f09a1bf012",
+      "rationaleHash": "81d3cf1dc5a564bec431c9601dbea6a95a037596e5d16ad32841635a3c128d75",
       "sourcePrCount": 3,
       "severity": "high",
       "ownerRole": "repository-owner",
-      "version": 1,
+      "version": 2,
       "rollback": {
         "disableRuleId": "nextjs-no-redirect-in-try-catch"
       },
       "astGrep": null,
       "literal": null,
       "regex": {
-        "pattern": "try\\s*\\{[^{}]*\\b(?:redirect|notFound)\\s*\\(",
+        "pattern": "try\\s*\\{(?:[^{}]|\\{[^{}]*\\})*\\{?[^{}]*\\b(?:redirect|notFound)\\s*\\(",
         "flags": ""
       }
     }

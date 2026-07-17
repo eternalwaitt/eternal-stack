@@ -27,7 +27,7 @@ Arm rollback before the canary takes traffic, not after an incident starts.
 
 - Name the exact rollback command or path: revert the flag, redeploy the prior build tag, disable the router key, or run the down-migration. Write the literal command, not a description of one.
 - Rehearse it before ship: execute the rollback in staging or against the canary, confirm the change reverts, and record the timestamped result. An unrehearsed rollback is not armed.
-- Name the trigger metric and its threshold: the exact metric, the numeric threshold, and the observation window that fire the rollback (for example error rate above 2 percent over 5 minutes, or p99 latency above the named ceiling). When the threshold is crossed, run the rollback command — do not deliberate.
+- Name the trigger metric and its threshold: the exact metric, the numeric threshold, and the observation window that fire the rollback (for example error rate above 2 percent over 5 minutes, or p99 latency above the named ceiling). When the threshold is crossed, get the named owner's explicit confirmation, then run the rollback command — do not debate the decision once the owner confirms. The only exception: an approved automated rollback policy recorded before launch executes the rollback without waiting for confirmation.
 - For schema and data changes, confirm the rollback path is forward-compatible: the prior build reads the new schema, or the down-migration is tested and non-destructive. Do not ship a one-way migration behind a rollback claim.
 
 ## 3. Observability instrumentation — wired BEFORE ship
@@ -45,7 +45,7 @@ Do not defer instrumentation to a follow-up. Instrumentation lands in the shippi
 
 Ship only after a recorded go/no-go decision. All four hold or the answer is no-go:
 
-- Named owner: one person owns this ship and owns the rollback decision. Record the name, not a team.
+- Named owner: one person owns this ship and owns the rollback decision. Record the name, not a team. Executing a production rollback requires this owner's explicit confirmation, unless an approved automated rollback policy was recorded before launch — a threshold breach alone does not auto-authorize a destructive production, migration, or data change.
 - Pre-ship audit green: `etrnl-audit-production` ran against this change and reports green. A red or unrun audit is an automatic no-go.
 - Rollback rehearsed: the rollback command executed in rehearsal with a recorded timestamped result.
 - Instrumentation live: logs, per-path metrics, the alert, and the critical-path span are emitting before traffic.

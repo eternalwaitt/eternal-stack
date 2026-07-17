@@ -848,9 +848,19 @@ function recordSubagent() {
   // outputTokens is a fixed length/4 estimate (no wall-clock, no model call) so
   // token-savings.mjs can attribute cost per agent role and flag net-negative work.
   const outputTokens = Math.ceil(text.length / 4);
-  const findingsMatch = text.match(/ETRNL_FINDINGS[:=]\s*(\d+)/i);
+  // Isolate the ETRNL_CONTRACT block before parsing authoritative fields.
+  // Agents emit the contract LAST (same convention as agent-output-contract.mjs
+  // extractBlock), so the block is from the "ETRNL_CONTRACT: v1" line to EOF.
+  // Running the regexes over the full joined text would let a preamble or a
+  // duplicated ETRNL_AGENT/ETRNL_FINDINGS value earlier in the output win over
+  // the authoritative one in the contract block. When no block is present, keep
+  // the defaults (findingsCount 0, agentType null).
+  const contractLines = text.split("\n");
+  const contractStart = contractLines.findIndex((line) => line.trim() === "ETRNL_CONTRACT: v1");
+  const contractBlock = contractStart === -1 ? "" : contractLines.slice(contractStart).join("\n");
+  const findingsMatch = contractBlock.match(/ETRNL_FINDINGS[:=]\s*(\d+)/i);
   const findingsCount = findingsMatch ? Number.parseInt(findingsMatch[1], 10) : 0;
-  const agentTypeMatch = text.match(/ETRNL_AGENT[:=]\s*([A-Za-z0-9_-]+)/i);
+  const agentTypeMatch = contractBlock.match(/ETRNL_AGENT[:=]\s*([A-Za-z0-9_-]+)/i);
   const agentType = agentTypeMatch ? agentTypeMatch[1] : null;
   updateJson(file, (ledger) => {
     if (!(ledger.tasks ?? []).some((task) => task.id === taskId)) {

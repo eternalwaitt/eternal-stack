@@ -37,6 +37,7 @@ Read the request, match the first trigger that fires top to bottom, invoke the n
 | The user explicitly asks to commit staged or working changes | `etrnl-dev-commit` |
 | CI/CD pipelines, release gates, or workflow hardening are in scope | `etrnl-dev-ci` |
 | Dependency updates, audits, bot-PR triage, or security-patch bumps are the job | `etrnl-dev-deps` |
+| Deprecate, delete, retire, or migrate a symbol, surface, endpoint, or API | `etrnl-dev-deprecate` |
 | An architecture, plan, diff, or completion claim needs an adversarial stress pass | `etrnl-dev-stress-test` |
 
 ### audit-* family (assess health)
@@ -57,6 +58,7 @@ Read the request, match the first trigger that fires top to bottom, invoke the n
 | --- | --- |
 | Save progress, checkpoint working context, or prepare a resumable handoff before a break | `etrnl-ops-context-save` |
 | Resume prior work, restore a saved checkpoint, or rebuild working context | `etrnl-ops-context-restore` |
+| Ship, launch, roll out, or release a change with staged rollout, rollback readiness, and go/no-go gating | `etrnl-ops-ship` |
 
 ### Design and build companions
 

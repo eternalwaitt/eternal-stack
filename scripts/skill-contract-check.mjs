@@ -89,7 +89,10 @@ const HOUSE_STYLE_SECTIONS = [
 ];
 
 function assertHouseStyle(file, skill, text, relSkillPath) {
-  const lineCount = text.split("\n").length;
+  // An empty file is 0 lines; a newline-terminated file must not count the
+  // trailing empty split entry (a compliant 500-line file ending in "\n" is
+  // 500, not 501).
+  const lineCount = text === "" ? 0 : text.split("\n").length - (text.endsWith("\n") ? 1 : 0);
   if (lineCount > 500) {
     fail(`${relSkillPath}: ${lineCount} lines exceeds the 500-line SKILL.md budget; move depth into references/`);
   }

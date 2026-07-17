@@ -124,6 +124,27 @@ test("guards empty input with a zero-state report and exit 0", () => {
   assert.equal(out.netNegative.length, 0);
 });
 
+test("rejects --holdout-percent above 100 with exit 2", () => {
+  const ledgerPath = writeLedger(AGENTS);
+  const res = spawnSync(
+    "node",
+    [script, "report", "--ledger", ledgerPath, "--json", "--holdout-percent", "101"],
+    { encoding: "utf8" },
+  );
+  assert.notEqual(res.status, 0);
+  assert.match(res.stderr, /--holdout-percent must be between 0 and 100/);
+});
+
+test("accepts --holdout-percent 100 (control)", () => {
+  const ledgerPath = writeLedger(AGENTS);
+  const res = spawnSync(
+    "node",
+    [script, "report", "--ledger", ledgerPath, "--json", "--holdout-percent", "100"],
+    { encoding: "utf8" },
+  );
+  assert.equal(res.status, 0);
+});
+
 test("exits 2 on an explicitly requested unreadable ledger", () => {
   const res = spawnSync(
     "node",

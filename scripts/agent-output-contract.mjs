@@ -16,6 +16,26 @@
 
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+// Directory of this script, resolved via fileURLToPath so a checkout path with
+// spaces or non-ASCII characters is decoded correctly. Using new URL().pathname
+// would keep percent-encoding, making the schema / agents dir look missing and
+// silently downgrading the hook to fail-open (enforcement skipped). See FINDING #13.
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+
+// Resolve the agents directory, honoring an explicit --agents-dir override.
+function resolveAgentsDir(agentsDirArg) {
+  return agentsDirArg ? path.resolve(agentsDirArg) : path.join(HERE, "..", "agents");
+}
+
+// A contracted agent is one that has an agents/<agent>.md file in the resolved
+// agents dir. Used for the missing-block policy: only contracted agents are
+// required to emit a contract block.
+function isContractedAgent(agentId, agentsDir) {
+  if (!agentId) return false;
+  return existsSync(path.join(agentsDir, `${agentId}.md`));
+}
 
 const EXIT_PASS = 0;
 const EXIT_VIOLATION = 1;
@@ -39,8 +59,7 @@ function parseArgs(argv) {
 
 function loadSchema() {
   // Resolve relative to this script so it works from any cwd (hook context).
-  const here = path.dirname(new URL(import.meta.url).pathname);
-  const resolved = path.join(here, "..", "schemas", "agent-contract-v1.json");
+  const resolved = path.join(HERE, "..", "schemas", "agent-contract-v1.json");
   if (!existsSync(resolved)) throw new Error(`agent-contract schema not found: ${resolved}`);
   const schema = JSON.parse(readFileSync(resolved, "utf8"));
   if (schema.schemaVersion !== 1) throw new Error(`unsupported agent-contract schema version`);
@@ -92,19 +111,51 @@ function computeStatus(findings, schema) {
   return "verified";
 }
 
+// Return true when kv has a non-empty (non-whitespace) value for key.
+function hasNonEmpty(kv, key) {
+  if (!kv.has(key)) return false;
+  const v = kv.get(key);
+  return typeof v === "string" && v.trim().length > 0;
+}
+
 // Validate a single emitted contract. Returns { violations: string[] }.
-function validateContract(text, agentId, schema) {
+// agentId is the TRUSTED identity the hook passes via --agent (from the trusted
+// JSON event's .subagent_type // .agent_type), NOT the self-reported ETRNL_AGENT
+// line inside the block. agentsDir is the resolved agents directory used to
+// decide whether a missing block is a violation (contracted agent) or a no-op
+// (agent outside the contract rollout).
+function validateContract(text, agentId, schema, agentsDir) {
   const violations = [];
   const block = extractBlock(text, schema);
-  if (!block) return { violations: [`no "${schema.block.openMarker}" contract block found`] };
+  if (!block) {
+    // Missing-block policy (FINDING #2): a missing block is only a violation when
+    // the TRUSTED agent id names a contracted agent (agents/<agentId>.md exists).
+    // Agents outside the contract rollout pass with zero violations (exit 0).
+    if (isContractedAgent(agentId, agentsDir)) {
+      return { violations: [`missing ETRNL_CONTRACT: v1 block for contracted agent ${agentId}`] };
+    }
+    return { violations: [] };
+  }
 
   const kv = keyValues(block);
+  // Required keys must be present AND non-empty (FINDING #14): a bare "ETRNL_LENSES:"
+  // with no value must not satisfy the fail-closed required-key check.
   for (const key of schema.block.requiredKeys) {
-    if (!kv.has(key)) violations.push(`missing required key ${key}`);
+    if (!hasNonEmpty(kv, key)) violations.push(`missing or empty required key ${key}`);
   }
   const perAgent = (agentId && schema.perAgentRequiredKeys[agentId]) || [];
   for (const key of perAgent) {
-    if (!kv.has(key)) violations.push(`agent ${agentId} missing required key ${key}`);
+    if (!hasNonEmpty(kv, key)) violations.push(`agent ${agentId} missing or empty required key ${key}`);
+  }
+
+  // Identity spoof check (FINDING #15): the emitted ETRNL_AGENT is self-reported
+  // and must match the trusted --agent value. Profile selection below already
+  // uses agentId (trusted), so this only guards against a spoofed emitted id.
+  if (agentId && kv.has("ETRNL_AGENT")) {
+    const emitted = kv.get("ETRNL_AGENT");
+    if (emitted && emitted !== agentId) {
+      violations.push(`emitted ETRNL_AGENT ${emitted} does not match trusted agent ${agentId}`);
+    }
   }
 
   const isWorker = Boolean(agentId) && Array.isArray(schema.workerProfileAgents) && schema.workerProfileAgents.includes(agentId);
@@ -139,6 +190,19 @@ function validateContract(text, agentId, schema) {
       violations.push(`ETRNL_FINDINGS must be a non-negative integer, got "${declared}"`);
     } else if (Number(declared) !== findings.length) {
       violations.push(`ETRNL_FINDINGS says ${declared} but ${findings.length} finding line(s) parsed`);
+    }
+  }
+
+  // Required-tests reconciliation (FINDING #12): the test-wiring auditor emits one
+  // required_tests line per missing gate, and each missing gate is one test-category
+  // finding. Mirror the ETRNL_FINDINGS reconciliation: ETRNL_REQUIRED_TESTS must be a
+  // non-negative integer and must equal the parsed finding count.
+  const declaredRequiredTests = kv.get("ETRNL_REQUIRED_TESTS");
+  if (declaredRequiredTests !== undefined) {
+    if (!/^\d+$/.test(declaredRequiredTests)) {
+      violations.push(`ETRNL_REQUIRED_TESTS must be a non-negative integer, got "${declaredRequiredTests}"`);
+    } else if (Number(declaredRequiredTests) !== findings.length) {
+      violations.push(`ETRNL_REQUIRED_TESTS says ${declaredRequiredTests} but ${findings.length} finding line(s) parsed`);
     }
   }
 
@@ -199,9 +263,7 @@ function main() {
   const schema = loadSchema();
 
   if (args.cmd === "check-all-agents") {
-    const dir = args.agentsDir
-      ? path.resolve(args.agentsDir)
-      : path.join(path.dirname(new URL(import.meta.url).pathname), "..", "agents");
+    const dir = resolveAgentsDir(args.agentsDir);
     const results = checkAllAgents(dir, schema);
     const failed = results.filter((r) => r.violations.length > 0);
     if (args.json) {
@@ -227,7 +289,8 @@ function main() {
   }
   if (!text || !text.trim()) throw new Error("no contract text to evaluate (empty input)");
 
-  const { violations } = validateContract(text, args.agent, schema);
+  const agentsDir = resolveAgentsDir(args.agentsDir);
+  const { violations } = validateContract(text, args.agent, schema, agentsDir);
   if (args.json) {
     process.stdout.write(JSON.stringify({ schemaVersion: 1, agent: args.agent || null, status: violations.length ? "violation" : "pass", violations }, null, 2) + "\n");
   } else if (violations.length === 0) {

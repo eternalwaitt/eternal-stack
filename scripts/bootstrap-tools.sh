@@ -357,8 +357,9 @@ install_react_doctor() {
     printf 'note: npm not found; skipping optional react-doctor install (fail-open)\n'
     return 0
   fi
+  local react_doctor_spec="${ETRNL_REACT_DOCTOR_NPM_SPEC:-react-doctor@0.7.8}"
   npm_status=0
-  npm install -g react-doctor || npm_status=$?
+  npm install -g "$react_doctor_spec" || npm_status=$?
   if [[ "$npm_status" != "0" ]]; then
     printf 'note: optional react-doctor npm install failed (exit %s); continuing (fail-open)\n' "$npm_status"
     return 0

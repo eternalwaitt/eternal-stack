@@ -18,7 +18,7 @@
 // recorded as a checklist_candidate instead of installing a false-positive guard.
 // Without --corpus the loop behaves exactly as before (frequency-only gate).
 
-import { readFileSync, writeFileSync, existsSync, mkdtempSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdtempSync, rmSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -112,16 +112,36 @@ function countMatchedFiles(tmpl, corpusRoot) {
   }
 }
 
+// True when a corpus half exists AND holds at least one regular file (nested at
+// any depth). An absent or empty half carries no labelling evidence, so a
+// precision measurement over it is meaningless — see measurePrecision.
+function halfHasLabelledFile(halfRoot) {
+  if (!existsSync(halfRoot)) return false;
+  try {
+    for (const ent of readdirSync(halfRoot, { recursive: true, withFileTypes: true })) {
+      if (ent.isFile()) return true;
+    }
+  } catch { return false; }
+  return false;
+}
+
 // Precision of a candidate template rule against the labelled corpus.
 //   TP = files matched under <corpus>/positive/  (rule SHOULD fire)
 //   FP = files matched under <corpus>/negative/  (rule SHOULD NOT fire)
 //   precision = TP / (TP + FP); TP + FP === 0 -> 0 (a rule that fires on nothing
-//   is not promotable). Missing corpus half counts as zero matches for that half.
+//   is not promotable).
+// A precision measurement is only meaningful when BOTH halves carry labelling
+// evidence. If either <corpus>/positive/ or <corpus>/negative/ is missing or
+// empty, there is no false-positive evidence — treating the absent half as zero
+// FP would compute precision = TP/(TP+0) = 1 and auto-promote a noisy rule with
+// no negative corpus at all. Return 0 (not promotable) in that case; only fall
+// through to the real TP/(TP+FP) calculation when both halves are populated.
 function measurePrecision(tmpl, corpusRoot) {
   const posRoot = path.join(corpusRoot, "positive");
   const negRoot = path.join(corpusRoot, "negative");
-  const tp = existsSync(posRoot) ? countMatchedFiles(tmpl, posRoot) : 0;
-  const fp = existsSync(negRoot) ? countMatchedFiles(tmpl, negRoot) : 0;
+  if (!halfHasLabelledFile(posRoot) || !halfHasLabelledFile(negRoot)) return 0;
+  const tp = countMatchedFiles(tmpl, posRoot);
+  const fp = countMatchedFiles(tmpl, negRoot);
   if (tp + fp === 0) return 0;
   return tp / (tp + fp);
 }

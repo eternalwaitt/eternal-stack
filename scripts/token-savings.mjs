@@ -260,6 +260,10 @@ function reportCommand(args) {
     DEFAULT_HOLDOUT_PERCENT,
     "--holdout-percent",
   );
+  if (holdoutPercent > 100) {
+    console.error("--holdout-percent must be between 0 and 100");
+    process.exit(2);
+  }
   const netNegativeThreshold = parsePositiveInt(
     argValue("--net-negative-threshold", String(DEFAULT_NET_NEGATIVE_THRESHOLD)),
     DEFAULT_NET_NEGATIVE_THRESHOLD,

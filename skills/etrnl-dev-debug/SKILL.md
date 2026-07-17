@@ -42,13 +42,14 @@ Rule, stated literally: "No red-capable command, no Phase 2." A hypothesis witho
 
 Clear every item before entering Phase 2, Phase 3, or Phase 4:
 
+0. Confirm the reproduction runs local or sandboxed, stays non-destructive, and performs no remote-state mutation or private-data exposure — no production/billing/migration/privacy-impacting side effect. When the only red-capable command would mutate production, billing, migration, or private data, stop for explicit user approval before running it; without approval, classify `NEEDS_REPRO` and record the blocked command as evidence.
 1. Name ONE already-run command that reproduces the EXACT reported symptom. Record the exact invocation and its captured output.
 2. Confirm the command is red-capable: its captured output shows the EXACT reported symptom (same error text, same failing assertion, same status code, same stack frame, same wrong value). A green run does not clear this gate.
 3. Confirm the command already ran in this session. A command described but not run does not clear this gate.
 4. Match the captured output against the reported symptom line by line. If the output differs from the report, the symptom is not reproduced; stay in reproduction and return to Phase 1.
 5. Write the command and its captured red output into the run record as the reproduction anchor. Later phases cite this anchor.
 
-Do not proceed to hypothesis or fix work until items 1 through 5 are cleared. When the command cannot red-reproduce the symptom, stop and classify as `NEEDS_REPRO` or `DOES_NOT_REPRO` with the captured output as evidence.
+Do not proceed to hypothesis or fix work until items 0 through 5 are cleared. When the command cannot red-reproduce the symptom, stop and classify as `NEEDS_REPRO` or `DOES_NOT_REPRO` with the captured output as evidence.
 
 ## Phase 2: Pattern Analysis
 

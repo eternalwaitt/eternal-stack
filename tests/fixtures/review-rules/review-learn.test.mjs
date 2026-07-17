@@ -179,6 +179,47 @@ function lowPrecisionCorpus(root) {
   return corpus;
 }
 
+// A positive-only corpus (matches in positive/, but negative/ is absent or empty)
+// carries NO false-positive evidence. Without the guard, fp would be 0 and
+// precision = TP/(TP+0) = 1, auto-promoting a noisy rule against zero negatives.
+function positiveOnlyCorpus(root, { emptyNegative = false } = {}) {
+  const corpus = path.join(root, "corpus");
+  mkdirSync(path.join(corpus, "positive", "src"), { recursive: true });
+  // positive: an empty catch that the rule DOES match (would be a true positive).
+  writeFileSync(path.join(corpus, "positive", "src", "tp.ts"), "export function a() { try { risky(); } catch (e) {} }\n");
+  // Optionally create an EMPTY negative/ dir (exists but holds no labelled file);
+  // otherwise leave negative/ absent entirely. Both must yield precision 0.
+  if (emptyNegative) mkdirSync(path.join(corpus, "negative"), { recursive: true });
+  return corpus;
+}
+
+for (const emptyNegative of [false, true]) {
+  const label = emptyNegative ? "empty negative/ dir" : "no negative/ dir";
+  test(`a positive-only corpus (${label}) yields precision 0 and does NOT promote a guard`, () => {
+    const root = freshRoot();
+    const corpus = positiveOnlyCorpus(root, { emptyNegative });
+    // 3 recurrences reach the frequency threshold and the rule matches positives, but
+    // there is NO false-positive evidence — precision must be 0, not 1, so the rule
+    // must be blocked by the precision gate instead of auto-promoted.
+    runLearn(root, emptyCatch, { corpus, minPrecision: 0.8 });
+    runLearn(root, emptyCatch, { corpus, minPrecision: 0.8 });
+    const third = runLearn(root, emptyCatch, { corpus, minPrecision: 0.8 });
+
+    assert.equal(third.metric.newGuardPromotions.length, 0, "no guard promoted with no negative corpus");
+    assert.equal(third.metric.newChecklistCandidates.length, 1, "recorded as a checklist candidate instead");
+    const candidate = third.metric.newChecklistCandidates[0];
+    assert.equal(candidate.blockedBy, "precision", "blocked by the precision gate");
+    assert.equal(candidate.precision, 0, "precision is 0 when there is no false-positive evidence");
+    assert.equal(third.rules.rules.filter((r) => r.ruleId === "no-empty-catch").length, 0, "no guard added to review-rules.json");
+    assert.ok(!third.rules.enabledRuleIds.includes("no-empty-catch"), "the rule is not enabled");
+    const key = classify(emptyCatch[0]).key;
+    const ledgerEntry = third.ledger.promoted[key];
+    assert.equal(ledgerEntry.type, "checklist_candidate");
+    assert.equal(ledgerEntry.blockedBy, "precision");
+    assert.equal(ledgerEntry.precision, 0);
+  });
+}
+
 test("a low-precision recurring finding does NOT promote; it becomes a precision-blocked checklist candidate", () => {
   const root = freshRoot();
   const corpus = lowPrecisionCorpus(root);

@@ -206,16 +206,20 @@ cc_command_is_browser_verification() {
 # Here we require a genuine test-runner token. A bare `test` counts ONLY when it is
 # immediately followed by another test-runner keyword (never a `-` flag or `[`/`[[`).
 cc_command_is_test_runner() {
-  local cmd pm_re runner_re jsvm_re toolchain_re projtest_re
+  local cmd pm_re runner_re jsvm_re node_re toolchain_re projtest_re
   cmd="$(cc_command_normalize "$1")"
   pm_re='(^|[[:space:];&|])(rtk[[:space:]]+)?(pnpm|npm|yarn|bun)([[:space:]]+run)?[[:space:]]+test([[:space:];&|]|$)'
   runner_re='(^|[[:space:];&|])(pytest|vitest|jest|mocha|rspec|phpunit)([[:space:];&|]|$)'
   jsvm_re='(^|[[:space:];&|])(ava|tap)([[:space:];&|]|$)'
+  # Node's built-in test runner: `node --test` and `node --test=<pattern>` are real
+  # suites whose failure `|| true` would otherwise swallow undetected.
+  node_re='(^|[[:space:];&|])node[[:space:]]+--test([=[:space:];&|]|$)'
   toolchain_re='(^|[[:space:];&|])(cargo|go|deno|composer|make|rake)[[:space:]]+test([[:space:];&|]|$)'
   projtest_re='(^|[[:space:];&|])(bash[[:space:]]+)?([^[:space:];&|]*/)?(tests/test-[^[:space:];&|]*\.sh|run-node-tests)([[:space:];&|]|$)'
   [[ "$cmd" =~ $pm_re ]] && return 0
   [[ "$cmd" =~ $runner_re ]] && return 0
   [[ "$cmd" =~ $jsvm_re ]] && return 0
+  [[ "$cmd" =~ $node_re ]] && return 0
   [[ "$cmd" =~ $toolchain_re ]] && return 0
   [[ "$cmd" =~ $projtest_re ]] && return 0
   return 1
@@ -230,18 +234,66 @@ cc_command_is_test_runner() {
 # cc_command_is_test_runner) rather than the bare `test` conditional builtin, so
 # legitimate idioms like `test -f x || true` and `grep test file || true` stay allowed.
 cc_command_is_test_weakening() {
-  local cmd swallow_re sete_re rmtest_re noverify_re
+  local cmd swallow_re sete_re restore_re rmtest_re noverify_re
   cmd="$(cc_command_normalize "$1")"
-  swallow_re='[|][|][[:space:]]*(true|:)([[:space:];&|]|$)'
-  if cc_command_is_test_runner "$cmd" && [[ "$cmd" =~ $swallow_re ]]; then
-    return 0
-  fi
-  sete_re='(^|[[:space:];&|])set[[:space:]]+\+e'
-  if [[ "$cmd" =~ $sete_re ]] && cc_command_is_test_runner "$cmd"; then
-    return 0
-  fi
+
+  # Statement-scoped weakening association. Splitting on `;` and newlines isolates
+  # each statement so the swallow/set+e verdict binds to the runner's OWN statement,
+  # not to any command anywhere in the string. This keeps `cleanup || true; pnpm test`
+  # and `set +e; cleanup; set -e; pnpm test` allowed while still denying
+  # `pnpm test || true` and `set +e; pnpm test`.
+  swallow_re='[|][|][[:space:]]*(true|:)[[:space:]]*$'
+  sete_re='(^|[[:space:]])set[[:space:]]+\+e([[:space:]]|$)'
+  restore_re='(^|[[:space:]])set[[:space:]]+(-e|-o[[:space:]]+errexit)([[:space:]]|$)'
+  local -a segments=()
+  local seg errexit_disabled=0 trimmed
+  # Split on statement separators (semicolons and newlines) into segments.
+  local rest="$cmd"
+  while [[ "$rest" == *";"* || "$rest" == *$'\n'* ]]; do
+    if [[ "$rest" == *";"* && ( "$rest" != *$'\n'* || "${rest%%;*}" != *$'\n'* ) ]]; then
+      segments+=("${rest%%;*}")
+      rest="${rest#*;}"
+    else
+      segments+=("${rest%%$'\n'*}")
+      rest="${rest#*$'\n'}"
+    fi
+  done
+  segments+=("$rest")
+
+  for seg in "${segments[@]}"; do
+    # set +e disables errexit for every following statement; set -e restores it.
+    if [[ "$seg" =~ $sete_re ]]; then
+      errexit_disabled=1
+    fi
+    if cc_command_is_test_runner "$seg"; then
+      # Swallow branch: the runner's own segment ends with `|| true`/`|| :`.
+      trimmed="${seg%"${seg##*[![:space:]]}"}"
+      if [[ "$trimmed" =~ $swallow_re ]]; then
+        return 0
+      fi
+      # set+e branch: errexit is still disabled when the runner executes.
+      if (( errexit_disabled )); then
+        return 0
+      fi
+    fi
+    # Restore errexit only after evaluating this segment, so a `set -e` in the same
+    # segment as the runner still protects it, and later segments see it restored.
+    if [[ "$seg" =~ $restore_re ]]; then
+      errexit_disabled=0
+    fi
+  done
+
+  # Deleting a test file: match *.test/*.spec/_test suffixes, or a nested __tests__/
+  # directory anywhere in an rm/trash argument.
   rmtest_re='(^|[[:space:];&|])(rm|trash)([[:space:]]+-[^[:space:]]+)*[[:space:]][^;&|]*(\.(test|spec)\.[a-z]+|_test\.[a-z]+|/__tests__/)'
   if [[ "$cmd" =~ $rmtest_re ]]; then
+    return 0
+  fi
+  # Root-level __tests__ directory (no slash, e.g. `rm -rf __tests__`) at a
+  # command-argument boundary — a separate matcher so the greedy `[^;&|]*` above
+  # cannot swallow the directory name past the boundary alternation.
+  rmtestroot_re='(^|[[:space:];&|])(rm|trash)([[:space:]]+-[^[:space:]]+)*[[:space:]]([^;&|]*[[:space:]/])?__tests__([[:space:]/]|$)'
+  if [[ "$cmd" =~ $rmtestroot_re ]]; then
     return 0
   fi
   noverify_re='git[[:space:]][^;&|]*(commit|push)[^;&|]*--no-verify'

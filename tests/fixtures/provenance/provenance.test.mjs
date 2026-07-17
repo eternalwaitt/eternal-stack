@@ -149,6 +149,114 @@ test("anchor fails closed (non-zero) outside a git work tree", { skip: gitAvaila
   assert.match(anchored.stderr, /git work tree|not a git repository/i);
 });
 
+test("why prefers an OLDER exact-path note over a NEWER basename-only note (exact wins globally)", { skip: gitAvailable() ? false : "git unavailable" }, () => {
+  const root = newRepo();
+  seedRepo(root);
+  const ledger = path.join(repoRoot, "tests", "fixtures", "provenance", "sample-ledger.json");
+
+  // OLDER note (commit A): records the EXACT queried path src/widget.mjs.
+  const anchoredA = node(provenance, ["anchor", "--ledger", ledger, "--cwd", root, "--json"]);
+  assert.equal(anchoredA.status, 0, `${anchoredA.stdout}${anchoredA.stderr}`);
+  const commitA = JSON.parse(anchoredA.stdout).commit;
+
+  // NEWER commit B touches a DIFFERENT file that only shares the basename widget.mjs
+  // (src/nested/widget.mjs). Its ledger uses a distinct runId and points at that file.
+  mkdirSync(path.join(root, "src", "nested"), { recursive: true });
+  writeFileSync(path.join(root, "src", "nested", "widget.mjs"), "export const other = 9;\n");
+  git(root, ["add", "-A"]);
+  git(root, ["commit", "-q", "-m", "add nested widget"]);
+  const commitB = git(root, ["rev-parse", "HEAD"]).stdout.trim();
+  assert.notEqual(commitB, commitA, "commit B is distinct from commit A");
+
+  const baseLedger = JSON.parse(readFileSync(ledger, "utf8"));
+  const ledgerBObj = {
+    ...baseLedger,
+    runId: "run-fixture-provenance-basename",
+    tddEvidence: [{ taskId: "TG1", status: "verified", sourceFiles: "src/nested/widget.mjs" }],
+    artifacts: [{ type: "source", path: "src/nested/widget.mjs", status: "recorded" }],
+  };
+  const ledgerB = path.join(root, "ledger-basename.json");
+  writeFileSync(ledgerB, JSON.stringify(ledgerBObj));
+  const anchoredB = node(provenance, ["anchor", "--ledger", ledgerB, "--cwd", root, "--json"]);
+  assert.equal(anchoredB.status, 0, `${anchoredB.stdout}${anchoredB.stderr}`);
+  assert.equal(JSON.parse(anchoredB.stdout).commit, commitB, "basename note anchored to newer commit B");
+
+  // why for the exact path must return the OLDER exact-path note (A + its runId),
+  // NOT the newer commit's basename-only match.
+  const whyJson = node(deepDive, ["why", "src/widget.mjs:2", "--cwd", root, "--json"]);
+  assert.equal(whyJson.status, 0, `${whyJson.stdout}${whyJson.stderr}`);
+  const answer = JSON.parse(whyJson.stdout);
+  assert.equal(answer.found, true);
+  assert.equal(answer.commit, commitA, "exact-path note (older commit A) wins over newer basename note");
+  assert.equal(answer.runId, "run-fixture-provenance-001", "returns the exact-path note's runId, not the basename note's");
+});
+
+test("why --cwd <dir> <file>:<line> resolves the file, not the flag value (finding #22)", { skip: gitAvailable() ? false : "git unavailable" }, () => {
+  const root = newRepo();
+  seedRepo(root);
+  const ledger = path.join(repoRoot, "tests", "fixtures", "provenance", "sample-ledger.json");
+  const anchored = node(provenance, ["anchor", "--ledger", ledger, "--cwd", root, "--json"]);
+  assert.equal(anchored.status, 0, `${anchored.stdout}${anchored.stderr}`);
+  const commit = JSON.parse(anchored.stdout).commit;
+
+  // --cwd comes BEFORE the positional target here. The old find(!startsWith("-"))
+  // grabbed the value of --cwd (root) as the target and failed to parse it.
+  const whyJson = node(deepDive, ["why", "--cwd", root, "src/widget.mjs:2", "--json"]);
+  assert.equal(whyJson.status, 0, `${whyJson.stdout}${whyJson.stderr}`);
+  const answer = JSON.parse(whyJson.stdout);
+  assert.equal(answer.found, true, "the <file>:<line> positional is selected, not the --cwd value");
+  assert.equal(answer.file, "src/widget.mjs");
+  assert.equal(answer.line, 2);
+  assert.equal(answer.commit, commit, "resolves the anchored commit for the real target file");
+});
+
+test("why exits non-zero (not found:false) when a provenance note is unreadable (finding #23)", { skip: gitAvailable() ? false : "git unavailable" }, () => {
+  const root = newRepo();
+  seedRepo(root);
+  const ledger = path.join(repoRoot, "tests", "fixtures", "provenance", "sample-ledger.json");
+  const anchored = node(provenance, ["anchor", "--ledger", ledger, "--cwd", root, "--json"]);
+  assert.equal(anchored.status, 0, `${anchored.stdout}${anchored.stderr}`);
+
+  // Corrupt the note so it stays ENUMERABLE by `git notes list` but UNREADABLE by
+  // `git notes show` — the exact "unreadable note" condition finding #23 guards
+  // against. Build the notes tree by hand with plumbing so HEAD's note entry
+  // points at a DANGLING (nonexistent) blob object: `list` reads the tree entry
+  // fine, but `show` fails to read the missing object. `git notes add` would
+  // reject a corrupt source up front, so plumbing is required here.
+  const noteRef = "refs/notes/etrnl-provenance";
+  const headCommit = git(root, ["rev-parse", "HEAD"]).stdout.trim();
+  const missingBlob = "0000000000000000000000000000000000000001";
+  const mktree = spawnSync("git", ["-C", root, "mktree", "--missing"], {
+    encoding: "utf8",
+    input: `100644 blob ${missingBlob}\t${headCommit}\n`,
+  });
+  assert.equal(mktree.status, 0, `mktree failed: ${mktree.stderr}`);
+  const notesTree = mktree.stdout.trim();
+  const commitTree = spawnSync(
+    "git",
+    ["-C", root, "commit-tree", notesTree, "-m", "corrupt note"],
+    { encoding: "utf8" },
+  );
+  assert.equal(commitTree.status, 0, `commit-tree failed: ${commitTree.stderr}`);
+  const notesCommit = commitTree.stdout.trim();
+  const updateRef = git(root, ["update-ref", noteRef, notesCommit]);
+  assert.equal(updateRef.status, 0, `update-ref failed: ${updateRef.stderr}`);
+  // Sanity: the note is now enumerable but unshowable.
+  const listCheck = git(root, ["notes", `--ref=${noteRef}`, "list"]);
+  assert.equal(listCheck.status, 0, listCheck.stderr);
+  assert.match(listCheck.stdout, new RegExp(headCommit), "corrupt note is still enumerable");
+  const showCheck = git(root, ["notes", `--ref=${noteRef}`, "show", headCommit]);
+  assert.notEqual(showCheck.status, 0, "corrupt note must fail `git notes show`");
+
+  const whyJson = node(deepDive, ["why", "src/widget.mjs:2", "--cwd", root, "--json"]);
+  assert.notEqual(whyJson.status, 0, "unreadable note must not be reported as a clean not-found");
+  assert.equal(whyJson.status, 3, "unreadable/unparseable notes surface as error exit 3");
+  const answer = JSON.parse(whyJson.stdout);
+  assert.equal(answer.ok, false, "error payload, not a found:false answer");
+  assert.notEqual(answer.found, false, "must not claim found:false for a note it could not read");
+  assert.match(String(answer.error || ""), /unreadable|unparseable|note/i);
+});
+
 test("session-deep-dive with NO 'why' arg still runs its normal flag-only path unchanged", () => {
   const jsonRun = node(deepDive, ["--fixture", sessionFixture, "--json"]);
   assert.equal(jsonRun.status, 0, jsonRun.stderr);

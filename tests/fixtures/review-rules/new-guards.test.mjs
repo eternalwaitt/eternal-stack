@@ -41,10 +41,54 @@ test("no-skipped-test blocks it.skip / xit and passes clean tests", () => {
   assert.equal(good.code, 0);
 });
 
+test("no-skipped-test blocks a parameterized test.skip.each in an .mjs test file", () => {
+  // CodeRabbit round-1 #8: .mjs/.cjs test+spec files must be in scope, and the
+  // pattern must catch describe/it/test .skip.each(...) parameterized skips, not
+  // only bare .skip(...). The repo's own suite is .test.mjs, so a missing .mjs
+  // glob would let a skipped test bypass the guard in this very repository.
+  const bad = runRule("no-skipped-test", { "a.test.mjs": "test.skip.each([[1],[2]])('case %s', (n) => {});\n" });
+  assert.equal(bad.code, 1);
+  assert.equal(bad.out.status, "block");
+  const badIt = runRule("no-skipped-test", { "b.spec.cjs": "it.skip.each([1, 2])('n', () => {});\n" });
+  assert.equal(badIt.code, 1);
+  // A non-skipped .each parameterization in an .mjs file must still pass.
+  const good = runRule("no-skipped-test", { "c.test.mjs": "it.each([1, 2])('runs %s', (n) => { expect(n).toBeTruthy(); });\n" });
+  assert.equal(good.code, 0);
+});
+
 test("no-empty-catch blocks an empty catch and passes a handled one", () => {
   const bad = runRule("no-empty-catch", { "src/x.ts": "try { risky(); } catch (e) {}\n" });
   assert.equal(bad.code, 1);
+  // CodeRabbit round-1 #9: the ES2019 optional catch binding (no parens) must also
+  // block — `catch {}` swallows just as silently as `catch (e) {}`.
+  const bareBinding = runRule("no-empty-catch", { "src/y.ts": "try { risky(); } catch {}\n" });
+  assert.equal(bareBinding.code, 1);
+  assert.equal(bareBinding.out.status, "block");
   const good = runRule("no-empty-catch", { "src/x.ts": "try { risky(); } catch (e) { logger.error(e); throw e; }\n" });
+  assert.equal(good.code, 0);
+  const goodBare = runRule("no-empty-catch", { "src/z.ts": "try { risky(); } catch { logger.error('failed'); }\n" });
+  assert.equal(goodBare.code, 0);
+});
+
+test("nextjs-no-redirect-in-try-catch blocks a redirect nested one level deep in a try", () => {
+  // CodeRabbit round-1 #10: the flat regex missed calls nested one brace level
+  // deep, e.g. `try { if (x) { redirect('/login'); } }`. The broadened pattern
+  // allows one nested brace group before the call; deeper nesting is out of scope
+  // (documented one-level boundary).
+  const bad = runRule("nextjs-no-redirect-in-try-catch", {
+    "src/page.ts": "export async function load(x) { try { if (x) { redirect('/login'); } } catch (e) { report(e); } }\n",
+  });
+  assert.equal(bad.code, 1);
+  assert.equal(bad.out.status, "block");
+  const badNotFound = runRule("nextjs-no-redirect-in-try-catch", {
+    "src/page2.ts": "export async function load(x) { try { if (!x) { notFound(); } } catch (e) { report(e); } }\n",
+  });
+  assert.equal(badNotFound.code, 1);
+  // A legitimate redirect() outside any try still passes, even when a redirect-free
+  // try/catch precedes it — the one-level pattern must not false-positive here.
+  const good = runRule("nextjs-no-redirect-in-try-catch", {
+    "src/page3.ts": "export async function load() { try { doWork(); } catch (e) { log(e); } const u = await getUser(); if (!u) redirect('/login'); }\n",
+  });
   assert.equal(good.code, 0);
 });
 

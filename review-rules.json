@@ -48,7 +48,7 @@
       "ruleId": "no-skipped-test",
       "engine": "regex",
       "mode": "block",
-      "scopeGlobs": ["**/*.test.ts", "**/*.test.tsx", "**/*.test.js", "**/*.spec.ts", "**/*.spec.tsx", "**/*.spec.js"],
+      "scopeGlobs": ["**/*.test.ts", "**/*.test.tsx", "**/*.test.js", "**/*.test.mjs", "**/*.test.cjs", "**/*.spec.ts", "**/*.spec.tsx", "**/*.spec.js", "**/*.spec.mjs", "**/*.spec.cjs"],
       "lensId": "test_delta",
       "findingKind": "test",
       "category": "skipped-test",
@@ -56,7 +56,7 @@
       "sourcePrCount": 3,
       "astGrep": null,
       "literal": null,
-      "regex": { "pattern": "(?:\\b(?:describe|it|test)\\s*\\.\\s*skip|\\b(?:xit|xdescribe|xtest))\\s*\\(", "flags": "" }
+      "regex": { "pattern": "(?:\\b(?:describe|it|test)\\s*\\.\\s*skip(?:\\s*\\.\\s*each)?|\\b(?:xit|xdescribe|xtest))\\s*\\(", "flags": "" }
     },
     {
       "ruleId": "no-empty-catch",
@@ -70,7 +70,7 @@
       "sourcePrCount": 3,
       "astGrep": null,
       "literal": null,
-      "regex": { "pattern": "catch\\s*\\([^)]*\\)\\s*\\{\\s*\\}", "flags": "" }
+      "regex": { "pattern": "catch\\s*(?:\\([^)]*\\))?\\s*\\{\\s*\\}", "flags": "" }
     },
     {
       "ruleId": "nextjs-no-redirect-in-try-catch",
@@ -84,7 +84,7 @@
       "sourcePrCount": 3,
       "astGrep": null,
       "literal": null,
-      "regex": { "pattern": "try\\s*\\{[^{}]*\\b(?:redirect|notFound)\\s*\\(", "flags": "" }
+      "regex": { "pattern": "try\\s*\\{(?:[^{}]|\\{[^{}]*\\})*\\{?[^{}]*\\b(?:redirect|notFound)\\s*\\(", "flags": "" }
     }
   ]
 }

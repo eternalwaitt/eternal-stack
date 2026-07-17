@@ -23,6 +23,7 @@ const block = (lines) => "Some preamble.\n\n" + lines.join("\n") + "\n";
 const validVerified = block([
   "ETRNL_CONTRACT: v1",
   "ETRNL_AGENT: etrnl-design-reviewer",
+  "ETRNL_TASK_ID: T-1",
   "ETRNL_STATUS: verified",
   "ETRNL_LENSES: layout, contrast",
   "ETRNL_FINDINGS: 0",
@@ -38,6 +39,7 @@ test("valid blocked contract with a bug finding passes", () => {
   const text = block([
     "ETRNL_CONTRACT: v1",
     "ETRNL_AGENT: etrnl-design-reviewer",
+    "ETRNL_TASK_ID: T-1",
     "ETRNL_STATUS: blocked",
     "ETRNL_LENSES: correctness",
     "ETRNL_FINDINGS: 1",
@@ -95,17 +97,17 @@ test("fenced-critical bug without the -> chain is rejected (two-tier)", () => {
 
 test("fenced-critical bug WITH the -> chain passes", () => {
   const text = block([
-    "ETRNL_CONTRACT: v1", "ETRNL_AGENT: x", "ETRNL_STATUS: blocked", "ETRNL_LENSES: a", "ETRNL_FINDINGS: 1",
+    "ETRNL_CONTRACT: v1", "ETRNL_AGENT: x", "ETRNL_TASK_ID: T-1", "ETRNL_STATUS: blocked", "ETRNL_LENSES: a", "ETRNL_FINDINGS: 1",
     "- bug | auth | src/auth.ts:10 | request omits tenantId -> cross-tenant read | add tenantId filter",
   ]);
   const { code } = check(text);
   assert.equal(code, 0);
 });
 
-test("no contract block is a violation, not a crash", () => {
-  const { code, out } = check("just some text, no contract here\n");
+test("no contract block for a contracted agent is a violation, not a crash", () => {
+  const { code, out } = check("just some text, no contract here\n", { agent: "etrnl-scout" });
   assert.equal(code, 1);
-  assert.ok(out.violations.some((v) => v.includes("contract block")));
+  assert.ok(out.violations.some((v) => v.includes("missing ETRNL_CONTRACT: v1 block for contracted agent etrnl-scout")));
 });
 
 test("empty input is cannot-evaluate (exit 2), never a clean pass", () => {
@@ -164,7 +166,7 @@ test("finding with a category outside the taxonomy is a violation", () => {
 
 test("worker profile: scout 'completed' with no findings passes", () => {
   const text = block([
-    "ETRNL_CONTRACT: v1", "ETRNL_AGENT: etrnl-scout", "ETRNL_STATUS: completed", "ETRNL_LENSES: reuse-map",
+    "ETRNL_CONTRACT: v1", "ETRNL_AGENT: etrnl-scout", "ETRNL_TASK_ID: T-1", "ETRNL_STATUS: completed", "ETRNL_LENSES: reuse-map",
     "ETRNL_FINDINGS: 0", "ETRNL_CONFIDENCE: high",
   ]);
   const { code } = check(text, { agent: "etrnl-scout" });
@@ -173,7 +175,7 @@ test("worker profile: scout 'completed' with no findings passes", () => {
 
 test("worker profile: 'completed' with a non-bug finding is allowed", () => {
   const text = block([
-    "ETRNL_CONTRACT: v1", "ETRNL_AGENT: etrnl-investigator", "ETRNL_STATUS: completed", "ETRNL_LENSES: root-cause",
+    "ETRNL_CONTRACT: v1", "ETRNL_AGENT: etrnl-investigator", "ETRNL_TASK_ID: T-1", "ETRNL_STATUS: completed", "ETRNL_LENSES: root-cause",
     "ETRNL_FINDINGS: 1", "ETRNL_CONFIDENCE: medium", "- risk | perf | a.ts:3 | slow path | cache it",
   ]);
   const { code } = check(text, { agent: "etrnl-investigator" });
@@ -207,7 +209,7 @@ test("check-all-agents flags a non-conformant agent template and passes a confor
     path.join(dir, "etrnl-design-reviewer.md"),
     [
       "# Design reviewer", "Output format — emit this contract block:",
-      "ETRNL_CONTRACT: v1", "ETRNL_AGENT: etrnl-design-reviewer", "ETRNL_STATUS: verified|changes_requested|blocked",
+      "ETRNL_CONTRACT: v1", "ETRNL_AGENT: etrnl-design-reviewer", "ETRNL_TASK_ID: <id>", "ETRNL_STATUS: verified|changes_requested|blocked",
       "ETRNL_LENSES: <ran>", "ETRNL_FINDINGS: <n>",
     ].join("\n") + "\n",
   );
@@ -218,4 +220,112 @@ test("check-all-agents flags a non-conformant agent template and passes a confor
   const good = out.results.find((r) => r.agent === "etrnl-design-reviewer");
   assert.ok(thin.violations.length > 0);
   assert.equal(good.violations.length, 0);
+});
+
+// --- Trust-boundary / missing-block policy (FINDING #2) ---
+
+test("unknown agent with no contract block exits 0 (outside the rollout)", () => {
+  const { code, out } = check("just some text, no contract here\n", { agent: "general-purpose" });
+  assert.equal(code, 0);
+  assert.equal(out.status, "pass");
+  assert.equal(out.violations.length, 0);
+});
+
+// --- Identity spoof: emitted ETRNL_AGENT must match trusted --agent (FINDING #15) ---
+
+test("emitted ETRNL_AGENT that differs from the trusted --agent is a violation", () => {
+  const text = block([
+    "ETRNL_CONTRACT: v1", "ETRNL_AGENT: etrnl-design-reviewer", "ETRNL_TASK_ID: T-1", "ETRNL_STATUS: verified",
+    "ETRNL_LENSES: a", "ETRNL_FINDINGS: 0",
+  ]);
+  const { code, out } = check(text, { agent: "etrnl-scout" });
+  assert.equal(code, 1);
+  assert.ok(out.violations.some((v) => v.includes("emitted ETRNL_AGENT etrnl-design-reviewer does not match trusted agent etrnl-scout")));
+});
+
+// --- Required keys must be present AND non-empty (FINDING #14) ---
+
+test("a bare required key with an empty value is a violation", () => {
+  const text = block([
+    "ETRNL_CONTRACT: v1", "ETRNL_AGENT: x", "ETRNL_TASK_ID: T-1", "ETRNL_STATUS: verified",
+    "ETRNL_LENSES:", "ETRNL_FINDINGS: 0",
+  ]);
+  const { code, out } = check(text);
+  assert.equal(code, 1);
+  assert.ok(out.violations.some((v) => v.includes("missing or empty required key ETRNL_LENSES")));
+});
+
+// --- ETRNL_TASK_ID is required and must be non-empty (FINDING #11) ---
+
+test("missing ETRNL_TASK_ID is a violation", () => {
+  const text = block([
+    "ETRNL_CONTRACT: v1", "ETRNL_AGENT: x", "ETRNL_STATUS: verified", "ETRNL_LENSES: a", "ETRNL_FINDINGS: 0",
+  ]);
+  const { code, out } = check(text);
+  assert.equal(code, 1);
+  assert.ok(out.violations.some((v) => v.includes("missing or empty required key ETRNL_TASK_ID")));
+});
+
+test("blank ETRNL_TASK_ID is a violation (no notask verdict-key collision)", () => {
+  const text = block([
+    "ETRNL_CONTRACT: v1", "ETRNL_AGENT: x", "ETRNL_TASK_ID:", "ETRNL_STATUS: verified", "ETRNL_LENSES: a", "ETRNL_FINDINGS: 0",
+  ]);
+  const { code, out } = check(text);
+  assert.equal(code, 1);
+  assert.ok(out.violations.some((v) => v.includes("missing or empty required key ETRNL_TASK_ID")));
+});
+
+// --- Per-agent specialized keys for browser-qa / spec-reviewer / test-wiring-auditor (FINDING #12) ---
+
+test("browser-qa missing a specialized key (ETRNL_ROUTES_CHECKED) is a violation", () => {
+  const text = block([
+    "ETRNL_CONTRACT: v1", "ETRNL_AGENT: etrnl-browser-qa", "ETRNL_TASK_ID: T-1", "ETRNL_STATUS: verified",
+    "ETRNL_LENSES: layout", "ETRNL_FINDINGS: 0",
+    "ETRNL_VIEWPORTS_CHECKED: mobile", "ETRNL_REPORT_PATH: none", "ETRNL_READY_FOR_FINAL_GATE: yes",
+  ]);
+  const { code, out } = check(text, { agent: "etrnl-browser-qa" });
+  assert.equal(code, 1);
+  assert.ok(out.violations.some((v) => v.includes("ETRNL_ROUTES_CHECKED")));
+});
+
+test("spec-reviewer missing a specialized key (ETRNL_TIER_B_COVERAGE) is a violation", () => {
+  const text = block([
+    "ETRNL_CONTRACT: v1", "ETRNL_AGENT: etrnl-spec-reviewer", "ETRNL_TASK_ID: T-1", "ETRNL_STATUS: verified",
+    "ETRNL_LENSES: scope", "ETRNL_FINDINGS: 0",
+    "ETRNL_EVIDENCE_CHECKED: none", "ETRNL_READY_TO_EXECUTE: yes",
+  ]);
+  const { code, out } = check(text, { agent: "etrnl-spec-reviewer" });
+  assert.equal(code, 1);
+  assert.ok(out.violations.some((v) => v.includes("ETRNL_TIER_B_COVERAGE")));
+});
+
+test("test-wiring-auditor missing its specialized key (ETRNL_REQUIRED_TESTS) is a violation", () => {
+  const text = block([
+    "ETRNL_CONTRACT: v1", "ETRNL_AGENT: etrnl-test-wiring-auditor", "ETRNL_TASK_ID: T-1", "ETRNL_STATUS: verified",
+    "ETRNL_LENSES: coverage", "ETRNL_FINDINGS: 0",
+  ]);
+  const { code, out } = check(text, { agent: "etrnl-test-wiring-auditor" });
+  assert.equal(code, 1);
+  assert.ok(out.violations.some((v) => v.includes("ETRNL_REQUIRED_TESTS")));
+});
+
+test("test-wiring-auditor ETRNL_REQUIRED_TESTS that disagrees with the finding count is a violation", () => {
+  const text = block([
+    "ETRNL_CONTRACT: v1", "ETRNL_AGENT: etrnl-test-wiring-auditor", "ETRNL_TASK_ID: T-1", "ETRNL_STATUS: changes_requested",
+    "ETRNL_LENSES: coverage", "ETRNL_FINDINGS: 1", "ETRNL_REQUIRED_TESTS: 2",
+    "- risk | test | a.ts:1 | new branch uncovered | add a case exercising the branch",
+  ]);
+  const { code, out } = check(text, { agent: "etrnl-test-wiring-auditor" });
+  assert.equal(code, 1);
+  assert.ok(out.violations.some((v) => v.includes("ETRNL_REQUIRED_TESTS says 2 but 1 finding line(s) parsed")));
+});
+
+test("browser-qa with all specialized keys present passes", () => {
+  const text = block([
+    "ETRNL_CONTRACT: v1", "ETRNL_AGENT: etrnl-browser-qa", "ETRNL_TASK_ID: T-1", "ETRNL_STATUS: verified",
+    "ETRNL_LENSES: layout", "ETRNL_FINDINGS: 0",
+    "ETRNL_ROUTES_CHECKED: /", "ETRNL_VIEWPORTS_CHECKED: mobile", "ETRNL_REPORT_PATH: none", "ETRNL_READY_FOR_FINAL_GATE: yes",
+  ]);
+  const { code } = check(text, { agent: "etrnl-browser-qa" });
+  assert.equal(code, 0);
 });

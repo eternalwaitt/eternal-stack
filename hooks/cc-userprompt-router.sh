@@ -315,6 +315,16 @@ case "$prompt_lower" in
     notes+=("The user is challenging a prior answer. Do not agree first. If evidence is missing, say \"I have not verified that yet\" and run or name the concrete check.")
     ;;
 esac
+
+# Precedence guard: an explicit "which skill/agent should I use" meta-question is a
+# routing request, not a request to run the named task. Without this, a prompt like
+# "which skill should I use to ship this feature?" matches both the ship branch and
+# the router branch and records two skills. When set, task-selection branches
+# short-circuit and only etrnl-router is recorded.
+explicit_skill_selection=0
+if [[ "$prompt_lower" =~ which[[:space:]]+(etrnl[[:space:]-]?)?(skill|agent)[[:space:]]+should[[:space:]]+i[[:space:]]+use|what[[:space:]]+(etrnl[[:space:]-]?)?(skill|agent)[[:space:]]+should[[:space:]]+i[[:space:]]+use|pick[[:space:]]+the[[:space:]]+right[[:space:]]+(skill|agent)|help[[:space:]]+me[[:space:]]+(pick|choose)[[:space:]]+.*(skill|agent) ]]; then
+  explicit_skill_selection=1
+fi
 if [[ "$prompt_lower" =~ brainstorm|scope[[:space:]]+this|think[[:space:]]+through|design[[:space:]]+this ]]; then
   record_skill "etrnl-dev-brainstorm"
   notes+=("Use etrnl-dev-brainstorm first: clarify, produce a design/spec file, get approval, then move to planning.")
@@ -455,7 +465,7 @@ if [[ "$prompt_lower" =~ deprecat|sunset[[:space:]]+.*(feature|api|endpoint|modu
   record_skill "etrnl-dev-deprecate"
   notes+=("Use etrnl-dev-deprecate: audit every caller first, remove dead code rather than wrap it, ship the migration path before removal, set a removal deadline and owner, and never delete a tenant/Money/auth/validation/a11y/data-loss guard or its tests.")
 fi
-if [[ "$prompt_lower" =~ staged[[:space:]-]+rollout|ship[[:space:]]+.*(to[[:space:]]+users|to[[:space:]]+production|feature|change)|launch[[:space:]]+.*(to[[:space:]]+production|to[[:space:]]+users)|cut[[:space:]-]?over[[:space:]]+.*(release|traffic|users)|go[[:space:]/-]?no[[:space:]/-]?go|rollback[[:space:]]+readiness|promote[[:space:]]+.*(traffic|by[[:space:]]+signal) ]]; then
+if (( explicit_skill_selection == 0 )) && [[ "$prompt_lower" =~ staged[[:space:]-]+rollout|ship[[:space:]]+.*(to[[:space:]]+users|to[[:space:]]+production|feature|change)|launch[[:space:]]+.*(to[[:space:]]+production|to[[:space:]]+users)|cut[[:space:]-]?over[[:space:]]+.*(release|traffic|users)|go[[:space:]/-]?no[[:space:]/-]?go|rollback[[:space:]]+readiness|promote[[:space:]]+.*(traffic|by[[:space:]]+signal) ]]; then
   record_skill "etrnl-ops-ship"
   notes+=("Use etrnl-ops-ship: stage the rollout with a promotion signal per stage, arm and rehearse a named rollback with a trigger threshold, instrument logs/metrics/alerts/traces BEFORE ship, and record a named go/no-go with etrnl-audit-production green.")
 fi

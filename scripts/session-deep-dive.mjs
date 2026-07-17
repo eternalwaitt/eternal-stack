@@ -342,8 +342,28 @@ function noteBasenameMatch(note, queryBase) {
   return hits.length === 1 ? hits[0] : null;
 }
 
+// Known value-taking flags in `--flag value` form. Their VALUE token must not be
+// mistaken for the positional <file>:<line> target (e.g. `--cwd /repo` must not
+// let "/repo" be picked as the target).
+const WHY_VALUE_FLAGS = new Set(["--cwd", "--ref"]);
+
+// Pick the positional <file>:<line> token: the first token that is not a flag
+// and is not the value immediately following a known value-taking flag. `--flag=value`
+// forms carry their own value and never consume the next token.
+function selectPositional(whyArgs) {
+  for (let index = 0; index < whyArgs.length; index += 1) {
+    const token = whyArgs[index];
+    if (token.startsWith("-")) {
+      if (WHY_VALUE_FLAGS.has(token)) index += 1; // skip this flag's value token
+      continue;
+    }
+    return token;
+  }
+  return undefined;
+}
+
 function runWhy(whyArgs) {
-  const positional = whyArgs.find((token) => !token.startsWith("-"));
+  const positional = selectPositional(whyArgs);
   const parsed = parseFileLine(positional);
   if (!parsed) {
     console.error("usage: session-deep-dive.mjs why <file>:<line> [--ref refs/notes/etrnl-provenance] [--json]");
@@ -398,13 +418,22 @@ function runWhy(whyArgs) {
   // a basename from cross-matching to each other's provenance (fail-closed).
   const ordered = orderByHistory(repoRoot, noteCommits, ref, listed);
   const notes = [];
+  // Track notes we could not read or parse. A corrupt/unreadable note must not be
+  // silently swallowed into a "no provenance" answer: if nothing matches AND at
+  // least one note failed, we surface an error exit instead of found:false.
+  const noteFailures = [];
   for (const commit of ordered) {
     const show = whyGit(["notes", `--ref=${ref}`, "show", commit], repoRoot);
-    if (!show.ok) continue;
+    if (!show.ok) {
+      const detail = show.stderr || `git notes show ${commit.slice(0, 12)} failed`;
+      noteFailures.push(`${commit.slice(0, 12)}: ${detail}`);
+      continue;
+    }
     try {
       notes.push({ commit, note: JSON.parse(show.stdout) });
-    } catch {
-      // Skip unparseable notes rather than surfacing a note the caller can't use.
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      noteFailures.push(`${commit.slice(0, 12)}: unparseable note (${detail})`);
     }
   }
 
@@ -443,6 +472,15 @@ function runWhy(whyArgs) {
       console.log(`recorded sha256=${answer.sha256 || "<none>"} kind=${answer.kind || "<none>"}`);
       if (answer.updatedAt) console.log(`ledger updatedAt=${answer.updatedAt}`);
     }
+    return;
+  }
+
+  // If we matched nothing but at least one note was unreadable/unparseable, the
+  // "no provenance" answer would be a lie — the file could be recorded in a note
+  // we failed to read. Fail loud (exit 3) with the collected reasons.
+  if (noteFailures.length > 0) {
+    const detail = `unreadable provenance notes: ${noteFailures.join("; ")}`;
+    finishWhy(wantJson, { ok: false, error: detail, ref, file: queryRel, line: parsed.line }, `why: ${detail}`, 3);
     return;
   }
 

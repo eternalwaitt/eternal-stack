@@ -103,12 +103,45 @@ export function verifyArtifact(receipt, options = {}) {
   if (!receipt || typeof receipt !== "object") {
     return { ok: false, verified: false, reason: "receipt is required" };
   }
-  const artifactPath = String(receipt.artifactPath || "");
+  const receiptPath = String(receipt.artifactPath || "");
   const expectedHash = String(receipt.contentHash || "");
-  if (!artifactPath) return { ok: false, verified: false, reason: "receipt is missing artifactPath" };
+  if (!receiptPath) return { ok: false, verified: false, reason: "receipt is missing artifactPath" };
   if (!expectedHash) return { ok: false, verified: false, reason: "receipt is missing contentHash" };
+  // The content hash is a 16-char lowercase hex slice of SHA-256. Reject anything
+  // else before it can be used to derive a path, so a crafted receipt cannot smuggle
+  // path separators or traversal segments into the derived location.
+  if (!/^[0-9a-f]{16}$/.test(expectedHash)) {
+    return { ok: false, verified: false, reason: "receipt contentHash is not a 16-char hex content hash", expectedHash };
+  }
+  // Derive the only path this receipt's identity (agentId + contentHash) may point at.
+  // Never trust receipt.artifactPath directly: a subagent could aim it at any readable
+  // file outside the evidence root and have the parent consume that content as "verified".
+  const root = artifactRoot(options.root);
+  const expectedPath = artifactPathFor(receipt.agentId, expectedHash, root);
+  const artifactPath = path.resolve(expectedPath);
+  if (path.resolve(receiptPath) !== artifactPath) {
+    return {
+      ok: false,
+      verified: false,
+      reason: "artifactPath does not match receipt identity",
+      artifactPath: receiptPath,
+      expectedPath,
+    };
+  }
   if (!fs.existsSync(artifactPath)) {
     return { ok: false, verified: false, reason: "artifact does not exist", artifactPath };
+  }
+  // Only read regular files. A symlink, directory, device, or FIFO at the derived
+  // path must never be dereferenced into "verified" evidence.
+  let stat;
+  try {
+    stat = fs.lstatSync(artifactPath);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to stat evidence artifact at ${artifactPath}: ${detail}`, { cause: error });
+  }
+  if (!stat.isFile()) {
+    return { ok: false, verified: false, reason: "artifact is not a regular file", artifactPath };
   }
   let actualHash = "";
   try {
@@ -126,6 +159,6 @@ export function verifyArtifact(receipt, options = {}) {
     expectedHash,
     actualHash,
     reason: verified ? "content hash matches stored evidence" : "content hash mismatch: artifact was tampered with",
-    ...(options.includeRoot ? { root: artifactRoot(options.root) } : {}),
+    ...(options.includeRoot ? { root } : {}),
   };
 }
