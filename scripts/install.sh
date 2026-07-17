@@ -15,6 +15,12 @@ TARGET="${CLAUDE_HOME:-$HOME/.claude}"
 CODEX_TARGET="${CODEX_HOME:-$HOME/.codex}"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP="$TARGET/backups/etrnl-install-$STAMP"
+# Surface the rollback path on any mid-install failure. Without this, a failure
+# after the backup phase leaves a half-installed home with no pointer to $BACKUP.
+# A pre-flight failure (e.g. --dry-run precondition check) fires the ERR trap
+# before any backup exists, so only point at rollback when $BACKUP is real —
+# otherwise the "restore your previous config" hint names a nonexistent dir.
+trap 'rc=$?; if (( rc != 0 )); then if [[ -d "$BACKUP" ]]; then printf "\ninstall FAILED (exit %d). Restore your previous config with:\n  bash %s/scripts/rollback-local.sh %s\n" "$rc" "$ROOT" "$BACKUP" >&2; else printf "\ninstall FAILED (exit %d) before any backup was taken; no changes were made.\n" "$rc" >&2; fi; fi' ERR
 SETTINGS_TEMPLATE="$ROOT/templates/settings.json"
 legacy_rules_present=0
 DRY_RUN=0
@@ -266,12 +272,35 @@ backup_removed_skill_commands() {
   done
 }
 
+# A REMOVED_SKILLS entry is safe to auto-delete only when it is stack-namespaced
+# or its installed file carries a stack signature. A generic name (test, pr,
+# commit, deps, …) with no stack signature is treated as a user-authored skill
+# and preserved — it is still backed up, but never silently deleted.
+removed_entry_is_stack_owned() {
+  local file="$1" name="$2"
+  case "$name" in
+    etrnl-*|eternal-*) return 0 ;;
+  esac
+  [[ -e "$file" ]] || return 0
+  # Durable stack provenance only: the Codex-startup `skill-update-prompt.mjs`
+  # line that every installed stack skill carries. Do NOT infer ownership from a
+  # bare "etrnl"/"eternal stack" mention — a user-authored skill that merely
+  # references ETRNL in prose would then be misclassified and silently deleted.
+  grep -rqE 'skill-update-prompt\.mjs' "$file" 2>/dev/null && return 0
+  return 1
+}
+
 remove_removed_skills() {
   local target_dir="$1"
   local skill
   for skill in "${REMOVED_SKILLS[@]}"; do
     if [[ -d "$target_dir/$skill" ]]; then
-      rm -rf -- "$target_dir/${skill:?}"
+      if removed_entry_is_stack_owned "$target_dir/$skill" "$skill"; then
+        rm -rf -- "$target_dir/${skill:?}"
+        printf 'install: removed legacy stack skill: %s\n' "$skill" >&2
+      else
+        printf 'install warning: preserved user skill (name matches a removed stack skill but is not stack-authored): %s\n' "$skill" >&2
+      fi
     fi
   done
 }
@@ -281,7 +310,12 @@ remove_removed_skill_commands() {
   local skill
   for skill in "${REMOVED_SKILLS[@]}"; do
     if [[ -f "$target_dir/$skill.md" ]]; then
-      rm -f -- "$target_dir/${skill:?}.md"
+      if removed_entry_is_stack_owned "$target_dir/$skill.md" "$skill"; then
+        rm -f -- "$target_dir/${skill:?}.md"
+        printf 'install: removed legacy stack command: %s.md\n' "$skill" >&2
+      else
+        printf 'install warning: preserved user command (name matches a removed stack command but is not stack-authored): %s.md\n' "$skill" >&2
+      fi
     fi
   done
 }
@@ -327,7 +361,7 @@ chmod_control_scripts() {
 }
 
 validate_source_install_inputs() {
-  local missing=() file agent command_name skill
+  local missing=() preflight=() file agent command_name skill dir probe dangling stack_dir
   for file in \
     "$SETTINGS_TEMPLATE" \
     "$ROOT/templates/settings.local.example.json" \
@@ -379,6 +413,69 @@ validate_source_install_inputs() {
     printf '  %s\n' "${missing[@]}" >&2
     return 1
   fi
+  # A dry-run should answer "could the real install succeed here?", so assert the
+  # runtime preconditions the install itself depends on: node and jq must be on
+  # PATH, and each target home (or its nearest existing ancestor, for a fresh
+  # install) must be writable before we would start mutating it.
+  command -v node >/dev/null 2>&1 || preflight+=("required command not found: node")
+  command -v jq >/dev/null 2>&1 || preflight+=("required command not found: jq")
+  for dir in "$TARGET" "$CODEX_TARGET"; do
+    if [[ -e "$dir" ]]; then
+      # A writable regular file passes -e and -w but the install cannot create
+      # subpaths under it, so a non-directory target is a hard precondition failure.
+      if [[ ! -d "$dir" ]]; then
+        preflight+=("target is not a directory: $dir")
+      elif [[ ! -w "$dir" ]]; then
+        preflight+=("target not writable: $dir")
+      fi
+    else
+      probe="$dir"
+      dangling=""
+      while [[ -n "$probe" && ! -e "$probe" ]]; do
+        # A path component that IS a symlink but does not resolve (`-L` yet not
+        # `-e`) is dangling: `-e` reports it missing, so the walk would treat it as
+        # a creatable gap, but the real install cannot mkdir through a broken link.
+        if [[ -L "$probe" ]]; then
+          dangling="$probe"
+          break
+        fi
+        if [[ "$probe" == */* ]]; then
+          probe="${probe%/*}"
+          [[ -z "$probe" ]] && probe="/"
+        else
+          probe="."
+        fi
+      done
+      # The nearest existing ancestor must be a writable directory. A writable
+      # regular file passes -w but cannot hold a child path, so `/writable-file/child`
+      # would otherwise pass dry-run yet fail the real install at mkdir.
+      if [[ -n "$dangling" ]]; then
+        preflight+=("target path component is a dangling symlink: $dangling (for $dir)")
+      elif [[ ! -d "$probe" ]]; then
+        preflight+=("target parent is not a directory: $probe (for $dir)")
+      elif [[ ! -w "$probe" ]]; then
+        preflight+=("target parent not writable: $probe (for $dir)")
+      fi
+    fi
+  done
+  # A symlinked stack subtree can't be safely overlaid: `find` skips a symlinked
+  # root (no per-file backup) and the `cp -R` overlay writes THROUGH the link into
+  # its external target, clobbering off-tree data that rollback never captured.
+  # Reject it up front so the user resolves the link before installing. `rules` is
+  # included because `rules/etrnl` and `rules/eternal-saas/*` are `cp -R` subtree
+  # swaps under `$TARGET/rules` (see the atomic rules sync below), so a symlinked
+  # `rules` parent is written through the same way; `agents`/`commands` are copied
+  # file-by-file, so a symlinked parent there cannot swap an off-tree subtree.
+  for stack_dir in "$TARGET/hooks" "$TARGET/skills" "$TARGET/rules" "$CODEX_TARGET/skills"; do
+    if [[ -L "$stack_dir" ]]; then
+      preflight+=("stack directory is a symlink (resolve to a real directory before installing): $stack_dir")
+    fi
+  done
+  if (( ${#preflight[@]} > 0 )); then
+    printf 'install dry-run failed; unmet preconditions:\n' >&2
+    printf '  %s\n' "${preflight[@]}" >&2
+    return 1
+  fi
   node "$ROOT/scripts/stack-profile-check.mjs" "$PROFILE_MANIFEST"
 }
 
@@ -426,6 +523,20 @@ if [[ "$DRY_RUN" == "1" ]]; then
 fi
 
 mkdir -p "$TARGET" "$BACKUP"
+# Reject a symlinked stack subtree before any backup or overlay runs. `find` skips a
+# symlinked root (so the per-file backup below captures nothing) and the later
+# `cp -R` overlay writes THROUGH the link, clobbering an off-tree target that
+# rollback never recorded. `rules` is included because `rules/etrnl` and
+# `rules/eternal-saas/*` are `cp -R` subtree swaps under `$TARGET/rules` (see the
+# atomic rules sync below); `agents`/`commands` are file-by-file copies and are exempt.
+# Fail closed here — the user resolves the link manually. Mirrors the dry-run
+# precondition in validate_source_install_inputs.
+for stack_dir in "$TARGET/hooks" "$TARGET/skills" "$TARGET/rules" "$CODEX_TARGET/skills"; do
+  if [[ -L "$stack_dir" ]]; then
+    printf 'install error: %s is a symlink; resolve it to a real directory before installing (a symlinked stack root would be written through and its target clobbered)\n' "$stack_dir" >&2
+    exit 2
+  fi
+done
 migrate_legacy_runtime_dir "$TARGET"
 migrate_legacy_runtime_dir "$CODEX_TARGET"
 for file in settings.json settings.local.json CLAUDE.md AGENTS.md; do
@@ -458,6 +569,75 @@ for hook_file in "${CRITICAL_HOOKS[@]}"; do
     cp -- "$TARGET/hooks/$hook_file" "$BACKUP/hooks/$hook_file"
   fi
 done
+# copy_dir_contents overlays all of hooks/ below, so every currently-installed hook
+# is overwritten — not just CRITICAL_HOOKS. Back up the wider set (non-critical
+# top-level hooks and hooks/lib libraries) so rollback can restore the full
+# pre-install hook tree. Fixtures are backed up separately before their prune.
+# Include symlinked hooks (-type l) and back them up as links (cp -P) so rollback
+# can restore the original link instead of a dereferenced copy.
+if [[ -d "$TARGET/hooks" ]]; then
+  while IFS= read -r -d '' installed_hook; do
+    hook_rel="${installed_hook#"$TARGET/hooks/"}"
+    case "$hook_rel" in
+      fixtures/*) continue ;;
+    esac
+    mkdir -p "$BACKUP/hooks/$(dirname -- "$hook_rel")"
+    cp -P -- "$installed_hook" "$BACKUP/hooks/$hook_rel"
+  done < <(find "$TARGET/hooks" \( -type f -o -type l \) -print0)
+  # Unlink hook symlinks the overlay will write ONTO, so the subsequent `cp -R`
+  # writes a real file instead of following the link and clobbering its external
+  # target. Only links whose relative path has a matching source hook are at risk;
+  # an unrelated user symlink with no source counterpart is left in place. The
+  # links are backed up above (cp -P); rollback restores them.
+  while IFS= read -r -d '' installed_link; do
+    link_rel="${installed_link#"$TARGET/hooks/"}"
+    case "$link_rel" in
+      fixtures/*) continue ;;
+    esac
+    if [[ -e "$ROOT/hooks/$link_rel" ]]; then
+      rm -f -- "$installed_link"
+    fi
+  done < <(find "$TARGET/hooks" -type l -print0)
+fi
+
+# Record every path this install newly creates so rollback can return to
+# pre-install absence without deleting user-added files. A source hook counts as
+# "new" only when the backup captured no pre-install counterpart; pre-existing
+# hooks are restored from backup instead, and user-added hooks (never shipped in
+# source) are never listed. Fixture trees revert wholesale from the
+# hooks-fixtures/tests-fixtures backups when they existed pre-install; when they
+# did not (a fresh install creates them), record the tree so rollback removes it.
+# scripts/rollback-local.sh reads this manifest for its removal pass.
+: > "$BACKUP/new-source-paths.txt"
+if [[ -d "$ROOT/hooks" ]]; then
+  while IFS= read -r -d '' source_hook; do
+    hook_rel="${source_hook#"$ROOT/hooks/"}"
+    case "$hook_rel" in
+      fixtures/*) continue ;;
+    esac
+    if [[ ! -e "$BACKUP/hooks/$hook_rel" && ! -L "$BACKUP/hooks/$hook_rel" ]]; then
+      printf 'hooks/%s\n' "$hook_rel" >> "$BACKUP/new-source-paths.txt"
+    fi
+  done < <(find "$ROOT/hooks" \( -type f -o -type l \) -print0)
+fi
+# A fixtures tree counts as install-created (rollback-removable) only when it had no
+# pre-install form. The two trees are detected differently because the hooks unlink
+# pass above already ran:
+#   hooks/fixtures — a real dir survives that pass and is still present here (-e);
+#     a pre-install SYMLINK was unlinked, so its pre-install form now lives only in
+#     the wider-hook backup at $BACKUP/hooks/fixtures (-L). Either signal means it
+#     pre-existed. Without the backup check, an unlinked pre-install fixtures link
+#     would be recorded as new and the rollback removal pass would delete the tree
+#     the wider-hook restore just re-linked.
+#   tests/fixtures — nothing mutates it before this line, so the live target still
+#     reflects pre-install state; -e || -L on $TARGET is authoritative.
+if [[ ! -e "$TARGET/hooks/fixtures" && ! -L "$BACKUP/hooks/fixtures" && -d "$ROOT/hooks/fixtures" ]]; then
+  printf 'hooks/fixtures\n' >> "$BACKUP/new-source-paths.txt"
+fi
+if [[ ! -e "$TARGET/tests/fixtures" && ! -L "$TARGET/tests/fixtures" && -d "$ROOT/tests/fixtures" ]]; then
+  printf 'tests/fixtures\n' >> "$BACKUP/new-source-paths.txt"
+fi
+
 mkdir -p "$BACKUP/agents"
 for agent in "${OWNED_AGENTS[@]}"; do
   if [[ -f "$TARGET/agents/$agent.md" ]]; then
@@ -529,13 +709,28 @@ remove_removed_skills "$TARGET/skills"
 remove_removed_skills "$CODEX_TARGET/skills"
 remove_removed_skill_commands "$TARGET/commands"
 
-mkdir -p "$TARGET/hooks" "$TARGET/scripts" "$TARGET/docs/templates" "$TARGET/skills" "$TARGET/agents" "$TARGET/commands" "$TARGET/rules" "$TARGET/tests/lib" "$TARGET/tests/fixtures"
 # copy_dir_contents overlays (cp -R) rather than mirrors, so a file removed from source
 # lingers in the installed home across installs. The replay fixtures under hooks/fixtures
 # are auto-discovered and replayed and get renumbered over time, so stale copies would fail
 # against current hooks. These trees are entirely source-derived test data (nothing else
 # writes there), so clear them before the overlay copy to prune removed fixtures.
+# Back up the pruned fixture trees first so the prune is reversible via rollback,
+# in case a user ever dropped a file into these dirs.
+# Detect fixtures with `-e || -L` so a dangling symlink (exists as a link, fails
+# -e) is still captured, and copy with `cp -RP` so a symlinked tree is backed up
+# as the link itself — the prune `rm -rf` removes the link, and rollback restores
+# it verbatim instead of a dereferenced copy.
+# This backup+prune MUST precede the mkdir below: a dangling tests/fixtures symlink
+# would make `mkdir -p "$TARGET/tests/fixtures"` follow the broken link and fail
+# ("No such file or directory"). Pruning the link first lets mkdir create a real dir.
+if [[ -e "$TARGET/hooks/fixtures" || -L "$TARGET/hooks/fixtures" || -e "$TARGET/tests/fixtures" || -L "$TARGET/tests/fixtures" ]]; then
+  mkdir -p "$BACKUP"
+  { [[ -e "$TARGET/hooks/fixtures" || -L "$TARGET/hooks/fixtures" ]]; } && cp -RP -- "$TARGET/hooks/fixtures" "$BACKUP/hooks-fixtures"
+  { [[ -e "$TARGET/tests/fixtures" || -L "$TARGET/tests/fixtures" ]]; } && cp -RP -- "$TARGET/tests/fixtures" "$BACKUP/tests-fixtures"
+  removed_moved=1
+fi
 rm -rf -- "$TARGET/hooks/fixtures" "$TARGET/tests/fixtures"
+mkdir -p "$TARGET/hooks" "$TARGET/scripts" "$TARGET/docs/templates" "$TARGET/skills" "$TARGET/agents" "$TARGET/commands" "$TARGET/rules" "$TARGET/tests/lib" "$TARGET/tests/fixtures"
 copy_dir_contents "$ROOT/hooks" "$TARGET/hooks"
 sync_owned_skills "$ROOT/skills" "$TARGET/skills"
 sync_bundled_skills "$ROOT/skills/bundled" "$TARGET/skills" "$BACKUP/skills"
@@ -775,6 +970,36 @@ verify_install_state() {
 }
 verify_install_state
 CLAUDE_HOME="$TARGET" "$TARGET/scripts/post-upgrade-canary.sh"
+
+# Install is verified successful past this point (state check + canary passed).
+# Clear the failure trap so trailing best-effort steps (backup pruning, summary
+# output) can never print a misleading "install FAILED — roll back" message.
+trap - ERR
+
+# Prune old install backups on success, keeping the newest N (default 5, override
+# via ETRNL_BACKUP_RETENTION). Backup dir names embed a fixed-width sortable STAMP,
+# so lexical order is chronological and the current install's backup is always kept.
+prune_old_backups() {
+  local backups_dir="$1" retention="$2" d remove_count i
+  local sorted=()
+  shopt -s nullglob
+  local dirs=("$backups_dir"/etrnl-install-*)
+  shopt -u nullglob
+  (( ${#dirs[@]} <= retention )) && return 0
+  while IFS= read -r d; do
+    [[ -n "$d" && -d "$d" ]] && sorted+=("$d")
+  done < <(printf '%s\n' "${dirs[@]}" | LC_ALL=C sort)
+  remove_count=$(( ${#sorted[@]} - retention ))
+  for (( i = 0; i < remove_count; i++ )); do
+    rm -rf -- "${sorted[$i]}" || printf 'install warning: failed to prune old backup %s\n' "${sorted[$i]}" >&2
+  done
+}
+BACKUP_RETENTION="${ETRNL_BACKUP_RETENTION:-5}"
+if [[ ! "$BACKUP_RETENTION" =~ ^[0-9]+$ ]] || (( BACKUP_RETENTION < 1 )); then
+  printf 'install warning: invalid ETRNL_BACKUP_RETENTION=%s; using default 5\n' "$BACKUP_RETENTION" >&2
+  BACKUP_RETENTION=5
+fi
+prune_old_backups "$TARGET/backups" "$BACKUP_RETENTION"
 
 printf 'Installed Eternal Stack files. Backup: %s\n' "$BACKUP"
 printf 'Installed Codex ETRNL skill/runtime files: %s\n' "$CODEX_TARGET"

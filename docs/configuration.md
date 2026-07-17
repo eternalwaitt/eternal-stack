@@ -19,6 +19,7 @@ Install:
 - `ETRNL_ENABLE_STRICT=1` merges strict blocker hooks during install.
 - `./scripts/install.sh` backs up and resets managed `~/.claude/settings.json` to a vanilla settings shell before applying the selected stack, while preserving existing `enabledPlugins` and `statusLine` (for example a custom `~/.claude/statusline.sh` HUD). Use `--preserve-settings` only for a deliberate merge into existing settings.
 - `ETRNL_INSTALL_STARTUP=1` overwrites installed `AGENTS.md` and `CLAUDE.md` startup files instead of preserving existing local copies.
+- `ETRNL_BACKUP_RETENTION` sets how many timestamped `etrnl-install-*` backup directories the installer keeps after a successful install; older backups beyond that count are pruned. Default is `5`; an invalid value falls back to `5`.
 - `ETRNL_BOOTSTRAP_PROJECTS=1` lets a full install initialize or verify project-local `.codegraph` and `.beads` state.
 - `ETRNL_HINDSIGHT_MODE=local-daemon|external-api|docker-server` selects full-profile Hindsight provisioning mode.
 - `local-daemon` mode requires a local Hindsight daemon or `uvx hindsight-embed`/`hindsight-embed`; set `HINDSIGHT_DAEMON_SOCKET` only when your local daemon uses a non-default socket.
@@ -32,6 +33,9 @@ Updater:
 - `ETRNL_AUTO_UPDATE`: unset means local auto-update is enabled from the recorded source checkout (SessionStart, requested Claude `etrnl-*` skills via the prompt router, and Codex `skill-update-prompt.mjs`); set `ETRNL_AUTO_UPDATE=0` to disable automatic local etrnl repair while developing against a dirty source checkout.
 - `ETRNL_AUTO_UPDATE_DIRTY=1` allows SessionStart auto-update even when `install.json` marks the source checkout as dirty (`sourceDirty: true`); leave unset to skip auto-update until the checkout is clean or changes are committed.
 - `ETRNL_UPDATE_INTERVAL_SEC` controls the remote-check cache window; default is `21600` seconds (six hours) when unset.
+- `ETRNL_SKILL_UPDATE_CHECK=0` disables the prompt router's per-prompt requested-`etrnl-*`-skill freshness/auto-update check; enabled by default when unset.
+- `ETRNL_SKILL_UPDATE_TIMEOUT_SEC` bounds each prompt-router skill-update subprocess; default is `5` seconds when unset.
+- `ETRNL_SKILL_UPDATE_MAX_CHARS` caps the skill-update context the prompt router injects; default is `1200` characters when unset.
 - `ETRNL_INSTALL_STATE` and `ETRNL_UPDATE_STATE` override the installed metadata and update cache paths for tests or custom Claude homes.
 
 Prompt context:
@@ -62,13 +66,14 @@ Workflow state:
 - `ETRNL_STATE_DIR` overrides canonical ETRNL JSONL state storage for tests, staged installs, or local experiments.
 - Default ETRNL state lives under `~/.claude/etrnl/state`; `events.jsonl` is canonical and `views/` are rebuildable materialized projections.
 - `ETRNL_BUGLOG` overrides the project bug-memory file used by `project-buglog.mjs`.
+- `ETRNL_LEARNING_HINTS=0` disables the pretool guard's inline project bug-memory hints (from `scripts/project-buglog.mjs`); enabled by default when unset.
 - `ETRNL_LEARNING_STARTUP_HINTS=1` enables project-level bug-memory hints at SessionStart; `0` disables them. When unset, hints are only considered when scoped workflow-health reports active trouble.
 - `ETRNL_LEARNING_HINT_MAX_CHARS` caps SessionStart learning hints; default is `500` characters.
 - `ETRNL_LEARNING_HINT_MAX_AGE_DAYS` caps stale bug-memory suggestions; default is `90` days.
 - `ETRNL_STALE_RUN_HOURS`, `ETRNL_CONTEXT_STALE_HOURS`, and `ETRNL_LEDGER_READ_CONCURRENCY` tune workflow-health and context staleness checks.
 - `ETRNL_STATE_PRIVATE_PROJECT_NAMES` and `ETRNL_TOOL_EFFECTIVENESS_PRIVATE_PROJECT_NAMES` add comma-separated local private project names to privacy rejection without committing those names to the public repo. `ETRNL_TOOL_EFFECTIVENESS_PRIVATE_PROJECT_NAMES` falls back to `ETRNL_STATE_PRIVATE_PROJECT_NAMES` when unset.
 - `ETRNL_WORKFLOW_HEALTH_STRICT=1` or `node scripts/workflow-health.mjs doctor --strict` turns runtime workflow findings into a failing workflow-health doctor. `ETRNL_DOCTOR_STRICT_RUNTIME=1` applies that strict runtime gate from `scripts/doctor.sh`.
-- `ETRNL_TOOL_EFFECTIVENESS_DISABLED=1` disables future hook-side tool-effectiveness recording if it becomes noisy during rollout.
+- `ETRNL_TOOL_EFFECTIVENESS_DISABLED=1` is reserved and not yet wired: it is documented for a future hook-side tool-effectiveness kill switch but is not currently read by any hook or script, so setting it has no effect today.
 - `~/.claude/etrnl/tool-effectiveness/projects.json` is the local continuous-project pilot registry for CodeGraph/Beads effectiveness. Keep real project paths there, not in this public repo. Use `templates/tool-effectiveness-projects.example.json` as the tracked schema example.
 - `node scripts/tool-effectiveness.mjs baseline --since-days 7 --json` captures the pre-pilot comparison window when live data exists. `node scripts/tool-effectiveness.mjs import-codex --input <file-or-dir> --dry-run --json` imports only sanitized Codex tool names, timing buckets, edit/check classes, and project hashes.
 - `node scripts/etrnl-state.mjs compact-handoff --latest --json` shows the exact compact recovery packet that a synchronous `SessionStart(source=compact)` would inject.
@@ -83,8 +88,10 @@ Guard state and break-glass:
 
 - `CLAUDE_GUARD_DISABLED=1` bypasses hooks for emergency repair only.
 - `CLAUDE_GUARD_STATE_DIR` overrides hook state storage; default is the system temp directory.
+- `CLAUDE_GUARD_LOCK_STALE_SECS` (seconds, default `30`, must be a positive integer or it falls back to `30`) tunes ownership-aware stale-lock reaping so a hook killed mid-write does not stall every later tool call. A lock records its holder's PID: a **dead-owner** lock is reaped immediately; an **ownerless/legacy** lock is reaped once it is older than this threshold; a **live-owner** lock is spared until an absurd age (`stale_secs × 20`) to defend against PID reuse. It is not the case that any lock held for this duration is orphaned — a live holder keeps its lock well past it.
 - `CLAUDE_GUARD_METRICS_PATH` overrides the hook metrics JSONL path.
 - `CLAUDE_GUARD_DEBUG=1` prints extra guard diagnostics.
+- `CLAUDE_GUARD_FILE_SPRAWL=1` re-enables the opt-in new-source-file sprawl check (blocks a Write that would create the fourth-or-later new source file this session — i.e. when three or more new source files already exist — outside the active write scope); disabled by default when unset.
 - `CLAUDE_GUARD_OVERRIDE_TOKEN` supplies a one-time override token for approved safety-critical commands.
 - `CLAUDE_GUARD_WEBSEARCH_CANARY` points strict WebSearch checks at a custom canary result file.
 - `CLAUDE_GUARD_PORT_START`, `CLAUDE_GUARD_PORT_END`, `CLAUDE_GUARD_MAX_PORT_SCAN`, and `CLAUDE_GUARD_FORCE_LARGE_SCAN=1` tune local dev-server port selection.

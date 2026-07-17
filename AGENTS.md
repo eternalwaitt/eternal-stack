@@ -26,6 +26,7 @@ This repo builds Eternal's opinionated stack of skills, hooks, and rules for Cla
 | [docs/migration.md](docs/migration.md) | Rollout sequencing — safe migration order |
 | [docs/configuration.md](docs/configuration.md) | Profiles, strict mode, env var tuning |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | Common issues, repo vs installed paths, bypass |
+| [docs/compact-recovery.md](docs/compact-recovery.md) | Compact recovery — state capture and safe continuation after auto-compaction |
 | [docs/skills.md](docs/skills.md) | `etrnl-*` skills by namespace plus bundled inventory and scripts |
 | [docs/health-stack.md](docs/health-stack.md) | Doctor gates and audit workflows |
 | [docs/RELEASING.md](docs/RELEASING.md) | Semver, changelog categories, tags |

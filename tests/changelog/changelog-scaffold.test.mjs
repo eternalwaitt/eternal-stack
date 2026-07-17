@@ -42,6 +42,27 @@ test("detect reports a bare project as unmanaged, scaffold creates both files", 
   assert.equal(readFileSync(path.join(root, "VERSION"), "utf8").trim(), "0.1.0");
 });
 
+test("detect rejects a leading-zero release heading, accepts a strict vX.Y.Z", () => {
+  const root = freshRoot();
+  // A non-strict `## v01.2.3` heading must NOT count as a release section — the
+  // detection regex is built from the shared SEMVER_CORE, consistent with SEED_RE
+  // and STABLE_TAG_RE, so leading-zero versions are rejected everywhere.
+  writeFileSync(
+    path.join(root, "CHANGELOG.md"),
+    "# Changelog\n\n## Unreleased\n\n## v01.2.3\n\n- entry\n",
+  );
+  const loose = JSON.parse(run(scaffold, ["detect", "--root", root, "--json"]).stdout);
+  assert.equal(loose.hasReleaseSection, false);
+
+  // A strict `## v1.2.3` heading is still detected.
+  writeFileSync(
+    path.join(root, "CHANGELOG.md"),
+    "# Changelog\n\n## Unreleased\n\n## v1.2.3\n\n- entry\n",
+  );
+  const strict = JSON.parse(run(scaffold, ["detect", "--root", root, "--json"]).stdout);
+  assert.equal(strict.hasReleaseSection, true);
+});
+
 test("a freshly scaffolded changelog passes --active-dev", () => {
   const root = freshRoot();
   run(scaffold, ["scaffold", "--root", root]);

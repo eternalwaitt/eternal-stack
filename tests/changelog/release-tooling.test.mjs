@@ -57,6 +57,78 @@ test("prepare drops empty category headings from the cut release section", () =>
   assert.equal(readFileSync(path.join(root, "VERSION"), "utf8").trim(), "1.1.0");
 });
 
+// prepare's next-release-heading boundary uses the shared SEMVER_CORE (RELEASE_HEADING_RE),
+// so a leading-zero pseudo-heading like `## v01.2.3` is NOT a valid release section — the
+// same strict rule changelog-scaffold and STABLE_TAG_RE enforce. The old loose
+// `/^## v\d+\.\d+\.\d+$/` would have accepted it as the boundary; now, when it is the only
+// heading after Unreleased, prepare finds no release section and fails.
+const LEADING_ZERO_ONLY_HEADING =
+  "# Changelog\n\n## Unreleased\n\n### Added\n\n- New thing.\n\n## v01.2.3\n\n2026-01-01\n\n### Added\n\n- Leading-zero heading is not a valid release section.\n";
+
+test("prepare rejects a leading-zero pseudo-heading as the release boundary", () => {
+  const root = releaseRepo(LEADING_ZERO_ONLY_HEADING, "1.0.0");
+  const res = run(path.join(root, "scripts", "release.mjs"), ["prepare", "1.1.0"], root);
+  assert.notEqual(res.status, 0, "prepare must fail when the only heading after Unreleased is an invalid semver heading");
+  assert.match(`${res.stderr}${res.stdout}`, /missing a release section after ## Unreleased/);
+});
+
+// normalizeVersion validates the requested version against the shared strict
+// SEMVER_CORE (VERSION_RE), so `prepare 01.2.3` is rejected up front — before any
+// artifact is written. The old loose `\d+\.\d+\.\d+` would have emitted VERSION=01.2.3
+// and a `## v01.2.3` heading that RELEASE_HEADING_RE, STABLE_TAG_RE, and tag all refuse.
+test("prepare rejects a leading-zero version argument before writing artifacts", () => {
+  const root = releaseRepo(UNRELEASED_WITH_EMPTY_CATEGORIES, "1.0.0");
+  const versionBefore = readFileSync(path.join(root, "VERSION"), "utf8");
+  const res = run(path.join(root, "scripts", "release.mjs"), ["prepare", "01.2.3"], root);
+  assert.notEqual(res.status, 0, "a leading-zero version argument must be rejected");
+  assert.match(`${res.stderr}${res.stdout}`, /Invalid semver version: 01\.2\.3/);
+  // No artifact mutation: VERSION unchanged and no `## v01.2.3` heading written.
+  assert.equal(
+    readFileSync(path.join(root, "VERSION"), "utf8"),
+    versionBefore,
+    "VERSION must not change on a rejected prepare",
+  );
+  assert.doesNotMatch(
+    readFileSync(path.join(root, "CHANGELOG.md"), "utf8"),
+    /## v01\.2\.3/,
+    "no invalid release heading may be written",
+  );
+});
+
+// A --root that is PROVIDED but resolves to no usable value (`--root` with no
+// following path) must fail rather than silently fall back to the installer's own
+// checkout — otherwise a malformed explicit target mutates the wrong repo.
+test("release rejects a value-less --root instead of silently falling back", () => {
+  const root = releaseRepo(UNRELEASED_WITH_EMPTY_CATEGORIES, "1.0.0");
+  const res = run(path.join(root, "scripts", "release.mjs"), ["check", "--root"], root);
+  assert.notEqual(res.status, 0, "a value-less --root must be rejected");
+  assert.match(`${res.stderr}${res.stdout}`, /--root requires a path value/);
+});
+
+// compareSemver must compare components with BigInt, not Number. 2^53 =
+// 9007199254740992, and Number("9007199254740993") === 9007199254740992, so a
+// Number()-based compare treats a `...992` changelog top as EQUAL to a `...993`
+// tag and misses the drift. With BigInt the two stay distinct, so the checker
+// reports the changelog as behind the latest tag.
+test("compareSemver distinguishes version components beyond Number.MAX_SAFE_INTEGER", () => {
+  const changelog =
+    "# Changelog\n\n## Unreleased\n\n### Added\n\n## v9007199254740992.0.0\n\n2026-01-01\n\n### Added\n\n- Top release, one below the tag.\n";
+  const root = releaseRepo(changelog, "9007199254740992.0.0");
+  // Tag ...993 on the initial commit, then add a commit so HEAD is past the tag
+  // (the drift check only runs when HEAD differs from the tagged commit).
+  git(root, ["tag", "v9007199254740993.0.0"]);
+  writeFileSync(path.join(root, "marker.txt"), "x\n");
+  git(root, ["add", "-A"]);
+  git(root, ["commit", "-q", "-m", "second"]);
+  const res = run(
+    path.join(root, "scripts", "changelog-release-check.mjs"),
+    ["--root", root, "--active-dev"],
+    root,
+  );
+  assert.notEqual(res.status, 0, "a changelog top behind the tag must be reported as drift");
+  assert.match(`${res.stderr}${res.stdout}`, /behind the latest tag v9007199254740993\.0\.0/);
+});
+
 test("tag creates the annotated tag when it does not pre-exist, then full strict passes", () => {
   const root = releaseRepo(UNRELEASED_WITH_EMPTY_CATEGORIES, "1.0.0");
   git(root, ["tag", "v1.0.0"]);

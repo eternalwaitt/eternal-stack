@@ -14,6 +14,13 @@ Pretool deny rules, stop-verifier completion gates, fail-open behavior, and shar
 
 `cc-stop-verifier.sh` is not strict-only: both templates register it on `Stop`. Strict mode adds pretool and post-write blockers plus subagent recording.
 
+### Install ordering and overrides
+
+`scripts/merge-settings.mjs` merges stack hooks into your existing `settings.json` on every install. Two behaviors are intentional and worth knowing:
+
+- **Stack guards run before user hooks.** Merge assigns a deterministic order — `cc-rtk-rg-compat.sh` (10), `cc-pretooluse-guard.sh` (20), `rtk-rewrite.sh` (30) — and everything else defaults to 100. A `PreToolUse` hook you added yourself therefore runs *after* the stack guards even if it was originally listed first; user hooks keep their relative order among themselves. This guarantees the guard inspects a tool call before any user hook can act on it.
+- **Stack-owned hook metadata is reset to template values on every install; matcher tokens are merged.** When a hook command already exists in your settings, the template entry wins on `timeout`, `statusMessage`, and `enabled` (last-write-wins), so a stale or hand-edited copy of that metadata is repaired to the current template. The `matcher` is treated differently: merge computes the *union* of the template's matcher tokens and your existing ones (`mergeMatcher` → `matcherFromTokens`), so extra matcher tokens you added persist across installs. Only a matcher you shrank below the template set is restored — the template tokens are re-added, but nothing you added on top is dropped. To change `timeout`, `statusMessage`, or `enabled` durably, edit the template you install from rather than `settings.json`, since an in-place edit to those fields is overwritten on the next install/update.
+
 ## `cc-pretooluse-guard.sh`
 
 Blocks unsafe or unscoped tool use before Claude executes the tool. Matcher (strict template): `Bash|Read|Edit|Write|MultiEdit|WebSearch|Task|TaskCreate|Agent|mcp__serena__search_for_pattern`.
@@ -29,7 +36,7 @@ Rule families (aggregated where possible so the agent can fix multiple issues in
 | Serena scope | `mcp__serena__search_for_pattern` without `relative_path` / glob / char limits |
 | Read scope | Directory `Read` calls |
 | Edit scope | Blind source edits, new source files without reuse search |
-| File sprawl | Optional: `CLAUDE_GUARD_FILE_SPRAWL=1` blocks 3+ new source files per session unless write-scope coverage exists |
+| File sprawl | Optional: `CLAUDE_GUARD_FILE_SPRAWL=1` blocks a fourth-or-later new source file per session (once three already exist) unless write-scope coverage exists |
 | Repeats | Identical verification or shell commands with no state change |
 | Dev servers | Local servers without an explicit port from `port-guard.mjs` |
 | Email / GWS writes | Risky outbound writes without triage context |

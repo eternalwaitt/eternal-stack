@@ -181,7 +181,34 @@ handle_read() {
 
 command_is_email_send() {
   local cmd="$1"
-  [[ "$cmd" =~ (sendmail|mailx|mutt|gmail.*send|mcp__gmail.*send|smtp) ]]
+  # A literal newline/CR is a command-position boundary too, so normalize CR/LF to
+  # `;` before matching — otherwise `printf x\nsendmail -t` puts sendmail at the
+  # start of a new line the `[;&|]` boundary would miss, bypassing the send gate.
+  cmd="${cmd//$'\r'/;}"
+  cmd="${cmd//$'\n'/;}"
+  # $cmd is the raw command (handle_bash does not lowercase), so match against a
+  # lowercased copy: mail_cli_re and the gmail fallback use lowercase literals, and
+  # on a case-insensitive filesystem (default macOS) `SENDMAIL -t`/`Mutt`/`MSMTP`
+  # resolve to the same binary — a raw-case-only match would let them bypass. The
+  # assignment class already accepts both cases, so lowercasing is safe (it does
+  # not reintroduce the earlier uppercase-`MAILRC=…` path-prefix regression).
+  local cmd_lc
+  cmd_lc="$(printf '%s' "$cmd" | tr '[:upper:]' '[:lower:]')"
+  # Mail CLIs only in command position (line start or after ; && || |), so a
+  # search like `rg smtp src/` or `rg mutt src/` is not mistaken for a send.
+  # Resolve past standard wrappers — privilege/command (sudo/command/env), detach
+  # (nohup/setsid), and timing (nice/timeout) — their option flags and one flag
+  # argument (sudo -u user, command --, env -i), VAR=val assignments, and an
+  # optional path prefix (/usr/sbin/sendmail) so none of those bypass the guard.
+  # A wrapper prefix token is a wrapper word, a VAR=val assignment, or a `-flag`
+  # with at most ONE following bare-word argument — NOT an arbitrary bare word, so
+  # `sudo apt install mutt` (installing a package) is not misread as a send. The
+  # `(nice|timeout) <bareword>` alternative also consumes their positional argument
+  # (a niceness or duration, `timeout 5 sendmail`), which is neither a flag nor an
+  # assignment; the bare-arg class excludes a leading `-`, so a real flag still
+  # routes through the `-flag` alternative and `sudo apt install mutt` is unaffected.
+  local mail_cli_re='(^|[;&|])[[:space:]]*((sudo|command|env|nohup|setsid|nice|timeout|(nice|timeout)[[:space:]]+[^-[:space:];&|][^[:space:];&|]*|[a-zA-Z_][a-zA-Z0-9_]*=[^[:space:]]*|-[^[:space:];&|]*([[:space:]]+[^-[:space:];&|][^[:space:];&|]*)?)[[:space:]]+)*([^[:space:];&|]*/)?(sendmail|mailx|mutt|msmtp|ssmtp)([[:space:]]|$)'
+  [[ "$cmd_lc" =~ $mail_cli_re ]] || [[ "$cmd_lc" =~ (gmail.*send|mcp__gmail.*send) ]]
 }
 
 command_is_gws_write() {
@@ -335,7 +362,9 @@ command_writes_live_claude_hooks() {
 
 command_is_dangerous_outside_cwd() {
   local cmd="$1"
-  [[ "$cmd" =~ (trash|mv|cp|chmod|chown)[[:space:]].*/ ]] || [[ "$cmd" =~ rm[[:space:]]+-r ]]
+  # Reuse command_is_recursive_remove so combined flags (rm -fr, rm -fR, rm -vfr)
+  # are caught outside cwd exactly like rm -rf, not only the leading-r ordering.
+  [[ "$cmd" =~ (trash|mv|cp|chmod|chown)[[:space:]].*/ ]] || command_is_recursive_remove "$cmd"
 }
 
 command_is_recursive_remove() {

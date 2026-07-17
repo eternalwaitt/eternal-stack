@@ -44,12 +44,14 @@ Read the request, match the first trigger that fires top to bottom, invoke the n
 
 | Trigger condition | Route to |
 | --- | --- |
-| Whole-codebase health, no-skips inventory, dead code, repo rot, architecture health, or a PR gate | `etrnl-audit-code` |
+| Whole-codebase code health in one pass: no-skips file inventory, dead code, repo rot, architecture health, or a PR gate | `etrnl-audit-code` |
 | Security vulnerability hunting on auth, tenancy, payments, secrets, or OWASP surfaces | `etrnl-audit-security` |
 | Latency, bundle size, query plans, rendering cost, or throughput profiling | `etrnl-audit-performance` |
 | Documentation health: README, ADR, runbook, API-doc, TSDoc/JSDoc freshness and drift | `etrnl-audit-docs` |
 | Production readiness: rollout, observability, resilience, and operational safety | `etrnl-audit-production` |
 | Tooling ecosystem and developer-experience health of the repo toolchain | `etrnl-audit-tooling` |
+| Deep audit spanning MULTIPLE audit families at once (code + security + performance + docs + production + tooling), not a single code pass | `etrnl-deep-audit` |
+| Deep UX audit / product-quality audit / accessibility deep audit | `etrnl-deep-audit-ux` |
 | Real browser QA evidence: routes, responsive layouts, console/network errors, screenshots | `etrnl-audit-browser` |
 
 ### ops-* family (workflow state)
@@ -66,6 +68,9 @@ Read the request, match the first trigger that fires top to bottom, invoke the n
 | --- | --- |
 | Server-side API, data-layer, auth, resilience, or service-architecture design | `etrnl-backend-patterns` |
 | Structural or excellence code review, module decay, Brooks-style review | `etrnl-code-review-excellence` |
+| Email reply quality / humanize + verify an email reply | `etrnl-comm-email-reply-quality` |
+
+`etrnl-ops-agent-files` and `etrnl-ops-disk-cleanup` carry `disable-model-invocation`, so the model never auto-invokes them. The prompt router (`hooks/cc-userprompt-router.sh`) does still detect their prompt families and surface a usage hint (with the disk-cleanup dry-run/`trash` safety note), but the skill itself runs only when you invoke it by hand.
 
 ## Reviewer and worker agents
 

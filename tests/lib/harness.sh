@@ -45,7 +45,22 @@ assert_contains() {
   if [[ "$haystack" == *"$needle"* ]]; then
     ok "$name"
   else
-    not_ok "$name expected <$needle> in <$haystack>"
+    # Report only the test name plus value LENGTHS — never the needle/haystack
+    # content — so a secret-bearing fixture (e.g. a redacted prod-detail message)
+    # can never leak into CI logs when an assertion fails.
+    not_ok "$name (needle ${#needle} chars not found in haystack ${#haystack} chars)"
+  fi
+}
+
+assert_not_contains() {
+  local name="$1"
+  local haystack="$2"
+  local needle="$3"
+  if [[ "$haystack" != *"$needle"* ]]; then
+    ok "$name"
+  else
+    # Same redaction as assert_contains: name + lengths only, no values in the log.
+    not_ok "$name (needle ${#needle} chars unexpectedly present in haystack ${#haystack} chars)"
   fi
 }
 

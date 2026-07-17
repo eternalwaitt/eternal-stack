@@ -91,6 +91,7 @@ Don't skip those steps. Strict mode with untested hooks will interrupt things yo
 | [docs/migration.md](docs/migration.md) | Rollout sequencing — safe migration order |
 | [docs/configuration.md](docs/configuration.md) | Profiles, strict mode, env var tuning |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | Common issues, repo vs installed paths, bypass |
+| [docs/compact-recovery.md](docs/compact-recovery.md) | Compact recovery: state capture and safe continuation after auto-compaction |
 | [docs/skills.md](docs/skills.md) | `etrnl-*` skills by namespace and bundled inventory |
 | [docs/health-stack.md](docs/health-stack.md) | Code and documentation health gates |
 | [docs/eternal-stack-coverage.md](docs/eternal-stack-coverage.md) | Capability coverage map |

@@ -33,6 +33,26 @@ assert_contains "full profile dry-run includes Hindsight" "$full_dry_run_out" "H
 assert_contains "full profile dry-run includes rollback metadata" "$full_dry_run_out" "rollback metadata"
 assert_no_directory "install dry-run does not create Claude home" "$dry_run_home"
 assert_no_directory "install dry-run does not create Codex home" "$dry_run_codex_home"
+# TG5: --dry-run asserts install preconditions (node, jq, target writability) so a
+# preview reports whether the real install could actually succeed. Skip the
+# unwritable-target leg under root, where the write bit is not enforced.
+if [[ "$(id -u)" != "0" ]]; then
+  unwritable_home="$TMPROOT/unwritable-home"
+  mkdir -p "$unwritable_home"
+  chmod 500 "$unwritable_home"
+  dry_precond_rc=0
+  dry_precond_out="$(CLAUDE_HOME="$unwritable_home" CODEX_HOME="$TMPROOT/dry-precond-codex" "$ROOT/scripts/install.sh" --dry-run 2>&1)" || dry_precond_rc=$?
+  chmod 700 "$unwritable_home"
+  if (( dry_precond_rc != 0 )); then
+    ok "install dry-run fails on unwritable target"
+  else
+    not_ok "install dry-run fails on unwritable target"
+  fi
+  assert_contains "install dry-run names unwritable target precondition" "$dry_precond_out" "not writable"
+else
+  ok "install dry-run fails on unwritable target (skipped under root)"
+  ok "install dry-run names unwritable target precondition (skipped under root)"
+fi
 assert_command "core stack profile validates" node "$ROOT/scripts/stack-profile-check.mjs" "$ROOT/templates/stack-profile.core.json"
 assert_command "full stack profile validates" node "$ROOT/scripts/stack-profile-check.mjs" "$ROOT/templates/stack-profile.full.json"
 
@@ -314,6 +334,30 @@ else
 fi
 assert_file "rollback dry-run leaves installed agent in place" "$CLAUDE_HOME/agents/etrnl-executor.md"
 
+# Dry-run path-count must not double-print when the new-source-paths manifest has no
+# non-blank lines: `grep -c .` prints 0 AND exits 1 there, so a `|| printf '0'` fallback
+# would append a second 0 (garbled "0\n0" count). Blank the manifest to force that path,
+# assert a clean single count, then restore the exact bytes so the real rollback below
+# (which reads the manifest) is unaffected.
+shopt -s nullglob
+rb_backup_dirs=("$CLAUDE_HOME"/backups/etrnl-install-*)
+shopt -u nullglob
+if (( ${#rb_backup_dirs[@]} >= 1 )); then
+  rb_backup="${rb_backup_dirs[$((${#rb_backup_dirs[@]} - 1))]}"
+  rb_manifest="$rb_backup/new-source-paths.txt"
+  if [[ -f "$rb_manifest" ]]; then
+    cp -p "$rb_manifest" "$rb_manifest.savebak"
+    printf '\n\n' >"$rb_manifest"   # only blank lines: grep -c . prints 0 and exits 1
+    rb_dry_out="$("$CLAUDE_HOME/scripts/rollback-local.sh" --dry-run 2>&1)"
+    mv -f "$rb_manifest.savebak" "$rb_manifest"   # restore exact bytes before the real rollback
+    if printf '%s' "$rb_dry_out" | grep -Eq 'would remove 0 path\(s\)'; then
+      ok "rollback dry-run prints a clean zero path-count on a blank manifest"
+    else
+      not_ok "rollback dry-run prints a clean zero path-count on a blank manifest: $rb_dry_out"
+    fi
+  fi
+fi
+
 "$CLAUDE_HOME/scripts/rollback-local.sh" >/dev/null
 for agent in etrnl-adversary etrnl-browser-qa etrnl-design-reviewer etrnl-dx-reviewer etrnl-executor etrnl-investigator etrnl-quality-reviewer etrnl-scout etrnl-spec-reviewer; do
   assert_no_file "rollback removed $agent" "$CLAUDE_HOME/agents/$agent.md"
@@ -339,5 +383,201 @@ for hook_file in "${CRITICAL_HOOKS[@]}"; do
   assert_no_file "rollback removed $hook_file" "$CLAUDE_HOME/hooks/$hook_file"
 done
 assert_command "rollback leaves settings valid" jq empty "$CLAUDE_HOME/settings.json"
+
+# TG5: install must back up every hook it overwrites (not just CRITICAL_HOOKS), and
+# rollback must restore that wider set — non-critical top-level hooks and hooks/lib
+# libraries — to their pre-install content. Uses an isolated home pre-seeded with
+# sentinel hooks so we can prove the round trip end to end.
+wider_home="$TMPROOT/wider-hooks-claude"
+wider_codex="$TMPROOT/wider-hooks-codex"
+mkdir -p "$wider_home/hooks/lib"
+printf 'OLD-CRITICAL-STOP\n' >"$wider_home/hooks/cc-stop-verifier.sh"
+printf 'OLD-NONCRITICAL-ROUTER\n' >"$wider_home/hooks/cc-userprompt-router.sh"
+printf 'OLD-LIB-STATE\n' >"$wider_home/hooks/lib/state.sh"
+# Real prior-installed hooks are executable; the overlay copy preserves the
+# existing file mode, so seed them +x to mimic a genuine previous install.
+chmod +x "$wider_home/hooks/cc-stop-verifier.sh" "$wider_home/hooks/cc-userprompt-router.sh" "$wider_home/hooks/lib/state.sh"
+# Quality MED-1: a user-dropped file under hooks/fixtures or tests/fixtures must
+# survive the install prune + overlay via the backup, and rollback must restore it.
+mkdir -p "$wider_home/hooks/fixtures" "$wider_home/tests/fixtures"
+printf 'USER-DROPPED-HOOK-FIXTURE\n' >"$wider_home/hooks/fixtures/user-dropped.txt"
+printf 'USER-DROPPED-TEST-FIXTURE\n' >"$wider_home/tests/fixtures/user-dropped.txt"
+# TG9: seed six old backups so this install's own backup makes seven; the success
+# prune must keep only the newest five. Names embed a sortable STAMP, so the two
+# oldest (…000001, …000002) are the ones removed.
+mkdir -p "$wider_home/backups"
+for backup_n in 000001 000002 000003 000004 000005 000006; do
+  mkdir -p "$wider_home/backups/etrnl-install-20000101-$backup_n"
+done
+# Ownership of a removed-skill name is decided by durable stack provenance (the
+# Codex-startup skill-update-prompt.mjs line), NOT a bare ETRNL mention. Seed two
+# skills whose names collide with REMOVED_SKILLS entries:
+#   - `commit`  — user-authored, references ETRNL only in prose → must be PRESERVED
+#   - `deps`    — carries the skill-update-prompt.mjs signature   → must be REMOVED
+mkdir -p "$wider_home/skills/commit" "$wider_home/skills/deps"
+printf '%s\n' '---' 'name: commit' '---' '# My Commit Helper' '' \
+  'This helper follows the ETRNL commit conventions for eternal stack repos.' \
+  >"$wider_home/skills/commit/SKILL.md"
+printf '%s\n' '---' 'name: deps' '---' '# Deps' '' \
+  'Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill deps`' \
+  >"$wider_home/skills/deps/SKILL.md"
+# A pre-existing hook symlink pointing at an EXTERNAL file must be unlinked (not
+# written through) so the overlay's cp cannot clobber the referent, backed up as a
+# link, and restored as a link on rollback. cc-rate-limiter.sh is a real source
+# hook, so the overlay overwrites this path.
+external_hook_target="$TMPROOT/external-hook-target.sh"
+printf 'EXTERNAL-HOOK-SENTINEL\n' >"$external_hook_target"
+ln -s "$external_hook_target" "$wider_home/hooks/cc-rate-limiter.sh"
+CLAUDE_HOME="$wider_home" CODEX_HOME="$wider_codex" "$ROOT/scripts/install.sh" >/dev/null
+shopt -s nullglob
+wider_backup_dirs=("$wider_home"/backups/etrnl-install-*)
+shopt -u nullglob
+if (( ${#wider_backup_dirs[@]} == 5 )); then
+  ok "install prunes old backups to retention limit (5)"
+else
+  not_ok "install prunes old backups to retention limit (5): found ${#wider_backup_dirs[@]}"
+fi
+assert_no_directory "install prunes the two oldest backups" "$wider_home/backups/etrnl-install-20000101-000001"
+assert_no_directory "install prunes the second-oldest backup" "$wider_home/backups/etrnl-install-20000101-000002"
+assert_directory "install keeps the newest pre-existing backup" "$wider_home/backups/etrnl-install-20000101-000006"
+if grep -q 'OLD-NONCRITICAL-ROUTER' "$wider_home/hooks/cc-userprompt-router.sh"; then
+  not_ok "install overwrites pre-existing non-critical hook with source version"
+else
+  ok "install overwrites pre-existing non-critical hook with source version"
+fi
+shopt -s nullglob
+wider_backups=("$wider_home"/backups/etrnl-install-*)
+shopt -u nullglob
+if (( ${#wider_backups[@]} >= 1 )); then
+  wider_backup="${wider_backups[$((${#wider_backups[@]} - 1))]}"
+  assert_contains "install backs up overwritten non-critical hook" "$(cat "$wider_backup/hooks/cc-userprompt-router.sh" 2>/dev/null || true)" "OLD-NONCRITICAL-ROUTER"
+  assert_contains "install backs up overwritten hooks/lib library" "$(cat "$wider_backup/hooks/lib/state.sh" 2>/dev/null || true)" "OLD-LIB-STATE"
+  # The overwritten hook symlink is backed up as a link (cp -P), so rollback can
+  # restore the original link instead of a dereferenced copy.
+  assert_contains "install backs up the overwritten hook symlink as a link" "$(readlink "$wider_backup/hooks/cc-rate-limiter.sh" 2>/dev/null || true)" "$external_hook_target"
+else
+  not_ok "install created a backup dir for wider hook set"
+  not_ok "install backs up overwritten non-critical hook"
+  not_ok "install backs up overwritten hooks/lib library"
+  not_ok "install backs up the overwritten hook symlink as a link"
+fi
+# The user-authored `commit` skill survives; the genuine stack `deps` skill (with
+# the update-prompt signature) is removed.
+assert_directory "install preserves user skill whose name matches a removed stack skill" "$wider_home/skills/commit"
+assert_contains "preserved user skill keeps its content" "$(cat "$wider_home/skills/commit/SKILL.md" 2>/dev/null || true)" "My Commit Helper"
+assert_no_directory "install removes a stack skill that carries the update-prompt signature" "$wider_home/skills/deps"
+# The external referent is untouched (the overlay wrote a real file after unlinking,
+# it did not clobber the symlink target), and the installed hook is now a real file
+# rather than a dangling/live symlink.
+assert_contains "install does not write through a hook symlink onto its external target" "$(cat "$external_hook_target" 2>/dev/null || true)" "EXTERNAL-HOOK-SENTINEL"
+if [[ -L "$wider_home/hooks/cc-rate-limiter.sh" ]]; then
+  not_ok "install replaces overwritten hook symlink with a real file"
+elif [[ -f "$wider_home/hooks/cc-rate-limiter.sh" ]]; then
+  ok "install replaces overwritten hook symlink with a real file"
+else
+  not_ok "install replaces overwritten hook symlink with a real file"
+fi
+CLAUDE_HOME="$wider_home" CODEX_HOME="$wider_codex" "$wider_home/scripts/rollback-local.sh" >/dev/null
+assert_contains "rollback restores critical hook content" "$(cat "$wider_home/hooks/cc-stop-verifier.sh" 2>/dev/null || true)" "OLD-CRITICAL-STOP"
+assert_contains "rollback restores non-critical hook content" "$(cat "$wider_home/hooks/cc-userprompt-router.sh" 2>/dev/null || true)" "OLD-NONCRITICAL-ROUTER"
+assert_contains "rollback restores hooks/lib library content" "$(cat "$wider_home/hooks/lib/state.sh" 2>/dev/null || true)" "OLD-LIB-STATE"
+assert_contains "rollback restores user-dropped hooks/fixtures file" "$(cat "$wider_home/hooks/fixtures/user-dropped.txt" 2>/dev/null || true)" "USER-DROPPED-HOOK-FIXTURE"
+assert_contains "rollback restores user-dropped tests/fixtures file" "$(cat "$wider_home/tests/fixtures/user-dropped.txt" 2>/dev/null || true)" "USER-DROPPED-TEST-FIXTURE"
+# Rollback restores the hook as a symlink (not a dereferenced copy) pointing back at
+# its original external target.
+assert_symlink "rollback restores the overwritten hook as a symlink" "$wider_home/hooks/cc-rate-limiter.sh"
+assert_contains "rollback restores the hook symlink's original target" "$(readlink "$wider_home/hooks/cc-rate-limiter.sh" 2>/dev/null || true)" "$external_hook_target"
+
+# ── Directory-level symlink handling ───────────────────────────────────────────
+# The scenario above covers a FILE-level hook symlink. These cover the
+# directory-level gaps: a symlinked hooks ROOT (rejected before any mutation), a
+# nested hooks/lib symlink the overlay materializes then rollback re-links, and
+# dangling hooks/fixtures + tests/fixtures symlinks that survive the prune.
+
+# (A) A symlinked hooks ROOT must be rejected before any mutation; `find` skips a
+# symlinked root and the overlay `cp -R` would write THROUGH the link, clobbering
+# the off-tree referent rollback never captured. Reject and leave it for the user.
+symroot_home="$TMPROOT/symroot-claude"
+symroot_codex="$TMPROOT/symroot-codex"
+mkdir -p "$symroot_home" "$symroot_codex"
+symroot_external="$TMPROOT/symroot-external-hooks"
+mkdir -p "$symroot_external"
+printf 'EXTERNAL-HOOKS-ROOT-SENTINEL\n' >"$symroot_external/keepme.txt"
+ln -s "$symroot_external" "$symroot_home/hooks"
+if CLAUDE_HOME="$symroot_home" CODEX_HOME="$symroot_codex" "$ROOT/scripts/install.sh" >/dev/null 2>&1; then
+  not_ok "install rejects a symlinked hooks root"
+else
+  ok "install rejects a symlinked hooks root"
+fi
+assert_contains "install does not write through a symlinked hooks root" "$(cat "$symroot_external/keepme.txt" 2>/dev/null || true)" "EXTERNAL-HOOKS-ROOT-SENTINEL"
+assert_symlink "install leaves the symlinked hooks root in place for the user to resolve" "$symroot_home/hooks"
+
+# A symlinked `rules` root must be rejected too: rules/etrnl and rules/eternal-saas/*
+# are cp -R subtree swaps under $TARGET/rules, so a symlinked parent is written through
+# onto the external target (agents/commands are file-by-file copies and are exempt).
+symrules_home="$TMPROOT/symrules-claude"
+symrules_codex="$TMPROOT/symrules-codex"
+mkdir -p "$symrules_home" "$symrules_codex"
+symrules_external="$TMPROOT/symrules-external-rules"
+mkdir -p "$symrules_external"
+printf 'EXTERNAL-RULES-ROOT-SENTINEL\n' >"$symrules_external/keepme.txt"
+ln -s "$symrules_external" "$symrules_home/rules"
+if CLAUDE_HOME="$symrules_home" CODEX_HOME="$symrules_codex" "$ROOT/scripts/install.sh" >/dev/null 2>&1; then
+  not_ok "install rejects a symlinked rules root"
+else
+  ok "install rejects a symlinked rules root"
+fi
+assert_contains "install does not write through a symlinked rules root" "$(cat "$symrules_external/keepme.txt" 2>/dev/null || true)" "EXTERNAL-RULES-ROOT-SENTINEL"
+assert_symlink "install leaves the symlinked rules root in place for the user to resolve" "$symrules_home/rules"
+
+# (B)+(C)+(D) A nested hooks/lib symlink (to an external dir) plus dangling
+# hooks/fixtures and tests/fixtures symlinks. Install materializes lib as a real
+# dir and prunes the fixtures, backing each up as a link; rollback restores lib as
+# a symlink (proves the rm -rf-before-cp -P fix) and re-creates the dangling
+# fixture links (proves cp -RP + -e||-L and the backup-keyed new-source-paths check
+# — without it the removal pass would delete the re-linked hooks/fixtures).
+symnest_home="$TMPROOT/symnest-claude"
+symnest_codex="$TMPROOT/symnest-codex"
+mkdir -p "$symnest_home/hooks"
+symnest_extlib="$TMPROOT/symnest-external-lib"
+mkdir -p "$symnest_extlib"
+printf 'EXTERNAL-LIB-SENTINEL\n' >"$symnest_extlib/marker.txt"
+ln -s "$symnest_extlib" "$symnest_home/hooks/lib"
+symnest_hooks_dangle="$TMPROOT/symnest-missing-hooks-fixtures"
+symnest_tests_dangle="$TMPROOT/symnest-missing-tests-fixtures"
+ln -s "$symnest_hooks_dangle" "$symnest_home/hooks/fixtures"
+mkdir -p "$symnest_home/tests"
+ln -s "$symnest_tests_dangle" "$symnest_home/tests/fixtures"
+CLAUDE_HOME="$symnest_home" CODEX_HOME="$symnest_codex" "$ROOT/scripts/install.sh" >/dev/null
+if [[ -L "$symnest_home/hooks/lib" ]]; then
+  not_ok "install materializes a nested hooks/lib symlink as a real directory"
+else
+  assert_directory "install materializes a nested hooks/lib symlink as a real directory" "$symnest_home/hooks/lib"
+fi
+assert_contains "install does not write through the nested hooks/lib symlink" "$(cat "$symnest_extlib/marker.txt" 2>/dev/null || true)" "EXTERNAL-LIB-SENTINEL"
+shopt -s nullglob
+symnest_backups=("$symnest_home"/backups/etrnl-install-*)
+shopt -u nullglob
+if (( ${#symnest_backups[@]} >= 1 )); then
+  symnest_backup="${symnest_backups[$((${#symnest_backups[@]} - 1))]}"
+  assert_symlink "install backs up the nested hooks/lib symlink as a link" "$symnest_backup/hooks/lib"
+  assert_contains "backed-up hooks/lib link keeps its external target" "$(readlink "$symnest_backup/hooks/lib" 2>/dev/null || true)" "$symnest_extlib"
+  assert_symlink "install backs up the dangling hooks/fixtures symlink as a link" "$symnest_backup/hooks/fixtures"
+  assert_symlink "install backs up the dangling tests/fixtures symlink as a link" "$symnest_backup/tests-fixtures"
+else
+  not_ok "install created a backup dir for the symlinked-nested scenario"
+  not_ok "install backs up the nested hooks/lib symlink as a link"
+  not_ok "backed-up hooks/lib link keeps its external target"
+  not_ok "install backs up the dangling hooks/fixtures symlink as a link"
+  not_ok "install backs up the dangling tests/fixtures symlink as a link"
+fi
+CLAUDE_HOME="$symnest_home" CODEX_HOME="$symnest_codex" "$symnest_home/scripts/rollback-local.sh" >/dev/null
+assert_symlink "rollback restores the nested hooks/lib as a symlink" "$symnest_home/hooks/lib"
+assert_contains "rollback restores the hooks/lib symlink target" "$(readlink "$symnest_home/hooks/lib" 2>/dev/null || true)" "$symnest_extlib"
+assert_contains "rollback does not write through the restored hooks/lib symlink" "$(cat "$symnest_extlib/marker.txt" 2>/dev/null || true)" "EXTERNAL-LIB-SENTINEL"
+assert_symlink "rollback restores the dangling hooks/fixtures symlink" "$symnest_home/hooks/fixtures"
+assert_contains "rollback restores the hooks/fixtures symlink target" "$(readlink "$symnest_home/hooks/fixtures" 2>/dev/null || true)" "$symnest_hooks_dangle"
+assert_symlink "rollback restores the dangling tests/fixtures symlink" "$symnest_home/tests/fixtures"
+assert_contains "rollback restores the tests/fixtures symlink target" "$(readlink "$symnest_home/tests/fixtures" 2>/dev/null || true)" "$symnest_tests_dangle"
 
 finish_tests

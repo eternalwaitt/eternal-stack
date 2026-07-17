@@ -172,7 +172,7 @@ Beads is not an ETRNL bundled execution skill. It is allowed as explicit backlog
 | `prisma-expert` | Inlined + bundled | Prisma depth; default to `etrnl-backend-patterns/references/prisma.md` in this repo. |
 | `sql-optimization-patterns` | Inlined + bundled | SQL optimization depth; default to `etrnl-backend-patterns/references/sql-optimization.md`. |
 | `orpc-patterns` | Inlined + bundled | oRPC depth; default to `etrnl-backend-patterns/references/orpc.md`. |
-| `brooks-audit` | Inlined | Default to `etrnl-code-review-excellence/references/brooks-*.md`. |
+| `brooks-audit` | Inlined + bundled | Default to `etrnl-code-review-excellence/references/brooks-*.md`; full skill also vendored under `skills/bundled/`. |
 | `backend-patterns` | Superseded | Use `/etrnl-backend-patterns` instead. |
 
 ## Deterministic Helpers

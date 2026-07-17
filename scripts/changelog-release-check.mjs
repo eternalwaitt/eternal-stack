@@ -4,8 +4,15 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { gitSubprocessLimits } from "./lib/env-utils.mjs";
+import { STABLE_TAG_RE, SEMVER_CORE } from "./lib/semver.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+// Strict `## vX.Y.Z` release-heading match (capturing the tag) built from the
+// shared SEMVER_CORE, so this checker rejects a leading-zero heading like
+// `## v01.2.3` exactly as `changelog-scaffold.mjs`, `release.mjs`, and
+// STABLE_TAG_RE do — otherwise it would accept a release section the release
+// tooling refuses to cut.
+const RELEASE_HEADING_RE = new RegExp(`^## (v${SEMVER_CORE})\\s*$`);
 const args = process.argv.slice(2);
 const DEFAULT_GIT_TIMEOUT_MS = 10_000;
 const DEFAULT_GIT_MAX_BUFFER = 1024 * 1024;
@@ -21,6 +28,15 @@ const KEEP_A_CHANGELOG_CATEGORIES = new Set([
   "### Security",
   "### Deprecated",
 ]);
+
+// STABLE_TAG_RE (imported from ./lib/semver.mjs) filters `git tag --list v[0-9]*`
+// to stable `vX.Y.Z` tags before any comparison. The glob also matches prerelease
+// tags like v2.0.0-rc.1; a changelog only carries `## vX.Y.Z` stable sections, so
+// comparing against a prerelease tag would demand an impossible `## v2.0.0-rc.1`
+// section.
+function stableTags(output) {
+  return output.split(/\r?\n/).filter(Boolean).filter((tag) => STABLE_TAG_RE.test(tag));
+}
 
 function usage() {
   console.error("usage: changelog-release-check.mjs [--root <path>] [--active-dev] [--allow-unreleased] [--strict-unreleased] [--allow-clean-history-changelog] [--skip-version-file] [--skip-categories] [--skip-tag-existence]");
@@ -64,7 +80,7 @@ function git(argsForGit, root) {
 }
 
 function parseReleaseHeading(line) {
-  const match = line.match(/^## (v\d+\.\d+\.\d+)\s*$/);
+  const match = line.match(RELEASE_HEADING_RE);
   if (!match) return null;
   return { version: match[1], lineIndex: -1 };
 }
@@ -83,7 +99,10 @@ function semverParts(version) {
   if (parts.length !== 3 || parts.some((part) => !/^\d+$/.test(part))) {
     throw new Error(`Invalid semver version: ${version}`);
   }
-  return parts.map((part) => Number(part));
+  // BigInt, not Number: a component past Number.MAX_SAFE_INTEGER (2^53) would
+  // lose precision as a double, so two distinct oversized components could
+  // compare equal and mask real changelog-vs-tag drift. BigInt stays exact.
+  return parts.map((part) => BigInt(part));
 }
 
 function compareSemver(left, right) {
@@ -133,7 +152,7 @@ function meaningfulLines(sourceLines) {
 }
 
 function releaseSectionBody(lines, startIndex) {
-  const nextRelease = lines.slice(startIndex + 1).findIndex((line) => /^## v\d+\.\d+\.\d+\s*$/.test(line.trim()));
+  const nextRelease = lines.slice(startIndex + 1).findIndex((line) => RELEASE_HEADING_RE.test(line.trim()));
   const endIndex = nextRelease < 0 ? lines.length : startIndex + 1 + nextRelease;
   return lines.slice(startIndex + 1, endIndex);
 }
@@ -244,7 +263,7 @@ function validateTopReleaseTagged(root, topRelease, skipVersionFile, activeDev, 
 
   const inGit = git(["rev-parse", "--is-inside-work-tree"], root);
   if (!inGit.ok || inGit.stdout !== "true") return errors;
-  const tags = new Set(git(["tag", "--list", "v[0-9]*"], root).stdout.split(/\r?\n/).filter(Boolean));
+  const tags = new Set(stableTags(git(["tag", "--list", "v[0-9]*"], root).stdout));
   if (!tags.has(topRelease.version)) {
     errors.push(`Release ${topRelease.version} is documented in CHANGELOG.md and VERSION but is not tagged. Run: node scripts/release.mjs tag`);
   }
@@ -255,7 +274,7 @@ function validateGitTagAlignment(root, releaseVersions, topRelease, activeDev) {
   const errors = [];
   const inGit = git(["rev-parse", "--is-inside-work-tree"], root);
   if (!inGit.ok || inGit.stdout !== "true") return errors;
-  const latestTag = git(["tag", "--list", "v[0-9]*", "--sort=-v:refname"], root).stdout.split(/\r?\n/).filter(Boolean)[0] || "";
+  const latestTag = stableTags(git(["tag", "--list", "v[0-9]*", "--sort=-v:refname"], root).stdout)[0] || "";
   if (!latestTag) return errors;
   if (!releaseVersions.has(latestTag)) {
     errors.push(`CHANGELOG.md missing latest git tag section: ## ${latestTag}`);
@@ -287,7 +306,7 @@ function validateUntaggedReleaseDrift(root, releaseSections, allowCleanHistoryCh
   if (allowCleanHistoryChangelog) return errors;
   const inGit = git(["rev-parse", "--is-inside-work-tree"], root);
   if (!inGit.ok || inGit.stdout !== "true" || releaseSections.length === 0) return errors;
-  const tags = new Set(git(["tag", "--list", "v[0-9]*"], root).stdout.split(/\r?\n/).filter(Boolean));
+  const tags = new Set(stableTags(git(["tag", "--list", "v[0-9]*"], root).stdout));
   if (tags.size === 0) return errors;
   const untaggedOlderSections = releaseSections
     .slice(1)

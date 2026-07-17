@@ -44,7 +44,11 @@ state="$(cc_state_read)"
 cwd="$(cc_project_cwd)"
 
 claims_done=false
-if [[ "$message_lower" =~ (done|complete|completed|implemented|fixed|passes|shipped|deployed|tests[[:space:]]+pass) ]]; then
+# Non-alnum-and-underscore boundaries so "abandoned" (done), "autocomplete"
+# (complete), "prefixed" (fixed), "bypasses" (passes), "worshipped" (shipped), and
+# identifiers that embed a keyword — "done_flag", "fix_completed", "tests_pass_state"
+# — do not false-match; `_` is an identifier char, so it is excluded from the boundary.
+if [[ "$message_lower" =~ (^|[^[:alnum:]_])(done|complete|completed|implemented|fixed|passes|shipped|deployed|tests[[:space:]]+pass)([^[:alnum:]_]|$) ]]; then
   claims_done=true
 fi
 

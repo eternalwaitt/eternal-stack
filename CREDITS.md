@@ -29,8 +29,9 @@ Eternal Stack is designed as a complete skill family. Policy, review, simplifica
 | `stripe-best-practices`, `abacatepay-integration` | Payments review | Community / upstream skill bundles |
 | `ci-cd` | CI helper scripts referenced by `/etrnl-dev-ci` | Community skill bundle |
 | `domain-*`, `i18n-localization`, and related domain skills | Domain-specific review gates | Community / upstream skill bundles |
+| `orpc-patterns`, `prisma-expert`, `sql-optimization-patterns`, `brooks-audit` | Backend and review depth; also inlined as `etrnl-*/references/` modules | Community / upstream skill bundles |
 
-The full inventory and routing notes live in [docs/skills.md](docs/skills.md).
+The full inventory and routing notes live in [docs/skills.md](docs/skills.md). These four skills are both vendored under `skills/bundled/` and inlined as `references/` modules; see the [Inlined reference modules](#inlined-reference-modules) table above for their inlined homes.
 
 ## Design inspiration
 

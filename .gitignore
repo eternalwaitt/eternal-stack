@@ -20,6 +20,8 @@ docs/research/
 # Never commit private Claude runtime data.
 settings.local.json
 .credentials.json
+# Private banned-token denylist overlay (client/project names stay local).
+rules-manifest.local.json
 projects/
 sessions/
 transcripts/

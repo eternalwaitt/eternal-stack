@@ -56,7 +56,7 @@ Do not mark a finding `fixed` based on inspection alone. Require a passing gate 
    - `finding-duplicate-functions` for semantic duplicates after syntactic clone checks.
    - `code-simplifier` after implementation or when AI bloat is suspected.
    - `eternal-best-practices` for auth, tenant, money, payments, i18n, Prisma, permissions, and soft-delete surfaces.
-   - `ast-grep` for structural naming/import/API-pattern sweeps.
+   - `ast-grep` for structural naming/import/API-pattern sweeps; if `ast-grep` is not available, record it as a FAILED required check under the No-Skips Contract that blocks a clean completion unless the run carries an explicit `accepted-risk` disposition. A manual structural pass (for example ripgrep patterns) only supplements the evidence and does not substitute for the required structural gate.
 5. Create a findings ledger.
 6. Fix in batches only when the mode allows edits.
 7. Rerun the canonical health gate (`tests/test-hooks.sh` and `scripts/doctor.sh`), not changed-files-only, before declaring whole-codebase health.
