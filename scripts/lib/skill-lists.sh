@@ -206,6 +206,7 @@ INSTALL_SCRIPTS=(
   post-upgrade-canary.sh
   rollback-local.sh
   init-project-rules.sh
+  sync-rule-exports.mjs
 )
 
 

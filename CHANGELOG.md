@@ -12,6 +12,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Fixed
 
+- The installer now ships the rule-export tooling it depends on: `scripts/sync-rule-exports.mjs` is added to `INSTALL_SCRIPTS` and `scripts/install.sh` syncs `rules/eternal-saas/project/` alongside `global/`. Previously the installed Claude home was missing both, so `init-project-rules.sh` `.mdc` export and the installed workflow-tool test harness (run by `doctor-etrnl.sh`) failed on absent files.
+- Release cutting works end to end again. `scripts/release.mjs tag` now validates hygiene with `--skip-tag-existence` before it creates the tag — previously it ran the strict check first, which required the tag to already exist, so the first tag for a version could never be created. `prepare` now drops empty category headings when moving `## Unreleased` into a release section, so the cut section passes the strict per-category check. `scripts/changelog-release-check.mjs` gains a `--skip-tag-existence` flag, covered by `tests/changelog/release-tooling.test.mjs`.
+- The installer now prunes source-derived test trees before overlaying them. `copy_dir_contents` overlays with `cp -R` and never removes files that were deleted from source, so renumbered replay fixtures under `hooks/fixtures/` accumulated stale copies in the installed home (14 vs 8) and `doctor-etrnl.sh` failed the replay-fixture and workflow-tool checks against them. `scripts/install.sh` now clears `hooks/fixtures/` and `tests/fixtures/` before the copy, and `copy_dir_contents` creates its target dir so the pruned `tests/fixtures/` is repopulated.
+
 ### Removed
 
 ### Security

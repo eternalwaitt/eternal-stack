@@ -55,6 +55,36 @@ function emptyUnreleasedBlock() {
   ];
 }
 
+// Drop category headings that carry no bullets so a cut release section contains only
+// populated Keep a Changelog categories. `prepare` used to copy the Unreleased template's
+// empty headings (e.g. an unused ### Removed / ### Deprecated) into the release section,
+// which the strict release check then rejected as "category ... is empty".
+function stripEmptyCategories(body) {
+  const kept = [];
+  let i = 0;
+  while (i < body.length) {
+    const line = body[i];
+    if (KEEP_A_CHANGELOG_CATEGORIES.has(line.trim())) {
+      let end = i + 1;
+      while (
+        end < body.length &&
+        !KEEP_A_CHANGELOG_CATEGORIES.has(body[end].trim()) &&
+        !body[end].trim().startsWith("## ")
+      ) {
+        end += 1;
+      }
+      const section = body.slice(i, end);
+      const hasBullets = section.slice(1).some((entry) => entry.trim() !== "");
+      if (hasBullets) kept.push(...section);
+      i = end;
+    } else {
+      kept.push(line);
+      i += 1;
+    }
+  }
+  return kept;
+}
+
 function prepare(versionArg) {
   const version = normalizeVersion(versionArg);
   const tagVersion = `v${version}`;
@@ -79,7 +109,7 @@ function prepare(versionArg) {
     "",
     todayIsoDate(),
     "",
-    ...unreleasedBody.filter((line) => line.trim() !== "## Unreleased"),
+    ...stripEmptyCategories(unreleasedBody.filter((line) => line.trim() !== "## Unreleased")),
   ];
   while (releaseSection.length > 0 && releaseSection[releaseSection.length - 1].trim() === "") {
     releaseSection.pop();
@@ -98,12 +128,14 @@ function prepare(versionArg) {
   console.log(`Prepared ${tagVersion} in CHANGELOG.md and VERSION`);
 }
 
-function runChangelogCheck() {
-  const result = spawnSync(
-    process.execPath,
-    [path.join(scriptDir, "changelog-release-check.mjs"), "--root", root, "--strict-unreleased"],
-    { encoding: "utf8" },
-  );
+function runChangelogCheck({ skipTagExistence = false } = {}) {
+  const checkArgs = [path.join(scriptDir, "changelog-release-check.mjs"), "--root", root, "--strict-unreleased"];
+  // `release.mjs tag` validates release hygiene BEFORE it creates the tag, so the
+  // top-release tag-existence rule (the very thing the tag is about to satisfy) must be
+  // skipped for that pre-tag pass — otherwise the check can never pass and the first tag
+  // for a version can never be created. The standalone strict check still enforces it.
+  if (skipTagExistence) checkArgs.push("--skip-tag-existence");
+  const result = spawnSync(process.execPath, checkArgs, { encoding: "utf8" });
   if (result.status !== 0) {
     process.stderr.write(result.stderr || result.stdout || "");
     process.exit(result.status ?? 1);
@@ -112,7 +144,7 @@ function runChangelogCheck() {
 }
 
 function tag(messageArg) {
-  runChangelogCheck();
+  runChangelogCheck({ skipTagExistence: true });
   const version = readFileSync(versionPath, "utf8").trim();
   const tagName = `v${normalizeVersion(version)}`;
   const message = messageArg || `Release ${tagName}`;

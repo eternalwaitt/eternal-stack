@@ -39,16 +39,16 @@ node scripts/release.mjs prepare 0.4.0
 git add CHANGELOG.md VERSION
 git commit -m "chore: release v0.4.0"
 
-# 3. Validate hygiene, create annotated tag, push tag
-node scripts/changelog-release-check.mjs --strict-unreleased
+# 3. Create the annotated tag (validates hygiene first), confirm, and push
 node scripts/release.mjs tag
+node scripts/changelog-release-check.mjs --strict-unreleased
 git push origin main
 git push origin v0.4.0
 ```
 
-`prepare` inserts today's date, creates empty category headings under `## Unreleased` for the next cycle, and writes `VERSION`.
+`prepare` inserts today's date, moves the populated `## Unreleased` bullets into the new section (dropping any empty category headings), creates empty category headings under a fresh `## Unreleased` for the next cycle, and writes `VERSION`.
 
-`tag` creates an annotated `vX.Y.Z` tag at `HEAD` when `VERSION` and `CHANGELOG.md` already agree.
+`tag` first runs the strict release check with `--skip-tag-existence` — validating every hygiene rule except the tag-existence one it is about to satisfy — then creates an annotated `vX.Y.Z` tag at `HEAD` when `VERSION` and `CHANGELOG.md` already agree. Run the full `--strict-unreleased` check afterward to confirm the tag now exists. (Running the strict check *before* `tag` would fail on the un-created tag, so it belongs after.)
 
 ## Validation
 

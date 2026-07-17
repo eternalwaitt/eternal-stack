@@ -23,12 +23,13 @@ const KEEP_A_CHANGELOG_CATEGORIES = new Set([
 ]);
 
 function usage() {
-  console.error("usage: changelog-release-check.mjs [--root <path>] [--active-dev] [--allow-unreleased] [--strict-unreleased] [--allow-clean-history-changelog] [--skip-version-file] [--skip-categories]");
+  console.error("usage: changelog-release-check.mjs [--root <path>] [--active-dev] [--allow-unreleased] [--strict-unreleased] [--allow-clean-history-changelog] [--skip-version-file] [--skip-categories] [--skip-tag-existence]");
   console.error("--active-dev treats a populated ## Unreleased and an un-cut top release as healthy mid-cycle state (for doctor / active development); only a changelog behind the latest tag fails.");
   console.error("--strict-unreleased takes precedence over --allow-unreleased when both are present.");
   console.error("--allow-clean-history-changelog permits older changelog sections without tags after a clean-root public release.");
   console.error("--skip-version-file skips VERSION file alignment checks (test fixtures only).");
   console.error("--skip-categories skips Keep a Changelog category validation (test fixtures only).");
+  console.error("--skip-tag-existence skips the top-release tag-existence check (used by release.mjs tag before it creates the tag).");
   process.exit(2);
 }
 
@@ -233,9 +234,9 @@ function validateVersionFile(root, topRelease, skipVersionFile) {
   return errors;
 }
 
-function validateTopReleaseTagged(root, topRelease, skipVersionFile, activeDev) {
+function validateTopReleaseTagged(root, topRelease, skipVersionFile, activeDev, skipTagExistence) {
   const errors = [];
-  if (activeDev || skipVersionFile || !topRelease) return errors;
+  if (activeDev || skipVersionFile || skipTagExistence || !topRelease) return errors;
   const versionPath = path.join(root, "VERSION");
   if (!existsSync(versionPath)) return errors;
   const version = readFileSync(versionPath, "utf8").trim().replace(/^v/i, "");
@@ -306,6 +307,7 @@ const allowUnreleased = (args.includes("--allow-unreleased") || activeDev) && !a
 const allowCleanHistoryChangelog = args.includes("--allow-clean-history-changelog");
 const skipVersionFile = args.includes("--skip-version-file");
 const skipCategories = args.includes("--skip-categories");
+const skipTagExistence = args.includes("--skip-tag-existence");
 const changelogPath = path.join(root, "CHANGELOG.md");
 let lines = [];
 try {
@@ -327,7 +329,7 @@ if (unreleasedEntries.length > 0 && !allowUnreleased) {
 }
 errors.push(...validateReleaseCategories(lines, releaseSections, skipCategories));
 errors.push(...validateVersionFile(root, topRelease, skipVersionFile));
-errors.push(...validateTopReleaseTagged(root, topRelease, skipVersionFile, activeDev));
+errors.push(...validateTopReleaseTagged(root, topRelease, skipVersionFile, activeDev, skipTagExistence));
 errors.push(...validateGitTagAlignment(root, releaseVersions, topRelease, activeDev));
 errors.push(...validateUntaggedReleaseDrift(root, releaseSections, allowCleanHistoryChangelog));
 

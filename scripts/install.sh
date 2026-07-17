@@ -128,6 +128,7 @@ copy_dir_contents() {
     printf 'fatal: missing directory %s\n' "$source_dir" >&2
     return 1
   fi
+  mkdir -p "$target_dir"
   shopt -s nullglob dotglob
   entries=("$source_dir"/*)
   shopt -u nullglob dotglob
@@ -400,7 +401,7 @@ if [[ "$DRY_RUN" == "1" ]]; then
   printf 'Dry run: would install Codex skill/runtime files into %s\n' "$CODEX_TARGET"
   printf 'Dry run: would install %s/AGENTS.md from templates/AGENTS.global.md (ETRNL_INSTALL_STARTUP gated)\n' "$CODEX_TARGET"
   printf 'Dry run: would install %s/AGENTS.override.md from templates/AGENTS.override.codex.md (ETRNL_INSTALL_STARTUP gated)\n' "$CODEX_TARGET"
-  printf 'Dry run: would sync rules/eternal-saas/global to %s/rules/eternal-saas/global with atomic swap\n' "$TARGET"
+  printf 'Dry run: would sync rules/eternal-saas/{global,project} to %s/rules/eternal-saas/ with atomic swap\n' "$TARGET"
   printf 'Dry run: would copy settings, stack profile, and Hindsight config templates\n'
   if [[ "$RESET_CLAUDE_SETTINGS" == "1" ]]; then
     printf 'Dry run: would back up %s/settings.json and reset it to vanilla while preserving enabledPlugins and statusLine before applying stack hooks\n' "$TARGET"
@@ -529,6 +530,12 @@ remove_removed_skills "$CODEX_TARGET/skills"
 remove_removed_skill_commands "$TARGET/commands"
 
 mkdir -p "$TARGET/hooks" "$TARGET/scripts" "$TARGET/docs/templates" "$TARGET/skills" "$TARGET/agents" "$TARGET/commands" "$TARGET/rules" "$TARGET/tests/lib" "$TARGET/tests/fixtures"
+# copy_dir_contents overlays (cp -R) rather than mirrors, so a file removed from source
+# lingers in the installed home across installs. The replay fixtures under hooks/fixtures
+# are auto-discovered and replayed and get renumbered over time, so stale copies would fail
+# against current hooks. These trees are entirely source-derived test data (nothing else
+# writes there), so clear them before the overlay copy to prune removed fixtures.
+rm -rf -- "$TARGET/hooks/fixtures" "$TARGET/tests/fixtures"
 copy_dir_contents "$ROOT/hooks" "$TARGET/hooks"
 sync_owned_skills "$ROOT/skills" "$TARGET/skills"
 sync_bundled_skills "$ROOT/skills/bundled" "$TARGET/skills" "$BACKUP/skills"
@@ -576,24 +583,31 @@ fi
 if [[ "${ETRNL_INSTALL_STARTUP:-0}" == "1" || ! -f "$CODEX_TARGET/AGENTS.override.md" ]]; then
   cp -- "$ROOT/templates/AGENTS.override.codex.md" "$CODEX_TARGET/AGENTS.override.md"
 fi
-# Sync rules/eternal-saas/global to ~/.claude/rules/eternal-saas/global/ with atomic swap
-if [[ -d "$ROOT/rules/eternal-saas/global" ]]; then
-  eternal_saas_tmp="$TARGET/rules/eternal-saas/global.tmp"
-  eternal_saas_old="$TARGET/rules/eternal-saas/global.old"
+# Sync rules/eternal-saas/{global,project} to ~/.claude/rules/eternal-saas/ with atomic swap.
+# init-project-rules.sh installs BOTH scopes into a target project and sync-rule-exports.mjs
+# reads them, so the installed home needs the project templates as source material, not just
+# the global digest. Missing project rules previously broke init-project-rules and the
+# installed workflow-tool test harness.
+for eternal_saas_scope in global project; do
+  eternal_saas_src="$ROOT/rules/eternal-saas/$eternal_saas_scope"
+  [[ -d "$eternal_saas_src" ]] || continue
+  eternal_saas_dest="$TARGET/rules/eternal-saas/$eternal_saas_scope"
+  eternal_saas_tmp="$eternal_saas_dest.tmp"
+  eternal_saas_old="$eternal_saas_dest.old"
   mkdir -p "$TARGET/rules/eternal-saas"
   rm -rf -- "$eternal_saas_tmp" "$eternal_saas_old"
-  cp -R -- "$ROOT/rules/eternal-saas/global" "$eternal_saas_tmp"
-  if [[ -d "$TARGET/rules/eternal-saas/global" ]]; then
-    mv -- "$TARGET/rules/eternal-saas/global" "$eternal_saas_old"
+  cp -R -- "$eternal_saas_src" "$eternal_saas_tmp"
+  if [[ -d "$eternal_saas_dest" ]]; then
+    mv -- "$eternal_saas_dest" "$eternal_saas_old"
   fi
-  if mv -- "$eternal_saas_tmp" "$TARGET/rules/eternal-saas/global"; then
+  if mv -- "$eternal_saas_tmp" "$eternal_saas_dest"; then
     rm -rf -- "$eternal_saas_old"
   else
-    [[ ! -d "$eternal_saas_old" ]] || mv -- "$eternal_saas_old" "$TARGET/rules/eternal-saas/global"
+    [[ ! -d "$eternal_saas_old" ]] || mv -- "$eternal_saas_old" "$eternal_saas_dest"
     rm -rf -- "$eternal_saas_tmp"
     exit 1
   fi
-fi
+done
 cp -- "$ROOT/tests/test-hooks.sh" "$TARGET/tests/test-hooks.sh"
 cp -- "$ROOT/tests/test-workflow-tools.sh" "$TARGET/tests/test-workflow-tools.sh"
 cp -- "$ROOT/tests/lib/harness.sh" "$TARGET/tests/lib/harness.sh"
