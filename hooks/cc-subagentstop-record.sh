@@ -34,6 +34,18 @@ cc_json_valid || exit 0
 subagent_text="$(cc_json_get '[.last_assistant_message, .message, .response, .reason, .tool_result.content] | map(select(. != null and . != "")) | join("\n")')"
 trusted_agent="$(cc_json_get '.subagent_type // .agent_type')"
 
+# A response that carries an ETRNL_CONTRACT block but NO trusted agent identity cannot be
+# authoritatively evaluated. Without .subagent_type/.agent_type the validator would run
+# WITHOUT --agent, skipping per-agent required keys, worker-vs-reviewer status rules, and
+# the adversary stop-cycle cap — so a self-identified contract could slip agent-specific
+# enforcement via a generic pass. Fail closed instead of accepting an unauthenticated
+# contract. (The inverse case — trusted agent present, block absent — still flows into the
+# validator below, which blocks a contracted agent that omits the block.)
+if [[ -z "$trusted_agent" && "$subagent_text" == *"ETRNL_CONTRACT: v1"* ]]; then
+  cc_json_block "Agent output contract could not be evaluated: an ETRNL_CONTRACT block was emitted without a trusted subagent identity (.subagent_type/.agent_type), so per-agent enforcement cannot be applied. Fail-closed floor: block until the trusted identity is present. If this environment genuinely does not provide the trusted identity (not a gamed contract), the operator can set CLAUDE_GUARD_DISABLED=1 to recover."
+  exit 0
+fi
+
 if command -v node >/dev/null 2>&1 \
   && { [[ "$subagent_text" == *"ETRNL_CONTRACT: v1"* ]] || [[ -n "$trusted_agent" ]]; }; then
   # Derive task_id for the verdict key from the TRUSTED event.task_id first, falling
