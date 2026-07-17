@@ -739,6 +739,15 @@ else
   not_ok "subagentstop should persist a no-identity contract violation state file"
 fi
 
+# A valid contract whose verdict cannot be PERSISTED must fail closed, not silently report
+# success — a swallowed state write would leave .contractVerdicts stale and let the Stop
+# backstop miss a real violation later. Point the guard state dir at a regular file so the
+# critical write fails, then confirm the hook blocks instead of allowing the stop.
+contract_unwritable_state_dir="$TMPROOT/state-notadir"
+printf 'x' >"$contract_unwritable_state_dir"
+out="$(CLAUDE_GUARD_STATE_DIR="$contract_unwritable_state_dir" run_hook cc-subagentstop-record.sh "$contract_valid")"
+assert_json_expr "subagentstop fails closed when a contract verdict cannot be persisted" "$out" '.decision == "block"'
+
 contract_backstop_state="$TMPROOT/claude-guard-fixture-contract-backstop.json"
 jq -nc '{schemaVersion:5,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},contractVerdicts:{"CT1:rev":{verdict:"violation",at:"2026-01-01T00:00:00Z"}},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],toolSignals:[],firstEditAt:"",firstEditGeneration:0,toolUseBeforeFirstEdit:{},toolNoise:{},effectivenessCounters:{},newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:false,planExecutionRequestedAt:"",lastPrompt:"",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$contract_backstop_state"
 contract_backstop_stop="$(jq -cn '{session_id:"fixture-contract-backstop",last_assistant_message:"Done. Implemented and tests pass.",stop_hook_active:false}')"

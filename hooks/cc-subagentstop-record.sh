@@ -15,6 +15,18 @@ cc_json_read_stdin
 cc_json_require_jq || exit 0
 cc_json_valid || exit 0
 
+# Record a contract verdict, failing closed if the critical state write fails. Silently
+# dropping the write (|| true) would leave .contractVerdicts stale or missing, so a later
+# Stop backstop could miss a real violation (or keep enforcing a cleared one) — the P1
+# floor must be able to trust the recorded verdict. On write failure block the stop
+# (escapable via CLAUDE_GUARD_DISABLED=1) rather than reporting success.
+record_verdict_or_block() {
+  if ! cc_state_record_contract_verdict "$1" "$2"; then
+    cc_json_block "Unable to persist the agent output-contract verdict (${2}) for ${1}: guard state is unwritable, so the Stop backstop cannot be trusted. Fix guard state and re-run. Operator recovery: CLAUDE_GUARD_DISABLED=1."
+    exit 0
+  fi
+}
+
 # P1 enforcement floor: validate the subagent's emitted output contract FIRST, before
 # any ledger append. Contract validation is the gate; only a passing (or not-applicable)
 # contract lets the record-subagent append run. Recording a completed-agent ledger row
@@ -48,7 +60,7 @@ if [[ -z "$trusted_agent" && "$subagent_text" == *"ETRNL_CONTRACT: v1"* ]]; then
   # validator path's verdict_key), falling back to notask/subagent when the event omits it.
   trusted_task_id="$(cc_json_get '.task_id')"
   trusted_agent_id="$(cc_json_get '.agent_id // .subagent_id')"
-  cc_state_record_contract_verdict "${trusted_task_id:-notask}:${trusted_agent_id:-subagent}" "violation" || true
+  record_verdict_or_block "${trusted_task_id:-notask}:${trusted_agent_id:-subagent}" "violation"
   cc_json_block "Agent output contract could not be evaluated: an ETRNL_CONTRACT block was emitted without a trusted subagent identity (.subagent_type/.agent_type), so per-agent enforcement cannot be applied. Fail-closed floor: block until the trusted identity is present. If this environment genuinely does not provide the trusted identity (not a gamed contract), the operator can set CLAUDE_GUARD_DISABLED=1 to recover."
   exit 0
 fi
@@ -73,10 +85,10 @@ if command -v node >/dev/null 2>&1 \
   # so the authoritative comparison lives in the validator against the parsed block.
   [[ -n "$trusted_task_id" ]] && contract_args+=(--task-id "$trusted_task_id")
   if contract_out="$(printf '%s\n' "$subagent_text" | node "$SCRIPT_DIR/../scripts/agent-output-contract.mjs" "${contract_args[@]}" 2>&1)"; then
-    cc_state_record_contract_verdict "$verdict_key" "pass" || true
+    record_verdict_or_block "$verdict_key" "pass"
   else
     status=$?
-    cc_state_record_contract_verdict "$verdict_key" "violation" || true
+    record_verdict_or_block "$verdict_key" "violation"
     # Exit 1 (real violation) and exit 2 (cannot-evaluate) both BLOCK the subagent's
     # stop — the advertised fail-closed floor must not let a schema/evaluator failure
     # slip through. A genuine validator/install break stays escapable via
