@@ -13,7 +13,7 @@ The task needs DX review because users will install or operate the workflow.
 
 model: inherit
 color: blue
-tools: ["Read", "Grep", "Glob", "Bash"]
+tools: ["Read", "Grep", "Glob"]
 disallowedTools: ["Write", "Edit"]
 ---
 

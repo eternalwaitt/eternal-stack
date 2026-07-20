@@ -135,8 +135,8 @@ else
 fi
 node "$ROOT/scripts/execution-ledger.mjs" record-tdd --session fixture-evidence --task T-write --lineage wave-1.T-write --packet-hash abc123 --status red_green_verified --source-files scripts/deep-stack-check.mjs --red-command "tests/test-workflow-tools.sh" --red-status failed --red-failure "expected fixture failure" --green-command "tests/test-workflow-tools.sh" --green-status passed
 node "$ROOT/scripts/execution-ledger.mjs" record-simplifier --session fixture-evidence --task T-write --lineage wave-1.T-write --packet-hash abc123 --status verified --evidence "code-simplifier reviewed diff"
-# Regression guard (CodeRabbit PR #4): a bound task's completion audit must carry
-# matching binding, or the bound-evidence matcher can never clear the requirement.
+# Regression guard: a bound task's completion audit must carry matching binding, or
+# the bound-evidence matcher can never clear the requirement.
 if node "$ROOT/scripts/execution-ledger.mjs" record-completion-audit --session fixture-evidence --item P1 --task T-write --classification DONE --evidence "diff" >/dev/null 2>&1; then
   not_ok "record-completion-audit rejects unbound row for bound task"
 else
@@ -867,6 +867,26 @@ printf '%s\n' '{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"comma
 node "$ROOT/scripts/merge-settings.mjs" "$merge_order_target" "$merge_order_template"
 assert_json_expr "merge-settings orders rtk rg compat before native rtk hook" "$(jq -c . "$merge_order_target")" '([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/cc-rtk-rg-compat.sh")) < ([.hooks.PreToolUse[].hooks[0].command] | index("rtk hook claude"))'
 assert_json_expr "merge-settings orders rtk rg compat before pretool guard" "$(jq -c . "$merge_order_target")" '([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/cc-rtk-rg-compat.sh")) < ([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/cc-pretooluse-guard.sh"))'
+# TG5: user-authored PreToolUse hooks (order 100) stay after stack guards and keep
+# their relative input order among themselves, so the guard always sees a tool call first.
+merge_user_target="$TMPROOT/merge-user-order-target.json"
+merge_user_template="$TMPROOT/merge-user-order-template.json"
+printf '%s\n' '{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"bash ~/.claude/hooks/user-alpha.sh"}]},{"matcher":"Bash","hooks":[{"type":"command","command":"bash ~/.claude/hooks/user-beta.sh"}]},{"matcher":"Bash|Read|Edit|Write|MultiEdit|WebSearch|Task|TaskCreate|Agent","hooks":[{"type":"command","command":"bash ~/.claude/hooks/cc-pretooluse-guard.sh","timeout":10}]}]}}' >"$merge_user_target"
+printf '%s\n' '{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"bash ~/.claude/hooks/cc-rtk-rg-compat.sh","timeout":5}]}]}}' >"$merge_user_template"
+node "$ROOT/scripts/merge-settings.mjs" "$merge_user_target" "$merge_user_template"
+assert_json_expr "merge-settings keeps user hooks after stack guard" "$(jq -c . "$merge_user_target")" '([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/cc-pretooluse-guard.sh")) < ([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/user-alpha.sh"))'
+assert_json_expr "merge-settings preserves user hook relative order" "$(jq -c . "$merge_user_target")" '([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/user-alpha.sh")) < ([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/user-beta.sh"))'
+# TG5: a single input group carrying BOTH a stack guard and a user hook must still sort
+# the guard ahead of every user hook (ordering is per-hook, so a mixed group cannot drag
+# the trailing user hook forward on the guard's order), and user hooks keep flattened order.
+merge_mixed_target="$TMPROOT/merge-mixed-order-target.json"
+merge_mixed_template="$TMPROOT/merge-mixed-order-template.json"
+printf '%s\n' '{"hooks":{"PreToolUse":[{"matcher":"Bash|Read","hooks":[{"type":"command","command":"bash ~/.claude/hooks/cc-pretooluse-guard.sh","timeout":10},{"type":"command","command":"bash ~/.claude/hooks/user-gamma.sh"}]},{"matcher":"Bash","hooks":[{"type":"command","command":"bash ~/.claude/hooks/user-delta.sh"}]}]}}' >"$merge_mixed_target"
+printf '%s\n' '{"hooks":{"PreToolUse":[]}}' >"$merge_mixed_template"
+node "$ROOT/scripts/merge-settings.mjs" "$merge_mixed_target" "$merge_mixed_template"
+assert_json_expr "merge-settings sorts guard ahead of a user hook sharing its input group" "$(jq -c . "$merge_mixed_target")" '([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/cc-pretooluse-guard.sh")) < ([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/user-gamma.sh"))'
+assert_json_expr "merge-settings sorts guard ahead of every user hook from a mixed group" "$(jq -c . "$merge_mixed_target")" '([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/cc-pretooluse-guard.sh")) < ([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/user-delta.sh"))'
+assert_json_expr "merge-settings preserves flattened user hook order from a mixed group" "$(jq -c . "$merge_mixed_target")" '([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/user-gamma.sh")) < ([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/user-delta.sh"))'
 settings_audit_target="$TMPROOT/settings-audit-target.json"
 settings_audit_home="$TMPROOT/settings-audit-home"
 settings_audit_project="$TMPROOT/settings-audit-project"
@@ -1016,10 +1036,41 @@ else
   assert_contains "skill contracts reject model routing frontmatter" "$model_skill_out" 'model frontmatter is not allowed'
   assert_contains "skill contracts reject effort routing frontmatter" "$model_skill_out" 'effort frontmatter is not allowed'
 fi
+# Regression: nested script references (scripts/lib/*.mjs) and .sh references must
+# be existence-checked. Isolated temp skill root — never the live skills tree.
+nested_ref_root="$TMPROOT/nested-ref-skill-root"
+mkdir -p "$nested_ref_root/scripts/lib" "$nested_ref_root/docs" "$nested_ref_root/skills/etrnl-nested" "$nested_ref_root/hooks/lib"
+printf '%s\n' 'OWNED_SKILLS=(' '  "etrnl-nested"' ')' 'OWNED_AGENTS=()' >"$nested_ref_root/scripts/lib/skill-lists.sh"
+printf '%s\n' '# ETRNL Skills' '' '| Command | Purpose |' '| --- | --- |' '| /etrnl-nested | Test skill |' >"$nested_ref_root/docs/skills.md"
+printf '%s\n' 'get_etrnl_skill_hint() {' '  printf "%s\n" "/etrnl-nested"' '}' >"$nested_ref_root/hooks/lib/skill-hints.sh"
+# A real nested helper the green SKILL.md body may reference.
+printf '%s\n' 'export const ok = true;' >"$nested_ref_root/scripts/lib/real-nested-helper.mjs"
+# RED: SKILL.md references a nested helper that does not exist on disk.
+printf '%s\n' '---' 'name: etrnl-nested' 'description: Test skill.' '---' '# Nested Skill' '' 'Run `scripts/lib/DOES-NOT-EXIST-holes.mjs` to do the thing.' >"$nested_ref_root/skills/etrnl-nested/SKILL.md"
+if nested_missing_out="$(node "$ROOT/scripts/skill-contract-check.mjs" --root "$nested_ref_root" 2>&1)"; then
+  not_ok "skill contracts flag missing nested script reference"
+else
+  assert_contains "skill contracts flag missing nested script reference" "$nested_missing_out" "scripts/lib/DOES-NOT-EXIST-holes.mjs"
+fi
+# GREEN: point the reference at the nested helper that exists — gate passes.
+printf '%s\n' '---' 'name: etrnl-nested' 'description: Test skill.' '---' '# Nested Skill' '' 'Run `scripts/lib/real-nested-helper.mjs` to do the thing.' >"$nested_ref_root/skills/etrnl-nested/SKILL.md"
+assert_command "skill contracts pass when nested script reference resolves" node "$ROOT/scripts/skill-contract-check.mjs" --root "$nested_ref_root"
+
 assert_command "skill behavior smoke syntax" node --check "$ROOT/scripts/skill-behavior-smoke.mjs"
 assert_command "skill behavior smoke pass" node "$ROOT/scripts/skill-behavior-smoke.mjs" --root "$ROOT"
 assert_command "port-guard self-test" node "$ROOT/scripts/port-guard.mjs" self-test
 assert_command "replay hook fixtures pass" node "$ROOT/scripts/replay-hook-fixtures.mjs"
+
+# The three CodeGraph-using discovery agents must stay FAIL-OPEN: when a `.codegraph/`
+# index exists but its MCP/CLI tooling is unavailable (or a symbol is unsafe for the
+# Bash CLI), each must fall back to grep/rg/sg rather than block discovery. Guard the
+# invariant so a future edit can't silently drop the fallback from any of them: an
+# index without usable tooling must never stall an agent, and an unsafe symbol must
+# never be routed through the codegraph Bash CLI.
+for discovery_agent in etrnl-investigator etrnl-scout etrnl-consumer-tracer; do
+  assert_contains "discovery agent $discovery_agent stays fail-open when codegraph tooling is unavailable" \
+    "$(cat "$ROOT/agents/$discovery_agent.md")" "fall back immediately"
+done
 
 budget_root="$TMPROOT/budget"
 mkdir -p "$budget_root/skills/gstack-huge" "$budget_root/skills/etrnl-small"
@@ -1060,6 +1111,21 @@ else
   ok "changelog check rejects Unreleased entries"
 fi
 assert_command "changelog check allows Unreleased entries with allow flag" node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_bad" --allow-unreleased --skip-version-file
+# A leading-zero release heading (## v01.2.3) is not valid semver — parseReleaseHeading
+# now builds its match from the shared SEMVER_CORE, so the checker rejects it exactly as
+# changelog-scaffold.mjs and release.mjs do (the old loose \d+\.\d+\.\d+ accepted it,
+# letting this checker green-light a section the release tooling refuses to cut).
+changelog_leadzero="$TMPROOT/changelog-leadzero"
+mkdir -p "$changelog_leadzero"
+printf '%s\n' \
+  '# Changelog' '' '## Unreleased' '' '### Added' '' \
+  '## v01.2.3' '' '2026-01-01' '' '### Added' '' '- Bogus leading-zero heading.' \
+  >"$changelog_leadzero/CHANGELOG.md"
+if leadzero_out="$(node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_leadzero" --strict-unreleased --skip-version-file 2>&1)"; then
+  not_ok "changelog check rejects a leading-zero release heading"
+else
+  assert_contains "changelog check rejects a leading-zero release heading" "$leadzero_out" "semantic version heading"
+fi
 changelog_repo="$TMPROOT/changelog-repo"
 mkdir -p "$changelog_repo"
 printf '%s\n' \
@@ -1128,10 +1194,20 @@ git -C "$changelog_malformed_tag" tag v0.1.0-beta
 printf '%s\n' 'changed' >"$changelog_malformed_tag/README.md"
 git -C "$changelog_malformed_tag" add README.md
 git -C "$changelog_malformed_tag" commit -qm "workflow change"
+# Prerelease / non-stable tags are filtered before comparison, matching the
+# changelog-scaffold.mjs latestStableTag precedent, so a lone prerelease tag is
+# IGNORED rather than demanding an impossible `## v0.1.0-beta` section or crashing
+# the semver comparison. This keeps downstream repos that use -rc/-beta/-alpha
+# tags from being permanently blocked by the release gate.
 if malformed_out="$(node "$ROOT/scripts/changelog-release-check.mjs" --root "$changelog_malformed_tag" --skip-version-file 2>&1)"; then
-  not_ok "changelog check rejects malformed semver tag"
+  ok "changelog check ignores prerelease-only tag (v0.1.0-beta filtered)"
 else
-  assert_contains "changelog check rejects malformed semver tag" "$malformed_out" "Invalid semver version: v0.1.0-beta"
+  not_ok "changelog check should ignore prerelease-only tag, got: $malformed_out"
+fi
+if printf '%s' "$malformed_out" | grep -q 'v0.1.0-beta'; then
+  not_ok "changelog check must not demand or crash on the prerelease tag: $malformed_out"
+else
+  ok "changelog check does not demand a prerelease section or crash on it"
 fi
 
 review_fp="$(node "$ROOT/scripts/review-log.mjs" add --path "$TMPROOT/review-log.jsonl" --finding "sk_live_example_should_redact" --severity P1 --status open)"
@@ -1726,15 +1802,29 @@ if [[ -f "$INIT_SCRIPT" ]]; then
     ok "init refuses missing --profile"
   fi
 
-  # init --check reports stale after manifest bump
+  # init --check-mtime reports stale after manifest bump (mtime path is opt-in;
+  # default --check is checksum-only so a byte-identical clone never false-flags).
   real_target="$TMPROOT/init-real-target"
   mkdir -p "$real_target"
   bash "$INIT_SCRIPT" --profile eternal-saas "$real_target" >/dev/null 2>&1 || true
   # simulate manifest bump by touching source (sleep ensures different mtime second)
   sleep 1
   touch "$ROOT/rules/eternal-saas/project/orpc.md"
-  check_out="$(bash "$INIT_SCRIPT" --check --profile eternal-saas "$real_target" 2>&1)" || true
-  assert_contains "init --check reports stale after manifest bump" "$check_out" "stale"
+  # default --check must NOT flag a byte-identical touch as stale, AND must succeed
+  # (exit 0). Masking the exit with `|| true` would let an unrelated failure — a
+  # missing receipt, an install error, any non-`stale:` fault — pass this regression
+  # silently, since the grep below only looks for a `stale:` line.
+  default_check_rc=0
+  default_check_out="$(bash "$INIT_SCRIPT" --check --profile eternal-saas "$real_target" 2>&1)" || default_check_rc=$?
+  if (( default_check_rc != 0 )); then
+    not_ok "init default --check ignores mtime-only source touch (command failed rc=$default_check_rc: $default_check_out)"
+  elif printf '%s' "$default_check_out" | grep -q "^stale:"; then
+    not_ok "init default --check ignores mtime-only source touch (flagged stale)"
+  else
+    ok "init default --check ignores mtime-only source touch"
+  fi
+  check_out="$(bash "$INIT_SCRIPT" --check-mtime --profile eternal-saas "$real_target" 2>&1)" || true
+  assert_contains "init --check-mtime reports stale after manifest bump" "$check_out" "stale"
   git -C "$ROOT" checkout -- rules/eternal-saas/project/orpc.md 2>/dev/null || true
 
   # init --check reports locally-modified after target edit
@@ -1756,9 +1846,406 @@ else
   not_ok "init dry-run mentions eternal-saas"
   not_ok "init --dry-run does not write files"
   not_ok "init refuses missing --profile"
-  not_ok "init --check reports stale after manifest bump"
+  not_ok "init default --check ignores mtime-only source touch"
+  not_ok "init --check-mtime reports stale after manifest bump"
   not_ok "init --check reports locally-modified"
   not_ok "init refuses to overwrite locally-modified without --force"
 fi
+
+# --- sync-rule-exports.mjs full-mode privacy scan ---
+# Full mode (no --source) is the shipped privacy-scrub deliverable: it scans the
+# manifest itself + tests/ fixtures via scanExtraSurfaces() and unions the manifest
+# denylist with the gitignored bannedTokensSource overlay via loadBannedTokens().
+# Every prior sync test passed --source, so this core path was untested. The --root
+# seam points full mode at an isolated fixture root. RED: drop the seam or the
+# scan/union/warn logic and these fail.
+sync_full_root="$TMPROOT/sync-full-root"
+mkdir -p "$sync_full_root/rules/eternal-saas/global" "$sync_full_root/tests"
+cat >"$sync_full_root/rules/eternal-saas/global/probe.md" <<'MD'
+---
+id: sync-full-probe
+globs:
+  - "src/**/*.ts"
+description: "Full-mode probe module."
+---
+# Full Mode Probe
+Clean body with no banned tokens.
+MD
+
+# (a) sentinel in manifest.bannedTokens + a tests/ fixture containing it -> exit 1
+#     naming the tests/ fixture (proves scanExtraSurfaces covers tests/).
+printf 'ETRNL_FULLMODE_SENTINEL leaked into a tests fixture\n' >"$sync_full_root/tests/leak-fixture.sh"
+cat >"$sync_full_root/rules-manifest.json" <<'JSON'
+{ "privacy": { "bannedTokens": ["ETRNL_FULLMODE_SENTINEL"] } }
+JSON
+if sync_full_inline_out="$(node "$SYNC_SCRIPT" --root "$sync_full_root" 2>&1)"; then
+  not_ok "sync full-mode flags manifest banned token in tests fixture (should have failed)"
+else
+  assert_contains "sync full-mode flags banned token in tests fixture" "$sync_full_inline_out" "tests/leak-fixture.sh"
+  assert_contains "sync full-mode reports a redacted match count" "$sync_full_inline_out" "banned token match"
+  assert_not_contains "sync full-mode does not echo the private banned token value" "$sync_full_inline_out" "ETRNL_FULLMODE_SENTINEL"
+fi
+
+# (b) sentinel supplied ONLY via the bannedTokensSource overlay JSON -> still caught
+#     (proves loadBannedTokens unions the overlay, not just inline manifest tokens).
+printf 'ETRNL_OVERLAY_SENTINEL leaked into a tests fixture\n' >"$sync_full_root/tests/leak-fixture.sh"
+cat >"$sync_full_root/rules-manifest.json" <<'JSON'
+{ "privacy": { "bannedTokens": [], "bannedTokensSource": "rules-manifest.local.json" } }
+JSON
+cat >"$sync_full_root/rules-manifest.local.json" <<'JSON'
+{ "bannedTokens": ["ETRNL_OVERLAY_SENTINEL"] }
+JSON
+if sync_full_overlay_out="$(node "$SYNC_SCRIPT" --root "$sync_full_root" 2>&1)"; then
+  not_ok "sync full-mode flags overlay-only banned token (should have failed)"
+else
+  assert_contains "sync full-mode unions overlay banned token (redacted match)" "$sync_full_overlay_out" "banned token match"
+  assert_not_contains "sync full-mode does not echo the overlay banned token value" "$sync_full_overlay_out" "ETRNL_OVERLAY_SENTINEL"
+fi
+
+# (c) overlay declared but absent -> exit 0 with the 'privacy denylist inactive'
+#     warning (proves it warns instead of failing open silently). Fixture is clean.
+printf 'clean fixture with no sentinel\n' >"$sync_full_root/tests/leak-fixture.sh"
+rm -f "$sync_full_root/rules-manifest.local.json"
+if sync_full_absent_out="$(node "$SYNC_SCRIPT" --root "$sync_full_root" 2>&1)"; then
+  assert_contains "sync full-mode warns when overlay absent (fail-open not silent)" "$sync_full_absent_out" "privacy denylist inactive"
+else
+  not_ok "sync full-mode exits 0 when overlay declared but absent: $sync_full_absent_out"
+fi
+# ETRNL_RULES_ROOT env is an equivalent seam to --root; prove it drives full mode too.
+if sync_full_env_out="$(ETRNL_RULES_ROOT="$sync_full_root" node "$SYNC_SCRIPT" 2>&1)"; then
+  assert_contains "sync full-mode honors ETRNL_RULES_ROOT env seam" "$sync_full_env_out" "privacy denylist inactive"
+else
+  not_ok "sync full-mode honors ETRNL_RULES_ROOT env seam: $sync_full_env_out"
+fi
+
+# (d) --root=<dir> (equals form) must be honored, not only the space-separated
+#     form. If argValue matched --flag but not --flag=value, full mode would
+#     silently scan the REAL repo and exit 0 — a fail-open on the privacy denylist.
+#     RED: revert argValue to indexOf-only and this scans the wrong tree / passes.
+printf 'ETRNL_EQ_SENTINEL leaked via equals-form root\n' >"$sync_full_root/tests/leak-fixture.sh"
+rm -f "$sync_full_root/rules-manifest.local.json"
+cat >"$sync_full_root/rules-manifest.json" <<'JSON'
+{ "privacy": { "bannedTokens": ["ETRNL_EQ_SENTINEL"] } }
+JSON
+if sync_full_eq_out="$(node "$SYNC_SCRIPT" "--root=$sync_full_root" 2>&1)"; then
+  not_ok "sync full-mode honors --root=<dir> equals form (should have failed)"
+else
+  assert_contains "sync full-mode honors --root=<dir> equals form" "$sync_full_eq_out" "tests/leak-fixture.sh"
+  assert_not_contains "sync full-mode does not echo the equals-form banned token value" "$sync_full_eq_out" "ETRNL_EQ_SENTINEL"
+fi
+
+# (e) overlay present but carrying no usable bannedTokens array (empty or missing
+#     key) must WARN, not silently disable the denylist. RED: drop the else-branch
+#     warn in loadBannedTokens and the warning disappears while it still exits 0.
+printf 'clean fixture, no sentinel\n' >"$sync_full_root/tests/leak-fixture.sh"
+cat >"$sync_full_root/rules-manifest.json" <<'JSON'
+{ "privacy": { "bannedTokens": [], "bannedTokensSource": "rules-manifest.local.json" } }
+JSON
+cat >"$sync_full_root/rules-manifest.local.json" <<'JSON'
+{ "bannedTokens": [] }
+JSON
+if sync_full_empty_out="$(node "$SYNC_SCRIPT" --root "$sync_full_root" 2>&1)"; then
+  assert_contains "sync full-mode warns when overlay has no usable denylist" "$sync_full_empty_out" "has no usable bannedTokens array"
+else
+  not_ok "sync full-mode exits 0 when overlay present but empty: $sync_full_empty_out"
+fi
+
+# A top-level `null` overlay must be treated as unusable, not dereferenced —
+# `null.bannedTokens` would throw a TypeError and crash the sync. Optional chaining
+# turns it into the graceful 'no usable denylist' warning + exit 0.
+# RED: revert `parsed?.bannedTokens` to `parsed.bannedTokens` and this throws.
+printf 'clean fixture, no sentinel\n' >"$sync_full_root/tests/leak-fixture.sh"
+cat >"$sync_full_root/rules-manifest.json" <<'JSON'
+{ "privacy": { "bannedTokens": [], "bannedTokensSource": "rules-manifest.local.json" } }
+JSON
+printf 'null\n' >"$sync_full_root/rules-manifest.local.json"
+if sync_full_null_out="$(node "$SYNC_SCRIPT" --root "$sync_full_root" 2>&1)"; then
+  assert_contains "sync full-mode warns (not throws) on a null overlay" "$sync_full_null_out" "has no usable bannedTokens array"
+  assert_not_contains "sync full-mode does not crash with a TypeError on a null overlay" "$sync_full_null_out" "Cannot read properties of null"
+else
+  not_ok "sync full-mode exits 0 on a null overlay instead of crashing: $sync_full_null_out"
+fi
+rm -f "$sync_full_root/rules-manifest.local.json"
+
+# (f) a banned token in a .mjs test surface is caught: scanExtraSurfaces covers
+#     code test formats (.mjs/.js/…), not just .sh/.json/.md/.txt. The repo has
+#     .mjs tests, so omitting them left a privacy hole. RED: drop .mjs from the
+#     walkFiles extension list and this passes with the leak undetected.
+rm -f "$sync_full_root/rules-manifest.local.json"
+printf 'const leak = "ETRNL_MJS_SENTINEL";\n' >"$sync_full_root/tests/leak-fixture.mjs"
+cat >"$sync_full_root/rules-manifest.json" <<'JSON'
+{ "privacy": { "bannedTokens": ["ETRNL_MJS_SENTINEL"] } }
+JSON
+if sync_full_mjs_out="$(node "$SYNC_SCRIPT" --root "$sync_full_root" 2>&1)"; then
+  not_ok "sync full-mode scans .mjs test surfaces (should have failed)"
+else
+  assert_contains "sync full-mode scans .mjs test surfaces" "$sync_full_mjs_out" "leak-fixture.mjs"
+fi
+rm -f "$sync_full_root/tests/leak-fixture.mjs"
+
+# --- skill-contract-check .sh reference existence check ---
+# skill-contract-check.mjs existence-checks backticked shell references under
+# scripts/, hooks/, tests/ (including nested dirs) via the shPattern loop. The
+# prior nested-ref fixture only exercised .mjs. RED: remove the shPattern loop and
+# the missing-.sh case stops failing.
+sh_ref_root="$TMPROOT/sh-ref-skill-root"
+mkdir -p "$sh_ref_root/scripts/lib" "$sh_ref_root/docs" "$sh_ref_root/skills/etrnl-shref" "$sh_ref_root/hooks/lib"
+printf '%s\n' 'OWNED_SKILLS=(' '  "etrnl-shref"' ')' 'OWNED_AGENTS=()' >"$sh_ref_root/scripts/lib/skill-lists.sh"
+printf '%s\n' '# ETRNL Skills' '' '| Command | Purpose |' '| --- | --- |' '| /etrnl-shref | Test skill |' >"$sh_ref_root/docs/skills.md"
+printf '%s\n' 'get_etrnl_skill_hint() {' '  printf "%s\n" "/etrnl-shref"' '}' >"$sh_ref_root/hooks/lib/skill-hints.sh"
+# RED: SKILL.md references a shell helper that does not exist on disk.
+printf '%s\n' '---' 'name: etrnl-shref' 'description: Test skill.' '---' '# ShRef Skill' '' 'Run `hooks/lib/DOES-NOT-EXIST-holes.sh` to guard the thing.' >"$sh_ref_root/skills/etrnl-shref/SKILL.md"
+if sh_ref_missing_out="$(node "$ROOT/scripts/skill-contract-check.mjs" --root "$sh_ref_root" 2>&1)"; then
+  not_ok "skill contracts flag missing shell reference"
+else
+  assert_contains "skill contracts flag missing shell reference" "$sh_ref_missing_out" "hooks/lib/DOES-NOT-EXIST-holes.sh"
+fi
+# GREEN: point the reference at the seeded skill-hints.sh that exists -> gate passes.
+printf '%s\n' '---' 'name: etrnl-shref' 'description: Test skill.' '---' '# ShRef Skill' '' 'Run `hooks/lib/skill-hints.sh` to guard the thing.' >"$sh_ref_root/skills/etrnl-shref/SKILL.md"
+assert_command "skill contracts pass when shell reference resolves" node "$ROOT/scripts/skill-contract-check.mjs" --root "$sh_ref_root"
+
+# A source-helper reference that escapes the repo root via `..` must be REJECTED by
+# the containment check, even when the escaped path exists on disk — otherwise a
+# SKILL.md could existence-validate an unrelated out-of-repo file (the segment class
+# accepts `.`, so `..` matched and `path.join(root, rel)` resolved outside root).
+# RED: route the reference loops back through the bare assertFile(path.join(...)) and
+# the escaping ref resolves+validates outside root instead of failing.
+esc_ref_root="$TMPROOT/esc-ref-skill-root"
+mkdir -p "$esc_ref_root/scripts/lib" "$esc_ref_root/docs" "$esc_ref_root/skills/etrnl-escref"
+printf '%s\n' 'OWNED_SKILLS=(' '  "etrnl-escref"' ')' 'OWNED_AGENTS=()' >"$esc_ref_root/scripts/lib/skill-lists.sh"
+printf '%s\n' '# ETRNL Skills' '' '| Command | Purpose |' '| --- | --- |' '| /etrnl-escref | Test skill |' >"$esc_ref_root/docs/skills.md"
+# Seed a real file OUTSIDE the skill root that the escaping reference resolves to.
+printf 'OUTSIDE\n' >"$TMPROOT/escape-holes.mjs"
+printf '%s\n' '---' 'name: etrnl-escref' 'description: Test skill.' '---' '# EscRef Skill' '' 'Run `node scripts/../../escape-holes.mjs` to do the thing.' >"$esc_ref_root/skills/etrnl-escref/SKILL.md"
+if esc_ref_out="$(node "$ROOT/scripts/skill-contract-check.mjs" --root "$esc_ref_root" 2>&1)"; then
+  not_ok "skill contracts reject a repo-escaping source reference"
+else
+  assert_contains "skill contracts reject a repo-escaping source reference" "$esc_ref_out" "escapes the repository"
+fi
+
+# A reference that stays lexically inside the repo but resolves outside via a
+# SYMLINKED path segment must also be REJECTED. `scripts/linkdir/leak.mjs` has no
+# `..`, so the lexical containment check alone would pass and validate the
+# out-of-repo target the link points at. The realpath canonicalization collapses
+# the symlink to its real path before the containment check.
+# RED: drop the realpath canonicalization and the escaping symlink ref validates.
+sym_ref_root="$TMPROOT/sym-ref-skill-root"
+mkdir -p "$sym_ref_root/scripts/lib" "$sym_ref_root/docs" "$sym_ref_root/skills/etrnl-symref"
+printf '%s\n' 'OWNED_SKILLS=(' '  "etrnl-symref"' ')' 'OWNED_AGENTS=()' >"$sym_ref_root/scripts/lib/skill-lists.sh"
+printf '%s\n' '# ETRNL Skills' '' '| Command | Purpose |' '| --- | --- |' '| /etrnl-symref | Test skill |' >"$sym_ref_root/docs/skills.md"
+# A real target OUTSIDE the skill root, reachable only through a symlinked dir.
+mkdir -p "$TMPROOT/outside-symdir"
+printf 'OUTSIDE\n' >"$TMPROOT/outside-symdir/leak.mjs"
+ln -s "$TMPROOT/outside-symdir" "$sym_ref_root/scripts/linkdir"
+printf '%s\n' '---' 'name: etrnl-symref' 'description: Test skill.' '---' '# SymRef Skill' '' 'Run `node scripts/linkdir/leak.mjs` to do the thing.' >"$sym_ref_root/skills/etrnl-symref/SKILL.md"
+if sym_ref_out="$(node "$ROOT/scripts/skill-contract-check.mjs" --root "$sym_ref_root" 2>&1)"; then
+  not_ok "skill contracts reject a symlink-escaping source reference"
+else
+  assert_contains "skill contracts reject a symlink-escaping source reference" "$sym_ref_out" "escapes the repository"
+fi
+
+# tests/lib/harness.sh assert_contains/assert_not_contains must report only the test
+# name + value LENGTHS on failure — never the needle/haystack CONTENT — so a
+# secret-bearing fixture can never leak into CI logs when an assertion fails.
+# RED: restore the `<needle>`/`<haystack>` interpolation and the marker tokens reappear.
+harness_redact_probe="$(
+  bash -c '
+    source "$1"
+    ok() { :; }
+    not_ok() { printf "%s\n" "$*"; }
+    assert_contains "contains-case" "hay-PUBLICONLY" "NEEDLESECRET"
+    assert_not_contains "notcontains-case" "pre-LEAKTOKEN-post" "LEAKTOKEN"
+  ' _ "$ROOT/tests/lib/harness.sh" 2>&1
+)"
+if printf '%s' "$harness_redact_probe" | grep -Eq 'NEEDLESECRET|LEAKTOKEN|PUBLICONLY'; then
+  not_ok "harness failure messages redact needle/haystack content (no secret leak)"
+else
+  ok "harness failure messages redact needle/haystack content (no secret leak)"
+fi
+assert_contains "harness failure message keeps the test name" "$harness_redact_probe" "contains-case"
+assert_contains "harness failure message reports value lengths not content" "$harness_redact_probe" "chars"
+
+# --- hooks/lib/state.sh init-failure + stale-lock behaviors ---
+# (a) cc_state_read preserves an intact valid-JSON state when cc_state_init fails
+#     transiently (lock timeout) instead of wiping reads; a corrupt file resets.
+#     RED: revert cc_state_read to always reset on init failure and the preserved
+#     read disappears / the 'preserving existing state' warning vanishes.
+state_preserve_probe="$(
+  HOOK_INPUT='{"session_id":"state-preserve"}' CLAUDE_GUARD_STATE_DIR="$TMPROOT/state7a" bash -c '
+    mkdir -p "$CLAUDE_GUARD_STATE_DIR"
+    source "$1"
+    cc_state_init
+    cc_state_mark_path reads "/known/preserved.ts"
+    # Force cc_state_init to fail on the next call: pre-hold an un-reapable lock.
+    export CLAUDE_GUARD_LOCK_STALE_SECS=99999
+    lock="$(cc_state_lock)"
+    mkdir "$lock"
+    err="$CLAUDE_GUARD_STATE_DIR/err.txt"
+    out="$(cc_state_read 2>"$err")"
+    printf "PRESERVED=%s\n" "$(printf "%s" "$out" | jq -r ".reads[\"/known/preserved.ts\"] // \"MISSING\"" 2>/dev/null)"
+    printf "STDERR=%s\n" "$(cat "$err")"
+  ' _ "$ROOT/hooks/lib/state.sh"
+)"
+if [[ "$state_preserve_probe" == *"PRESERVED=MISSING"* ]]; then
+  not_ok "state read preserves intact state on init failure"
+else
+  ok "state read preserves intact state on init failure"
+fi
+assert_contains "state read warns it is preserving existing state" "$state_preserve_probe" "preserving existing state"
+
+state_corrupt_probe="$(
+  HOOK_INPUT='{"session_id":"state-corrupt"}' CLAUDE_GUARD_STATE_DIR="$TMPROOT/state7corrupt" bash -c '
+    mkdir -p "$CLAUDE_GUARD_STATE_DIR"
+    source "$1"
+    cc_state_init
+    file="$(cc_state_file)"
+    printf "{ this is not valid json" > "$file"
+    export CLAUDE_GUARD_LOCK_STALE_SECS=99999
+    lock="$(cc_state_lock)"
+    mkdir "$lock"
+    err="$CLAUDE_GUARD_STATE_DIR/err.txt"
+    out="$(cc_state_read 2>"$err" || true)"
+    printf "VALIDJSON=%s\n" "$(printf "%s" "$out" | jq -e ".schemaVersion" >/dev/null 2>&1 && echo yes || echo no)"
+    printf "STDERR=%s\n" "$(cat "$err")"
+  ' _ "$ROOT/hooks/lib/state.sh"
+)"
+assert_contains "state read resets and warns when file is unreadable" "$state_corrupt_probe" "state unreadable"
+assert_contains "state read reset yields valid default JSON" "$state_corrupt_probe" "VALIDJSON=yes"
+
+# (b) cc_state_acquire_lock reaps a lock older than CLAUDE_GUARD_LOCK_STALE_SECS via
+#     cc_state_lock_is_stale instead of stalling. RED: drop the stale-lock reap
+#     branch and acquire times out even against an ancient orphan lock.
+state_stale_probe="$(
+  HOOK_INPUT='{"session_id":"state-stale"}' CLAUDE_GUARD_STATE_DIR="$TMPROOT/state7b" bash -c '
+    mkdir -p "$CLAUDE_GUARD_STATE_DIR"
+    source "$1"
+    lock="$(cc_state_lock)"
+    mkdir "$lock"
+    touch -t 202001010000 "$lock"   # backdate the orphan lock
+    export CLAUDE_GUARD_LOCK_STALE_SECS=0
+    if acquired="$(cc_state_acquire_lock 2>/dev/null)" && [[ -d "$acquired" ]]; then
+      printf "ACQUIRED=yes\n"
+    else
+      printf "ACQUIRED=no\n"
+    fi
+  ' _ "$ROOT/hooks/lib/state.sh"
+)"
+assert_contains "state acquire reaps a stale orphan lock" "$state_stale_probe" "ACQUIRED=yes"
+
+# Stale detection is holder-liveness first, not age-only. A lock whose recorded owner
+# PID is dead is reaped; a live holder is spared even past stale_secs (age alone would
+# let a second writer in and lose the first write).
+# RED: revert cc_state_lock_is_stale to the age-only check and LIVE=notstale flips.
+state_pid_probe="$(
+  CLAUDE_GUARD_STATE_DIR="$TMPROOT/state_pid" bash -c '
+    mkdir -p "$CLAUDE_GUARD_STATE_DIR"
+    source "$1"
+    lock="$(cc_state_lock)"
+    mkdir "$lock"; printf "999999\n" >"${lock}.owner"   # dead PID
+    cc_state_lock_is_stale "$lock" 30 && printf "DEAD=stale\n" || printf "DEAD=live\n"
+    cc_state_reap_lock "$lock"
+    mkdir "$lock"; printf "%s\n" "$$" >"${lock}.owner"   # live holder (this shell)
+    # Backdate well past stale_secs (30s) but under the PID-reuse ceiling
+    # (stale_secs*20 = 600s), so an AGE-ONLY check would reap it (LIVE=stale); only
+    # holder-liveness precedence spares a live owner (LIVE=notstale). Portable across
+    # BSD (date -v) and GNU (date -d). Backdate last: mkdir set mtime to now.
+    backdate="$(date -v-120S +%Y%m%d%H%M.%S 2>/dev/null || date -d "120 seconds ago" +%Y%m%d%H%M.%S)"
+    touch -t "$backdate" "$lock"
+    cc_state_lock_is_stale "$lock" 30 && printf "LIVE=stale\n" || printf "LIVE=notstale\n"
+    cc_state_reap_lock "$lock"
+  ' _ "$ROOT/hooks/lib/state.sh"
+)"
+assert_contains "state stale-lock reaps a dead holder (PID liveness)" "$state_pid_probe" "DEAD=stale"
+assert_contains "state stale-lock spares a live holder (no age-only reap)" "$state_pid_probe" "LIVE=notstale"
+
+# While the lock is HELD, cleanup registration must reach the CALLER's shell (not be
+# lost inside the `lock="$(cc_state_acquire_lock)"` command substitution) so a SIGTERM
+# timeout-kill during the critical section releases it; and on RELEASE the lock must be
+# UNREGISTERED so this process's EXIT trap never rmdir's a lock another process
+# later re-acquires on the same path. This mirrors cc_state_init's internal
+# acquire→register→…→release sequence.
+# RED: move registration back inside cc_state_acquire_lock → HELD flips to no
+#      (the subshell append is discarded).
+# RED: drop cc_unregister_cleanup_dir from cc_state_release_lock → the entry
+#      lingers and RELEASED stays "registered".
+state_reg_probe="$(
+  CLAUDE_GUARD_STATE_DIR="$TMPROOT/state_reg" bash -c '
+    mkdir -p "$CLAUDE_GUARD_STATE_DIR"
+    source "$2"   # cleanup.sh (defines CLEANUP_DIRS + register/unregister)
+    source "$1"   # state.sh
+    CLEANUP_DIRS=()
+    lock="$(cc_state_acquire_lock)"   # parent shell, so the CLEANUP_DIRS append survives
+    cc_state_register_lock "$lock"
+    if printf "%s\n" "${CLEANUP_DIRS[@]:-}" | grep -Fxq "$lock"; then printf "HELD=yes\n"; else printf "HELD=no\n"; fi
+    cc_state_release_lock "$lock"
+    if printf "%s\n" "${CLEANUP_DIRS[@]:-}" | grep -Fxq "$lock"; then printf "RELEASED=registered\n"; else printf "RELEASED=unregistered\n"; fi
+  ' _ "$ROOT/hooks/lib/state.sh" "$ROOT/hooks/lib/cleanup.sh"
+)"
+assert_contains "state acquire+register reaches caller CLEANUP_DIRS while held (subshell bug fixed)" "$state_reg_probe" "HELD=yes"
+assert_contains "state release unregisters the lock from caller CLEANUP_DIRS (no stale reap of a re-acquired lock)" "$state_reg_probe" "RELEASED=unregistered"
+
+# --- hooks/lib/cleanup.sh ownership-verified rmdir loop ---
+# cc_cleanup_files() reaps ONLY a registered lock dir owned by THIS process ($$):
+#   owner==$$ + empty     -> removed
+#   owner==$$ + non-empty -> left intact (rmdir best-effort)
+#   OWNERLESS             -> SPARED (may be another process between mkdir and its
+#                            sidecar write; reaping it would race a live acquirer)
+#   foreign owner         -> SPARED (another process re-acquired the path)
+# RED: reap ownerless again and OWNERLESS_SPARED flips to no.
+mkdir -p "$TMPROOT/cleanup8"
+cleanup_dir_probe="$(
+  bash -c '
+    source "$1"
+    own_empty="$2/own-empty"; own_nonempty="$2/own-nonempty"
+    ownerless="$2/ownerless"; foreign="$2/foreign"
+    mkdir "$own_empty" "$own_nonempty" "$ownerless" "$foreign"
+    printf "%s\n" "$$" > "${own_empty}.owner"
+    printf "%s\n" "$$" > "${own_nonempty}.owner"
+    printf x > "$own_nonempty/held.txt"
+    printf "999999\n" > "${foreign}.owner"
+    # ownerless: intentionally no .owner sidecar
+    cc_register_cleanup_dir "$own_empty"
+    cc_register_cleanup_dir "$own_nonempty"
+    cc_register_cleanup_dir "$ownerless"
+    cc_register_cleanup_dir "$foreign"
+    cc_cleanup_files
+    printf "OWN_EMPTY_REMOVED=%s\n" "$([[ ! -d "$own_empty" ]] && echo yes || echo no)"
+    printf "OWN_NONEMPTY_INTACT=%s\n" "$([[ -d "$own_nonempty" ]] && echo yes || echo no)"
+    printf "OWNERLESS_SPARED=%s\n" "$([[ -d "$ownerless" ]] && echo yes || echo no)"
+    printf "FOREIGN_SPARED=%s\n" "$([[ -d "$foreign" ]] && echo yes || echo no)"
+  ' _ "$ROOT/hooks/lib/cleanup.sh" "$TMPROOT/cleanup8"
+)"
+assert_contains "cleanup removes a registered empty dir this process owns" "$cleanup_dir_probe" "OWN_EMPTY_REMOVED=yes"
+assert_contains "cleanup leaves a non-empty owned dir intact" "$cleanup_dir_probe" "OWN_NONEMPTY_INTACT=yes"
+assert_contains "cleanup spares an ownerless registered dir (race safety)" "$cleanup_dir_probe" "OWNERLESS_SPARED=yes"
+assert_contains "cleanup spares a foreign-owned registered dir" "$cleanup_dir_probe" "FOREIGN_SPARED=yes"
+
+# --- state.sh: validate stale_secs + fail-closed sidecar ---
+# A nonnumeric/zero CLAUDE_GUARD_LOCK_STALE_SECS falls back to 30 so acquire
+# neither crashes under nounset arithmetic nor treats a fresh lock as stale.
+stale_validate_probe="$(
+  CLAUDE_GUARD_STATE_DIR="$TMPROOT/stale_validate" CLAUDE_GUARD_LOCK_STALE_SECS=abc bash -c '
+    set -u
+    mkdir -p "$CLAUDE_GUARD_STATE_DIR"
+    source "$2"; source "$1"
+    if lock="$(cc_state_acquire_lock)"; then printf "ACQUIRED=yes\n"; cc_state_release_lock "$lock"; else printf "ACQUIRED=no\n"; fi
+  ' _ "$ROOT/hooks/lib/state.sh" "$ROOT/hooks/lib/cleanup.sh"
+)"
+assert_contains "state acquire tolerates a nonnumeric CLAUDE_GUARD_LOCK_STALE_SECS" "$stale_validate_probe" "ACQUIRED=yes"
+
+# Fail-closed sidecar: if the owner sidecar can't be written, acquisition fails
+# closed (releases the lock dir, returns 1) rather than holding an unsafe ownerless lock.
+sidecar_fail_probe="$(
+  CLAUDE_GUARD_STATE_DIR="$TMPROOT/sidecar_fail" bash -c '
+    mkdir -p "$CLAUDE_GUARD_STATE_DIR"
+    source "$2"; source "$1"
+    lock="$(cc_state_lock)"
+    mkdir -p "${lock}.owner"   # sidecar path is a DIR, so the redirect write fails
+    if cc_state_acquire_lock >/dev/null 2>&1; then printf "ACQUIRED=yes\n"; else printf "ACQUIRED=no\n"; fi
+    printf "LOCK_DIR_REMOVED=%s\n" "$([[ ! -d "$lock" ]] && echo yes || echo no)"
+  ' _ "$ROOT/hooks/lib/state.sh" "$ROOT/hooks/lib/cleanup.sh"
+)"
+assert_contains "state acquire fails closed when the owner sidecar cannot be written" "$sidecar_fail_probe" "ACQUIRED=no"
+assert_contains "state acquire removes the lock dir on sidecar-write failure" "$sidecar_fail_probe" "LOCK_DIR_REMOVED=yes"
 
 finish_tests

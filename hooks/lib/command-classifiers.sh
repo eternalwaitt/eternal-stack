@@ -439,17 +439,86 @@ cc_command_is_prod_schema_mutation() {
 cc_command_may_disclose_secret() {
   local cmd
   cmd="$(cc_command_normalize "$1")"
-  [[ "$cmd" =~ veloz[[:space:]]+db[[:space:]]+credentials ]] \
-    || [[ "$cmd" =~ (^|[[:space:]])printenv([[:space:]]|$) ]] \
-    || [[ "$cmd" =~ (env[[:space:]]*\|[[:space:]]*cat) ]] \
-    || [[ "$cmd" =~ database_url= ]] \
-    || [[ "$cmd" =~ (aws[[:space:]]+secretsmanager|op[[:space:]]+read|vault[[:space:]]+kv) ]] \
-    || [[ "$cmd" =~ git[[:space:]]+credential ]] \
-    || [[ "$cmd" =~ aws[[:space:]]+sts[[:space:]]+get-session-token ]] \
-    || [[ "$cmd" =~ kubectl[[:space:]]+get[[:space:]]+secret([[:space:]]|$).*(-o|--output)[[:space:]]*(yaml|json) ]] \
-    || [[ "$cmd" =~ docker[[:space:]]+inspect ]] \
-    || [[ "$cmd" =~ (^|[[:space:]])export[[:space:]]+[A-Za-z_][A-Za-z0-9_]*= ]] \
-    || [[ "$cmd" =~ base64[[:space:]]+(-d|--decode) ]]
+  # Explicit secret-dumping commands.
+  [[ "$cmd" =~ veloz[[:space:]]+db[[:space:]]+credentials ]] && return 0
+  # Bare `printenv`/`env` (whole-env dump) — including when followed by a pipe, shell
+  # separator (`;`, `&&`), or redirection (`>`, `<`) — but NOT `printenv PATH` (single
+  # non-secret var), `env VAR=val cmd`, `env -i cmd`, or `env node …` (env running a
+  # command: a following word/assignment/flag, not a terminator). Anchored to COMMAND
+  # POSITION — line start or after a `;`/`&`/`|` separator (optional spaces) — so a
+  # separator-adjacent dump (`true;printenv`, `x && env`, `x|printenv`) is caught while
+  # an env/printenv that is merely an ARGUMENT or mid-command word (`which printenv`,
+  # `man env`, prose mentioning printenv) is not.
+  #
+  # A whole-env dump discloses just as much when reached THROUGH a wrapper, so the same
+  # wrapper prefix the email-send guard strips is stripped here: privilege (`sudo`/
+  # `command`), detach (`nohup`/`setsid`), timing (`nice`/`timeout`, incl. a positional
+  # duration like `timeout 5`), a leading `VAR=val` assignment, or a `-flag`/`-flag value`
+  # — so `sudo printenv`, `command printenv`, `nohup env`, `timeout 5 printenv`, and
+  # `sudo -u bob printenv` no longer bypass, while `env node app.js` / `sudo env node app.js`
+  # (env as a runner — a word follows the token, not a terminator) stay allowed. `env` is
+  # deliberately ABSENT from the wrapper set: it is the dump target here, not a wrapper.
+  # Assigned to local vars first: an inline unquoted `[^…;&|]` negated class breaks bash's
+  # `[[ =~ ]]` tokenization (same reason as the `mail_cli_re` pattern in the guard).
+  local disclosure_wrapper_re='((sudo|command|nohup|setsid|nice|timeout|(nice|timeout)[[:space:]]+[^-[:space:];&|][^[:space:];&|]*|[a-z_][a-z0-9_]*=[^[:space:];&|]*|-[^[:space:];&|]*([[:space:]]+[^-[:space:];&|][^[:space:];&|]*)?)[[:space:]]+)*'
+  # env/printenv followed by end-of-command or an operator ( | ; & < > ) — a dump, not a runner.
+  local env_dump_suffix='([[:space:]]*$|[[:space:]]*[|;&<>])'
+  local printenv_dump_re="(^|[;&|])[[:space:]]*${disclosure_wrapper_re}printenv${env_dump_suffix}"
+  [[ "$cmd" =~ $printenv_dump_re ]] && return 0
+  local env_dump_re="(^|[;&|])[[:space:]]*${disclosure_wrapper_re}env${env_dump_suffix}"
+  [[ "$cmd" =~ $env_dump_re ]] && return 0
+  # Path-qualified `env`/`printenv` in command position — `/usr/bin/env`,
+  # `x;/usr/bin/printenv`, `sudo /usr/bin/env` — also dump the whole env; the same
+  # wrapper prefix applies. Anchored to command position (not plain whitespace) so a
+  # path ARGUMENT ending in env/printenv (`cd /home/dev/env`, `cat /etc/printenv`) is
+  # not a false positive: after `cd `/`cat ` the token is preceded by a space, and
+  # `[^[:space:];&|]*/` cannot span that space back to the command-position anchor.
+  local env_pathq_re="(^|[;&|])[[:space:]]*${disclosure_wrapper_re}[^[:space:];&|]*/(env|printenv)${env_dump_suffix}"
+  [[ "$cmd" =~ $env_pathq_re ]] && return 0
+  # A targeted `printenv <SECRET_NAMED_VAR>` (AWS_SECRET_ACCESS_KEY, DATABASE_URL, …) still
+  # discloses; input is lowercased upstream, so match lowercase secret-name tokens in any arg.
+  # URL vars are narrowed to the credential-bearing DSN-style ones so routine
+  # `printenv PUBLIC_URL` / `printenv NEXT_PUBLIC_*_URL` are not treated as secrets.
+  # Command-position anchored (line start or after a `;`/`&`/`|` separator, optional
+  # spaces) with an optional executable path prefix so `x;printenv SECRET` and
+  # `/usr/bin/printenv AWS_SECRET_ACCESS_KEY` are caught, while a prose mention
+  # followed by a secret-named word (`echo run printenv database_url`) is not — the
+  # same command-position tightening as the bare `printenv` dump above.
+  # The arg span excludes `;`/`&`/`|` so it cannot cross into a later command — e.g.
+  # `printenv FOO; cat secret_notes.txt` must NOT classify (the secret word belongs
+  # to an unrelated trailing command, and `printenv FOO` discloses nothing).
+  local printenv_secret_re='(^|[;&|])[[:space:]]*([^[:space:];&|]*/)?printenv[[:space:]]+[^;&|]*(secret|password|passwd|passphrase|credential|apikey|api_key|token|access_key|_key|private|dsn|database_url|db_url|conn_url|connection_url)'
+  [[ "$cmd" =~ $printenv_secret_re ]] && return 0
+  # An inline `DATABASE_URL=<dsn>` assignment discloses the credential in the process
+  # list. Anchored to command position (line start or after a `;`/`&`/`|` separator)
+  # like the sibling env/printenv checks, so the same string inside a search argument
+  # (`rg database_url= src/`, `grep database_url= file`) is not misread as a dump.
+  # (`env | cat` no longer needs its own arm — the bare-`env` dump check above already
+  # matches `env` in command position followed by a pipe, and an unanchored `env|cat`
+  # would false-positive on `foo env | cat` where `env` is just an argument.)
+  [[ "$cmd" =~ (^|[;&|])[[:space:]]*[a-z_]*database_url[a-z0-9_]*= ]] && return 0
+  [[ "$cmd" =~ (aws[[:space:]]+secretsmanager|op[[:space:]]+read|vault[[:space:]]+kv) ]] && return 0
+  [[ "$cmd" =~ git[[:space:]]+credential ]] && return 0
+  [[ "$cmd" =~ aws[[:space:]]+sts[[:space:]]+get-session-token ]] && return 0
+  # Accept whitespace OR `=` between the output flag and the format, so equals-form
+  # (`-o=json`, `--output=yaml`) and shorthand (`-oyaml`) disclose like the spaced form.
+  # `secrets?` matches both the singular and plural resource forms, so
+  # `kubectl get secrets -o yaml` discloses the same as `kubectl get secret …`.
+  [[ "$cmd" =~ kubectl[[:space:]]+get[[:space:]]+secrets?([[:space:]]|$).*(-o|--output)([[:space:]]*|=)(yaml|json) ]] && return 0
+  # Export of a secret-looking variable only, not routine `export PORT=3001` / `export NODE_ENV=…`.
+  # Input is lowercased upstream, so match lowercase tokens (incl. passphrase/private/dsn and
+  # the DSN-style URL vars, so `export DB_URL=…`/`CONN_URL=…`/`CONNECTION_URL=…` disclose too).
+  [[ "$cmd" =~ (^|[[:space:]])export[[:space:]]+[a-z_]*(key|token|secret|password|passwd|passphrase|credential|apikey|private|dsn|database_url|db_url|conn_url|connection_url)[a-z0-9_]*= ]] && return 0
+  # `docker inspect` (and the documented `docker container inspect` form) dumps the full
+  # config (incl. .Config.Env) by default. Gate a bare inspect, or a --format that reads
+  # .Config/secret; allow a --format scoped to other fields.
+  if [[ "$cmd" =~ docker[[:space:]]+(container[[:space:]]+)?inspect ]]; then
+    [[ "$cmd" =~ (--format|[[:space:]]-f([[:space:]]|=)) ]] || return 0
+    [[ "$cmd" =~ (\.config|secret) ]] && return 0
+  fi
+  # `base64 -d` only when decoding secret material, not a benign `echo … | base64 -d`.
+  [[ "$cmd" =~ base64[[:space:]]+(-d|--decode) ]] && [[ "$cmd" =~ (secret|token|credential|password|id_rsa|\.pem|\.key|kubectl) ]] && return 0
+  return 1
 }
 
 cc_command_fingerprint() {

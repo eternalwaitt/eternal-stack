@@ -1,6 +1,6 @@
 # TypeScript Advanced Review Triggers
 
-Require `typescript-advanced-types` review when changes touch:
+Run a `typescript-advanced-types` review when changes touch any of the following. If the `typescript-advanced-types` skill is not installed on the host, state that and run an equivalent manual advanced types pass instead:
 
 - Exported or public type declarations.
 - API contracts and service boundaries.

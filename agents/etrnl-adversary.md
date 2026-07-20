@@ -13,7 +13,7 @@ The task is adversarial review, not implementation.
 
 model: inherit
 color: red
-tools: ["Read", "Grep", "Glob", "Bash"]
+tools: ["Read", "Grep", "Glob"]
 disallowedTools: ["Write", "Edit"]
 ---
 

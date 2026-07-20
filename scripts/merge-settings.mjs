@@ -99,14 +99,36 @@ const commandOrder = (command) => {
   return 100;
 };
 
+// Stack hooks are ordered deterministically (rtk-compat 10, pretooluse-guard 20,
+// rtk-rewrite 30) and run BEFORE user hooks, which default to order 100 and keep
+// their relative order among themselves. This means a user-added PreToolUse hook
+// runs after the stack guards even if it was originally placed first — intentional,
+// so the guard sees tool calls before user hooks. Documented in docs/guards.md.
+//
+// Sort on a per-hook key so the ordering is correct BY CONSTRUCTION: a single group
+// carrying both a stack guard and a user hook can never drag the trailing user hook
+// forward on the guard's order (the old per-group `Math.min` key would have). The
+// compaction above already splits every group into a single hook, so this flatten is
+// a no-op today; it keeps the ordering right even if that ever changes. Equal orders
+// keep original position (stable), preserving user-hook relative order.
 const orderEventHooks = (eventName) => {
   target.hooks[eventName] ??= [];
-  target.hooks[eventName] = target.hooks[eventName]
-    .map((group, index) => ({
-      group,
-      index,
-      order: Math.min(...(group.hooks ?? []).map((hook) => commandOrder(hook.command)), 100),
-    }))
+  const flattened = [];
+  for (const group of target.hooks[eventName]) {
+    const hooks = group.hooks ?? [];
+    if (hooks.length === 0) {
+      flattened.push({ group, order: 100, index: flattened.length });
+      continue;
+    }
+    for (const hook of hooks) {
+      flattened.push({
+        group: { ...group, hooks: [hook] },
+        order: commandOrder(hook.command),
+        index: flattened.length,
+      });
+    }
+  }
+  target.hooks[eventName] = flattened
     .sort((left, right) => {
       if (left.order !== right.order) return left.order - right.order;
       return left.index - right.index;

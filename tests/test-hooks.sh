@@ -342,6 +342,17 @@ assert_contains "policy aggregation includes null catch" "$out" "return null"
 param_catch_policy="$(jq '.tool_input.new_string = "try { risky(); } catch (error) { return null; }"' <<<"$edit_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$param_catch_policy")"
 assert_contains "policy catches parameterized catch" "$out" "return null"
+# XXX and HACK are marker violations too, not just TODO/FIXME. code-patterns.sh
+# uses a word-boundary regex, so marker words embedded in identifiers must not trip.
+hack_marker_policy="$(jq '.tool_input.new_string = "// HACK: patch around bug\nexport const value = 2;"' <<<"$edit_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$hack_marker_policy")"
+assert_contains "policy aggregation includes HACK marker" "$out" "TODO/FIXME"
+xxx_marker_policy="$(jq '.tool_input.new_string = "// XXX revisit this\nexport const value = 2;"' <<<"$edit_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$xxx_marker_policy")"
+assert_contains "policy aggregation includes XXX marker" "$out" "TODO/FIXME"
+marker_wordbound_policy="$(jq '.tool_input.new_string = "export const HACKATHON = 1;\nexport const SHACKLE = 2;\nexport const MASTODON = 3;"' <<<"$edit_json")"
+out="$(run_hook cc-pretooluse-guard.sh "$marker_wordbound_policy")"
+assert_not_contains "marker regex respects word boundaries" "$out" "TODO/FIXME"
 test_skip_policy="$(jq '.tool_input.file_path = "src/app.test.ts" | .tool_input.old_string = "test(\"old\", () => { expect(value).toBe(1); });" | .tool_input.new_string = "test.skip(\"new\", () => { expect(value).toBe(1); });"' <<<"$edit_json")"
 out="$(run_hook cc-pretooluse-guard.sh "$test_skip_policy")"
 assert_contains "test skip denied" "$out" "skipped tests"
@@ -539,9 +550,9 @@ for (( i = 0; i < skill_trigger_count; i++ )); do
   done <<<"$unexpected_skills"
 done
 
-# CodeRabbit round-1 (FINDING #4): an explicit skill-selection meta-question that
-# also names a task ("which skill should I use to ship this feature?") must
-# short-circuit to record ONLY etrnl-router, not both etrnl-router and etrnl-ops-ship.
+# An explicit skill-selection meta-question that also names a task ("which skill
+# should I use to ship this feature?") must short-circuit to record ONLY
+# etrnl-router, not both etrnl-router and etrnl-ops-ship.
 router_precedence_session="fixture-router-precedence"
 router_precedence_event="$(jq -cn --arg session "$router_precedence_session" --arg prompt "which skill should I use to ship this feature?" '{session_id:$session,prompt:$prompt}')"
 run_hook cc-userprompt-router.sh "$router_precedence_event" >/dev/null || true
@@ -549,10 +560,10 @@ router_precedence_state="$TMPROOT/claude-guard-$router_precedence_session.json"
 router_precedence_json="$(jq -c . "$router_precedence_state")"
 assert_json_expr "router precedence records exactly one skill (etrnl-router)" "$router_precedence_json" '(.requestedSkills | length) == 1 and .requestedSkills[0].value == "etrnl-router"'
 
-# CodeRabbit round-2 (FINDING #327): the explicit_skill_selection precedence guard
-# must also short-circuit the deprecation branch. "which skill should I use to retire
-# this endpoint?" names a deprecation task but is a routing meta-question, so it must
-# record ONLY etrnl-router, not etrnl-dev-deprecate as well.
+# The explicit_skill_selection precedence guard must also short-circuit the
+# deprecation branch. "which skill should I use to retire this endpoint?" names a
+# deprecation task but is a routing meta-question, so it must record ONLY
+# etrnl-router, not etrnl-dev-deprecate as well.
 router_deprecate_session="fixture-router-deprecate-precedence"
 router_deprecate_event="$(jq -cn --arg session "$router_deprecate_session" --arg prompt "which skill should I use to retire this endpoint?" '{session_id:$session,prompt:$prompt}')"
 run_hook cc-userprompt-router.sh "$router_deprecate_event" >/dev/null || true
@@ -674,6 +685,13 @@ assert_json_expr "stop verifier downgrades non-final evidence wording to advisor
 evidence_completion_stop="$(jq -cn '{session_id:"fixture-stop-evidence-completion",last_assistant_message:"You are right. Done, tests pass.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$evidence_completion_stop")"
 assert_contains "stop verifier still blocks evidence wording on completion claim" "$out" "Evidence-before-agreement"
+# A keyword embedded in an identifier (done_flag, fix_completed, tests_pass_state)
+# is NOT a completion claim — `_` is excluded from the word boundary. With no real
+# completion word, the agreement wording is a non-final advisory (continue), not a
+# block; parity with the advisory case above.
+underscore_ident_stop="$(jq -cn '{session_id:"fixture-stop-underscore-ident",last_assistant_message:"You are right. The done_flag is set, fix_completed was recorded, and tests_pass_state is green.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$underscore_ident_stop")"
+assert_json_expr "stop verifier does not treat identifier-embedded keywords as a completion claim" "$out" '.continue == true and (.decision != "block") and (.hookSpecificOutput.additionalContext | test("Evidence-before-agreement"))'
 
 browser_outstanding_stop="$(jq -cn '{session_id:"fixture-browser-outstanding",last_assistant_message:"Phases 0-10 complete. Only the manual browser pass is still outstanding - needs pnpm dev:web and a real browser.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$browser_outstanding_stop")"
@@ -689,9 +707,9 @@ contract_valid="$(jq -cn '{session_id:"fixture-contract-valid",task_id:"CT1",age
 out="$(run_hook cc-subagentstop-record.sh "$contract_valid")"
 if printf '%s' "$out" | grep -q '"decision":"block"'; then not_ok "subagentstop allows a valid agent contract: $out"; else ok "subagentstop allows a valid agent contract"; fi
 
-# CodeRabbit round-1: enforcement no longer trusts self-report or opt-in on the
-# marker. Agent identity is the TRUSTED .subagent_type; the validator owns the
-# missing-block-for-contracted-agent and identity-spoof decisions.
+# Enforcement no longer trusts self-report or opt-in on the marker. Agent identity
+# is the TRUSTED .subagent_type; the validator owns the missing-block-for-contracted-agent
+# and identity-spoof decisions.
 # (a) A contracted agent (agents/etrnl-scout.md exists) that emits NO contract block
 #     is BLOCKED — it can no longer escape by omitting the marker.
 contract_missing_block="$(jq -cn '{session_id:"fixture-contract-missing-block",task_id:"CT2",agent_id:"ct-a3",subagent_type:"etrnl-scout",last_assistant_message:"Scanned the repo. Found the caller in app.ts and traced the flow. Done."}')"
@@ -755,11 +773,11 @@ out="$(run_hook cc-stop-verifier.sh "$contract_backstop_stop")"
 assert_contains "stop verifier backstops an unresolved contract violation" "$out" "output contract failed validation"
 
 # P3 test-weakening deny checks: never let an agent neutralize a red gate.
-# Includes CodeRabbit round-1 additions: `node --test || true` (swallowed node
-# built-in runner) and `rm -rf __tests__` (root-level test dir with no slash).
-# CodeRabbit round-2 (FINDING #284): the swallow branch must catch a runner whose
-# `|| true` sits inside a boolean list with trailing commands — `pnpm test || true &&
-# echo done` hides the swallowed runner behind the trailing `&& echo done`.
+# Includes `node --test || true` (swallowed node built-in runner) and
+# `rm -rf __tests__` (root-level test dir with no slash). The swallow branch must
+# also catch a runner whose `|| true` sits inside a boolean list with trailing
+# commands — `pnpm test || true && echo done` hides the swallowed runner behind the
+# trailing `&& echo done`.
 for tw in 'pnpm test || true' 'set +e; pnpm test' 'node --test || true' 'rm -rf __tests__' 'rm -f src/foo.test.ts' 'git commit --no-verify -m wip' 'pnpm test || true && echo done'; do
   tw_json="$(jq -cn --arg c "$tw" '{session_id:"fixture-test-weaken",tool_name:"Bash",tool_input:{command:$c}}')"
   out="$(run_hook cc-pretooluse-guard.sh "$tw_json")"
@@ -772,13 +790,12 @@ assert_json_expr "guard allows a clean test run" "$out" '.continue == true'
 # Regression: the test-weakening guard must NOT fire on the bare POSIX `test`/`[`
 # conditional builtin or the literal word "test" — only on genuine test RUNNERS.
 # Previously `test -f x || true`, `grep test file || true`, etc. were hard-denied.
-# CodeRabbit round-1 additions: statement-scoped weakening must ALLOW a test that
-# runs normally in its own statement even when an UNRELATED earlier statement is
-# swallowed (`cleanup || true; pnpm test`) or errexit is restored before the test
-# (`set +e; cleanup; set -e; pnpm test`).
-# CodeRabbit round-2 (FINDING #284): errexit restored via a boolean-joined `set -e &&`
-# before the runner must ALLOW — `set +e; set -e && pnpm test` re-arms errexit before
-# the test executes.
+# Statement-scoped weakening must ALLOW a test that runs normally in its own
+# statement even when an UNRELATED earlier statement is swallowed
+# (`cleanup || true; pnpm test`) or errexit is restored before the test
+# (`set +e; cleanup; set -e; pnpm test`). Errexit restored via a boolean-joined
+# `set -e &&` before the runner must ALLOW too — `set +e; set -e && pnpm test`
+# re-arms errexit before the test executes.
 for tw_allow in 'test -f x || true' 'test -d dir || mkdir dir' 'echo test || true' 'rg test file || true' '[ -f x ] || true' 'pnpm build || true' 'cleanup || true; pnpm test' 'set +e; cleanup; set -e; pnpm test' 'set +e; set -e && pnpm test'; do
   tw_allow_json="$(jq -cn --arg c "$tw_allow" '{session_id:"fixture-test-weaken-allow",tool_name:"Bash",tool_input:{command:$c}}')"
   out="$(run_hook cc-pretooluse-guard.sh "$tw_allow_json")"
@@ -787,7 +804,7 @@ done
 
 paused_prod_state="$TMPROOT/claude-guard-fixture-paused-prod-status.json"
 jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:false,planExecutionRequestedAt:"",lastPrompt:"did u read the handoff file?",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$paused_prod_state"
-paused_prod_message=$'Yes. It was injected as the restored handoff.\n\n1. Check PR #53 CI - green\n2. Merge - done\n3. Deploy to prod metacards-painel - was watching GHCR build-and-push, in_progress\n4. Set bruno to master in prod DB - only AFTER deploy\n\nBefore I SSH into prod: do you want me to proceed with the deploy once the GHCR build is green?\nNothing is live yet. Awaiting your answer before I SSH to prod.'
+paused_prod_message=$'Yes. It was injected as the restored handoff.\n\n1. Check PR #99 CI - green\n2. Merge - done\n3. Deploy to prod example-web - was watching the container registry build-and-push, in_progress\n4. Set testuser to master in prod DB - only AFTER deploy\n\nBefore I SSH into prod: do you want me to proceed with the deploy once the container build is green?\nNothing is live yet. Awaiting your answer before I SSH to prod.'
 paused_prod_stop="$(jq -cn --arg message "$paused_prod_message" '{session_id:"fixture-paused-prod-status",last_assistant_message:$message,stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$paused_prod_stop")"
 if [[ -z "$out" ]]; then ok "stop verifier allows paused production status"; else not_ok "paused production status should not claim completion: $out"; fi
@@ -795,6 +812,100 @@ if [[ -z "$out" ]]; then ok "stop verifier allows paused production status"; els
 true_completion_pending_stop="$(jq -cn '{session_id:"fixture-true-completion-pending-token",last_assistant_message:"Done. Tests pass. No live change needed; nothing pending.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$true_completion_pending_stop")"
 assert_contains "stop verifier keeps true completion despite incidental work-state token" "$out" "claim completion without verification evidence"
+
+# --- Regression fixtures: guard false-positive fixes (stack-holes-remediation TG2/TG3/TG4) ---
+holes_guard() {
+  local c="$1" j
+  j="$(jq -cn --arg c "$c" '{hook_event_name:"PreToolUse",tool_name:"Bash",session_id:"fixture-holes",tool_input:{command:$c}}')"
+  run_hook cc-pretooluse-guard.sh "$j"
+}
+# TG2 secret-disclosure: routine commands allowed; real secret dumps still denied.
+# A single benign var (printenv PATH) and a docker inspect scoped to a non-env field
+# stay allowed; a targeted secret-named var, a whole-config dump, or a bare
+# `docker inspect` (dumps .Config.Env by default) must still be gated. The
+# `docker container inspect` management-command alias is gated identically — bare or
+# .Config-reading forms deny, a format scoped to a non-env field stays allowed.
+# A path in an argument that merely CONTAINS env/printenv (bat /etc/printenv.conf,
+# fd printenv /etc), env used as a command runner (env node app.js), and env/printenv
+# in a NON-command position (which printenv, man printenv, man env, a prose mention
+# followed by a secret word) are not secret dumps and must stay allowed. The printenv
+# secret-arg span also stops at a command separator, so a benign `printenv` followed
+# by an unrelated command that merely mentions a secret word
+# (`printenv FOO; cat secret_notes.txt`) is not a dump. A `database_url=` string that
+# is a search ARGUMENT rather than a command-position assignment (`rg database_url= src/`)
+# is likewise not a disclosure.
+for holes_cmd in "export PORT=3001 && pnpm dev" "export NODE_ENV=production" "printenv PATH" "printenv NEXT_PUBLIC_API_URL" "printenv PUBLIC_URL" "docker inspect --format '{{.State.Running}}' web" "docker container inspect --format '{{.State.Running}}' web" "echo aGk= | base64 -d" "bat /etc/printenv.conf" "fd printenv /etc" "env node app.js" "sudo env node app.js" "nice env node app.js" "cd /home/dev/env" "kubectl get pods -o wide" "printenv FOO; cat secret_notes.txt" "printenv PATH && echo my_token_here" "which printenv" "man printenv" "which env" "man env" "echo run printenv database_url" "rg database_url= src/"; do
+  out="$(holes_guard "$holes_cmd")"
+  assert_json_expr "guard allows routine command ($holes_cmd)" "$out" '(.hookSpecificOutput.permissionDecision // "allow") != "deny"'
+done
+# A whole-env dump followed by a shell separator or redirection (not just a pipe or
+# EOL) still discloses every variable. A bare env/printenv after a separator
+# (true;printenv) and a path-qualified dump (/usr/bin/env, /usr/bin/printenv <secret>)
+# still disclose secrets. A dump reached THROUGH a wrapper discloses the same, so
+# privilege (`sudo printenv`, `command printenv`), detach (`nohup printenv`, `setsid env`,
+# `nohup env > /tmp/x`), timing (`timeout 5 printenv`), a sudo flag+value (`sudo -u bob
+# printenv`), and a wrapper-prefixed path form (`sudo /usr/bin/env`) must all deny — the
+# same wrapper set the email-send guard strips (`env node app.js`/`sudo env node app.js`
+# stay allowed above because a word follows the token, i.e. env is a runner not a dump).
+# kubectl reads of secret objects as yaml/json — including the plural `secrets` resource
+# and the `-o=json` equals form — must be denied. DSN-style URL vars disclose credentials,
+# so `export DB_URL=…`/`CONNECTION_URL=…` deny like the other secret exports, and an inline
+# `DATABASE_URL=<dsn> cmd` assignment in command position discloses the credential in the
+# process list. `env | cat` is a whole-env dump the bare-`env` check now covers (no separate arm needed).
+for holes_cmd in "export AWS_SECRET_ACCESS_KEY=abc123" "export DB_PASSPHRASE=hunter2" "printenv" "env | cat" "printenv AWS_SECRET_ACCESS_KEY" "printenv DATABASE_URL" "docker inspect mycontainer" "docker container inspect mycontainer" "docker container inspect --format '{{.Config.Env}}' web" "printenv;" "printenv && cat x" "printenv > /tmp/env.txt" "true;printenv" "/usr/bin/env" "/usr/bin/printenv AWS_SECRET_ACCESS_KEY" "sudo printenv" "command printenv" "nohup printenv" "sudo env" "setsid env" "timeout 5 printenv" "sudo -u bob printenv" "sudo /usr/bin/env" "nohup env > /tmp/x" "kubectl get secret db -o yaml" "kubectl get secret db -o json" "kubectl get secret db -o=json" "kubectl get secrets -o yaml" "export DB_URL=postgres://x" "export CONNECTION_URL=foo" "DATABASE_URL=postgres://x node app.js"; do
+  out="$(holes_guard "$holes_cmd")"
+  assert_json_expr "guard still denies secret disclosure ($holes_cmd)" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+done
+# TG2 email guard: mail-term searches allowed; sends still denied.
+for holes_cmd in "rg smtp src/" "rg mutt src/"; do
+  out="$(holes_guard "$holes_cmd")"
+  assert_json_expr "guard allows mail-term code search ($holes_cmd)" "$out" '(.hookSpecificOutput.permissionDecision // "allow") != "deny"'
+done
+# Mail sends through standard wrappers — privilege (sudo/env), detach (nohup/setsid),
+# and timing (nice/timeout, incl. a positional duration like `timeout 5`) — or a path
+# prefix must not bypass the email-send guard. $cmd is also matched case-insensitively,
+# so an uppercase mail CLI (`SENDMAIL`, `Mutt`, `MSMTP`) — which resolves to the same
+# binary on a case-insensitive filesystem — cannot bypass the send gate.
+for holes_cmd in "gmail send --to a@example.com" "sendmail -t < msg" "sudo sendmail -t" "env MAILRC=/x msmtp a@b.co" "/usr/sbin/sendmail -t" "SENDMAIL -t < msg" "Mutt -s hi a@b.co" "MSMTP a@b.co" "sudo SendMail -t" "nohup sendmail -t" "setsid sendmail -t" "nice msmtp a@b.co" "timeout 5 sendmail -t"; do
+  out="$(holes_guard "$holes_cmd")"
+  assert_json_expr "guard still denies mail send ($holes_cmd)" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+done
+# A mail send hidden after an embedded newline or CRLF (the guard normalizes \r and
+# \n to ; before classifying) must still be denied; a benign multiline command must
+# stay allowed.
+holes_lf_sendmail="$(printf 'echo hi\nsendmail -t < msg')"
+out="$(holes_guard "$holes_lf_sendmail")"
+assert_json_expr "guard denies a mail send hidden after a newline" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+holes_crlf_msmtp="$(printf 'echo hi\r\nmsmtp a@b.co')"
+out="$(holes_guard "$holes_crlf_msmtp")"
+assert_json_expr "guard denies a mail send hidden after a CRLF" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+holes_lf_benign="$(printf 'echo hi\nls -la')"
+out="$(holes_guard "$holes_lf_benign")"
+assert_json_expr "guard allows a benign multiline command" "$out" '(.hookSpecificOutput.permissionDecision // "allow") != "deny"'
+# TG4 rm -fr outside cwd is caught like rm -rf (combined-flag bypass closed).
+# Uses a clearly-outside non-temp path (/etc/...); the guard intentionally allows
+# deletes inside temp dirs, so a $TMPROOT target would not exercise this gate.
+holes_rmfr="$(jq -cn --arg cwd "$ROOT" '{hook_event_name:"PreToolUse",tool_name:"Bash",session_id:"fixture-holes",cwd:$cwd,tool_input:{command:"rm -fr /etc/holes-nonexistent-target"}}')"
+out="$(run_hook cc-pretooluse-guard.sh "$holes_rmfr")"
+assert_json_expr "guard denies rm -fr outside cwd (combined flags)" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+# Control: rm -rf (leading-r) at the same path was already denied — proves parity.
+holes_rmrf="$(jq -cn --arg cwd "$ROOT" '{hook_event_name:"PreToolUse",tool_name:"Bash",session_id:"fixture-holes",cwd:$cwd,tool_input:{command:"rm -rf /etc/holes-nonexistent-target"}}')"
+out="$(run_hook cc-pretooluse-guard.sh "$holes_rmrf")"
+assert_json_expr "guard denies rm -rf outside cwd (control)" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+# TG2 evidence-discipline: bare intensifier allowed; reflexive agreement denied.
+holes_ed() {
+  local m="$1" j
+  j="$(jq -cn --arg m "$m" --arg r "$ROOT" '{session_id:"fixture-holes",hook_event_name:"PreToolUse",tool_name:"Read",cwd:$r,tool_input:{file_path:($r+"/AGENTS.md")},last_assistant_message:$m}')"
+  run_hook cc-pretooluse-guard.sh "$j"
+}
+out="$(holes_ed "The regex matches exactly three files.")"
+assert_json_expr "guard allows benign intensifier exactly" "$out" '(.hookSpecificOutput.permissionDecision // "allow") != "deny"'
+out="$(holes_ed "Exactly right, that is the cause.")"
+assert_json_expr "guard denies reflexive agreement (Exactly right)" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+# TG3 done-claim word boundaries: non-completion allowed; real completion still blocked.
+holes_abandoned="$(jq -cn '{session_id:"fixture-holes-stop",last_assistant_message:"I abandoned that approach; the autocomplete component still needs work.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$holes_abandoned")"
+if [[ -z "$out" ]]; then ok "stop verifier allows abandoned/autocomplete non-completion"; else not_ok "stop verifier false-blocked non-completion: $out"; fi
 
 compact_advisory_dir="$TMPROOT/etrnl-stop-compact-advisory"
 printf '%s\n' '{"eventKind":"compact_post","sessionId":"fixture-stop-compact-advisory","at":"2026-01-01T00:00:00Z","data":{"compactSummary":"status handoff","nextAction":"continue","task":"status"}}' \

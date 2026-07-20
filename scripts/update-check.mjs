@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { walkFiles as walkTree } from "./lib/fs-walk.mjs";
 
 const args = process.argv.slice(2);
 const hasFlag = (flag) => args.includes(flag);
@@ -120,25 +121,16 @@ const isFile = (filePath) => {
   }
 };
 
+// Collect root-relative paths of tracked source files under `root/relPath`,
+// skipping dotfiles (except .gitignore) and EXCLUDED_DIRS. Recursion is owned by
+// the shared walkFiles helper (scripts/lib/fs-walk.mjs), which is likewise
+// Dirent-based and does not follow symlinks; this wrapper only supplies the skip
+// policy and rebases the absolute paths it yields to `root`.
 const walkFiles = (root, relPath, out) => {
-  const absPath = path.join(root, relPath);
-  let entries;
-  try {
-    entries = fs.readdirSync(absPath, { withFileTypes: true });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to read source directory ${absPath}: ${message}`);
-  }
-  for (const entry of entries) {
-    if (entry.name.startsWith(".") && entry.name !== ".gitignore") continue;
-    if (entry.isDirectory() && EXCLUDED_DIRS.has(entry.name)) continue;
-    const entryRel = path.join(relPath, entry.name);
-    const entryAbs = path.join(root, entryRel);
-    if (entry.isDirectory()) {
-      walkFiles(root, entryRel, out);
-    } else if (entry.isFile()) {
-      out.push(entryRel);
-    }
+  const isHidden = (name) => name.startsWith(".") && name !== ".gitignore";
+  const skipDir = (name) => isHidden(name) || EXCLUDED_DIRS.has(name);
+  for (const abs of walkTree(path.join(root, relPath), { skipDir, skipFile: isHidden })) {
+    out.push(path.relative(root, abs));
   }
 };
 
@@ -166,6 +158,14 @@ const fingerprintSource = (root) => {
 };
 
 const sourceVersion = (root) => {
+  // VERSION is the single source of truth for the current release. Prefer it, and
+  // fall back to the first `## vX.Y.Z` CHANGELOG heading only when VERSION is
+  // absent or empty. Display-only: this does not feed the update fingerprint.
+  const versionPath = path.join(root, "VERSION");
+  if (fs.existsSync(versionPath)) {
+    const raw = fs.readFileSync(versionPath, "utf8").trim();
+    if (raw) return raw.startsWith("v") ? raw : `v${raw}`;
+  }
   const changelogPath = path.join(root, "CHANGELOG.md");
   if (!fs.existsSync(changelogPath)) return "unknown";
   const changelog = fs.readFileSync(changelogPath, "utf8");

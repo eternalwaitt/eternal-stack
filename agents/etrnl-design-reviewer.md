@@ -13,7 +13,7 @@ The task needs product design judgment but should not edit files.
 
 model: inherit
 color: magenta
-tools: ["Read", "Grep", "Glob", "Bash"]
+tools: ["Read", "Grep", "Glob"]
 disallowedTools: ["Write", "Edit"]
 ---
 

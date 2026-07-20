@@ -3,15 +3,9 @@
   "schemaVersion": 1,
   "description": "Eternal Stack rules manifest. Tracks module metadata, host targets, checksums, and privacy gates for the eternal-saas rule pack.",
   "privacy": {
-    "bannedTokens": [
-      "metacards",
-      "mimo-finance",
-      "vivaz-website",
-      "sbcc-portal",
-      "rifasgg",
-      "finans"
-    ],
-    "policy": "sync-rule-exports.mjs --check fails when any tracked rule file contains a banned token. Client repo names, account facts, credentials, and personal identity must stay in local gitignored overlays."
+    "bannedTokens": [],
+    "bannedTokensSource": "rules-manifest.local.json",
+    "policy": "sync-rule-exports.mjs --check fails when any tracked rule file, this manifest, or a tests/ fixture contains a banned token. The denylist of client repo names, account facts, and personal identity lives ONLY in the gitignored overlay named by bannedTokensSource; the tracked manifest keeps this list empty so the names never enter version control."
   },
   "profiles": {
     "eternal-saas": {

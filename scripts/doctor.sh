@@ -337,7 +337,7 @@ check_startup_file_budget() {
   fi
 }
 
-for dep in jq git node rg fd; do
+for dep in jq git node rg; do
   require_command "$dep"
 done
 if [[ -f "$ROOT/scripts/bootstrap-tools.sh" ]]; then
@@ -345,6 +345,9 @@ if [[ -f "$ROOT/scripts/bootstrap-tools.sh" ]]; then
 else
   fail "bootstrap-tools script missing"
 fi
+# fd is used by installed workflows but not by doctor's own body, so it is
+# optional here — a fresh machine without fd must not hard-fail the doctor.
+optional_command fd "fd available" "fd unavailable; some workflows fall back to slower file scans"
 optional_command sg "sg available" "sg unavailable; live hooks fail open"
 optional_command ast-grep "ast-grep available (review-rules ast_grep rules can evaluate)" "ast-grep unavailable; review-rules ast_grep rules exit 2 (cannot-evaluate), not a false pass"
 
@@ -488,6 +491,28 @@ elif [[ -f "$ROOT/settings.json" ]]; then
 else
   ok "settings template check skipped outside source checkout"
 fi
+
+# schemas/ and skills/metadata/ ship with the stack and are install-copied. Assert
+# each directory is present and every JSON file inside parses (mirrors the
+# settings-template `jq empty` validation above), so a truncated or malformed
+# shipped/installed JSON fails the doctor instead of silently degrading a
+# consumer (e.g. Stop-verifier classification or skill routing).
+for json_dir in schemas skills/metadata; do
+  dir="$ROOT/$json_dir"
+  if [[ ! -d "$dir" ]]; then
+    fail "$json_dir directory missing"
+    continue
+  fi
+  found_json=0
+  for json_file in "$dir"/*.json; do
+    [[ -e "$json_file" ]] || continue
+    found_json=1
+    report_command "$json_dir/$(basename "$json_file") valid JSON" "$json_dir/$(basename "$json_file") invalid JSON" jq empty "$json_file"
+  done
+  if [[ "$found_json" -eq 0 ]]; then
+    fail "$json_dir contains no JSON files"
+  fi
+done
 
 stack_profile=""
 if [[ -f "$ROOT/etrnl/install.json" ]]; then
@@ -721,10 +746,34 @@ if [[ -f "$ROOT/rules-manifest.json" ]]; then
       fail "rules-manifest.json schemaVersion unexpected: ${manifest_schema:-missing}"
     fi
     banned_count="$(jq -r '.privacy.bannedTokens | length' "$ROOT/rules-manifest.json" 2>/dev/null || echo "0")"
+    banned_source="$(jq -r '.privacy.bannedTokensSource // ""' "$ROOT/rules-manifest.json" 2>/dev/null || echo "")"
     if (( banned_count > 0 )); then
       ok "rules-manifest.json bannedTokens=$banned_count"
+    elif [[ -n "$banned_source" ]]; then
+      # Denylist moved to a gitignored overlay so client names never enter the
+      # tracked public repo. Active when the overlay is present (this checkout);
+      # a fresh clone legitimately lacks it and has no private names to scan for.
+      if [[ -f "$ROOT/$banned_source" ]]; then
+        # File existence is not enough: an overlay of {}, {"bannedTokens":[]}, a
+        # non-array value, or a MIXED array ([123,"name"], [""]) is either inactive
+        # or crashes/over-matches loadBannedTokens(). Require one canonical schema —
+        # a non-empty array whose entries are ALL non-empty (non-whitespace) strings
+        # — before reporting the gate active, matching sanitizeBannedTokens().
+        overlay_count="$(jq -r '
+          .bannedTokens as $t
+          | if (($t|type)=="array") and (($t|length)>0)
+               and ($t|all((type=="string") and ((gsub("\\s";"")|length)>0)))
+            then ($t|length) else "invalid" end' "$ROOT/$banned_source" 2>/dev/null || echo "invalid")"
+        if [[ "$overlay_count" =~ ^[0-9]+$ ]] && (( overlay_count > 0 )); then
+          ok "rules-manifest.json privacy gate active via overlay: $banned_source ($overlay_count tokens)"
+        else
+          fail "rules-manifest.json privacy overlay present but is not a non-empty array of non-empty string tokens; gate inactive: $banned_source"
+        fi
+      else
+        ok "rules-manifest.json privacy gate configured via overlay (absent in this checkout): $banned_source"
+      fi
     else
-      fail "rules-manifest.json privacy.bannedTokens is empty — privacy gate inactive"
+      fail "rules-manifest.json privacy.bannedTokens is empty and no bannedTokensSource — privacy gate inactive"
     fi
   else
     fail "rules-manifest.json invalid JSON"

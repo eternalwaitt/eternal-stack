@@ -3,9 +3,35 @@ import { spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { argValue } from "./lib/cli-args.mjs";
+import { SEMVER_CORE } from "./lib/semver.mjs";
+
+// Match a `## vX.Y.Z` release heading via the shared strict semver core so
+// boundary detection here agrees with changelog-scaffold's RELEASE_HEADING_RE
+// and STABLE_TAG_RE — a leading-zero heading like `## v01.2.3` is not a release
+// section under the single-source-of-truth semver rules.
+const RELEASE_HEADING_RE = new RegExp(`^## v${SEMVER_CORE}\\s*$`);
+// A requested version must match the same strict semver core, so `prepare 01.2.3`
+// is rejected before any artifact is written. A looser `\d+\.\d+\.\d+` would let
+// prepare emit VERSION=01.2.3 and a `## v01.2.3` heading that RELEASE_HEADING_RE,
+// STABLE_TAG_RE, and the tag action then all refuse — an invalid-artifact footgun.
+const VERSION_RE = new RegExp(`^${SEMVER_CORE}$`);
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-const root = path.resolve(scriptDir, "..");
+const args = process.argv.slice(2);
+// Honor an optional --root so release actions target the intended repo instead
+// of always mutating this checkout. Running from another cwd without --root
+// keeps the historical self-relative default. But a --root that was PROVIDED yet
+// resolves to no usable value (`--root` with a missing/flag-shaped value, or an
+// empty `--root=`) must FAIL rather than silently fall back to this checkout —
+// otherwise a malformed explicit target would make release actions mutate the
+// installer's own repo instead of the one the caller intended.
+const rootProvided = args.some((arg) => arg === "--root" || arg.startsWith("--root="));
+const rootArg = argValue(args, "--root");
+if (rootProvided && !rootArg) {
+  fail("--root requires a path value.");
+}
+const root = rootArg ? path.resolve(rootArg) : path.resolve(scriptDir, "..");
 const changelogPath = path.join(root, "CHANGELOG.md");
 const versionPath = path.join(root, "VERSION");
 const KEEP_A_CHANGELOG_CATEGORIES = new Set([
@@ -29,7 +55,7 @@ function fail(message) {
 
 function normalizeVersion(input) {
   const trimmed = String(input || "").trim().replace(/^v/i, "");
-  if (!/^\d+\.\d+\.\d+$/.test(trimmed)) {
+  if (!VERSION_RE.test(trimmed)) {
     fail(`Invalid semver version: ${input}`);
   }
   return trimmed;
@@ -92,7 +118,7 @@ function prepare(versionArg) {
   const unreleasedIndex = lines.findIndex((line) => line.trim() === "## Unreleased");
   if (unreleasedIndex < 0) fail("CHANGELOG.md missing ## Unreleased section.");
 
-  const nextHeadingOffset = lines.slice(unreleasedIndex + 1).findIndex((line) => /^## v\d+\.\d+\.\d+\s*$/.test(line.trim()));
+  const nextHeadingOffset = lines.slice(unreleasedIndex + 1).findIndex((line) => RELEASE_HEADING_RE.test(line.trim()));
   if (nextHeadingOffset < 0) fail("CHANGELOG.md missing a release section after ## Unreleased.");
 
   const nextHeadingIndex = unreleasedIndex + 1 + nextHeadingOffset;
@@ -160,12 +186,28 @@ function tag(messageArg) {
   console.log(`Push with: git push origin ${tagName}`);
 }
 
-const [command, ...rest] = process.argv.slice(2);
+// First non-flag token that is not the value consumed by a known value-flag.
+// Lets `prepare <ver> --root <dir>` and `prepare --root <dir> <ver>` both resolve
+// the version positionally instead of mistaking `--root` for the version.
+function firstPositional(tokens) {
+  const valueFlags = new Set(["--root", "--message"]);
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index];
+    if (token.startsWith("-")) continue;
+    const prev = tokens[index - 1];
+    if (prev && valueFlags.has(prev)) continue;
+    return token;
+  }
+  return undefined;
+}
+
+const [command, ...rest] = args;
 if (!command || command === "--help" || command === "-h") usage();
 
 if (command === "prepare") {
-  if (!rest[0]) fail("prepare requires a version argument, for example 0.4.0");
-  prepare(rest[0]);
+  const versionArg = firstPositional(rest);
+  if (!versionArg) fail("prepare requires a version argument, for example 0.4.0");
+  prepare(versionArg);
 } else if (command === "tag") {
   const messageIndex = rest.indexOf("--message");
   const message = messageIndex >= 0 ? rest[messageIndex + 1] : "";

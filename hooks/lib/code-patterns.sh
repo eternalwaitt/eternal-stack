@@ -11,7 +11,10 @@ cc_policy_violations() {
   if [[ "$text" =~ $suppress_re ]]; then
     violations+=("lint/type suppression is not allowed; fix the code instead")
   fi
-  if [[ "$text" =~ TODO|FIXME ]]; then
+  # Identifier-aware boundaries: `_` and digits are part of an identifier, so
+  # `TODO_COUNT` and `HACK2` are names, not markers, and must not trip the gate.
+  local marker_re='(^|[^A-Za-z0-9_])(TODO|FIXME|XXX|HACK)([^A-Za-z0-9_]|$)'
+  if [[ "$text" =~ $marker_re ]]; then
     violations+=("TODO/FIXME comments are not allowed; finish the work or create an issue")
   fi
   if [[ "$text" =~ $empty_catch_re ]]; then
@@ -169,11 +172,22 @@ cc_evidence_discipline_violation() {
   lead="${lower:0:2000}"
 
   case "$lead" in
-    *"you're right"*|*"you are right"*|*"youre right"*|*"you’re right"*|*"you're correct"*|*"you are correct"*|*"good catch"*|*"i agree"*|*"fair point"*|*"absolutely"*|*"exactly"*)
+    *"you're right"*|*"you are right"*|*"youre right"*|*"you’re right"*|*"you're correct"*|*"you are correct"*|*"good catch"*|*"i agree"*|*"fair point"*)
       printf 'Evidence-before-agreement violation. Rewrite without reflexive agreement. Start with what is verified or not yet verified, then name the evidence check or correction.'
       return 0
       ;;
   esac
+
+  # "Exactly"/"Absolutely" are reflexive agreement only as a standalone response
+  # ("Exactly." / "Absolutely!") or an agreement continuation ("Exactly, ..." /
+  # "Exactly right"). Sentence-initial but followed by sentence content is an adverb,
+  # not agreement — "Exactly three tests passed." must NOT trip, nor the mid-sentence
+  # intensifier "matches exactly three".
+  if [[ "$lead" =~ (^|[.!?][[:space:]]+)(exactly|absolutely)([,.!?]|$) ]] \
+    || [[ "$lead" =~ (exactly|absolutely)[[:space:]]+(right|correct|so|true) ]]; then
+    printf 'Evidence-before-agreement violation. Rewrite without reflexive agreement. Start with what is verified or not yet verified, then name the evidence check or correction.'
+    return 0
+  fi
 
   if [[ "$lead" =~ (sorry|apolog) ]] && [[ "$lead" =~ (let[[:space:]]+me|i[[:space:]]+(will|can)[[:space:]]+(check|search|verify|look|inspect)) ]]; then
     printf 'Apology-before-evidence violation. Do not apologize and promise to check; state the current evidence state and perform or name the concrete check.'

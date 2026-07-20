@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -116,6 +116,39 @@ function assertNoModelRoutingFrontmatter(text, relSkillPath) {
 
 function assertFile(file, label) {
   if (!existsSync(file)) fail(`${label} missing: ${path.relative(root, file)}`);
+}
+
+// Canonicalize the deepest existing ancestor of `target` through symlinks.
+// `realpathSync` throws on a missing leaf, so walk up to the first path segment
+// that exists and resolve that. A `..`-only escape is already caught lexically,
+// but a symlinked segment (e.g. `refs/` -> `/etc`) resolves inside baseDir
+// lexically while its real target is outside — this collapses it to the real path.
+function canonicalExistingAncestor(target) {
+  let current = target;
+  while (!existsSync(current)) {
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  return existsSync(current) ? realpathSync(current) : current;
+}
+
+// Existence-check a reference that must resolve WITHIN baseDir. The reference
+// regexes accept `.`/`-` in path segments, so a `..` segment (e.g.
+// `scripts/../../outside.mjs`) would make `path.join(baseDir, relPath)` resolve
+// outside the repository and let a SKILL.md validate an unrelated out-of-repo file.
+// A symlinked path segment could likewise escape while looking contained. Both
+// baseDir and the resolved target are canonicalized through symlinks before the
+// containment check, so neither a `..` traversal nor a symlink can escape baseDir.
+function assertContainedFile(baseDir, relPath, label) {
+  const base = realpathSync(path.resolve(baseDir));
+  const resolved = path.resolve(base, relPath);
+  const canonical = canonicalExistingAncestor(resolved);
+  if (canonical !== base && !canonical.startsWith(base + path.sep)) {
+    fail(`${label} escapes the repository: ${relPath}`);
+    return;
+  }
+  assertFile(resolved, label);
 }
 
 function parsePositiveInteger(value, fallback) {
@@ -258,17 +291,33 @@ for (const skill of ownedSkills) {
   for (const match of text.matchAll(/~\/\.claude\/scripts\/([A-Za-z0-9_.-]+\.mjs)/g)) {
     const helper = match[1];
     referencedInstalledHelpers.add(helper);
-    assertFile(path.join(root, "scripts", helper), `${skill} helper reference`);
+    assertContainedFile(root, path.join("scripts", helper), `${skill} helper reference`);
   }
-  for (const match of text.matchAll(/(?:^|[\s`"'()[\]{}])(?:node\s+)?((?:\.\/)?scripts\/[A-Za-z0-9_.-]+\.mjs)(?=$|[\s)\]}'"`;:,])/gm)) {
+  // Broadened to allow nested subdirectories (scripts/lib/x.mjs), not just flat
+  // scripts/x.mjs — the old `[A-Za-z0-9_.-]+` class excluded `/`, so a nested
+  // helper reference was silently never existence-checked.
+  for (const match of text.matchAll(/(?:^|[\s`"'()[\]{}])(?:node\s+)?((?:\.\/)?scripts\/(?:[A-Za-z0-9_.-]+\/)*[A-Za-z0-9_.-]+\.mjs)(?=$|[\s)\]}'"`;:,])/gm)) {
     const relPath = match[1].replace(/^\.\//, "");
-    assertFile(path.join(root, relPath), `${skill} source helper reference`);
+    assertContainedFile(root, relPath, `${skill} source helper reference`);
+  }
+  // Sibling existence checks for backticked shell references under scripts/, hooks/,
+  // and tests/ (including nested subdirectories). Mirrors the .mjs helper loop above:
+  // a SKILL.md that names a .sh path must name one that resolves at repo root.
+  for (const shRoot of ["scripts", "hooks", "tests"]) {
+    const shPattern = new RegExp(
+      `(?:^|[\\s\`"'()[\\]{}])(?:bash\\s+)?((?:\\.\\/)?${shRoot}\\/(?:[A-Za-z0-9_.-]+\\/)*[A-Za-z0-9_.-]+\\.sh)(?=$|[\\s)\\]}'"\`;:,])`,
+      "gm",
+    );
+    for (const match of text.matchAll(shPattern)) {
+      const relPath = match[1].replace(/^\.\//, "");
+      assertContainedFile(root, relPath, `${skill} shell reference`);
+    }
   }
   for (const match of text.matchAll(/`?((?:\.\/)?docs\/[^`<>\s]+\.md)`?/g)) {
-    assertFile(path.join(root, match[1].replace(/^\.\//, "")), `${skill} docs reference`);
+    assertContainedFile(root, match[1].replace(/^\.\//, ""), `${skill} docs reference`);
   }
   for (const match of text.matchAll(/`?((?:\.\/)?references\/[^`<>\s]+\.md)`?/g)) {
-    assertFile(path.join(skillsDir, skill, match[1].replace(/^\.\//, "")), `${skill} reference`);
+    assertContainedFile(path.join(skillsDir, skill), match[1].replace(/^\.\//, ""), `${skill} reference`);
   }
 }
 

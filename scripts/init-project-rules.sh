@@ -13,6 +13,7 @@ MANIFEST_SOURCE="$ROOT/rules-manifest.json"
 PROFILE=""
 DRY_RUN=0
 CHECK_MODE=0
+CHECK_MTIME=0
 FORCE=0
 TARGET=""
 
@@ -27,6 +28,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --dry-run) DRY_RUN=1; shift ;;
     --check)   CHECK_MODE=1; shift ;;
+    --check-mtime) CHECK_MODE=1; CHECK_MTIME=1; shift ;;
     --force)   FORCE=1; shift ;;
     -*) echo "error: unknown flag: $1" >&2; exit 1 ;;
     *) TARGET="$1"; shift ;;
@@ -43,7 +45,25 @@ if [[ -z "$TARGET" ]]; then
   exit 1
 fi
 
-TARGET="$(realpath "$TARGET")"
+# Strip trailing slashes before splitting so dirname/basename operate on the leaf.
+# `dirname`/`basename` already collapse a single trailing slash, but a caller may
+# pass "path/" or "path///"; normalizing explicitly keeps the resolved TARGET
+# stable regardless. Preserve a bare "/" so a root target still splits cleanly.
+while [[ "$TARGET" == */ && "$TARGET" != "/" ]]; do
+  TARGET="${TARGET%/}"
+done
+
+# Resolve TARGET to an absolute path WITHOUT requiring the leaf to exist yet.
+# BSD/macOS realpath hard-fails on a missing path under set -euo pipefail, and
+# GNU-only `realpath -m` is not portable. Resolve via the PARENT directory (which
+# must exist), so a not-yet-created target still resolves cleanly and neither
+# --dry-run nor --check writes anything. Install mode creates the leaf later.
+TARGET_PARENT="$(cd "$(dirname "$TARGET")" 2>/dev/null && pwd -P || true)"
+if [[ -z "$TARGET_PARENT" ]]; then
+  echo "error: parent directory of target does not exist: $(dirname "$TARGET")" >&2
+  exit 1
+fi
+TARGET="$TARGET_PARENT/$(basename "$TARGET")"
 
 if [[ "$PROFILE" != "eternal-saas" && "$PROFILE" != "eternal-saas-tcg" ]]; then
   echo "error: unknown profile '$PROFILE'. Valid: eternal-saas, eternal-saas-tcg" >&2
@@ -123,8 +143,13 @@ if [[ "$CHECK_MODE" -eq 1 ]]; then
       any_modified=1
       continue
     fi
-    # Check if stale (source newer than install time)
-    if [[ -n "$install_ts" ]]; then
+    # Content staleness is already covered by the sha256 comparison above:
+    # a byte-different installed file reports as locally-modified, and a source
+    # change re-copied on install updates the receipt checksum. The mtime "source
+    # newer than installedAt" heuristic below fired spuriously after any git
+    # clone/checkout (every mtime becomes "now"), so it is opt-in behind
+    # --check-mtime and never runs in the default --check path.
+    if [[ "$CHECK_MTIME" -eq 1 && -n "$install_ts" ]]; then
       src_mtime="$(python3 -c "import os; print(int(os.path.getmtime('$src')))" 2>/dev/null || echo "0")"
       install_epoch="$(python3 -c "from datetime import datetime; print(int(datetime.fromisoformat('$install_ts').timestamp()))" 2>/dev/null || echo "0")"
       if [[ "$src_mtime" -gt "$install_epoch" ]]; then

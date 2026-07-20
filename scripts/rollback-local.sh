@@ -127,6 +127,15 @@ if [[ "$DRY_RUN" == "1" ]]; then
   fi
   printf 'Dry run: would remove repo-owned agents, Claude/Codex skills, commands, and hooks before restoring backed-up copies.\n'
   printf 'Dry run: would restore rules/eternal-saas and ~/.codex startup files from backup if present.\n'
+  if [[ -f "$BACKUP/new-source-paths.txt" ]]; then
+    # `grep -c .` already prints `0` on a manifest with no non-empty lines, but also
+    # exits 1 there — so a `|| printf '0'` fallback would APPEND a second `0`, yielding
+    # a garbled `0\n0` count. Swallow the exit status with `|| true` and default an
+    # empty result (e.g. grep error) to 0 instead.
+    new_path_count="$(grep -c . "$BACKUP/new-source-paths.txt" 2>/dev/null || true)"
+    new_path_count="${new_path_count:-0}"
+    printf 'Dry run: would remove %s path(s) this install newly created (per new-source-paths.txt) to return to pre-install absence.\n' "$new_path_count"
+  fi
   exit 0
 fi
 
@@ -179,7 +188,7 @@ restore_command_once() {
     done
   fi
   restored_command_names+=("$command_name")
-  rm -f -- "$ROOT/commands/$command_name.md"
+  rm -f -- "${ROOT:?}/commands/$command_name.md"
   if [[ -f "$BACKUP/commands/$command_name.md" ]]; then
     cp -- "$BACKUP/commands/$command_name.md" "$ROOT/commands/$command_name.md"
     restored+=("commands/$command_name.md")
@@ -189,7 +198,7 @@ restore_command_once() {
 
 mkdir -p "$ROOT/agents"
 for agent in "${OWNED_AGENTS[@]}"; do
-  rm -f -- "$ROOT/agents/$agent.md"
+  rm -f -- "${ROOT:?}/agents/$agent.md"
   if [[ -f "$BACKUP/agents/$agent.md" ]]; then
     cp -- "$BACKUP/agents/$agent.md" "$ROOT/agents/$agent.md"
     restored+=("agents/$agent.md")
@@ -199,7 +208,7 @@ done
 
 mkdir -p "$ROOT/skills"
 for skill in "${OWNED_SKILLS[@]}"; do
-  rm -rf -- "$ROOT/skills/$skill"
+  rm -rf -- "${ROOT:?}/skills/$skill"
   if [[ -d "$BACKUP/skills/$skill" ]]; then
     cp -R -- "$BACKUP/skills/$skill" "$ROOT/skills/$skill"
     restored+=("skills/$skill")
@@ -207,14 +216,14 @@ for skill in "${OWNED_SKILLS[@]}"; do
   fi
 done
 for skill in "${BUNDLED_SKILLS[@]}"; do
-  rm -rf -- "$ROOT/skills/$skill"
+  rm -rf -- "${ROOT:?}/skills/$skill"
   if [[ -d "$BACKUP/skills/$skill" ]]; then
     cp -R -- "$BACKUP/skills/$skill" "$ROOT/skills/$skill"
     restored+=("skills/$skill (bundled)")
     restored_count=$((restored_count + 1))
   fi
 done
-rm -rf -- "$ROOT/skills/common"
+rm -rf -- "${ROOT:?}/skills/common"
 if [[ -d "$BACKUP/skills/common" ]]; then
   cp -R -- "$BACKUP/skills/common" "$ROOT/skills/common"
   restored+=("skills/common")
@@ -286,20 +295,97 @@ done
 
 mkdir -p "$ROOT/hooks"
 for hook_file in "${CRITICAL_HOOKS[@]}"; do
-  rm -f -- "$ROOT/hooks/$hook_file"
-  if [[ -f "$BACKUP/hooks/$hook_file" ]]; then
-    cp -- "$BACKUP/hooks/$hook_file" "$ROOT/hooks/$hook_file"
-    if ! chmod +x "$ROOT/hooks/$hook_file" 2>/dev/null; then
-      printf 'warning: failed to make %s executable; restored hook may not run\n' "$ROOT/hooks/$hook_file" >&2
+  # Always drop the installed hook first: one that was newly installed with no prior
+  # backup must return to pre-install absence, not linger.
+  rm -f -- "${ROOT:?}/hooks/$hook_file"
+  # -e/-L covers both a regular backed-up file and a backed-up symlink (a symlink to
+  # an existing target passes -e; a dangling one needs -L). Use cp -P so a hook that
+  # was symlinked to an external file is restored as a link, not a dereferenced copy
+  # that would clobber the referent — same contract as the wider-hook loop below.
+  if [[ -e "$BACKUP/hooks/$hook_file" || -L "$BACKUP/hooks/$hook_file" ]]; then
+    cp -P -- "$BACKUP/hooks/$hook_file" "$ROOT/hooks/$hook_file"
+    # chmod follows symlinks, so only mark real .sh files executable; a restored
+    # symlink keeps its target's mode.
+    if [[ -f "$ROOT/hooks/$hook_file" && ! -L "$ROOT/hooks/$hook_file" ]]; then
+      if ! chmod +x "$ROOT/hooks/$hook_file" 2>/dev/null; then
+        printf 'warning: failed to make %s executable; restored hook may not run\n' "$ROOT/hooks/$hook_file" >&2
+      fi
     fi
     restored+=("hooks/$hook_file")
     restored_count=$((restored_count + 1))
   fi
 done
 
+# Restore the wider hook set install.sh backs up beyond CRITICAL_HOOKS
+# (non-critical top-level hooks and hooks/lib libraries) so a rollback returns
+# every overwritten hook, not just the critical subset. Skip fixtures (restored
+# from the separate hooks-fixtures backup) and the critical top-level hooks
+# already restored above. Restore-only: hooks that were newly installed with no
+# prior backup are left untouched so user-added hooks are never deleted.
+if [[ -d "$BACKUP/hooks" ]]; then
+  while IFS= read -r -d '' backup_hook; do
+    hook_rel="${backup_hook#"$BACKUP/hooks/"}"
+    case "$hook_rel" in
+      fixtures/*) continue ;;
+    esac
+    if [[ "$hook_rel" != */* ]]; then
+      already_restored=0
+      for hook_file in "${CRITICAL_HOOKS[@]}"; do
+        if [[ "$hook_rel" == "$hook_file" ]]; then
+          already_restored=1
+          break
+        fi
+      done
+      (( already_restored == 1 )) && continue
+    fi
+    mkdir -p "$ROOT/hooks/$(dirname -- "$hook_rel")"
+    # -P restores a backed-up symlink as a link (install.sh backs hooks up with
+    # cp -P); remove any existing dest first so we never write through a link. Use
+    # rm -rf, not rm -f: when the backup entry is a symlink but the overlay
+    # materialized a real directory at that path (e.g. a pre-install hooks/lib
+    # symlink replaced by a copied dir), rm -f cannot remove the dir and cp -P
+    # would nest the link inside it. rm -rf clears either a file, link, or dir so
+    # the restore lands the backed-up form verbatim.
+    rm -rf -- "${ROOT:?}/hooks/$hook_rel"
+    cp -P -- "$backup_hook" "$ROOT/hooks/$hook_rel"
+    # chmod follows symlinks, so only mark real .sh files executable — a restored
+    # hook symlink keeps its target's mode.
+    if [[ "$hook_rel" == *.sh && -f "$ROOT/hooks/$hook_rel" && ! -L "$ROOT/hooks/$hook_rel" ]]; then
+      if ! chmod +x "$ROOT/hooks/$hook_rel" 2>/dev/null; then
+        printf 'warning: failed to make %s executable; restored hook may not run\n' "$ROOT/hooks/$hook_rel" >&2
+      fi
+    fi
+    restored+=("hooks/$hook_rel")
+    restored_count=$((restored_count + 1))
+  done < <(find "$BACKUP/hooks" \( -type f -o -type l \) -print0)
+fi
+
+# Restore the fixture trees install.sh backs up before pruning + overlaying fresh
+# source fixtures. The wider-hook loop above skips fixtures/* on the premise they
+# are restored here, so a user-dropped file under hooks/fixtures or tests/fixtures
+# survives rollback. Replace the installed (source) fixtures with the backed-up tree.
+# `-e || -L` matches a backed-up dangling symlink (install.sh captures fixtures
+# with cp -RP, so the backup can be a link); `cp -RP` restores it as the link
+# rather than a dereferenced copy. `rm -rf` first clears whatever form the dest
+# currently holds (dir, file, or link).
+if [[ -e "$BACKUP/hooks-fixtures" || -L "$BACKUP/hooks-fixtures" ]]; then
+  rm -rf -- "${ROOT:?}/hooks/fixtures"
+  mkdir -p "$ROOT/hooks"
+  cp -RP -- "$BACKUP/hooks-fixtures" "$ROOT/hooks/fixtures"
+  restored+=("hooks/fixtures")
+  restored_count=$((restored_count + 1))
+fi
+if [[ -e "$BACKUP/tests-fixtures" || -L "$BACKUP/tests-fixtures" ]]; then
+  rm -rf -- "${ROOT:?}/tests/fixtures"
+  mkdir -p "$ROOT/tests"
+  cp -RP -- "$BACKUP/tests-fixtures" "$ROOT/tests/fixtures"
+  restored+=("tests/fixtures")
+  restored_count=$((restored_count + 1))
+fi
+
 # Restore rules/eternal-saas (global digest installed by install.sh)
 if [[ -d "$BACKUP/rules/eternal-saas" ]]; then
-  rm -rf -- "$ROOT/rules/eternal-saas"
+  rm -rf -- "${ROOT:?}/rules/eternal-saas"
   mkdir -p "$ROOT/rules"
   cp -R -- "$BACKUP/rules/eternal-saas" "$ROOT/rules/eternal-saas"
   restored+=("rules/eternal-saas")
@@ -315,6 +401,38 @@ for codex_startup_file in AGENTS.md AGENTS.override.md; do
   fi
 done
 
+# Remove paths this install newly created (no pre-install counterpart) so rollback
+# returns to pre-install absence, not a half-reverted home. install.sh recorded them
+# in new-source-paths.txt; every entry is a stack-owned relative path under the install
+# home. A pre-existing path is restored from backup (and therefore never listed here),
+# and a user-added file is never shipped in source (and therefore never listed), so this
+# pass only deletes files this install itself created. Runs AFTER all restores so it can
+# never race a restore. Older backups predate the manifest — skip silently when absent.
+removed_new=()
+removed_new_count=0
+if [[ -f "$BACKUP/new-source-paths.txt" ]]; then
+  while IFS= read -r new_rel; do
+    [[ -n "$new_rel" ]] || continue
+    # Defense-in-depth: only ever delete under the known stack-owned subtrees, and
+    # reject any path that could traverse out of the install home.
+    case "$new_rel" in
+      hooks/* | tests/fixtures) : ;;
+      *) continue ;;
+    esac
+    case "$new_rel" in
+      *..*) continue ;;
+    esac
+    if [[ -e "$ROOT/$new_rel" || -L "$ROOT/$new_rel" ]]; then
+      # ${ROOT:?} aborts rather than `rm -rf`-ing an absolute path if $ROOT were
+      # ever empty ("/$new_rel"); the manifest is already subtree-scoped and
+      # ..-rejected above, so this is defense-in-depth on the destructive call.
+      rm -rf -- "${ROOT:?}/$new_rel"
+      removed_new+=("$new_rel")
+      removed_new_count=$((removed_new_count + 1))
+    fi
+  done < "$BACKUP/new-source-paths.txt"
+fi
+
 if [[ -f "$ROOT/settings.json" ]]; then
   if command -v jq >/dev/null 2>&1; then
     jq empty "$ROOT/settings.json"
@@ -326,5 +444,8 @@ fi
 printf 'Restored Claude config backup from %s\n' "$BACKUP"
 if (( restored_count > 0 )); then
   printf 'Restored files: %s\n' "${restored[*]}"
+fi
+if (( removed_new_count > 0 )); then
+  printf 'Removed install-created files (returned to pre-install absence): %s\n' "${removed_new[*]}"
 fi
 printf 'Manual emergency bypass: export CLAUDE_GUARD_DISABLED=1\n'

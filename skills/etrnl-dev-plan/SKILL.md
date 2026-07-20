@@ -141,7 +141,7 @@ Companion skill enforcement:
 
 ## Advanced TypeScript Policy
 
-Every TypeScript plan records the ordinary TypeScript verification command. Use `../common/typescript-triggers.md` for advanced TypeScript review trigger conditions. Otherwise record `typescript-advanced-types: not_applicable` with rationale.
+Every TypeScript plan records the ordinary TypeScript verification command. Use `../common/typescript-triggers.md` for advanced TypeScript review trigger conditions. When a trigger fires, run the `typescript-advanced-types` skill; when it is unavailable on the host, state that and run a manual advanced types pass instead. Otherwise record `typescript-advanced-types: not_applicable` with rationale.
 
 Use `references/plan-review-checklist.md` for the detailed review rubric when the plan is non-trivial.
 

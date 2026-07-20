@@ -148,11 +148,69 @@ cc_state_default() {
   }'
 }
 
+# True when the lock is orphaned. Primary signal is holder liveness: the acquirer
+# records its PID in a `<lock>.owner` sidecar, so a lock whose recorded holder is
+# gone is a definite orphan (a hook SIGKILLed mid-hold runs no EXIT trap). A live
+# holder is never reaped merely for pausing past stale_secs — doing so would let a
+# second writer in and lose the first's write. Age is only a secondary safeguard:
+# it reaps a lock with no recorded PID (old format / mid-acquisition), and reaps a
+# still-live holder's lock only when absurdly old, defending against PID reuse.
+# Portable mtime: BSD stat then GNU.
+cc_state_lock_is_stale() {
+  local lock="$1" stale_secs="$2" mtime now pid
+  pid="$(cat "${lock}.owner" 2>/dev/null || true)"
+  if [[ "$pid" =~ ^[0-9]+$ ]]; then
+    if kill -0 "$pid" 2>/dev/null; then
+      mtime="$(stat -f %m "$lock" 2>/dev/null || stat -c %Y "$lock" 2>/dev/null)"
+      [[ -n "$mtime" ]] || return 1
+      now="$(date +%s)"
+      (( now - mtime >= stale_secs * 20 ))
+      return
+    fi
+    return 0
+  fi
+  mtime="$(stat -f %m "$lock" 2>/dev/null || stat -c %Y "$lock" 2>/dev/null)"
+  [[ -n "$mtime" ]] || return 1
+  now="$(date +%s)"
+  (( now - mtime >= stale_secs ))
+}
+
+# Reap a lock and its owner sidecar together.
+cc_state_reap_lock() {
+  local lock="$1"
+  rm -f -- "${lock}.owner" 2>/dev/null || true
+  rmdir "$lock" 2>/dev/null || true
+}
+
 cc_state_acquire_lock() {
   local lock
   lock="$(cc_state_lock)"
+  local stale_secs="${CLAUDE_GUARD_LOCK_STALE_SECS:-30}"
+  # Validate before any arithmetic: a zero/negative value would classify a live
+  # lock as stale immediately, and a nonnumeric value fails under shell arithmetic
+  # / nounset. Only a positive integer is accepted; anything else falls back to 30.
+  if [[ ! "$stale_secs" =~ ^[1-9][0-9]*$ ]]; then
+    stale_secs=30
+  fi
   local i=0
   until mkdir "$lock" 2>/dev/null; do
+    # Reap an orphaned lock instead of stalling every tool call ~2.5s forever, but
+    # guard the reap against a TOCTOU race: between judging the lock stale and
+    # deleting it, another process could reap it and acquire a fresh lock of its
+    # own. Capture the owner sidecar BEFORE the staleness check and re-read it
+    # immediately before reaping; only reap when the owner is unchanged, otherwise
+    # retry the loop so we never delete a replacement holder's live lock.
+    if [[ -d "$lock" ]]; then
+      local owner_before="" owner_after=""
+      owner_before="$(cat "${lock}.owner" 2>/dev/null || true)"
+      if cc_state_lock_is_stale "$lock" "$stale_secs"; then
+        owner_after="$(cat "${lock}.owner" 2>/dev/null || true)"
+        if [[ "$owner_after" == "$owner_before" ]]; then
+          cc_state_reap_lock "$lock"
+        fi
+        continue
+      fi
+    fi
     i=$((i + 1))
     if (( i > 50 )); then
       printf 'claude-guard warning: state lock timed out\n' >&2
@@ -160,13 +218,47 @@ cc_state_acquire_lock() {
     fi
     sleep 0.05
   done
+  # Record the holder PID so a later stale check can verify liveness, not just age,
+  # before reaping. The sidecar keeps the lock dir empty, so rmdir-based release and
+  # the EXIT-trap cleanup still work. `$$` is the hook PID even under command
+  # substitution, which is exactly the process whose death orphans the lock.
+  # FAIL-CLOSED: if the sidecar cannot be written we would hold an ownerless lock,
+  # which EXIT cleanup can no longer distinguish from another process's just-mkdir'd
+  # (not-yet-owned) lock. Rather than acquire ownerless, release the dir and fail —
+  # the caller degrades to a skipped state write, which is safer than a lost lock.
+  if ! printf '%s\n' "$$" >"${lock}.owner" 2>/dev/null; then
+    rmdir "$lock" 2>/dev/null || true
+    return 1
+  fi
+  # Cleanup registration is intentionally NOT done here: this function's output is
+  # captured with `lock="$(...)"`, so it runs in a subshell and any CLEANUP_DIRS
+  # append would be lost. The caller registers the returned lock in its own shell.
   printf '%s\n' "$lock"
 }
 
 cc_state_release_lock() {
   local lock="$1"
-  if [[ -n "$lock" ]] && ! rmdir "$lock" 2>/dev/null; then
+  [[ -n "$lock" ]] || return 0
+  rm -f -- "${lock}.owner" 2>/dev/null || true
+  if ! rmdir "$lock" 2>/dev/null; then
     printf 'claude-guard warning: failed to release state lock: %s\n' "$lock" >&2
+  fi
+  # Unregister from the EXIT-trap cleanup set: once released, another process may
+  # legitimately re-acquire this path, and a lingering registration would make our
+  # trap rmdir their live lock.
+  if declare -f cc_unregister_cleanup_dir >/dev/null 2>&1; then
+    cc_unregister_cleanup_dir "$lock"
+  fi
+}
+
+# Register an acquired lock for EXIT-trap release. MUST be called from the caller's
+# own shell (not a subshell) after `lock="$(cc_state_acquire_lock)"`, so the
+# CLEANUP_DIRS append survives; a SIGTERM timeout-kill then releases the lock.
+cc_state_register_lock() {
+  local lock="$1"
+  [[ -n "$lock" ]] || return 0
+  if declare -f cc_register_cleanup_dir >/dev/null 2>&1; then
+    cc_register_cleanup_dir "$lock"
   fi
 }
 
@@ -280,6 +372,7 @@ cc_state_init() {
     printf 'claude-guard warning: state init skipped due to lock timeout\n' >&2
     return 1
   fi
+  cc_state_register_lock "$lock"
   if [[ ! -f "$file" ]]; then
     if ! cc_state_install_default_if_missing "$file"; then
       cc_state_release_lock "$lock"
@@ -340,6 +433,7 @@ cc_state_update() {
     printf 'claude-guard warning: state update skipped due to lock timeout\n' >&2
     return 1
   fi
+  cc_state_register_lock "$lock"
   if ! tmp="$(mktemp "${file}.XXXXXX")"; then
     cc_state_release_lock "$lock"
     return 1
@@ -372,8 +466,20 @@ cc_state_read() {
   file="$(cc_state_file)"
   if ! cc_state_init; then
     cc_state_persist_warning "state init failed before read file=${file}"
-    printf 'claude-guard warning: state init failed before read; resetting default state: %s\n' "$file" >&2
-    cc_state_reset_to_default "$file"
+    if [[ -f "$file" ]] && jq -e . "$file" >/dev/null 2>&1; then
+      # Transient init failure (e.g. lock timeout) with intact state: preserve it.
+      # Resetting here would wipe reads/searches and cause false "read the file
+      # first" denials on the next edit.
+      printf 'claude-guard warning: state init failed before read; preserving existing state: %s\n' "$file" >&2
+    else
+      # Init failed WITHOUT holding the lock (another process owns it) and no usable
+      # state exists. Persisting a reset here would be an unsynchronized write racing
+      # the lock holder, so emit an in-memory default and return without touching
+      # disk — the holder's write remains authoritative.
+      printf 'claude-guard warning: state init failed and state unreadable; returning in-memory default (not persisted): %s\n' "$file" >&2
+      cc_state_default | jq -c .
+      return
+    fi
   fi
   jq -c . "$file"
 }
@@ -689,6 +795,7 @@ cc_state_commit_batch() {
     cc_state_abort_batch
     return 1
   fi
+  cc_state_register_lock "$lock"
   if [[ ! -f "$file" ]] && ! cc_state_install_default_if_missing "$file"; then
     cc_state_release_lock "$lock"
     cc_state_abort_batch

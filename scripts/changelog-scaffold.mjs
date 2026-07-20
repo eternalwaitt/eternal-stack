@@ -11,6 +11,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
+import { SEMVER_CORE, STABLE_TAG_RE } from "./lib/semver.mjs";
 
 const argv = process.argv.slice(2);
 const command = argv[0] || "help";
@@ -23,12 +24,14 @@ const json = argv.includes("--json");
 const changelogPath = path.join(root, "CHANGELOG.md");
 const versionPath = path.join(root, "VERSION");
 
-// Strict SemVer core: each numeric component is `0` or has no leading zero, so
-// `01.2.3` is rejected. One source of truth for both tag selection and --seed
-// validation, keeping the two sites from drifting apart.
-const SEMVER_CORE = "(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)";
-const STABLE_TAG_RE = new RegExp(`^v${SEMVER_CORE}$`);
+// SEMVER_CORE / STABLE_TAG_RE are imported from ./lib/semver.mjs (one source of
+// truth shared with changelog-release-check.mjs). SEED_RE reuses the same core so
+// tag selection and `--seed` validation cannot drift apart.
 const SEED_RE = new RegExp(`^${SEMVER_CORE}$`);
+// A committed release-section heading `## vX.Y.Z`, matched multiline. Built from the
+// same SEMVER_CORE so a leading-zero version (`## v01.2.3`) is rejected consistently
+// with SEED_RE and STABLE_TAG_RE, rather than accepted by a looser `\d+\.\d+\.\d+`.
+const RELEASE_HEADING_RE = new RegExp(`^## v${SEMVER_CORE}\\s*$`, "m");
 
 const CHANGELOG_TEMPLATE = (name) => `# Changelog
 
@@ -81,7 +84,7 @@ function detect() {
   const hasChangelog = existsSync(changelogPath);
   const hasVersion = existsSync(versionPath);
   const hasUnreleased = hasChangelog && /^## Unreleased\s*$/m.test(readFileSync(changelogPath, "utf8"));
-  const hasReleaseSection = hasChangelog && /^## v\d+\.\d+\.\d+\s*$/m.test(readFileSync(changelogPath, "utf8"));
+  const hasReleaseSection = hasChangelog && RELEASE_HEADING_RE.test(readFileSync(changelogPath, "utf8"));
   const tag = latestTag();
   const isReleaseManaged = Boolean(tag) || hasVersion || hasReleaseSection;
   return { root, hasChangelog, hasVersion, hasUnreleased, hasReleaseSection, latestTag: tag, isReleaseManaged };
