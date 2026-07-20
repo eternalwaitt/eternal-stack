@@ -22,6 +22,7 @@ export const EVENT_KINDS = new Set([
   "lesson",
   "bead_link",
   "projection_error",
+  "doctor_green",
 ]);
 
 const FORBIDDEN_KEYS = new Set([
