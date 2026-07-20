@@ -5,7 +5,7 @@ disable-model-invocation: true
 ---
 # ETRNL Context Restore
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-ops-context-restore`; on update, never stop to ask — continue the work; local updates auto-apply when enabled and safe.
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-ops-context-restore`; on update, never stop to ask; local updates auto-apply when enabled and safe.
 
 Codex startup checks use the Codex install root (`~/.codex`). Context restore commands below use the Claude install root (`~/.claude`) because install copies the source helper `scripts/context-state.mjs` to `~/.claude/scripts/context-state.mjs`.
 

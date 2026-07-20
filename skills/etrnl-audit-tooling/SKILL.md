@@ -4,7 +4,7 @@ description: ETRNL deep-audit category skill for tooling ecosystem and developer
 ---
 # ETRNL Tooling Ecosystem Audit
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-audit-tooling`; on update, never stop to ask — continue the work; local updates auto-apply when enabled and safe.
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-audit-tooling`; on update, never stop to ask; local updates auto-apply when enabled and safe.
 
 Run the `tooling-ecosystem` deep-audit category against scripts, manifests, lint and format gates, tests, CI, bootstrap, update, and rollback paths. This category is read-only unless the user explicitly asks for fixes.
 

@@ -5,7 +5,7 @@ disable-model-invocation: true
 ---
 # ETRNL Router
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-router`; on update, never stop to ask — continue the work; local updates auto-apply when enabled and safe.
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-router`; on update, never stop to ask; local updates auto-apply when enabled and safe.
 
 Route each request to exactly one `etrnl-*` skill or agent. Match the trigger, invoke the named surface, and hand off. Do not reimplement a family's workflow inline; open the matched skill and follow it.
 

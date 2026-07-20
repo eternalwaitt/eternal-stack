@@ -5,7 +5,7 @@ disable-model-invocation: true
 ---
 # Agent File Doctor
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-ops-agent-files`; on update, never stop to ask — continue the work; local updates auto-apply when enabled and safe.
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-ops-agent-files`; on update, never stop to ask; local updates auto-apply when enabled and safe.
 
 Maintain instruction files as routing/configuration surfaces, not memory stores.
 

@@ -4,7 +4,7 @@ description: ETRNL CI/CD workflow for Claude Code. Use when designing, auditing,
 ---
 # ETRNL CI/CD
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-ci`; on update, never stop to ask — continue the work; local updates auto-apply when enabled and safe.
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-ci`; on update, never stop to ask; local updates auto-apply when enabled and safe.
 
 Treat CI/CD as an execution harness with lanes, evidence, and rollback, not as scattered workflow YAML.
 

@@ -5,7 +5,7 @@ disable-model-invocation: true
 ---
 # Ship
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-ops-ship`; on update, never stop to ask — continue the work; local updates auto-apply when enabled and safe.
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-ops-ship`; on update, never stop to ask; local updates auto-apply when enabled and safe.
 
 This is the proactive ship workflow: staged rollout, rollback readiness, and observability instrumentation for a change going to users. Run this BEFORE the change reaches full traffic. The retrospective readiness audit is `etrnl-audit-production` (see the [skills catalog](../../docs/skills.md)) — run that as the pre-ship gate and do not restate its checklist here.
 
