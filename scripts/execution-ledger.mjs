@@ -503,6 +503,68 @@ function assertReviewReopenAllowed(ledger, { taskId, reviewer, lineageId, overri
   }
 }
 
+const TASK_DONE = new Set(["verified", "skipped"]);
+
+function taskDurationMinutes(task) {
+  const startMs = Date.parse(String(task.startedAt || ""));
+  const endMs = Date.parse(String(task.completedAt || task.heartbeatAt || ""));
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs) return Number.NaN;
+  return (endMs - startMs) / 60_000;
+}
+
+function median(values) {
+  const sorted = values.filter((value) => Number.isFinite(value)).sort((left, right) => left - right);
+  if (sorted.length === 0) return Number.NaN;
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0
+    ? (sorted[mid - 1] + sorted[mid]) / 2
+    : sorted[mid];
+}
+
+function parsePlanEstimateHours(planText) {
+  const match = planText.match(/^\s*Estimated(?:\s+duration|\s+time)?:\s*([0-9]+(?:\.[0-9]+)?)\s*h(?:ours?)?\s*$/im);
+  if (!match) return Number.NaN;
+  const hours = Number(match[1]);
+  return Number.isFinite(hours) && hours > 0 ? hours : Number.NaN;
+}
+
+function computeProgress(ledger) {
+  const tasks = ledger.tasks ?? [];
+  const total = tasks.length;
+  const done = tasks.filter((task) => TASK_DONE.has(task.status)).length;
+  const remaining = Math.max(total - done, 0);
+  const completedDurations = tasks
+    .filter((task) => TASK_DONE.has(task.status))
+    .map((task) => taskDurationMinutes(task))
+    .filter((value) => Number.isFinite(value));
+  const medianMinutesPerTask = median(completedDurations);
+  const lower = Number.isFinite(medianMinutesPerTask) ? Math.round(medianMinutesPerTask * remaining) : Number.NaN;
+  const upper = Number.isFinite(lower) ? Math.round(lower * 1.5) : Number.NaN;
+  return {
+    done,
+    total,
+    remaining,
+    medianMinutesPerTask: Number.isFinite(medianMinutesPerTask) ? Math.round(medianMinutesPerTask) : null,
+    remainingBandMinutes: Number.isFinite(lower) && Number.isFinite(upper)
+      ? { lower, upper }
+      : null,
+    projectedRemainingMinutes: Number.isFinite(lower) ? lower : null,
+  };
+}
+
+function resolveRenegotiationThresholdMinutes(ledger) {
+  const planPath = resolvePlanPath(ledger);
+  if (planPath) {
+    try {
+      const estimateHours = parsePlanEstimateHours(readFileSync(planPath, "utf8"));
+      if (Number.isFinite(estimateHours)) return estimateHours * 60 * 2;
+    } catch {
+      // fall through to default threshold
+    }
+  }
+  return 8 * 60;
+}
+
 function applySetTask(ledger, taskId, fields = {}, commandName = "set-task") {
   const existing = (ledger.tasks ?? []).find((task) => task.id === taskId);
   const status = fields.status || existing?.status;
@@ -510,12 +572,23 @@ function applySetTask(ledger, taskId, fields = {}, commandName = "set-task") {
     console.error(`${commandName} requires a valid status.`);
     process.exit(2);
   }
+  const at = nowIso();
   const next = {
     id: taskId,
     title: fields.title || existing?.title || taskId,
     status,
-    heartbeatAt: nowIso(),
+    heartbeatAt: at,
   };
+  if (status === "in_progress" && !existing?.startedAt) {
+    next.startedAt = fields.startedAt || at;
+  } else if (existing?.startedAt) {
+    next.startedAt = existing.startedAt;
+  }
+  if (TASK_DONE.has(status)) {
+    next.completedAt = fields.completedAt || at;
+  } else if (existing?.completedAt) {
+    next.completedAt = existing.completedAt;
+  }
   for (const key of ["mode", "lineageId", "packetHash"]) {
     const snake = key === "lineageId" ? "lineage_id" : key === "packetHash" ? "packet_hash" : key;
     const value = fields[key] ?? fields[snake];
@@ -1176,7 +1249,68 @@ function recordTaskBundle() {
   });
 }
 
+function historyProgress() {
+  const file = currentLedgerOrFail();
+  const ledger = readJson(file);
+  const progress = computeProgress(ledger);
+  const jsonOutput = args.includes("--json");
+  const renegotiationCheck = args.includes("--renegotiation-check");
+  const thresholdMinutes = resolveRenegotiationThresholdMinutes(ledger);
+  const renegotiationRequired = Number.isFinite(progress.projectedRemainingMinutes)
+    && progress.projectedRemainingMinutes > thresholdMinutes;
+  if (jsonOutput) {
+    const payload = { ...progress, runId: ledger.runId };
+    if (renegotiationCheck) {
+      payload.renegotiationRequired = renegotiationRequired;
+      payload.renegotiationThresholdMinutes = thresholdMinutes;
+    }
+    console.log(JSON.stringify(payload));
+    return;
+  }
+  const band = progress.remainingBandMinutes
+    ? `${progress.remainingBandMinutes.lower}-${progress.remainingBandMinutes.upper}`
+    : "unknown";
+  console.log(
+    `${ledger.runId} tasks=${progress.done}/${progress.total} remaining=${progress.remaining} `
+    + `medianMinutesPerTask=${progress.medianMinutesPerTask ?? "unknown"} remainingBandMinutes=${band}`,
+  );
+  if (renegotiationCheck) {
+    console.log(
+      `renegotiationRequired=${renegotiationRequired} thresholdMinutes=${thresholdMinutes} `
+      + `projectedRemainingMinutes=${progress.projectedRemainingMinutes ?? "unknown"}`,
+    );
+  }
+}
+
+function recordDecision() {
+  const topic = argValue("--topic");
+  const decision = argValue("--decision");
+  const rationale = argValue("--rationale", argValue("--reason"));
+  if (!topic || !decision) {
+    console.error("record-decision requires --topic and --decision.");
+    process.exit(2);
+  }
+  const file = currentLedgerOrFail();
+  updateJson(file, (ledger) => {
+    ledger.decisions = ledger.decisions ?? [];
+    ledger.decisions.push({
+      topic,
+      decision,
+      rationale: rationale || "",
+      at: nowIso(),
+    });
+    ledger.updatedAt = nowIso();
+    appendEvent(ledger, "decision.recorded", { topic, decision });
+    return ledger;
+  });
+  console.log(`Decision recorded: ${topic}=${decision}`);
+}
+
 function history() {
+  if (args.includes("--progress")) {
+    historyProgress();
+    return;
+  }
   mkdirSync(runsDir(), { recursive: true, mode: 0o700 });
   const files = readdirSync(runsDir()).filter((file) => file.endsWith(".json") && !file.startsWith("current-"));
   const recent = files.sort().slice(-Number(argValue("--limit", "10"))).reverse();
@@ -1207,9 +1341,10 @@ else if (command === "record-completion-audit") recordCompletionAudit();
 else if (command === "record-install-proof") recordInstallProof();
 else if (command === "record-task-bundle") recordTaskBundle();
 else if (command === "record-subagent") recordSubagent();
+else if (command === "record-decision") recordDecision();
 else if (command === "history") history();
 else {
-  console.error(`usage: execution-ledger.mjs init|validate|check-stop [--require-ledger] [--require-tasks] [--require-plan-phases]|check-bound-execute|set-task|set-phase|record-uat|record-check|require-artifact|record-artifact|record-agent|record-review|record-tdd|record-simplifier|record-specialist|record-completion-audit|record-install-proof|record-task-bundle [--file <path>]|<json-stdin>|record-subagent|history`);
+  console.error(`usage: execution-ledger.mjs init|validate|check-stop [--require-ledger] [--require-tasks] [--require-plan-phases]|check-bound-execute|set-task|set-phase|record-uat|record-check|require-artifact|record-artifact|record-agent|record-review|record-tdd|record-simplifier|record-specialist|record-completion-audit|record-install-proof|record-task-bundle [--file <path>]|<json-stdin>|record-decision|record-subagent|history [--progress] [--renegotiation-check] [--json]`);
   console.error(reopenCapUsageText());
   process.exit(2);
 }

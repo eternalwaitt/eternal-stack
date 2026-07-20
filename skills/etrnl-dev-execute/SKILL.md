@@ -23,6 +23,8 @@ Completion means every item inside the plan's `Execution scope` is verified or e
 4. Start a ledger when the helper is installed:
    - `node ~/.claude/scripts/execution-ledger.mjs init --plan <plan-path> --session "$CLAUDE_SESSION_ID"`
    - Record task progress with `node ~/.claude/scripts/execution-ledger.mjs set-task --task <id> --status <status> --session "$CLAUDE_SESSION_ID"`.
+   - Grounded progress: `node ~/.claude/scripts/execution-ledger.mjs history --progress --session "$CLAUDE_SESSION_ID"` (`--json`, `--renegotiation-check`).
+   - Log owner decisions with `node ~/.claude/scripts/execution-ledger.mjs record-decision --topic <topic> --decision <choice> --rationale "<why>" --session "$CLAUDE_SESSION_ID"`.
    - Record every in-scope plan phase with `node ~/.claude/scripts/execution-ledger.mjs set-phase --phase <id> --workstream <id> --status in_progress --session "$CLAUDE_SESSION_ID"` before starting it and `--status verified` after its gate passes. Phase metadata is mandatory for plan execution.
    - Record UAT closure with `node ~/.claude/scripts/execution-ledger.mjs record-uat --artifact <path> --open-findings <count> --session "$CLAUDE_SESSION_ID"`; open findings block completion.
    - Require planned artifacts with `node ~/.claude/scripts/execution-ledger.mjs require-artifact --type <artifact-type> --session "$CLAUDE_SESSION_ID"`.
@@ -59,6 +61,10 @@ Completion means every item inside the plan's `Execution scope` is verified or e
     - Emit heartbeat text at wave and task boundaries: `[checkpoint] wave <n> task <id> starting`.
     - If a subagent completion signal is missing, spot-check expected output, git state, and ledger artifacts before deciding whether to retry or continue.
     - While a subagent owns a task, do not duplicate its implementation locally.
+    - Default `maxConcurrentLanes` to 3 unless the plan's `## Parallelization strategy` justifies more in one explicit line.
+    - Any duration estimate given to the user during execution MUST quote `node ~/.claude/scripts/execution-ledger.mjs history --progress --session "$CLAUDE_SESSION_ID"`; if the ledger cannot provide it, say so instead of guessing.
+    - When `history --progress --renegotiation-check` shows `renegotiationRequired=true`, pause once: present a consolidation proposal (bundle remaining waves per screen/domain; one consolidated review per wave for tier ≤ 2 surfaces; keep individual gates for tier-3 surfaces) with the ledger numbers, take ONE user decision, log it via `record-decision`, and never re-ask.
+    - Model tier defaults: read-only scout/review/consumer-trace lanes → `fast`; write implementation → `standard`; tier-3 money/migration/security review → `top`; packet override needs one `modelTierJustification` line.
 4. Subagent packets scale to tier and wave shape:
    - **Sequential single-task work:** 5-field mini-packet — `taskId`, `goal`, `exact scope`, `verification command`, `write scope` (or read-only). No hash, lineageId, reviewers, waveId, or completionReceipt.
    - **Parallel multi-file write waves at tier ≥ 2:** full packet schema below (hash, reviewers, waveId, completionReceipt when required).

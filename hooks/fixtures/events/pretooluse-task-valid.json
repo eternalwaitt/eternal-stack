@@ -20,7 +20,7 @@
       ],
       "expectedOutput": "changed files and verification",
       "verificationCommand": "pnpm test",
-      "modelTier": "sonnet",
+      "modelTier": "standard",
       "timeoutSec": 1200,
       "retryPolicy": {
         "maxRetries": 1,

@@ -339,7 +339,7 @@ const validTaskPacket = {
       forbiddenPaths: ["package.json"],
       expectedOutput: "report",
       verificationCommand: "test",
-      modelTier: "sonnet",
+      modelTier: "standard",
       timeoutSec: 60,
       retryPolicy: "none",
       noRevert: true,

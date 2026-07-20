@@ -297,6 +297,81 @@ else
 fi
 assert_command "record-review override accepts reopen beyond cap" node "$ROOT/scripts/execution-ledger.mjs" record-review --session fixture-reopen-override --reviewer etrnl-spec-reviewer --task T-review --lineage wave-1.T-review --packet-hash cap789 --status verified --override-owner-approved "owner approved extra reopen for fixture"
 
+progress_ledger_path="$ETRNL_RUNS_DIR/run-fixture-progress.json"
+progress_plan="$TMPROOT/progress-plan.md"
+cat >"$progress_plan" <<'PLAN'
+# Progress Fixture Plan
+
+Status: Final
+Goal: Exercise history --progress.
+Estimated duration: 0.25h
+PLAN
+jq -cn --arg plan "$progress_plan" '{
+  schemaVersion: 2,
+  runId: "run-fixture-progress",
+  sessionId: "fixture-progress",
+  cwd: "/repo",
+  planPath: $plan,
+  startedAt: "2026-01-01T10:00:00Z",
+  updatedAt: "2026-01-01T11:00:00Z",
+  tasks: [
+    {id:"T1",status:"verified",startedAt:"2026-01-01T10:00:00Z",completedAt:"2026-01-01T10:10:00Z"},
+    {id:"T2",status:"verified",startedAt:"2026-01-01T10:00:00Z",completedAt:"2026-01-01T10:30:00Z"},
+    {id:"T3",status:"verified",startedAt:"2026-01-01T10:00:00Z",completedAt:"2026-01-01T10:20:00Z"},
+    {id:"T4",status:"pending"},
+    {id:"T5",status:"in_progress",startedAt:"2026-01-01T11:00:00Z"}
+  ],
+  agents: [],
+  reviews: [],
+  checks: [],
+  decisions: [],
+  events: []
+}' >"$progress_ledger_path"
+printf '%s\n' "{\"path\":\"$progress_ledger_path\",\"updatedAt\":\"2026-01-01T11:00:00Z\"}" >"$ETRNL_RUNS_DIR/current-fixture-progress.json"
+progress_out="$(node "$ROOT/scripts/execution-ledger.mjs" history --progress --session fixture-progress)"
+assert_contains "history --progress reports done/total" "$progress_out" "tasks=3/5"
+assert_contains "history --progress reports median minutes" "$progress_out" "medianMinutesPerTask=20"
+assert_contains "history --progress reports remaining band lower" "$progress_out" "remainingBandMinutes=40-60"
+progress_json="$(node "$ROOT/scripts/execution-ledger.mjs" history --progress --session fixture-progress --json)"
+assert_json_expr "history --progress json shape" "$progress_json" '.done == 3 and .total == 5 and .remaining == 2 and .medianMinutesPerTask == 20 and .remainingBandMinutes.lower == 40 and .remainingBandMinutes.upper == 60'
+renegotiation_out="$(node "$ROOT/scripts/execution-ledger.mjs" history --progress --session fixture-progress --renegotiation-check)"
+assert_contains "renegotiation check triggers above 2x plan estimate" "$renegotiation_out" "renegotiationRequired=true"
+no_estimate_plan="$TMPROOT/progress-plan-no-estimate.md"
+cat >"$no_estimate_plan" <<'PLAN'
+# Progress Fixture Plan
+
+Status: Final
+Goal: Exercise renegotiation without estimate.
+PLAN
+slow_ledger_path="$ETRNL_RUNS_DIR/run-fixture-progress-slow.json"
+jq -cn --arg plan "$no_estimate_plan" '{
+  schemaVersion: 2,
+  runId: "run-fixture-progress-slow",
+  sessionId: "fixture-progress-slow",
+  cwd: "/repo",
+  planPath: $plan,
+  startedAt: "2026-01-01T10:00:00Z",
+  updatedAt: "2026-01-01T20:00:00Z",
+  tasks: [
+    {id:"T1",status:"verified",startedAt:"2026-01-01T10:00:00Z",completedAt:"2026-01-01T15:00:00Z"},
+    {id:"T2",status:"verified",startedAt:"2026-01-01T10:00:00Z",completedAt:"2026-01-01T16:00:00Z"},
+    {id:"T3",status:"verified",startedAt:"2026-01-01T10:00:00Z",completedAt:"2026-01-01T17:00:00Z"},
+    {id:"T4",status:"pending"},
+    {id:"T5",status:"pending"}
+  ],
+  agents: [],
+  reviews: [],
+  checks: [],
+  decisions: [],
+  events: []
+}' >"$slow_ledger_path"
+printf '%s\n' "{\"path\":\"$slow_ledger_path\",\"updatedAt\":\"2026-01-01T20:00:00Z\"}" >"$ETRNL_RUNS_DIR/current-fixture-progress-slow.json"
+slow_renegotiation_out="$(node "$ROOT/scripts/execution-ledger.mjs" history --progress --session fixture-progress-slow --renegotiation-check)"
+assert_contains "renegotiation check triggers above 8h without plan estimate" "$slow_renegotiation_out" "renegotiationRequired=true"
+assert_command "record-decision appends owner consolidation choice" node "$ROOT/scripts/execution-ledger.mjs" record-decision --session fixture-progress --topic renegotiation --decision continue-consolidated --rationale "owner approved bundled waves"
+progress_ledger_json="$(jq -c . "$progress_ledger_path")"
+assert_json_expr "record-decision stores decision row" "$progress_ledger_json" '(.decisions | length) >= 1 and .decisions[-1].topic == "renegotiation"'
+
 doc_health_bad_state="$(jq -nc '{requestedSkills:[{value:"etrnl-audit-docs",at:"2026-01-01T00:00:00Z"}],successfulCommands:[],verificationRuns:[] }')"
 doc_health_bad_status="$(jq -cn --argjson state "$doc_health_bad_state" --arg message "Done, docs look fine." '{state:$state,message:$message}' | node "$ROOT/scripts/documentation-health-ledger-check.mjs")"
 if [[ "$doc_health_bad_status" == "missing-inventory" ]]; then ok "documentation health checker requires inventory"; else not_ok "documentation health checker requires inventory: $doc_health_bad_status"; fi
@@ -1762,9 +1837,18 @@ assert_command "deep-stack validate-plan accepts thorough-but-efficient plan" no
 assert_command "plan readiness accepts thorough-but-efficient plan" node "$ROOT/scripts/plan-readiness-check.mjs" "$ROOT/.claude/plans/2026-07-20-thorough-but-efficient.md"
 
 agent_template="$(node "$ROOT/scripts/agent-task-packet-check.mjs" --template write)"
+read_only_template="$(node "$ROOT/scripts/agent-task-packet-check.mjs" --template read-only)"
 assert_json_expr "agent packet template includes write scope" "$agent_template" '.packet.writeScope[0] | length > 0'
 assert_json_expr "agent packet template includes reviewer contract" "$agent_template" '(.packet.reviewers | index("etrnl-spec-reviewer")) != null and .packet.specReviewRequired == true and .packet.qualityReviewRequired == true'
 assert_json_expr "agent packet template includes critical stop fields" "$agent_template" '(.packet.criticalPath | length) > 0 and (.packet.stopCondition | length) > 0'
+assert_json_expr "write packet template defaults modelTier to standard" "$agent_template" '.packet.modelTier == "standard"'
+assert_json_expr "read-only packet template defaults modelTier to fast" "$read_only_template" '.packet.modelTier == "fast"'
+read_only_top_packet="$(jq -cn '{packet:{mode:"read-only",goal:"Scout",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"findings",noRevert:true,modelTier:"top"}}')"
+if read_only_top_out="$(node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$read_only_top_packet" 2>&1)"; then
+  assert_contains "read-only top tier warns without justification" "$read_only_top_out" "modelTierJustification"
+else
+  not_ok "read-only top tier should warn, not fail, without justification: $read_only_top_out"
+fi
 deep_packet="$(
   jq -cn '
     {
@@ -1782,7 +1866,7 @@ deep_packet="$(
         writeScope: ["scripts/deep-stack-check.mjs"],
         forbiddenPaths: ["docs/owned-by-other.md"],
         verificationCommand: "tests/test-workflow-tools.sh",
-        modelTier: "sonnet",
+        modelTier: "standard",
         timeoutSec: 1800,
         retryPolicy: "stop on blocker",
         webSearchGuidance: "none",
@@ -1809,27 +1893,27 @@ deep_packet="$(
   '
 )"
 assert_command "agent packet accepts deep-stack execution contract" node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$deep_packet"
-bad_deep_packet="$(jq -cn '{packet:{mode:"write",goal:"Implement deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T1",lineageId:"wave-1.T1",writeScope:["scripts/deep-stack-check.mjs"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"tests/test-workflow-tools.sh",modelTier:"sonnet",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,specReviewRequired:true,qualityReviewRequired:true,reviewers:["etrnl-spec-reviewer","etrnl-quality-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
+bad_deep_packet="$(jq -cn '{packet:{mode:"write",goal:"Implement deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T1",lineageId:"wave-1.T1",writeScope:["scripts/deep-stack-check.mjs"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"tests/test-workflow-tools.sh",modelTier:"standard",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,specReviewRequired:true,qualityReviewRequired:true,reviewers:["etrnl-spec-reviewer","etrnl-quality-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
 if bad_deep_packet_out="$(node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$bad_deep_packet" 2>&1)"; then
   not_ok "agent packet rejects missing deep-stack contract"
 else
   assert_contains "agent packet rejects missing deep-stack contract" "$bad_deep_packet_out" "deepStackArtifacts"
 fi
-bad_deep_packet_reviewers="$(jq -cn '{packet:{mode:"write",goal:"Implement deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T1",lineageId:"wave-1.T1",writeScope:["scripts/deep-stack-check.mjs"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"tests/test-workflow-tools.sh",modelTier:"sonnet",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,deepStackArtifacts:"tests/fixtures/deep-stack/deep-stack.valid.json",riskTier:{tier:2,reason:"multi-file after review",verificationGate:"tests/test-workflow-tools.sh"},completionEvidence:"completion audit row",tddRequired:true,tddEvidence:"red/green evidence",reuseArtifact:"reuse binding row",simplifierEvidence:"code-simplifier evidence",specReviewRequired:true,qualityReviewRequired:true,simplifierReviewRequired:true,reviewers:["etrnl-spec-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
+bad_deep_packet_reviewers="$(jq -cn '{packet:{mode:"write",goal:"Implement deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T1",lineageId:"wave-1.T1",writeScope:["scripts/deep-stack-check.mjs"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"tests/test-workflow-tools.sh",modelTier:"standard",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,deepStackArtifacts:"tests/fixtures/deep-stack/deep-stack.valid.json",riskTier:{tier:2,reason:"multi-file after review",verificationGate:"tests/test-workflow-tools.sh"},completionEvidence:"completion audit row",tddRequired:true,tddEvidence:"red/green evidence",reuseArtifact:"reuse binding row",simplifierEvidence:"code-simplifier evidence",specReviewRequired:true,qualityReviewRequired:true,simplifierReviewRequired:true,reviewers:["etrnl-spec-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
 if bad_deep_packet_reviewers_out="$(node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$bad_deep_packet_reviewers" 2>&1)"; then
   not_ok "agent packet rejects missing deep-stack reviewer"
 else
   assert_contains "agent packet rejects missing deep-stack reviewer" "$bad_deep_packet_reviewers_out" "etrnl-quality-reviewer"
 fi
-deep_packet_no_tdd="$(jq -cn '{packet:{mode:"write",goal:"Install-only deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T3",lineageId:"wave-1.T3",writeScope:["docs/runbook.md"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"tests/test-workflow-tools.sh",modelTier:"sonnet",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,deepStackArtifacts:"tests/fixtures/deep-stack/deep-stack.valid.json",riskTier:{tier:2,reason:"docs-only after review",verificationGate:"tests/test-workflow-tools.sh"},completionEvidence:"completion audit row",tddRequired:false,reuseArtifact:"reuse binding row",simplifierEvidence:"code-simplifier evidence",specReviewRequired:true,qualityReviewRequired:true,simplifierReviewRequired:true,reviewers:["etrnl-spec-reviewer","etrnl-quality-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
+deep_packet_no_tdd="$(jq -cn '{packet:{mode:"write",goal:"Install-only deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T3",lineageId:"wave-1.T3",writeScope:["docs/runbook.md"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"tests/test-workflow-tools.sh",modelTier:"standard",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,deepStackArtifacts:"tests/fixtures/deep-stack/deep-stack.valid.json",riskTier:{tier:2,reason:"docs-only after review",verificationGate:"tests/test-workflow-tools.sh"},completionEvidence:"completion audit row",tddRequired:false,reuseArtifact:"reuse binding row",simplifierEvidence:"code-simplifier evidence",specReviewRequired:true,qualityReviewRequired:true,simplifierReviewRequired:true,reviewers:["etrnl-spec-reviewer","etrnl-quality-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
 assert_command "agent packet accepts deep-stack without TDD when tddRequired is false" node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$deep_packet_no_tdd"
-new_surface_packet="$(jq -cn '{packet:{mode:"write",goal:"Add helper",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T2",lineageId:"wave-1.T2",writeScope:["scripts/new-helper.mjs"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"node --check scripts/new-helper.mjs",modelTier:"sonnet",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",createsNewSurface:true}}')"
+new_surface_packet="$(jq -cn '{packet:{mode:"write",goal:"Add helper",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T2",lineageId:"wave-1.T2",writeScope:["scripts/new-helper.mjs"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"node --check scripts/new-helper.mjs",modelTier:"standard",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",createsNewSurface:true}}')"
 if new_surface_packet_out="$(node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$new_surface_packet" 2>&1)"; then
   not_ok "agent packet rejects new surface without reuse binding"
 else
   assert_contains "agent packet rejects new surface without reuse binding" "$new_surface_packet_out" "reuseArtifact"
 fi
-bad_deep_packet_no_scope="$(jq -cn '{packet:{mode:"write",goal:"Implement deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T1",lineageId:"wave-1.T1",verificationCommand:"tests/test-workflow-tools.sh",modelTier:"sonnet",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,specReviewRequired:true,qualityReviewRequired:true,reviewers:["etrnl-spec-reviewer","etrnl-quality-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
+bad_deep_packet_no_scope="$(jq -cn '{packet:{mode:"write",goal:"Implement deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T1",lineageId:"wave-1.T1",verificationCommand:"tests/test-workflow-tools.sh",modelTier:"standard",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,specReviewRequired:true,qualityReviewRequired:true,reviewers:["etrnl-spec-reviewer","etrnl-quality-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
 if bad_deep_packet_no_scope_out="$(node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$bad_deep_packet_no_scope" 2>&1)"; then
   not_ok "agent packet rejects deep-stack contract without write scope"
 else
