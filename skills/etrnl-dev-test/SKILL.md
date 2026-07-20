@@ -5,7 +5,7 @@ disable-model-invocation: true
 ---
 # Test
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-test`; on update, ask update/snooze/continue.
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-test`; on update, never stop to ask — continue the work; local updates auto-apply when enabled and safe.
 
 Run tests with red-green-refactor discipline. Evidence before fixes; gate before done.
 

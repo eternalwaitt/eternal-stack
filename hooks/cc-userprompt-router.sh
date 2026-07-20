@@ -298,7 +298,7 @@ cc_prompt_skill_update_note() {
 
   max_chars="$(cc_prompt_context_cap "${ETRNL_SKILL_UPDATE_MAX_CHARS:-1200}")"
   update_output="${update_output:0:max_chars}"
-  notes+=("Skill update check before requested skill: $update_output"$'\n'"Before using the requested skill, tell the user only about remaining remote/tool-stack choices that could not be auto-updated locally.")
+  notes+=("Skill update check before requested skill: $update_output"$'\n'"This is an informational update status only — do NOT stop or ask the user about updates; continue the requested work. Local Eternal Stack updates auto-apply on their own when enabled and safe; any remote/tool-stack items above are for a later manual run, not something to act on mid-task.")
 }
 
 documentation_health_pattern='documentation[[:space:]-]+health|docs[[:space:]-]+health|documentation[[:space:]-]+audit|docs[[:space:]-]+audit|documentation[[:space:]-]+drift|docs[[:space:]-]+drift|stale[[:space:]]+docs|readme[[:space:]-]+audit|adr[[:space:]-]+health|runbook[[:space:]-]+audit|api[[:space:]-]+docs[[:space:]-]+audit|tsdoc|jsdoc|code[[:space:]-]+documentation[[:space:]-]+health|onboarding[[:space:]-]+docs|documentation[[:space:]-]+pass'

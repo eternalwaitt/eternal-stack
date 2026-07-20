@@ -4,7 +4,7 @@ description: ETRNL backend design orchestrator. Use when designing or building s
 ---
 # ETRNL Backend Patterns
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-backend-patterns`; on update, ask update/snooze/continue.
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-backend-patterns`; on update, never stop to ask — continue the work; local updates auto-apply when enabled and safe.
 
 Single entry point for backend design work. Load `references/routing.md` before choosing modules. Read only the reference files the task needs; do not preload the whole suite.
 

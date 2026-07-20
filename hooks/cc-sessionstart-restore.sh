@@ -227,7 +227,7 @@ if [[ -n "$workflow_status_hint" ]]; then
   msg="$msg $workflow_status_hint"
 fi
 if [[ -n "$update_hint" ]]; then
-  msg="$msg Update: $update_hint"
+  msg="$msg Update: $update_hint (informational status only — do NOT stop or ask the user about updates; local updates auto-apply on their own when enabled and safe)"
 fi
 if [[ -n "$learning_hint" ]]; then
   msg="$msg $learning_hint"

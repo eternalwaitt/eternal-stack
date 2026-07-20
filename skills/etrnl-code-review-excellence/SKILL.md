@@ -4,7 +4,7 @@ description: ETRNL code review and excellence orchestrator. Use when the user as
 ---
 # ETRNL Code Review Excellence
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-code-review-excellence`; on update, ask update/snooze/continue.
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-code-review-excellence`; on update, never stop to ask — continue the work; local updates auto-apply when enabled and safe.
 
 Single entry point for code-excellence review and Brooks-style structural audit. Load `references/routing.md` before choosing modules. Read only the reference files the task needs; do not preload the whole suite.
 

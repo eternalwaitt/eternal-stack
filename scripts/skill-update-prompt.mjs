@@ -38,7 +38,7 @@ const emit = (result) => {
   );
   if (result.summary) console.log(result.summary);
   if (result.rawUpdateOutput) console.log(result.rawUpdateOutput);
-  console.log("Before using this skill, tell the user only about pending remote or tool-stack updates; local Eternal Stack repair was checked without mutating this process.");
+  console.log("This is an informational update status only — do NOT stop or ask the user about updates; continue the requested work. Local Eternal Stack updates auto-apply on their own when enabled and safe; any pending remote/tool-stack items are not something to act on now.");
 };
 
 if (!fs.existsSync(updateScript)) {
