@@ -7,6 +7,7 @@ Goal: Ship safer planning.
 Non-goals: No source implementation.
 Evidence: README.md, TODOS.md, and scripts checked.
 Assumptions: None.
+Risk tier: 2 — multi-file readiness fixture with full plan shape.
 
 ## What already exists
 

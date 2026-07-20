@@ -8,15 +8,34 @@ Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --sk
 
 Create execution-ready plans for `/etrnl-dev-execute`. Do not implement the plan.
 
-Default to completeness 10/10 for non-trivial work. Do not offer fast, reduced, MVP, or partial paths unless the user explicitly asks for a spike, prototype, or quick pass.
+For `Risk tier` 2–3, default to completeness 10/10 for non-trivial work. Tier 0–1 finalize in a single pass without the full gauntlet, parity scorecard, or deep-stack bundle. Do not offer fast, reduced, MVP, or partial paths unless the user explicitly asks for a spike, prototype, or quick pass.
 
 Every final plan must make execution scope machine-readable. Use `Execution scope: all_phases` by default. Use `Execution scope: first_patch_only` or an explicit subset only when the user asked for partial execution in that turn.
 
 ## Autoplan Depth Contract
 
-Non-trivial autoplan work is a deep planning run, not a fast outline. The run must gather current context, run the review lanes, produce artifact evidence, and pass deterministic gates before any `Status: Final` output.
+Non-trivial autoplan work is a deep planning run, not a fast outline. Tier 0–1 use the reduced plan shape from `etrnl-dev-plan`. Tier 2–3 gather current context, run the review lanes for that tier, produce artifact evidence when tier ≥ 2, and pass deterministic gates before any `Status: Final` output.
 
-Mandatory stages:
+Mandatory stages by tier:
+
+Tier 0–1:
+1. Context recovery — read current repo state, relevant docs, existing plans, and prior artifacts; record paths and reused helpers in `Evidence:`.
+2. Reuse inventory — search existing components, hooks, scripts, skills, tests, docs, and helpers before naming new surfaces.
+3. Test-first and verification design — name red/green proof or compensating checks and exact commands in `## Verification gates`.
+
+Tier 2 (add to tier 0–1 stages):
+4. Engineering review lane — validate architecture, data flow, failure modes, rollback, tests, parallelization, reuse, and type boundaries.
+5. Adversarial review lane — challenge the most likely false assumption, hidden coupling, and verification gaps.
+
+Tier 3 (full gauntlet):
+6. CEO/founder, design applicability, DX applicability, specialist, reuse, and simplifier lanes.
+7. Subagent and outside-voice routing for large plans.
+8. External evidence for tool, workflow, skill, hook, or planning capability changes.
+9. Artifact creation — create and validate the deep-stack bundle before finalization.
+10. Convergence — close or owner-accept every high/blocker finding; reconcile requested outcomes.
+11. Parity scorecard — tier 3 only; every score must be 9 or 10 or the plan is `Blocked until <specific blocker>`.
+
+Stage details:
 
 1. Context recovery:
    - Read current repo state, relevant docs, existing plans, installed helper availability, and prior durable artifacts before drafting.
@@ -26,28 +45,28 @@ Mandatory stages:
    - Challenge the premise only through a recorded `Autoplan decision log` row.
 3. Reuse inventory:
    - Search existing components, hooks, scripts, skills, tests, docs, agents, and helpers before naming new surfaces.
-   - Record reuse decisions in the deep-stack artifact `reuseInventory` and plan `## What already exists`.
-4. External evidence:
+   - Record reuse decisions in the deep-stack artifact `reuseInventory` and plan `## What already exists` when tier ≥ 2.
+4. External evidence (tier ≥ 2):
    - For tool, workflow, skill, hook, agent, or planning capability changes, ground public claims in current source, upstream docs, or user-provided evidence.
    - Keep raw notes outside tracked repo files.
-5. Full review gauntlet:
-   - Complete CEO/founder, engineering, design applicability, DX applicability, adversarial, specialist, reuse, and simplifier lanes.
-   - Record role, inputs, findings, high/blocker status, disposition, and completion time in the deep-stack artifact.
-6. Subagent and outside-voice routing:
+5. Review gauntlet (tier 2: engineering + adversarial; tier 3: all eight lanes):
+   - Complete the lanes required for the plan's `Risk tier`.
+   - Record role, inputs, findings, high/blocker status, disposition, and completion time in the deep-stack artifact when tier ≥ 2.
+6. Subagent and outside-voice routing (tier 3):
    - For large plans, create read-only task packets for `etrnl-scout`, `etrnl-adversary`, `etrnl-design-reviewer`, and `etrnl-dx-reviewer`, or record a blocker/unavailable/not-applicable disposition.
    - Mark Codex, Gemini, Octopus, gstack design, GPT image/mock tooling, CodeGraph, Beads, and browser tooling as applicable, unavailable, or not-applicable with evidence.
 7. Test-first and verification design:
    - Include red/green proof for source tasks, fixture coverage for workflow tasks, browser evidence for UI tasks, and install/canary gates for etrnl runtime changes.
    - Name exact commands and expected pass conditions in `## Verification gates`.
    - Use vertical slices for implementation tasks. Split any task that touches more than 8 files, crosses unrelated subsystems, or lacks one clear verification command.
-8. Artifact creation:
+8. Artifact creation (tier ≥ 2):
    - Create the deep-stack artifact bundle with `node scripts/deep-stack-check.mjs create --plan <plan-path> --out <artifact-dir>`.
    - Fill blocked skeleton sections with real evidence before finalization.
    - Validate the plan with `node scripts/deep-stack-check.mjs validate-plan --plan <plan-path>` and `node scripts/plan-readiness-check.mjs <plan-path>`.
-9. Convergence:
+9. Convergence (tier ≥ 2):
    - Close, disprove, downgrade with evidence, or record explicit owner-accepted risk for every high/blocker finding.
    - Reconcile requested outcomes against `DONE`, `PARTIAL`, `NOT_DONE`, `CHANGED`, or `BLOCKED`.
-10. Parity scorecard:
+10. Parity scorecard (tier 3 only):
    - Add an `## Autoplan parity scorecard` subsection under `## Plan Readiness Report`.
    - Score context recovery, reuse, review coverage, external evidence, test-first plan, artifact validity, execution handoff, and open-risk closure from 0 to 10.
    - Final verdict requires every score at 9 or 10. Lower scores force `Blocked until <specific blocker>`.
@@ -58,12 +77,12 @@ Freeze scope before drafting task groups, and hold it through execution:
 
 1. Restate the goal in one sentence. Every task group must trace to that sentence; drop any task group that does not.
 2. Treat a review or audit backlog as a catalog, not a mandate to build infrastructure. "Add all findings, even nits" means record each finding as a checklist line or a single deterministic guard, not a new subsystem, receipt store, or ledger. When a finding class needs more than a guard or a checklist line, mark it a review lens and stop there.
-3. Reject integrity, tamper-proofing, cryptographic-receipt, and provenance-hardening scope unless the one-sentence goal names it. These are the recurring drift vectors; a plan that grows one without an explicit ask is over-engineered — cut it.
+3. Reject integrity, tamper-proofing, cryptographic-receipt, and provenance-hardening scope unless the one-sentence goal names it. These are the recurring drift vectors; a plan that grows one without an explicit ask is over-engineered — cut it. `node scripts/deep-stack-check.mjs validate-plan` enforces this mechanically for new create rows and drifting task groups.
 4. Commit each task group independently so value lands incrementally and a drifting task group reverts alone.
 
 ## Full Deep Stack Review
 
-Run the full review gauntlet before finalizing any non-trivial plan. Planning, autoplan, and review stay deep by default. Execution tiering is allowed only after deep review passes and the plan records a valid `Deep stack artifacts:` bundle.
+Run the review gauntlet required by the plan's `Risk tier` before finalizing. Tier 0–1 skip the full gauntlet. Tier 2 requires engineering plus adversarial lanes. Tier 3 requires all eight lanes and a validated `Deep stack artifacts:` bundle before execution.
 
 1. CEO/founder review:
    - Validate the premise, user value, scope, 6-month regret, and better alternatives.
@@ -91,7 +110,7 @@ Run the full review gauntlet before finalizing any non-trivial plan. Planning, a
 
 ## Hybrid Deep Stack Artifacts
 
-Every non-trivial `Status: Final` plan must include `Deep stack artifacts: <relative-path>` and the referenced bundle must pass validation. Do not finalize a plan on transitional readiness.
+Every non-trivial `Status: Final` plan at tier ≥ 2 must include `Deep stack artifacts: <relative-path>` and the referenced bundle must pass validation. Tier 0–1 final plans do not require the bundle. Do not finalize a tier ≥ 2 plan on transitional readiness.
 
 ```bash
 node scripts/deep-stack-check.mjs create --plan <plan-path> --out <artifact-dir>
@@ -155,8 +174,8 @@ Before finalizing any plan for a capability or feature that competes with or par
    - consensus or disagreement
    - artifact needed, if any
    - final gate category: none, taste, premise, destructive, user challenge
-1. Include artifact requirements for execution:
-   - `Deep stack artifacts: <path>` for every non-trivial final plan
+1. Include artifact requirements for execution when tier ≥ 2:
+   - `Deep stack artifacts: <path>` for every non-trivial final plan at tier ≥ 2
    - `review-log.jsonl` when review findings are created
    - `browser-qa-report.json` when UI/browser behavior changes
    - context-save when work is long-running or likely to be resumed
@@ -192,7 +211,7 @@ Return or save a single implementation plan with this readiness-compatible shape
 - `Goal:`
 - `Evidence:`
 - `Non-goals:`
-- `Deep stack artifacts:` metadata for every non-trivial final plan.
+- `Deep stack artifacts:` metadata for every non-trivial final plan at tier ≥ 2.
 - Conditional `Phase:`, `Workstream:`, and `UAT Gate:` metadata when the plan spans multiple phases, routes, or workstreams.
 - `## What already exists`
 - `## NOT in scope`
@@ -223,7 +242,7 @@ The Plan Readiness Report must explicitly cover:
 - Failure modes
 - Parallelization
 - Final decision inputs that justify the verdict section
-- Autoplan parity scorecard with context recovery, reuse, review coverage, external evidence, test-first plan, artifact validity, execution handoff, and open-risk closure scores
+- Autoplan parity scorecard with context recovery, reuse, review coverage, external evidence, test-first plan, artifact validity, execution handoff, and open-risk closure scores (tier 3 only; every score 9 or 10)
 
 The final plan must include a separate `## Verdict` section with one explicit outcome:
 - Ready for execution

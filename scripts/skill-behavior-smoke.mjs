@@ -151,10 +151,10 @@ if (hasKeywords(autoplanSkill, ["Autoplan Depth Contract", "context recovery", "
 } else {
   fail("autoplan skill requires deep context and parity work", "missing depth contract, context recovery, reuse inventory, or external evidence concept");
 }
-if (hasKeywords(autoplanSkill, ["Full review gauntlet", "subagent", "outside-voice", "Autoplan parity scorecard"])) {
-  ok("autoplan skill requires full review and parity scorecard");
+if (hasKeywords(autoplanSkill, ["Mandatory stages by tier", "subagent", "outside-voice", "Autoplan parity scorecard", "Risk tier"])) {
+  ok("autoplan skill requires tier-scoped review and parity scorecard");
 } else {
-  fail("autoplan skill requires full review and parity scorecard", "missing full review, subagent/outside voice, or parity scorecard concept");
+  fail("autoplan skill requires tier-scoped review and parity scorecard", "missing tier-scoped review lanes, subagent/outside voice, or parity scorecard concept");
 }
 if (hasKeywords(autoplanSkill, ["deep-stack-check.mjs validate-plan", "plan-readiness-check.mjs", "Blocked until"])) {
   ok("autoplan skill requires deterministic final gates");

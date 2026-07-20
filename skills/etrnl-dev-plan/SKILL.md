@@ -27,7 +27,7 @@ Create a plan file, review it, improve it, then finalize it. Do not put the full
 4. Draft the plan with `Status: Draft`.
 5. Run the review pass against the same file.
 6. Add a `Plan Readiness Report` section to the plan.
-7. Create or update the deep-stack artifact bundle before finalization:
+7. Create or update the deep-stack artifact bundle before finalization when `Risk tier` is 2 or 3:
    - Source checkout: `node scripts/deep-stack-check.mjs create --plan <plan-path> --out <artifact-dir>`
    - Installed Claude home: `node ~/.claude/scripts/deep-stack-check.mjs create --plan <plan-path> --out <artifact-dir>`
    - Replace skeleton placeholders with real review phase records, source, skill, reuse, findings, TDD, completion reconciliation, risk-tier, TypeScript trigger, and install-proof evidence.
@@ -53,16 +53,39 @@ Goal: <one sentence>
 Non-goals: <explicit exclusions>
 Evidence: <files, commands, docs, runtime surfaces checked>
 Assumptions: <only if still unresolved>
+Risk tier: <0-3> — <one-sentence justification; tier definitions owned by etrnl-dev-execute Startup step 6>
 Phase: <conditional phase id for multi-phase work>
 Workstream: <conditional workstream id for split ownership>
 UAT Gate: <conditional UAT completion condition for browser/user-acceptance work>
 Deep stack artifacts: <relative path to deep-stack artifact bundle>
 ```
 
-Include `Status`, `Execution scope`, `Goal`, `Non-goals`, and `Evidence` as plain top-level key/value lines under the title (not `##` headings). Then add the required `##` section headings below.
+Include `Status`, `Execution scope`, `Goal`, `Non-goals`, `Evidence`, and `Risk tier` as plain top-level key/value lines under the title (not `##` headings). Then add the required `##` section headings below.
+`Risk tier` must be 0–3 with one sentence of justification on the same line or the line below. Reuse the execute skill tier definitions verbatim (owned by `etrnl-dev-execute` Startup step 6):
+- Tier 0: docs/no-source/tiny change, local verification only.
+- Tier 1: one small source surface, normal tests plus completion check.
+- Tier 2: multi-file/source workflow, spec reviewer, quality reviewer, simplifier, completion audit.
+- Tier 3: hooks, installed-home changes, auth, money, security, migrations, data loss risk, or broad Eternal Stack behavior; full deep stack plus staged install and rollback proof.
 `Execution scope` must be one of `all_phases`, `first_patch_only`, or an explicit subset such as `phase_1_phase_2_only`. Use `all_phases` by default. Do not use `first_patch_only` unless the user explicitly asks for a spike, prototype, first slice, or partial execution.
 `Phase`, `Workstream`, and `UAT Gate` are conditional metadata. Include them only when the work spans multiple sessions, routes, workstreams, or user-acceptance/browser gates.
-`Deep stack artifacts` is mandatory for every non-trivial `Status: Final` plan. Existing historical plans can be checked only with the explicit legacy transition flag; newly generated final plans must never rely on transitional readiness. The referenced artifact bundle must pass validation before finalization or execution:
+
+### Tier 0–1 plan shape
+
+For `Risk tier: 0` or `Risk tier: 1`, include only:
+- the metadata lines above (no `Deep stack artifacts:` line)
+- `## File map`
+- `## Task groups`
+- `## Verification gates`
+- `## Rollback`
+- `## Readiness checklist` with five checklist lines instead of `## Plan Readiness Report`
+
+Do not require the deep-stack artifact bundle, full readiness report, phases, test-first plan, or companion review lanes for tier 0–1.
+
+### Tier 2–3 plan shape
+
+For `Risk tier: 2` or `Risk tier: 3`, include the full section list below. Tier 2 limits review lanes to engineering plus adversarial; tier 3 requires the full gauntlet.
+
+`Deep stack artifacts` is mandatory for every non-trivial `Status: Final` plan at tier ≥ 2. Existing historical plans can be checked only with the explicit legacy transition flag; newly generated final plans must never rely on transitional readiness. The referenced artifact bundle must pass validation before finalization or execution:
 
 ```bash
 node scripts/deep-stack-check.mjs validate-plan --plan <plan-path>
@@ -113,12 +136,13 @@ Before finalizing, review the draft for:
   - Use live docs, upstream source, or user-provided context as evidence.
   - Keep background notes local or attach them outside the tracked repository.
   - Do not require or create tracked evidence artifacts.
-- Missing companion-skill passes from the original Eternal Stack vision:
+- Missing companion-skill passes from the original Eternal Stack vision (tier ≥ 2 only; tier 3 requires the full set):
   - `eternal-best-practices` for tenant, money, auth, i18n, Prisma, soft-delete, and domain policy.
   - `code-simplifier` before final scoring or completion.
   - `finding-duplicate-functions` for dedupe/refactor-heavy work.
   - `etrnl-code-review-excellence`/Brooks modules when structural or excellence review is in scope.
-- Missing Hybrid Deep Stack artifacts:
+  Tier 2 limits mandatory review lanes to engineering plus adversarial. Tier 0–1 skip companion review lanes except context recovery, reuse inventory, and verification design.
+- Missing Hybrid Deep Stack artifacts (tier ≥ 2 only):
   - sanitized source manifest, no `/tmp`, home paths, transcripts, account material, or secrets
   - skill activation matrix, including ordinary TypeScript verification and conditional advanced TypeScript review
   - reuse inventory before any new helper, script, skill, or docs surface
@@ -130,13 +154,13 @@ Before finalizing, review the draft for:
   - install proof rows for source gate, staged install, staged doctor/canary, rollback verification, live-install decision, and post-upgrade canary when Tier 3 behavior is touched
   - findings ledger with high/blocker findings closed, disproven, or explicitly owner-accepted
   - completion audit and Hybrid execution risk tier
-  Deep-stack artifacts are required for every newly generated final plan; they are not opt-in metadata.
+  Deep-stack artifacts are required for newly generated final plans at tier ≥ 2; they are not opt-in metadata.
 
 If a companion skill is unavailable, do not silently continue. Record the missing skill, impact, and next step under `## Plan Readiness Report` -> `Unresolved questions`.
 
-Companion skill enforcement:
+Companion skill enforcement (tier ≥ 2; tier 3 requires the full security-critical set):
 
-- `eternal-best-practices` for auth, money, tenant, i18n, Prisma, soft-delete, permissions, and domain policy: a missing pass blocks finalization unless the user explicitly accepts the risk because these are critical security and data boundaries.
+- `eternal-best-practices` for auth, money, tenant, i18n, Prisma, soft-delete, permissions, and domain policy: a missing pass blocks finalization unless the user explicitly accepts the risk because these are critical security and data boundaries (auth/money/tenant surfaces auto-imply tier 3).
 - `code-simplifier` and `finding-duplicate-functions`: omit only when unavailable or irrelevant, and the report must document why. Brooks structural review is owned by `etrnl-code-review-excellence` when installed.
 
 ## Advanced TypeScript Policy
@@ -147,7 +171,7 @@ Use `references/plan-review-checklist.md` for the detailed review rubric when th
 
 ## Plan Readiness Report
 
-Every non-trivial plan must include this section before `Status: Final`:
+Every non-trivial plan at tier ≥ 2 must include this section before `Status: Final`:
 
 ```markdown
 ## Plan Readiness Report

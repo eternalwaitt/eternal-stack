@@ -1613,6 +1613,38 @@ phase_plan="$TMPROOT/phase-plan.md"
 } >"$phase_plan"
 phase_plan_json="$(node "$ROOT/scripts/plan-readiness-check.mjs" "$phase_plan" --json --allow-transitional-deep-stack)"
 assert_json_expr "plan readiness recognizes optional phase metadata" "$phase_plan_json" '.ok == true and .optionalMetadata.phase == true and .optionalMetadata.workstream == true and .optionalMetadata.uatGate == true'
+
+tier0_plan="$ROOT/tests/fixtures/plan-readiness/tier-0-minimal.md"
+assert_command "plan readiness accepts tier-0 minimal plan without artifacts" node "$ROOT/scripts/plan-readiness-check.mjs" "$tier0_plan"
+tier1_hooks_plan="$ROOT/tests/fixtures/plan-readiness/tier-1-hooks-underclassified.md"
+if tier1_hooks_out="$(node "$ROOT/scripts/plan-readiness-check.mjs" "$tier1_hooks_plan" 2>&1)"; then
+  not_ok "plan readiness rejects hooks plan self-classified below tier 3"
+else
+  assert_contains "plan readiness rejects hooks plan self-classified below tier 3" "$tier1_hooks_out" "RISK_TIER_UNDER_CLASSIFIED_TIER3"
+fi
+tier1_nine_files_plan="$ROOT/tests/fixtures/plan-readiness/tier-1-nine-files.md"
+if tier1_nine_out="$(node "$ROOT/scripts/plan-readiness-check.mjs" "$tier1_nine_files_plan" 2>&1)"; then
+  not_ok "plan readiness rejects nine-file plan self-classified below tier 2"
+else
+  assert_contains "plan readiness rejects nine-file plan self-classified below tier 2" "$tier1_nine_out" "RISK_TIER_UNDER_CLASSIFIED_TIER2"
+fi
+missing_risk_tier_plan="$TMPROOT/missing-risk-tier-plan.md"
+cp "$ROOT/hooks/fixtures/plans/good-plan.md" "$missing_risk_tier_plan"
+perl -0pi -e 's/^Risk tier:.*\n//m' "$missing_risk_tier_plan"
+if missing_risk_out="$(node "$ROOT/scripts/plan-readiness-check.mjs" "$missing_risk_tier_plan" --allow-transitional-deep-stack 2>&1)"; then
+  not_ok "plan readiness rejects missing Risk tier metadata"
+else
+  assert_contains "plan readiness rejects missing Risk tier metadata" "$missing_risk_out" "RISK_TIER_MISSING"
+fi
+scope_drift_plan="$ROOT/tests/fixtures/plan-readiness/scope-drift-receipts-create.md"
+if scope_drift_out="$(node "$ROOT/scripts/deep-stack-check.mjs" validate-plan --plan "$scope_drift_plan" 2>&1)"; then
+  not_ok "deep-stack validate-plan rejects scope-drift receipt store creation"
+else
+  assert_contains "deep-stack validate-plan rejects scope-drift receipt store creation" "$scope_drift_out" "SCOPE_DRIFT_SUBSYSTEM"
+fi
+assert_command "deep-stack validate-plan accepts thorough-but-efficient plan" node "$ROOT/scripts/deep-stack-check.mjs" validate-plan --plan "$ROOT/.claude/plans/2026-07-20-thorough-but-efficient.md"
+assert_command "plan readiness accepts thorough-but-efficient plan" node "$ROOT/scripts/plan-readiness-check.mjs" "$ROOT/.claude/plans/2026-07-20-thorough-but-efficient.md"
+
 agent_template="$(node "$ROOT/scripts/agent-task-packet-check.mjs" --template write)"
 assert_json_expr "agent packet template includes write scope" "$agent_template" '.packet.writeScope[0] | length > 0'
 assert_json_expr "agent packet template includes reviewer contract" "$agent_template" '(.packet.reviewers | index("etrnl-spec-reviewer")) != null and .packet.specReviewRequired == true and .packet.qualityReviewRequired == true'
