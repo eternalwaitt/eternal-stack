@@ -1227,24 +1227,6 @@ post_sycophancy_json="$(jq -cn --arg path "$sycophancy_transcript" '{session_id:
 out="$(run_hook cc-posttooluse-sycophancy.sh "$post_sycophancy_json")"
 assert_contains "posttooluse blocks sycophancy" "$out" "Evidence-before-agreement"
 
-precompact_json="$(jq -cn '{session_id:"fixture-session",hook_event_name:"PreCompact"}')"
-out="$(run_hook cc-precompact-save.sh "$precompact_json")"
-assert_json_expr "precompact allows after save" "$out" '.continue == true'
-assert_json_expr "precompact writes durable ETRNL state without raw prompt" "$(jq -s -c . "$ETRNL_STATE_DIR/events.jsonl")" 'any(.[]; .eventKind == "compact_pre" and .sessionId == "fixture-session" and (.data | has("lastPrompt") | not))'
-postcompact_json="$(jq -cn '{session_id:"fixture-session",hook_event_name:"PostCompact",summary:"compact persisted"}')"
-run_hook cc-postcompact-record.sh "$postcompact_json" >/dev/null
-assert_json_expr "postcompact records recovery metadata" "$(jq -c . "$TMPROOT/claude-guard-fixture-session.json")" '.lastCompactSummary == "compact persisted" and .lastCompactAt != "" and .compactCount == 1'
-assert_json_expr "postcompact records compact tree hash" "$(jq -s -c . "$ETRNL_STATE_DIR/events.jsonl")" 'any(.[]; .eventKind == "compact_post" and .sessionId == "fixture-session" and ((.data.treeHashAtCompact // "") | length) > 0)'
-session_json="$(jq -cn '{session_id:"fixture-session",hook_event_name:"SessionStart",source:"compact"}')"
-out="$(run_hook cc-sessionstart-restore.sh "$session_json")"
-assert_json_expr "session compact restores context" "$out" '.hookSpecificOutput.additionalContext | test("Compact recovery")'
-assert_json_expr "session compact uses ETRNL handoff fast path" "$out" '.hookSpecificOutput.additionalContext | test("verification_stale=true")'
-assert_contains "session start injects ETRNL skill hint" "$out" "ETRNL skills"
-jq '.edits["/tmp/compact-risk.ts"] = "2026-01-01T00:00:02Z"' "$TMPROOT/claude-guard-fixture-session.json" >"$TMPROOT/claude-guard-fixture-session.json.tmp" && mv "$TMPROOT/claude-guard-fixture-session.json.tmp" "$TMPROOT/claude-guard-fixture-session.json"
-compact_stale_stop="$(jq -cn '{session_id:"fixture-session",last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"
-out="$(run_hook cc-stop-verifier.sh "$compact_stale_stop")"
-assert_contains "stop verifier blocks stale compact verification" "$out" "Verification is stale after compact"
-
 treehash_fixture_repo() {
   local dir="$1"
   mkdir -p "$dir/src"
@@ -1262,6 +1244,28 @@ import { worktreeHash } from 'file://$ROOT/scripts/lib/etrnl-state-core.mjs';
 process.stdout.write(worktreeHash(process.argv[1]));
 " "$1"
 }
+
+# Compact fixtures carry an explicit git-repo cwd so treeHashAtCompact is
+# deterministic even when the suite runs from an installed (non-git) home.
+compact_fixture_repo="$TMPROOT/compact-fixture-repo"
+treehash_fixture_repo "$compact_fixture_repo"
+precompact_json="$(jq -cn --arg cwd "$compact_fixture_repo" '{session_id:"fixture-session",hook_event_name:"PreCompact",cwd:$cwd}')"
+out="$(run_hook cc-precompact-save.sh "$precompact_json")"
+assert_json_expr "precompact allows after save" "$out" '.continue == true'
+assert_json_expr "precompact writes durable ETRNL state without raw prompt" "$(jq -s -c . "$ETRNL_STATE_DIR/events.jsonl")" 'any(.[]; .eventKind == "compact_pre" and .sessionId == "fixture-session" and (.data | has("lastPrompt") | not))'
+postcompact_json="$(jq -cn --arg cwd "$compact_fixture_repo" '{session_id:"fixture-session",hook_event_name:"PostCompact",summary:"compact persisted",cwd:$cwd}')"
+run_hook cc-postcompact-record.sh "$postcompact_json" >/dev/null
+assert_json_expr "postcompact records recovery metadata" "$(jq -c . "$TMPROOT/claude-guard-fixture-session.json")" '.lastCompactSummary == "compact persisted" and .lastCompactAt != "" and .compactCount == 1'
+assert_json_expr "postcompact records compact tree hash" "$(jq -s -c . "$ETRNL_STATE_DIR/events.jsonl")" 'any(.[]; .eventKind == "compact_post" and .sessionId == "fixture-session" and ((.data.treeHashAtCompact // "") | length) > 0)'
+session_json="$(jq -cn '{session_id:"fixture-session",hook_event_name:"SessionStart",source:"compact"}')"
+out="$(run_hook cc-sessionstart-restore.sh "$session_json")"
+assert_json_expr "session compact restores context" "$out" '.hookSpecificOutput.additionalContext | test("Compact recovery")'
+assert_json_expr "session compact uses ETRNL handoff fast path" "$out" '.hookSpecificOutput.additionalContext | test("verification_stale=true")'
+assert_contains "session start injects ETRNL skill hint" "$out" "ETRNL skills"
+jq '.edits["/tmp/compact-risk.ts"] = "2026-01-01T00:00:02Z"' "$TMPROOT/claude-guard-fixture-session.json" >"$TMPROOT/claude-guard-fixture-session.json.tmp" && mv "$TMPROOT/claude-guard-fixture-session.json.tmp" "$TMPROOT/claude-guard-fixture-session.json"
+compact_stale_stop="$(jq -cn '{session_id:"fixture-session",last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$compact_stale_stop")"
+assert_contains "stop verifier blocks stale compact verification" "$out" "Verification is stale after compact"
 
 treehash_unchanged_repo="$TMPROOT/treehash-unchanged-repo"
 treehash_fixture_repo "$treehash_unchanged_repo"
@@ -1324,7 +1328,11 @@ if run_hook cc-posttoolbatch-observer.sh "$gate_auto_no_ledger" >/dev/null 2>&1;
 else
   not_ok "posttool observer exits 0 without active ledger on gate command"
 fi
-node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-gate-auto --cwd "$ROOT" >/dev/null
+# Ledger cwd must be a git repo so the auto-recorded check gets a real treeHash
+# even when the suite runs from an installed (non-git) home.
+gate_auto_repo="$TMPROOT/gate-auto-repo"
+treehash_fixture_repo "$gate_auto_repo"
+node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-gate-auto --cwd "$gate_auto_repo" >/dev/null
 gate_auto_allowlisted="$(jq -cn --arg root "$ROOT" '{session_id:"fixture-gate-auto",tool_name:"Bash",status:"success",cwd:$root,tool_input:{command:"bash tests/test-hooks.sh"}}')"
 run_hook cc-posttoolbatch-observer.sh "$gate_auto_allowlisted" >/dev/null || true
 sleep 0.3

@@ -116,7 +116,9 @@ export function stableHash(value) {
 export function worktreeHash(cwd = process.cwd()) {
   try {
     const resolved = path.resolve(String(cwd || process.cwd()));
-    const opts = { cwd: resolved, encoding: "utf8", maxBuffer: 512 * 1024, timeout: 200 };
+    // stderr must be discarded: a non-git cwd makes git print "fatal: not a git
+    // repository", which would leak into callers that merge stderr into JSON output.
+    const opts = { cwd: resolved, encoding: "utf8", maxBuffer: 512 * 1024, timeout: 200, stdio: ["ignore", "pipe", "ignore"] };
     const headTree = execSync("git rev-parse HEAD^{tree}", opts).trim();
     const status = execSync("git status --porcelain=v1", opts);
     const diff = execSync("git diff", opts);

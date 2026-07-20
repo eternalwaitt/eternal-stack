@@ -1833,8 +1833,16 @@ if scope_drift_out="$(node "$ROOT/scripts/deep-stack-check.mjs" validate-plan --
 else
   assert_contains "deep-stack validate-plan rejects scope-drift receipt store creation" "$scope_drift_out" "SCOPE_DRIFT_SUBSYSTEM"
 fi
-assert_command "deep-stack validate-plan accepts thorough-but-efficient plan" node "$ROOT/scripts/deep-stack-check.mjs" validate-plan --plan "$ROOT/.claude/plans/2026-07-20-thorough-but-efficient.md"
-assert_command "plan readiness accepts thorough-but-efficient plan" node "$ROOT/scripts/plan-readiness-check.mjs" "$ROOT/.claude/plans/2026-07-20-thorough-but-efficient.md"
+# Local plans live in ignored paths and are absent from installed homes and
+# fresh clones; validate the live plan only when it exists.
+local_plan="$ROOT/.claude/plans/2026-07-20-thorough-but-efficient.md"
+if [[ -f "$local_plan" ]]; then
+  assert_command "deep-stack validate-plan accepts thorough-but-efficient plan" node "$ROOT/scripts/deep-stack-check.mjs" validate-plan --plan "$local_plan"
+  assert_command "plan readiness accepts thorough-but-efficient plan" node "$ROOT/scripts/plan-readiness-check.mjs" "$local_plan"
+else
+  ok "deep-stack validate-plan accepts thorough-but-efficient plan (skipped: local plan absent)"
+  ok "plan readiness accepts thorough-but-efficient plan (skipped: local plan absent)"
+fi
 
 agent_template="$(node "$ROOT/scripts/agent-task-packet-check.mjs" --template write)"
 read_only_template="$(node "$ROOT/scripts/agent-task-packet-check.mjs" --template read-only)"
