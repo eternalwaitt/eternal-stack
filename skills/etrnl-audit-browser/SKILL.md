@@ -5,7 +5,7 @@ disable-model-invocation: true
 ---
 # ETRNL Browser QA
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-audit-browser`; on update, never stop to ask — continue the work; local updates auto-apply when enabled and safe.
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-audit-browser`; on update, never stop to ask; local updates auto-apply when enabled and safe.
 
 Run report-first browser QA for UI changes. Do not edit application source files in this skill.
 This reusable skill is the canonical browser QA workflow; `agents/etrnl-browser-qa.md` mirrors it for delegated agent tasks.

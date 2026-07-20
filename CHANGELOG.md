@@ -12,6 +12,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Fixed
 
+- Trimmed the skill-update startup clause in the 30 `etrnl-*` `SKILL.md` files so `skills/etrnl-dev-execute/SKILL.md` stays within the 18000-byte prompt budget (it hit 18020 in v0.7.1). Removed the redundant "— continue the work" (the "never stop to ask" directive already conveys it); behavior is unchanged — "never stop to ask" stays unconditional and auto-apply stays qualified to "when enabled and safe".
+
 ### Removed
 
 ### Security

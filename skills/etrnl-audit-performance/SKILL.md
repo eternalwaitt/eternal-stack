@@ -4,7 +4,7 @@ description: ETRNL performance deep-audit category skill. Use when the user asks
 ---
 # ETRNL Performance Audit
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-audit-performance`; on update, never stop to ask — continue the work; local updates auto-apply when enabled and safe.
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-audit-performance`; on update, never stop to ask; local updates auto-apply when enabled and safe.
 
 Run the registered `performance` deep-audit category with shared worklists, route/runtime evidence, six lane receipts, and the same artifact envelope used by `etrnl-deep-audit`.
 

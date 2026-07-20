@@ -4,7 +4,7 @@ description: ETRNL security deep-audit category skill. Use when the user asks fo
 ---
 # Security Audit
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-audit-security`; on update, never stop to ask — continue the work; local updates auto-apply when enabled and safe.
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-audit-security`; on update, never stop to ask; local updates auto-apply when enabled and safe.
 
 Run the registered `security` deep-audit category with shared worklists and explicit exploitable-bug evidence. Do not report generic best practices as findings.
 
