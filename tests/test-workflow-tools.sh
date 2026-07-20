@@ -181,6 +181,122 @@ fi
 node "$ROOT/scripts/execution-ledger.mjs" record-uat --session fixture-uat --artifact "$TMPROOT/browser-qa.json" --open-findings 0
 assert_command "execution ledger accepts closed UAT findings" node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-uat
 
+tier3_reopen_plan="$TMPROOT/tier3-reopen-plan.md"
+printf '%s\n' '# Tier 3 Reopen Plan' '' 'Status: Final' '' 'Execution scope: all_phases' 'Goal: Tier 3 reopen cap fixture.' 'Risk tier: 3 — hooks and security surfaces.' >"$tier3_reopen_plan"
+bundle_ledger_path="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-bundle --plan "$ROOT/hooks/fixtures/plans/good-plan.md" --cwd "$ROOT")"
+assert_file "execution ledger bundle init creates file" "$bundle_ledger_path"
+node "$ROOT/scripts/execution-ledger.mjs" record-check --session fixture-bundle --name final --command "pnpm test" --status passed
+bundle_payload="$TMPROOT/task-bundle-full.json"
+jq -cn \
+  --arg taskId "T-write" \
+  '{
+    taskId: $taskId,
+    task: {
+      status: "verified",
+      title: "Write task",
+      mode: "write",
+      lineageId: "wave-1.T-write",
+      packetHash: "abc123",
+      requiresImplementationEvidence: true,
+      specReviewRequired: true,
+      qualityReviewRequired: true,
+      tddRequired: true,
+      simplifierReviewRequired: true,
+      completionAuditRequired: true
+    },
+    agent: {
+      id: "worker-1",
+      role: "etrnl-executor",
+      mode: "write",
+      status: "completed",
+      lineageId: "wave-1.T-write",
+      packetHash: "abc123"
+    },
+    reviews: [
+      { reviewer: "etrnl-spec-reviewer", status: "verified", lineageId: "wave-1.T-write", packetHash: "abc123" },
+      { reviewer: "etrnl-quality-reviewer", status: "verified", lineageId: "wave-1.T-write", packetHash: "abc123" }
+    ],
+    tdd: {
+      status: "red_green_verified",
+      lineageId: "wave-1.T-write",
+      packetHash: "abc123",
+      sourceFiles: "scripts/deep-stack-check.mjs",
+      redCommand: "tests/test-workflow-tools.sh",
+      redStatus: "failed",
+      redFailure: "expected fixture failure",
+      greenCommand: "tests/test-workflow-tools.sh",
+      greenStatus: "passed"
+    },
+    simplifier: {
+      status: "verified",
+      lineageId: "wave-1.T-write",
+      packetHash: "abc123",
+      evidence: "code-simplifier reviewed diff"
+    },
+    completionAudit: {
+      item: "P1",
+      classification: "DONE",
+      lineageId: "wave-1.T-write",
+      packetHash: "abc123",
+      evidence: "diff/test evidence"
+    }
+  }' >"$bundle_payload"
+assert_command "record-task-bundle round-trip records all evidence" node "$ROOT/scripts/execution-ledger.mjs" record-task-bundle --session fixture-bundle --file "$bundle_payload"
+bundle_ledger_json="$(jq -c . "$bundle_ledger_path")"
+assert_json_expr "bundled task status recorded" "$bundle_ledger_json" 'any(.tasks[]; .id == "T-write" and .status == "verified")'
+assert_json_expr "bundled agent evidence recorded" "$bundle_ledger_json" 'any(.agents[]; .taskId == "T-write" and .role == "etrnl-executor")'
+assert_json_expr "bundled review evidence recorded" "$bundle_ledger_json" '([.reviews[] | select(.taskId == "T-write")] | length) >= 2'
+assert_json_expr "bundled TDD evidence recorded" "$bundle_ledger_json" 'any(.tddEvidence[]; .taskId == "T-write")'
+assert_json_expr "bundled simplifier evidence recorded" "$bundle_ledger_json" 'any(.simplifierEvidence[]; .taskId == "T-write")'
+assert_json_expr "bundled completion audit recorded" "$bundle_ledger_json" 'any(.completionAudit[]; .taskId == "T-write")'
+assert_command "check-stop sees bundled task evidence" node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-bundle
+partial_bundle_ledger_path="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-partial-bundle --plan "$ROOT/hooks/fixtures/plans/good-plan.md" --cwd "$ROOT")"
+assert_file "execution ledger partial bundle init creates file" "$partial_bundle_ledger_path"
+partial_payload="$TMPROOT/task-bundle-partial.json"
+jq -cn '{taskId:"T-partial",task:{status:"in_progress",title:"Partial"}}' >"$partial_payload"
+assert_command "record-task-bundle accepts partial payload" node "$ROOT/scripts/execution-ledger.mjs" record-task-bundle --session fixture-partial-bundle --file "$partial_payload"
+partial_ledger_json="$(node --input-type=module -e "
+import fs from 'node:fs';
+import path from 'node:path';
+const pointer = JSON.parse(fs.readFileSync(path.join(process.argv[1], 'current-fixture-partial-bundle.json'), 'utf8'));
+const ledger = JSON.parse(fs.readFileSync(pointer.path, 'utf8'));
+process.stdout.write(JSON.stringify({ task: ledger.tasks?.[0], agentCount: (ledger.agents ?? []).length }));
+" "$ETRNL_RUNS_DIR")"
+assert_json_expr "partial bundle records only task fields" "$partial_ledger_json" '.task.id == "T-partial" and .task.status == "in_progress" and .agentCount == 0'
+reopen_tier2_ledger_path="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-reopen-tier2 --plan "$ROOT/hooks/fixtures/plans/good-plan.md" --cwd "$ROOT")"
+assert_file "execution ledger reopen tier2 init creates file" "$reopen_tier2_ledger_path"
+node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-reopen-tier2 --task T-review --status reviewing --lineage wave-1.T-review --packet-hash cap123
+for _ in 1 2 3; do
+  assert_command "record-review tier2 reopen round $_ accepted" node "$ROOT/scripts/execution-ledger.mjs" record-review --session fixture-reopen-tier2 --reviewer etrnl-spec-reviewer --task T-review --lineage wave-1.T-review --packet-hash cap123 --status verified
+done
+if reopen_tier2_out="$(node "$ROOT/scripts/execution-ledger.mjs" record-review --session fixture-reopen-tier2 --reviewer etrnl-spec-reviewer --task T-review --lineage wave-1.T-review --packet-hash cap123 --status verified 2>&1)"; then
+  not_ok "record-review tier2 rejects reopen beyond cap"
+else
+  assert_contains "record-review tier2 reopen cap message" "$reopen_tier2_out" "reopen cap"
+fi
+reopen_tier3_ledger_path="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-reopen-tier3 --plan "$tier3_reopen_plan" --cwd "$ROOT")"
+assert_file "execution ledger reopen tier3 init creates file" "$reopen_tier3_ledger_path"
+node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-reopen-tier3 --task T-review --status reviewing --lineage wave-1.T-review --packet-hash cap456
+for _ in 1 2 3 4 5; do
+  assert_command "record-review tier3 reopen round $_ accepted" node "$ROOT/scripts/execution-ledger.mjs" record-review --session fixture-reopen-tier3 --reviewer etrnl-quality-reviewer --task T-review --lineage wave-1.T-review --packet-hash cap456 --status verified
+done
+if reopen_tier3_out="$(node "$ROOT/scripts/execution-ledger.mjs" record-review --session fixture-reopen-tier3 --reviewer etrnl-quality-reviewer --task T-review --lineage wave-1.T-review --packet-hash cap456 --status verified 2>&1)"; then
+  not_ok "record-review tier3 rejects reopen beyond cap"
+else
+  assert_contains "record-review tier3 reopen cap message" "$reopen_tier3_out" "reopen cap"
+fi
+reopen_override_ledger_path="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-reopen-override --plan "$ROOT/hooks/fixtures/plans/good-plan.md" --cwd "$ROOT")"
+node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-reopen-override --task T-review --status reviewing --lineage wave-1.T-review --packet-hash cap789
+for _ in 1 2 3; do
+  node "$ROOT/scripts/execution-ledger.mjs" record-review --session fixture-reopen-override --reviewer etrnl-spec-reviewer --task T-review --lineage wave-1.T-review --packet-hash cap789 --status verified >/dev/null
+done
+if node "$ROOT/scripts/execution-ledger.mjs" record-review --session fixture-reopen-override --reviewer etrnl-spec-reviewer --task T-review --lineage wave-1.T-review --packet-hash cap789 --status verified >/dev/null 2>&1; then
+  not_ok "record-review tier2 blocks cap exceed without override"
+else
+  ok "record-review tier2 blocks cap exceed without override"
+fi
+assert_command "record-review override accepts reopen beyond cap" node "$ROOT/scripts/execution-ledger.mjs" record-review --session fixture-reopen-override --reviewer etrnl-spec-reviewer --task T-review --lineage wave-1.T-review --packet-hash cap789 --status verified --override-owner-approved "owner approved extra reopen for fixture"
+
 doc_health_bad_state="$(jq -nc '{requestedSkills:[{value:"etrnl-audit-docs",at:"2026-01-01T00:00:00Z"}],successfulCommands:[],verificationRuns:[] }')"
 doc_health_bad_status="$(jq -cn --argjson state "$doc_health_bad_state" --arg message "Done, docs look fine." '{state:$state,message:$message}' | node "$ROOT/scripts/documentation-health-ledger-check.mjs")"
 if [[ "$doc_health_bad_status" == "missing-inventory" ]]; then ok "documentation health checker requires inventory"; else not_ok "documentation health checker requires inventory: $doc_health_bad_status"; fi

@@ -1318,6 +1318,35 @@ else
   ok "check-stop rejects mismatched treeHash ledger check"
 fi
 
+gate_auto_no_ledger="$(jq -cn --arg root "$ROOT" '{session_id:"fixture-gate-no-ledger",tool_name:"Bash",status:"success",cwd:$root,tool_input:{command:"bash tests/test-hooks.sh"}}')"
+if run_hook cc-posttoolbatch-observer.sh "$gate_auto_no_ledger" >/dev/null 2>&1; then
+  ok "posttool observer exits 0 without active ledger on gate command"
+else
+  not_ok "posttool observer exits 0 without active ledger on gate command"
+fi
+node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-gate-auto --cwd "$ROOT" >/dev/null
+gate_auto_allowlisted="$(jq -cn --arg root "$ROOT" '{session_id:"fixture-gate-auto",tool_name:"Bash",status:"success",cwd:$root,tool_input:{command:"bash tests/test-hooks.sh"}}')"
+run_hook cc-posttoolbatch-observer.sh "$gate_auto_allowlisted" >/dev/null || true
+sleep 0.3
+gate_auto_ledger_path="$(node --input-type=module -e "
+import fs from 'node:fs';
+import path from 'node:path';
+const pointer = JSON.parse(fs.readFileSync(path.join(process.argv[1], 'current-fixture-gate-auto.json'), 'utf8'));
+process.stdout.write(pointer.path);
+" "$ETRNL_RUNS_DIR")"
+gate_auto_ledger_json="$(jq -c . "$gate_auto_ledger_path")"
+assert_json_expr "posttool observer auto-records allowlisted gate check" "$gate_auto_ledger_json" 'any(.checks[]; .command == "bash tests/test-hooks.sh" and .treeHash != null and (.treeHash | length) > 0)'
+gate_auto_non_allowlisted="$(jq -cn --arg root "$ROOT" '{session_id:"fixture-gate-auto",tool_name:"Bash",status:"success",cwd:$root,tool_input:{command:"pnpm test"}}')"
+checks_before="$(jq '.checks | length' "$gate_auto_ledger_path")"
+run_hook cc-posttoolbatch-observer.sh "$gate_auto_non_allowlisted" >/dev/null || true
+sleep 0.3
+checks_after="$(jq '.checks | length' "$gate_auto_ledger_path")"
+if [[ "$checks_before" == "$checks_after" ]]; then
+  ok "posttool observer ignores non-allowlisted gate command"
+else
+  not_ok "posttool observer ignores non-allowlisted gate command (before=$checks_before after=$checks_after)"
+fi
+
 node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-session-status --plan "$ROOT/hooks/fixtures/plans/good-plan.md" >/dev/null
 node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-session-status --task T1 --title Task --status in_progress
 status_session_json="$(jq -cn '{session_id:"fixture-session-status",hook_event_name:"SessionStart"}')"
