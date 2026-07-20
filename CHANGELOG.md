@@ -8,6 +8,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Removed
+
+### Security
+
+### Deprecated
+
+## v0.7.0
+
+2026-07-20
+
+
+### Added
+
 - New tunable env vars, now documented in `docs/configuration.md` and `docs/guards.md`: `ETRNL_SKILL_UPDATE_CHECK`/`ETRNL_SKILL_UPDATE_TIMEOUT_SEC`/`ETRNL_SKILL_UPDATE_MAX_CHARS` (prompt-router per-prompt skill-update check), `ETRNL_LEARNING_HINTS` and the SessionStart learning-hint controls (pretool project bug-memory hints), `CLAUDE_GUARD_FILE_SPRAWL` (opt-in new-source-file sprawl guard), `CLAUDE_GUARD_LOCK_STALE_SECS` (guard state-lock stale-reap window), and `ETRNL_BACKUP_RETENTION` (installer backup pruning).
 - Installer and rollback safety hardening in `scripts/install.sh` and `scripts/rollback-local.sh`: an `ERR` trap now prints the exact `rollback-local.sh <backup-dir>` command on any mid-install failure and is cleared once the state check and canary pass so trailing best-effort steps cannot print a misleading failure notice; install now backs up the wider hook set (non-critical top-level hooks and `hooks/lib/` libraries) plus the `hooks/fixtures/` and `tests/fixtures/` trees before pruning, and rollback restores all of them; a hook that was symlinked to an external file is backed up and restored as a link — never dereferenced onto its target — and the overlay unlinks such a link before writing so `cp` cannot clobber the referent (both the critical and wider restore loops use `cp -P`, and the wider restore now clears the destination with `rm -rf` so a backed-up symlink restores cleanly even where the overlay had materialized a real directory); a symlinked stack root (`hooks/`, `skills/`, `rules/`, Codex `skills/`) is now rejected up front in both `--dry-run` and the real install (`rules/` because `rules/etrnl` and `rules/eternal-saas/*` are `cp -R` subtree swaps under `$TARGET/rules`; `agents`/`commands` are file-by-file copies and are exempt) — `find` skips a symlinked root and the overlay `cp -R` would write through it and clobber the off-tree target — and dangling or symlinked `hooks/fixtures`/`tests/fixtures` trees are detected with `-e || -L`, captured with `cp -RP`, and restored as links (with a backup-keyed new-source check so a pre-install fixtures link is never mistaken for install-created and removed); a success-path prune keeps the newest `ETRNL_BACKUP_RETENTION` (default 5) install backups; `--dry-run` now asserts install preconditions (`node`/`jq` on PATH, each target home or its nearest existing ancestor both writable and a directory — a nearest existing ancestor that is a regular file, or an existing target that is not a directory, is rejected) before reporting success; and rollback now removes the files this install newly created (source hooks and freshly-created `hooks/fixtures/`/`tests/fixtures/` trees with no pre-install counterpart, recorded in a per-backup `new-source-paths.txt` manifest) so a revert returns to true pre-install absence, while every pre-existing file (restored from backup) and user-added file (never shipped in source) is preserved; that manifest-driven removal is subtree-scoped and `..`-rejected, and guards its `rm -rf` with `${ROOT:?}` so an empty root can never escape the install home.
 
@@ -43,13 +60,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - `docs/eternal-stack-coverage.md` — the "Agent templates" row now enumerates all 11 default-installed `etrnl-*` agents by concrete identifier (matching `OWNED_AGENTS` in `scripts/lib/skill-lists.sh`) with a role annotation each, instead of the ambiguous `executor/reviewer/investigator/scout/adversary/design/DX/browser QA` abbreviation that hid the two distinct reviewer agents (`etrnl-spec-reviewer`, `etrnl-quality-reviewer`) behind a single "reviewer" label.
 - `skills/etrnl-router/SKILL.md` — the `etrnl-deep-audit` routing row is reachable again: the `etrnl-audit-code` row no longer shares the "no-skips whole-surface audit" wording that shadowed it under first-match routing. `etrnl-audit-code` now reads as a single-pass whole-codebase code-health audit and `etrnl-deep-audit` as a cross-family audit spanning code + security + performance + docs + production + tooling.
 
-### Removed
-
 ### Security
 
 - The privacy banned-token denylist moved out of the tracked `rules-manifest.json` (`bannedTokens` now empty, with a new `bannedTokensSource` pointer) into a gitignored `rules-manifest.local.json` overlay, so client/project names never enter version control. `scripts/sync-rule-exports.mjs` reads the overlay, unions it with the manifest list, and now also scans `rules-manifest.json` itself and the `tests/` tree — including `.mjs`/`.js`/`.cjs`/`.ts` test surfaces, not just shell/JSON fixtures — for banned tokens, the surfaces the per-module scan never covered, warning (not failing) when the overlay is absent so fresh clones and CI still pass. `scripts/doctor.sh` reports the privacy gate active via the overlay pointer only when the overlay actually holds a non-empty array of string `bannedTokens` (an empty or malformed overlay fails the gate rather than reporting a false-healthy denylist). A top-level `null` overlay is treated as unusable via optional chaining (`parsed?.bannedTokens`) rather than dereferenced, so it degrades to the "privacy denylist inactive" warning instead of crashing the sync with a `TypeError`.
-
-### Deprecated
 
 ## v0.6.0
 
@@ -231,4 +244,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ### Security
 
 - Public repository boundary: no private identity, credentials, transcripts, or local planning artifacts in tracked files.
+
 
