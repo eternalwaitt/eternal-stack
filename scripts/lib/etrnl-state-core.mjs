@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { execSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -108,6 +109,21 @@ function readJson(file, fallback = null) {
 /** Produce a short stable hash for privacy-preserving project and packet fingerprints. */
 export function stableHash(value) {
   return crypto.createHash("sha256").update(String(value || "unknown")).digest("hex").slice(0, 16);
+}
+
+/** Return a stable fingerprint of the git worktree at cwd, or "" when unknown. */
+export function worktreeHash(cwd = process.cwd()) {
+  try {
+    const resolved = path.resolve(String(cwd || process.cwd()));
+    const opts = { cwd: resolved, encoding: "utf8", maxBuffer: 512 * 1024, timeout: 200 };
+    const headTree = execSync("git rev-parse HEAD^{tree}", opts).trim();
+    const status = execSync("git status --porcelain=v1", opts);
+    const diff = execSync("git diff", opts);
+    const diffCached = execSync("git diff --cached", opts);
+    return crypto.createHash("sha256").update(`${headTree}\n${status}\n${diff}\n${diffCached}`).digest("hex");
+  } catch {
+    return "";
+  }
 }
 
 /** Return an ISO timestamp without millisecond noise for stable event records. */
@@ -289,6 +305,11 @@ export function normalizeEvent(raw, options = {}) {
     at: raw.at || nowIso(),
     data,
   };
+  if (eventKind === "check" && (data.category === "verification" || data.verification === true) && !data.treeHash) {
+    const hashCwd = raw.cwd || options.cwd;
+    if (hashCwd) data.treeHash = worktreeHash(path.resolve(String(hashCwd)));
+  }
+  event.data = data;
   return { ok: true, event };
 }
 
@@ -325,6 +346,21 @@ function latestEvent(events, predicate) {
   })[0] || null;
 }
 
+function isVerificationCheckEvent(event) {
+  return event.eventKind === "check"
+    && (event.data?.category === "verification" || event.data?.verification === true)
+    && event.data?.status !== "failed";
+}
+
+function verificationStaleAfterCompact(sessionEvents, compactSeq, checkSeq, cwd) {
+  if (compactSeq <= checkSeq) return false;
+  const currentHash = worktreeHash(cwd);
+  const latestCheck = latestEvent(sessionEvents, isVerificationCheckEvent);
+  const checkTreeHash = String(latestCheck?.data?.treeHash || "");
+  if (!currentHash || !checkTreeHash) return true;
+  return currentHash !== checkTreeHash;
+}
+
 /** Build the latest compact handoff packet and verification-staleness signal. */
 export function compactHandoff(options = {}) {
   const root = stateRoot(options.stateDir);
@@ -341,10 +377,14 @@ export function compactHandoff(options = {}) {
   const sessionEvents = events.filter((event) => event.sessionId === sessionId);
   const latestPre = latestEvent(sessionEvents, (event) => event.eventKind === "compact_pre");
   const latestPost = latestEvent(sessionEvents, (event) => event.eventKind === "compact_post");
-  const latestCheck = latestEvent(sessionEvents, (event) => event.eventKind === "check" && (event.data.category === "verification" || event.data.verification === true));
+  const latestCheck = latestEvent(sessionEvents, isVerificationCheckEvent);
   const latestCompactForSession = Number(latestPre?.eventSeq || 0) > Number(latestPost?.eventSeq || 0) ? latestPre : latestPost;
   const compactSeq = Number(latestCompactForSession?.eventSeq || 0);
   const checkSeq = Number(latestCheck?.eventSeq || 0);
+  const hashCwd = options.cwd || process.cwd();
+  const currentTreeHash = worktreeHash(hashCwd);
+  const latestVerificationTreeHash = String(latestCheck?.data?.treeHash || "");
+  const verificationStale = verificationStaleAfterCompact(sessionEvents, compactSeq, checkSeq, hashCwd);
   const summary = latestCompactForSession?.data.compactSummary || latestCompactForSession?.data.summary || "summary_missing";
   const nextAction = latestCompactForSession?.data.nextAction || "resume from the compact handoff";
   const task = latestCompactForSession?.data.task || latestCompactForSession?.data.plan || "active ETRNL work";
@@ -352,7 +392,10 @@ export function compactHandoff(options = {}) {
     sessionId,
     compactEventSeq: compactSeq,
     latestVerificationEventSeq: checkSeq,
-    verificationStale: compactSeq > checkSeq,
+    verificationStale,
+    currentTreeHash,
+    latestVerificationTreeHash,
+    treeHashAtCompact: String(latestPost?.data?.treeHashAtCompact || latestCompactForSession?.data?.treeHashAtCompact || ""),
     task,
     nextAction,
     summary,
@@ -371,6 +414,8 @@ export function stopStatus(options = {}) {
     staleVerificationAfterCompact: stale,
     blockReason: stale ? "Verification is stale after compact. Rerun the relevant verification gate before claiming completion." : "",
     handoff: handoff.handoff,
+    currentTreeHash: handoff.handoff?.currentTreeHash || "",
+    latestVerificationTreeHash: handoff.handoff?.latestVerificationTreeHash || "",
   };
 }
 

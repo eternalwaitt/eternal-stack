@@ -41,6 +41,46 @@ cc_etrnl_state_available() {
   command -v node >/dev/null 2>&1 && [[ -f "$(cc_etrnl_state_script)" ]]
 }
 
+cc_worktree_hash() {
+  local target_cwd="${1:-$(pwd -P)}"
+  local repo_root
+  repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd -P)"
+  node --input-type=module -e "
+import { worktreeHash } from 'file://${repo_root}/scripts/lib/etrnl-state-core.mjs';
+process.stdout.write(worktreeHash(process.argv[1]));
+" "$target_cwd" 2>/dev/null || true
+}
+
+cc_tree_hash_verification_fresh() {
+  local current_hash="$1"
+  local last_green_hash="$2"
+  [[ -n "$current_hash" && -n "$last_green_hash" && "$current_hash" == "$last_green_hash" ]]
+}
+
+cc_ledger_latest_verification_tree_hash() {
+  local session_id="$1"
+  local repo_root
+  repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd -P)"
+  node --input-type=module -e "
+import fs from 'node:fs';
+import path from 'node:path';
+import { safeId } from 'file://${repo_root}/scripts/lib/evidence-trace.mjs';
+const runsDir = process.env.ETRNL_RUNS_DIR || path.join(process.env.CLAUDE_HOME || path.join(process.env.HOME || '', '.claude'), 'etrnl', 'runs');
+const pointer = path.join(runsDir, 'current-' + safeId(process.argv[1]) + '.json');
+let ledgerPath = '';
+try {
+  ledgerPath = JSON.parse(fs.readFileSync(pointer, 'utf8')).path || '';
+} catch {
+  process.exit(0);
+}
+if (!ledgerPath) process.exit(0);
+const ledger = JSON.parse(fs.readFileSync(ledgerPath, 'utf8'));
+const passed = (ledger.checks || []).filter((check) => check.status === 'passed' && check.treeHash);
+if (passed.length === 0) process.exit(0);
+process.stdout.write(String(passed[passed.length - 1].treeHash || ''));
+" "$session_id" 2>/dev/null || true
+}
+
 cc_etrnl_state_append_json() {
   local payload="$1"
   local output status

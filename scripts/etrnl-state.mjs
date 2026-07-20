@@ -109,6 +109,7 @@ function commandCompactHandoff() {
     session,
     latest: args.includes("--latest") || !session,
     maxChars,
+    cwd,
   });
   emit(jsonMode ? result : result.text);
 }
@@ -149,7 +150,7 @@ function commandDoctor() {
 }
 
 function commandStopStatus() {
-  const result = stopStatus({ stateDir, session, latest: args.includes("--latest") || !session });
+  const result = stopStatus({ stateDir, session, latest: args.includes("--latest") || !session, cwd });
   emit(jsonMode ? result : result.blockReason);
   if (result.staleVerificationAfterCompact) fail("stale verification after compact", 1);
 }

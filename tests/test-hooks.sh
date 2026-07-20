@@ -1234,7 +1234,7 @@ assert_json_expr "precompact writes durable ETRNL state without raw prompt" "$(j
 postcompact_json="$(jq -cn '{session_id:"fixture-session",hook_event_name:"PostCompact",summary:"compact persisted"}')"
 run_hook cc-postcompact-record.sh "$postcompact_json" >/dev/null
 assert_json_expr "postcompact records recovery metadata" "$(jq -c . "$TMPROOT/claude-guard-fixture-session.json")" '.lastCompactSummary == "compact persisted" and .lastCompactAt != "" and .compactCount == 1'
-assert_json_expr "postcompact marks durable verification stale" "$(jq -s -c . "$ETRNL_STATE_DIR/events.jsonl")" 'any(.[]; .eventKind == "compact_post" and .sessionId == "fixture-session" and .data.verificationStale == true)'
+assert_json_expr "postcompact records compact tree hash" "$(jq -s -c . "$ETRNL_STATE_DIR/events.jsonl")" 'any(.[]; .eventKind == "compact_post" and .sessionId == "fixture-session" and ((.data.treeHashAtCompact // "") | length) > 0)'
 session_json="$(jq -cn '{session_id:"fixture-session",hook_event_name:"SessionStart",source:"compact"}')"
 out="$(run_hook cc-sessionstart-restore.sh "$session_json")"
 assert_json_expr "session compact restores context" "$out" '.hookSpecificOutput.additionalContext | test("Compact recovery")'
@@ -1244,6 +1244,79 @@ jq '.edits["/tmp/compact-risk.ts"] = "2026-01-01T00:00:02Z"' "$TMPROOT/claude-gu
 compact_stale_stop="$(jq -cn '{session_id:"fixture-session",last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$compact_stale_stop")"
 assert_contains "stop verifier blocks stale compact verification" "$out" "Verification is stale after compact"
+
+treehash_fixture_repo() {
+  local dir="$1"
+  mkdir -p "$dir/src"
+  git -C "$dir" init -q
+  git -C "$dir" config user.email "fixture@example.com"
+  git -C "$dir" config user.name "Fixture"
+  printf 'export const value = 1;\n' >"$dir/src/app.ts"
+  git -C "$dir" add -A
+  git -C "$dir" commit -q -m "init"
+}
+
+treehash_current() {
+  node --input-type=module -e "
+import { worktreeHash } from 'file://$ROOT/scripts/lib/etrnl-state-core.mjs';
+process.stdout.write(worktreeHash(process.argv[1]));
+" "$1"
+}
+
+treehash_unchanged_repo="$TMPROOT/treehash-unchanged-repo"
+treehash_fixture_repo "$treehash_unchanged_repo"
+treehash_unchanged_hash="$(treehash_current "$treehash_unchanged_repo")"
+treehash_unchanged_state_dir="$TMPROOT/etrnl-treehash-unchanged"
+mkdir -p "$treehash_unchanged_state_dir"
+printf '%s\n' "{\"eventKind\":\"check\",\"sessionId\":\"fixture-treehash-unchanged\",\"at\":\"2026-01-01T00:00:01Z\",\"cwd\":\"$treehash_unchanged_repo\",\"data\":{\"category\":\"verification\",\"verification\":true,\"status\":\"passed\",\"treeHash\":\"$treehash_unchanged_hash\"}}" \
+  | ETRNL_STATE_DIR="$treehash_unchanged_state_dir" node "$ROOT/scripts/etrnl-state.mjs" append --json >/dev/null
+printf '%s\n' "{\"eventKind\":\"compact_post\",\"sessionId\":\"fixture-treehash-unchanged\",\"at\":\"2026-01-01T00:00:02Z\",\"cwd\":\"$treehash_unchanged_repo\",\"data\":{\"compactSummary\":\"unchanged handoff\",\"treeHashAtCompact\":\"$treehash_unchanged_hash\"}}" \
+  | ETRNL_STATE_DIR="$treehash_unchanged_state_dir" node "$ROOT/scripts/etrnl-state.mjs" append --json >/dev/null
+treehash_unchanged_guard="$TMPROOT/claude-guard-fixture-treehash-unchanged.json"
+jq -nc --arg root "$treehash_unchanged_repo" --arg app "$treehash_unchanged_repo/src/app.ts" \
+  '{schemaVersion:4,reads:{},searches:{},edits:{($app):"2026-01-01T00:00:02Z"},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[{value:"pnpm test",at:"2026-01-01T00:00:01Z"}],qualityRuns:[{value:"pnpm test",at:"2026-01-01T00:00:01Z"}],testRuns:[{value:"pnpm test",at:"2026-01-01T00:00:01Z"}],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:false,planExecutionRequestedAt:"",lastPrompt:"",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' \
+  >"$treehash_unchanged_guard"
+treehash_unchanged_stop="$(jq -cn --arg root "$treehash_unchanged_repo" '{session_id:"fixture-treehash-unchanged",cwd:$root,last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"
+out="$(ETRNL_STATE_DIR="$treehash_unchanged_state_dir" run_hook cc-stop-verifier.sh "$treehash_unchanged_stop")"
+if [[ -z "$out" ]]; then ok "stop verifier allows compact with unchanged worktree hash"; else not_ok "stop verifier allows compact with unchanged worktree hash: $out"; fi
+
+treehash_changed_repo="$TMPROOT/treehash-changed-repo"
+treehash_fixture_repo "$treehash_changed_repo"
+treehash_changed_before="$(treehash_current "$treehash_changed_repo")"
+treehash_changed_state_dir="$TMPROOT/etrnl-treehash-changed"
+mkdir -p "$treehash_changed_state_dir"
+printf '%s\n' "{\"eventKind\":\"check\",\"sessionId\":\"fixture-treehash-changed\",\"at\":\"2026-01-01T00:00:01Z\",\"cwd\":\"$treehash_changed_repo\",\"data\":{\"category\":\"verification\",\"verification\":true,\"status\":\"passed\",\"treeHash\":\"$treehash_changed_before\"}}" \
+  | ETRNL_STATE_DIR="$treehash_changed_state_dir" node "$ROOT/scripts/etrnl-state.mjs" append --json >/dev/null
+printf 'export const value = 2;\n' >"$treehash_changed_repo/src/app.ts"
+printf '%s\n' "{\"eventKind\":\"compact_post\",\"sessionId\":\"fixture-treehash-changed\",\"at\":\"2026-01-01T00:00:02Z\",\"cwd\":\"$treehash_changed_repo\",\"data\":{\"compactSummary\":\"changed handoff\",\"treeHashAtCompact\":\"$(treehash_current "$treehash_changed_repo")\"}}" \
+  | ETRNL_STATE_DIR="$treehash_changed_state_dir" node "$ROOT/scripts/etrnl-state.mjs" append --json >/dev/null
+treehash_changed_guard="$TMPROOT/claude-guard-fixture-treehash-changed.json"
+jq -nc --arg root "$treehash_changed_repo" --arg app "$treehash_changed_repo/src/app.ts" \
+  '{schemaVersion:4,reads:{},searches:{},edits:{($app):"2026-01-01T00:00:03Z"},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[{value:"pnpm test",at:"2026-01-01T00:00:01Z"}],qualityRuns:[{value:"pnpm test",at:"2026-01-01T00:00:01Z"}],testRuns:[{value:"pnpm test",at:"2026-01-01T00:00:01Z"}],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:false,planExecutionRequestedAt:"",lastPrompt:"",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' \
+  >"$treehash_changed_guard"
+treehash_changed_stop="$(jq -cn --arg root "$treehash_changed_repo" '{session_id:"fixture-treehash-changed",cwd:$root,last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"
+out="$(ETRNL_STATE_DIR="$treehash_changed_state_dir" run_hook cc-stop-verifier.sh "$treehash_changed_stop")"
+assert_contains "stop verifier blocks compact with changed worktree hash" "$out" "Verification is stale after compact"
+
+treehash_ledger_repo="$TMPROOT/treehash-ledger-repo"
+treehash_fixture_repo "$treehash_ledger_repo"
+node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-treehash-ledger --cwd "$treehash_ledger_repo" >/dev/null
+node "$ROOT/scripts/execution-ledger.mjs" record-check --session fixture-treehash-ledger --name final --command "pnpm test" --status passed
+ledger_path="$(node --input-type=module -e "
+import fs from 'node:fs';
+import path from 'node:path';
+const pointer = JSON.parse(fs.readFileSync(path.join(process.argv[1], 'current-fixture-treehash-ledger.json'), 'utf8'));
+process.stdout.write(pointer.path);
+" "$ETRNL_RUNS_DIR")"
+ledger_json="$(jq -c . "$ledger_path")"
+assert_json_expr "record-check stamps treeHash on ledger checks" "$ledger_json" '.checks[-1].treeHash != null and (.checks[-1].treeHash | length) > 0'
+assert_command "check-stop accepts matching-hash ledger check" node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-treehash-ledger
+printf 'export const value = 99;\n' >"$treehash_ledger_repo/src/app.ts"
+if node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-treehash-ledger >/dev/null 2>&1; then
+  not_ok "check-stop rejects mismatched treeHash ledger check"
+else
+  ok "check-stop rejects mismatched treeHash ledger check"
+fi
 
 node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-session-status --plan "$ROOT/hooks/fixtures/plans/good-plan.md" >/dev/null
 node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-session-status --task T1 --title Task --status in_progress

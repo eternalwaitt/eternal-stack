@@ -5,6 +5,7 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { argValue as readArgValue } from "./lib/cli-args.mjs";
 import { nowIso, safeId } from "./lib/evidence-trace.mjs";
+import { worktreeHash } from "./lib/etrnl-state-core.mjs";
 import { readStdinRaw } from "./lib/read-stdin.mjs";
 
 const STATUSES = new Set(["pending", "in_progress", "reviewing", "changes_requested", "verified", "blocked", "skipped"]);
@@ -281,6 +282,20 @@ function requiredEvidenceErrors(ledger) {
   return errors;
 }
 
+function worktreeCheckErrors(ledger) {
+  const errors = [];
+  const passedChecks = (ledger.checks ?? []).filter((check) => check.status === "passed");
+  if (passedChecks.length === 0) return errors;
+  const stamped = passedChecks.filter((check) => check.treeHash);
+  if (stamped.length === 0) return errors;
+  const currentHash = worktreeHash(ledger.cwd || process.cwd());
+  if (!currentHash) return errors;
+  if (!passedChecks.some((check) => check.treeHash === currentHash)) {
+    errors.push("verification checks are stale for the current worktree");
+  }
+  return errors;
+}
+
 function completionErrors(ledger, options = {}) {
   const errors = validateLedger(ledger);
   const tasks = ledger.tasks ?? [];
@@ -302,6 +317,7 @@ function completionErrors(ledger, options = {}) {
   if (Number(ledger.uatOpenFindings || 0) > 0) errors.push(`open UAT findings: ${ledger.uatOpenFindings}`);
   if ((ledger.checks ?? []).length === 0) errors.push("no verification checks recorded");
   if (failedChecks.length > 0) errors.push(`verification checks not passed: ${failedChecks.join(", ")}`);
+  errors.push(...worktreeCheckErrors(ledger));
   if (options.requireTasks && tasks.length === 0) errors.push("no execution tasks recorded");
   if (options.requirePlanPhases && !ledger.planPath) errors.push("no plan path recorded");
   if (options.requirePlanPhases && phases.length === 0) errors.push("no plan phases recorded");
@@ -621,7 +637,14 @@ function recordCheck() {
   const file = currentLedgerOrFail();
   updateJson(file, (ledger) => {
     ledger.checks = ledger.checks ?? [];
-    ledger.checks.push({ name, command: commandText, status, outputSummary: argValue("--summary"), at: nowIso() });
+    ledger.checks.push({
+      name,
+      command: commandText,
+      status,
+      outputSummary: argValue("--summary"),
+      at: nowIso(),
+      treeHash: worktreeHash(ledger.cwd || process.cwd()),
+    });
     ledger.updatedAt = nowIso();
     appendEvent(ledger, "check.recorded", { name, status });
     return ledger;

@@ -400,7 +400,7 @@ if [[ "$claims_done" == "true" ]]; then
     elif command -v gtimeout >/dev/null 2>&1; then
       timeout_cmd=(gtimeout 5)
     fi
-    stop_status_cmd=("${timeout_cmd[@]}" node "$(cc_etrnl_state_script)" stop-status --session "$(cc_session_id)" --json)
+    stop_status_cmd=("${timeout_cmd[@]}" node "$(cc_etrnl_state_script)" stop-status --session "$(cc_session_id)" --json --cwd "$cwd")
     if ! stop_status_json="$("${stop_status_cmd[@]}" 2>"$stop_err_file")"; then
       stop_err="$(head -n 1 "$stop_err_file" 2>/dev/null || true)"
       stop_reason="ETRNL stop-status check failed. Verification is stale after compact."
@@ -419,6 +419,16 @@ if [[ "$claims_done" == "true" ]]; then
       exit 0
     fi
     stop_reason="$(jq -r 'if .staleVerificationAfterCompact == true then (.blockReason // .message // "Verification is stale after compact.") else "" end' <<<"$stop_status_json")"
+    if [[ -n "$stop_reason" ]]; then
+      current_tree_hash="$(cc_worktree_hash "$cwd")"
+      last_green_tree_hash="$(jq -r '.latestVerificationTreeHash // .handoff.latestVerificationTreeHash // ""' <<<"$stop_status_json")"
+      if [[ -z "$last_green_tree_hash" ]]; then
+        last_green_tree_hash="$(cc_ledger_latest_verification_tree_hash "$(cc_session_id)")"
+      fi
+      if cc_tree_hash_verification_fresh "$current_tree_hash" "$last_green_tree_hash"; then
+        stop_reason=""
+      fi
+    fi
     if [[ -n "$stop_reason" ]]; then
       if cc_plan_execution_requested || cc_state_has_edits; then
         cc_json_block "$stop_reason"
@@ -660,8 +670,18 @@ else:
     exit 0
   fi
   if [[ "$trivial_diff" != "true" && "$timestamp_status" == "stale" ]]; then
-    cc_json_block "You are trying to claim completion with stale verification. Edits happened after the last recorded verification. Re-run the project preflight or the plan's final verification gate, then answer with evidence."
-    exit 0
+    current_tree_hash="$(cc_worktree_hash "$cwd")"
+    last_green_tree_hash=""
+    if [[ -n "${stop_status_json:-}" ]] && jq -e . >/dev/null 2>&1 <<<"${stop_status_json:-}"; then
+      last_green_tree_hash="$(jq -r '.latestVerificationTreeHash // .handoff.latestVerificationTreeHash // ""' <<<"$stop_status_json")"
+    fi
+    if [[ -z "$last_green_tree_hash" ]]; then
+      last_green_tree_hash="$(cc_ledger_latest_verification_tree_hash "$(cc_session_id)")"
+    fi
+    if ! cc_tree_hash_verification_fresh "$current_tree_hash" "$last_green_tree_hash"; then
+      cc_json_block "You are trying to claim completion with stale verification. Edits happened after the last recorded verification. Re-run the project preflight or the plan's final verification gate, then answer with evidence."
+      exit 0
+    fi
   fi
   if [[ "$timestamp_status" == "missing-quality" ]]; then
     cc_json_block "You are trying to claim completion without real quality verification after source edits. Run the relevant lint, typecheck, test, or build command; browser/curl checks alone do not prove code quality."
