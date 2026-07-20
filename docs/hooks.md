@@ -122,7 +122,7 @@ Runs on every user prompt before the model sees it.
 - Detects `/etrnl-*` and related slash commands; records `requestedSkills` in session state.
 - Reinjects global `~/.claude/CLAUDE.md` and project `CLAUDE.md` / `AGENTS.md` hierarchy once per session (tunable via `ETRNL_INJECT_CLAUDE_MD`).
 - Applies keyword routing hints for bundled backend-pattern workflows.
-- When `update-check.mjs` reports stale repo-owned skills or tool stack, may inject a short confirmation before honoring a requested `etrnl-*` skill.
+- When `update-check.mjs` reports stale repo-owned skills or tool stack, injects a short informational note (local updates auto-applied; remote/tool-stack items informational only) and continues honoring the requested `etrnl-*` skill without stopping to ask.
 
 Fail-open: skips context injection on parse or state errors.
 

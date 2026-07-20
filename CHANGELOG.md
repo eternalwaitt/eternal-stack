@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Changed
 
+- Skill-update flow is now non-blocking so the agent never stops to ask about updates. Local Eternal Stack updates still auto-apply silently (`update-check.mjs --auto`, unless `ETRNL_AUTO_UPDATE=0` or the source checkout is dirty); any remaining remote/tool-stack updates are surfaced as informational only and the agent continues the requested work. Rewrote the "on update, ask update/snooze/continue" clause in all 30 `etrnl-*` `SKILL.md` startup lines, the prompt-router skill-update note (`hooks/cc-userprompt-router.sh`), the SessionStart update hint (`hooks/cc-sessionstart-restore.sh`), and the `scripts/skill-update-prompt.mjs` emit to a non-blocking directive ("never stop to ask; local updates auto-apply when enabled and safe" — the runtime notes stay neutral about local application since it is skipped on a dirty checkout or when `ETRNL_AUTO_UPDATE=0`). Documented in `docs/configuration.md`, `docs/install.md`, `docs/hooks.md`, and `docs/health-stack.md`.
+
 ### Fixed
 
 ### Removed

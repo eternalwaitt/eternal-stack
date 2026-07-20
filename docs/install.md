@@ -125,7 +125,7 @@ Startup update checks are cached and local-first.
 - `ETRNL_REMOTE_UPDATE_CHECK=1`: also check the git upstream.
 - `ETRNL_AUTO_UPDATE=0`: disable automatic local etrnl repair from the recorded source checkout. Local auto-update is enabled by default when the installed fingerprint is stale.
 - `ETRNL_TOOL_UPDATE_CHECK=0`: disable CodeGraph/Beads checks inside update-check.
-- `ETRNL_SKILL_UPDATE_CHECK=0`: disable the per-skill update prompt.
+- `ETRNL_SKILL_UPDATE_CHECK=0`: disable the per-skill update check entirely. When enabled (default) the check is non-blocking — it auto-applies local updates and continues the requested work without ever stopping to ask update/snooze/continue.
 
 Tool bootstrap:
 
@@ -148,4 +148,4 @@ Every requested Claude `etrnl-*` skill invocation runs the installed update chec
 
 Codex does not expose the same prompt-submit hook in the current CLI, so every repo-owned Codex skill starts with `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill <skill>`.
 
-If the local Eternal Stack is stale, the helper auto-updates from the recorded source checkout before the skill runs. It only prompts for remaining remote or tool-stack choices, such as a pull, CodeGraph, or Beads bootstrap, that cannot be safely completed as local repair.
+If the local Eternal Stack is stale, the helper auto-updates from the recorded source checkout before the skill runs. Any remaining remote or tool-stack items (a pull, CodeGraph, or Beads bootstrap) that cannot be completed as local repair are surfaced as informational notes only — the helper never stops to ask before running the skill.

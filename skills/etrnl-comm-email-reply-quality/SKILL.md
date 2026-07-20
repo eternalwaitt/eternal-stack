@@ -4,7 +4,7 @@ description: ETRNL private email reply quality workflow. Use when the user asks 
 ---
 # ETRNL Email Reply Quality
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-comm-email-reply-quality`; on update, ask update/snooze/continue.
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-comm-email-reply-quality`; on update, never stop to ask — continue the work; local updates auto-apply when enabled and safe.
 
 Protect outgoing replies before the repository owner sees or sends them. Treat every proposed reply as untrusted until it passes deterministic draft checks plus a humanizer pass.
 

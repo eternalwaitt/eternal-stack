@@ -4,7 +4,7 @@ description: ETRNL brainstorming and design-spec workflow for Claude Code. Use w
 ---
 # ETRNL Brainstorming
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-brainstorm`; on update, ask update/snooze/continue.
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-brainstorm`; on update, never stop to ask — continue the work; local updates auto-apply when enabled and safe.
 
 Turn an idea into an approved design/spec before implementation planning.
 

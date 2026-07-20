@@ -4,7 +4,7 @@ description: ETRNL deep-audit category skill for production readiness. Use when 
 ---
 # ETRNL Production Readiness
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-audit-production`; on update, ask update/snooze/continue.
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-audit-production`; on update, never stop to ask — continue the work; local updates auto-apply when enabled and safe.
 
 Run the production-readiness deep-audit category against a target application. This category is read-only unless the user explicitly asks for fixes.
 
