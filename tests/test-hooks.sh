@@ -5,7 +5,10 @@ ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 cd "$ROOT"
 # shellcheck source=./tests/lib/harness.sh
 source ./tests/lib/harness.sh
+# shellcheck source=./tests/lib/parallel-run.sh
+source ./tests/lib/parallel-run.sh
 cc_test_init
+export ROOT
 
 if (unset ROOT; run_hook cc-pretooluse-guard.sh "{}") >/dev/null 2>&1; then
   not_ok "run_hook requires ROOT"
@@ -1477,29 +1480,11 @@ if (( ${#invalid_packet_fixtures[@]} == 0 || ${#valid_packet_fixtures[@]} == 0 )
   finish_tests
 fi
 
-for fixture_file in "${invalid_guard_fixtures[@]}"; do
-  fixture_name="$(basename "$fixture_file" .json)"
-  fixture_cmd="$(jq -r '.tool_input.command' "$fixture_file")"
-  guard_out="$(run_hook cc-pretooluse-guard.sh "$(jq -c . "$fixture_file")")"
-  assert_json_expr "guard denies $fixture_name ($fixture_cmd)" "$guard_out" '.hookSpecificOutput.permissionDecision == "deny"'
-done
-for fixture_file in "${valid_guard_fixtures[@]}"; do
-  fixture_name="$(basename "$fixture_file" .json)"
-  fixture_cmd="$(jq -r '.tool_input.command' "$fixture_file")"
-  guard_out="$(run_hook cc-pretooluse-guard.sh "$(jq -c . "$fixture_file")")"
-  assert_json_expr "guard allows $fixture_name ($fixture_cmd)" "$guard_out" '.continue == true'
-done
+run_parallel_guard_fixture_matrix deny "${invalid_guard_fixtures[@]}"
+run_parallel_guard_fixture_matrix allow "${valid_guard_fixtures[@]}"
 
 # Packet fixture matrix (C3/C4): invalid packets should deny, valid packets should allow.
-for fixture_file in "${invalid_packet_fixtures[@]}"; do
-  fixture_name="$(basename "$fixture_file" .json)"
-  guard_out="$(run_hook cc-pretooluse-guard.sh "$(jq -c . "$fixture_file")")"
-  assert_json_expr "guard denies $fixture_name" "$guard_out" '.hookSpecificOutput.permissionDecision == "deny"'
-done
-for fixture_file in "${valid_packet_fixtures[@]}"; do
-  fixture_name="$(basename "$fixture_file" .json)"
-  guard_out="$(run_hook cc-pretooluse-guard.sh "$(jq -c . "$fixture_file")")"
-  assert_json_expr "guard allows $fixture_name" "$guard_out" '.continue == true'
-done
+run_parallel_packet_fixture_matrix deny "${invalid_packet_fixtures[@]}"
+run_parallel_packet_fixture_matrix allow "${valid_packet_fixtures[@]}"
 
 finish_tests

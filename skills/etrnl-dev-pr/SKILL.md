@@ -1,6 +1,6 @@
 ---
 name: etrnl-dev-pr
-description: ETRNL pull request workflow for Claude Code. Use only when the user explicitly asks to create or update a PR; hidden from model auto-invocation because it has side effects.
+description: ETRNL pull request workflow for Claude Code. Use only when the user explicitly asks to create or update a PR; writes dual-audience descriptions (business TL;DR/why/impact plus engineering rollout, verification, review guide); hidden from model auto-invocation because it has side effects.
 disable-model-invocation: true
 ---
 # PR
@@ -30,13 +30,44 @@ node ~/.claude/scripts/pr-preflight.mjs validate --json
 
 Re-run the copy step after source updates unless `scripts/install.sh` already refreshed the installed helper.
 
+## PR drafting workflow
+
+Agent-only workflow — no repo PR template required. The contract lives in `references/pr-description.md` and is enforced by `pr-preflight.mjs`.
+
+1. Run `node ~/.claude/scripts/pr-preflight.mjs status --json` — branch, dirty state, existing PR, checks.
+2. Run `node ~/.claude/scripts/pr-preflight.mjs template` — emit the dual-audience skeleton to fill in.
+3. Draft the title and body using `references/pr-description.md`. Delete sections with nothing meaningful to say.
+4. Validate structure before `gh pr create` or `gh pr edit`:
+
+```bash
+printf '%s' '{"title":"<title>","body":"<body>","changedFiles":["path/a","path/b"]}' \
+  | node ~/.claude/scripts/pr-preflight.mjs validate-body --json
+```
+
+Use `--strict` when the diff touches install, hooks, doctor, schemas, templates, skills, or migrations, or when the PR is large (>8 files). Fix all blockers; treat warnings as blockers under `--strict`.
+5. Create or update the PR only after `validate-body` exits 0.
+6. Re-run `validate-body` after every push that changes scope, title, or verification claims.
+
 ## PR Body
 
-1. Use the repo PR template when present.
-2. Write a terse title that matches the actual diff.
-3. Include implementation summary, verification commands/results, screenshots or artifacts when relevant, and residual risks.
-4. Link issues or plans only when the link is real and relevant.
-5. State any AI-assistance disclosure required by the target repo.
+Write for two readers: a business or product stakeholder who needs the story in the first screenful, and an engineer who needs evidence and technical depth below. Load `references/pr-description.md` for the full template, examples, and anti-patterns.
+
+1. Use the repo PR template when present; otherwise follow the default structure in `references/pr-description.md`.
+2. **Title — outcome first.** Name the user, workflow, or business result — not the refactor, file, or library. On squash-merge repos, use `type(scope): imperative outcome` when the title becomes the commit message. Match the final diff.
+3. **TL;DR — one sentence.** State what gets better for whom once this merges. Highest-read line in notifications.
+4. **Why this matters — business first.** Open with who benefits, what pain goes away, what becomes possible, or what risk drops. Add **Before / After** when narrative clarity helps. No file paths or stack jargon in this block.
+5. **What changes — promote the work honestly.** Separate **Adding**, **Changing**, and **Removing**. State `Removing: nothing` when applicable. Frame progress toward a goal, not a tour of touched paths.
+6. **Impact — name the audiences.** Call out user/customer effect (or explicit none), operator/support effect, and residual risk in plain language.
+7. **Out of scope — preempt review churn.** State what this PR deliberately does not do and where follow-up lands (issue, plan, later PR).
+8. **Technical notes — for reviewers.** Approach, touch points, compatibility, observability. Bullets, not a file dump.
+9. **Rollout & rollback — when shipping matters.** Feature flags, env vars, migrations, revert path, breaking changes. Required for install, hooks, doctor, and runtime behavior changes.
+10. **Changelog — when user-facing.** Customer-readable release note aligned with `CHANGELOG.md` and `docs/RELEASING.md`; omit for internal-only work.
+11. **Verification / test plan — prove the claims.** Paste exact commands, result lines, screenshots or artifacts when relevant, and CI state after create/update. No empty checkboxes.
+12. **Review guide — large PRs only.** Name where reviewers start and what they can skim.
+13. **Demo — UI or docs only.** Before/after screenshots or clips when visual proof helps stakeholders.
+14. Link issues or plans only when the link is real and relevant.
+15. State any AI-assistance disclosure required by the target repo.
+16. On every push that changes scope or fixes review findings, rewrite the body so it still matches the diff — especially TL;DR, `Why this matters`, `What changes`, `Rollout & rollback`, and `Verification / test plan`.
 
 ## CI And Review State
 

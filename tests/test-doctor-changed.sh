@@ -33,10 +33,22 @@ docs_groups="$(bash "$DOCTOR" --print-groups -- docs/health-stack.md 2>&1)" || t
 assert_contains "docs-only maps to docs group" "$docs_groups" "doctor-groups: deps docs"
 assert_not_contains "docs-only does not fall open to full" "$docs_groups" "fall-open"
 
-# (2) unmapped path (VERSION) falls open to full
+# (2) VERSION maps to docs + security without fall-open
 version_groups="$(bash "$DOCTOR" --print-groups -- VERSION 2>&1)" || true
-assert_contains "VERSION falls open to full" "$version_groups" "fall-open"
-assert_contains "VERSION selects all groups" "$version_groups" "doctor-groups: deps syntax hooks skills scripts docs rules schemas settings install security optional"
+assert_contains "VERSION maps to docs group" "$version_groups" "docs"
+assert_contains "VERSION maps to security group" "$version_groups" "security"
+assert_not_contains "VERSION does not fall open to full" "$version_groups" "fall-open"
+
+# (2b) unmapped root path still falls open to full
+fallopen_groups="$(bash "$DOCTOR" --print-groups -- Makefile 2>&1)" || true
+assert_contains "unmapped path falls open to full" "$fallopen_groups" "fall-open"
+assert_contains "unmapped path selects all groups" "$fallopen_groups" "doctor-groups: deps syntax hooks skills scripts docs rules schemas settings install security optional"
+
+# (2c) templates map to settings + install
+template_groups="$(bash "$DOCTOR" --print-groups -- templates/settings.json 2>&1)" || true
+assert_contains "templates map to settings group" "$template_groups" "settings"
+assert_contains "templates map to install group" "$template_groups" "install"
+assert_not_contains "templates do not fall open to full" "$template_groups" "fall-open"
 
 # (3) unchanged tree with recorded green hash exits as cache hit (clean tree only)
 cache_hash="$(treehash_for_root "$ROOT")"

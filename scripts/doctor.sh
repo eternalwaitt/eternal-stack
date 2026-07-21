@@ -3,7 +3,21 @@ set -Eeuo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 STATUS=0
-DOCTOR_JOBS="${DOCTOR_JOBS:-4}"
+doctor_detect_jobs() {
+  local n=4
+  if command -v nproc >/dev/null 2>&1; then
+    n="$(nproc 2>/dev/null || echo 4)"
+  elif command -v sysctl >/dev/null 2>&1; then
+    n="$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
+  fi
+  if [[ ! "$n" =~ ^[0-9]+$ ]] || (( n < 1 )); then
+    n=4
+  elif (( n > 8 )); then
+    n=8
+  fi
+  printf '%s\n' "$n"
+}
+DOCTOR_JOBS="${DOCTOR_JOBS:-$(doctor_detect_jobs)}"
 DOCTOR_ARGS=()
 DOCTOR_EXTRA_PATHS=()
 DOCTOR_MODE=full
@@ -14,6 +28,7 @@ DOCTOR_CHANGED_PATHS=()
 DOCTOR_CHANGED_REASONS=()
 DOCTOR_FALL_OPEN=0
 DOCTOR_CACHE_HIT=0
+DOCTOR_INSTALL_NEEDS_FULL=0
 DOCTOR_LAST_GREEN_MODE=""
 DOCTOR_GROUPS_RAN=()
 DOCTOR_ALL_GROUPS=(deps syntax hooks skills scripts docs rules schemas settings install security optional)
@@ -60,7 +75,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 if [[ ! "$DOCTOR_JOBS" =~ ^[0-9]+$ ]] || (( DOCTOR_JOBS < 1 )); then
-  DOCTOR_JOBS=4
+  DOCTOR_JOBS="$(doctor_detect_jobs)"
 fi
 
 SOURCE_ROOT="$ROOT"
@@ -87,7 +102,36 @@ source "$ROOT/scripts/lib/skill-lists.sh"
 doctor_cleanup() {
   rm -rf -- "$DOCTOR_RESULT_DIR"
 }
+
+doctor_signal_cleanup() {
+  local signal="${1:-TERM}"
+  local pid
+  if ((${#DOCTOR_HEAVY_PIDS[@]} > 0)); then
+    for pid in "${DOCTOR_HEAVY_PIDS[@]}"; do
+      kill -TERM "$pid" 2>/dev/null || true
+    done
+    for pid in "${DOCTOR_HEAVY_PIDS[@]}"; do
+      wait "$pid" 2>/dev/null || true
+    done
+    DOCTOR_HEAVY_PIDS=()
+  fi
+  if ((${#DOCTOR_ASYNC_PIDS[@]} > 0)); then
+    for pid in "${DOCTOR_ASYNC_PIDS[@]}"; do
+      kill -TERM "$pid" 2>/dev/null || true
+    done
+    for pid in "${DOCTOR_ASYNC_PIDS[@]}"; do
+      wait "$pid" 2>/dev/null || true
+    done
+    DOCTOR_ASYNC_PIDS=()
+  fi
+  doctor_cleanup
+  trap - "$signal"
+  kill -s "$signal" "$$" 2>/dev/null || exit 130
+}
+
 trap doctor_cleanup EXIT
+trap 'doctor_signal_cleanup INT' INT
+trap 'doctor_signal_cleanup TERM' TERM
 
 doctor_worktree_hash() {
   node --input-type=module -e "
@@ -158,6 +202,10 @@ doctor_map_path_to_groups() {
       doctor_add_group hooks "$relpath"
       doctor_add_group syntax "$relpath"
       ;;
+    skills/metadata/*)
+      doctor_add_group schemas "$relpath"
+      doctor_add_group skills "$relpath"
+      ;;
     skills/*)
       doctor_add_group skills "$relpath"
       doctor_add_group docs "$relpath"
@@ -165,6 +213,23 @@ doctor_map_path_to_groups() {
     scripts/*)
       doctor_add_group scripts "$relpath"
       doctor_add_group syntax "$relpath"
+      ;;
+    templates/*|etrnl/install.json)
+      doctor_add_group settings "$relpath"
+      doctor_add_group install "$relpath"
+      ;;
+    rules/*|rules-manifest.json)
+      doctor_add_group rules "$relpath"
+      ;;
+    schemas/*)
+      doctor_add_group schemas "$relpath"
+      ;;
+    tests/test-install.sh|tests/test-install-smoke.sh)
+      doctor_add_group install "$relpath"
+      ;;
+    VERSION|docs/RELEASING.md)
+      doctor_add_group docs "$relpath"
+      doctor_add_group security "$relpath"
       ;;
     docs/*|README.md|AGENTS.md|CLAUDE.md|CHANGELOG.md|CONTRIBUTING.md|CREDITS.md)
       doctor_add_group docs "$relpath"
@@ -174,6 +239,52 @@ doctor_map_path_to_groups() {
       DOCTOR_CHANGED_REASONS+=("fall-open:$relpath")
       ;;
   esac
+}
+
+doctor_install_path_needs_full() {
+  local relpath="${1#./}"
+  relpath="${relpath#/}"
+  case "$relpath" in
+    scripts/install.sh|scripts/update.sh|scripts/rollback-local.sh|scripts/uninstall.sh|scripts/bootstrap-tools.sh|scripts/merge-settings.mjs|scripts/post-upgrade-canary.sh|tests/test-install.sh|tests/test-install-smoke.sh|templates/*|etrnl/install.json)
+      return 0
+      ;;
+  esac
+  return 1
+}
+
+doctor_resolve_install_suite() {
+  DOCTOR_INSTALL_NEEDS_FULL=0
+  if [[ "${DOCTOR_INSTALL_SUITE:-}" == "full" ]] || [[ "${ETRNL_DOCTOR_FULL_INSTALL:-0}" == "1" ]]; then
+    DOCTOR_INSTALL_NEEDS_FULL=1
+    return 0
+  fi
+  if [[ "${DOCTOR_INSTALL_SUITE:-}" == "smoke" ]]; then
+    return 0
+  fi
+  if [[ "$DOCTOR_MODE" == "full" ]]; then
+    return 0
+  fi
+  if (( DOCTOR_FALL_OPEN )); then
+    DOCTOR_INSTALL_NEEDS_FULL=1
+    return 0
+  fi
+  local path
+  for path in "${DOCTOR_CHANGED_PATHS[@]}"; do
+    if doctor_install_path_needs_full "$path"; then
+      DOCTOR_INSTALL_NEEDS_FULL=1
+      return 0
+    fi
+  done
+}
+
+doctor_install_test_script() {
+  if (( DOCTOR_INSTALL_NEEDS_FULL )) && [[ -x "$ROOT/tests/test-install.sh" ]]; then
+    printf '%s\n' "$ROOT/tests/test-install.sh"
+  elif [[ -x "$ROOT/tests/test-install-smoke.sh" ]]; then
+    printf '%s\n' "$ROOT/tests/test-install-smoke.sh"
+  elif [[ -x "$ROOT/tests/test-install.sh" ]]; then
+    printf '%s\n' "$ROOT/tests/test-install.sh"
+  fi
 }
 
 doctor_collect_changed_paths() {
@@ -210,22 +321,9 @@ doctor_collect_changed_paths() {
     return 0
   fi
   local -a unique=()
-  local path already
-  for path in "${paths[@]}"; do
-    already=0
-    if ((${#unique[@]} > 0)); then
-      local existing
-      for existing in "${unique[@]}"; do
-        if [[ "$existing" == "$path" ]]; then
-          already=1
-          break
-        fi
-      done
-    fi
-    if (( already == 0 )); then
-      unique+=("$path")
-    fi
-  done
+  while IFS= read -r path; do
+    [[ -n "$path" ]] && unique+=("$path")
+  done < <(printf '%s\n' "${paths[@]}" | sort -u)
   DOCTOR_CHANGED_PATHS=("${unique[@]}")
 }
 
@@ -563,10 +661,28 @@ start_heavy_async_checks() {
       queue_heavy_async_command "heavy-$(basename "$hook_test")" "$(basename "$hook_test") pass" "$(basename "$hook_test") fail" "$hook_test"
     done
   fi
-  if doctor_group_enabled install && [[ -x "$ROOT/tests/test-install.sh" ]]; then
-    doctor_note_group install
-    wait_for_doctor_job_slot "$DOCTOR_JOBS"
-    queue_heavy_async_command "heavy-test-install" "install/rollback tests pass" "install/rollback tests fail" "$ROOT/tests/test-install.sh"
+  if doctor_group_enabled install; then
+    local install_test install_msg_ok install_msg_fail install_slot
+    doctor_resolve_install_suite
+    install_test="$(doctor_install_test_script)"
+    if [[ -n "$install_test" ]]; then
+      doctor_note_group install
+      if (( DOCTOR_INSTALL_NEEDS_FULL )); then
+        install_msg_ok="install/rollback tests pass"
+        install_msg_fail="install/rollback tests fail"
+        install_slot="heavy-test-install"
+      else
+        install_msg_ok="install smoke tests pass"
+        install_msg_fail="install smoke tests fail"
+        install_slot="heavy-test-install-smoke"
+      fi
+      wait_for_doctor_job_slot "$DOCTOR_JOBS"
+      if (( DOCTOR_INSTALL_NEEDS_FULL )); then
+        queue_heavy_async_command "$install_slot" "$install_msg_ok" "$install_msg_fail" "$install_test"
+      else
+        queue_heavy_async_command "$install_slot" "$install_msg_ok" "$install_msg_fail" env RUN_INSTALL_SMOKE_MODE=fast "$install_test"
+      fi
+    fi
   fi
   if doctor_group_enabled scripts && [[ -x "$ROOT/tests/test-read-stdin.sh" ]]; then
     doctor_note_group scripts
@@ -636,13 +752,96 @@ run_parallel_syntax_checks() {
   flush_async_batch
 }
 
+run_parallel_schema_checks() {
+  local json_dir dir json_file slot=0 id found_json
+  for json_dir in schemas skills/metadata; do
+    dir="$ROOT/$json_dir"
+    if [[ ! -d "$dir" ]]; then
+      fail "$json_dir directory missing"
+      continue
+    fi
+    found_json=0
+    for json_file in "$dir"/*.json; do
+      [[ -e "$json_file" ]] || continue
+      found_json=1
+      slot=$((slot + 1))
+      id="$(printf 'schema-%03d-%s' "$slot" "$(basename "$json_file")")"
+      wait_for_doctor_job_slot "$DOCTOR_JOBS"
+      queue_async_command "$id" "$json_dir/$(basename "$json_file") valid JSON" "$json_dir/$(basename "$json_file") invalid JSON" jq empty "$json_file"
+    done
+    if [[ "$found_json" -eq 0 ]]; then
+      fail "$json_dir contains no JSON files"
+    fi
+  done
+  flush_async_batch
+}
+
+run_parallel_settings_checks() {
+  if [[ -f "$ROOT/templates/settings.json" && -f "$ROOT/templates/settings.strict.json" ]]; then
+    wait_for_doctor_job_slot "$DOCTOR_JOBS"
+    queue_async_command "settings-templates-json" "settings templates valid" "settings template invalid" jq empty "$ROOT/templates/settings.json" "$ROOT/templates/settings.strict.json" "$ROOT/templates/settings.local.example.json"
+    if [[ -f "$ROOT/templates/hindsight/claude-code.local-daemon.json" && -f "$ROOT/templates/hindsight/claude-code.external.example.json" ]]; then
+      wait_for_doctor_job_slot "$DOCTOR_JOBS"
+      queue_async_command "settings-hindsight-json" "hindsight config templates valid" "hindsight config template invalid" jq empty "$ROOT/templates/hindsight/claude-code.local-daemon.json" "$ROOT/templates/hindsight/claude-code.external.example.json"
+    fi
+    wait_for_doctor_job_slot "$DOCTOR_JOBS"
+    queue_async_command "settings-default-audit" "settings default audit clean" "settings default audit failed" node "$ROOT/scripts/settings-audit.mjs" "$ROOT/templates/settings.json" --strict-conflicts
+    wait_for_doctor_job_slot "$DOCTOR_JOBS"
+    queue_async_command "settings-strict-audit" "settings strict audit clean" "settings strict audit failed" node "$ROOT/scripts/settings-audit.mjs" "$ROOT/templates/settings.strict.json" --strict-conflicts
+    flush_async_batch
+    if jq -e '.hooks.PreToolUse and .hooks.PostToolUse and .hooks.PostToolUseFailure and .hooks.Stop and .hooks.SubagentStop and .hooks.PreCompact and .hooks.PostCompact' "$ROOT/templates/settings.strict.json" >/dev/null; then
+      ok "strict template registers blocker hooks"
+    else
+      fail "strict template missing blocker hooks"
+    fi
+  elif [[ -f "$ROOT/settings.json" ]]; then
+    wait_for_doctor_job_slot "$DOCTOR_JOBS"
+    queue_async_command "settings-installed-json" "installed settings valid" "installed settings invalid" jq empty "$ROOT/settings.json"
+    wait_for_doctor_job_slot "$DOCTOR_JOBS"
+    queue_async_command "settings-installed-audit" "installed settings audit clean" "installed settings audit failed" node "$ROOT/scripts/settings-audit.mjs" "$ROOT/settings.json" --strict-conflicts
+    flush_async_batch
+  else
+    ok "settings template check skipped outside source checkout"
+  fi
+}
+
+run_parallel_scripts_fixture_checks() {
+  if [[ -d "$ROOT/tests/fixtures/tool-effectiveness" ]]; then
+    wait_for_doctor_job_slot "$DOCTOR_JOBS"
+    queue_async_command "scripts-tool-effectiveness-fixtures" "tool-effectiveness fixtures valid" "tool-effectiveness fixtures invalid" node "$ROOT/scripts/tool-effectiveness.mjs" validate-fixtures --fixtures "$ROOT/tests/fixtures/tool-effectiveness"
+    wait_for_doctor_job_slot "$DOCTOR_JOBS"
+    queue_async_command "scripts-tool-effectiveness-summary" "tool-effectiveness fixture summary runs" "tool-effectiveness fixture summary failed" node "$ROOT/scripts/tool-effectiveness.mjs" summarize --fixtures "$ROOT/tests/fixtures/tool-effectiveness" --json
+  fi
+  if [[ -d "$ROOT/tests/fixtures/etrnl-state" ]]; then
+    wait_for_doctor_job_slot "$DOCTOR_JOBS"
+    queue_async_command "scripts-etrnl-state-fixtures" "etrnl-state fixtures valid" "etrnl-state fixtures invalid" node "$ROOT/scripts/etrnl-state.mjs" validate --fixtures "$ROOT/tests/fixtures/etrnl-state"
+    wait_for_doctor_job_slot "$DOCTOR_JOBS"
+    queue_async_command "scripts-etrnl-state-doctor" "etrnl-state compact doctor runs" "etrnl-state compact doctor failed" node "$ROOT/scripts/etrnl-state.mjs" doctor --compact --explain
+  fi
+  if [[ -f "$ROOT/templates/stack-profile.core.json" && -f "$ROOT/templates/stack-profile.full.json" ]]; then
+    wait_for_doctor_job_slot "$DOCTOR_JOBS"
+    queue_async_command "scripts-stack-profile-core" "core stack profile valid" "core stack profile invalid" node "$ROOT/scripts/stack-profile-check.mjs" "$ROOT/templates/stack-profile.core.json"
+    wait_for_doctor_job_slot "$DOCTOR_JOBS"
+    queue_async_command "scripts-stack-profile-full" "full stack profile valid" "full stack profile invalid" node "$ROOT/scripts/stack-profile-check.mjs" "$ROOT/templates/stack-profile.full.json"
+  fi
+  flush_async_batch
+}
+
+run_parallel_skill_checks() {
+  if [[ -f "$ROOT/scripts/prompt-budget-check.mjs" ]]; then
+    wait_for_doctor_job_slot "$DOCTOR_JOBS"
+    queue_async_command "skills-prompt-budget" "repo-owned prompt budget check clean" "repo-owned prompt budget check failed" node "$ROOT/scripts/prompt-budget-check.mjs" "$ROOT" --owned-only
+  fi
+  wait_for_doctor_job_slot "$DOCTOR_JOBS"
+  queue_async_command "skills-contract-check" "etrnl skill contracts clean" "etrnl skill contract check failed" node "$ROOT/scripts/skill-contract-check.mjs" --root "$ROOT"
+  wait_for_doctor_job_slot "$DOCTOR_JOBS"
+  queue_async_command "skills-behavior-smoke" "etrnl skill behavior smoke clean" "etrnl skill behavior smoke failed" node "$ROOT/scripts/skill-behavior-smoke.mjs" --root "$ROOT"
+  flush_async_batch
+}
+
 line_count_file() {
   local file="$1"
-  local count=0 line
-  while IFS= read -r line || [[ -n "$line" ]]; do
-    ((count += 1))
-  done <"$file"
-  printf '%s\n' "$count"
+  wc -l <"$file" | tr -d ' '
 }
 
 file_has_exact_line() {
@@ -729,7 +928,7 @@ if doctor_group_enabled hooks; then
   fi
 fi
 if doctor_group_enabled install; then
-  if [[ -x "$ROOT/tests/test-install.sh" ]]; then
+  if [[ -x "$ROOT/tests/test-install.sh" || -x "$ROOT/tests/test-install-smoke.sh" ]]; then
     :
   else
     ok "install/rollback tests skipped outside source checkout"
@@ -792,17 +991,8 @@ if doctor_group_enabled scripts; then
   else
     fail "read-stdin helper missing"
   fi
-  if [[ -d "$ROOT/tests/fixtures/tool-effectiveness" ]]; then
-    report_command "tool-effectiveness fixtures valid" "tool-effectiveness fixtures invalid" node "$ROOT/scripts/tool-effectiveness.mjs" validate-fixtures --fixtures "$ROOT/tests/fixtures/tool-effectiveness"
-    report_command "tool-effectiveness fixture summary runs" "tool-effectiveness fixture summary failed" node "$ROOT/scripts/tool-effectiveness.mjs" summarize --fixtures "$ROOT/tests/fixtures/tool-effectiveness" --json
-  fi
-  if [[ -d "$ROOT/tests/fixtures/etrnl-state" ]]; then
-    report_command "etrnl-state fixtures valid" "etrnl-state fixtures invalid" node "$ROOT/scripts/etrnl-state.mjs" validate --fixtures "$ROOT/tests/fixtures/etrnl-state"
-    report_command "etrnl-state compact doctor runs" "etrnl-state compact doctor failed" node "$ROOT/scripts/etrnl-state.mjs" doctor --compact --explain
-  fi
-  if [[ -f "$ROOT/templates/stack-profile.core.json" && -f "$ROOT/templates/stack-profile.full.json" ]]; then
-    report_command "core stack profile valid" "core stack profile invalid" node "$ROOT/scripts/stack-profile-check.mjs" "$ROOT/templates/stack-profile.core.json"
-    report_command "full stack profile valid" "full stack profile invalid" node "$ROOT/scripts/stack-profile-check.mjs" "$ROOT/templates/stack-profile.full.json"
+  if [[ -d "$ROOT/tests/fixtures/tool-effectiveness" || -d "$ROOT/tests/fixtures/etrnl-state" || ( -f "$ROOT/templates/stack-profile.core.json" && -f "$ROOT/templates/stack-profile.full.json" ) ]]; then
+    run_parallel_scripts_fixture_checks
   fi
 fi
 if doctor_group_enabled hooks; then
@@ -825,11 +1015,7 @@ if doctor_group_enabled scripts; then
 fi
 if doctor_group_enabled skills; then
   doctor_note_group skills
-  if [[ -f "$ROOT/scripts/prompt-budget-check.mjs" ]]; then
-    report_command "repo-owned prompt budget check clean" "repo-owned prompt budget check failed" node "$ROOT/scripts/prompt-budget-check.mjs" "$ROOT" --owned-only
-  fi
-  report_command "etrnl skill contracts clean" "etrnl skill contract check failed" node "$ROOT/scripts/skill-contract-check.mjs" --root "$ROOT"
-  report_command "etrnl skill behavior smoke clean" "etrnl skill behavior smoke failed" node "$ROOT/scripts/skill-behavior-smoke.mjs" --root "$ROOT"
+  run_parallel_skill_checks
 fi
 if doctor_group_enabled hooks; then
   if [[ ! -d "$ROOT/hooks/fixtures/events/replay" ]]; then
@@ -839,48 +1025,12 @@ fi
 
 if doctor_group_enabled settings; then
   doctor_note_group settings
-  if [[ -f "$ROOT/templates/settings.json" && -f "$ROOT/templates/settings.strict.json" ]]; then
-    report_command "settings templates valid" "settings template invalid" jq empty "$ROOT/templates/settings.json" "$ROOT/templates/settings.strict.json" "$ROOT/templates/settings.local.example.json"
-    if [[ -f "$ROOT/templates/hindsight/claude-code.local-daemon.json" && -f "$ROOT/templates/hindsight/claude-code.external.example.json" ]]; then
-      report_command "hindsight config templates valid" "hindsight config template invalid" jq empty "$ROOT/templates/hindsight/claude-code.local-daemon.json" "$ROOT/templates/hindsight/claude-code.external.example.json"
-    fi
-    report_command "settings default audit clean" "settings default audit failed" node "$ROOT/scripts/settings-audit.mjs" "$ROOT/templates/settings.json" --strict-conflicts
-    report_command "settings strict audit clean" "settings strict audit failed" node "$ROOT/scripts/settings-audit.mjs" "$ROOT/templates/settings.strict.json" --strict-conflicts
-    if jq -e '.hooks.PreToolUse and .hooks.PostToolUse and .hooks.PostToolUseFailure and .hooks.Stop and .hooks.SubagentStop and .hooks.PreCompact and .hooks.PostCompact' "$ROOT/templates/settings.strict.json" >/dev/null; then
-      ok "strict template registers blocker hooks"
-    else
-      fail "strict template missing blocker hooks"
-    fi
-  elif [[ -f "$ROOT/settings.json" ]]; then
-    report_command "installed settings valid" "installed settings invalid" jq empty "$ROOT/settings.json"
-    report_command "installed settings audit clean" "installed settings audit failed" node "$ROOT/scripts/settings-audit.mjs" "$ROOT/settings.json" --strict-conflicts
-  else
-    ok "settings template check skipped outside source checkout"
-  fi
+  run_parallel_settings_checks
 fi
 
 if doctor_group_enabled schemas; then
   doctor_note_group schemas
-# each directory is present and every JSON file inside parses (mirrors the
-# settings-template `jq empty` validation above), so a truncated or malformed
-# shipped/installed JSON fails the doctor instead of silently degrading a
-# consumer (e.g. Stop-verifier classification or skill routing).
-for json_dir in schemas skills/metadata; do
-  dir="$ROOT/$json_dir"
-  if [[ ! -d "$dir" ]]; then
-    fail "$json_dir directory missing"
-    continue
-  fi
-  found_json=0
-  for json_file in "$dir"/*.json; do
-    [[ -e "$json_file" ]] || continue
-    found_json=1
-    report_command "$json_dir/$(basename "$json_file") valid JSON" "$json_dir/$(basename "$json_file") invalid JSON" jq empty "$json_file"
-  done
-  if [[ "$found_json" -eq 0 ]]; then
-    fail "$json_dir contains no JSON files"
-  fi
-done
+  run_parallel_schema_checks
 fi
 
 if doctor_group_enabled scripts; then

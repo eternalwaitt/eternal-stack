@@ -441,7 +441,7 @@ if [[ "$prompt_lower" =~ commit[[:space:]]+(the|all|these|verified|changes)|stag
 fi
 if [[ "$prompt_lower" =~ pull[[:space:]]+request|prepare[[:space:]]+pr|create[[:space:]]+pr|update[[:space:]]+pr|pr[[:space:]-]+ci|ci[[:space:]-]+.*pr|copilot[[:space:]-]+review[[:space:]-]+comments.*pr|review[[:space:]-]+comments.*pr ]]; then
   record_skill "etrnl-dev-pr"
-  notes+=("Use etrnl-dev-pr for PR preparation with verification evidence and risk summary.")
+  notes+=("Use etrnl-dev-pr: run pr-preflight template + validate-body, then dual-audience PR (TL;DR, why, add/change/remove, impact, rollout, verification).")
 fi
 if [[ "$prompt_lower" =~ systematic[[:space:]-]+debugging|root[[:space:]-]+cause|fix[[:space:]]+issue|issue[[:space:]]+#[0-9]+|bug[[:space:]]+#[0-9]+|debug[[:space:]]+.*(bug|failure|failing|error|issue)|investigate[[:space:]]+.*(bug|failure|failing|error|issue)|reproduce[[:space:]]+.*fix ]]; then
   record_skill "etrnl-dev-debug"

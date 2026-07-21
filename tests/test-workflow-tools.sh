@@ -639,6 +639,42 @@ git -C "$pr_preflight_repo" mv CHANGELOG.md docs/CHANGELOG.md
 pr_preflight_status_json="$(cd "$pr_preflight_repo" && node "$ROOT/scripts/pr-preflight.mjs" status --json)"
 assert_json_expr "pr preflight preserves modified path names" "$pr_preflight_status_json" '.changedFiles == ["docs/CHANGELOG.md"]'
 assert_json_expr "pr preflight separates untracked files" "$pr_preflight_status_json" '.dirty == true and .untrackedFiles == ["untracked.txt"]'
+pr_body_good='## TL;DR
+One line outcome.
+
+## Why this matters
+Pain and outcome.
+
+## What changes
+### Adding
+- New behavior
+
+### Changing
+- Nothing
+
+### Removing
+- Nothing
+
+## Impact
+- **Users / customers:** none — internal only
+- **Operators / support:** faster checks
+- **Risk:** low
+
+## Out of scope
+- Follow-up work
+
+## Verification / test plan
+```bash
+./scripts/doctor.sh --changed
+```
+- Result: green
+'
+pr_body_good_json="$(node -e 'const fs=require("fs"); process.stdout.write(JSON.stringify({title:"test(install): catch broken installs fast",body:fs.readFileSync(0,"utf8"),changedFiles:["docs/CHANGELOG.md"]}))' <<<"$pr_body_good")"
+assert_command "pr preflight validate-body accepts good body" bash -c "printf '%s' \"\$1\" | node \"\$0/scripts/pr-preflight.mjs\" validate-body --json >/dev/null" "$ROOT" "$pr_body_good_json"
+pr_body_bad_json='{"title":"Update stuff","body":"## Summary\nonly tech","changedFiles":["hooks/cc-stop-verifier.sh"]}'
+pr_body_bad_out="$(printf '%s' "$pr_body_bad_json" | node "$ROOT/scripts/pr-preflight.mjs" validate-body --json 2>/dev/null || true)"
+assert_json_expr "pr preflight validate-body rejects thin shipping-sensitive body" "$pr_body_bad_out" '.ok == false and (.blockers | length) > 0'
+assert_command "pr preflight template emits skeleton" bash -c "node \"\$0/scripts/pr-preflight.mjs\" template | rg -q '## TL;DR'" "$ROOT"
 perf_baseline_fixture="$TMPROOT/performance-baseline.json"
 printf '%s\n' '{"schemaVersion":1,"baselineId":"base","targetLabel":"fixture","measurements":[{"route":"/","durationMs":100,"responseBytes":1000,"capturedAt":"2026-01-01T00:00:00Z"},{"route":"/removed","durationMs":75,"responseBytes":500,"capturedAt":"2026-01-01T00:00:00Z"}],"nextRun":{"command":"pnpm bench","thresholds":{"maxRegressionPct":20}}}' >"$perf_baseline_fixture"
 assert_command "performance baseline validates fixture" node "$ROOT/scripts/performance-baseline.mjs" validate "$perf_baseline_fixture"

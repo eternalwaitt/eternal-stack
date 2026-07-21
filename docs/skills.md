@@ -31,7 +31,7 @@ Planning, execution, verification, and shipping for a codebase you are building.
 | `/etrnl-dev-test` | User only | Runs project preflight and reports or fixes failures. |
 | `/etrnl-dev-debug` | User only | Debugs bugs, failing tests, CI failures, production issues, and unexpected behavior through root-cause evidence before fixes. |
 | `/etrnl-dev-commit` | User only | Reviews, verifies, stages, and commits relevant work. |
-| `/etrnl-dev-pr` | User only | Prepares or updates pull requests with verification evidence, CI state, review feedback, and a closed readiness loop. |
+| `/etrnl-dev-pr` | User only | Prepares or updates pull requests with dual-audience descriptions (TL;DR, business why/impact, add/change/remove, rollout/rollback, verification evidence), CI state, review feedback, and a closed readiness loop. |
 | `/etrnl-dev-ci` | Model or user | Designs, audits, hardens, debugs, and repairs CI/CD lanes, GitHub Actions, branch protection, deploy gates, OIDC, SBOM/provenance, rollback, flaky CI, and slow builds. |
 | `/etrnl-dev-deps` | User only | Handles targeted dependency maintenance with migration checks, catalog consolidation, bot PR triage, and rollback evidence. |
 | `/etrnl-dev-stress-test` | Model or user | Stress-tests architecture, rollout, migration, automation, and safety assumptions. |
@@ -209,7 +209,7 @@ Beads is not an ETRNL bundled execution skill. It is allowed as explicit backlog
 | `agent-task-packet-check.mjs` | `~/.claude/scripts/agent-task-packet-check.mjs` | Enforces structured subagent packet contracts with task identity, lineage identity, packet hashes, lane limits, child-agent policy, completion receipts, spec/quality reviewer contracts, reuse/TDD/simplifier fields for new-surface or deep-stack writes, and `modelTier` (`fast`/`standard`/`top`) with template defaults and a justification warning for read-only `top`. |
 | `agent-output-contract.mjs` | `~/.claude/scripts/agent-output-contract.mjs` | Validates a subagent's `ETRNL_CONTRACT: v1` block — status enum, per-finding grammar, and per-agent required keys — against `schemas/agent-contract-v1.json`; exit 0/1/2 fail-closed. Invoked by `hooks/cc-subagentstop-record.sh` and backstopped by `hooks/cc-stop-verifier.sh`. |
 | `performance-baseline.mjs` | `~/.claude/scripts/performance-baseline.mjs` | Creates, validates, and compares performance baseline artifacts with next-run thresholds. |
-| `pr-preflight.mjs` | `~/.claude/scripts/pr-preflight.mjs` | Reports PR readiness inputs: branch, upstream, dirty files, GitHub auth, existing PR, checks, and suggested local gate. |
+| `pr-preflight.mjs` | `~/.claude/scripts/pr-preflight.mjs` | PR workflow gate: branch/dirty/existing PR status, dual-audience body `template`, and structural `validate-body` before `gh pr create`. |
 | `guard-override-token.mjs` | `~/.claude/scripts/guard-override-token.mjs` | Issues and verifies one-time signed override tokens for safety-critical prod/secret commands. |
 | `settings-audit.mjs` | `~/.claude/scripts/settings-audit.mjs` | Audits and repairs duplicate hook commands, overlapping matcher groups, legacy rate-limiter registrations, outside-settings plugin hooks, risky top-level settings, and memory plugin config posture. |
 | `etrnl-state.mjs` | `~/.claude/scripts/etrnl-state.mjs` | Appends and queries canonical local ETRNL state for compact pre/post events, bounded handoff restore, stale-verification Stop checks, context entries, tool signals, settings observations, accepted lessons, dry-run Beads backlog links, and raw Beads doctrine rejection. |

@@ -8,7 +8,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Added
 
+- `tests/test-install-smoke.sh` — fast install dry-run, profile validation, and malformed-settings recovery checks used by default full doctor runs.
+
 ### Changed
+
+- `scripts/pr-preflight.mjs` — adds `template` (dual-audience PR skeleton) and `validate-body` (structural contract check with `--strict` for shipping-sensitive work); agent workflows use these instead of a GitHub PR template.
+- `skills/etrnl-dev-pr` — PR bodies combine business narrative (TL;DR, why, add/change/remove, impact) with engineering depth (out of scope, rollout/rollback, copy-paste verification, review guide); `pr-preflight.mjs template` and `validate-body` enforce the contract in agent workflows.
+- `scripts/doctor.sh` — default full doctor runs install smoke instead of the full `tests/test-install.sh` suite (~17 minutes saved); set `ETRNL_DOCTOR_FULL_INSTALL=1` or `DOCTOR_INSTALL_SUITE=full` for release/install validation. `--changed` maps `VERSION`, `templates/*`, `rules/*`, and `schemas/*` without falling open; schema JSON checks run in parallel; default `DOCTOR_JOBS` is `min(8, nproc)`. Doctor now parallelizes settings audits, script fixture checks, skill checks, and reaps heavy async jobs on SIGINT/TERM.
+- `tests/test-hooks.sh` — parallelizes guard/packet fixture matrices and safe-bash idempotency repeats via `tests/lib/parallel-run.sh`.
+- `tests/test-install-smoke.sh` — fast mode (`RUN_INSTALL_SMOKE_MODE=fast`) skips the full-copy malformed-settings install leg used by doctor; full mode retains it for `tests/test-install.sh`.
+- Added `scripts/lib/trap-children.sh` and `tests/lib/parallel-run.sh` shared helpers for child cleanup and parallel test execution.
 
 ### Fixed
 

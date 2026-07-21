@@ -12,61 +12,9 @@ export CLAUDE_HOME="$TMPROOT/claude"
 export CODEX_HOME="$TMPROOT/codex"
 export CLAUDE_GUARD_STATE_DIR="$TMPROOT/state"
 
-dry_run_home="$TMPROOT/dry-run-claude"
-dry_run_codex_home="$TMPROOT/dry-run-codex"
-if dry_run_out="$(CLAUDE_HOME="$dry_run_home" CODEX_HOME="$dry_run_codex_home" "$ROOT/scripts/install.sh" --dry-run 2>&1)"; then
-  ok "install dry-run succeeds"
-else
-  not_ok "install dry-run succeeds: $dry_run_out"
-fi
-assert_contains "install dry-run names core profile" "$dry_run_out" "profile=core"
-assert_contains "install dry-run names stack validator" "$dry_run_out" "stack-profile-check.mjs"
-assert_contains "install dry-run resets Claude settings before applying stack" "$dry_run_out" "reset it to vanilla while preserving enabledPlugins and statusLine before applying stack hooks"
-core_dry_run_out="$(CLAUDE_HOME="$dry_run_home" CODEX_HOME="$dry_run_codex_home" "$ROOT/scripts/install.sh" --profile core --dry-run)"
-assert_contains "core profile dry-run skips global memory tools" "$core_dry_run_out" "core profile skips Hindsight, Beads, and CodeGraph bootstrap"
-preserve_dry_run_out="$(CLAUDE_HOME="$dry_run_home" CODEX_HOME="$dry_run_codex_home" "$ROOT/scripts/install.sh" --preserve-settings --dry-run)"
-assert_contains "preserve settings dry-run keeps merge mode visible" "$preserve_dry_run_out" "preserve existing"
-full_dry_run_out="$(CLAUDE_HOME="$dry_run_home" CODEX_HOME="$dry_run_codex_home" "$ROOT/scripts/install.sh" --profile full --yes --dry-run)"
-assert_contains "full profile dry-run includes CodeGraph" "$full_dry_run_out" "CodeGraph global tool"
-assert_contains "full profile dry-run includes Beads" "$full_dry_run_out" "Beads binary"
-assert_contains "full profile dry-run includes Hindsight" "$full_dry_run_out" "Hindsight plugin"
-assert_contains "full profile dry-run includes rollback metadata" "$full_dry_run_out" "rollback metadata"
-assert_no_directory "install dry-run does not create Claude home" "$dry_run_home"
-assert_no_directory "install dry-run does not create Codex home" "$dry_run_codex_home"
-# TG5: --dry-run asserts install preconditions (node, jq, target writability) so a
-# preview reports whether the real install could actually succeed. Skip the
-# unwritable-target leg under root, where the write bit is not enforced.
-if [[ "$(id -u)" != "0" ]]; then
-  unwritable_home="$TMPROOT/unwritable-home"
-  mkdir -p "$unwritable_home"
-  chmod 500 "$unwritable_home"
-  dry_precond_rc=0
-  dry_precond_out="$(CLAUDE_HOME="$unwritable_home" CODEX_HOME="$TMPROOT/dry-precond-codex" "$ROOT/scripts/install.sh" --dry-run 2>&1)" || dry_precond_rc=$?
-  chmod 700 "$unwritable_home"
-  if (( dry_precond_rc != 0 )); then
-    ok "install dry-run fails on unwritable target"
-  else
-    not_ok "install dry-run fails on unwritable target"
-  fi
-  assert_contains "install dry-run names unwritable target precondition" "$dry_precond_out" "not writable"
-else
-  ok "install dry-run fails on unwritable target (skipped under root)"
-  ok "install dry-run names unwritable target precondition (skipped under root)"
-fi
-assert_command "core stack profile validates" node "$ROOT/scripts/stack-profile-check.mjs" "$ROOT/templates/stack-profile.core.json"
-assert_command "full stack profile validates" node "$ROOT/scripts/stack-profile-check.mjs" "$ROOT/templates/stack-profile.full.json"
-
-bad_settings_home="$TMPROOT/bad-settings-claude"
-bad_settings_codex_home="$TMPROOT/bad-settings-codex"
-mkdir -p "$bad_settings_home"
-printf '{invalid json\n' >"$bad_settings_home/settings.json"
-if bad_settings_out="$(CLAUDE_HOME="$bad_settings_home" CODEX_HOME="$bad_settings_codex_home" "$ROOT/scripts/install.sh" 2>&1)"; then
-  ok "install recovers malformed settings"
-else
-  not_ok "install recovers malformed settings: $bad_settings_out"
-fi
-assert_contains "install warns about malformed settings" "$bad_settings_out" "install warning: invalid JSON"
-assert_json_expr "install malformed settings resets enabledPlugins" "$(jq -c . "$bad_settings_home/settings.json")" '.enabledPlugins == {}'
+# shellcheck source=./tests/test-install-smoke.sh
+source ./tests/test-install-smoke.sh
+run_install_smoke_tests
 
 reset_settings_live="$TMPROOT/reset-settings-live"
 reset_settings_backup="$TMPROOT/reset-settings-backup"
