@@ -1212,14 +1212,6 @@ function recordTaskBundle() {
     console.error(`record-task-bundle references unknown task: ${taskId}.`);
     process.exit(1);
   }
-  for (const review of Array.isArray(payload.reviews) ? payload.reviews : []) {
-    assertReviewReopenAllowed(preview, {
-      taskId,
-      reviewer: review.reviewer || review.id || "",
-      lineageId: review.lineageId ?? review.lineage_id ?? "",
-      overrideReason: review.overrideOwnerApproved ?? review.override_owner_approved ?? "",
-    });
-  }
   updateJson(file, (ledger) => {
     if (payload.task) {
       applySetTask(ledger, taskId, payload.task, "record-task-bundle");
@@ -1232,6 +1224,12 @@ function recordTaskBundle() {
     }
     if (Array.isArray(payload.reviews)) {
       for (const review of payload.reviews) {
+        assertReviewReopenAllowed(ledger, {
+          taskId,
+          reviewer: review.reviewer || review.id || "",
+          lineageId: review.lineageId ?? review.lineage_id ?? "",
+          overrideReason: review.overrideOwnerApproved ?? review.override_owner_approved ?? "",
+        });
         applyRecordReview(ledger, taskId, review);
       }
     }

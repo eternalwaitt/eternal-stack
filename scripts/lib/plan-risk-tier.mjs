@@ -123,8 +123,20 @@ export function collectPlanFilePaths(planText) {
   return [...paths];
 }
 
-export function requiresTier3Escalation(filePaths) {
-  const haystack = filePaths.join("\n");
+function planTier3Haystack(planText) {
+  const filePaths = collectPlanFilePaths(planText);
+  const goalMatch = planText.match(/^Goal:\s*(.+)$/im);
+  return [
+    filePaths.join("\n"),
+    goalMatch?.[1] ?? "",
+    sectionBody(planText, "Task groups"),
+    sectionBody(planText, "Phases"),
+    parseRiskTier(planText).justification,
+  ].join("\n");
+}
+
+export function requiresTier3Escalation(planText) {
+  const haystack = Array.isArray(planText) ? planText.join("\n") : planTier3Haystack(planText);
   return AUTO_ESCALATE_TIER3_PATTERNS.some((pattern) => pattern.test(haystack));
 }
 
@@ -136,7 +148,7 @@ export function validateRiskTierEscalation(planText, declaredTier) {
   const failures = [];
   const filePaths = collectPlanFilePaths(planText);
 
-  if (requiresTier3Escalation(filePaths) && declaredTier < 3) {
+  if (requiresTier3Escalation(planText) && declaredTier < 3) {
     failures.push({
       name: "RISK_TIER_UNDER_CLASSIFIED_TIER3",
       message:

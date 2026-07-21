@@ -50,6 +50,25 @@ assert_contains "templates map to settings group" "$template_groups" "settings"
 assert_contains "templates map to install group" "$template_groups" "install"
 assert_not_contains "templates do not fall open to full" "$template_groups" "fall-open"
 
+# (2d) schemas map to schemas + hooks (diff-triviality lives in hooks group)
+schema_groups="$(bash "$DOCTOR" --print-groups -- schemas/review-classification-rules-v1.json 2>&1)" || true
+assert_contains "schemas map to schemas group" "$schema_groups" "schemas"
+assert_contains "schemas map to hooks group for triviality gate" "$schema_groups" "hooks"
+assert_not_contains "schemas do not fall open to full" "$schema_groups" "fall-open"
+
+record_doctor_green_changed() {
+  local target_root="$1"
+  local tree_hash="$2"
+  local head_commit
+  head_commit="$(git -C "$target_root" rev-parse HEAD 2>/dev/null || true)"
+  printf '%s\n' "$(jq -cn \
+    --arg tree_hash "$tree_hash" \
+    --arg head "$head_commit" \
+    --arg cwd "$target_root" \
+    '{eventKind:"doctor_green",cwd:$cwd,data:{treeHash:$tree_hash,headCommit:$head,mode:"changed",groups:["deps","docs"]}}')" \
+    | ETRNL_STATE_DIR="$ETRNL_STATE_DIR" node "$ROOT/scripts/etrnl-state.mjs" append --cwd "$target_root" --json >/dev/null
+}
+
 # (3) unchanged tree with recorded green hash exits as cache hit (clean tree only)
 cache_hash="$(treehash_for_root "$ROOT")"
 [[ -n "$cache_hash" ]] || not_ok "cache-hit fixture produced worktree hash"
@@ -63,6 +82,11 @@ if [[ -z "$(git -C "$ROOT" status --porcelain)" ]]; then
     not_ok "cache hit exits zero (status=$cache_status)"
   fi
   assert_contains "cache hit reported" "$cache_out" "cache-hit"
+  record_doctor_green_changed "$ROOT" "$cache_hash"
+  partial_cache_out="$(ETRNL_STATE_DIR="$ETRNL_STATE_DIR" bash "$DOCTOR" --changed --print-groups 2>&1)" || partial_cache_status=$?
+  partial_cache_status="${partial_cache_status:-0}"
+  assert_not_contains "partial changed green does not cache hit" "$partial_cache_out" "cache-hit"
+  assert_contains "partial changed green reruns mapped groups" "$partial_cache_out" "doctor-groups:"
 else
   ok "cache hit test skipped (working tree not clean)"
   ok "cache hit reported (skipped on dirty tree)"

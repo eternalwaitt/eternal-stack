@@ -297,6 +297,24 @@ else
 fi
 assert_command "record-review override accepts reopen beyond cap" node "$ROOT/scripts/execution-ledger.mjs" record-review --session fixture-reopen-override --reviewer etrnl-spec-reviewer --task T-review --lineage wave-1.T-review --packet-hash cap789 --status verified --override-owner-approved "owner approved extra reopen for fixture"
 
+bundle_reopen_ledger_path="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-bundle-reopen --plan "$ROOT/hooks/fixtures/plans/good-plan.md" --cwd "$ROOT")"
+node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-bundle-reopen --task T-review --status reviewing --lineage wave-1.T-review --packet-hash capbundle
+bundle_reopen_payload="$TMPROOT/task-bundle-reopen-cap.json"
+jq -cn '{
+  taskId: "T-review",
+  reviews: [
+    {reviewer:"etrnl-spec-reviewer",lineageId:"wave-1.T-review",packetHash:"capbundle",status:"verified"},
+    {reviewer:"etrnl-spec-reviewer",lineageId:"wave-1.T-review",packetHash:"capbundle",status:"verified"},
+    {reviewer:"etrnl-spec-reviewer",lineageId:"wave-1.T-review",packetHash:"capbundle",status:"verified"},
+    {reviewer:"etrnl-spec-reviewer",lineageId:"wave-1.T-review",packetHash:"capbundle",status:"verified"}
+  ]
+}' >"$bundle_reopen_payload"
+if bundle_reopen_out="$(node "$ROOT/scripts/execution-ledger.mjs" record-task-bundle --session fixture-bundle-reopen --file "$bundle_reopen_payload" 2>&1)"; then
+  not_ok "record-task-bundle rejects reopen cap exceed in one bundle"
+else
+  assert_contains "record-task-bundle reopen cap message" "$bundle_reopen_out" "reopen cap"
+fi
+
 progress_ledger_path="$ETRNL_RUNS_DIR/run-fixture-progress.json"
 progress_plan="$TMPROOT/progress-plan.md"
 cat >"$progress_plan" <<'PLAN'
@@ -1848,6 +1866,12 @@ if tier1_hooks_out="$(node "$ROOT/scripts/plan-readiness-check.mjs" "$tier1_hook
   not_ok "plan readiness rejects hooks plan self-classified below tier 3"
 else
   assert_contains "plan readiness rejects hooks plan self-classified below tier 3" "$tier1_hooks_out" "RISK_TIER_UNDER_CLASSIFIED_TIER3"
+fi
+tier1_prose_plan="$ROOT/tests/fixtures/plan-readiness/tier-1-prose-installer-auth.md"
+if tier1_prose_out="$(node "$ROOT/scripts/plan-readiness-check.mjs" "$tier1_prose_plan" 2>&1)"; then
+  not_ok "plan readiness rejects installer/auth prose plan self-classified below tier 3"
+else
+  assert_contains "plan readiness rejects installer/auth prose plan self-classified below tier 3" "$tier1_prose_out" "RISK_TIER_UNDER_CLASSIFIED_TIER3"
 fi
 tier1_nine_files_plan="$ROOT/tests/fixtures/plan-readiness/tier-1-nine-files.md"
 if tier1_nine_out="$(node "$ROOT/scripts/plan-readiness-check.mjs" "$tier1_nine_files_plan" 2>&1)"; then

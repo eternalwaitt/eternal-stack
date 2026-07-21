@@ -223,6 +223,7 @@ doctor_map_path_to_groups() {
       ;;
     schemas/*)
       doctor_add_group schemas "$relpath"
+      doctor_add_group hooks "$relpath"
       ;;
     tests/test-install.sh|tests/test-install-smoke.sh)
       doctor_add_group install "$relpath"
@@ -350,7 +351,7 @@ doctor_resolve_changed_groups() {
     DOCTOR_LAST_GREEN_MODE="$(printf '%s' "$green_json" | jq -r '.mode // ""')"
     if [[ -n "$green_hash" && "$current_hash" == "$green_hash" ]]; then
       doctor_collect_changed_paths
-      if ((${#DOCTOR_CHANGED_PATHS[@]} == 0)); then
+      if ((${#DOCTOR_CHANGED_PATHS[@]} == 0)) && [[ "$DOCTOR_LAST_GREEN_MODE" == "full" ]]; then
         DOCTOR_CACHE_HIT=1
         return 0
       fi
