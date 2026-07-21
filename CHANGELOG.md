@@ -21,6 +21,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Fixed
 
+- `scripts/doctor.sh` — partial `doctor --changed` greens no longer short-circuit future runs via cache hit; only full-mode greens cache; `schemas/*` changes also run the hooks group so diff-triviality stays live.
+- `scripts/execution-ledger.mjs` — `record-task-bundle` enforces review reopen caps sequentially inside the ledger update, matching standalone `record-review`.
+- `scripts/lib/plan-risk-tier.mjs` — tier-3 auto-escalation scans Goal, task-group, phase, and justification prose, not just file-map paths.
+
 ### Removed
 
 ### Security
