@@ -27,6 +27,7 @@ if (templateIndex !== -1) {
     readSet: ["path/to/read-first"],
     expectedOutput: "Concise findings or changed files plus verification evidence.",
     noRevert: true,
+    modelTier: templateMode === "read-only" ? "fast" : "standard",
   };
   if (templateMode === "write") {
     Object.assign(packet, {
@@ -35,7 +36,7 @@ if (templateIndex !== -1) {
       writeScope: ["path/to/owned-file-or-directory"],
       forbiddenPaths: ["path/to/owned-by-someone-else"],
       verificationCommand: "project-specific verification command",
-      modelTier: "sonnet",
+      modelTier: "standard",
       timeoutSec: 1800,
       retryPolicy: "If blocked, report the exact blocker and stop instead of widening scope.",
       webSearchGuidance: "Use only when current external docs are needed; cite primary sources.",
@@ -90,6 +91,7 @@ const fieldAliases = new Map([
   ["no_revert", "noRevert"],
   ["verification_command", "verificationCommand"],
   ["model_tier", "modelTier"],
+  ["model_tier_justification", "modelTierJustification"],
   ["timeout_sec", "timeoutSec"],
   ["retry_policy", "retryPolicy"],
   ["web_search_guidance", "webSearchGuidance"],
@@ -222,6 +224,7 @@ const writeFields = [
 const required = mode === "write" ? [...baseFields, ...writeFields] : baseFields;
 const missing = [];
 const violations = [];
+const warnings = [];
 
 for (const key of required) {
   if (!(key in packet)) {
@@ -281,6 +284,19 @@ for (const key of ["taskId", "lineageId"]) {
 
 if ("timeoutSec" in packet && (!Number.isFinite(packet.timeoutSec) || packet.timeoutSec <= 0)) {
   violations.push("timeoutSec must be a number > 0");
+}
+
+const MODEL_TIERS = new Set(["fast", "standard", "top"]);
+if ("modelTier" in packet) {
+  if (typeof packet.modelTier !== "string" || !MODEL_TIERS.has(packet.modelTier)) {
+    violations.push('modelTier must be one of "fast", "standard", or "top"');
+  } else if (
+    mode === "read-only"
+    && packet.modelTier === "top"
+    && !(typeof packet.modelTierJustification === "string" && packet.modelTierJustification.trim().length > 0)
+  ) {
+    warnings.push("read-only packet requests modelTier top without modelTierJustification");
+  }
 }
 
 function pathList(value, fieldName) {
@@ -458,7 +474,12 @@ if (missing.length > 0 || violations.length > 0) {
   }
   console.error("Include every required structured field so the worker can run without follow-up questions.");
   console.error("Template: node scripts/agent-task-packet-check.mjs --template write");
+  console.error('modelTier intent values: fast (read-only/mechanical), standard (write implementation), top (tier-3 money/migration/security review). Override with modelTierJustification.');
   process.exit(1);
+}
+
+for (const warning of warnings) {
+  console.error(`Warning: ${warning}`);
 }
 
 console.log(`Task packet ok packetHash=${packetHash(packet)}`);

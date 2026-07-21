@@ -18,6 +18,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Deprecated
 
+## v0.8.0
+
+2026-07-20
+
+
+### Added
+
+- Content-addressed verification freshness via worktree hash: `worktreeHash()` in `scripts/lib/etrnl-state-core.mjs` fingerprints the git worktree (tracked plus untracked-not-ignored); `execution-ledger.mjs record-check` stamps `treeHash` into checks; `check-stop` and the stop verifier compare the current hash to the last green check's `treeHash` through Bash helpers in `hooks/lib/state.sh` (`cc_worktree_hash`, `cc_tree_hash_verification_fresh`, `cc_ledger_latest_verification_tree_hash`).
+- Plan-time risk tiers (0–3): plans require a `Risk tier:` line; `plan-readiness-check.mjs` enforces tier-proportional section requirements and deterministic auto-escalation (hooks/installer/auth/money/migration/tenant surfaces force tier 3; more than eight distinct repo paths force at least tier 2; a missing tier line is treated as tier 3 strictness); `deep-stack-check.mjs validate-plan` gains a scope-freeze guard (`SCOPE_DRIFT_SUBSYSTEM`) blocking new ledger/receipt/provenance-style subsystems not named in the plan Goal; `etrnl-dev-plan`, `etrnl-dev-autoplan`, and `etrnl-dev-execute` scope review gauntlets and the parity scorecard by tier.
+- Incremental doctor: `scripts/doctor.sh` gains `--changed` (runs only gate groups affected by changed files), `--print-groups`, and `--dry-run`; on green it records a `doctor_green` event (new `EVENT_KINDS` entry in `etrnl-state-core.mjs`) keyed by tree hash so unchanged worktrees can reuse the green result; `tests/test-doctor-changed.sh` covers cache hits, fall-open, and group introspection.
+- Batched ledger evidence and auto gate recording: `execution-ledger.mjs` gains `record-task-bundle` (atomic batched task evidence) and mechanically enforces reopen caps in `record-review` by plan tier (2 rounds for tiers 0–2, 4 for tier 3, with `--override-owner-approved` escape); `hooks/cc-posttoolbatch-observer.sh` plus new `hooks/lib/ledger-gate-record.sh` auto-record allowlisted Bash gate commands (`test-hooks`, `test-workflow-tools`, `doctor`, `doctor --changed`, `plan-readiness-check.mjs`) into the active ledger; `etrnl-dev-execute` defines mini-packets for sequential work, batched evidence, cached-gate rule, and tiered review depth.
+- Session performance measurement: `scripts/workflow-health.mjs summary` adds per-session performance rows (`gateMaxRepeatsAtTreeHash`, `compactCount`, `compactsWithUnchangedTree`, `compactStaleEvents`, `tasksCompletedPerHour`, `waitCallRatio`); `doctor` warns on threshold breaches via `ETRNL_PERF_MAX_GATE_REPEATS`, `ETRNL_PERF_MAX_COMPACT_STALE`, and `ETRNL_PERF_MAX_WAIT_RATIO`; `tests/test-workflow-health-perf.sh` covers the new rows and thresholds.
+- Grounded progress estimates and model-tier routing: `execution-ledger.mjs` gains `history --progress` (done/total, median minutes per task, remaining band, `--renegotiation-check` against 2× plan estimate or 8h default) and `record-decision`; `agent-task-packet-check.mjs` `modelTier` enum becomes `fast|standard|top` (templates default `fast` for read-only and `standard` for write; read-only+`top` warns without `modelTierJustification`); `etrnl-dev-execute` adds grounded estimates, renegotiation pause, model-tier routing table, and `maxConcurrentLanes` default 3; `references/parallel-fanout.md` adds wait sizing contract, drain protocol, and lane cap.
+- `tests/test-install-smoke.sh` — fast install dry-run, profile validation, and malformed-settings recovery checks used by default full doctor runs.
+
+### Changed
+
+- Stop-verifier and compact handoff verification freshness now use tree-hash matching instead of treating every compaction as stale; `cc-postcompact-record.sh` records `treeHashAtCompact` when the hash resolves and only falls back to `verificationStale: true` when the hash cannot be computed.
+- Default full doctor behavior is unchanged; release and install paths never use `--changed`. Unmapped changed paths fall open to a full doctor run.
+- `scripts/pr-preflight.mjs` — adds `template` (dual-audience PR skeleton) and `validate-body` (structural contract check with `--strict` for shipping-sensitive work); agent workflows use these instead of a GitHub PR template.
+- `skills/etrnl-dev-pr` — PR bodies combine business narrative (TL;DR, why, add/change/remove, impact) with engineering depth (out of scope, rollout/rollback, copy-paste verification, review guide); `pr-preflight.mjs template` and `validate-body` enforce the contract in agent workflows.
+- `scripts/doctor.sh` — default full doctor runs install smoke instead of the full `tests/test-install.sh` suite (~17 minutes saved); set `ETRNL_DOCTOR_FULL_INSTALL=1` or `DOCTOR_INSTALL_SUITE=full` for release/install validation. `--changed` maps `VERSION`, `templates/*`, `rules/*`, and `schemas/*` without falling open; schema JSON checks run in parallel; default `DOCTOR_JOBS` is `min(8, nproc)`. Doctor now parallelizes settings audits, script fixture checks, skill checks, and reaps heavy async jobs on SIGINT/TERM.
+- `tests/test-hooks.sh` — parallelizes guard/packet fixture matrices and safe-bash idempotency repeats via `tests/lib/parallel-run.sh`.
+- `tests/test-install-smoke.sh` — fast mode (`RUN_INSTALL_SMOKE_MODE=fast`) skips the full-copy malformed-settings install leg used by doctor; full mode retains it for `tests/test-install.sh`.
+- Added `scripts/lib/trap-children.sh` and `tests/lib/parallel-run.sh` shared helpers for child cleanup and parallel test execution.
+
+### Fixed
+
+- Compaction alone no longer forces verification stale on an unchanged worktree, closing the compact→stale→rerun loop that could force up to dozens of full-suite re-runs per session when the tree had not changed.
+- `scripts/doctor.sh` — partial `doctor --changed` greens no longer short-circuit future runs via cache hit; only full-mode greens cache; `schemas/*` changes also run the hooks group so diff-triviality stays live.
+- `scripts/execution-ledger.mjs` — `record-task-bundle` enforces review reopen caps sequentially inside the ledger update, matching standalone `record-review`.
+- `scripts/lib/plan-risk-tier.mjs` — tier-3 auto-escalation scans Goal, task-group, phase, and justification prose, not just file-map paths.
+
 ## v0.7.2
 
 2026-07-20

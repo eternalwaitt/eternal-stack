@@ -14,6 +14,8 @@ source "$SCRIPT_DIR/lib/state.sh"
 source "$SCRIPT_DIR/lib/paths.sh"
 # shellcheck source=hooks/lib/command-classifiers.sh
 source "$SCRIPT_DIR/lib/command-classifiers.sh"
+# shellcheck source=hooks/lib/ledger-gate-record.sh
+source "$SCRIPT_DIR/lib/ledger-gate-record.sh"
 
 cc_json_read_stdin
 cc_json_require_jq || exit 0
@@ -293,6 +295,9 @@ record_tool() {
       fi
       if cc_command_is_review_verification "$command"; then
         cc_state_batch_append_value reviewRuns "$command"
+      fi
+      if cc_command_is_auto_record_gate "$command"; then
+        cc_ledger_auto_record_gate_check_async "$command" "$succeeded" "$(cc_session_id)" "$SCRIPT_DIR" 5
       fi
       local vivaz_triage_regex='(^|[[:space:];&|])(vivaz-email|[^[:space:];&|]*/vivaz-email)[[:space:]]+triage[[:space:]]+(verify|report)([[:space:]]|$)'
       # Match standalone or path-prefixed `vivaz-email triage verify` or `report`; anchors avoid partial command-word matches.

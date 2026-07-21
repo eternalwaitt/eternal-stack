@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { validatePlanScopeFreeze } from "./plan-risk-tier.mjs";
 
 const HIGH_SEVERITIES = new Set(["blocker", "critical", "high", "p0", "p1"]);
 const TERMINAL_FINDING_STATUSES = new Set(["fixed", "closed", "resolved", "disproven", "false-positive", "false_positive", "accepted"]);
@@ -161,6 +162,21 @@ export function validateDeepStackPlanFile(planPath, options = {}) {
  */
 export function validateDeepStackPlanText(planText, options = {}) {
   const planPath = options.planPath || "<plan>";
+  const scopeErrors = validatePlanScopeFreeze(planText);
+  if (scopeErrors.length > 0) {
+    return {
+      ok: false,
+      transitional: false,
+      artifactPath: "",
+      errors: scopeErrors.map((item) => error(
+        item.code,
+        planPath,
+        "Goal",
+        item.whyItMatters,
+        item.exactFix,
+      )),
+    };
+  }
   const metadata = parseDeepStackMetadata(planText);
   if (metadata === null) {
     if (options.requireDeepStack === true) {

@@ -15,7 +15,7 @@
       "forbiddenPaths": ["hooks"],
       "expectedOutput": "patched scripts with tests",
       "verificationCommand": "./tests/test-workflow-tools.sh",
-      "modelTier": "sonnet",
+      "modelTier": "standard",
       "timeoutSec": 600,
       "retryPolicy": {
         "maxRetries": 1,

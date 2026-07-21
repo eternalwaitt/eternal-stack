@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { readStdinRaw } from "./lib/read-stdin.mjs";
+import { PR_BODY_TEMPLATE, validatePrDescription } from "./lib/pr-description-contract.mjs";
+import { readStdinJson, readStdinRaw } from "./lib/read-stdin.mjs";
 
 const args = process.argv.slice(2);
 const command = args[0] || "status";
 const json = args.includes("--json");
+const strict = args.includes("--strict");
 const commandTimeoutMs = Number(process.env.PR_PREFLIGHT_TIMEOUT_MS || "30000") || 30_000;
 const maxBufferBytes = parseMaxBuffer();
 
@@ -43,12 +45,16 @@ function porcelainPath(line) {
 function emit(payload) {
   if (json) console.log(JSON.stringify(payload, null, 2));
   else {
+    if (payload.template) {
+      console.log(payload.template);
+      return;
+    }
     console.log(`branch=${payload.branch || ""}`);
     console.log(`upstream=${payload.upstream || ""}`);
     console.log(`dirty=${payload.dirty}`);
     console.log(`existingPr=${payload.existingPr || ""}`);
-    for (const item of payload.blockers) console.log(`blocker: ${item}`);
-    for (const item of payload.warnings) console.log(`warning: ${item}`);
+    for (const item of payload.blockers || []) console.log(`blocker: ${item}`);
+    for (const item of payload.warnings || []) console.log(`warning: ${item}`);
   }
 }
 
@@ -60,6 +66,11 @@ function packageManagerGate() {
   if (existsSync("Cargo.toml")) return "cargo";
   if (existsSync("go.mod")) return "go";
   return "";
+}
+
+function gitChangedFiles() {
+  const porcelain = splitLines(run("git", ["status", "--porcelain"]).stdout);
+  return porcelain.filter((line) => !line.startsWith("?? ")).map((line) => porcelainPath(line)).filter(Boolean);
 }
 
 function status() {
@@ -140,9 +151,44 @@ function validate() {
   process.exit(blockers.length > 0 ? 1 : 0);
 }
 
+function template() {
+  emit({
+    schemaVersion: 1,
+    command: "template",
+    template: PR_BODY_TEMPLATE,
+    reference: "skills/etrnl-dev-pr/references/pr-description.md",
+  });
+  process.exit(0);
+}
+
+function validateBody() {
+  const payload = readStdinJson({ required: true });
+  const changedFiles = Array.isArray(payload.changedFiles) ? payload.changedFiles : gitChangedFiles();
+  const result = validatePrDescription(
+    {
+      title: payload.title,
+      body: payload.body,
+      changedFiles,
+    },
+    { strict },
+  );
+  emit({
+    schemaVersion: 1,
+    command: "validate-body",
+    ok: result.ok,
+    shippingSensitive: result.shippingSensitive,
+    largePr: result.largePr,
+    blockers: result.blockers,
+    warnings: result.warnings,
+  });
+  process.exit(result.ok ? 0 : 1);
+}
+
 if (command === "status") status();
 else if (command === "validate") validate();
+else if (command === "template") template();
+else if (command === "validate-body") validateBody();
 else {
-  console.error("usage: pr-preflight.mjs status|validate [--json]");
+  console.error("usage: pr-preflight.mjs status|validate|template|validate-body [--json] [--strict]");
   process.exit(2);
 }

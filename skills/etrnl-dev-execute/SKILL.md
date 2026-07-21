@@ -23,6 +23,8 @@ Completion means every item inside the plan's `Execution scope` is verified or e
 4. Start a ledger when the helper is installed:
    - `node ~/.claude/scripts/execution-ledger.mjs init --plan <plan-path> --session "$CLAUDE_SESSION_ID"`
    - Record task progress with `node ~/.claude/scripts/execution-ledger.mjs set-task --task <id> --status <status> --session "$CLAUDE_SESSION_ID"`.
+   - Grounded progress: `node ~/.claude/scripts/execution-ledger.mjs history --progress --session "$CLAUDE_SESSION_ID"` (`--json`, `--renegotiation-check`).
+   - Log owner decisions with `node ~/.claude/scripts/execution-ledger.mjs record-decision --topic <topic> --decision <choice> --rationale "<why>" --session "$CLAUDE_SESSION_ID"`.
    - Record every in-scope plan phase with `node ~/.claude/scripts/execution-ledger.mjs set-phase --phase <id> --workstream <id> --status in_progress --session "$CLAUDE_SESSION_ID"` before starting it and `--status verified` after its gate passes. Phase metadata is mandatory for plan execution.
    - Record UAT closure with `node ~/.claude/scripts/execution-ledger.mjs record-uat --artifact <path> --open-findings <count> --session "$CLAUDE_SESSION_ID"`; open findings block completion.
    - Require planned artifacts with `node ~/.claude/scripts/execution-ledger.mjs require-artifact --type <artifact-type> --session "$CLAUDE_SESSION_ID"`.
@@ -43,7 +45,9 @@ Completion means every item inside the plan's `Execution scope` is verified or e
 
 1. Continue through the approved plan without asking between mechanical phases.
    - Treat `Execution scope: all_phases` as a hard contract to execute the full plan. If the plan has no `Execution scope`, stop and patch the plan before editing.
-2. Ask the user only for destructive actions, scope expansion, missing credentials, conflicting user edits, repeated stalls, or subjective product/taste decisions.
+2. Ask the user only for destructive actions, missing credentials, or scope expansion beyond the plan.
+   - Taste and product defaults follow the `etrnl-dev-autoplan` Decision Policy: choose the default, log it to the ledger, and surface it at the final gate — do not use AskUserQuestion mid-run for taste.
+   - Still ask for conflicting user edits, repeated stalls, or blockers that cannot be derived from the repo.
 3. Group tasks by dependency and write scope. Execute dependent work sequentially; dispatch independent read-only review or disjoint write work to fresh subagents. For explicit parallel fan-out requests, load `references/parallel-fanout.md` before widening lanes.
     - Use wave-based execution: earlier waves must finish before later waves.
     - Before parallel work, run an overlap check with the plan's task file lists when practical:
@@ -57,12 +61,17 @@ Completion means every item inside the plan's `Execution scope` is verified or e
     - Emit heartbeat text at wave and task boundaries: `[checkpoint] wave <n> task <id> starting`.
     - If a subagent completion signal is missing, spot-check expected output, git state, and ledger artifacts before deciding whether to retry or continue.
     - While a subagent owns a task, do not duplicate its implementation locally.
-4. Every subagent call must include a structured task packet:
-   - Generate the packet skeleton with `node ~/.claude/scripts/agent-task-packet-check.mjs --template read-only` or `node ~/.claude/scripts/agent-task-packet-check.mjs --template write`, then fill it before dispatch.
-   - Pass the final packet as structured `tool_input.packet` when the tool supports it. If Claude Code only exposes a prompt field, the entire prompt must be one valid JSON object with either top-level packet fields or `{ "packet": { ... }, "instructions": "..." }`; do not add Markdown or prose outside the JSON.
-   - If the Agent/Task call is rejected with `Subagent task packet is missing` or another packet error, retry with a JSON-only prompt. Do not switch to parent edits.
-   - taskId
-   - lineageId
+    - Default `maxConcurrentLanes` to 3 unless the plan's `## Parallelization strategy` justifies more in one explicit line.
+    - Any duration estimate given to the user during execution MUST quote `node ~/.claude/scripts/execution-ledger.mjs history --progress --session "$CLAUDE_SESSION_ID"`; if the ledger cannot provide it, say so instead of guessing.
+    - When `history --progress --renegotiation-check` shows `renegotiationRequired=true`, pause once: present a consolidation proposal (bundle remaining waves per screen/domain; one consolidated review per wave for tier ≤ 2 surfaces; keep individual gates for tier-3 surfaces) with the ledger numbers, take ONE user decision, log it via `record-decision`, and never re-ask.
+    - Model tier defaults: read-only scout/review/consumer-trace lanes → `fast`; write implementation → `standard`; tier-3 money/migration/security review → `top`; packet override needs one `modelTierJustification` line.
+4. Subagent packets scale to tier and wave shape:
+   - **Sequential single-task work:** 5-field mini-packet — `taskId`, `goal`, `exact scope`, `verification command`, `write scope` (or read-only). No hash, lineageId, reviewers, waveId, or completionReceipt.
+   - **Parallel multi-file write waves at tier ≥ 2:** full packet schema below (hash, reviewers, waveId, completionReceipt when required).
+   - Generate skeletons with `agent-task-packet-check.mjs --template read-only|write`; pass as `tool_input.packet` or JSON-only prompt (no Markdown wrapper). Retry JSON on packet rejection — do not switch to parent edits.
+   - Full-packet fields (tier ≥ 2 parallel writes):
+   - `taskId`
+   - `lineageId`
    - goal
    - context summary
    - exact scope
@@ -103,7 +112,7 @@ Completion means every item inside the plan's `Execution scope` is verified or e
 
 ## Bounded CodeRabbit-lens review (risk-tiered)
 
-After the final edit of a task or wave, run one targeted CodeRabbit-preemption pass, not an open-ended loop. Load `references/bounded-review.md` for the procedure: the pre-push guard, the changed-surface quality lenses, and the risk-tiered reopen caps.
+After the final edit of a task or wave, run one targeted CodeRabbit-preemption pass, not an open-ended loop. Load `references/bounded-review.md` for procedure, reopen caps (ledger-enforced), and per-tier review depth.
 
 ## Verification
 
@@ -115,14 +124,12 @@ After each phase:
 - If the plan calls for browser/manual QA and browser tooling is available, run it before final completion; a pending browser pass is a blocker, not a residual risk.
 - If the plan has a UAT gate, record `record-uat`; do not mark a phase complete while `uatOpenFindings` is greater than zero.
 - Record command/live-check evidence before moving on with `node ~/.claude/scripts/execution-ledger.mjs record-check --name <phase> --command "<command>" --status passed`.
-- Record bound write evidence for implementation and reviews when write packets are used:
-  - `node ~/.claude/scripts/execution-ledger.mjs set-task --task <id> --status verified --mode write --lineage <lineage-id> --packet-hash <hash> --requires-implementation-evidence --spec-review-required --quality-review-required --tdd-required --simplifier-review-required`
-  - `node ~/.claude/scripts/execution-ledger.mjs record-agent --role etrnl-executor --mode write --task <id> --lineage <lineage-id> --packet-hash <hash> --status completed`
-  - `node ~/.claude/scripts/execution-ledger.mjs record-review --reviewer etrnl-spec-reviewer|etrnl-quality-reviewer --task <id> --lineage <lineage-id> --packet-hash <hash> --status verified`
-  - `node ~/.claude/scripts/execution-ledger.mjs record-simplifier --task <id> --lineage <lineage-id> --packet-hash <hash> --status verified --evidence "<code-simplifier evidence>"`
-  - `node ~/.claude/scripts/execution-ledger.mjs record-specialist --task <id> --lineage <lineage-id> --packet-hash <hash> --skill <skill-name> --status verified --evidence "<specialist evidence>"` when triggered.
-  - `node ~/.claude/scripts/execution-ledger.mjs record-completion-audit --item <plan-item> --task <id> --lineage <lineage-id> --packet-hash <hash> --classification DONE --evidence "<diff/test evidence>"`
-  - `node ~/.claude/scripts/execution-ledger.mjs record-install-proof --task <id> --lineage <lineage-id> --packet-hash <hash> --stage <sourceGate|stagedInstall|stagedDoctor|rollbackVerification|liveInstallDecision|postUpgradeCanary> --status passed --evidence "<command evidence>"` for Tier 3 behavior.
+- Record task evidence with `record-task-bundle --session "$CLAUDE_SESSION_ID" --file <bundle.json>` (omit unrecorded sections; individual `record-*` still valid):
+  - Shape: `{ taskId, task?, agent?, reviews?, tdd?, simplifier?, completionAudit? }`.
+- Tier 3 install proof still uses `record-install-proof` when required:
+  - `node ~/.claude/scripts/execution-ledger.mjs record-install-proof --task <id> --lineage <lineage-id> --packet-hash <hash> --stage <sourceGate|stagedInstall|stagedDoctor|rollbackVerification|liveInstallDecision|postUpgradeCanary> --status passed --evidence "<command evidence>"`
+- Record specialist evidence when triggered:
+  - `node ~/.claude/scripts/execution-ledger.mjs record-specialist --task <id> --lineage <lineage-id> --packet-hash <hash> --skill <skill-name> --status verified --evidence "<specialist evidence>"`
 - Record artifact evidence when created:
   - `node ~/.claude/scripts/execution-ledger.mjs record-artifact --type deep-stack-artifacts --path <path> --session "$CLAUDE_SESSION_ID"`
   - `node ~/.claude/scripts/execution-ledger.mjs record-artifact --type completion-audit --path <path> --session "$CLAUDE_SESSION_ID"`
@@ -134,24 +141,7 @@ After each phase:
 
 ### Browser-QA v2 Matrix Artifact
 
-Use `browser-qa-report.mjs create --schema-version 2` for UI/browser evidence. JSON is the machine-validated source of truth; CSV notes are acceptable only if converted into the same fields before recording the artifact.
-
-Required report fields:
-
-- `schemaVersion: 2`, `reportId`, `routes`, `viewports`, `status`, `consoleSummary`, `networkSummary`, `matrix`, and `provenance`.
-- `provenance.tool`, `provenance.targetUrl`, `provenance.command`, and fresh ISO `provenance.capturedAt`.
-- One `matrix` row for every `route` and `viewport` combination when `status` is `complete`.
-- Top-level `status` is `complete`, `partial`, or `failed`.
-- `routes` and `viewports` are non-empty arrays when `status` is `complete`.
-- When `status` is not `complete`, `matrix` is allowed to be partial or empty.
-
-Required complete-row fields:
-
-- `route`, `viewport`, `status` (`passed`, `failed`, `blocked`, or `skipped`), `consoleErrors`, `failedRequests`, and fresh ISO `capturedAt`.
-- For non-skipped rows: `screenshot` under the artifact root and matching `screenshotSha256`.
-- Conditional metadata belongs in row fields such as `browser`, `browserVersion`, `device`, `platform`, `testCaseId`, `sessionId`, and `environment`; keep names stable if a CSV export is used.
-
-Reject reports with missing `screenshotSha256`, screenshots outside the artifact root, stale `capturedAt`, duplicate `route`/`viewport` rows, or a `complete` report without every route/viewport combination. Store paths under `etrnl/artifacts/browser-qa/` or pass `--artifact-root`, then validate with `node ~/.claude/scripts/browser-qa-report.mjs validate <report-path> --artifact-root <root>`.
+Use `browser-qa-report.mjs create --schema-version 2`; JSON is source of truth. When `status` is `complete`, require every route×viewport row with fresh `capturedAt`, `screenshot` + `screenshotSha256` under the artifact root, and full `provenance`. Validate with `browser-qa-report.mjs validate <report-path> --artifact-root <root>`. Reject duplicate rows, stale timestamps, or `complete` without full matrix coverage.
 
 ## Verification Gates (hardened)
 
@@ -160,7 +150,7 @@ Each wave gate is a hard stop:
 1. **Gate failure is a blocker.** If the gate command exits non-zero, do not start the next wave. Record the failure, diagnose the root cause, fix it, and re-run the gate before proceeding.
 2. **Evidence required before wave advance.** Record `execution-ledger.mjs record-check` with status `passed` before marking any task `completed`. A task without a recorded check is incomplete regardless of local observation.
 3. **No self-certification.** Do not mark a gate `passed` based on reading output without running the command. Run the exact command from the plan's Verification gates table.
-4. **Partial gates are not gates.** If the plan specifies a full suite command (`pnpm test`, `bash tests/test-hooks.sh`), running a subset and passing is not gate evidence. Run the full command.
+4. **Cached gates at unchanged tree hash; partial suites are not gates.** A green full-suite `record-check` at the current worktree hash is valid — do not re-run unchanged trees. `bash scripts/doctor.sh --changed` green covers execution health on touched paths; full doctor stays required for release/install. Subset runs are not gate evidence when the plan names a full suite.
 
 ## Completion
 

@@ -57,7 +57,7 @@ Checks include:
 - Evidence-discipline violations (agreement before verification). Completion claims still block; non-final status updates receive advisory context instead of a hard Stop block.
 - Completion language (`done`, `fixed`, `tests pass`, and similar) without matching verification runs after source edits.
 - Incomplete execution-ledger evidence when a plan run is active.
-- Stale verification after compact (`compact_post` marks verification stale until re-run). Status-only completions are advisory unless a plan run or edits make verification relevant.
+- Stale verification when the worktree hash changed or is unknown. A green ledger check with matching `treeHash` stays fresh after compact; `compact_post` no longer unconditionally marks verification stale when the hash resolves. Status-only completions are advisory unless a plan run or edits make verification relevant.
 - Dated source evidence for advice/search-style answers.
 - Required artifacts: review logs, browser QA reports, context saves, skill-specific ledgers.
 - Deflection language that labels failures as pre-existing or out-of-scope without evidence.
@@ -76,7 +76,7 @@ Explicit non-final status updates (paused deploy, awaiting approval, work in pro
 These hooks are documented in [hooks.md](hooks.md); they are listed here because operators often tune them alongside guards.
 
 - **`cc-rate-limiter.sh`**: locked, debounced advisory warnings for tool-call spirals and repeated failures.
-- **`cc-posttoolbatch-observer.sh`**: records reads, searches, commands, skills, edits, verification runs, repeated edits, and project bug-memory notes.
+- **`cc-posttoolbatch-observer.sh`**: records reads, searches, commands, skills, edits, verification runs, repeated edits, and project bug-memory notes; auto-records allowlisted gate commands (`test-hooks`, `test-workflow-tools`, `doctor`, `doctor --changed`, `plan-readiness-check.mjs`) into the active ledger via `ledger-gate-record.sh`.
 - **`cc-userprompt-router.sh`**: records requested skills, reinjects `CLAUDE.md` once per session, expands imports, injects routing hints.
 - **`cc-userprompt-expansion.sh`**: markdown `@` import expansion (separate from routing).
 - **`cc-sessionstart-restore.sh`**: compact handoff restore, drift/update checks via `update-check.mjs`.
@@ -93,6 +93,8 @@ These hooks are documented in [hooks.md](hooks.md); they are listed here because
 | `cc-posttooluse-quality.sh` | fail-open | block assistant turn |
 | `cc-posttoolusefailure-diagnose.sh` | fail-open | block on repeated identical failure |
 | `cc-stop-verifier.sh` | fail-closed when verifier logic runs | block/reprompt completion |
+| Worktree hash lookup (`cc_worktree_hash`) | fail-open to stale verification (re-run required) | treat verification as stale |
+| Auto gate recording (`ledger-gate-record.sh`) | fail-open (skip record) | record allowlisted gate commands only; non-allowlisted commands never auto-recorded |
 | `cc-subagentstop-record.sh` | fail-closed when ledger active | block malformed subagent output |
 | `cc-userprompt-router.sh` | fail-open (skip injection) | route/inject context |
 | `cc-sessionstart-restore.sh` / `update-check.mjs` | skip update check silently | run local auto-update when enabled |
@@ -128,7 +130,8 @@ Shared modules under `hooks/lib/`:
 | File | Role |
 | --- | --- |
 | `json.sh` | Stdin JSON, jq guards, block/context/allow responses |
-| `state.sh` | Per-session state file, fingerprints, ETRNL append |
+| `state.sh` | Per-session state file, fingerprints, ETRNL append, worktree hash and tree-hash verification freshness |
+| `ledger-gate-record.sh` | Allowlisted gate-command detection and async ledger `record-check` |
 | `paths.sh` | Claude/Codex home and project path resolution |
 | `event-extract.sh` | Resilient event field extraction |
 | `command-classifiers.sh` | Bash and edit command classification |

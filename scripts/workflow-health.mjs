@@ -3,7 +3,7 @@ import { existsSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
-import { beadLinkDryRun, compactHandoff } from "./lib/etrnl-state-core.mjs";
+import { beadLinkDryRun, compactHandoff, readEvents, stateRoot } from "./lib/etrnl-state-core.mjs";
 
 const args = process.argv.slice(2);
 const KNOWN_COMMANDS = new Set(["summary", "status", "doctor", "prune"]);
@@ -41,11 +41,19 @@ const sessionFilter = flagValue("--session");
 const projectFilter = flagValue("--project");
 const includeAll = args.includes("--all");
 const scopedView = Boolean(cwdFilter || sessionFilter || projectFilter) && !includeAll;
+const perfMaxGateRepeats = positiveEnvNumber("ETRNL_PERF_MAX_GATE_REPEATS", 3);
+const perfMaxCompactStale = positiveEnvNumber("ETRNL_PERF_MAX_COMPACT_STALE", 5);
+const perfMaxWaitRatio = positiveEnvNumber("ETRNL_PERF_MAX_WAIT_RATIO", 0.5);
 
 if (requestedLedgerReadConcurrency > MAX_LEDGER_READ_CONCURRENCY) {
   console.warn(
     `workflow-health warning: ETRNL_LEDGER_READ_CONCURRENCY=${requestedLedgerReadConcurrency} exceeds max ${MAX_LEDGER_READ_CONCURRENCY}; capping.`,
   );
+}
+
+function positiveEnvNumber(name, fallback) {
+  const raw = Number(process.env[name]);
+  return Number.isFinite(raw) && raw > 0 ? raw : fallback;
 }
 
 function flagValue(name, fallback = "") {
@@ -310,6 +318,303 @@ function nextAction(status) {
   return "none";
 }
 
+function loadStateEventsSafely() {
+  try {
+    return readEvents(stateRoot());
+  } catch {
+    return [];
+  }
+}
+
+function commandFamily(command) {
+  return String(command || "").trim().replace(/\s+/g, " ");
+}
+
+function gateRepeatMetrics(checks) {
+  const stamped = (checks ?? []).filter((check) => check.command && check.treeHash);
+  if (stamped.length === 0) return null;
+  const groups = new Map();
+  for (const check of stamped) {
+    const key = `${commandFamily(check.command)}|${check.treeHash}`;
+    groups.set(key, (groups.get(key) || 0) + 1);
+  }
+  let maxExecutions = 0;
+  let maxCommandFamily = "";
+  let maxTreeHash = "";
+  for (const [key, count] of groups.entries()) {
+    if (count > maxExecutions) {
+      maxExecutions = count;
+      [maxCommandFamily, maxTreeHash] = key.split("|");
+    }
+  }
+  return {
+    maxExecutions,
+    maxRepeats: Math.max(maxExecutions - 1, 0),
+    commandFamily: maxCommandFamily,
+    treeHash: maxTreeHash,
+    distinctTreeHashes: new Set(stamped.map((check) => check.treeHash)).size,
+  };
+}
+
+function verificationTreeHashFromEvent(event) {
+  if (!event || typeof event !== "object") return "";
+  if (event.eventKind === "doctor_green") return String(event.data?.treeHash || "");
+  if (event.eventKind === "check") {
+    return String(event.data?.treeHash || "");
+  }
+  return "";
+}
+
+function isCompactEventKind(eventKind) {
+  return eventKind === "compact_pre" || eventKind === "compact_post";
+}
+
+function compactPerformanceMetrics(sessionEvents) {
+  const ordered = [...sessionEvents].sort((left, right) => {
+    const bySeq = Number(left.eventSeq || 0) - Number(right.eventSeq || 0);
+    if (bySeq !== 0) return bySeq;
+    return Date.parse(left.at || "") - Date.parse(right.at || "");
+  });
+  let compactCount = 0;
+  let compactsWithUnchangedTree = 0;
+  let compactStaleEvents = 0;
+  let latestVerificationTreeHash = "";
+  for (const event of ordered) {
+    const verificationTreeHash = verificationTreeHashFromEvent(event);
+    if (verificationTreeHash) latestVerificationTreeHash = verificationTreeHash;
+    if (!isCompactEventKind(event.eventKind)) continue;
+    compactCount += 1;
+    if (event.eventKind !== "compact_post") continue;
+    const treeHashAtCompact = String(event.data?.treeHashAtCompact || "");
+    const explicitStale = event.data?.verificationStale === true;
+    if (explicitStale) {
+      compactStaleEvents += 1;
+      continue;
+    }
+    if (treeHashAtCompact && latestVerificationTreeHash) {
+      if (treeHashAtCompact === latestVerificationTreeHash) {
+        compactsWithUnchangedTree += 1;
+      } else {
+        compactStaleEvents += 1;
+      }
+      continue;
+    }
+    if (treeHashAtCompact && !latestVerificationTreeHash) {
+      compactStaleEvents += 1;
+    }
+  }
+  if (compactCount === 0 && compactStaleEvents === 0 && compactsWithUnchangedTree === 0) return null;
+  return { compactCount, compactsWithUnchangedTree, compactStaleEvents };
+}
+
+function taskCompletionMetrics(ledger) {
+  const tasks = (ledger.tasks ?? []).filter((task) => ["verified", "skipped"].includes(task.status));
+  const durations = tasks
+    .map((task) => {
+      const startMs = Date.parse(String(task.startedAt || ledger.startedAt || ""));
+      const endMs = Date.parse(String(task.completedAt || task.heartbeatAt || ""));
+      if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs) return Number.NaN;
+      return endMs - startMs;
+    })
+    .filter(Number.isFinite);
+  if (durations.length === 0) return null;
+  const sessionStartMs = Date.parse(String(ledger.startedAt || ledger.updatedAt || ""));
+  const sessionEndMs = Date.parse(String(ledger.updatedAt || ledger.startedAt || ""));
+  if (!Number.isFinite(sessionStartMs) || !Number.isFinite(sessionEndMs) || sessionEndMs <= sessionStartMs) {
+    return { tasksCompleted: durations.length };
+  }
+  const hours = (sessionEndMs - sessionStartMs) / (60 * 60 * 1000);
+  if (hours <= 0) return { tasksCompleted: durations.length };
+  return {
+    tasksCompleted: durations.length,
+    tasksCompletedPerHour: Number((durations.length / hours).toFixed(2)),
+  };
+}
+
+function hasPacketOrSubagentData(ledger) {
+  const agents = ledger.agents ?? [];
+  const tasks = ledger.tasks ?? [];
+  return agents.some((agent) => agent.packetHash || agent.role === "subagent")
+    || tasks.some((task) => task.packetHash);
+}
+
+function waitCallMetrics(ledger) {
+  if (!hasPacketOrSubagentData(ledger)) return null;
+  const events = ledger.events ?? [];
+  if (!Array.isArray(events) || events.length === 0) return null;
+  const waitCalls = events.filter((event) => String(event.type || "") === "orchestrator.wait").length;
+  const turns = events.filter((event) => String(event.type || "").startsWith("orchestrator.")).length;
+  if (waitCalls === 0 || turns === 0) return null;
+  return {
+    waitCalls,
+    turns,
+    waitCallRatio: Number((waitCalls / turns).toFixed(3)),
+  };
+}
+
+function buildSessionPerformanceRow(ledger, stateEvents) {
+  const sessionId = String(ledger.sessionId || "");
+  const sessionStateEvents = sessionId
+    ? stateEvents.filter((event) => event.sessionId === sessionId)
+    : [];
+  const row = {
+    sessionId,
+    runId: ledger.runId || "",
+  };
+  const gateMetrics = gateRepeatMetrics(ledger.checks);
+  if (gateMetrics) {
+    row.gateMaxRepeatsAtTreeHash = gateMetrics.maxExecutions;
+    row.gateRepeatCommandFamily = gateMetrics.commandFamily;
+    row.gateRepeatTreeHash = gateMetrics.treeHash;
+    row.gateDistinctTreeHashes = gateMetrics.distinctTreeHashes;
+  }
+  const compactMetrics = compactPerformanceMetrics(sessionStateEvents);
+  if (compactMetrics) {
+    row.compactCount = compactMetrics.compactCount;
+    row.compactsWithUnchangedTree = compactMetrics.compactsWithUnchangedTree;
+    row.compactStaleEvents = compactMetrics.compactStaleEvents;
+  }
+  const taskMetrics = taskCompletionMetrics(ledger);
+  if (taskMetrics?.tasksCompletedPerHour !== undefined) {
+    row.tasksCompletedPerHour = taskMetrics.tasksCompletedPerHour;
+  } else if (taskMetrics?.tasksCompleted !== undefined) {
+    row.tasksCompleted = taskMetrics.tasksCompleted;
+  }
+  const waitMetrics = waitCallMetrics(ledger);
+  if (waitMetrics) {
+    row.waitCalls = waitMetrics.waitCalls;
+    row.orchestratorTurns = waitMetrics.turns;
+    row.waitCallRatio = waitMetrics.waitCallRatio;
+  }
+  return Object.keys(row).length > 2 ? row : null;
+}
+
+function buildPerformanceSummary(ledgers, stateEvents) {
+  const sessions = ledgers
+    .map((ledger) => buildSessionPerformanceRow(ledger, stateEvents))
+    .filter(Boolean);
+  return sessions.length > 0 ? { sessions } : { sessions: [] };
+}
+
+function collectPerformanceFindings(performanceSummary) {
+  const findings = [];
+  for (const row of performanceSummary.sessions) {
+    const sessionLabel = row.sessionId || row.runId || "unknown-session";
+    if (Number(row.gateMaxRepeatsAtTreeHash || 0) > perfMaxGateRepeats) {
+      findings.push({
+        id: "perf-gate-repeats",
+        count: 1,
+        sessionId: sessionLabel,
+        metric: "gateExecutionsAtTreeHash",
+        value: row.gateMaxRepeatsAtTreeHash,
+        commandFamily: row.gateRepeatCommandFamily || "unknown",
+      });
+    }
+    if (Number(row.compactStaleEvents || 0) > perfMaxCompactStale) {
+      findings.push({
+        id: "perf-compact-stale",
+        count: 1,
+        sessionId: sessionLabel,
+        metric: "compactStaleEvents",
+        value: row.compactStaleEvents,
+      });
+    }
+    if (Number.isFinite(row.waitCallRatio) && row.waitCallRatio > perfMaxWaitRatio) {
+      findings.push({
+        id: "perf-wait-ratio",
+        count: 1,
+        sessionId: sessionLabel,
+        metric: "waitCallRatio",
+        value: row.waitCallRatio,
+      });
+    }
+  }
+  return findings;
+}
+
+function renderPerformanceText(performanceSummary) {
+  if (performanceSummary.sessions.length === 0) return "performance: none";
+  const lines = ["performance:"];
+  for (const row of performanceSummary.sessions) {
+    const label = row.sessionId || row.runId || "unknown-session";
+    const parts = [`${label} (${row.runId || "run"})`];
+    if (row.gateMaxRepeatsAtTreeHash !== undefined) {
+      parts.push(`gateMaxRepeats=${row.gateMaxRepeatsAtTreeHash}`);
+      if (row.gateRepeatCommandFamily) parts.push(`command=${row.gateRepeatCommandFamily}`);
+    }
+    if (row.compactCount !== undefined) parts.push(`compacts=${row.compactCount}`);
+    if (row.compactsWithUnchangedTree !== undefined) parts.push(`compactsUnchangedTree=${row.compactsWithUnchangedTree}`);
+    if (row.compactStaleEvents !== undefined) parts.push(`compactStale=${row.compactStaleEvents}`);
+    if (row.tasksCompletedPerHour !== undefined) parts.push(`tasksPerHour=${row.tasksCompletedPerHour}`);
+    if (row.waitCallRatio !== undefined) parts.push(`waitCallRatio=${row.waitCallRatio}`);
+    lines.push(`  ${parts.join(" ")}`);
+  }
+  return lines.join("\n");
+}
+
+function renderPerformanceFindingText(finding) {
+  const sessionLabel = finding.sessionId || "unknown-session";
+  if (finding.id === "perf-gate-repeats") {
+    return `session=${sessionLabel} metric=${finding.metric} value=${finding.value} commandFamily=${finding.commandFamily || "unknown"}`;
+  }
+  return `session=${sessionLabel} metric=${finding.metric} value=${finding.value}`;
+}
+
+function buildSummary(selectedLedgers, ledgerParseErrors, stateEvents) {
+  const performance = buildPerformanceSummary(selectedLedgers, stateEvents);
+  const sessions = selectedLedgers.slice(0, limit).map((ledger) => {
+    const tasks = ledger.tasks ?? [];
+    const blocked = tasks.filter((task) => task.status === "blocked").length;
+    const verified = tasks.filter((task) => task.status === "verified").length;
+    const retries = tasks.reduce((sum, task) => sum + Number(task.attempts || 0), 0);
+    const failures = (ledger.checks ?? []).filter((check) => check.status === "failed").length;
+    const artifacts = (ledger.artifacts ?? []).length;
+    return {
+      runId: ledger.runId || "",
+      sessionId: ledger.sessionId || "",
+      verified,
+      totalTasks: tasks.length,
+      blocked,
+      retries,
+      failedChecks: failures,
+      artifacts,
+      line: `${ledger.runId}: verified=${verified}/${tasks.length} blocked=${blocked} retries=${retries} failedChecks=${failures} artifacts=${artifacts}`,
+    };
+  });
+  return {
+    schemaVersion: 1,
+    command: "summary",
+    filters: {
+      cwd: cwdFilter,
+      session: sessionFilter,
+      project: projectFilter,
+      all: includeAll,
+    },
+    sessions,
+    performance,
+    staleRuns: selectedLedgers.filter(staleRun).length,
+    thresholdHours: staleHours,
+    malformedLedgers: ledgerParseErrors.length,
+  };
+}
+
+function renderSummaryText(summary, verboseMode = false) {
+  const lines = summary.sessions.map((session) => session.line);
+  if (summary.malformedLedgers > 0) {
+    lines.push(`malformedLedgers=${summary.malformedLedgers}`);
+    if (verboseMode) {
+      // malformed ledger details are printed by the caller when available
+    }
+  }
+  lines.push(reviewSummary(verboseMode));
+  lines.push(`browserQa reports=${countJsonFiles(path.join(artifactBase, "browser-qa"))}`);
+  lines.push(`contexts saved=${countJsonFiles(path.join(artifactBase, "contexts"))}`);
+  lines.push(`artifactFreshness latest=${latestMtimeIso(artifactBase)}`);
+  lines.push(`staleRuns=${summary.staleRuns} thresholdHours=${summary.thresholdHours}`);
+  lines.push(renderPerformanceText(summary.performance));
+  return lines.join("\n");
+}
+
 function buildStatus(ledgers, ledgerParseErrors = []) {
   const active = latestLedger(ledgers);
   const runStatus = activeRunStatus(active);
@@ -388,7 +693,7 @@ function prunableLedger(ledger) {
   return !hasIncompleteLedger(ledger);
 }
 
-function buildDoctor(ledgers, ledgerParseErrors) {
+function buildDoctor(ledgers, ledgerParseErrors, performanceFindings = []) {
   const prunable = ledgers.filter(prunableLedger);
   const effectiveness = effectivenessStats();
   const compact = compactStats();
@@ -402,6 +707,7 @@ function buildDoctor(ledgers, ledgerParseErrors) {
   if (compact.staleVerification) runtimeFindings.push({ id: "stale-compact-verification", count: 1 });
   if (review.malformed > 0) runtimeFindings.push({ id: "malformed-review-log", count: review.malformed });
   if (review.unresolved > 0) runtimeFindings.push({ id: "unresolved-review-log", count: review.unresolved });
+  runtimeFindings.push(...performanceFindings);
   return {
     schemaVersion: 1,
     command: "doctor",
@@ -431,13 +737,14 @@ function buildDoctor(ledgers, ledgerParseErrors) {
     compact,
     beads,
     runtimeFindings,
+    performanceFindings,
     activeRunId: latestLedger(ledgers)?.runId || "",
     nextAction: prunable.length > 0 ? "run workflow-health prune --dry-run first, then prune without --dry-run" : "none",
   };
 }
 
 function renderDoctorText(doctor) {
-  return [
+  const lines = [
     `workflowDoctor ledgers=${doctor.ledgers.total} malformed=${doctor.ledgers.malformed} stale=${doctor.ledgers.stale} prunable=${doctor.ledgers.prunable}`,
     `workflowDoctor effectivenessEvents=${doctor.effectiveness.events} effectivenessMalformed=${doctor.effectiveness.malformed}`,
     `workflowDoctor reviewLogEntries=${doctor.reviewLog.entries} reviewLogUnresolved=${doctor.reviewLog.unresolved} reviewLogMalformed=${doctor.reviewLog.malformed}`,
@@ -445,7 +752,11 @@ function renderDoctorText(doctor) {
     `workflowDoctor beadsBacklogCandidates=${doctor.beads.backlogCandidates} beadsActiveExecutionNoise=${doctor.beads.activeExecutionNoise}`,
     `workflowDoctor strictReady=${doctor.strictReady} runtimeFindings=${doctor.runtimeFindings.map((finding) => `${finding.id}:${finding.count}`).join(",") || "none"}`,
     `workflowDoctor activeRun=${doctor.activeRunId || "none"} nextAction=${doctor.nextAction}`,
-  ].join("\n");
+  ];
+  for (const finding of doctor.performanceFindings ?? []) {
+    lines.push(`workflowDoctor performanceWarning ${renderPerformanceFindingText(finding)}`);
+  }
+  return lines.join("\n");
 }
 
 function runPrune(ledgers) {
@@ -497,10 +808,14 @@ if (!existsSync(base)) {
     runPrune([]);
     process.exit(0);
   }
-  if (command === "status" || jsonMode) {
+  if (command === "status") {
     const status = buildStatus([], []);
     if (jsonMode) emitJson(status);
     else console.log(renderStatusText(status));
+    process.exit(0);
+  }
+  if (command === "summary" && jsonMode) {
+    emitJson(buildSummary([], [], []));
     process.exit(0);
   }
   console.log("No ETRNL run ledger directory found.");
@@ -528,10 +843,14 @@ if (files.length === 0) {
     runPrune([]);
     process.exit(0);
   }
-  if (command === "status" || jsonMode) {
+  if (command === "status") {
     const status = buildStatus([], []);
     if (jsonMode) emitJson(status);
     else console.log(renderStatusText(status));
+    process.exit(0);
+  }
+  if (command === "summary" && jsonMode) {
+    emitJson(buildSummary([], [], []));
     process.exit(0);
   }
   console.log("No ETRNL workflow runs recorded yet.");
@@ -544,8 +863,12 @@ if (files.length === 0) {
 
 const { ledgerParseErrors, ledgers } = await loadLedgers(base, files);
 const selectedLedgers = filteredLedgers(ledgers);
+const stateEvents = loadStateEventsSafely();
+const performanceSummary = buildPerformanceSummary(selectedLedgers, stateEvents);
+const performanceFindings = collectPerformanceFindings(performanceSummary);
+
 if (command === "doctor") {
-  const doctor = buildDoctor(selectedLedgers, ledgerParseErrors);
+  const doctor = buildDoctor(selectedLedgers, ledgerParseErrors, performanceFindings);
   if (jsonMode) emitJson(doctor);
   else console.log(renderDoctorText(doctor));
   process.exit(doctor.ok ? 0 : 1);
@@ -556,33 +879,22 @@ if (command === "prune") {
   process.exit(0);
 }
 
-if (command === "status" || jsonMode) {
+if (command === "status") {
   const status = buildStatus(selectedLedgers, ledgerParseErrors);
   if (jsonMode) emitJson(status);
   else console.log(renderStatusText(status));
   process.exit(0);
 }
 
-for (const ledger of selectedLedgers.slice(0, limit)) {
-  const tasks = ledger.tasks ?? [];
-  const blocked = tasks.filter((task) => task.status === "blocked").length;
-  const verified = tasks.filter((task) => task.status === "verified").length;
-  const retries = tasks.reduce((sum, task) => sum + Number(task.attempts || 0), 0);
-  const failures = (ledger.checks ?? []).filter((check) => check.status === "failed").length;
-  const artifacts = (ledger.artifacts ?? []).length;
-  console.log(`${ledger.runId}: verified=${verified}/${tasks.length} blocked=${blocked} retries=${retries} failedChecks=${failures} artifacts=${artifacts}`);
+const summary = buildSummary(selectedLedgers, ledgerParseErrors, stateEvents);
+if (jsonMode) {
+  emitJson(summary);
+  process.exit(0);
 }
 
-if (ledgerParseErrors.length > 0) {
-  console.log(`malformedLedgers=${ledgerParseErrors.length}`);
-  if (verbose) {
-    for (const parseError of ledgerParseErrors) {
-      console.log(`malformedLedgerDetail=${parseError}`);
-    }
+console.log(renderSummaryText(summary, verbose));
+if (summary.malformedLedgers > 0 && verbose) {
+  for (const parseError of ledgerParseErrors) {
+    console.log(`malformedLedgerDetail=${parseError}`);
   }
 }
-console.log(reviewSummary(verbose));
-console.log(`browserQa reports=${countJsonFiles(path.join(artifactBase, "browser-qa"))}`);
-console.log(`contexts saved=${countJsonFiles(path.join(artifactBase, "contexts"))}`);
-console.log(`artifactFreshness latest=${latestMtimeIso(artifactBase)}`);
-console.log(`staleRuns=${selectedLedgers.filter(staleRun).length} thresholdHours=${staleHours}`);

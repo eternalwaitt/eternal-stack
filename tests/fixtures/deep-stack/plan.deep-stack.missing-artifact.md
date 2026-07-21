@@ -7,6 +7,7 @@ Deep stack artifacts: missing-deep-stack-artifacts.json
 Goal: Prove missing deep-stack artifact blocks opted-in plans.
 Non-goals: No runtime feature implementation.
 Evidence: scripts/plan-readiness-check.mjs.
+Risk tier: 2 — missing-artifact negative fixture.
 
 ## What already exists
 

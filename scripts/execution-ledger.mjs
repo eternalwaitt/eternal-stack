@@ -5,13 +5,16 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { argValue as readArgValue } from "./lib/cli-args.mjs";
 import { nowIso, safeId } from "./lib/evidence-trace.mjs";
-import { readStdinRaw } from "./lib/read-stdin.mjs";
+import { worktreeHash } from "./lib/etrnl-state-core.mjs";
+import { parseRiskTier } from "./lib/plan-risk-tier.mjs";
+import { readStdinJson, readStdinRaw } from "./lib/read-stdin.mjs";
 
 const STATUSES = new Set(["pending", "in_progress", "reviewing", "changes_requested", "verified", "blocked", "skipped"]);
 const PHASE_STATUSES = new Set(["pending", "in_progress", "uat", "verified", "blocked", "skipped"]);
 const CHECK_STATUSES = new Set(["passed", "failed", "blocked", "skipped"]);
 const AGENT_DONE = new Set(["completed", "verified", "skipped"]);
 const EVIDENCE_DONE = new Set(["passed", "verified", "red_green_verified", "not_applicable", "skipped"]);
+const REVIEW_DONE = new Set(["verified", "completed"]);
 // Defaults allow brief multi-agent contention; tune with env vars for unusually slow disks.
 const LOCK_TIMEOUT_MS = Number(process.env.ETRNL_LEDGER_LOCK_TIMEOUT_MS || 30000);
 const LOCK_STALE_MS = Number(process.env.ETRNL_LEDGER_LOCK_STALE_MS || 120000);
@@ -281,6 +284,20 @@ function requiredEvidenceErrors(ledger) {
   return errors;
 }
 
+function worktreeCheckErrors(ledger) {
+  const errors = [];
+  const passedChecks = (ledger.checks ?? []).filter((check) => check.status === "passed");
+  if (passedChecks.length === 0) return errors;
+  const stamped = passedChecks.filter((check) => check.treeHash);
+  if (stamped.length === 0) return errors;
+  const currentHash = worktreeHash(ledger.cwd || process.cwd());
+  if (!currentHash) return errors;
+  if (!passedChecks.some((check) => check.treeHash === currentHash)) {
+    errors.push("verification checks are stale for the current worktree");
+  }
+  return errors;
+}
+
 function completionErrors(ledger, options = {}) {
   const errors = validateLedger(ledger);
   const tasks = ledger.tasks ?? [];
@@ -302,6 +319,7 @@ function completionErrors(ledger, options = {}) {
   if (Number(ledger.uatOpenFindings || 0) > 0) errors.push(`open UAT findings: ${ledger.uatOpenFindings}`);
   if ((ledger.checks ?? []).length === 0) errors.push("no verification checks recorded");
   if (failedChecks.length > 0) errors.push(`verification checks not passed: ${failedChecks.join(", ")}`);
+  errors.push(...worktreeCheckErrors(ledger));
   if (options.requireTasks && tasks.length === 0) errors.push("no execution tasks recorded");
   if (options.requirePlanPhases && !ledger.planPath) errors.push("no plan path recorded");
   if (options.requirePlanPhases && phases.length === 0) errors.push("no plan phases recorded");
@@ -438,6 +456,163 @@ function appendEvent(ledger, type, payload = {}) {
   ledger.events.push({ type, at: nowIso(), ...payload });
 }
 
+function resolvePlanPath(ledger) {
+  if (!ledger.planPath) return "";
+  return path.isAbsolute(ledger.planPath)
+    ? ledger.planPath
+    : path.resolve(ledger.cwd || process.cwd(), ledger.planPath);
+}
+
+function resolvePlanRiskTier(ledger) {
+  const planPath = resolvePlanPath(ledger);
+  if (!planPath) return 3;
+  try {
+    return parseRiskTier(readFileSync(planPath, "utf8")).tier;
+  } catch {
+    return 3;
+  }
+}
+
+function maxReopenRoundsForTier(tier) {
+  return tier >= 3 ? 4 : 2;
+}
+
+function doneReviewsForLineage(ledger, taskId, reviewer, lineageId) {
+  return (ledger.reviews ?? []).filter((review) => review.taskId === taskId
+    && review.reviewer === reviewer
+    && String(review.lineageId || "") === String(lineageId || "")
+    && REVIEW_DONE.has(review.status));
+}
+
+function reopenCapUsageText() {
+  return "Reopen counting rule: the first record-review with status verified/completed for a task+reviewer+lineageId is the initial pass (not a reopen); each later record-review for the same triple after a verified/completed row is one reopen round. Tier 0-2 allows 2 reopen rounds; tier 3 allows 4; unknown tier defaults to 3. Pass --override-owner-approved \"<reason>\" to exceed the cap.";
+}
+
+function assertReviewReopenAllowed(ledger, { taskId, reviewer, lineageId, overrideReason }) {
+  const priorDone = doneReviewsForLineage(ledger, taskId, reviewer, lineageId).length;
+  if (priorDone === 0) return;
+  const tier = resolvePlanRiskTier(ledger);
+  const maxReopens = maxReopenRoundsForTier(tier);
+  if (priorDone > maxReopens && !overrideReason) {
+    console.error(
+      `record-review reopen cap exceeded for task ${taskId}, reviewer ${reviewer}, lineage ${lineageId}: `
+      + `${priorDone} prior verified/completed review(s); tier ${tier} allows at most ${maxReopens} reopen round(s). `
+      + `${reopenCapUsageText()}`,
+    );
+    process.exit(1);
+  }
+}
+
+const TASK_DONE = new Set(["verified", "skipped"]);
+
+function taskDurationMinutes(task) {
+  const startMs = Date.parse(String(task.startedAt || ""));
+  const endMs = Date.parse(String(task.completedAt || task.heartbeatAt || ""));
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs) return Number.NaN;
+  return (endMs - startMs) / 60_000;
+}
+
+function median(values) {
+  const sorted = values.filter((value) => Number.isFinite(value)).sort((left, right) => left - right);
+  if (sorted.length === 0) return Number.NaN;
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0
+    ? (sorted[mid - 1] + sorted[mid]) / 2
+    : sorted[mid];
+}
+
+function parsePlanEstimateHours(planText) {
+  const match = planText.match(/^\s*Estimated(?:\s+duration|\s+time)?:\s*([0-9]+(?:\.[0-9]+)?)\s*h(?:ours?)?\s*$/im);
+  if (!match) return Number.NaN;
+  const hours = Number(match[1]);
+  return Number.isFinite(hours) && hours > 0 ? hours : Number.NaN;
+}
+
+function computeProgress(ledger) {
+  const tasks = ledger.tasks ?? [];
+  const total = tasks.length;
+  const done = tasks.filter((task) => TASK_DONE.has(task.status)).length;
+  const remaining = Math.max(total - done, 0);
+  const completedDurations = tasks
+    .filter((task) => TASK_DONE.has(task.status))
+    .map((task) => taskDurationMinutes(task))
+    .filter((value) => Number.isFinite(value));
+  const medianMinutesPerTask = median(completedDurations);
+  const lower = Number.isFinite(medianMinutesPerTask) ? Math.round(medianMinutesPerTask * remaining) : Number.NaN;
+  const upper = Number.isFinite(lower) ? Math.round(lower * 1.5) : Number.NaN;
+  return {
+    done,
+    total,
+    remaining,
+    medianMinutesPerTask: Number.isFinite(medianMinutesPerTask) ? Math.round(medianMinutesPerTask) : null,
+    remainingBandMinutes: Number.isFinite(lower) && Number.isFinite(upper)
+      ? { lower, upper }
+      : null,
+    projectedRemainingMinutes: Number.isFinite(lower) ? lower : null,
+  };
+}
+
+function resolveRenegotiationThresholdMinutes(ledger) {
+  const planPath = resolvePlanPath(ledger);
+  if (planPath) {
+    try {
+      const estimateHours = parsePlanEstimateHours(readFileSync(planPath, "utf8"));
+      if (Number.isFinite(estimateHours)) return estimateHours * 60 * 2;
+    } catch {
+      // fall through to default threshold
+    }
+  }
+  return 8 * 60;
+}
+
+function applySetTask(ledger, taskId, fields = {}, commandName = "set-task") {
+  const existing = (ledger.tasks ?? []).find((task) => task.id === taskId);
+  const status = fields.status || existing?.status;
+  if (!status || !STATUSES.has(status)) {
+    console.error(`${commandName} requires a valid status.`);
+    process.exit(2);
+  }
+  const at = nowIso();
+  const next = {
+    id: taskId,
+    title: fields.title || existing?.title || taskId,
+    status,
+    heartbeatAt: at,
+  };
+  if (status === "in_progress" && !existing?.startedAt) {
+    next.startedAt = fields.startedAt || at;
+  } else if (existing?.startedAt) {
+    next.startedAt = existing.startedAt;
+  }
+  if (TASK_DONE.has(status)) {
+    next.completedAt = fields.completedAt || at;
+  } else if (existing?.completedAt) {
+    next.completedAt = existing.completedAt;
+  }
+  for (const key of ["mode", "lineageId", "packetHash"]) {
+    const snake = key === "lineageId" ? "lineage_id" : key === "packetHash" ? "packet_hash" : key;
+    const value = fields[key] ?? fields[snake];
+    if (value) next[key] = value;
+  }
+  for (const key of [
+    "requiresImplementationEvidence",
+    "specReviewRequired",
+    "qualityReviewRequired",
+    "tddRequired",
+    "simplifierReviewRequired",
+    "domainReviewRequired",
+    "completionAuditRequired",
+    "installProofRequired",
+  ]) {
+    if (fields[key] === true) next[key] = true;
+  }
+  ledger.tasks = existing
+    ? ledger.tasks.map((task) => task.id === taskId ? { ...task, ...next } : task)
+    : [...(ledger.tasks ?? []), next];
+  ledger.updatedAt = nowIso();
+  appendEvent(ledger, "task.set", { taskId, status });
+}
+
 function setTask() {
   const taskId = argValue("--task");
   const status = argValue("--status");
@@ -447,8 +622,7 @@ function setTask() {
   }
   const file = currentLedgerOrFail();
   updateJson(file, (ledger) => {
-    const existing = (ledger.tasks ?? []).find((task) => task.id === taskId);
-    const next = { id: taskId, title: argValue("--title", existing?.title || taskId), status, heartbeatAt: nowIso() };
+    const fields = { status, title: argValue("--title") };
     for (const [flag, key] of [
       ["--mode", "mode"],
       ["--lineage", "lineageId"],
@@ -456,7 +630,7 @@ function setTask() {
       ["--packet-hash", "packetHash"],
     ]) {
       const value = argValue(flag);
-      if (value) next[key] = value;
+      if (value) fields[key] = value;
     }
     for (const [flag, key] of [
       ["--requires-implementation-evidence", "requiresImplementationEvidence"],
@@ -468,13 +642,9 @@ function setTask() {
       ["--completion-audit-required", "completionAuditRequired"],
       ["--install-proof-required", "installProofRequired"],
     ]) {
-      if (args.includes(flag)) next[key] = true;
+      if (args.includes(flag)) fields[key] = true;
     }
-    ledger.tasks = existing
-      ? ledger.tasks.map((task) => task.id === taskId ? { ...task, ...next } : task)
-      : [...(ledger.tasks ?? []), next];
-    ledger.updatedAt = nowIso();
-    appendEvent(ledger, "task.set", { taskId, status });
+    applySetTask(ledger, taskId, fields);
     return ledger;
   });
 }
@@ -500,28 +670,51 @@ function requireBoundEvidenceArgs(file, taskId, commandName) {
   return { lineageId, packetHash };
 }
 
+function applyRecordTaskEvidence(ledger, field, eventType, commandName, taskId, options, rowBuilder) {
+  const lineageId = options.lineageId ?? options.lineage_id ?? "";
+  const packetHash = options.packetHash ?? options.packet_hash ?? "";
+  requireTaskBinding(ledger, taskId, commandName);
+  const at = preciseNowIso();
+  ledger[field] = ledger[field] ?? [];
+  const row = {
+    taskId,
+    lineageId,
+    packetHash,
+    status: options.status || "verified",
+    evidence: options.evidence,
+    at,
+    ...rowBuilder(options),
+  };
+  ledger[field].push(row);
+  ledger.updatedAt = nowIso();
+  appendEvent(ledger, eventType, { taskId, status: row.status });
+}
+
 function recordTaskEvidence(field, eventType, commandName, rowBuilder) {
   const taskId = argValue("--task");
   const file = currentLedgerOrFail();
   const { lineageId, packetHash } = requireBoundEvidenceArgs(file, taskId, commandName);
   updateJson(file, (ledger) => {
-    requireTaskBinding(ledger, taskId, commandName);
-    const at = preciseNowIso();
-    ledger[field] = ledger[field] ?? [];
-    const row = {
-      taskId,
+    applyRecordTaskEvidence(ledger, field, eventType, commandName, taskId, {
       lineageId,
       packetHash,
       status: argValue("--status", "verified"),
       evidence: argValue("--evidence"),
-      at,
-      ...rowBuilder(),
-    };
-    ledger[field].push(row);
-    ledger.updatedAt = nowIso();
-    appendEvent(ledger, eventType, { taskId, status: row.status });
+    }, () => rowBuilder());
     return ledger;
   });
+}
+
+function applyRecordTdd(ledger, taskId, options) {
+  applyRecordTaskEvidence(ledger, "tddEvidence", "tdd.recorded", "record-tdd", taskId, options, (opts) => ({
+    sourceFiles: opts.sourceFiles ?? opts.source_files,
+    redCommand: opts.redCommand ?? opts.red_command,
+    redStatus: opts.redStatus ?? opts.red_status,
+    redFailure: opts.redFailure ?? opts.red_failure,
+    greenCommand: opts.greenCommand ?? opts.green_command,
+    greenStatus: opts.greenStatus ?? opts.green_status,
+    rationaleWhenNotTestFirst: opts.rationaleWhenNotTestFirst ?? opts.rationale,
+  }));
 }
 
 function recordTdd() {
@@ -533,6 +726,12 @@ function recordTdd() {
     greenCommand: argValue("--green-command"),
     greenStatus: argValue("--green-status"),
     rationaleWhenNotTestFirst: argValue("--rationale"),
+  }));
+}
+
+function applyRecordSimplifier(ledger, taskId, options) {
+  applyRecordTaskEvidence(ledger, "simplifierEvidence", "simplifier.recorded", "record-simplifier", taskId, options, (opts) => ({
+    reviewer: opts.reviewer || "code-simplifier",
   }));
 }
 
@@ -548,6 +747,33 @@ function recordSpecialist() {
   }));
 }
 
+function applyRecordCompletionAudit(ledger, taskId, options) {
+  const item = options.item;
+  if (!item) {
+    console.error("record-completion-audit requires item.");
+    process.exit(2);
+  }
+  const lineageId = options.lineageId ?? options.lineage_id ?? "";
+  const packetHash = options.packetHash ?? options.packet_hash ?? "";
+  requireTaskBinding(ledger, taskId, "record-completion-audit");
+  const status = options.status || "verified";
+  ledger.completionAudit = ledger.completionAudit ?? [];
+  ledger.completionAudit.push({
+    item,
+    taskId,
+    lineageId,
+    packetHash,
+    classification: options.classification || "DONE",
+    status,
+    impact: options.impact || "low",
+    evidence: options.evidence,
+    acceptedBy: options.acceptedBy ?? options.accepted_by,
+    at: preciseNowIso(),
+  });
+  ledger.updatedAt = nowIso();
+  appendEvent(ledger, "completion-audit.recorded", { item, taskId, status });
+}
+
 function recordCompletionAudit() {
   const item = argValue("--item");
   if (!item) {
@@ -558,9 +784,6 @@ function recordCompletionAudit() {
   const lineageId = argValue("--lineage", argValue("--lineage-id"));
   const packetHash = argValue("--packet-hash");
   const file = currentLedgerOrFail();
-  // Validate binding before the lock (a rejection mid-lock would leak it), and match
-  // the bound-evidence matcher: a packet/lineage-bound task needs matching binding on
-  // its completion audit, or the requirement never clears.
   if (taskId) {
     const boundTask = (readJson(file).tasks ?? []).find((task) => task.id === taskId);
     if (boundTask?.packetHash && !packetHash) {
@@ -573,23 +796,16 @@ function recordCompletionAudit() {
     }
   }
   updateJson(file, (ledger) => {
-    if (taskId) requireTaskBinding(ledger, taskId, "record-completion-audit");
-    const status = argValue("--status", "verified");
-    ledger.completionAudit = ledger.completionAudit ?? [];
-    ledger.completionAudit.push({
+    applyRecordCompletionAudit(ledger, taskId, {
       item,
-      taskId,
       lineageId,
       packetHash,
       classification: argValue("--classification", "DONE"),
-      status,
+      status: argValue("--status", "verified"),
       impact: argValue("--impact", "low"),
       evidence: argValue("--evidence"),
       acceptedBy: argValue("--accepted-by"),
-      at: preciseNowIso(),
     });
-    ledger.updatedAt = nowIso();
-    appendEvent(ledger, "completion-audit.recorded", { item, taskId, status });
     return ledger;
   });
 }
@@ -621,7 +837,14 @@ function recordCheck() {
   const file = currentLedgerOrFail();
   updateJson(file, (ledger) => {
     ledger.checks = ledger.checks ?? [];
-    ledger.checks.push({ name, command: commandText, status, outputSummary: argValue("--summary"), at: nowIso() });
+    ledger.checks.push({
+      name,
+      command: commandText,
+      status,
+      outputSummary: argValue("--summary"),
+      at: nowIso(),
+      treeHash: worktreeHash(ledger.cwd || process.cwd()),
+    });
     ledger.updatedAt = nowIso();
     appendEvent(ledger, "check.recorded", { name, status });
     return ledger;
@@ -682,6 +905,35 @@ function requireTaskBinding(ledger, taskId, commandName) {
   }
 }
 
+function applyRecordAgent(ledger, taskId, options) {
+  const id = options.id || options.agent || `agent-${Date.now()}`;
+  const lineageId = options.lineageId ?? options.lineage_id ?? "";
+  const packetHashValue = options.packetHash ?? options.packet_hash ?? "";
+  const role = options.role || "etrnl-executor";
+  const mode = options.mode || "write";
+  const status = options.status || "completed";
+  if (mode === "write" && (!lineageId || !packetHashValue)) {
+    console.error("record-agent write evidence requires lineageId and packetHash.");
+    process.exit(2);
+  }
+  const at = preciseNowIso();
+  requireTaskBinding(ledger, taskId, "record-agent");
+  ledger.agents = ledger.agents ?? [];
+  ledger.agents.push({
+    id,
+    role,
+    mode,
+    status,
+    taskId,
+    lineageId,
+    packetHash: packetHashValue,
+    at,
+    completedAt: at,
+  });
+  ledger.updatedAt = nowIso();
+  appendEvent(ledger, "agent.recorded", { agentId: id, taskId, role, mode, status, packetHash: packetHashValue });
+}
+
 function recordAgent() {
   const id = argValue("--id", argValue("--agent", `agent-${Date.now()}`));
   const taskId = argValue("--task");
@@ -700,24 +952,54 @@ function recordAgent() {
   }
   const file = currentLedgerOrFail();
   updateJson(file, (ledger) => {
-    const at = preciseNowIso();
-    requireTaskBinding(ledger, taskId, "record-agent");
-    ledger.agents = ledger.agents ?? [];
-    ledger.agents.push({
-      id,
-      role,
-      mode,
-      status,
-      taskId,
-      lineageId,
-      packetHash: packetHashValue,
-      at,
-      completedAt: at,
-    });
-    ledger.updatedAt = nowIso();
-    appendEvent(ledger, "agent.recorded", { agentId: id, taskId, role, mode, status, packetHash: packetHashValue });
+    applyRecordAgent(ledger, taskId, { id, role, mode, status, lineageId, packetHash: packetHashValue });
     return ledger;
   });
+}
+
+function reviewTimestampAfterImplementation(ledger, taskId, lineageId, packetHash) {
+  const matchingAgents = (ledger.agents ?? []).filter((agent) => {
+    if (agent.taskId !== taskId) return false;
+    if (!AGENT_DONE.has(agent.status)) return false;
+    if (packetHash && agent.packetHash !== packetHash) return false;
+    if (lineageId && String(agent.lineageId || "") !== String(lineageId || "")) return false;
+    return agent.mode === "write" || agent.role === "etrnl-executor";
+  });
+  const latestImplementationTime = latestEvidenceTime(matchingAgents);
+  if (!Number.isFinite(latestImplementationTime)) return preciseNowIso();
+  return new Date(latestImplementationTime + 1).toISOString();
+}
+
+function applyRecordReview(ledger, taskId, options) {
+  const reviewer = options.reviewer || options.id || "";
+  const lineageId = options.lineageId ?? options.lineage_id ?? "";
+  const packetHashValue = options.packetHash ?? options.packet_hash ?? "";
+  const status = options.status || "verified";
+  const overrideReason = options.overrideOwnerApproved ?? options.override_owner_approved ?? "";
+  if (!reviewer) {
+    console.error("record-review requires reviewer.");
+    process.exit(2);
+  }
+  if (!lineageId || !packetHashValue) {
+    console.error("record-review requires lineageId and packetHash.");
+    process.exit(2);
+  }
+  requireTaskBinding(ledger, taskId, "record-review");
+  const at = reviewTimestampAfterImplementation(ledger, taskId, lineageId, packetHashValue);
+  ledger.reviews = ledger.reviews ?? [];
+  ledger.reviews.push({
+    reviewer,
+    taskId,
+    lineageId,
+    packetHash: packetHashValue,
+    status,
+    reviewOf: options.reviewOf ?? options.review_of ?? "implementation",
+    at,
+    completedAt: at,
+    ...(overrideReason ? { overrideOwnerApproved: overrideReason } : {}),
+  });
+  ledger.updatedAt = nowIso();
+  appendEvent(ledger, "review.recorded", { reviewer, taskId, status, packetHash: packetHashValue });
 }
 
 function recordReview() {
@@ -739,22 +1021,24 @@ function recordReview() {
     process.exit(2);
   }
   const file = currentLedgerOrFail();
+  const overrideReason = argValue("--override-owner-approved");
+  const preview = readJson(file);
+  requireTaskBinding(preview, taskId, "record-review");
+  assertReviewReopenAllowed(preview, {
+    taskId,
+    reviewer,
+    lineageId,
+    overrideReason,
+  });
   updateJson(file, (ledger) => {
-    const at = preciseNowIso();
-    requireTaskBinding(ledger, taskId, "record-review");
-    ledger.reviews = ledger.reviews ?? [];
-    ledger.reviews.push({
+    applyRecordReview(ledger, taskId, {
       reviewer,
-      taskId,
       lineageId,
       packetHash: packetHashValue,
       status,
       reviewOf: argValue("--review-of", "implementation"),
-      at,
-      completedAt: at,
+      overrideOwnerApproved: overrideReason,
     });
-    ledger.updatedAt = nowIso();
-    appendEvent(ledger, "review.recorded", { reviewer, taskId, status, packetHash: packetHashValue });
     return ledger;
   });
 }
@@ -882,7 +1166,149 @@ function recordSubagent() {
   });
 }
 
+function validateBundlePayload(payload) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    console.error("record-task-bundle requires a JSON object.");
+    process.exit(2);
+  }
+  if (!payload.taskId || typeof payload.taskId !== "string") {
+    console.error("record-task-bundle requires taskId string.");
+    process.exit(2);
+  }
+  for (const key of ["task", "agent", "tdd", "simplifier", "completionAudit"]) {
+    if (payload[key] !== undefined && (typeof payload[key] !== "object" || Array.isArray(payload[key]))) {
+      console.error(`record-task-bundle ${key} must be an object when present.`);
+      process.exit(2);
+    }
+  }
+  if (payload.reviews !== undefined && !Array.isArray(payload.reviews)) {
+    console.error("record-task-bundle reviews must be an array when present.");
+    process.exit(2);
+  }
+  return payload;
+}
+
+function loadBundlePayload() {
+  const file = argValue("--file");
+  if (file) {
+    try {
+      return validateBundlePayload(JSON.parse(readFileSync(file, "utf8")));
+    } catch (error) {
+      console.error(`record-task-bundle --file ${file}: ${error.message}`);
+      process.exit(2);
+    }
+  }
+  return validateBundlePayload(readStdinJson({ required: true }));
+}
+
+function recordTaskBundle() {
+  const payload = loadBundlePayload();
+  const taskId = payload.taskId;
+  const file = currentLedgerOrFail();
+  const preview = readJson(file);
+  if (payload.task) {
+    // no-op: set-task validation happens inside the lock
+  } else if (!taskExists(preview, taskId)) {
+    console.error(`record-task-bundle references unknown task: ${taskId}.`);
+    process.exit(1);
+  }
+  updateJson(file, (ledger) => {
+    if (payload.task) {
+      applySetTask(ledger, taskId, payload.task, "record-task-bundle");
+    } else if (!taskExists(ledger, taskId)) {
+      console.error(`record-task-bundle references unknown task: ${taskId}.`);
+      process.exit(1);
+    }
+    if (payload.agent) {
+      applyRecordAgent(ledger, taskId, payload.agent);
+    }
+    if (Array.isArray(payload.reviews)) {
+      for (const review of payload.reviews) {
+        assertReviewReopenAllowed(ledger, {
+          taskId,
+          reviewer: review.reviewer || review.id || "",
+          lineageId: review.lineageId ?? review.lineage_id ?? "",
+          overrideReason: review.overrideOwnerApproved ?? review.override_owner_approved ?? "",
+        });
+        applyRecordReview(ledger, taskId, review);
+      }
+    }
+    if (payload.tdd) {
+      applyRecordTdd(ledger, taskId, payload.tdd);
+    }
+    if (payload.simplifier) {
+      applyRecordSimplifier(ledger, taskId, payload.simplifier);
+    }
+    if (payload.completionAudit) {
+      applyRecordCompletionAudit(ledger, taskId, payload.completionAudit);
+    }
+    appendEvent(ledger, "task-bundle.recorded", { taskId });
+    return ledger;
+  });
+}
+
+function historyProgress() {
+  const file = currentLedgerOrFail();
+  const ledger = readJson(file);
+  const progress = computeProgress(ledger);
+  const jsonOutput = args.includes("--json");
+  const renegotiationCheck = args.includes("--renegotiation-check");
+  const thresholdMinutes = resolveRenegotiationThresholdMinutes(ledger);
+  const renegotiationRequired = Number.isFinite(progress.projectedRemainingMinutes)
+    && progress.projectedRemainingMinutes > thresholdMinutes;
+  if (jsonOutput) {
+    const payload = { ...progress, runId: ledger.runId };
+    if (renegotiationCheck) {
+      payload.renegotiationRequired = renegotiationRequired;
+      payload.renegotiationThresholdMinutes = thresholdMinutes;
+    }
+    console.log(JSON.stringify(payload));
+    return;
+  }
+  const band = progress.remainingBandMinutes
+    ? `${progress.remainingBandMinutes.lower}-${progress.remainingBandMinutes.upper}`
+    : "unknown";
+  console.log(
+    `${ledger.runId} tasks=${progress.done}/${progress.total} remaining=${progress.remaining} `
+    + `medianMinutesPerTask=${progress.medianMinutesPerTask ?? "unknown"} remainingBandMinutes=${band}`,
+  );
+  if (renegotiationCheck) {
+    console.log(
+      `renegotiationRequired=${renegotiationRequired} thresholdMinutes=${thresholdMinutes} `
+      + `projectedRemainingMinutes=${progress.projectedRemainingMinutes ?? "unknown"}`,
+    );
+  }
+}
+
+function recordDecision() {
+  const topic = argValue("--topic");
+  const decision = argValue("--decision");
+  const rationale = argValue("--rationale", argValue("--reason"));
+  if (!topic || !decision) {
+    console.error("record-decision requires --topic and --decision.");
+    process.exit(2);
+  }
+  const file = currentLedgerOrFail();
+  updateJson(file, (ledger) => {
+    ledger.decisions = ledger.decisions ?? [];
+    ledger.decisions.push({
+      topic,
+      decision,
+      rationale: rationale || "",
+      at: nowIso(),
+    });
+    ledger.updatedAt = nowIso();
+    appendEvent(ledger, "decision.recorded", { topic, decision });
+    return ledger;
+  });
+  console.log(`Decision recorded: ${topic}=${decision}`);
+}
+
 function history() {
+  if (args.includes("--progress")) {
+    historyProgress();
+    return;
+  }
   mkdirSync(runsDir(), { recursive: true, mode: 0o700 });
   const files = readdirSync(runsDir()).filter((file) => file.endsWith(".json") && !file.startsWith("current-"));
   const recent = files.sort().slice(-Number(argValue("--limit", "10"))).reverse();
@@ -911,9 +1337,12 @@ else if (command === "record-simplifier") recordSimplifier();
 else if (command === "record-specialist") recordSpecialist();
 else if (command === "record-completion-audit") recordCompletionAudit();
 else if (command === "record-install-proof") recordInstallProof();
+else if (command === "record-task-bundle") recordTaskBundle();
 else if (command === "record-subagent") recordSubagent();
+else if (command === "record-decision") recordDecision();
 else if (command === "history") history();
 else {
-  console.error("usage: execution-ledger.mjs init|validate|check-stop [--require-ledger] [--require-tasks] [--require-plan-phases]|check-bound-execute|set-task|set-phase|record-uat|record-check|require-artifact|record-artifact|record-agent|record-review|record-tdd|record-simplifier|record-specialist|record-completion-audit|record-install-proof|record-subagent|history");
+  console.error(`usage: execution-ledger.mjs init|validate|check-stop [--require-ledger] [--require-tasks] [--require-plan-phases]|check-bound-execute|set-task|set-phase|record-uat|record-check|require-artifact|record-artifact|record-agent|record-review|record-tdd|record-simplifier|record-specialist|record-completion-audit|record-install-proof|record-task-bundle [--file <path>]|<json-stdin>|record-decision|record-subagent|history [--progress] [--renegotiation-check] [--json]`);
+  console.error(reopenCapUsageText());
   process.exit(2);
 }

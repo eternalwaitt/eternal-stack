@@ -7,6 +7,7 @@ Deep stack artifacts: deep-stack.valid.json
 Goal: Validate deep-stack artifact integration.
 Non-goals: No runtime feature implementation.
 Evidence: scripts/plan-readiness-check.mjs and scripts/deep-stack-check.mjs.
+Risk tier: 2 — deep-stack readiness fixture with artifact bundle.
 
 ## What already exists
 

@@ -1,7 +1,12 @@
 #!/usr/bin/env node
 import { readFileSync } from 'node:fs';
 import { validateDeepStackPlanText } from './lib/deep-stack-artifacts.mjs';
-import { REQUIRED_PLAN_HEADINGS } from './lib/plan-headings.mjs';
+import {
+  parseRiskTier,
+  requiredSectionHeadingsForTier,
+  requiresDeepStackArtifacts,
+  validateRiskTierEscalation,
+} from './lib/plan-risk-tier.mjs';
 
 const args = process.argv.slice(2);
 const allowDraft = args.includes('--allow-draft');
@@ -146,9 +151,16 @@ function requireStatusHeading(allowDraftMode) {
 requireStatusHeading(allowDraft);
 requirePattern('execution_scope', /^Execution scope:\s*\S/im, 'missing Execution scope');
 
-const sectionHeadings = REQUIRED_PLAN_HEADINGS
-  .filter((heading) => heading.startsWith('## '))
-  .map((heading) => heading.replace(/^##\s+/, ''));
+const riskTierInfo = parseRiskTier(text);
+const effectiveTier = riskTierInfo.tier;
+if (riskTierInfo.missing) {
+  addFailure(
+    'RISK_TIER_MISSING',
+    'Add Risk tier metadata: Risk tier: <0-3> with one sentence of justification on the same line or the line below.',
+  );
+}
+
+const sectionHeadings = requiredSectionHeadingsForTier(effectiveTier);
 normalizedSectionHeadings = sectionHeadings.map((heading) => ({
   heading,
   normalizedKey: normalizeHeadingKey(heading),
@@ -220,32 +232,49 @@ if (
   );
 }
 
-const readinessReport = sectionBody('Plan Readiness Report');
-const readinessChecks = [
-  ['scope_challenge', /^-\s*Scope Challenge:\s*\S/im, 'readiness report must cover Scope Challenge'],
-  ['architecture_review', /^-\s*Architecture Review:\s*\S/im, 'readiness report must cover Architecture Review'],
-  ['code_quality_review', /^-\s*Code Quality Review:\s*\S/im, 'readiness report must cover Code Quality Review'],
-  ['test_review', /^-\s*Test Review:\s*\S/im, 'readiness report must cover Test Review'],
-  ['performance_review', /^-\s*Performance Review:\s*\S/im, 'readiness report must cover Performance Review'],
-  ['readiness_failure_modes_bullet', /^-\s*Failure modes:\s*\S/im, 'readiness report must cover Failure modes'],
-  ['parallelization_review', /^-\s*Parallelization:\s*\S/im, 'readiness report must cover Parallelization'],
-];
+if (effectiveTier >= 2) {
+  const readinessReport = sectionBody('Plan Readiness Report');
+  const readinessChecks = [
+    ['scope_challenge', /^-\s*Scope Challenge:\s*\S/im, 'readiness report must cover Scope Challenge'],
+    ['architecture_review', /^-\s*Architecture Review:\s*\S/im, 'readiness report must cover Architecture Review'],
+    ['code_quality_review', /^-\s*Code Quality Review:\s*\S/im, 'readiness report must cover Code Quality Review'],
+    ['test_review', /^-\s*Test Review:\s*\S/im, 'readiness report must cover Test Review'],
+    ['performance_review', /^-\s*Performance Review:\s*\S/im, 'readiness report must cover Performance Review'],
+    ['readiness_failure_modes_bullet', /^-\s*Failure modes:\s*\S/im, 'readiness report must cover Failure modes'],
+    ['parallelization_review', /^-\s*Parallelization:\s*\S/im, 'readiness report must cover Parallelization'],
+  ];
 
-for (const [name, pattern, message] of readinessChecks) {
-  if (!pattern.test(readinessReport)) {
-    addFailure(name, message);
+  for (const [name, pattern, message] of readinessChecks) {
+    if (!pattern.test(readinessReport)) {
+      addFailure(name, message);
+    }
+  }
+} else {
+  const checklist = sectionBody('Readiness checklist');
+  const checklistBullets = (checklist.match(/^-\s+\S/gim) ?? []).length;
+  if (checklistBullets < 5) {
+    addFailure(
+      'readiness_checklist',
+      'Tier 0-1 plans must include ## Readiness checklist with at least five checklist lines.',
+    );
   }
 }
 
 if (isFinal) {
-  requireExecutableTaskGroups();
-  requireTestFirstPlan();
+  if (effectiveTier >= 2) {
+    requireExecutableTaskGroups();
+    requireTestFirstPlan();
+  }
   requireSectionPattern(
     'Verification gates',
     'verification_commands',
-    /(`[^`]+`|^\s*-\s*(?:node|npm|pnpm|yarn|bun|bash|sh|scripts\/|\.\/scripts\/|curl|gh|git)\b)/im,
+    /(`[^`]+`|^\s*-\s*(?:node|npm|pnpm|yarn|bun|bash|sh|scripts\/|\.\/scripts\/|curl|gh|git|visual)\b)/im,
     'Verification gates must include exact commands or live checks.',
   );
+}
+
+for (const escalationFailure of validateRiskTierEscalation(text, effectiveTier)) {
+  addFailure(escalationFailure.name, escalationFailure.message);
 }
 
 const optionalMetadata = {
@@ -267,7 +296,7 @@ let deepStackResult;
 try {
   deepStackResult = validateDeepStackPlanText(text, {
     planPath,
-    requireDeepStack: isFinal && !allowDraft && !allowTransitionalDeepStack,
+    requireDeepStack: isFinal && !allowDraft && !allowTransitionalDeepStack && requiresDeepStackArtifacts(effectiveTier),
   });
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);
@@ -281,7 +310,16 @@ if (!deepStackResult.ok) {
 }
 
 if (json) {
-  console.log(JSON.stringify({ ok: failures.length === 0, executionScope, failures, repairHints, optionalMetadata, deepStack: deepStackResult }, null, 2));
+  console.log(JSON.stringify({
+    ok: failures.length === 0,
+    executionScope,
+    riskTier: effectiveTier,
+    riskTierMissing: riskTierInfo.missing,
+    failures,
+    repairHints,
+    optionalMetadata,
+    deepStack: deepStackResult,
+  }, null, 2));
 } else if (failures.length === 0) {
   console.log(`ok: plan readiness passed for ${planPath}`);
 } else {

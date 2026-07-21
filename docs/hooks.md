@@ -160,6 +160,8 @@ Disable with `ETRNL_RATE_LIMITER=0` or `CLAUDE_GUARD_DISABLED=1`.
 
 Runs after each tool batch. Appends structured observations to session state: file reads, searches, shell commands, skill invocations, edits, verification commands (test, lint, browser QA, review), repeated edits past threshold, and debounced project bug-memory warnings.
 
+When an execution ledger is active, sources `hooks/lib/ledger-gate-record.sh` to auto-record allowlisted gate commands into the ledger as `gate:auto` checks (with `treeHash`) after a successful Bash run: `bash tests/test-hooks.sh`, `bash tests/test-workflow-tools.sh`, `bash scripts/doctor.sh`, `bash scripts/doctor.sh --changed`, and `node scripts/plan-readiness-check.mjs …` (including plan `Verify` blocks). Non-allowlisted commands are never auto-recorded.
+
 Feeds the stop verifier and pretool repeat checks. Continues with degraded tracking if state init fails.
 
 ### `cc-posttooluse-sycophancy.sh` (strict)
@@ -185,7 +187,7 @@ Gate sequence:
 1. Evidence-discipline check (agreement without verification). Blocks only completion claims; non-final status updates receive advisory context.
 2. Completion-claim detection (`done`, `fixed`, `tests pass`, and similar) with exceptions for explicit non-final status updates.
 3. Execution-ledger completeness when a plan run is active.
-4. Fresh verification after source edits; stale verification after compact blocks completion when edits or plan execution are active, and otherwise returns advisory context.
+4. Fresh verification after source edits. A green ledger check counts as fresh when its `treeHash` matches the current git worktree fingerprint (tracked plus untracked-not-ignored); compaction alone no longer marks verification stale on an unchanged tree. When the worktree hash is unknown or ambiguous, the verifier fails open to stale and requires a re-run. Stale verification blocks completion when edits or plan execution are active, and otherwise returns advisory context.
 5. Skill-specific completion checkers (documentation-health, code-health, email-triage, browser QA, schema migrations, and others wired in the hook).
 
 Allows paused or awaiting-approval handoffs without treating weak "done" phrasing as completion. This keeps Stop noise measurable without spending another blocked turn on status-only handoffs.
@@ -202,7 +204,7 @@ Fires before Claude compacts context. Appends a `compact_pre` event to ETRNL JSO
 
 ### `cc-postcompact-record.sh`
 
-Fires after compaction. Appends `compact_post` with Claude's compact summary and sets `verificationStale: true` in durable state. Bumps `compactCount` and timestamps in session cache. Stop verifier treats post-compact verification as stale until checks re-run.
+Fires after compaction. Appends `compact_post` with Claude's compact summary and, when the worktree hash resolves, records `treeHashAtCompact` instead of unconditionally setting `verificationStale: true`. When the hash cannot be computed, it falls back to `verificationStale: true`. Bumps `compactCount` and timestamps in session cache. Stop verifier compares the current worktree hash to the last green check's `treeHash` (via `cc_worktree_hash`, `cc_tree_hash_verification_fresh`, and `cc_ledger_latest_verification_tree_hash` in `hooks/lib/state.sh`); unchanged trees stay fresh after compact.
 
 ### `cc-sessionend-save.sh`
 
@@ -224,7 +226,8 @@ Hindsight recall does not override compact handoff or hook decisions. Disable wi
 | Module | Used by | Role |
 | --- | --- | --- |
 | `json.sh` | Most hooks | Read stdin, validate JSON, emit block/context/allow responses |
-| `state.sh` | Observers, guards, stop | Session state init, read/update, fingerprints, ETRNL append helpers |
+| `state.sh` | Observers, guards, stop | Session state init, read/update, fingerprints, ETRNL append helpers, worktree hash (`cc_worktree_hash`) and tree-hash verification freshness |
+| `ledger-gate-record.sh` | Post-tool-batch observer | Allowlist detection and async `execution-ledger.mjs record-check` for gate commands |
 | `paths.sh` | Guards, session, observer | Resolve Claude/Codex homes, project cwd, install roots |
 | `event-extract.sh` | Router, rate limiter, guard | Resilient field extraction when Claude event shapes drift |
 | `command-classifiers.sh` | Guard, observer, sycophancy | Classify Bash/edit commands for policy and recording |

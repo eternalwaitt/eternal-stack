@@ -25,17 +25,32 @@ Planning, execution, verification, and shipping for a codebase you are building.
 | Command | Invocation | Purpose |
 | --- | --- | --- |
 | `/etrnl-dev-brainstorm` | Model or user | Turns ambiguous ideas into approved design/spec files before planning. |
-| `/etrnl-dev-plan` | Model or user | Creates a plan file, reviews it, improves it, then finalizes it. |
-| `/etrnl-dev-autoplan` | Model or user | Creates readiness-compatible execution plans with task groups, subagent candidates, verification gates, question policy, mandatory deep-stack artifacts, and an autoplan parity scorecard. |
-| `/etrnl-dev-execute` | User only | Executes an approved readiness-checked plan end to end with test-first source tasks, run ledger, write-mode implementation subagents, reviews, and verification. |
+| `/etrnl-dev-plan` | Model or user | Creates a plan file with a required `Risk tier:` line (0–3), scopes review gauntlets and the parity scorecard by tier, reviews it, improves it, then finalizes it. |
+| `/etrnl-dev-autoplan` | Model or user | Creates readiness-compatible execution plans with task groups, subagent candidates, verification gates, question policy, tier-scaled deep-stack artifacts, and an autoplan parity scorecard (tier 3 only). |
+| `/etrnl-dev-execute` | User only | Executes an approved readiness-checked plan end to end with test-first source tasks, run ledger, write-mode implementation subagents, tier-scaled reviews, mini-packets for sequential work, model-tier routing (`fast`/`standard`/`top`), grounded progress estimates, and verification. |
 | `/etrnl-dev-test` | User only | Runs project preflight and reports or fixes failures. |
 | `/etrnl-dev-debug` | User only | Debugs bugs, failing tests, CI failures, production issues, and unexpected behavior through root-cause evidence before fixes. |
 | `/etrnl-dev-commit` | User only | Reviews, verifies, stages, and commits relevant work. |
-| `/etrnl-dev-pr` | User only | Prepares or updates pull requests with verification evidence, CI state, review feedback, and a closed readiness loop. |
+| `/etrnl-dev-pr` | User only | Prepares or updates pull requests with dual-audience descriptions (TL;DR, business why/impact, add/change/remove, rollout/rollback, verification evidence), CI state, review feedback, and a closed readiness loop. |
 | `/etrnl-dev-ci` | Model or user | Designs, audits, hardens, debugs, and repairs CI/CD lanes, GitHub Actions, branch protection, deploy gates, OIDC, SBOM/provenance, rollback, flaky CI, and slow builds. |
 | `/etrnl-dev-deps` | User only | Handles targeted dependency maintenance with migration checks, catalog consolidation, bot PR triage, and rollback evidence. |
 | `/etrnl-dev-stress-test` | Model or user | Stress-tests architecture, rollout, migration, automation, and safety assumptions. |
 | `/etrnl-dev-deprecate` | User only | Runs deprecation and migration with caller audits, removal-first bias, migration paths, removal deadline/owner, and a tenant/Money/auth/validation/a11y/data-loss guard fence. |
+
+### Plan risk tiers (`etrnl-dev-plan`, `etrnl-dev-autoplan`, `etrnl-dev-execute`)
+
+Every final plan requires a `Risk tier:` line (0–3). Tier definitions live in `skills/etrnl-dev-execute/SKILL.md`; `plan-readiness-check.mjs` enforces proportional section requirements and auto-escalation:
+
+| Tier | Ceremony |
+| --- | --- |
+| 0 | Docs/no-source/tiny change; local verification only; reduced plan sections; no deep-stack bundle. |
+| 1 | One small source surface; normal tests plus completion check; reduced plan sections. |
+| 2 | Multi-file/source workflow; spec reviewer, quality reviewer, simplifier, completion audit; broader plan sections. |
+| 3 | Hooks, installed-home changes, auth, money, security, migrations, data-loss risk, or broad stack behavior; full deep stack plus staged install/rollback proof; completeness 10/10 and autoplan parity scorecard are tier-3-only. |
+
+Auto-escalation is deterministic: touching `hooks/`, installers, auth, money, migrations, or tenant surfaces forces tier 3; more than eight distinct repo paths in the file map or task groups forces at least tier 2. A missing `Risk tier:` line is treated as tier 3 strictness. `deep-stack-check.mjs validate-plan` adds a scope-freeze guard (`SCOPE_DRIFT_SUBSYSTEM`) that blocks new ledger/receipt/provenance-style subsystems not named in the plan Goal.
+
+During execute, tier scales review depth (consolidated per-wave review below tier 3), reopen caps (2 rounds for tiers 0–2, 4 for tier 3), and model-tier defaults: read-only lanes → `fast`, write implementation → `standard`, tier-3 money/migration/security review → `top`. Sequential single-task work may use a 5-field mini-packet (`taskId`, goal, exact scope, verification command, write scope) without hash, lineage, reviewers, or completion receipt. Parallel or multi-file writes still require full packets. Default `maxConcurrentLanes` is 3 unless the plan's `## Parallelization strategy` justifies more in one explicit line.
 
 ## Audits and review (`etrnl-audit-*`, deep audit)
 
@@ -186,15 +201,15 @@ Beads is not an ETRNL bundled execution skill. It is allowed as explicit backlog
 | `documentation-health-ledger-check.mjs` | `~/.claude/scripts/documentation-health-ledger-check.mjs` | Blocks documentation-health completion unless coverage, source-truth, freshness/drift, comment, AI-context, terminal-ledger, and validation evidence are present. |
 | `disk-cleanup-manifest.mjs` | `~/.claude/scripts/disk-cleanup-manifest.mjs` | Validates disk-cleanup dry-run manifests with absolute paths, byte estimates, risk tiers, approval requirements, and no recursive `rm` or whole-Trash cleanup. Used by `/etrnl-ops-disk-cleanup`, not dev workflows. |
 | `merge-settings.mjs` | `~/.claude/scripts/merge-settings.mjs` | Merges etrnl hooks into existing Claude settings without replacing unrelated local configuration. |
-| `plan-readiness-check.mjs` | `~/.claude/scripts/plan-readiness-check.mjs` | Rejects thin plans before they are marked final or executed; final plans require a validated deep-stack artifact bundle unless a legacy transitional flag is explicitly used. |
+| `plan-readiness-check.mjs` | `~/.claude/scripts/plan-readiness-check.mjs` | Rejects thin plans before they are marked final or executed; enforces tier-proportional section requirements, deterministic auto-escalation, and deep-stack artifact requirements scaled by `Risk tier:` (0–3). |
 | `deep-stack-check.mjs` | `~/.claude/scripts/deep-stack-check.mjs` | Creates and validates the Hybrid Deep Stack artifact bundle for final plans: sanitized source manifest, skill matrix, review phase records, TDD evidence, reuse inventory/bindings, findings ledger, completion audit/reconciliation, risk tier, TypeScript trigger evidence, and install proof. |
 | `deep-audit-artifact-check.mjs` | `~/.claude/scripts/deep-audit-artifact-check.mjs` | Validates deep-audit category artifacts, registry/docs/install alignment, registered check coverage, lane receipts, consumed worklist hashes, redaction, and stable problem/cause/fix diagnostics. |
 | `lib/deep-audit-categories.mjs` | `~/.claude/scripts/lib/deep-audit-categories.mjs` | Defines registered deep-audit categories, known unimplemented domains, check ids, lane ids, required worklists, and reference paths. |
 | `lib/deep-stack-artifacts.mjs` | `~/.claude/scripts/lib/deep-stack-artifacts.mjs` | Shared deep-stack artifact schema and validators used by readiness, packet, install, and operator-facing section checks. |
-| `agent-task-packet-check.mjs` | `~/.claude/scripts/agent-task-packet-check.mjs` | Enforces structured subagent packet contracts with task identity, lineage identity, packet hashes, lane limits, child-agent policy, completion receipts, spec/quality reviewer contracts, and reuse/TDD/simplifier fields for new-surface or deep-stack writes. |
+| `agent-task-packet-check.mjs` | `~/.claude/scripts/agent-task-packet-check.mjs` | Enforces structured subagent packet contracts with task identity, lineage identity, packet hashes, lane limits, child-agent policy, completion receipts, spec/quality reviewer contracts, reuse/TDD/simplifier fields for new-surface or deep-stack writes, and `modelTier` (`fast`/`standard`/`top`) with template defaults and a justification warning for read-only `top`. |
 | `agent-output-contract.mjs` | `~/.claude/scripts/agent-output-contract.mjs` | Validates a subagent's `ETRNL_CONTRACT: v1` block — status enum, per-finding grammar, and per-agent required keys — against `schemas/agent-contract-v1.json`; exit 0/1/2 fail-closed. Invoked by `hooks/cc-subagentstop-record.sh` and backstopped by `hooks/cc-stop-verifier.sh`. |
 | `performance-baseline.mjs` | `~/.claude/scripts/performance-baseline.mjs` | Creates, validates, and compares performance baseline artifacts with next-run thresholds. |
-| `pr-preflight.mjs` | `~/.claude/scripts/pr-preflight.mjs` | Reports PR readiness inputs: branch, upstream, dirty files, GitHub auth, existing PR, checks, and suggested local gate. |
+| `pr-preflight.mjs` | `~/.claude/scripts/pr-preflight.mjs` | PR workflow gate: branch/dirty/existing PR status, dual-audience body `template`, and structural `validate-body` before `gh pr create`. |
 | `guard-override-token.mjs` | `~/.claude/scripts/guard-override-token.mjs` | Issues and verifies one-time signed override tokens for safety-critical prod/secret commands. |
 | `settings-audit.mjs` | `~/.claude/scripts/settings-audit.mjs` | Audits and repairs duplicate hook commands, overlapping matcher groups, legacy rate-limiter registrations, outside-settings plugin hooks, risky top-level settings, and memory plugin config posture. |
 | `etrnl-state.mjs` | `~/.claude/scripts/etrnl-state.mjs` | Appends and queries canonical local ETRNL state for compact pre/post events, bounded handoff restore, stale-verification Stop checks, context entries, tool signals, settings observations, accepted lessons, dry-run Beads backlog links, and raw Beads doctrine rejection. |
@@ -202,7 +217,7 @@ Beads is not an ETRNL bundled execution skill. It is allowed as explicit backlog
 | `update-check.mjs` | `~/.claude/scripts/update-check.mjs` | Compares installed metadata with the recorded source checkout, reports local/remote drift, emits `--explain` diagnostics, and can run local auto-update when enabled. |
 | `skill-update-prompt.mjs` | `~/.claude/scripts/skill-update-prompt.mjs`, `~/.codex/scripts/skill-update-prompt.mjs` | Auto-repairs local etrnl drift through update-check, then converts remaining remote and CodeGraph/Beads drift into the per-skill prompt used by Claude hooks and the first Codex skill step. |
 | `replay-hook-fixtures.mjs` | `~/.claude/scripts/replay-hook-fixtures.mjs` | Replays scrubbed regression fixtures through live hooks and asserts allow/deny/block outcomes. |
-| `execution-ledger.mjs` | `~/.claude/scripts/execution-ledger.mjs` | Creates, validates, and checks local ETRNL run ledgers, including task lineage, packet-bound write evidence, reviews, TDD/simplifier/specialist/completion/install evidence rows, mandatory phase recording during plan execution, conditional workstream metadata, and UAT completion gates. |
+| `execution-ledger.mjs` | `~/.claude/scripts/execution-ledger.mjs` | Creates, validates, and checks local ETRNL run ledgers, including task lineage, packet-bound write evidence, reviews with tier-scaled reopen caps, atomic `record-task-bundle` evidence, `record-decision`, `history --progress` (with `--renegotiation-check`), TDD/simplifier/specialist/completion/install evidence rows, mandatory phase recording during plan execution, conditional workstream metadata, UAT completion gates, and content-addressed `treeHash` on checks. |
 | `execution-wave-check.mjs` | `~/.claude/scripts/execution-wave-check.mjs` | Groups planned tasks by wave, detects file overlap, and reports worktree eligibility. |
 | `review-log.mjs` | `~/.claude/scripts/review-log.mjs` | Appends, validates, redacts, fingerprints, and summarizes durable review findings. |
 | `review-rules.mjs` | `~/.claude/scripts/review-rules.mjs` | Runs pre-push deterministic CodeRabbit-preemption guards (ast-grep and literal rules from `review-rules.json`) over changed files; block-mode matches fail the gate, warn-mode reports. |

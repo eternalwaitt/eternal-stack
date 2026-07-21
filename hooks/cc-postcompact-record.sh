@@ -22,11 +22,21 @@ fi
 now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 cwd="$(cc_json_get '.cwd')"
 [[ -n "$cwd" ]] || cwd="$(pwd -P)"
-event="$(jq -cn \
-  --arg session "$(cc_session_id)" \
-  --arg cwd "$cwd" \
-  --arg summary "$summary" \
-  '{eventKind:"compact_post",sessionId:$session,cwd:$cwd,data:{compactSummary:$summary,verificationStale:true}}')"
+tree_hash="$(cc_worktree_hash "$cwd")"
+if [[ -n "$tree_hash" ]]; then
+  event="$(jq -cn \
+    --arg session "$(cc_session_id)" \
+    --arg cwd "$cwd" \
+    --arg summary "$summary" \
+    --arg tree_hash "$tree_hash" \
+    '{eventKind:"compact_post",sessionId:$session,cwd:$cwd,data:{compactSummary:$summary,treeHashAtCompact:$tree_hash}}')"
+else
+  event="$(jq -cn \
+    --arg session "$(cc_session_id)" \
+    --arg cwd "$cwd" \
+    --arg summary "$summary" \
+    '{eventKind:"compact_post",sessionId:$session,cwd:$cwd,data:{compactSummary:$summary,verificationStale:true}}')"
+fi
 if ! cc_etrnl_state_append_json "$event"; then
   printf 'claude-guard warning: ETRNL_POSTCOMPACT_STATE_WRITE_FAILED compact post-state write failed; continuing with legacy cache only\n' >&2
   cc_state_update '.etrnlStateWriteFailures = ((.etrnlStateWriteFailures // 0) + 1)' || true
