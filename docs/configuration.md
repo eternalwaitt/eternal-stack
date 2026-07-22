@@ -7,6 +7,26 @@ Profiles:
 - Strict mode: adds `PreToolUse` guard, post-write sycophancy and quality checks, `PostToolUseFailure` repeated-failure blocker, and `SubagentStop` recorder on top of the default template. Default install already registers `Stop` verifier, compact recovery, RTK `rg` compat, and observer hooks.
 - Private overlay: identity, accounts, local permissions, and project-specific preferences.
 
+Hook profiles (`ETRNL_HOOK_PROFILE`):
+
+- `standard` (default when unset): all advisory hooks run; guards, compact recovery, session lifecycle, and stop verification are unchanged.
+- `minimal`: early-exits advisory hooks only — `cc-posttooluse-sycophancy.sh`, `cc-posttoolbatch-observer.sh`, and `cc-userprompt-expansion.sh`. Guards (`cc-pretooluse-guard.sh`, `cc-stop-verifier.sh`), compact hooks, and session lifecycle hooks are never gated by profile.
+- `strict`: same advisory surface as `standard`. Strict blocker hooks come from install strict mode (`ETRNL_ENABLE_STRICT=1` / `settings.strict.json`), not from this variable.
+
+Invalid values fall back to `standard`. Missing `hooks/lib/profile.sh` is fail-open (standard behavior).
+
+RTK token savings:
+
+- Default recommendation: install Claude hooks with `rtk hook` (alias `rtk hook claude`) and sync Codex with `scripts/codex-rtk-pre-tool-use.sh` → `~/.codex/hooks/rtk-pre-tool-use.sh`.
+- High-volume commands (`rg`, `git status`, and similar): route through `rtk proxy --ultra-compact <command>` when compact rewrite is unsafe. Repo hook `cc-rtk-rg-compat.sh` rewrites unsupported Claude `rg` forms before the guard runs.
+- Measure savings: `rtk gain` reports global token savings; `scripts/doctor.sh` surfaces RTK presence and a short gain summary when RTK is installed (info-only, non-blocking).
+
+MCP hygiene:
+
+- When three or more MCP servers are configured, defer tool schema injection (lazy-mcp or equivalent) so dynamic MCP catalogs do not inflate every prompt prefix.
+- Library and API doc lookups: Context7 MCP or ref-tools; do not duplicate that surface in skills or startup files.
+- Repository code search: Codegraph MCP remains canonical for structure, call paths, and blast radius — prefer it over raw `rg`/`grep` for “how does X work” questions.
+
 Codex should receive shared standards through `AGENTS.md`, `AGENTS.override.md` where intentional, Codex hooks, or Codex skills. Claude-specific hook wiring should stay in Claude settings.
 
 Installed public rules live under `~/.claude/rules/etrnl/` so they do not clobber existing personal rule files.

@@ -188,7 +188,10 @@ try {
   if (missingTriggers.length === 0) {
     ok("skill trigger fixtures cover every owned skill");
   } else {
-    fail("skill trigger fixtures cover every owned skill", `missing: ${missingTriggers.join(", ")}`);
+    fail(
+      "skill trigger fixtures cover every owned skill",
+      `missing: ${missingTriggers.join(", ")} (root=${root} cases=${triggerCasesPath} caseCount=${triggerCases.length} owned=${ownedSkills.length} covered=${coveredSkills.size})`,
+    );
   }
 } catch (error) {
   fail("skill trigger fixtures are readable", renderErrorDetail(error));

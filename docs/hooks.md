@@ -221,6 +221,10 @@ Flow:
 
 Hindsight recall does not override compact handoff or hook decisions. Disable with `CLAUDE_GUARD_DISABLE_HINDSIGHT_LESSON=1`. TTL skip uses a stamp file unless `CLAUDE_GUARD_FORCE_LESSON_RETAIN=1`.
 
+## Retro and steering
+
+`scripts/etrnl-retro.mjs` distills rules-only lessons from `~/.claude/etrnl/state/events.jsonl` into `~/.claude/etrnl/retro-lessons.jsonl` (`distill`, `hints`, `prune`). `SessionEnd` and `PreCompact` spawn `distill` in the background (fail-open). `SessionStart` and `PostCompact` inject top retro hints within `ETRNL_LEARNING_HINT_MAX_CHARS` alongside project buglog hints. `PreCompact` also writes a lossless session snapshot under the state dir and records snapshot/worklog paths on `compact_pre`. Project-local `.etrnl/STEERING.md` (ignored) injects once per update via `steering-hint`; acknowledgments live in state `steering-acks.json`. `cc-hindsight-lesson.py` and `SessionEnd` retain `env_remedy` / `recurring_defect` lessons to Hindsight bank `etrnl/{project}` when the canary passes, then call `reflect()` when supported. Missing `etrnl-retro.mjs` or retro errors never block the session.
+
 ## Shared libraries (`hooks/lib/`)
 
 | Module | Used by | Role |

@@ -18,6 +18,9 @@ import { stableHash } from "./etrnl-state-core.mjs";
  */
 
 const DEFAULT_SUMMARY_CHARS = 280;
+const DEFAULT_LOG_TAIL_LINES = 20;
+const DEFAULT_SEARCH_TOP_K = 10;
+const DEFAULT_FAILURE_LINE_PATTERN = /\b(error|fail(?:ed|ure)?|exception|panic|fatal|stderr)\b/i;
 
 /** Resolve the root directory that holds reversible-compression evidence artifacts. */
 export function artifactRoot(explicit = "") {
@@ -91,6 +94,60 @@ export function writeEvidenceArtifact(agentId, evidenceText, options = {}) {
  */
 export function makeArtifactReceipt(agentId, evidenceText, options = {}) {
   return writeEvidenceArtifact(agentId, evidenceText, options);
+}
+
+/**
+ * Headroom log-tail compaction: keep failure-marked lines plus the last N lines.
+ * Returns compacted text and a receipt for the full evidence artifact.
+ */
+export function compactLogTail(evidenceText, options = {}) {
+  const tailLines = Math.max(1, Number(options.tailLines) || DEFAULT_LOG_TAIL_LINES);
+  const failurePattern = options.failurePattern ?? DEFAULT_FAILURE_LINE_PATTERN;
+  const lines = String(evidenceText).split(/\r?\n/);
+  const keepIndexes = new Set();
+
+  lines.forEach((line, index) => {
+    if (failurePattern.test(line)) keepIndexes.add(index);
+  });
+  const tailStart = Math.max(0, lines.length - tailLines);
+  for (let index = tailStart; index < lines.length; index += 1) {
+    keepIndexes.add(index);
+  }
+
+  const compacted = [...keepIndexes]
+    .sort((left, right) => left - right)
+    .map((index) => lines[index])
+    .join("\n");
+  const receipt = writeEvidenceArtifact(options.agentId || "log-tail", evidenceText, options);
+
+  return {
+    mode: "log-tail",
+    compacted,
+    receipt,
+    keptLines: keepIndexes.size,
+    omittedLines: Math.max(0, lines.length - keepIndexes.size),
+    totalLines: lines.length,
+  };
+}
+
+/**
+ * Headroom search-results compaction: keep the top-K non-empty hit lines.
+ * Returns compacted text and a receipt for the full evidence artifact.
+ */
+export function compactSearchResults(evidenceText, options = {}) {
+  const topK = Math.max(1, Number(options.topK) || DEFAULT_SEARCH_TOP_K);
+  const lines = String(evidenceText).split(/\r?\n/).filter((line) => line.trim().length > 0);
+  const compacted = lines.slice(0, topK).join("\n");
+  const receipt = writeEvidenceArtifact(options.agentId || "search-results", evidenceText, options);
+
+  return {
+    mode: "search-results",
+    compacted,
+    receipt,
+    keptLines: Math.min(topK, lines.length),
+    omittedLines: Math.max(0, lines.length - topK),
+    totalLines: lines.length,
+  };
 }
 
 /**

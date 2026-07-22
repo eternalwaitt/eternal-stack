@@ -390,6 +390,42 @@ assert_command "record-decision appends owner consolidation choice" node "$ROOT/
 progress_ledger_json="$(jq -c . "$progress_ledger_path")"
 assert_json_expr "record-decision stores decision row" "$progress_ledger_json" '(.decisions | length) >= 1 and .decisions[-1].topic == "renegotiation"'
 
+# --- Lane A: review-merge.mjs ---
+review_merge_fixture="$TMPROOT/review-merge-fixture.json"
+cat >"$review_merge_fixture" <<'JSON'
+[
+  {"reviewer":"etrnl-spec-reviewer","severity":"P1","confidence":0.72,"file":"src/a.ts","line":10,"fingerprint":"fp-null-check","summary":"Missing null check on user id","autofix_class":"safe_auto"},
+  {"reviewer":"etrnl-quality-reviewer","severity":"P2","confidence":0.65,"file":"src/a.ts","line":10,"fingerprint":"fp-null-check","summary":"Missing null check on user id","autofix_class":"safe_auto"},
+  {"reviewer":"etrnl-adversary","severity":"P3","confidence":0.55,"file":"src/b.ts","line":4,"summary":"Stale comment","autofix_class":"manual"},
+  {"reviewer":"etrnl-quality-reviewer","severity":"P2","confidence":0.58,"file":"src/c.ts","line":2,"summary":"Unused import","autofix_class":"gated_auto"}
+]
+JSON
+if review_merge_help="$(node "$ROOT/scripts/review-merge.mjs" --help 2>&1)"; then
+  assert_contains "review-merge help documents severity schema" "$review_merge_help" "P0|P1|P2|P3"
+  assert_contains "review-merge help documents autofix_class schema" "$review_merge_help" "safe_auto|gated_auto|manual"
+else
+  not_ok "review-merge --help failed: $review_merge_help"
+fi
+if review_merge_out="$(node "$ROOT/scripts/review-merge.mjs" --file "$review_merge_fixture" 2>&1)"; then
+  not_ok "review-merge exits 1 when blocking findings remain"
+else
+  ok "review-merge exits 1 when blocking findings remain"
+fi
+review_merge_json="$(node "$ROOT/scripts/review-merge.mjs" --file "$review_merge_fixture" || true)"
+assert_json_expr "review-merge dedupes overlapping reviewers" "$review_merge_json" '.mergedCount == 1 and (.blocking | length) == 1 and (.blocking[0].reviewerCount == 2)'
+assert_json_expr "review-merge boosts confidence on reviewer agreement" "$review_merge_json" '(.blocking[0].confidence >= 0.82)'
+assert_json_expr "review-merge drops low-confidence findings explicitly" "$review_merge_json" '(.dropped | length) == 2'
+review_merge_no_block_fixture="$TMPROOT/review-merge-no-block.json"
+cat >"$review_merge_no_block_fixture" <<'JSON'
+[
+  {"reviewer":"etrnl-quality-reviewer","severity":"P2","confidence":0.70,"file":"src/d.ts","line":1,"summary":"Format nit","autofix_class":"safe_auto"},
+  {"reviewer":"etrnl-quality-reviewer","severity":"P3","confidence":0.80,"file":"src/e.ts","line":3,"summary":"Doc gap","autofix_class":"manual"}
+]
+JSON
+assert_command "review-merge exits 0 without blocking findings" node "$ROOT/scripts/review-merge.mjs" --file "$review_merge_no_block_fixture"
+review_merge_md="$(node "$ROOT/scripts/review-merge.mjs" --file "$review_merge_no_block_fixture" --markdown)"
+assert_contains "review-merge markdown renders safe_auto section" "$review_merge_md" "Safe auto-fix"
+
 doc_health_bad_state="$(jq -nc '{requestedSkills:[{value:"etrnl-audit-docs",at:"2026-01-01T00:00:00Z"}],successfulCommands:[],verificationRuns:[] }')"
 doc_health_bad_status="$(jq -cn --argjson state "$doc_health_bad_state" --arg message "Done, docs look fine." '{state:$state,message:$message}' | node "$ROOT/scripts/documentation-health-ledger-check.mjs")"
 if [[ "$doc_health_bad_status" == "missing-inventory" ]]; then ok "documentation health checker requires inventory"; else not_ok "documentation health checker requires inventory: $doc_health_bad_status"; fi
@@ -2547,5 +2583,303 @@ sidecar_fail_probe="$(
 )"
 assert_contains "state acquire fails closed when the owner sidecar cannot be written" "$sidecar_fail_probe" "ACQUIRED=no"
 assert_contains "state acquire removes the lock dir on sidecar-write failure" "$sidecar_fail_probe" "LOCK_DIR_REMOVED=yes"
+
+# --- Lane B: etrnl-retro script ---
+lane_b_retro_state="$TMPROOT/lane-b-retro-script-state"
+lane_b_retro_lessons="$TMPROOT/lane-b-retro-script-lessons.jsonl"
+mkdir -p "$lane_b_retro_state/snapshots"
+cp "$ROOT/hooks/fixtures/retro/distill-events.jsonl" "$lane_b_retro_state/events.jsonl"
+assert_command "etrnl-retro distill fixture session" env ETRNL_STATE_DIR="$lane_b_retro_state" ETRNL_RETRO_LESSONS="$lane_b_retro_lessons" node "$ROOT/scripts/etrnl-retro.mjs" distill --session retro-distill-session --json
+assert_command "etrnl-retro hints obeys max chars" env ETRNL_RETRO_LESSONS="$lane_b_retro_lessons" node "$ROOT/scripts/etrnl-retro.mjs" hints --max-chars 120 --json
+assert_command "etrnl-retro prune compacts lessons" env ETRNL_RETRO_LESSONS="$lane_b_retro_lessons" node "$ROOT/scripts/etrnl-retro.mjs" prune --json
+
+# --- Lane C: hook profiles + reversible compression ---
+profile_default="$(bash -c 'source "$1/lib/profile.sh"; etrnl_profile' _ "$ROOT/hooks")"
+assert_contains "profile helper defaults to standard" "$profile_default" "standard"
+
+profile_minimal="$(ETRNL_HOOK_PROFILE=minimal bash -c 'source "$1/lib/profile.sh"; etrnl_profile' _ "$ROOT/hooks")"
+assert_contains "profile helper reads minimal" "$profile_minimal" "minimal"
+
+profile_invalid="$(ETRNL_HOOK_PROFILE=fast bash -c 'source "$1/lib/profile.sh"; etrnl_profile' _ "$ROOT/hooks")"
+assert_contains "profile helper rejects invalid values" "$profile_invalid" "standard"
+
+sycophancy_payload='{"session_id":"lane-c-syc","hook_event_name":"PostToolUse","tool_name":"Bash","last_assistant_message":"You'\''re right, let me check that quickly."}'
+sycophancy_minimal_out="$(ETRNL_HOOK_PROFILE=minimal run_hook cc-posttooluse-sycophancy.sh "$sycophancy_payload")"
+if [[ -z "$sycophancy_minimal_out" ]]; then
+  ok "sycophancy hook skips under minimal profile"
+else
+  not_ok "sycophancy hook should skip under minimal profile"
+fi
+sycophancy_standard_out="$(ETRNL_HOOK_PROFILE=standard run_hook cc-posttooluse-sycophancy.sh "$sycophancy_payload")"
+assert_json_expr "sycophancy hook blocks under standard profile" "$sycophancy_standard_out" '.decision == "block"'
+
+observer_payload="$(jq -cn \
+  --arg cwd "$ROOT" \
+  --arg file "$ROOT/README.md" \
+  '{session_id:"lane-c-observer",cwd:$cwd,tool_calls:[{tool_name:"Edit",tool_input:{file_path:$file}}]}')"
+observer_minimal_out="$(ETRNL_HOOK_PROFILE=minimal run_hook cc-posttoolbatch-observer.sh "$observer_payload")"
+if [[ -z "$observer_minimal_out" ]]; then
+  ok "posttoolbatch observer skips under minimal profile"
+else
+  not_ok "posttoolbatch observer should skip under minimal profile"
+fi
+observer_standard_out="$(ETRNL_HOOK_PROFILE=standard run_hook cc-posttoolbatch-observer.sh "$observer_payload")"
+assert_json_expr "posttoolbatch observer warns under standard profile" "$observer_standard_out" '.hookSpecificOutput.additionalContext | test("Quality verification")'
+
+expansion_payload='{"session_id":"lane-c-expansion","command_name":"etrnl-dev-plan"}'
+expansion_minimal_out="$(ETRNL_HOOK_PROFILE=minimal run_hook cc-userprompt-expansion.sh "$expansion_payload")"
+if [[ -z "$expansion_minimal_out" ]]; then
+  ok "userprompt expansion skips under minimal profile"
+else
+  not_ok "userprompt expansion should skip under minimal profile"
+fi
+if ETRNL_HOOK_PROFILE=standard run_hook cc-userprompt-expansion.sh "$expansion_payload" >/dev/null 2>&1; then
+  ok "userprompt expansion runs under standard profile"
+else
+  not_ok "userprompt expansion runs under standard profile"
+fi
+
+revcomp_root="$TMPROOT/revcomp-lane-c"
+mkdir -p "$revcomp_root"
+log_fixture="$revcomp_root/build.log"
+cat >"$log_fixture" <<'LOG'
+info: compiling
+info: linking
+info: resolving deps
+info: typecheck pass
+info: bundling chunk 1
+info: bundling chunk 2
+info: bundling chunk 3
+info: bundling chunk 4
+info: bundling chunk 5
+warn: deprecated API
+error: test suite failed
+FAIL src/a.test.ts:12 expected true
+info: post-test step 1
+info: post-test step 2
+info: post-test step 3
+info: post-test step 4
+info: post-test step 5
+info: post-test step 6
+info: post-test step 7
+info: post-test step 8
+info: post-test step 9
+info: post-test step 10
+info: cleanup
+LOG
+log_compact_json="$(node --input-type=module -e "
+import fs from 'node:fs';
+import { compactLogTail, verifyArtifact } from './scripts/lib/reversible-compression.mjs';
+const evidence = fs.readFileSync(process.argv[1], 'utf8');
+const result = compactLogTail(evidence, { root: process.argv[2], agentId: 'lane-c-log' });
+const verified = verifyArtifact(result.receipt, { root: process.argv[2] });
+process.stdout.write(JSON.stringify({
+  keptLines: result.keptLines,
+  omittedLines: result.omittedLines,
+  hasFailure: result.compacted.includes('FAIL'),
+  hasTail: result.compacted.includes('cleanup'),
+  verified: verified.verified,
+}));
+" "$log_fixture" "$revcomp_root")"
+assert_json_expr "compactLogTail keeps failure lines and log tail" "$log_compact_json" '.hasFailure == true and .hasTail == true and .omittedLines >= 1'
+assert_json_expr "compactLogTail receipt round-trips" "$log_compact_json" '.verified == true'
+
+search_fixture="$revcomp_root/search.txt"
+printf '%s\n' \
+  'src/a.ts:10:match one' \
+  'src/b.ts:20:match two' \
+  'src/c.ts:30:match three' \
+  'src/d.ts:40:match four' >"$search_fixture"
+search_compact_json="$(node --input-type=module -e "
+import fs from 'node:fs';
+import { compactSearchResults, verifyArtifact } from './scripts/lib/reversible-compression.mjs';
+const evidence = fs.readFileSync(process.argv[1], 'utf8');
+const result = compactSearchResults(evidence, { root: process.argv[2], agentId: 'lane-c-search', topK: 2 });
+const verified = verifyArtifact(result.receipt, { root: process.argv[2] });
+process.stdout.write(JSON.stringify({
+  keptLines: result.keptLines,
+  omittedLines: result.omittedLines,
+  compacted: result.compacted,
+  verified: verified.verified,
+}));
+" "$search_fixture" "$revcomp_root")"
+assert_json_expr "compactSearchResults keeps top-K hits" "$search_compact_json" '.keptLines == 2 and .omittedLines == 2'
+assert_json_expr "compactSearchResults receipt round-trips" "$search_compact_json" '.verified == true and (.compacted | test("src/a.ts")) and (.compacted | test("src/b.ts"))'
+
+# --- Lane D: workflow-health status handoff + behavioral evals ---
+lane_d_root="$TMPROOT/lane-d-health"
+mkdir -p "$lane_d_root/runs"
+slow_tree="slow111deadbeef"
+jq -n \
+  --arg cwd "$lane_d_root/project-slow" \
+  --arg session "lane-d-slow-1" \
+  --arg tree "$slow_tree" \
+  '{
+    schemaVersion: 2,
+    runId: "lane-d-slow-1",
+    sessionId: $session,
+    cwd: $cwd,
+    projectId: "lane-d-slow",
+    startedAt: "2026-07-20T08:00:00Z",
+    updatedAt: "2026-07-20T18:00:00Z",
+    tasks: [{id: "T1", status: "verified", startedAt: "2026-07-20T08:00:00Z", completedAt: "2026-07-20T09:00:00Z"}],
+    agents: [],
+    checks: [{name: "gate:lint", command: "pnpm lint", status: "failed", treeHash: $tree}],
+    events: []
+  }' >"$lane_d_root/runs/lane-d-slow-1.json"
+jq -n \
+  --arg cwd "$lane_d_root/project-slow" \
+  --arg session "lane-d-slow-2" \
+  --arg tree "$slow_tree" \
+  '{
+    schemaVersion: 2,
+    runId: "lane-d-slow-2",
+    sessionId: $session,
+    cwd: $cwd,
+    projectId: "lane-d-slow",
+    startedAt: "2026-07-19T08:00:00Z",
+    updatedAt: "2026-07-19T20:00:00Z",
+    tasks: [{id: "T1", status: "verified", startedAt: "2026-07-19T08:00:00Z", completedAt: "2026-07-19T09:30:00Z"}],
+    agents: [],
+    checks: [
+      {name: "gate:lint", command: "pnpm lint", status: "failed", treeHash: $tree},
+      {name: "gate:test", command: "pnpm test", status: "failed", treeHash: $tree}
+    ],
+    events: []
+  }' >"$lane_d_root/runs/lane-d-slow-2.json"
+mkdir -p "$lane_d_root/state"
+: >"$lane_d_root/state/events.jsonl"
+for compact_index in $(seq 1 12); do
+  printf '%s\n' "{\"schemaVersion\":1,\"eventKind\":\"compact_post\",\"eventSeq\":$compact_index,\"sessionId\":\"lane-d-compact-heavy\",\"at\":\"2026-07-20T12:00:0${compact_index}Z\",\"data\":{\"treeHashAtCompact\":\"compact111deadbeef\",\"verificationStale\":true}}" >>"$lane_d_root/state/events.jsonl"
+done
+jq -n \
+  --arg cwd "$lane_d_root/project-compact" \
+  --arg session "lane-d-compact-heavy" \
+  '{
+    schemaVersion: 2,
+    runId: "lane-d-compact-heavy",
+    sessionId: $session,
+    cwd: $cwd,
+    projectId: "lane-d-compact",
+    startedAt: "2026-07-20T10:00:00Z",
+    updatedAt: "2026-07-20T14:00:00Z",
+    tasks: [{id: "T1", status: "verified", startedAt: "2026-07-20T10:00:00Z", completedAt: "2026-07-20T11:00:00Z"}],
+    agents: [],
+    checks: [{name: "gate:auto", command: "bash tests/test-hooks.sh", status: "passed", treeHash: "compact111deadbeef"}],
+    events: []
+  }' >"$lane_d_root/runs/lane-d-compact-heavy.json"
+healthy_tree="healthy222deadbeef"
+jq -n \
+  --arg cwd "$lane_d_root/project-healthy" \
+  --arg session "lane-d-healthy" \
+  --arg tree "$healthy_tree" \
+  '{
+    schemaVersion: 2,
+    runId: "lane-d-healthy",
+    sessionId: $session,
+    cwd: $cwd,
+    projectId: "lane-d-healthy",
+    startedAt: "2026-07-20T10:00:00Z",
+    updatedAt: "2026-07-20T12:00:00Z",
+    tasks: [
+      {id: "T1", status: "verified", startedAt: "2026-07-20T10:00:00Z", completedAt: "2026-07-20T10:30:00Z"},
+      {id: "T2", status: "verified", startedAt: "2026-07-20T10:30:00Z", completedAt: "2026-07-20T11:00:00Z"},
+      {id: "T3", status: "verified", startedAt: "2026-07-20T11:00:00Z", completedAt: "2026-07-20T11:30:00Z"},
+      {id: "T4", status: "verified", startedAt: "2026-07-20T11:30:00Z", completedAt: "2026-07-20T12:00:00Z"}
+    ],
+    agents: [],
+    checks: [{name: "gate:auto", command: "bash tests/test-hooks.sh", status: "passed", treeHash: $tree}],
+    events: []
+  }' >"$lane_d_root/runs/lane-d-healthy.json"
+lane_d_markdown_out="$(
+  ETRNL_RUNS_DIR="$lane_d_root/runs" \
+  ETRNL_ARTIFACTS_DIR="$lane_d_root/artifacts" \
+  ETRNL_STATE_DIR="$lane_d_root/state" \
+  node "$ROOT/scripts/workflow-health.mjs" status --markdown
+)"
+assert_contains "workflow health markdown handoff renders project sections" "$lane_d_markdown_out" "## Project:"
+assert_contains "workflow health markdown handoff reports tasks per hour" "$lane_d_markdown_out" "Median tasks/hr:"
+assert_contains "workflow health markdown handoff reports compaction median" "$lane_d_markdown_out" "Median compactions/session:"
+assert_contains "workflow health markdown handoff reports stale verification resets" "$lane_d_markdown_out" "Stale-verification resets:"
+assert_contains "workflow health markdown handoff reports gate repeats" "$lane_d_markdown_out" "Max gate repeats at tree hash:"
+assert_contains "workflow health markdown handoff reports recurring failures" "$lane_d_markdown_out" "Top recurring failures"
+lane_d_markdown_lines="$(printf '%s\n' "$lane_d_markdown_out" | wc -l | tr -d ' ')"
+if [[ "$lane_d_markdown_lines" -le 60 ]]; then
+  ok "workflow health markdown handoff stays within 60 lines"
+else
+  not_ok "workflow health markdown handoff stays within 60 lines: $lane_d_markdown_lines"
+fi
+lane_d_write_path="$TMPROOT/lane-d-status.md"
+assert_command "workflow health markdown write succeeds" env \
+  ETRNL_RUNS_DIR="$lane_d_root/runs" \
+  ETRNL_ARTIFACTS_DIR="$lane_d_root/artifacts" \
+  ETRNL_STATE_DIR="$lane_d_root/state" \
+  node "$ROOT/scripts/workflow-health.mjs" status --markdown --write "$lane_d_write_path"
+assert_file "workflow health markdown write creates file" "$lane_d_write_path"
+assert_command "workflow health exit-code passes on healthy fixture" env \
+  ETRNL_RUNS_DIR="$lane_d_root/runs" \
+  ETRNL_ARTIFACTS_DIR="$lane_d_root/artifacts" \
+  ETRNL_STATE_DIR="$lane_d_root/state" \
+  node "$ROOT/scripts/workflow-health.mjs" status --markdown --exit-code --cwd "$lane_d_root/project-healthy"
+if lane_d_exit_out="$(
+  ETRNL_RUNS_DIR="$lane_d_root/runs" \
+  ETRNL_ARTIFACTS_DIR="$lane_d_root/artifacts" \
+  ETRNL_STATE_DIR="$lane_d_root/state" \
+  node "$ROOT/scripts/workflow-health.mjs" status --markdown --exit-code 2>&1
+)"; then
+  not_ok "workflow health exit-code fails when thresholds breach"
+else
+  assert_contains "workflow health exit-code surfaces threshold breaches" "$lane_d_exit_out" "Threshold breaches"
+  ok "workflow health exit-code fails when thresholds breach"
+fi
+
+plan_skill="$ROOT/skills/etrnl-dev-plan/SKILL.md"
+autoplan_skill="$ROOT/skills/etrnl-dev-autoplan/SKILL.md"
+bounded_review="$ROOT/skills/etrnl-dev-execute/references/bounded-review.md"
+batch_exec="$ROOT/skills/etrnl-dev-execute/references/batch-execution.md"
+review_merge="$ROOT/scripts/review-merge.mjs"
+
+if rg -q -i 'tier 0.{0,3}1.*companion review lanes' "$plan_skill" && rg -q -i 'Do not require' "$plan_skill"; then
+  ok "behavior eval: dev-plan tier 0-1 skips companion review lanes"
+else
+  # TODO-integration: pending Lane A quick-dev lane wording in etrnl-dev-plan
+  not_ok "behavior eval: dev-plan tier 0-1 skips companion review lanes (TODO-integration: pending Lane A)"
+fi
+if rg -q -i 'tier 0.{0,3}1.*single pass|tier 0.{0,3}1 use one merged quality review lane' "$autoplan_skill"; then
+  ok "behavior eval: autoplan tier 0-1 uses single-pass lane"
+else
+  # TODO-integration: pending Lane A A4 quick-dev lane rewrite
+  not_ok "behavior eval: autoplan tier 0-1 uses single-pass lane (TODO-integration: pending Lane A)"
+fi
+if rg -q -i 'no task packets|Skip task packet drafting for tier 0' "$autoplan_skill"; then
+  ok "behavior eval: autoplan tier 0-1 omits task packet requirements"
+else
+  # TODO-integration: pending Lane A A4 packet removal for tier 0-1
+  not_ok "behavior eval: autoplan tier 0-1 omits task packet requirements (TODO-integration: pending Lane A)"
+fi
+if rg -q -i '(at most|max(imum)?) 2.*(fix round|reopen)' "$bounded_review"; then
+  ok "behavior eval: bounded-review caps fix rounds at 2"
+else
+  # TODO-integration: pending Lane A A2 bounded-review rewrite (max 2 fix rounds)
+  not_ok "behavior eval: bounded-review caps fix rounds at 2 (TODO-integration: pending Lane A)"
+fi
+if rg -q -i 'tier.*(≤|<= ).*2.*(one consolidated|one merged).*review' "$bounded_review"; then
+  ok "behavior eval: bounded-review scopes tier <=2 to one merged reviewer pass"
+else
+  # TODO-integration: pending Lane A A2 merged-review synthesis wording
+  not_ok "behavior eval: bounded-review scopes tier <=2 to one merged reviewer pass (TODO-integration: pending Lane A)"
+fi
+if rg -q -i 'Expensive \(per wave\)' "$batch_exec"; then
+  ok "behavior eval: batch-execution keeps expensive gates per wave"
+else
+  # TODO-integration: pending Lane A batch-execution gate economics
+  not_ok "behavior eval: batch-execution keeps expensive gates per wave (TODO-integration: pending Lane A)"
+fi
+if rg -q 'blocking.*P0/P1|P0.*P1.*blocking|severity === "P0" \|\| item.severity === "P1"' "$review_merge"; then
+  ok "behavior eval: review-merge blocking output restricted to P0/P1"
+else
+  # TODO-integration: pending Lane A review-merge blocking partition
+  not_ok "behavior eval: review-merge blocking output restricted to P0/P1 (TODO-integration: pending Lane A)"
+fi
 
 finish_tests

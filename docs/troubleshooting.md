@@ -72,6 +72,31 @@ repo-owned `cc-rtk-rg-compat.sh` prehook protects native RTK hooks such as
 `rtk hook claude`, while leaving compact-safe searches like `rg -n "term"
 src/file.ts` available for RTK's compact `rtk grep` rewrite.
 
+## RTK token savings
+
+Symptoms: large Bash tool outputs, slow sessions, or `rg`/`git status` dominating token use.
+
+Checks:
+
+1. Confirm RTK is installed: `command -v rtk` and `rtk gain`.
+2. Confirm Claude hooks were installed with `rtk hook` (or `rtk hook claude`) so PreToolUse rewrites run before execution.
+3. Confirm Codex uses `~/.codex/hooks/rtk-pre-tool-use.sh` synced from `scripts/codex-rtk-pre-tool-use.sh`.
+4. For unsupported `rg` flags, expect `cc-rtk-rg-compat.sh` to rewrite to `rtk proxy --ultra-compact rg …` instead of broken `rtk grep` forms.
+
+Doctor surfaces RTK as info-only: green when RTK is absent; when installed, it reports presence plus a short `rtk gain` summary without failing the run.
+
+Legacy pitfalls (still listed under common causes above): stale `rtk-rewrite.sh` pre-v4 hooks, `enforce-cli-toolkit.sh` denying raw commands before RTK routing, and broad `.codex` scans without the Codex RTK memory guard.
+
+## MCP hygiene
+
+Symptoms: prompt-cache misses, slow SessionStart, or bloated tool schemas in every turn.
+
+Checks:
+
+1. Count configured MCP servers; when three or more are active, enable lazy loading or defer schema injection so static rules/skills stay at the prompt prefix.
+2. Route library doc questions to Context7 MCP or ref-tools instead of duplicating long API excerpts in skills.
+3. Route repository structure questions to Codegraph MCP before falling back to `rg`/`grep` Bash loops.
+
 To replay scrubbed hook regressions against the installed hooks:
 
 ```bash

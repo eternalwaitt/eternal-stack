@@ -22,6 +22,7 @@ Tier 0–1:
 1. Context recovery — read current repo state, relevant docs, existing plans, and prior artifacts; record paths and reused helpers in `Evidence:`.
 2. Reuse inventory — search existing components, hooks, scripts, skills, tests, docs, and helpers before naming new surfaces.
 3. Test-first and verification design — name red/green proof or compensating checks and exact commands in `## Verification gates`.
+4. One merged quality review lane — no task packets, no multi-reviewer fan-out, no deep-stack bundle, no parity scorecard.
 
 Tier 2 (add to tier 0–1 stages):
 4. Engineering review lane — validate architecture, data flow, failure modes, rollback, tests, parallelization, reuse, and type boundaries.
@@ -82,7 +83,7 @@ Freeze scope before drafting task groups, and hold it through execution:
 
 ## Full Deep Stack Review
 
-Run the review gauntlet required by the plan's `Risk tier` before finalizing. Tier 0–1 skip the full gauntlet. Tier 2 requires engineering plus adversarial lanes. Tier 3 requires all eight lanes and a validated `Deep stack artifacts:` bundle before execution.
+Run the review gauntlet required by the plan's `Risk tier` before finalizing. Tier 0–1 use one merged quality review lane only — no task packets, no multi-reviewer fan-out, no deep-stack bundle. Tier 2 requires engineering plus adversarial lanes. Tier 3 requires all eight lanes and a validated `Deep stack artifacts:` bundle before execution.
 
 1. CEO/founder review:
    - Validate the premise, user value, scope, 6-month regret, and better alternatives.
@@ -164,10 +165,11 @@ Before finalizing any plan for a capability or feature that competes with or par
 6. For multi-session, multi-route, or multi-workstream plans, include conditional `Phase:`, `Workstream:`, and `UAT Gate:` metadata so `/etrnl-dev-execute` can record phase/UAT state in the ledger.
 7. Do not include `## Immediate First Patch`, `## First Slice`, or similar partial-completion headings in a final all-phases plan. Express sequencing under `## Phases` instead.
 8. Include failure modes, rollback notes, and non-scope.
-9. Include the question policy:
+9. When acceptance involves comparing UI against reference designs or screenshots, the plan must state a tolerance-based parity standard (structural parity: elements, layout order, copy, truthful data, no overflow at the reference viewport) per the `etrnl-audit-browser` Reference Parity Policy. Words like "exact", "pixel", or "identical" in acceptance criteria are a plan defect unless the stakeholder explicitly demanded pixel equality in writing and the reference comes from the same capture harness.
+10. Include the question policy:
    - auto-continue mechanical phases
    - ask only for destructive actions, scope expansion, missing credentials, conflicting user edits, repeated stalls, or subjective product/taste decisions
-10. Include an autoplan decision log:
+11. Include an autoplan decision log:
    - phase: CEO, Eng, Design, DX, Adversarial, Specialist, Convergence
    - decision
    - rationale
@@ -184,7 +186,7 @@ Before finalizing any plan for a capability or feature that competes with or par
 
 ## Task Packet Drafting
 
-For each subagent candidate, include:
+Skip task packet drafting for tier 0–1 — the quick-dev lane has no packets. For tier ≥ 2 subagent candidates, include:
 
 - goal
 - context summary

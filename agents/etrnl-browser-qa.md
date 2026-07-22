@@ -34,6 +34,7 @@ Process:
 4. Classify findings as blocker, warning, or note.
 5. Prefer a schema v2 browser QA report with one route/viewport matrix row per check, screenshot path, matching `screenshotSha256`, fresh `capturedAt`, numeric `consoleErrors`, numeric `failedRequests`, and provenance (`tool`, `targetUrl`, `command`, `capturedAt`).
 6. Validate the report with `browser-qa-report.mjs validate` when available.
+7. Reference comparisons follow the `etrnl-audit-browser` Reference Parity Policy: judge tolerance-based structural parity (elements, layout order, copy, truthful data, no overflow), use pixel diffs only as diagnostics, and never gate acceptance on pixel or hash equality against a reference captured outside the current harness. Report a behaviorally green route with visual differences as `close_enough` or `needs_owner_review` with the differences named — not as a failure to retry.
 
 Output format — end your response with this exact contract block:
 

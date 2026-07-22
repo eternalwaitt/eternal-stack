@@ -152,6 +152,22 @@ def retain_lesson(config: dict, event: dict) -> bool:
         return True
 
 
+def retain_retro_lessons() -> None:
+    retro_script = repo_root() / "scripts" / "etrnl-retro.mjs"
+    if not retro_script.exists():
+        return
+    node_bin = shutil.which("node")
+    if not node_bin:
+        return
+    cwd = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+    subprocess.run(
+        [node_bin, str(retro_script), "hindsight-retain", "--cwd", cwd, "--json"],
+        check=False,
+        timeout=8,
+        capture_output=True,
+    )
+
+
 def main() -> int:
     if os.environ.get("CLAUDE_GUARD_DISABLE_HINDSIGHT_LESSON") == "1":
         return 0
@@ -171,6 +187,7 @@ def main() -> int:
             event_path.write_text(json.dumps(event, sort_keys=True))
         if not should_skip(hindsight_stamp_path) and canary_green() and retain_lesson(load_config(), event):
             hindsight_stamp_path.write_text(time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
+        retain_retro_lessons()
     except (OSError, ValueError, json.JSONDecodeError, urllib.error.URLError, TimeoutError, subprocess.SubprocessError):
         return 0
     return 0

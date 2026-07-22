@@ -64,6 +64,15 @@ This reusable skill is the canonical browser QA workflow; `agents/etrnl-browser-
 10. Record the artifact in the active ledger when one exists:
    - `node ~/.claude/scripts/execution-ledger.mjs record-artifact --type browser-qa-report --path <report-path> --session "$CLAUDE_SESSION_ID"`
 
+## Reference Parity Policy
+
+When comparing captures against reference designs or screenshots (mockups, stakeholder screenshots, frozen board attachments):
+
+- The default acceptance standard is tolerance-based structural parity, not pixel equality: the same elements present, the same layout order and hierarchy, the same copy, truthful data, and no overflow or clipping at the reference viewport.
+- Pixel-diff tools (absolute-error counts, SSIM, hash comparison) are diagnostics for locating differences, never acceptance gates. A reference captured outside the current harness (different data, theme, fonts, DPR, browser build) will never match pixel-for-pixel; a near-total pixel mismatch against such a reference is an environment artifact, not a defect.
+- Gate on pixel or hash equality only when the user explicitly demanded it in writing and the reference was captured from the same harness as the candidate.
+- When a route is behaviorally green but visually differs from the reference, record the disposition as `close_enough` (structural parity holds) or `needs_owner_review` (a named structural difference remains) with the specific differences listed, and move on; do not loop recapturing to chase pixel convergence.
+
 ## Output
 
 - Target and routes checked
@@ -79,6 +88,7 @@ This reusable skill is the canonical browser QA workflow; `agents/etrnl-browser-
 - "I checked desktop, mobile is basically the same layout." -> Build one matrix row per route x viewport; a collapsed nav, clipped touch target, or overflow that only appears at mobile width is a finding that the desktop row cannot show.
 - "No browser tooling is installed, so browser QA is manual." -> Resolve tooling in order (`playwright-cli`, `browser-use`, repo Playwright command) or emit the exact unavailable-tool blocker; do not mark browser QA outstanding.
 - "A 404 or 500 network call still rendered the page, ship it." -> Record every failed request in `failedRequests`; a broken API call behind a rendered shell is a defect, not a passed route.
+- "The capture must match the reference screenshot pixel-for-pixel before I can pass it." -> Cross-environment references never match at the pixel level; verify structural parity per the Reference Parity Policy, record the disposition, and move on instead of rebuilding the harness for pixel convergence.
 
 ## Red Flags
 
@@ -89,6 +99,7 @@ This reusable skill is the canonical browser QA workflow; `agents/etrnl-browser-
 - A `failedRequests` entry for a 4xx or 5xx network response on a route the row still reports as `passed`.
 - An accessibility gap left unrecorded: an interactive element with no keyboard focus reachability, a form control with no label, or a touch target below the minimum hit area.
 - A stale `capturedAt` timestamp reused across rows, or missing provenance fields (`tool`, `targetUrl`, `command`, `capturedAt`) on a `status complete` artifact.
+- A pixel-diff count or image-hash equality used as an acceptance gate against a reference captured outside the current harness, or repeated capture reruns whose only goal is shrinking a pixel diff on a behaviorally green route.
 
 ## When NOT to use
 

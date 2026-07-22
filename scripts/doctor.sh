@@ -1232,6 +1232,19 @@ print(m.group(1) if m else '')
   optional_command gemini "optional Gemini escalation available" "optional Gemini escalation not installed"
   optional_command playwright-cli "optional browser QA tool available" "optional browser QA tool not installed"
   optional_command react-doctor "optional React/Next linter (react-doctor) available" "optional React/Next linter (react-doctor) not installed"
+  if command -v rtk >/dev/null 2>&1; then
+    rtk_gain_summary=""
+    if rtk_gain_out="$(rtk gain </dev/null 2>/dev/null | head -n 6 | tr '\n' ' ' | sed 's/[[:space:]]\\+/ /g' | sed 's/[[:space:]]*$//')"; then
+      [[ -n "$rtk_gain_out" ]] && rtk_gain_summary="$rtk_gain_out"
+    fi
+    if [[ -n "$rtk_gain_summary" ]]; then
+      ok "rtk installed; gain: $rtk_gain_summary"
+    else
+      ok "rtk installed (run rtk gain for token savings detail)"
+    fi
+  else
+    ok "rtk not installed (optional; rtk hook install recommended for token savings)"
+  fi
   if [[ -x "$HOME/.claude/skills/gstack/bin/design" || -x "$HOME/.agents/skills/gstack/bin/design" || -x "$HOME/.gstack/repos/gstack/bin/design" ]]; then
     ok "optional design/mock tool available"
   else

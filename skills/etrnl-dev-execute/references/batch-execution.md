@@ -1,0 +1,36 @@
+# Batch Execution for Many Similar Findings
+
+Use during `etrnl-dev-execute` when the plan enumerates many similar per-item findings — board cards, checklist rows, per-screen or per-route fixes. Per-item ceremony is the dominant cost in these runs: an expensive harness plus a review chain plus a commit for every item turns minutes of implementation into an hour of process. Batch the ceremony; keep the rigor.
+
+## Wave shaping
+
+1. Group items by shared surface: same route, screen family, data domain, or fixture set (for example, all findings on `/finances` tabs form one wave). Keep waves within the plan's write-scope ownership.
+2. Size waves at 3–6 items. Split a wave when items need conflicting fixture states; merge singletons into an adjacent wave on the same surface.
+3. Split an item that reveals a systemic defect (shared query, schema, ledger rule) into its own wave; log the split with `record-decision`.
+
+## Gate economics
+
+1. Classify gates once at wave start:
+   - **Cheap (per item):** targeted unit/component tests, focused typecheck, lint on touched files. Run after every item fix and every review fix.
+   - **Expensive (per wave):** production builds, migration replays, owned database/browser canaries, full test suites, full typecheck. Run once when the wave's items are all cheap-green, and once more only if a post-review fix touched the harness, a migration, or a shared surface.
+2. Accumulate browser specs across items and execute them in one canary run per wave; do not rebuild the environment per item.
+3. A review finding fixed with a source-only change re-verifies with the targeted gate for its lens, not the full harness (see `bounded-review.md` step 4).
+4. As the regression suite grows across waves, earlier items' specs run in the wave canary — never as separate per-item replays.
+
+## Mid-loop verification
+
+1. Between fixes inside a wave, run affected-only tests (`vitest --changed`, focused suites, or the plan's targeted gate). Do not replay the full suite after every nit.
+2. Run the full suite at wave close and immediately before push only.
+3. Warm environment rules: compose volumes persist across waves — never run `down -v` mid-run; keep Testcontainers reuse on; replay migrations only on schema change; reserve production builds for wave close.
+4. Record the env URL and migration version in run notes at wave start and after any schema change.
+
+## Review and commit batching
+
+1. One merged review pass per wave over the combined diff (see `bounded-review.md`). Tier-3 surfaces keep tier-3 lenses and reopen caps on the wave diff — per-item review chains are for genuinely independent risk, not items sharing one surface. Batching applies at every tier; tier 3 keeps stricter gates, not a batching exemption.
+2. One commit and one push per wave, listing the items it closes. Per-item evidence (dispositions, capture hashes, ledger rows) still gets recorded individually.
+3. Build evidence packets on a shared wave-level base (environment, provenance, harness description) with per-item rows, instead of duplicating the full packet per item.
+
+## Stop conditions
+
+- A wave gate failure blocks the wave, not the whole run: bisect to the offending item, park it with a recorded blocker, and close the rest of the wave.
+- Do not let batching hide attribution: every closed item still names its own verification evidence and disposition.

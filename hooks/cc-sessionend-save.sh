@@ -31,5 +31,9 @@ event="$(jq -cn \
     }
   }')"
 cc_etrnl_state_append_json "$event" || printf 'claude-guard warning: session-end event append failed\n' >&2
+if [[ -f "$SCRIPT_DIR/../scripts/etrnl-retro.mjs" ]] && command -v node >/dev/null 2>&1; then
+  node "$SCRIPT_DIR/../scripts/etrnl-retro.mjs" distill --session "$(cc_session_id)" >/dev/null 2>&1 &
+  node "$SCRIPT_DIR/../scripts/etrnl-retro.mjs" hindsight-retain --cwd "$cwd" >/dev/null 2>&1 &
+fi
 rm -f -- "$(cc_state_file)" 2>/dev/null || true
 rm -rf -- "$(cc_state_lock)" 2>/dev/null || true

@@ -1256,6 +1256,7 @@ precompact_json="$(jq -cn --arg cwd "$compact_fixture_repo" '{session_id:"fixtur
 out="$(run_hook cc-precompact-save.sh "$precompact_json")"
 assert_json_expr "precompact allows after save" "$out" '.continue == true'
 assert_json_expr "precompact writes durable ETRNL state without raw prompt" "$(jq -s -c . "$ETRNL_STATE_DIR/events.jsonl")" 'any(.[]; .eventKind == "compact_pre" and .sessionId == "fixture-session" and (.data | has("lastPrompt") | not))'
+assert_json_expr "precompact records lossless snapshot paths" "$(jq -s -c . "$ETRNL_STATE_DIR/events.jsonl")" 'any(.[]; .eventKind == "compact_pre" and .sessionId == "fixture-session" and ((.data.sessionSnapshotPath // "") | length) > 0)'
 postcompact_json="$(jq -cn --arg cwd "$compact_fixture_repo" '{session_id:"fixture-session",hook_event_name:"PostCompact",summary:"compact persisted",cwd:$cwd}')"
 run_hook cc-postcompact-record.sh "$postcompact_json" >/dev/null
 assert_json_expr "postcompact records recovery metadata" "$(jq -c . "$TMPROOT/claude-guard-fixture-session.json")" '.lastCompactSummary == "compact persisted" and .lastCompactAt != "" and .compactCount == 1'
@@ -1478,6 +1479,60 @@ fi
 if (( ${#invalid_packet_fixtures[@]} == 0 || ${#valid_packet_fixtures[@]} == 0 )); then
   not_ok "packet fixture sanity: missing invalid/valid packet fixture files"
   finish_tests
+fi
+
+# --- Lane B: retro distiller, steering, and lifecycle hook wiring ---
+lane_b_state_dir="$TMPROOT/lane-b-retro-state"
+lane_b_lessons_path="$TMPROOT/lane-b-retro-lessons.jsonl"
+mkdir -p "$lane_b_state_dir/snapshots"
+cp "$ROOT/hooks/fixtures/retro/distill-events.jsonl" "$lane_b_state_dir/events.jsonl"
+lane_b_distill="$(ETRNL_STATE_DIR="$lane_b_state_dir" ETRNL_RETRO_LESSONS="$lane_b_lessons_path" node "$ROOT/scripts/etrnl-retro.mjs" distill --session retro-distill-session --json)"
+assert_json_expr "retro distill captures env remedy" "$lane_b_distill" 'any(.lessons[]?; .type == "env_remedy")'
+assert_json_expr "retro distill captures redundant verification" "$lane_b_distill" 'any(.lessons[]?; .type == "redundant_verification")'
+assert_json_expr "retro distill captures compaction stale resets" "$lane_b_distill" 'any(.lessons[]?; .type == "compaction_stale")'
+assert_json_expr "retro distill captures recurring reviewer fingerprints" "$lane_b_distill" 'any(.lessons[]?; .type == "recurring_defect")'
+lane_b_distill_again="$(ETRNL_STATE_DIR="$lane_b_state_dir" ETRNL_RETRO_LESSONS="$lane_b_lessons_path" node "$ROOT/scripts/etrnl-retro.mjs" distill --session retro-distill-session --json)"
+assert_json_expr "retro distill dedupes existing lessons" "$lane_b_distill_again" '(.lessons | length) == 0'
+lane_b_hints="$(ETRNL_RETRO_LESSONS="$lane_b_lessons_path" node "$ROOT/scripts/etrnl-retro.mjs" hints --max-chars 500 --json)"
+assert_json_expr "retro hints respects budget" "$lane_b_hints" '.count >= 1 and (.text | test("Retro lessons:"))'
+lane_b_prune="$(ETRNL_RETRO_LESSONS="$lane_b_lessons_path" node "$ROOT/scripts/etrnl-retro.mjs" prune --json)"
+lane_b_prune_again="$(ETRNL_RETRO_LESSONS="$lane_b_lessons_path" node "$ROOT/scripts/etrnl-retro.mjs" prune --json)"
+lane_b_prune_active="$(jq -c '.active' <<<"$lane_b_prune")"
+assert_json_expr "retro prune is idempotent" "$lane_b_prune_again" ".active == $lane_b_prune_active"
+lane_b_steering_repo="$TMPROOT/lane-b-steering-repo"
+mkdir -p "$lane_b_steering_repo/.etrnl"
+printf '# steering\n- finish lane B\n' >"$lane_b_steering_repo/.etrnl/STEERING.md"
+lane_b_steering_one="$(ETRNL_STATE_DIR="$lane_b_state_dir" node "$ROOT/scripts/etrnl-retro.mjs" steering-hint --cwd "$lane_b_steering_repo" --json)"
+assert_json_expr "steering hint injects once" "$lane_b_steering_one" '.text | test("Steering file has updates")'
+lane_b_steering_two="$(ETRNL_STATE_DIR="$lane_b_state_dir" node "$ROOT/scripts/etrnl-retro.mjs" steering-hint --cwd "$lane_b_steering_repo" --json)"
+assert_json_expr "steering hint suppresses repeat" "$lane_b_steering_two" '.text == ""'
+lane_b_postcompact_out="$(ETRNL_RETRO_LESSONS="$lane_b_lessons_path" run_hook cc-postcompact-record.sh "$postcompact_json")"
+assert_contains "postcompact re-injects retro hints" "$lane_b_postcompact_out" "Retro lessons:"
+lane_b_startup_json="$(jq -cn '{session_id:"fixture-session-status",hook_event_name:"SessionStart"}')"
+lane_b_startup_out="$(ETRNL_RETRO_LESSONS="$lane_b_lessons_path" ETRNL_LEARNING_STARTUP_HINTS=1 run_hook cc-sessionstart-restore.sh "$lane_b_startup_json")"
+assert_contains "session start injects retro hints" "$lane_b_startup_out" "Retro lessons:"
+lane_b_hindsight_dry="$(CLAUDE_GUARD_DISABLE_HINDSIGHT_LESSON=0 ETRNL_RETRO_LESSONS="$lane_b_lessons_path" node "$ROOT/scripts/etrnl-retro.mjs" hindsight-retain --cwd "$ROOT" --dry-run --json)"
+assert_json_expr "hindsight retain dry-run includes retro lesson schema" "$lane_b_hindsight_dry" '.items[0].metadata.kind != null and .items[0].metadata.confidence != null and .items[0].metadata.retention_policy == "retro_distilled_lesson"'
+lane_b_sessionend_json="$(jq -cn --arg cwd "$compact_fixture_repo" '{session_id:"lane-b-sessionend",hook_event_name:"SessionEnd",cwd:$cwd}')"
+if run_hook cc-sessionend-save.sh "$lane_b_sessionend_json" >/dev/null 2>&1; then
+  ok "session end stays fail-open with retro background jobs"
+else
+  not_ok "session end should stay fail-open with retro background jobs"
+fi
+# Fail-open when etrnl-retro.mjs is absent: exercise a sandboxed copy of hooks/ and
+# scripts/ with the retro script deleted. Never move the real scripts/etrnl-retro.mjs —
+# this suite runs concurrently with test-install under doctor's heavy async batch, and
+# a shared-file mv races the install suite's own etrnl-retro invocations.
+lane_b_sandbox="$TMPROOT/lane-b-no-retro-root"
+mkdir -p "$lane_b_sandbox"
+cp -R "$ROOT/hooks" "$lane_b_sandbox/hooks"
+cp -R "$ROOT/scripts" "$lane_b_sandbox/scripts"
+rm -f "$lane_b_sandbox/scripts/etrnl-retro.mjs"
+lane_b_precompact_no_retro="$(jq -cn --arg cwd "$compact_fixture_repo" '{session_id:"lane-b-no-retro",hook_event_name:"PreCompact",cwd:$cwd}')"
+if out="$(bash "$lane_b_sandbox/hooks/cc-precompact-save.sh" <<<"$lane_b_precompact_no_retro")"; then
+  assert_json_expr "precompact fail-open when retro script absent" "$out" '.continue == true'
+else
+  not_ok "precompact should fail-open when retro script absent"
 fi
 
 run_parallel_guard_fixture_matrix deny "${invalid_guard_fixtures[@]}"

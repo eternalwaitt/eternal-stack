@@ -177,6 +177,8 @@ INSTALL_SCRIPTS=(
   review-log.mjs
   review-rules.mjs
   review-learn.mjs
+  review-merge.mjs
+  etrnl-retro.mjs
   diff-triviality.mjs
   project-buglog.mjs
   browser-qa-report.mjs

@@ -6,6 +6,11 @@ if [[ "${CLAUDE_GUARD_DISABLED:-0}" == "1" ]]; then
 fi
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+# shellcheck source=hooks/lib/profile.sh
+source "$SCRIPT_DIR/lib/profile.sh" 2>/dev/null || true
+if declare -F etrnl_profile_skip_advisory >/dev/null 2>&1 && etrnl_profile_skip_advisory; then
+  exit 0
+fi
 # shellcheck source=hooks/lib/json.sh
 source "$SCRIPT_DIR/lib/json.sh"
 # shellcheck source=hooks/lib/state.sh

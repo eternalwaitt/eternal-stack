@@ -16,10 +16,22 @@ state="$(cc_state_read)"
 trigger="$(cc_json_get '.trigger // .compact_trigger // .source // "unknown"')"
 cwd="$(cc_json_get '.cwd')"
 [[ -n "$cwd" ]] || cwd="$(pwd -P)"
+snapshot_meta="{}"
+if [[ -f "$SCRIPT_DIR/../scripts/etrnl-retro.mjs" ]] && command -v node >/dev/null 2>&1; then
+  active_plan="$(jq -r '.activePlanPath // ""' <<<"$state")"
+  snapshot_cmd=(node "$SCRIPT_DIR/../scripts/etrnl-retro.mjs" snapshot --session "$(cc_session_id)" --cwd "$cwd" --json)
+  [[ -n "$active_plan" ]] && snapshot_cmd+=(--worklog "$active_plan")
+  snapshot_meta="$("${snapshot_cmd[@]}" 2>/dev/null || printf '{}')"
+  node "$SCRIPT_DIR/../scripts/etrnl-retro.mjs" distill --session "$(cc_session_id)" >/dev/null 2>&1 &
+fi
+session_snapshot_path="$(jq -r '.sessionSnapshotPath // ""' <<<"$snapshot_meta")"
+worklog_path="$(jq -r '.worklogPath // ""' <<<"$snapshot_meta")"
 event="$(jq -cn \
   --arg session "$(cc_session_id)" \
   --arg cwd "$cwd" \
   --arg trigger "$trigger" \
+  --arg sessionSnapshotPath "$session_snapshot_path" \
+  --arg worklogPath "$worklog_path" \
   --argjson state "$state" '
   {
     eventKind: "compact_pre",
@@ -32,7 +44,9 @@ event="$(jq -cn \
       editCount: (($state.edits // {}) | length),
       verificationRuns: (($state.verificationRuns // []) | length),
       requestedSkillCount: (($state.requestedSkills // []) | length),
-      agentCallCount: (($state.agentCalls // []) | length)
+      agentCallCount: (($state.agentCalls // []) | length),
+      sessionSnapshotPath: (if ($sessionSnapshotPath | length) > 0 then $sessionSnapshotPath else null end),
+      worklogPath: (if ($worklogPath | length) > 0 then $worklogPath else null end)
     }
   }')"
 if ! cc_etrnl_state_append_json "$event"; then

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
@@ -7,17 +7,31 @@ import { beadLinkDryRun, compactHandoff, readEvents, stateRoot } from "./lib/etr
 
 const args = process.argv.slice(2);
 const KNOWN_COMMANDS = new Set(["summary", "status", "doctor", "prune"]);
-const VALUE_FLAGS = new Set(["--limit", "--cwd", "--session", "--project", "--older-than-days", "--max-age-days"]);
+const VALUE_FLAGS = new Set([
+  "--limit",
+  "--cwd",
+  "--session",
+  "--project",
+  "--older-than-days",
+  "--max-age-days",
+  "--write",
+  "--min-tasks-per-hour",
+  "--max-compactions-median",
+]);
 const positionalArgs = collectPositionals(args);
 const unknownCommand = positionalArgs.find((arg) => !KNOWN_COMMANDS.has(arg) && !/^\d+$/.test(arg));
 if (unknownCommand) {
   console.error(`Unknown workflow-health command: ${unknownCommand}`);
-  console.error("usage: workflow-health.mjs [summary|status|doctor|prune] [--json] [--cwd <path>] [--session <id>] [--project <id>] [--all]");
+  console.error("usage: workflow-health.mjs [summary|status|doctor|prune] [--json] [--markdown] [--write <path>] [--exit-code] [--cwd <path>] [--session <id>] [--project <id>] [--all]");
   process.exit(2);
 }
 const command = positionalArgs.find((arg) => KNOWN_COMMANDS.has(arg)) || "summary";
 const jsonMode = args.includes("--json");
+const markdownMode = args.includes("--markdown");
+const exitCodeMode = args.includes("--exit-code");
 const strictRuntime = args.includes("--strict") || process.env.ETRNL_WORKFLOW_HEALTH_STRICT === "1";
+const statusMinTasksPerHour = positiveEnvNumber("ETRNL_STATUS_MIN_TASKS_PER_HOUR", Number(flagValue("--min-tasks-per-hour", "1")));
+const statusMaxCompactionsMedian = positiveEnvNumber("ETRNL_STATUS_MAX_COMPACTIONS_MEDIAN", Number(flagValue("--max-compactions-median", "10")));
 const base = process.env.ETRNL_RUNS_DIR
   || path.join(process.env.CLAUDE_HOME || path.join(homedir(), ".claude"), "etrnl", "runs");
 const artifactBase = process.env.ETRNL_ARTIFACTS_DIR
@@ -782,6 +796,200 @@ function emitJson(value) {
   console.log(JSON.stringify(value, null, 2));
 }
 
+function median(values) {
+  const sorted = values.filter(Number.isFinite).sort((left, right) => left - right);
+  if (sorted.length === 0) return Number.NaN;
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+}
+
+function projectKey(ledger) {
+  if (typeof ledger.cwd === "string" && ledger.cwd.trim() !== "") return path.resolve(ledger.cwd);
+  if (ledger.projectId) return String(ledger.projectId);
+  return "unknown-project";
+}
+
+function recurringFailureCounts(ledgers) {
+  const counts = new Map();
+  for (const ledger of ledgers) {
+    for (const check of ledger.checks ?? []) {
+      if (check.status !== "failed") continue;
+      const key = commandFamily(check.command) || String(check.name || "unknown-check");
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+  }
+  return [...counts.entries()]
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+    .slice(0, 5)
+    .map(([command, count]) => ({ command, count }));
+}
+
+function sortedLedgersByRecency(ledgers) {
+  return [...ledgers].sort((left, right) => {
+    const byTime = ledgerUpdatedTime(right) - ledgerUpdatedTime(left);
+    if (Number.isFinite(byTime) && byTime !== 0) return byTime;
+    return String(right.runId || "").localeCompare(String(left.runId || ""));
+  });
+}
+
+function buildHealthHandoff(ledgers, stateEvents) {
+  const grouped = new Map();
+  for (const ledger of sortedLedgersByRecency(ledgers)) {
+    const key = projectKey(ledger);
+    const bucket = grouped.get(key) ?? [];
+    bucket.push(ledger);
+    grouped.set(key, bucket);
+  }
+
+  const projects = [];
+  const thresholdBreaches = [];
+  for (const [project, projectLedgers] of grouped.entries()) {
+    const recentLedgers = projectLedgers.slice(0, 5);
+    const sessionRows = recentLedgers
+      .map((ledger) => buildSessionPerformanceRow(ledger, stateEvents))
+      .filter(Boolean);
+    const tasksPerHourValues = sessionRows
+      .map((row) => row.tasksCompletedPerHour)
+      .filter(Number.isFinite);
+    const compactionValues = sessionRows
+      .map((row) => row.compactCount)
+      .filter(Number.isFinite);
+    const staleResetTotal = sessionRows.reduce((sum, row) => sum + Number(row.compactStaleEvents || 0), 0);
+    const gateRepeatMax = sessionRows.reduce((max, row) => Math.max(max, Number(row.gateMaxRepeatsAtTreeHash || 0)), 0);
+    const medianTasksPerHour = median(tasksPerHourValues);
+    const medianCompactions = median(compactionValues);
+    const recurringFailures = recurringFailureCounts(projectLedgers);
+
+    if (tasksPerHourValues.length > 0 && medianTasksPerHour < statusMinTasksPerHour) {
+      thresholdBreaches.push({
+        id: "status-low-tasks-per-hour",
+        project,
+        metric: "medianTasksPerHour",
+        value: medianTasksPerHour,
+        threshold: statusMinTasksPerHour,
+      });
+    }
+    if (compactionValues.length > 0 && medianCompactions > statusMaxCompactionsMedian) {
+      thresholdBreaches.push({
+        id: "status-high-compactions",
+        project,
+        metric: "medianCompactions",
+        value: medianCompactions,
+        threshold: statusMaxCompactionsMedian,
+      });
+    }
+
+    projects.push({
+      project,
+      sessionCount: projectLedgers.length,
+      recentSessionCount: recentLedgers.length,
+      medianTasksPerHour,
+      medianCompactions,
+      staleVerificationResets: staleResetTotal,
+      gateRepeatMax,
+      sessionRows,
+      recurringFailures,
+    });
+  }
+
+  projects.sort((left, right) => left.project.localeCompare(right.project));
+  return {
+    generatedAt: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
+    filters: {
+      cwd: cwdFilter,
+      session: sessionFilter,
+      project: projectFilter,
+      all: includeAll,
+    },
+    thresholds: {
+      minTasksPerHour: statusMinTasksPerHour,
+      maxCompactionsMedian: statusMaxCompactionsMedian,
+      sessionWindow: 5,
+    },
+    projects,
+    thresholdBreaches,
+  };
+}
+
+function renderHealthHandoffMarkdown(handoff) {
+  const lines = [
+    "# Workflow health handoff",
+    "",
+    `Generated: ${handoff.generatedAt}`,
+    `Thresholds: tasksPerHour≥${handoff.thresholds.minTasksPerHour} (median, last ${handoff.thresholds.sessionWindow} sessions); compactions/session≤${handoff.thresholds.maxCompactionsMedian} (median)`,
+  ];
+  if (handoff.thresholdBreaches.length > 0) {
+    lines.push("", "## Threshold breaches");
+    for (const breach of handoff.thresholdBreaches) {
+      lines.push(`- ${breach.project}: ${breach.metric}=${Number(breach.value).toFixed(2)} (limit ${breach.threshold})`);
+    }
+  }
+  for (const project of handoff.projects) {
+    lines.push("", `## Project: ${project.project}`);
+    lines.push(`Sessions: ${project.sessionCount} (metrics from last ${project.recentSessionCount})`);
+    if (Number.isFinite(project.medianTasksPerHour)) {
+      lines.push(`Median tasks/hr: ${project.medianTasksPerHour.toFixed(2)}`);
+    } else {
+      lines.push("Median tasks/hr: n/a");
+    }
+    if (Number.isFinite(project.medianCompactions)) {
+      lines.push(`Median compactions/session: ${project.medianCompactions.toFixed(1)}`);
+    } else {
+      lines.push("Median compactions/session: n/a");
+    }
+    lines.push(`Stale-verification resets: ${project.staleVerificationResets}`);
+    lines.push(`Max gate repeats at tree hash: ${project.gateRepeatMax}`);
+    if (project.sessionRows.length > 0) {
+      lines.push("", "### Recent sessions");
+      for (const row of project.sessionRows.slice(0, 5)) {
+        const parts = [row.sessionId || row.runId || "session"];
+        if (row.tasksCompletedPerHour !== undefined) parts.push(`tasks/hr=${row.tasksCompletedPerHour}`);
+        if (row.compactCount !== undefined) parts.push(`compactions=${row.compactCount}`);
+        if (row.compactStaleEvents !== undefined) parts.push(`staleResets=${row.compactStaleEvents}`);
+        if (row.gateMaxRepeatsAtTreeHash !== undefined) parts.push(`gateRepeats=${row.gateMaxRepeatsAtTreeHash}`);
+        lines.push(`- ${parts.join(" ")}`);
+      }
+    }
+    if (project.recurringFailures.length > 0) {
+      lines.push("", "### Top recurring failures");
+      for (const failure of project.recurringFailures) {
+        lines.push(`- ${failure.command}: ${failure.count}x`);
+      }
+    }
+  }
+  if (lines.length > 60) {
+    return `${lines.slice(0, 59).join("\n")}\n- …truncated to 60 lines`;
+  }
+  return lines.join("\n");
+}
+
+function emitStatus(selectedLedgers, ledgerParseErrors, stateEvents) {
+  const status = buildStatus(selectedLedgers, ledgerParseErrors);
+  if (markdownMode) {
+    const handoff = buildHealthHandoff(selectedLedgers, stateEvents);
+    const markdown = renderHealthHandoffMarkdown(handoff);
+    const writePath = flagValue("--write");
+    if (writePath) writeFileSync(writePath, `${markdown}\n`, "utf8");
+    console.log(markdown);
+    if (exitCodeMode) process.exit(handoff.thresholdBreaches.length > 0 ? 1 : 0);
+    process.exit(0);
+  }
+  if (jsonMode) {
+    emitJson(status);
+    if (exitCodeMode) {
+      const handoff = buildHealthHandoff(selectedLedgers, stateEvents);
+      process.exit(handoff.thresholdBreaches.length > 0 ? 1 : 0);
+    }
+    process.exit(0);
+  }
+  console.log(renderStatusText(status));
+  if (exitCodeMode) {
+    const handoff = buildHealthHandoff(selectedLedgers, stateEvents);
+    process.exit(handoff.thresholdBreaches.length > 0 ? 1 : 0);
+  }
+  process.exit(0);
+}
+
 function renderStatusText(status) {
   const missing = status.missingArtifacts.length > 0 ? status.missingArtifacts.join(",") : "none";
   const lines = [
@@ -809,10 +1017,7 @@ if (!existsSync(base)) {
     process.exit(0);
   }
   if (command === "status") {
-    const status = buildStatus([], []);
-    if (jsonMode) emitJson(status);
-    else console.log(renderStatusText(status));
-    process.exit(0);
+    emitStatus([], [], []);
   }
   if (command === "summary" && jsonMode) {
     emitJson(buildSummary([], [], []));
@@ -844,10 +1049,7 @@ if (files.length === 0) {
     process.exit(0);
   }
   if (command === "status") {
-    const status = buildStatus([], []);
-    if (jsonMode) emitJson(status);
-    else console.log(renderStatusText(status));
-    process.exit(0);
+    emitStatus([], [], []);
   }
   if (command === "summary" && jsonMode) {
     emitJson(buildSummary([], [], []));
@@ -880,10 +1082,7 @@ if (command === "prune") {
 }
 
 if (command === "status") {
-  const status = buildStatus(selectedLedgers, ledgerParseErrors);
-  if (jsonMode) emitJson(status);
-  else console.log(renderStatusText(status));
-  process.exit(0);
+  emitStatus(selectedLedgers, ledgerParseErrors, stateEvents);
 }
 
 const summary = buildSummary(selectedLedgers, ledgerParseErrors, stateEvents);

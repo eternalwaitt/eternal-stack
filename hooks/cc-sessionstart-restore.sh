@@ -39,6 +39,45 @@ process.stdin.on("end", () => {
   cat
 }
 
+etrnl_retro_hint_text() {
+  local target_cwd="$1"
+  local limit="${2:-${ETRNL_LEARNING_HINT_MAX_CHARS:-500}}"
+  [[ -f "$SCRIPT_DIR/../scripts/etrnl-retro.mjs" ]] && command -v node >/dev/null 2>&1 || return 0
+  node "$SCRIPT_DIR/../scripts/etrnl-retro.mjs" hints --max-chars "$limit" --cwd "$target_cwd" 2>/dev/null || true
+}
+
+etrnl_steering_hint_text() {
+  local target_cwd="$1"
+  [[ -f "$SCRIPT_DIR/../scripts/etrnl-retro.mjs" ]] && command -v node >/dev/null 2>&1 || return 0
+  node "$SCRIPT_DIR/../scripts/etrnl-retro.mjs" steering-hint --cwd "$target_cwd" 2>/dev/null || true
+}
+
+etrnl_snapshot_hint_text() {
+  local session_id="$1"
+  [[ -f "$SCRIPT_DIR/../scripts/etrnl-retro.mjs" ]] && command -v node >/dev/null 2>&1 || return 0
+  node "$SCRIPT_DIR/../scripts/etrnl-retro.mjs" snapshot-hint --session "$session_id" 2>/dev/null || true
+}
+
+append_bounded_lines() {
+  local base="$1"
+  local limit="$2"
+  shift 2
+  local line candidate
+  for line in "$@"; do
+    [[ -n "$line" ]] || continue
+    if [[ -z "$base" ]]; then
+      candidate="$line"
+    else
+      candidate="$base"$'\n'"$line"
+    fi
+    if [[ "$(printf '%s' "$candidate" | trim_chars "$limit")" != "$candidate" ]]; then
+      continue
+    fi
+    base="$candidate"
+  done
+  printf '%s' "$base"
+}
+
 cc_json_read_stdin
 cc_json_require_jq || exit 0
 cc_json_valid || exit 0
@@ -57,11 +96,15 @@ cc_state_update --arg cwd "$cwd" ".cwd = \$cwd"
 skill_hint="$(get_etrnl_skill_hint)"
 if [[ "$source_name" == "compact" ]]; then
   # Compact recovery stays deterministic: inject only the bounded handoff and
-  # skill hint, not advisory workflow/update/learning projections.
+  # skill hint, not advisory workflow/update projections.
+  compact_learning_limit="${ETRNL_LEARNING_HINT_MAX_CHARS:-500}"
   if handoff_json="$(cc_etrnl_state_compact_handoff_json "$(cc_session_id)" 2>/dev/null)" \
     && jq -e '.found == true and ((.text // "") | length > 0)' >/dev/null 2>&1 <<<"$handoff_json"; then
     msg="$(jq -r '.text' <<<"$handoff_json")"
-    msg="$msg"$'\n'"$skill_hint"
+    snapshot_hint="$(etrnl_snapshot_hint_text "$(cc_session_id)")"
+    retro_hint="$(etrnl_retro_hint_text "$cwd" "$compact_learning_limit")"
+    steering_hint="$(etrnl_steering_hint_text "$cwd")"
+    msg="$(append_bounded_lines "$msg" 1200 "$snapshot_hint" "$skill_hint" "$retro_hint" "$steering_hint")"
     msg="$(printf '%s' "$msg" | trim_chars 1200)"
     cc_json_emit_context "SessionStart" "$msg"
     exit 0
@@ -75,6 +118,10 @@ if [[ "$source_name" == "compact" ]]; then
       + "\n"
       + $hint
     ' <<<"$state")"
+    snapshot_hint="$(etrnl_snapshot_hint_text "$(cc_session_id)")"
+    retro_hint="$(etrnl_retro_hint_text "$cwd" "$compact_learning_limit")"
+    steering_hint="$(etrnl_steering_hint_text "$cwd")"
+    msg="$(append_bounded_lines "$msg" 1200 "$snapshot_hint" "$retro_hint" "$steering_hint")"
     msg="$(printf '%s' "$msg" | trim_chars 1200)"
     cc_json_emit_context "SessionStart" "$msg"
     exit 0
@@ -218,6 +265,15 @@ if [[ "${ETRNL_LEARNING_STARTUP_HINTS:-}" != "0" \
     fi
   fi
 fi
+retro_hint="$(etrnl_retro_hint_text "$cwd" "${ETRNL_LEARNING_HINT_MAX_CHARS:-500}")"
+steering_hint="$(etrnl_steering_hint_text "$cwd")"
+if [[ -n "$retro_hint" ]]; then
+  if [[ -n "$learning_hint" ]]; then
+    learning_hint="$(append_bounded_lines "$learning_hint" "${ETRNL_LEARNING_HINT_MAX_CHARS:-500}" "$retro_hint")"
+  else
+    learning_hint="$retro_hint"
+  fi
+fi
 msg="Eternal Stack guard active. Fresh evidence beats memory. Cwd: $cwd"
 if [[ -n "$branch" ]]; then
   msg="$msg. Git: $branch, dirty files: ${dirty:-0}"
@@ -231,6 +287,9 @@ if [[ -n "$update_hint" ]]; then
 fi
 if [[ -n "$learning_hint" ]]; then
   msg="$msg $learning_hint"
+fi
+if [[ -n "$steering_hint" ]]; then
+  msg="$msg $steering_hint"
 fi
 msg="$(printf '%s' "$msg" | trim_chars 1500)"
 cc_json_emit_context "SessionStart" "$msg"

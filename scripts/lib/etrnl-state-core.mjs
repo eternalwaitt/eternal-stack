@@ -118,7 +118,10 @@ export function worktreeHash(cwd = process.cwd()) {
     const resolved = path.resolve(String(cwd || process.cwd()));
     // stderr must be discarded: a non-git cwd makes git print "fatal: not a git
     // repository", which would leak into callers that merge stderr into JSON output.
-    const opts = { cwd: resolved, encoding: "utf8", maxBuffer: 512 * 1024, timeout: 200, stdio: ["ignore", "pipe", "ignore"] };
+    // 2s timeout: git status/diff on a large dirty tree under parallel suite load
+    // regularly exceeds 200ms; a timeout here returns "" and poisons freshness
+    // comparisons into false "stale verification" failures.
+    const opts = { cwd: resolved, encoding: "utf8", maxBuffer: 512 * 1024, timeout: 2000, stdio: ["ignore", "pipe", "ignore"] };
     const headTree = execSync("git rev-parse HEAD^{tree}", opts).trim();
     const status = execSync("git status --porcelain=v1", opts);
     const diff = execSync("git diff", opts);

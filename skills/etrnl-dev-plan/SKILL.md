@@ -81,6 +81,10 @@ For `Risk tier: 0` or `Risk tier: 1`, include only:
 
 Do not require the deep-stack artifact bundle, full readiness report, phases, test-first plan, or companion review lanes for tier 0–1.
 
+### Tier 0–1 quick-dev lane
+
+Tier 0–1 execution follows a single-pass lane: TDD probe → surgical fix (every changed line traces to the request; simplest working design) → targeted tests → `review-rules.mjs` guards → ONE merged quality lens. No task packets, no reviewer fan-out, no deep-stack artifacts. State success criteria up front as the stop condition. Autoplan assigns one review lane for tier 0–1.
+
 ### Tier 2–3 plan shape
 
 For `Risk tier: 2` or `Risk tier: 3`, include the full section list below. Tier 2 limits review lanes to engineering plus adversarial; tier 3 requires the full gauntlet.

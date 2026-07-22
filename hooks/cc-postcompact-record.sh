@@ -45,3 +45,26 @@ if [[ "$summary_present" == "1" ]]; then
   cc_state_update --arg summary "$summary" --arg now "$now" \
     ".lastCompactSummary = \$summary | .lastCompactAt = \$now | .compactCount = ((.compactCount // 0) + 1)"
 fi
+compact_hints=()
+if [[ -f "$SCRIPT_DIR/../scripts/etrnl-retro.mjs" ]] && command -v node >/dev/null 2>&1; then
+  retro_hint="$(node "$SCRIPT_DIR/../scripts/etrnl-retro.mjs" hints --max-chars "${ETRNL_LEARNING_HINT_MAX_CHARS:-500}" --cwd "$cwd" 2>/dev/null || true)"
+  steering_hint="$(node "$SCRIPT_DIR/../scripts/etrnl-retro.mjs" steering-hint --cwd "$cwd" 2>/dev/null || true)"
+  [[ -n "$retro_hint" ]] && compact_hints+=("$retro_hint")
+  [[ -n "$steering_hint" ]] && compact_hints+=("$steering_hint")
+fi
+if (( ${#compact_hints[@]} > 0 )); then
+  hint_msg="$(printf '%s\n' "${compact_hints[@]}")"
+  if command -v node >/dev/null 2>&1; then
+    hint_msg="$(printf '%s' "$hint_msg" | node -e '
+const limit = Number(process.argv[1]);
+let input = "";
+process.stdin.setEncoding("utf8");
+process.stdin.on("data", (chunk) => { input += chunk; });
+process.stdin.on("end", () => {
+  process.stdout.write(Array.from(input).slice(0, limit).join(""));
+});
+' "${ETRNL_LEARNING_HINT_MAX_CHARS:-500}")"
+  fi
+  cc_json_emit_context "PostCompact" "$hint_msg"
+  exit 0
+fi

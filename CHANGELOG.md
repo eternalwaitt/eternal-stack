@@ -18,6 +18,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Deprecated
 
+## v0.9.0
+
+2026-07-22
+
+
+### Added
+
+- Merged review synthesis: new `scripts/review-merge.mjs` merges parallel reviewer findings JSON into one artifact — fingerprint dedup (highest severity wins, +0.10 confidence on cross-reviewer agreement), confidence gates (≥0.60; P0 ≥0.50) with dropped findings reported rather than silenced, and `autofix_class` routing into `blocking` (P0/P1 only), `safe_auto` (fix now), and `residual` (non-blocking todos); exit 1 only on blocking findings.
+- Automatic retro loop: new `scripts/etrnl-retro.mjs` distills rules-only lessons (env remedies from fail→pass command pairs, gates repeated ≥3× at one tree hash, compaction-stale resets, recurring reviewer fingerprints) from the ETRNL state event log into `~/.claude/etrnl/retro-lessons.jsonl` with key+type latest-winner dedup, confidence decay, and a 500-key cap. `SessionEnd` and `PreCompact` run `distill` in the background; `SessionStart` and `PostCompact` inject a top-3 lesson index inside the existing `ETRNL_LEARNING_HINT_MAX_CHARS` budget; `PreCompact` also writes a lossless session snapshot and records its path on `compact_pre`. All wiring is fail-open.
+- Steering file: project-local `.etrnl/STEERING.md` is checked at `SessionStart` and `PostCompact`; when updated since the last acknowledgment, the session is told once to complete its items before resuming the plan.
+- Hindsight activation: distilled `env_remedy`/`recurring_defect` lessons retain into Hindsight bank `etrnl/{project}` (canary-gated, fail-open) and trigger `reflect()` when the API supports it, from both `cc-hindsight-lesson.py` and `SessionEnd`.
+- Hook profiles: `hooks/lib/profile.sh` reads `ETRNL_HOOK_PROFILE` (`minimal|standard|strict`, default `standard`); `minimal` early-exits the advisory hooks (`cc-posttooluse-sycophancy.sh`, `cc-posttoolbatch-observer.sh`, `cc-userprompt-expansion.sh`) while guards and lifecycle hooks always run. Documented in `docs/configuration.md`.
+- Consumable status handoff: `workflow-health.mjs status --markdown [--write <path>]` renders a ≤60-line per-project health file (sessions, tasks/hour, compactions, stale-verification resets, gate repeats, recurring failures), and `--exit-code` fails on threshold breaches (`ETRNL_STATUS_MIN_TASKS_PER_HOUR`, `ETRNL_STATUS_MAX_COMPACTIONS_MEDIAN`). Wave-2 acceptance metrics documented in `docs/health-stack.md`.
+- Harness behavioral evals: `tests/test-workflow-tools.sh` gains deterministic process-shape evals asserting tier-0/1 paths never require packets or reviewer fan-out, bounded review caps fix rounds at 2 and scopes tier ≤2 to one merged pass, batch execution keeps expensive gates per wave, and `review-merge.mjs` blocking output is restricted to P0/P1 — so ceremony cannot silently regrow.
+- Content-aware compression helpers: `scripts/lib/reversible-compression.mjs` exports `compactLogTail` (keeps failure lines plus tail with a reversible receipt) and `compactSearchResults` (keeps top-K hits); wiring into a caller is deferred until a surface actually persists large payloads (`record-subagent` stores only derived metadata today).
+- Doctor now reports rtk presence and token-savings gain as an info-only line, and `docs/configuration.md`/`docs/troubleshooting.md` document `rtk hook` install, `rtk proxy` routing, `rtk gain` measurement, and MCP hygiene (lazy-mcp at ≥3 servers; ref-tools for docs; codegraph canonical for code search).
+
+### Changed
+
+- Review convergence replaces reviewer ping-pong: `references/bounded-review.md` now runs reviewers in parallel, merges findings once through `review-merge.mjs`, fixes `safe_auto` immediately, records `residual` findings as non-blocking todos, reopens only on P0/P1 blockers, and caps fix rounds at two per wave with a stall rule (a round that does not reduce findings parks the loop with a recorded blocker). Tier ≤2 waves use one merged reviewer pass plus a whole-branch adversarial pass at plan end instead of the spec→quality chain; tier 3 keeps the full chain on the wave diff with changed-lens re-verification. Findings matching a `review-rules.mjs` or linter rule ID are fixed mechanically and excluded from LLM review scope.
+- Quick-dev lane for tier 0–1: `etrnl-dev-plan`, `etrnl-dev-autoplan`, and `etrnl-dev-execute` define a single-pass path — TDD probe, surgical fix (every changed line traces to the request), targeted tests, `review-rules.mjs` guards, and ONE merged quality lens — with no task packets, no reviewer fan-out, no deep-stack artifacts, and success criteria stated up front as the stop condition. `etrnl-dev-execute` also gains a wave exit check and an anti-rationalization table ("one more review round", "full doctor after a nit fix", "rebuild the canary to be safe").
+- The renegotiation consolidation proposal in `etrnl-dev-execute` now applies wave bundling to all tiers (tier-3 surfaces keep tier-3 lenses and gates per wave — no batching exemption), and verbose ledger command listings were consolidated to keep the skill within its prompt budget.
+- Batch execution for many similar findings: `etrnl-dev-execute` gains `references/batch-execution.md` — when a plan enumerates many similar per-item findings (board cards, checklist rows, per-screen fixes), items batch by shared surface into waves of 3–6; expensive gates (production builds, migration replays, owned browser canaries, full suites) run once per wave while per-item fixes re-verify with targeted tests only; one consolidated review chain and one commit/push per wave (tier-3 lenses and reopen caps still apply to tier-3 surfaces); per-item evidence and dispositions stay individually recorded. The skill also now requires environment-caused gate/hook failures (missing env vars, credentials, CLI identity) to be fixed once, logged via `record-decision`, and reused instead of re-diagnosed per commit. Motivated by an execution run that spent ~1 hour of ceremony per finding: a full production canary, a 3-reviewer chain, and a commit+pre-push suite for every individual board card.
+- Reference Parity Policy: `etrnl-audit-browser` (canonical) and the `etrnl-browser-qa` agent now define tolerance-based structural parity — elements, layout order, copy, truthful data, no overflow at the reference viewport — as the default acceptance standard for reference-screenshot comparisons; pixel diffs and image hashes are diagnostics only, and pixel/hash equality can gate acceptance only when the stakeholder demanded it in writing and the reference comes from the same capture harness. `etrnl-dev-autoplan` treats "exact"/"pixel"/"identical" visual acceptance criteria as a plan defect under the same exception, and `etrnl-dev-execute` records `close_enough`/`needs_owner_review` dispositions instead of rerunning capture harnesses to chase pixel convergence. Motivated by an execution run that spent hours per finding rebuilding production canaries against externally captured reference screenshots that could never match pixel-for-pixel.
+
+### Fixed
+
+- The retro fail-open hook test now exercises a sandboxed copy of `hooks/` and `scripts/` with `etrnl-retro.mjs` deleted instead of temporarily moving the real script: doctor runs `tests/test-hooks.sh` and `tests/test-install.sh` as parallel heavy jobs, and the shared-file move raced the install suite's own retro invocations into intermittent "Cannot find module" install failures.
+- `review-merge.mjs` and `etrnl-retro.mjs` were added to `INSTALL_SCRIPTS` so installed homes receive them (the hooks fail open without them, silently disabling the retro loop), and the doctor rtk info line reads with stdin detached so a prompting rtk binary cannot stall doctor.
+
 ## v0.8.0
 
 2026-07-20
@@ -295,6 +325,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ### Security
 
 - Public repository boundary: no private identity, credentials, transcripts, or local planning artifacts in tracked files.
+
 
 
 
