@@ -11,6 +11,11 @@ cc_test_init
 export CLAUDE_HOME="$TMPROOT/claude"
 export CODEX_HOME="$TMPROOT/codex"
 export CLAUDE_GUARD_STATE_DIR="$TMPROOT/state"
+# This suite tests install/rollback mechanics and invokes install.sh several times.
+# The inline source suites (test-hooks.sh, test-workflow-tools.sh) are separate
+# doctor gates in the same pipeline; re-running them inside every install here
+# multiplies the dominant cost of the full-install doctor run for no extra coverage.
+export ETRNL_INSTALL_SOURCE_TESTS=0
 
 # shellcheck source=./tests/test-install-smoke.sh
 source ./tests/test-install-smoke.sh

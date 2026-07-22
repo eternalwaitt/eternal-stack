@@ -684,8 +684,33 @@ backup_removed_skills "$TARGET/skills" "$BACKUP/skills"
 backup_removed_skills "$CODEX_TARGET/skills" "$BACKUP/codex-skills"
 backup_removed_skill_commands "$TARGET/commands" "$BACKUP/commands"
 # Source tests must pass before REMOVED_SKILLS are removed from installed skill homes.
-"$ROOT/tests/test-hooks.sh"
-"$ROOT/tests/test-workflow-tools.sh"
+# The two suites are independent (each isolates its own TMPROOT) and dominate install
+# wall time, so run them in parallel with output captured to logs; on failure the
+# failing suite's log tail is printed and the full log path is kept.
+# ETRNL_INSTALL_SOURCE_TESTS=0 skips them — only for callers that already ran both
+# suites as separate gates in the same pipeline (doctor heavy checks, install tests).
+if [[ "${ETRNL_INSTALL_SOURCE_TESTS:-1}" == "1" ]]; then
+  printf 'install: running source test suites in parallel (test-hooks.sh, test-workflow-tools.sh)...\n'
+  source_tests_log_dir="$(mktemp -d "${TMPDIR:-/tmp}/etrnl-install-tests.XXXXXX")"
+  "$ROOT/tests/test-hooks.sh" >"$source_tests_log_dir/test-hooks.log" 2>&1 &
+  source_tests_hooks_pid=$!
+  "$ROOT/tests/test-workflow-tools.sh" >"$source_tests_log_dir/test-workflow-tools.log" 2>&1 &
+  source_tests_wft_pid=$!
+  source_tests_failed=()
+  wait "$source_tests_hooks_pid" || source_tests_failed+=(test-hooks)
+  wait "$source_tests_wft_pid" || source_tests_failed+=(test-workflow-tools)
+  if (( ${#source_tests_failed[@]} > 0 )); then
+    for source_suite in "${source_tests_failed[@]}"; do
+      printf 'install error: source suite failed: %s.sh [full output: %s]\n' "$source_suite" "$source_tests_log_dir/$source_suite.log" >&2
+      tail -n 40 -- "$source_tests_log_dir/$source_suite.log" | sed 's/^/  | /' >&2
+    done
+    exit 1
+  fi
+  rm -rf -- "$source_tests_log_dir"
+  printf 'install: source test suites passed\n'
+else
+  printf 'install: skipping source test suites (ETRNL_INSTALL_SOURCE_TESTS=0)\n' >&2
+fi
 if [[ "$PROFILE" == "full" ]]; then
   if [[ "$YES" != "1" && ! -t 0 ]]; then
     printf 'install error: full profile requires --yes in non-interactive mode; use explicit --skip-* flags only for intentional component skips\n' >&2

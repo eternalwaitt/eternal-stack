@@ -91,6 +91,10 @@ else
   set --
 fi
 DOCTOR_RESULT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/etrnl-doctor-results.XXXXXX")"
+# Failure logs outlive the run so a failed check's full output stays inspectable;
+# the dir is removed on exit only when no check failed.
+DOCTOR_FAIL_LOG_DIR="${TMPDIR:-/tmp}/etrnl-doctor-fail-logs.$$"
+DOCTOR_FAIL_COUNT=0
 DOCTOR_ASYNC_PIDS=()
 DOCTOR_HEAVY_PIDS=()
 DOCTOR_BATCH_ORDER=()
@@ -101,6 +105,7 @@ source "$ROOT/scripts/lib/skill-lists.sh"
 
 doctor_cleanup() {
   rm -rf -- "$DOCTOR_RESULT_DIR"
+  rmdir -- "$DOCTOR_FAIL_LOG_DIR" 2>/dev/null || true
 }
 
 doctor_signal_cleanup() {
@@ -482,6 +487,25 @@ doctor_record_green() {
 ok() { printf 'ok: %s\n' "$*"; }
 fail() { printf 'fail: %s\n' "$*" >&2; STATUS=1; }
 
+# Report a failed check without losing its output: name the kept full log and
+# print an indented tail so the error is readable in the doctor output itself.
+doctor_report_failure() {
+  local msg="$1"
+  local log="$DOCTOR_FAIL_LOG_DIR/$2.log"
+  if [[ -s "$log" ]]; then
+    fail "$msg [full output: $log]"
+    tail -n 40 -- "$log" | sed 's/^/  | /' >&2
+  else
+    fail "$msg"
+  fi
+}
+
+doctor_keep_failure_log() {
+  local output_file="$1" slot="$2"
+  mkdir -p -- "$DOCTOR_FAIL_LOG_DIR" 2>/dev/null || return 1
+  cp -- "$output_file" "$DOCTOR_FAIL_LOG_DIR/$slot.log" 2>/dev/null
+}
+
 require_command() {
   local dep="$1"
   if command -v "$dep" >/dev/null 2>&1; then
@@ -511,7 +535,9 @@ report_command() {
   if "$@" >"$output_file" 2>&1; then
     ok "$present_msg"
   elif [[ -s "$output_file" ]]; then
-    fail "$failure_msg: $(tail -n 40 "$output_file")"
+    DOCTOR_FAIL_COUNT=$((DOCTOR_FAIL_COUNT + 1))
+    doctor_keep_failure_log "$output_file" "check-$DOCTOR_FAIL_COUNT" || true
+    doctor_report_failure "$failure_msg" "check-$DOCTOR_FAIL_COUNT"
   else
     fail "$failure_msg"
   fi
@@ -529,9 +555,8 @@ queue_async_command() {
     output_file="$(mktemp "${TMPDIR:-/tmp}/etrnl-doctor.XXXXXX")"
     if "$@" >"$output_file" 2>&1; then
       printf 'ok\t%s\n' "$present_msg" >"$DOCTOR_RESULT_DIR/${slot}.result"
-    elif [[ -s "$output_file" ]]; then
-      printf 'fail\t%s: %s\n' "$failure_msg" "$(tail -n 40 "$output_file")" >"$DOCTOR_RESULT_DIR/${slot}.result"
     else
+      [[ -s "$output_file" ]] && doctor_keep_failure_log "$output_file" "$slot"
       printf 'fail\t%s\n' "$failure_msg" >"$DOCTOR_RESULT_DIR/${slot}.result"
     fi
     rm -f "$output_file"
@@ -547,9 +572,8 @@ doctor_write_async_result() {
   local exit_code="$5"
   if (( exit_code == 0 )); then
     printf 'ok\t%s\n' "$present_msg" >"$DOCTOR_RESULT_DIR/${slot}.result"
-  elif [[ -s "$output_file" ]]; then
-    printf 'fail\t%s: %s\n' "$failure_msg" "$(tail -n 40 "$output_file")" >"$DOCTOR_RESULT_DIR/${slot}.result"
   else
+    [[ -s "$output_file" ]] && doctor_keep_failure_log "$output_file" "$slot"
     printf 'fail\t%s\n' "$failure_msg" >"$DOCTOR_RESULT_DIR/${slot}.result"
   fi
 }
@@ -643,7 +667,7 @@ flush_async_batch() {
       if [[ "$status" == "ok" ]]; then
         ok "$msg"
       else
-        fail "$msg"
+        doctor_report_failure "$msg" "$slot"
       fi
       rm -f "$DOCTOR_RESULT_DIR/${slot}.result"
     done
@@ -721,7 +745,7 @@ flush_heavy_async_checks() {
       if [[ "$status" == "ok" ]]; then
         ok "$msg"
       else
-        fail "$msg"
+        doctor_report_failure "$msg" "$slot"
       fi
       rm -f "$DOCTOR_RESULT_DIR/${slot}.result"
     done

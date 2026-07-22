@@ -18,6 +18,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Deprecated
 
+## v0.9.1
+
+2026-07-22
+
+### Changed
+
+- `scripts/install.sh` — the pre-install source suites (`test-hooks.sh`, `test-workflow-tools.sh`) now run in parallel with output captured to logs (tail printed on failure); `ETRNL_INSTALL_SOURCE_TESTS=0` skips them for callers that already ran both suites as separate gates in the same pipeline. `tests/test-install.sh` and `tests/test-install-smoke.sh` set the skip, removing four to five redundant suite runs from the full-install doctor gate (measured: full-install doctor ~13m → ~3.5m).
+
+### Fixed
+
+- Doctor no longer truncates a failing check's output to its first line: async check results carried multi-line error output through a single-line `read`, so only one (often irrelevant) line survived. Failures now print the message plus an indented 40-line tail and keep the full log under `${TMPDIR:-/tmp}/etrnl-doctor-fail-logs.<pid>/`, named in the `fail:` line.
+- `scripts/rollback-local.sh` — `latest_backup` used `-nt`, which ties at second granularity; two backups created within the same clock second (fast installs) could select the older one and restore nothing. Mtime ties now break by lexically-greater name, since install backup names embed a sortable timestamp.
+
 ## v0.9.0
 
 2026-07-22

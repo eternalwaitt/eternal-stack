@@ -39,6 +39,7 @@ Install:
 - `ETRNL_ENABLE_STRICT=1` merges strict blocker hooks during install.
 - `./scripts/install.sh` backs up and resets managed `~/.claude/settings.json` to a vanilla settings shell before applying the selected stack, while preserving existing `enabledPlugins` and `statusLine` (for example a custom `~/.claude/statusline.sh` HUD). Use `--preserve-settings` only for a deliberate merge into existing settings.
 - `ETRNL_INSTALL_STARTUP=1` overwrites installed `AGENTS.md` and `CLAUDE.md` startup files instead of preserving existing local copies.
+- `ETRNL_INSTALL_SOURCE_TESTS=0` skips the pre-install source test suites (`tests/test-hooks.sh`, `tests/test-workflow-tools.sh`). Only for callers that already ran both suites as separate gates in the same pipeline (doctor heavy checks, `tests/test-install.sh`); a direct user install keeps them on, running in parallel with logs captured and the failing suite's log tail printed.
 - `ETRNL_BACKUP_RETENTION` sets how many timestamped `etrnl-install-*` backup directories the installer keeps after a successful install; older backups beyond that count are pruned. Default is `5`; an invalid value falls back to `5`.
 - `ETRNL_BOOTSTRAP_PROJECTS=1` lets a full install initialize or verify project-local `.codegraph` and `.beads` state.
 - `ETRNL_HINDSIGHT_MODE=local-daemon|external-api|docker-server` selects full-profile Hindsight provisioning mode.

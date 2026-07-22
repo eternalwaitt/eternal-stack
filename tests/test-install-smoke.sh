@@ -80,6 +80,8 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   export CLAUDE_HOME="$TMPROOT/claude"
   export CODEX_HOME="$TMPROOT/codex"
   export CLAUDE_GUARD_STATE_DIR="$TMPROOT/state"
+  # Same rationale as tests/test-install.sh: the source suites are separate gates.
+  export ETRNL_INSTALL_SOURCE_TESTS=0
   smoke_mode="${RUN_INSTALL_SMOKE_MODE:-fast}"
   if [[ "$smoke_mode" == "full" ]]; then
     run_install_smoke_tests

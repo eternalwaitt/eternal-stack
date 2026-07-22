@@ -66,13 +66,22 @@ if [[ -z "${CRITICAL_SCRIPTS+x}" || "${#CRITICAL_SCRIPTS[@]}" -eq 0 ]]; then
 fi
 
 latest_backup() {
-  local candidate latest
+  local candidate latest mtime latest_mtime
   latest=""
+  latest_mtime=-1
   # Compare mtimes because install and legacy backup prefixes sort differently.
+  # `-nt` ties at second granularity (two backups in the same clock second —
+  # e.g. a fast install right after another) would keep the first glob match,
+  # which can be the OLDER backup; break mtime ties by lexically-greater name,
+  # since install backup names embed a sortable timestamp.
   shopt -s nullglob
   for candidate in "$ROOT"/backups/etrnl-install-* "$ROOT"/backups/etrnl-*; do
-    if [[ -d "$candidate" && ( -z "$latest" || "$candidate" -nt "$latest" ) ]]; then
+    [[ -d "$candidate" ]] || continue
+    [[ "$candidate" == "$latest" ]] && continue
+    mtime="$(stat -f %m "$candidate" 2>/dev/null || stat -c %Y "$candidate" 2>/dev/null || printf '0')"
+    if (( mtime > latest_mtime )) || { (( mtime == latest_mtime )) && [[ "$candidate" > "$latest" ]]; }; then
       latest="$candidate"
+      latest_mtime="$mtime"
     fi
   done
   shopt -u nullglob
