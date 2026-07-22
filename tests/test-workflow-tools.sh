@@ -1081,11 +1081,44 @@ if grep -Fq 'install.sh" --preserve-settings' "$ROOT/scripts/update.sh"; then
 else
   not_ok "update.sh preserves settings on upgrade"
 fi
-# install.sh runs the post-upgrade canary as its final step; update.sh must not
-# run it a second time (each run spawns ~8 hook/node processes). Match any
-# non-comment reference in update.sh (an indirect `bash "$CANARY"` still needs
-# a path assignment naming the script), and require a non-comment execution
-# line in install.sh so a mention in a comment cannot satisfy the check.
+# Behavioral canary contract: a stub install that runs the canary once, driven
+# by the real update.sh, must leave the canary count at exactly 1 (update must
+# not invoke the canary again). Grep alone cannot catch an indirect second call.
+canary_behavior_root="$TMPROOT/canary-behavior"
+canary_behavior_home="$TMPROOT/canary-behavior-home"
+mkdir -p "$canary_behavior_root/scripts" "$canary_behavior_home/scripts"
+canary_count_file="$canary_behavior_home/canary-count"
+: >"$canary_count_file"
+cat >"$canary_behavior_home/scripts/post-upgrade-canary.sh" <<BASH
+#!/usr/bin/env bash
+printf '1\n' >>"$canary_count_file"
+BASH
+chmod +x "$canary_behavior_home/scripts/post-upgrade-canary.sh"
+cat >"$canary_behavior_root/scripts/install.sh" <<'BASH'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+TARGET="${CLAUDE_HOME:-$HOME/.claude}"
+# Mirror install.sh's final canary invocation against the installed target.
+CLAUDE_HOME="$TARGET" "$TARGET/scripts/post-upgrade-canary.sh"
+BASH
+chmod +x "$canary_behavior_root/scripts/install.sh"
+# Trimmed update driver: same install call + preserve-settings flag as update.sh.
+cat >"$canary_behavior_root/scripts/update.sh" <<'BASH'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
+"$ROOT/scripts/install.sh" --preserve-settings
+BASH
+chmod +x "$canary_behavior_root/scripts/update.sh"
+CLAUDE_HOME="$canary_behavior_home" bash "$canary_behavior_root/scripts/update.sh"
+canary_runs="$(wc -l <"$canary_count_file" | tr -d '[:space:]')"
+if [[ "$canary_runs" == "1" ]]; then
+  ok "update path runs post-upgrade canary exactly once via install"
+else
+  not_ok "update path runs post-upgrade canary exactly once via install (got $canary_runs)"
+fi
+# Keep the source-text guards as a fast regression against reintroducing a
+# second canary call directly in update.sh.
 if grep -Eq '^[^#]*post-upgrade-canary' "$ROOT/scripts/update.sh"; then
   not_ok "update.sh does not duplicate the post-upgrade canary install.sh runs"
 else

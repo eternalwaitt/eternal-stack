@@ -18,7 +18,7 @@ Generate a complete mobile accessibility checklist and audit for the following:
 For each platform, check:
 
 ### React Native
-- [ ] All touchable elements have `accessibilityLabel` (replaces visual text for screen readers)
+- [ ] Touchable elements without visible text (icon-only buttons, image buttons) have `accessibilityLabel`; when the visible label already names the control, do not require a redundant `accessibilityLabel`
 - [ ] `accessibilityHint` for non-obvious interactions ("double-tap to open details")
 - [ ] `accessibilityRole` set correctly (button, link, image, header, checkbox, etc.)
 - [ ] `accessibilityState` for toggle states ({ checked: true }, { disabled: true })
