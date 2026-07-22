@@ -34,6 +34,11 @@ bundled_skill_source() {
     domain-iot) printf '%s' "$HOME_DIR/.claude/skills/domain-iot" ;;
     domain-ml) printf '%s' "$HOME_DIR/.claude/skills/domain-ml" ;;
     domain-web) printf '%s' "$HOME_DIR/.claude/skills/domain-web" ;;
+    design-taste-frontend) printf '%s' "$HOME_DIR/.claude/skills/taste-skill" ;;
+    frontend-design) printf '%s' "$HOME_DIR/.claude/skills/frontend-design" ;;
+    impeccable) printf '%s' "$HOME_DIR/.agents/skills/impeccable" ;;
+    ux-researcher-designer) printf '%s' "$HOME_DIR/.claude/skills/ux-researcher-designer" ;;
+    wcag-accessibility) printf '%s' "$HOME_DIR/.claude/skills/wcag-accessibility" ;;
     *) return 1 ;;
   esac
 }

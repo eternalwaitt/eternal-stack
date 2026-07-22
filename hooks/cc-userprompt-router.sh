@@ -534,6 +534,13 @@ if [[ "$prompt_lower" =~ orpc|@orpc|typesafe[[:space:]]+api|rpc[[:space:]]+proce
   record_skill "etrnl-backend-patterns"
   notes+=("Use etrnl-backend-patterns: load references/routing.md, pick the minimum reference modules for the task, state loaded modules, then design. Do not preload all nine modules unless the user asks for a full backend pass.")
 fi
+# Frontend patterns orchestrator: route UI design/build prompts to one skill; it owns
+# the DESIGN.md convention and the generation-skill disambiguation table
+# (frontend-design vs impeccable vs design-taste-frontend). Do not route UX audits here.
+if [[ "$prompt_lower" =~ design[[:space:]]+system|design[[:space:]]+tokens?|ui[[:space:]]+component|component[[:space:]]+librar|frontend[[:space:]]+(design|ui|pattern)|landing[[:space:]]+page|hero[[:space:]]+section|visual[[:space:]]+(hierarchy|polish|design)|micro[[:space:]-]?interaction|motion[[:space:]]+design|typography|type[[:space:]]+scale|spacing[[:space:]]+scale|design\.md|tailwind|responsive[[:space:]]+(layout|breakpoint|design)|css[[:space:]]+(animation|transition)|dark[[:space:]]+mode|skeleton[[:space:]]+(loader|state)|empty[[:space:]]+state ]]; then
+  record_skill "etrnl-frontend-patterns"
+  notes+=("Use etrnl-frontend-patterns: check for a repo DESIGN.md (authoritative when present), load the minimum reference modules for the task, and pick at most one generation skill via the disambiguation table.")
+fi
 if [[ "$prompt_lower" =~ plan[[:space:]]+review|review[[:space:]]+.*plan|code[[:space:]]+review[[:space:]]+.*plan ]]; then
   record_skill "etrnl-dev-autoplan"
   notes+=("Use etrnl-dev-autoplan references/review-contract.md for findings-first plan review and gap mapping.")

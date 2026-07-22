@@ -18,6 +18,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Deprecated
 
+## v0.10.0
+
+2026-07-22
+
+
+### Added
+
+- `etrnl-frontend-patterns` owned skill: DESIGN.md workflow (`references/design-md-workflow.md`), MIT brand presets (`references/design-presets/{linear,stripe,vercel,notion}.md`), motion module (`references/motion-interaction.md`), and per-dimension design-review rubric (`references/design-review-rubric.md`).
+- Five bundled UI/UX skills: `frontend-design` (Anthropic baseline visual direction), `impeccable` (product-UI craft fork with upstream scripts and self-update removed), `design-taste-frontend` (landing/marketing taste), `wcag-accessibility` (WCAG 2.1/2.2 depth on explicit a11y asks), and `ux-researcher-designer` (personas, journey mapping, usability testing).
+- `etrnl-dev-execute` react-doctor gate: when the execution ledger's task-changed file set includes React/Next UI files and `react-doctor` is available, run `react-doctor --diff` against the ledger base commit; findings on task-changed files must be triaged before completion (availability stays fail-open).
+
+### Changed
+
+- `etrnl-design-reviewer` — replaces single completeness score with per-dimension 0–10 rubric scoring backed by `skills/etrnl-frontend-patterns/references/design-review-rubric.md`; checks for repo `DESIGN.md` before inventing visual direction.
+- `etrnl-browser-qa` — adds design-evidence taxonomy (spacing, hierarchy, AI-slop patterns, interaction latency) to the evidence checklist.
+- `etrnl-router` and `etrnl-dev-autoplan` — design routing rows cite `etrnl-frontend-patterns`, bundled generation-skill disambiguation, and `DESIGN.md` checks.
+- `hooks/cc-userprompt-router.sh` — deterministic frontend branch: UI design/build prompts (design system, tokens, components, landing pages, motion, responsive) record `etrnl-frontend-patterns` and surface the DESIGN.md + generation-skill guidance; covered by two new `tests/fixtures/skill-triggering/cases.json` cases.
+- `etrnl-deep-audit-ux` — brought to parity with the other audit category skills (contract, required finding/non-finding shapes, common rationalizations, red flags, when-not-to-use, red-capable verification gate) and bound to the UI/UX stack: `etrnl-browser-qa` runtime evidence, `wcag-accessibility` criterion-level a11y depth, `impeccable` as critique lens, `DESIGN.md` as authoritative visual baseline, rubric hard-rejection patterns, motion module, and react-doctor pre-scan on React/Next targets.
+
+### Removed
+
+- Installed-host cleanup of duplicate `taste-skill` via `REMOVED_SKILLS` (local copy shared the `design-taste-frontend` frontmatter name; vendored skill is `skills/bundled/design-taste-frontend/`).
+
 ## v0.9.2
 
 2026-07-22
@@ -361,6 +384,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ### Security
 
 - Public repository boundary: no private identity, credentials, transcripts, or local planning artifacts in tracked files.
+
 
 
 

@@ -5,12 +5,11 @@
 set -euo pipefail
 
 usage() {
-    local code="${1:-0}"
     echo "Usage: $(basename "$0") <duplicates-dir> [output-file]"
     echo ""
     echo "Generate markdown report from duplicate detection results."
     echo "Default output file: duplicates-report.md"
-    exit "$code"
+    exit 0
 }
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
@@ -19,7 +18,7 @@ fi
 
 if [[ -z "${1:-}" ]]; then
     echo "Error: duplicates directory required" >&2
-    usage 1
+    usage
 fi
 
 DUPLICATES_DIR="$1"
@@ -76,14 +75,9 @@ fi
             (.functions | map("- `\(.name)` in `\(.file):\(.line)`" + if .notes then " - \(.notes)" else "" end) | join("\n")) +
             "\n\n" +
             "**Differences:** \(.differences // "None - identical implementations")\n\n" +
-            "**Recommendation:** \(.recommendation.action)" +
-            (if .recommendation.survivor then " (survivor: `\(.recommendation.survivor)`)" else "" end) +
-            " - \(.recommendation.reason)\n\n" +
+            "**Recommendation:** Keep `\(.recommendation.survivor)` - \(.recommendation.reason)\n\n" +
             "---\n"
-        ' "$f" || {
-            echo "Error: failed to parse/render $f" >&2
-            exit 1
-        }
+        ' "$f" 2>/dev/null || true
     done
 
     echo ""
@@ -105,10 +99,7 @@ fi
             "**Differences:** \(.differences)\n\n" +
             "**Recommendation:** \(.recommendation.action) - \(.recommendation.reason)\n\n" +
             "---\n"
-        ' "$f" || {
-            echo "Error: failed to parse/render $f" >&2
-            exit 1
-        }
+        ' "$f" 2>/dev/null || true
     done
 
     echo ""
@@ -129,10 +120,7 @@ fi
             "\n\n" +
             "**Notes:** \(.differences)\n\n" +
             "---\n"
-        ' "$f" || {
-            echo "Error: failed to parse/render $f" >&2
-            exit 1
-        }
+        ' "$f" 2>/dev/null || true
     done
 
 } > "$OUTPUT"

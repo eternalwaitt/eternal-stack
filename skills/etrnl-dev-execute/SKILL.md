@@ -121,6 +121,10 @@ Each wave gate is a hard stop:
 3. **No self-certification.** Do not mark a gate `passed` based on reading output without running the command. Run the exact command from the plan's Verification gates table.
 4. **Cached gates at unchanged tree hash; partial suites are not gates.** A green full-suite `record-check` at the current worktree hash is valid — do not re-run unchanged trees. `bash scripts/doctor.sh --changed` green covers execution health on touched paths; full doctor stays required for release/install. Subset runs are not gate evidence when the plan names a full suite.
 
+### React-doctor gate (React/Next UI scope)
+
+When the TASK-changed file set from the execution ledger (not `git status`) includes React/Next UI files (`.tsx`/`.jsx`, or `app/`/`src/` under Next) and react-doctor is available, run `npx --no-install react-doctor --diff` against the task's base commit recorded in the ledger. Findings on task-changed files must be triaged in the ledger before completion (fail-closed). Findings on files the task did not change are recorded but never block. When react-doctor is not installed, record an unavailable check and continue (fail-open availability). Escape hatch: a ledger `not-applicable` entry with rationale.
+
 ## Completion
 
 Before claiming done: re-read completion criteria; map outcomes to evidence; run simplifier/dedupe/domain passes; run final preflight; validate review-log/browser-qa/context artifacts when used; run `check-stop --require-ledger --require-tasks --require-plan-phases`; confirm write/review evidence or document sequential-degraded blocker; report phases, verification, artifacts, risks, and changed files.

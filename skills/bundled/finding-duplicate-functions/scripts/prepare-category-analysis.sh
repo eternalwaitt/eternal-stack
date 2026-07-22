@@ -5,12 +5,11 @@
 set -euo pipefail
 
 usage() {
-    local code="${1:-0}"
     echo "Usage: $(basename "$0") <categorized.json> [output-dir]"
     echo ""
     echo "Split categorized function catalog into per-category files for duplicate analysis."
     echo "Only creates files for categories with 3+ functions (worth analyzing)."
-    exit "$code"
+    exit 0
 }
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
@@ -19,7 +18,7 @@ fi
 
 if [[ -z "${1:-}" ]]; then
     echo "Error: categorized.json required" >&2
-    usage 1
+    usage
 fi
 
 CATEGORIZED="$1"
@@ -46,8 +45,7 @@ jq -r '
     "\(.category)\t\(.count)"
 ' "$CATEGORIZED" | while IFS=$'\t' read -r category count; do
     if [[ "$count" -ge 3 ]]; then
-        safe_category="$(printf '%s' "$category" | tr -cs '[:alnum:]._-' '_')"
-        outfile="$OUTPUT_DIR/${safe_category}.json"
+        outfile="$OUTPUT_DIR/${category}.json"
         jq --arg cat "$category" '[.[] | select(.category == $cat)]' "$CATEGORIZED" > "$outfile"
         echo "  $category: $count functions -> $outfile" >&2
     else

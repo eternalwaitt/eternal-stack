@@ -67,6 +67,10 @@ Read the request, match the first trigger that fires top to bottom, invoke the n
 | Trigger condition | Route to |
 | --- | --- |
 | Server-side API, data-layer, auth, resilience, or service-architecture design | `etrnl-backend-patterns` |
+| Frontend or UI design/build work (components, layouts, tokens, motion) | `etrnl-frontend-patterns` |
+| Generation-skill choice (`frontend-design` vs `impeccable` vs `design-taste-frontend`) | `etrnl-frontend-patterns` (disambiguation authority; load at most one generation skill) |
+| Explicit accessibility / WCAG remediation depth | `wcag-accessibility` (bundled) |
+| UX research (personas, journey maps, usability tests) | `ux-researcher-designer` (bundled) |
 | Structural or excellence code review, module decay, Brooks-style review | `etrnl-code-review-excellence` |
 | Email reply quality / humanize + verify an email reply | `etrnl-comm-email-reply-quality` |
 

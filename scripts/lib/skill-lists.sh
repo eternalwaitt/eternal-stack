@@ -3,7 +3,7 @@
 # Centralized skill identifiers for the Eternal Stack.
 # Used by install, doctor, and domain-sensitive hook gates.
 # Add new repo-owned skills to OWNED_SKILLS by directory name only, then run doctor.
-# Keep hooks/lib/skill-hints.sh fallback `skills=(...)` synchronized with OWNED_SKILLS.
+# hooks/lib/skill-hints.sh sources OWNED_SKILLS dynamically; no manual sync needed.
 # REMOVED_SKILLS names are one-way cleanup targets. They are backed up and removed during install.
 
 OWNED_SKILLS=(
@@ -43,6 +43,7 @@ OWNED_SKILLS=(
   etrnl-router
   # Reference orchestrators
   etrnl-backend-patterns
+  etrnl-frontend-patterns
 )
 
 # Bundled policy/review/domain skills vendored under skills/bundled/ and installed
@@ -53,6 +54,7 @@ BUNDLED_SKILLS=(
   brooks-audit
   ci-cd
   code-simplifier
+  design-taste-frontend
   domain-cli
   domain-cloud-native
   domain-embedded
@@ -62,6 +64,8 @@ BUNDLED_SKILLS=(
   domain-web
   eternal-best-practices
   finding-duplicate-functions
+  frontend-design
+  impeccable
   i18n-localization
   money-vo-discipline
   orpc-patterns
@@ -69,6 +73,8 @@ BUNDLED_SKILLS=(
   sql-optimization-patterns
   stripe-best-practices
   tenant-isolation-patterns
+  ux-researcher-designer
+  wcag-accessibility
 )
 
 OWNED_AGENTS=(
@@ -259,6 +265,7 @@ REMOVED_SKILLS=(
   fix-issue
   parallel-fan-out
   pr
+  taste-skill
   test
   writing-plans
   eternal-control-agent-file-doctor
