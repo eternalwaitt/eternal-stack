@@ -120,8 +120,11 @@ export function worktreeHash(cwd = process.cwd()) {
     // repository", which would leak into callers that merge stderr into JSON output.
     // 2s timeout: git status/diff on a large dirty tree under parallel suite load
     // regularly exceeds 200ms; a timeout here returns "" and poisons freshness
-    // comparisons into false "stale verification" failures.
-    const opts = { cwd: resolved, encoding: "utf8", maxBuffer: 512 * 1024, timeout: 2000, stdio: ["ignore", "pipe", "ignore"] };
+    // comparisons into false "stale verification" failures. The 5MB maxBuffer
+    // matters for the same reason: a dirty tree whose diff exceeds the buffer
+    // throws ENOBUFS, returns "", and fakes a stale verification (one lockfile
+    // regeneration is enough to exceed the old 512KB cap).
+    const opts = { cwd: resolved, encoding: "utf8", maxBuffer: 5 * 1024 * 1024, timeout: 2000, stdio: ["ignore", "pipe", "ignore"] };
     const headTree = execSync("git rev-parse HEAD^{tree}", opts).trim();
     const status = execSync("git status --porcelain=v1", opts);
     const diff = execSync("git diff", opts);
@@ -154,17 +157,30 @@ export function cleanSessionId(value = "") {
   return String(value || process.env.CLAUDE_SESSION_ID || "default").replace(/[^A-Za-z0-9_.-]/g, "_");
 }
 
-/** Read and parse the append-only event log, failing with line context on corrupt JSONL. */
+/** Read and parse the append-only event log, skipping corrupt JSONL lines.
+ * A crash or disk-full mid-append leaves a truncated final line; throwing here
+ * would permanently brick every reader AND every future append (appendEvent
+ * reads before writing), so malformed lines are skipped and counted instead. */
 export function readEvents(root = stateRoot()) {
   const file = statePaths(root).events;
   if (!fs.existsSync(file)) return [];
-  return fs.readFileSync(file, "utf8").split(/\n/).filter(Boolean).map((line, index) => {
+  const events = [];
+  let malformed = 0;
+  for (const [index, line] of fs.readFileSync(file, "utf8").split(/\n/).entries()) {
+    if (!line.trim()) continue;
     try {
-      return JSON.parse(line);
-    } catch (error) {
-      throw new Error(`${file}:${index + 1}: ${error instanceof Error ? error.message : String(error)}`);
+      events.push(JSON.parse(line));
+    } catch {
+      malformed += 1;
+      if (malformed === 1) {
+        process.stderr.write(`etrnl-state warning: skipping malformed JSONL at ${file}:${index + 1}\n`);
+      }
     }
-  });
+  }
+  if (malformed > 1) {
+    process.stderr.write(`etrnl-state warning: skipped ${malformed} malformed JSONL lines in ${file}\n`);
+  }
+  return events;
 }
 
 function writeAtomic(file, value, mode = 0o600) {
@@ -175,10 +191,13 @@ function writeAtomic(file, value, mode = 0o600) {
 }
 
 function sleepSync(ms) {
-  const end = Date.now() + ms;
-  while (Date.now() < end) {
-    // Busy-wait keeps this lock helper synchronous without Atomics.wait.
-  }
+  // Atomics.wait blocks the thread without burning a core, unlike a busy spin.
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function lockWaitBudgetMs() {
+  const raw = Number(process.env.ETRNL_STATE_LOCK_WAIT_MS || 10_000);
+  return Number.isFinite(raw) && raw > 0 ? raw : 10_000;
 }
 
 function lockStaleMs() {
@@ -215,7 +234,13 @@ export function withLock(root, fn) {
   const { lock } = statePaths(root);
   fs.mkdirSync(root, { recursive: true, mode: 0o700 });
   let acquired = false;
-  for (let attempt = 0; attempt < 50; attempt += 1) {
+  // Elapsed-time budget (default 10s, ETRNL_STATE_LOCK_WAIT_MS): a competing
+  // writer legitimately holds this lock for seconds (full log parse plus git
+  // subprocesses), so a short fixed attempt count times out spuriously under
+  // load and silently drops events.
+  const deadline = Date.now() + lockWaitBudgetMs();
+  let sleepMs = 25;
+  while (Date.now() < deadline) {
     try {
       fs.mkdirSync(lock, { mode: 0o700 });
       fs.writeFileSync(path.join(lock, "owner.json"), `${JSON.stringify({ pid: process.pid, at: nowIso() })}\n`, { mode: 0o600 });
@@ -224,7 +249,8 @@ export function withLock(root, fn) {
     } catch (error) {
       if (!error || typeof error !== "object" || error.code !== "EEXIST") throw error;
       if (removeStaleLock(lock)) continue;
-      sleepSync(25);
+      sleepSync(sleepMs);
+      sleepMs = Math.min(sleepMs * 2, 250);
     }
   }
   if (!acquired) throw Object.assign(new Error("ETRNL state lock timed out"), { code: "StateLockTimeout" });
@@ -325,6 +351,48 @@ function nextEventSeq(events, event) {
     .reduce((max, item) => Math.max(max, Number(item.eventSeq || 0)), 0) + 1;
 }
 
+// Only these kinds feed the compact-handoff view; rebuilding it for every
+// tool_signal/context_entry append is pure overhead inside the lock.
+const VIEW_EVENT_KINDS = new Set(["compact_pre", "compact_post", "check"]);
+
+function rotateKeepDays() {
+  const raw = Number(process.env.ETRNL_STATE_ROTATE_KEEP_DAYS || 14);
+  return Number.isFinite(raw) && raw > 0 ? raw : 14;
+}
+
+function rotateThresholdBytes() {
+  const raw = Number(process.env.ETRNL_STATE_ROTATE_BYTES || 5 * 1024 * 1024);
+  return Number.isFinite(raw) && raw > 0 ? raw : 5 * 1024 * 1024;
+}
+
+/** Rotate the event log when it exceeds the size threshold: recent events stay
+ * hot, older ones move to a dated archive file in the same directory. Must be
+ * called while holding the state lock. Hot readers only need recent events
+ * (latest session / compact handoff), and eventSeq is per-session, so no index
+ * migration is needed. Without rotation, every append re-parses an ever-growing
+ * log and total append cost grows quadratically with age. */
+function rotateEventsLocked(root, paths, events) {
+  let size = 0;
+  try {
+    size = fs.statSync(paths.events).size;
+  } catch {
+    return events;
+  }
+  if (size < rotateThresholdBytes()) return events;
+  const cutoff = Date.now() - rotateKeepDays() * 86_400_000;
+  const keep = [];
+  const archive = [];
+  for (const event of events) {
+    const at = Date.parse(event.at || "");
+    (Number.isFinite(at) && at >= cutoff ? keep : archive).push(event);
+  }
+  if (archive.length === 0) return events;
+  const archiveFile = path.join(root, `events-archive-${new Date().toISOString().slice(0, 10)}.jsonl`);
+  fs.appendFileSync(archiveFile, `${archive.map((event) => JSON.stringify(event)).join("\n")}\n`, { mode: 0o600 });
+  writeAtomic(paths.events, keep.length > 0 ? `${keep.map((event) => JSON.stringify(event)).join("\n")}\n` : "");
+  return keep;
+}
+
 /** Append a normalized event to local state and rebuild derived views unless dry-run is set. */
 export function appendEvent(raw, options = {}) {
   const root = stateRoot(options.stateDir);
@@ -332,12 +400,13 @@ export function appendEvent(raw, options = {}) {
   if (!normalized.ok) return normalized;
   return withLock(root, () => {
     const paths = statePaths(root);
-    const events = readEvents(root);
+    let events = readEvents(root);
     const event = { ...normalized.event, eventSeq: normalized.event.eventSeq || nextEventSeq(events, normalized.event) };
     if (!options.dryRun) {
+      events = rotateEventsLocked(root, paths, events);
       const nextEvents = [...events, event];
       fs.mkdirSync(root, { recursive: true, mode: 0o700 });
-      rebuildViews(root, nextEvents);
+      if (VIEW_EVENT_KINDS.has(event.eventKind)) rebuildViews(root, nextEvents);
       fs.appendFileSync(paths.events, `${JSON.stringify(event)}\n`, { mode: 0o600 });
     }
     return { ok: true, event, statePath: paths.events, dryRun: Boolean(options.dryRun) };
@@ -358,11 +427,8 @@ function isVerificationCheckEvent(event) {
     && event.data?.status !== "failed";
 }
 
-function verificationStaleAfterCompact(sessionEvents, compactSeq, checkSeq, cwd) {
+function verificationStaleAfterCompact(compactSeq, checkSeq, currentHash, checkTreeHash) {
   if (compactSeq <= checkSeq) return false;
-  const currentHash = worktreeHash(cwd);
-  const latestCheck = latestEvent(sessionEvents, isVerificationCheckEvent);
-  const checkTreeHash = String(latestCheck?.data?.treeHash || "");
   if (!currentHash || !checkTreeHash) return true;
   return currentHash !== checkTreeHash;
 }
@@ -388,9 +454,12 @@ export function compactHandoff(options = {}) {
   const compactSeq = Number(latestCompactForSession?.eventSeq || 0);
   const checkSeq = Number(latestCheck?.eventSeq || 0);
   const hashCwd = options.cwd || process.cwd();
-  const currentTreeHash = worktreeHash(hashCwd);
   const latestVerificationTreeHash = String(latestCheck?.data?.treeHash || "");
-  const verificationStale = verificationStaleAfterCompact(sessionEvents, compactSeq, checkSeq, hashCwd);
+  // worktreeHash spawns 4 git subprocesses (up to 2s each); only pay that when
+  // the staleness comparison actually needs the current hash. When the latest
+  // verification is newer than the compact, freshness is decided by sequence.
+  const currentTreeHash = compactSeq > checkSeq ? worktreeHash(hashCwd) : "";
+  const verificationStale = verificationStaleAfterCompact(compactSeq, checkSeq, currentTreeHash, latestVerificationTreeHash);
   const summary = latestCompactForSession?.data.compactSummary || latestCompactForSession?.data.summary || "summary_missing";
   const nextAction = latestCompactForSession?.data.nextAction || "resume from the compact handoff";
   const task = latestCompactForSession?.data.task || latestCompactForSession?.data.plan || "active ETRNL work";

@@ -18,6 +18,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Deprecated
 
+## v0.9.2
+
+2026-07-22
+
+### Changed
+
+- Hook hot path — `cc_state_init` fast-paths state files already at schema v5, skipping the lock and full jq rewrite on nearly every hook invocation; the PostToolBatch observer reuses the just-committed batch payload instead of re-reading state; sycophancy and expansion hooks test their cheap discriminator before paying state init; `cc-rate-limiter.sh` and the prompt router now honor `ETRNL_HOOK_PROFILE=minimal`. Measured repeat-prompt router latency ~650ms → ~155ms.
+- Prompt router — the skill update check (full-tree hashing, git subprocesses, possible network fetch) is stamp-gated via `ETRNL_SKILL_UPDATE_INTERVAL_SEC` (default 1800s) instead of running on every prompt after the first skill match; CLAUDE.md reinjection fingerprints the root file set (paths + mtimes) before reading anything, skipping the recursive `@`-reference expansion (~180 subshell forks) when the session already injected the same context.
+- ETRNL state core — `readEvents` skips corrupt JSONL lines (with a warning) instead of permanently failing every reader and future append; the store lock waits on an elapsed budget (`ETRNL_STATE_LOCK_WAIT_MS`, default 10s) with non-spinning sleep and backoff instead of ~1.25s of core-burning busy-wait; compact-handoff computes `worktreeHash` (4 git subprocesses) only when the staleness comparison needs it; derived views rebuild only on compact/check events; `events.jsonl` rotates events older than `ETRNL_STATE_ROTATE_KEEP_DAYS` (default 14) to a dated archive once the log exceeds `ETRNL_STATE_ROTATE_BYTES` (default 5MB).
+- Doctor — `--changed` maps install-critical scripts (`install.sh`, `update.sh`, `rollback-local.sh`, and peers) to the install group (an `install.sh` edit previously skipped `test-install` entirely), `scripts/lib/*` to the hooks suite, and `tests/fixtures/*`, `tests/lib/*`, `tests/**/*.test.mjs` to targeted groups instead of falling open to a full run; the parallel job cap rises from 8 to 16.
+- Tests — the skill-trigger router matrix runs against a sandboxed `HOME` (~4x faster per call and host-independent); safe-bash repeats use the existing parallel helper; observer gate-record waits poll the ledger instead of fixed `sleep 0.3` (removes a load flake); the `init-project-rules` mtime test touches a sandboxed copy of the rule pack instead of the real repo source, which also removes a `git checkout` that could silently revert uncommitted user edits.
+- `scripts/update.sh` no longer re-runs the post-upgrade canary that `install.sh` already runs as its final step.
+
+### Fixed
+
+- Rate-limiter lock — an orphaned lock (holder SIGKILLed mid-hold) is now reaped by age; previously it silently disabled the limiter and added the full 2s lock timeout to every later tool call in the session.
+- PreToolUse guard — `vivaz-email triage verify` (a network CLI call) is bounded by `timeout 5` with stdin detached; a hang could previously block the tool-call path until the 10s hook timeout killed the whole guard.
+- Transcript-based assistant-text extraction scans only the last `ETRNL_TRANSCRIPT_SCAN_BYTES` (default 2MB) of oversized transcripts instead of slurping tens of MB per tool call late in long sessions.
+- `worktreeHash` maxBuffer raised 512KB → 5MB: a dirty tree whose diff exceeded the old cap returned an empty hash and faked a "stale verification" Stop block.
+- `cc_project_fingerprint` computes its digest with `shasum`/`sha256sum` instead of booting node (~100ms saved per SessionEnd).
+- `scripts/install.sh` backup stamps include the PID so two installs in the same clock second cannot share (and interleave) a backup directory.
+- Hook stdin reads that fill the 4MiB Linux cap now emit a truncation warning instead of letting every hook fail open on invalid JSON with no explanation.
+
 ## v0.9.1
 
 2026-07-22

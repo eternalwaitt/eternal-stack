@@ -394,7 +394,10 @@ if ! cc_state_commit_batch; then
   printf 'claude-guard warning: failed to commit state batch; continuing without persisted observer updates\n' >&2
 fi
 
-state="$(cc_state_read)"
+# Commit leaves the exact written payload in CC_STATE_COMMITTED_PAYLOAD;
+# reuse it instead of paying another lock + init + jq read round-trip.
+state="${CC_STATE_COMMITTED_PAYLOAD:-}"
+[[ -n "$state" ]] || state="$(cc_state_read)"
 warnings=()
 add_warning() {
   local fingerprint_source="$1"

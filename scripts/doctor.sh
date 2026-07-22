@@ -10,10 +10,12 @@ doctor_detect_jobs() {
   elif command -v sysctl >/dev/null 2>&1; then
     n="$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
   fi
+  # Cap at 16: heavy suites occupy slots for minutes while ~50 light checks
+  # queue behind them; the old cap of 8 starved light batches on larger hosts.
   if [[ ! "$n" =~ ^[0-9]+$ ]] || (( n < 1 )); then
     n=4
-  elif (( n > 8 )); then
-    n=8
+  elif (( n > 16 )); then
+    n=16
   fi
   printf '%s\n' "$n"
 }
@@ -215,9 +217,30 @@ doctor_map_path_to_groups() {
       doctor_add_group skills "$relpath"
       doctor_add_group docs "$relpath"
       ;;
+    scripts/install.sh|scripts/update.sh|scripts/rollback-local.sh|scripts/uninstall.sh|scripts/bootstrap-tools.sh|scripts/merge-settings.mjs|scripts/post-upgrade-canary.sh)
+      # Install-critical scripts must activate the install group; without this
+      # an edit to install.sh runs syntax checks but skips test-install entirely.
+      doctor_add_group install "$relpath"
+      doctor_add_group scripts "$relpath"
+      doctor_add_group syntax "$relpath"
+      ;;
+    scripts/lib/*)
+      # hooks source scripts/lib directly (skill-lists.sh, state core), so
+      # behavior changes here must run the hooks suite too.
+      doctor_add_group hooks "$relpath"
+      doctor_add_group scripts "$relpath"
+      doctor_add_group syntax "$relpath"
+      ;;
     scripts/*)
       doctor_add_group scripts "$relpath"
       doctor_add_group syntax "$relpath"
+      ;;
+    tests/fixtures/*|tests/lib/*)
+      doctor_add_group hooks "$relpath"
+      doctor_add_group scripts "$relpath"
+      ;;
+    tests/run-node-tests.sh|tests/*.test.mjs|tests/*/*.test.mjs)
+      doctor_add_group scripts "$relpath"
       ;;
     templates/*|etrnl/install.json)
       doctor_add_group settings "$relpath"

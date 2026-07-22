@@ -6,6 +6,9 @@ if [[ "${CLAUDE_GUARD_DISABLED:-0}" == "1" || "${ETRNL_RATE_LIMITER:-1}" == "0" 
 fi
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+# shellcheck source=hooks/lib/profile.sh
+source "$SCRIPT_DIR/lib/profile.sh"
+etrnl_profile_skip_advisory && exit 0
 # shellcheck source=hooks/lib/json.sh
 source "$SCRIPT_DIR/lib/json.sh"
 # shellcheck source=hooks/lib/event-extract.sh
@@ -38,6 +41,16 @@ chmod 700 "$root" 2>/dev/null || true
 
 counter="$root/${session_id}.log"
 lock="$counter.lock"
+# Reap a stale lock before waiting: the critical section is milliseconds, so a
+# lock older than 10s belongs to a SIGKILLed holder (the EXIT trap never ran).
+# Without this, one orphaned lock adds the full LOCK_TIMEOUT spin to every
+# later tool call in the session and silently disables the limiter.
+if [[ -d "$lock" ]]; then
+  lock_mtime="$(stat -f %m "$lock" 2>/dev/null || stat -c %Y "$lock" 2>/dev/null || printf '0')"
+  if [[ "$lock_mtime" =~ ^[0-9]+$ ]] && (( $(date +%s) - lock_mtime > 10 )); then
+    rmdir "$lock" 2>/dev/null || true
+  fi
+fi
 lock_start="$(date +%s)"
 until mkdir "$lock" 2>/dev/null; do
   if (( $(date +%s) - lock_start >= LOCK_TIMEOUT )); then

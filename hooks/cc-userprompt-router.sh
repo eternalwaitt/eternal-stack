@@ -14,6 +14,8 @@ source "$SCRIPT_DIR/lib/state.sh"
 source "$SCRIPT_DIR/lib/event-extract.sh"
 # shellcheck source=hooks/lib/cleanup.sh
 source "$SCRIPT_DIR/lib/cleanup.sh"
+# shellcheck source=hooks/lib/profile.sh
+source "$SCRIPT_DIR/lib/profile.sh" 2>/dev/null || true
 
 cc_json_read_stdin
 cc_json_require_jq || exit 0
@@ -190,6 +192,32 @@ cc_prompt_claude_context() {
   cc_prompt_remaining_chars="$(cc_prompt_context_cap "${ETRNL_CLAUDE_MD_MAX_CHARS:-}")"
   global_claude="$HOME/.claude/CLAUDE.md"
 
+  # Fast path: fingerprint the root file set (paths + mtimes) before reading
+  # anything. The full build below forks ~180 subshells per prompt (recursive
+  # @-reference expansion) only to be discarded when this session already
+  # injected the same context. Mtimes in the fingerprint make an edited root
+  # reinject, which also covers newly added @-references (adding one edits the
+  # parent file).
+  local roots_list roots_fp root_file root_mtime
+  if [[ "$force_always" != "true" ]]; then
+    roots_list=""
+    while IFS= read -r root_file; do
+      [[ -n "$root_file" && -f "$root_file" ]] || continue
+      root_mtime="$(stat -f %m "$root_file" 2>/dev/null || stat -c %Y "$root_file" 2>/dev/null || printf '0')"
+      roots_list+="$root_file:$root_mtime|"
+    done < <(
+      printf '%s\n' "$global_claude"
+      cc_prompt_collect_upward "$cwd"
+    )
+    if [[ -n "$roots_list" ]] && roots_fp="$(printf '%s' "$roots_list" | cc_prompt_sha256)"; then
+      roots_fp="claude-md-roots:$roots_fp"
+      if cc_state_has_warning_fingerprint "$roots_fp"; then
+        return 0
+      fi
+      cc_state_record_warning_fingerprint "$roots_fp" || true
+    fi
+  fi
+
   cc_prompt_context+="CLAUDE.md reinjection: treat the following as active instructions for this prompt. This mirrors Claude's startup hierarchy where possible. Disable with ETRNL_INJECT_CLAUDE_MD=0."
   cc_prompt_add_context_file "Global CLAUDE.md" "$global_claude"
   [[ ! -f "$global_claude" ]] || cc_prompt_add_referenced_markdown "$global_claude" "$HOME/.claude"
@@ -232,7 +260,12 @@ if [[ "$prompt" =~ $slash_skill_re ]]; then
 fi
 
 notes=()
-claude_context="$(cc_prompt_claude_context)"
+# CLAUDE.md reinjection is advisory context; the minimal profile skips it (the
+# skill-routing state recorded above still runs — other hooks depend on it).
+claude_context=""
+if ! declare -F etrnl_profile_skip_advisory >/dev/null 2>&1 || ! etrnl_profile_skip_advisory; then
+  claude_context="$(cc_prompt_claude_context)"
+fi
 [[ -z "$claude_context" ]] || notes+=("$claude_context")
 notes+=("Evidence-first correction protocol: do not use reflexive agreement phrases like \"You're right\". State what is verified or unverified, then name the evidence check or correction.")
 
@@ -258,6 +291,24 @@ cc_prompt_skill_update_note() {
   [[ -f "$update_script" ]] || return 0
   [[ -r "$update_script" ]] || return 0
 
+  # update-check.mjs hashes every tracked stack file and spawns git (plus a
+  # possible network fetch when its remote cache expires); requestedSkills is
+  # never cleared, so without a gate this runs on EVERY prompt after the first
+  # skill match (~1.2-5s each). Stamp-gate it: skip when the last completed
+  # check is fresher than the interval.
+  local update_stamp update_interval now_epoch stamp_epoch
+  update_interval="${ETRNL_SKILL_UPDATE_INTERVAL_SEC:-1800}"
+  [[ "$update_interval" =~ ^[0-9]+$ ]] || update_interval=1800
+  update_stamp="${ETRNL_SKILL_UPDATE_STAMP:-${TMPDIR:-/tmp}/etrnl-skill-update-check.stamp}"
+  if (( update_interval > 0 )) && [[ -f "$update_stamp" ]]; then
+    now_epoch="$(date +%s)"
+    stamp_epoch="$(stat -f %m "$update_stamp" 2>/dev/null || stat -c %Y "$update_stamp" 2>/dev/null || printf '0')"
+    [[ "$stamp_epoch" =~ ^[0-9]+$ ]] || stamp_epoch=0
+    if (( now_epoch - stamp_epoch < update_interval )); then
+      return 0
+    fi
+  fi
+
   update_status=0
   local update_timeout update_check_cmd
   update_timeout="${ETRNL_SKILL_UPDATE_TIMEOUT_SEC:-5}"
@@ -268,6 +319,9 @@ cc_prompt_skill_update_note() {
   if [[ "${ETRNL_AUTO_UPDATE:-1}" != "0" ]]; then
     update_check_cmd+=(--auto)
   fi
+  # Stamp before running (any outcome): a repeatedly failing or slow check must
+  # not retry on every prompt; it retries after the interval.
+  touch "$update_stamp" 2>/dev/null || true
   if command -v timeout >/dev/null 2>&1; then
     update_output="$(timeout "${update_timeout}s" "${update_check_cmd[@]}" 2>/dev/null)" || update_status=$?
   else
@@ -497,7 +551,10 @@ if [[ "$prompt" =~ (Gmail|Drive|Sheets|Calendar|GWS|Google) ]]; then
   notes+=("Confirm account identity before any Google Workspace write.")
 fi
 
-cc_prompt_skill_update_note
+# The update note spawns node when its stamp is stale; skip in minimal profile.
+if ! declare -F etrnl_profile_skip_advisory >/dev/null 2>&1 || ! etrnl_profile_skip_advisory; then
+  cc_prompt_skill_update_note
+fi
 
 if (( ${#notes[@]} > 0 )); then
   msg="$(printf '%s\n' "${notes[@]}")"
