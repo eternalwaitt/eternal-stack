@@ -13,7 +13,10 @@ source "$SKILL_LISTS"
 source "$ROOT/scripts/lib/reset-settings.sh"
 TARGET="${CLAUDE_HOME:-$HOME/.claude}"
 CODEX_TARGET="${CODEX_HOME:-$HOME/.codex}"
-STAMP="$(date +%Y%m%d-%H%M%S)"
+# PID suffix: two installs in the same clock second (fast installs, parallel
+# test suites) must not share a backup dir, which would interleave backups and
+# confuse rollback/prune.
+STAMP="$(date +%Y%m%d-%H%M%S)-$$"
 BACKUP="$TARGET/backups/etrnl-install-$STAMP"
 # Surface the rollback path on any mid-install failure. Without this, a failure
 # after the backup phase leaves a half-installed home with no pointer to $BACKUP.

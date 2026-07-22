@@ -327,19 +327,27 @@ cc_email_triage_cli() {
 
 cc_email_triage_queue_verified() {
   local cmd="$1" since run_id account cli verify_json
+  local -a verify_cmd
   since="$(cc_email_triage_request_at)"
   if ! cli="$(cc_email_triage_cli)"; then
     return 1
   fi
+  # The CLI performs a network (Gmail API) call; bound it and detach stdin so
+  # a hang or interactive prompt cannot block the PreToolUse path until the
+  # hook timeout kills the whole guard.
+  verify_cmd=("$cli")
+  if command -v timeout >/dev/null 2>&1; then
+    verify_cmd=(timeout 5 "$cli")
+  fi
   run_id="$(cc_email_triage_queue_run_id "$cmd")"
   if [[ -n "$run_id" ]]; then
-    verify_json="$("$cli" triage verify --run-id "$run_id" 2>/dev/null)" || return 1
+    verify_json="$("${verify_cmd[@]}" triage verify --run-id "$run_id" </dev/null 2>/dev/null)" || return 1
   else
     account="$(cc_email_triage_latest_account_after "$since")"
     if [[ -n "$account" ]]; then
-      verify_json="$("$cli" triage verify --latest --account "$account" 2>/dev/null)" || return 1
+      verify_json="$("${verify_cmd[@]}" triage verify --latest --account "$account" </dev/null 2>/dev/null)" || return 1
     else
-      verify_json="$("$cli" triage verify --latest 2>/dev/null)" || return 1
+      verify_json="$("${verify_cmd[@]}" triage verify --latest </dev/null 2>/dev/null)" || return 1
     fi
   fi
   jq -e '

@@ -534,12 +534,17 @@ assert_contains "agent packet prompt emits template command" "$out" "agent-task-
 
 skill_trigger_cases="$ROOT/tests/fixtures/skill-triggering/cases.json"
 skill_trigger_count="$(jq 'length' "$skill_trigger_cases")"
+# Sandbox HOME for the router matrix: with the real HOME every call re-expands
+# the user's ~/.claude/CLAUDE.md import tree (~4x slower per call and
+# host-dependent). Assertions below only read the guard state file.
+skill_trigger_home="$TMPROOT/router-home"
+mkdir -p "$skill_trigger_home"
 for (( i = 0; i < skill_trigger_count; i++ )); do
   case_name="$(jq -r ".[$i].name" "$skill_trigger_cases")"
   case_prompt="$(jq -r ".[$i].prompt" "$skill_trigger_cases")"
   case_session="fixture-skill-trigger-$i"
   case_event="$(jq -cn --arg session "$case_session" --arg prompt "$case_prompt" '{session_id:$session,prompt:$prompt}')"
-  run_hook cc-userprompt-router.sh "$case_event" >/dev/null || true
+  HOME="$skill_trigger_home" run_hook cc-userprompt-router.sh "$case_event" >/dev/null || true
   case_state="$TMPROOT/claude-guard-$case_session.json"
   case_state_json="$(jq -c . "$case_state")"
   expected_skills="$(jq -r ".[$i].expectedSkills[]?" "$skill_trigger_cases")"
@@ -1339,18 +1344,31 @@ treehash_fixture_repo "$gate_auto_repo"
 node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-gate-auto --cwd "$gate_auto_repo" >/dev/null
 gate_auto_allowlisted="$(jq -cn --arg root "$ROOT" '{session_id:"fixture-gate-auto",tool_name:"Bash",status:"success",cwd:$root,tool_input:{command:"bash tests/test-hooks.sh"}}')"
 run_hook cc-posttoolbatch-observer.sh "$gate_auto_allowlisted" >/dev/null || true
-sleep 0.3
+# The observer records the gate check via a detached background node process;
+# poll for it instead of a fixed sleep (fixed 0.3s flakes under suite load).
+wait_for_gate_checks() {
+  local ledger="$1" want="$2" i
+  for (( i = 0; i < 100; i++ )); do
+    if [[ -f "$ledger" ]] && (( $(jq '.checks | length' "$ledger" 2>/dev/null || printf '0') >= want )); then
+      return 0
+    fi
+    sleep 0.05
+  done
+  return 1
+}
 gate_auto_ledger_path="$(node --input-type=module -e "
 import fs from 'node:fs';
 import path from 'node:path';
 const pointer = JSON.parse(fs.readFileSync(path.join(process.argv[1], 'current-fixture-gate-auto.json'), 'utf8'));
 process.stdout.write(pointer.path);
 " "$ETRNL_RUNS_DIR")"
+wait_for_gate_checks "$gate_auto_ledger_path" 1 || true
 gate_auto_ledger_json="$(jq -c . "$gate_auto_ledger_path")"
 assert_json_expr "posttool observer auto-records allowlisted gate check" "$gate_auto_ledger_json" 'any(.checks[]; .command == "bash tests/test-hooks.sh" and .treeHash != null and (.treeHash | length) > 0)'
 gate_auto_non_allowlisted="$(jq -cn --arg root "$ROOT" '{session_id:"fixture-gate-auto",tool_name:"Bash",status:"success",cwd:$root,tool_input:{command:"pnpm test"}}')"
 checks_before="$(jq '.checks | length' "$gate_auto_ledger_path")"
 run_hook cc-posttoolbatch-observer.sh "$gate_auto_non_allowlisted" >/dev/null || true
+# Negative case has nothing to poll for; a short fixed wait bounds false passes.
 sleep 0.3
 checks_after="$(jq '.checks | length' "$gate_auto_ledger_path")"
 if [[ "$checks_before" == "$checks_after" ]]; then
@@ -1459,10 +1477,7 @@ secret_git_denied="$(run_hook cc-pretooluse-guard.sh "$secret_git_event")"
 assert_json_expr "git credential command denied without override token" "$secret_git_denied" '.hookSpecificOutput.permissionDecision == "deny"'
 
 # Re-run a safe command 10 times to prove non-mutating allowed commands stay idempotent under repeated hook invocations.
-for i in {1..10}; do
-  out="$(run_hook cc-pretooluse-guard.sh "$safe_bash")"
-  assert_json_expr "safe bash repeated fixture $i" "$out" '.continue == true'
-done
+run_parallel_safe_bash_repeats "$safe_bash" 10
 
 # Guard pattern fixture matrix (A2/A3): 20 invalid (should deny) + 20 valid (should allow)
 shopt -s nullglob

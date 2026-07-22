@@ -18,6 +18,64 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Deprecated
 
+## v0.10.0
+
+2026-07-22
+
+
+### Added
+
+- `etrnl-frontend-patterns` owned skill: DESIGN.md workflow (`references/design-md-workflow.md`), MIT brand presets (`references/design-presets/{linear,stripe,vercel,notion}.md`), motion module (`references/motion-interaction.md`), and per-dimension design-review rubric (`references/design-review-rubric.md`).
+- Five bundled UI/UX skills: `frontend-design` (Anthropic baseline visual direction), `impeccable` (product-UI craft fork with upstream scripts and self-update removed), `design-taste-frontend` (landing/marketing taste), `wcag-accessibility` (WCAG 2.1/2.2 depth on explicit a11y asks), and `ux-researcher-designer` (personas, journey mapping, usability testing).
+- `etrnl-dev-execute` react-doctor gate: when the execution ledger's task-changed file set includes React/Next UI files and `react-doctor` is available, run `react-doctor --diff` against the ledger base commit; findings on task-changed files must be triaged before completion (availability stays fail-open).
+
+### Changed
+
+- `etrnl-design-reviewer` — replaces single completeness score with per-dimension 0–10 rubric scoring backed by `skills/etrnl-frontend-patterns/references/design-review-rubric.md`; checks for repo `DESIGN.md` before inventing visual direction.
+- `etrnl-browser-qa` — adds design-evidence taxonomy (spacing, hierarchy, AI-slop patterns, interaction latency) to the evidence checklist.
+- `etrnl-router` and `etrnl-dev-autoplan` — design routing rows cite `etrnl-frontend-patterns`, bundled generation-skill disambiguation, and `DESIGN.md` checks.
+- `hooks/cc-userprompt-router.sh` — deterministic frontend branch: UI design/build prompts (design system, tokens, components, landing pages, motion, responsive) record `etrnl-frontend-patterns` and surface the DESIGN.md + generation-skill guidance; covered by two new `tests/fixtures/skill-triggering/cases.json` cases.
+- `etrnl-deep-audit-ux` — brought to parity with the other audit category skills (contract, required finding/non-finding shapes, common rationalizations, red flags, when-not-to-use, red-capable verification gate) and bound to the UI/UX stack: `etrnl-browser-qa` runtime evidence, `wcag-accessibility` criterion-level a11y depth, `impeccable` as critique lens, `DESIGN.md` as authoritative visual baseline, rubric hard-rejection patterns, motion module, and react-doctor pre-scan on React/Next targets.
+
+### Fixed
+
+- Review pass (CodeRabbit PR #21): restored locally hardened bundled skills that the UI/UX vendoring re-sync had reverted to raw upstream (`ci-cd` digest validation + workflow concurrency + audit script, `code-simplifier` task scoping, `finding-duplicate-functions` report rendering + path sanitization, `i18n_checker.py`, `better-auth`, `tenant-isolation-patterns`, `stripe-best-practices`, and peers).
+- `hooks/cc-userprompt-router.sh` — the final CLAUDE.md-injection fingerprint now includes file mtimes; an edited root with an unchanged file set previously rebuilt the context and then dropped it against the stale paths-only fingerprint.
+- `hooks/cc-rate-limiter.sh` — profile.sh is sourced fail-open like sibling hooks, and stale-lock reaping verifies owner liveness (owner.pid + `kill -0`) before removing an aged lock instead of trusting mtime alone.
+- `scripts/lib/etrnl-state-core.mjs` — `withLock` removes the just-created lock directory when the owner-sidecar write fails, so a crashed acquire cannot leave an ownerless lock blocking every later caller.
+- `etrnl-frontend-patterns` — Stripe preset brand-name typo, Linear focused-input token now encodes its 2px focus ring, Notion badge token pairs meet 4.5:1 contrast, Vercel 28px nav CTAs document the 44px mobile hit-area requirement, rubric `N/A` rule reconciled with its example, and the `@google/design.md` CLI is version-pinned in every documented command.
+- `etrnl-deep-audit-ux` — completion gate validates the report artifact envelope in addition to the registry; unavailable WCAG capability now marks ux-04 coverage `source_limited` instead of permitting heuristic-only "clean".
+- `agents/etrnl-design-reviewer` fails closed when the scoring rubric cannot be read; `agents/etrnl-browser-qa` evidence-checklist heading no longer contradicts its own required items; `etrnl-dev-execute` passes the ledger base commit to `react-doctor --diff` explicitly.
+- CodeRabbit follow-up: `mobile-a11y-checklist` no longer mandates a redundant `accessibilityLabel` when visible text already names the control; `tests/test-workflow-tools.sh` asserts the update→install canary path runs the canary exactly once via a stubbed behavioral probe, not source-text grep alone.
+- Bundled UI/UX skill corrections: wcag-accessibility broken code examples (SwiftUI live region, Compose reduce-motion, Vue `handleSubmit`, native-dialog modal, RN invalid-state props), a11y CI template now blocks on scanner failures and uses `configPath` for LHCI asserts, VPAT/audit-report conformance-claim scoping, impeccable contradiction and guidance fixes (detector wording, error-copy consistency, FID→INP, hero lazy-load, popover semantics), and design-taste GSAP horizontal-pan travel recomputed on refresh.
+
+### Removed
+
+- Installed-host cleanup of duplicate `taste-skill` via `REMOVED_SKILLS` (local copy shared the `design-taste-frontend` frontmatter name; vendored skill is `skills/bundled/design-taste-frontend/`).
+
+## v0.9.2
+
+2026-07-22
+
+### Changed
+
+- Hook hot path — `cc_state_init` fast-paths state files already at schema v5, skipping the lock and full jq rewrite on nearly every hook invocation; the PostToolBatch observer reuses the just-committed batch payload instead of re-reading state; sycophancy and expansion hooks test their cheap discriminator before paying state init; `cc-rate-limiter.sh` and the prompt router now honor `ETRNL_HOOK_PROFILE=minimal`. Measured repeat-prompt router latency ~650ms → ~155ms.
+- Prompt router — the skill update check (full-tree hashing, git subprocesses, possible network fetch) is stamp-gated via `ETRNL_SKILL_UPDATE_INTERVAL_SEC` (default 1800s) instead of running on every prompt after the first skill match; CLAUDE.md reinjection fingerprints the root file set (paths + mtimes) before reading anything, skipping the recursive `@`-reference expansion (~180 subshell forks) when the session already injected the same context.
+- ETRNL state core — `readEvents` skips corrupt JSONL lines (with a warning) instead of permanently failing every reader and future append; the store lock waits on an elapsed budget (`ETRNL_STATE_LOCK_WAIT_MS`, default 10s) with non-spinning sleep and backoff instead of ~1.25s of core-burning busy-wait; compact-handoff computes `worktreeHash` (4 git subprocesses) only when the staleness comparison needs it; derived views rebuild only on compact/check events; `events.jsonl` rotates events older than `ETRNL_STATE_ROTATE_KEEP_DAYS` (default 14) to a dated archive once the log exceeds `ETRNL_STATE_ROTATE_BYTES` (default 5MB).
+- Doctor — `--changed` maps install-critical scripts (`install.sh`, `update.sh`, `rollback-local.sh`, and peers) to the install group (an `install.sh` edit previously skipped `test-install` entirely), `scripts/lib/*` to the hooks suite, and `tests/fixtures/*`, `tests/lib/*`, `tests/**/*.test.mjs` to targeted groups instead of falling open to a full run; the parallel job cap rises from 8 to 16.
+- Tests — the skill-trigger router matrix runs against a sandboxed `HOME` (~4x faster per call and host-independent); safe-bash repeats use the existing parallel helper; observer gate-record waits poll the ledger instead of fixed `sleep 0.3` (removes a load flake); the `init-project-rules` mtime test touches a sandboxed copy of the rule pack instead of the real repo source, which also removes a `git checkout` that could silently revert uncommitted user edits.
+- `scripts/update.sh` no longer re-runs the post-upgrade canary that `install.sh` already runs as its final step.
+
+### Fixed
+
+- Rate-limiter lock — an orphaned lock (holder SIGKILLed mid-hold) is now reaped by age; previously it silently disabled the limiter and added the full 2s lock timeout to every later tool call in the session.
+- PreToolUse guard — `vivaz-email triage verify` (a network CLI call) is bounded by `timeout 5` with stdin detached; a hang could previously block the tool-call path until the 10s hook timeout killed the whole guard.
+- Transcript-based assistant-text extraction scans only the last `ETRNL_TRANSCRIPT_SCAN_BYTES` (default 2MB) of oversized transcripts instead of slurping tens of MB per tool call late in long sessions.
+- `worktreeHash` maxBuffer raised 512KB → 5MB: a dirty tree whose diff exceeded the old cap returned an empty hash and faked a "stale verification" Stop block.
+- `cc_project_fingerprint` computes its digest with `shasum`/`sha256sum` instead of booting node (~100ms saved per SessionEnd).
+- `scripts/install.sh` backup stamps include the PID so two installs in the same clock second cannot share (and interleave) a backup directory.
+- Hook stdin reads that fill the 4MiB Linux cap now emit a truncation warning instead of letting every hook fail open on invalid JSON with no explanation.
+
 ## v0.9.1
 
 2026-07-22
@@ -338,6 +396,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ### Security
 
 - Public repository boundary: no private identity, credentials, transcripts, or local planning artifacts in tracked files.
+
 
 
 

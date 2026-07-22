@@ -13,6 +13,11 @@ Selected upstream guidance is rewritten in directive voice and shipped inside re
 | `prisma-expert` (Prisma ORM patterns) | `skills/etrnl-backend-patterns/references/prisma.md` | Schema, migrations, queries, multi-tenancy |
 | `sql-optimization-patterns` | `skills/etrnl-backend-patterns/references/sql-optimization.md` | EXPLAIN ANALYZE, indexes, pagination |
 | SkillsMP backend-development patterns | `skills/etrnl-backend-patterns/references/*.md` | Six-topic backend suite adapted into Eternal Stack reference modules |
+| [google-labs-code/design.md](https://github.com/google-labs-code/design.md) (Apache-2.0) | `skills/etrnl-frontend-patterns/references/design-md-workflow.md` | Repo-root `DESIGN.md` artifact format (token YAML + prose intent) |
+| [VoltAgent/awesome-design-md](https://github.com/VoltAgent/awesome-design-md) (MIT) | `skills/etrnl-frontend-patterns/references/design-presets/*.md` | Brand `DESIGN.md` starting presets (linear, stripe, vercel, notion) |
+| [emilkowalski/skills](https://github.com/emilkowalski/skills) (MIT) | `skills/etrnl-frontend-patterns/references/motion-interaction.md` | Motion, easing, duration, and interruptibility module |
+| [educlopez/ui-craft](https://github.com/educlopez/ui-craft) (MIT) | `skills/etrnl-frontend-patterns/references/design-review-rubric.md` | Nielsen×laws critique dimensions in the design-review rubric |
+| gstack `plan-design-review` (MIT) | `skills/etrnl-frontend-patterns/references/design-review-rubric.md` | Per-dimension 0–10 scoring methodology; scoring lineage also cites [OpenAI — Designing Delightful Frontends with GPT-5.4](https://developers.openai.com/blog/designing-delightful-frontends-with-gpt-5-4) (Mar 2026) per gstack's design hard rules |
 
 Vendored files are adapted for Eternal Stack conventions. Check upstream projects when you need canonical versions or license text.
 
@@ -30,6 +35,11 @@ Eternal Stack is designed as a complete skill family. Policy, review, simplifica
 | `ci-cd` | CI helper scripts referenced by `/etrnl-dev-ci` | Community skill bundle |
 | `domain-*`, `i18n-localization`, and related domain skills | Domain-specific review gates | Community / upstream skill bundles |
 | `orpc-patterns`, `prisma-expert`, `sql-optimization-patterns`, `brooks-audit` | Backend and review depth; also inlined as `etrnl-*/references/` modules | Community / upstream skill bundles |
+| `frontend-design` | Baseline visual direction when building new UI | [anthropics/skills](https://github.com/anthropics/skills) `frontend-design` (Apache-2.0, vendored) |
+| `impeccable` | Product-UI craft: critique, audit, and polish | [pbakaus/impeccable](https://github.com/pbakaus/impeccable) (Apache-2.0, vendored fork — upstream `scripts/` and self-update flow removed) |
+| `design-taste-frontend` | Landing pages, portfolios, and marketing redesigns | [Leonxlnx/taste-skill](https://github.com/Leonxlnx/taste-skill) (MIT, vendored as `design-taste-frontend`) |
+| `wcag-accessibility` | WCAG 2.1/2.2 accessibility audits and remediation | [mrKanoh/claude-wcag-accessibility-skill](https://github.com/mrKanoh/claude-wcag-accessibility-skill) (MIT, vendored) |
+| `ux-researcher-designer` | Personas, journey mapping, usability testing | [davila7/claude-code-templates](https://github.com/davila7/claude-code-templates) `ux-researcher-designer` (MIT, vendored) |
 
 The full inventory and routing notes live in [docs/skills.md](docs/skills.md). These four skills are both vendored under `skills/bundled/` and inlined as `references/` modules; see the [Inlined reference modules](#inlined-reference-modules) table above for their inlined homes.
 
@@ -46,7 +56,7 @@ Eternal Stack reimplements useful mechanisms from public agent-tooling projects 
 | [Chachamaru127/claude-code-harness](https://github.com/Chachamaru127/claude-code-harness) | Quality gates, browser artifact contracts, review plateau ideas |
 | [infinri/Writ](https://github.com/infinri/Writ) | Mandatory-rule mechanical enforcement |
 | [gsd-build/get-shit-done](https://github.com/gsd-build/get-shit-done) | Workflow state and context breadcrumbs benchmark |
-| [gstack](https://github.com/garrytan/gstack) | QA, browser, ship, and review workflow patterns referenced in bundled skill mappings |
+| [gstack](https://github.com/garrytan/gstack) | QA, browser, ship, and review workflow patterns referenced in bundled skill mappings; per-dimension design-review rubric scoring adapted in `skills/etrnl-frontend-patterns/references/design-review-rubric.md` (scoring methodology cites an OpenAI blog post per gstack lineage) |
 
 ## Claude Code
 

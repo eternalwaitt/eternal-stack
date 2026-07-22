@@ -10,7 +10,7 @@ Profiles:
 Hook profiles (`ETRNL_HOOK_PROFILE`):
 
 - `standard` (default when unset): all advisory hooks run; guards, compact recovery, session lifecycle, and stop verification are unchanged.
-- `minimal`: early-exits advisory hooks only — `cc-posttooluse-sycophancy.sh`, `cc-posttoolbatch-observer.sh`, and `cc-userprompt-expansion.sh`. Guards (`cc-pretooluse-guard.sh`, `cc-stop-verifier.sh`), compact hooks, and session lifecycle hooks are never gated by profile.
+- `minimal`: early-exits advisory hooks only — `cc-posttooluse-sycophancy.sh`, `cc-posttoolbatch-observer.sh`, `cc-userprompt-expansion.sh`, and `cc-rate-limiter.sh` — and skips the prompt router's advisory context (CLAUDE.md reinjection and the skill update check; deterministic skill-routing state still records). Guards (`cc-pretooluse-guard.sh`, `cc-stop-verifier.sh`), compact hooks, and session lifecycle hooks are never gated by profile.
 - `strict`: same advisory surface as `standard`. Strict blocker hooks come from install strict mode (`ETRNL_ENABLE_STRICT=1` / `settings.strict.json`), not from this variable.
 
 Invalid values fall back to `standard`. Missing `hooks/lib/profile.sh` is fail-open (standard behavior).
@@ -56,6 +56,7 @@ Updater:
 - `ETRNL_UPDATE_INTERVAL_SEC` controls the remote-check cache window; default is `21600` seconds (six hours) when unset.
 - `ETRNL_SKILL_UPDATE_CHECK=0` disables the prompt router's per-prompt requested-`etrnl-*`-skill freshness/auto-update check; enabled by default when unset. The check is non-blocking: local Eternal Stack updates are auto-applied silently (unless `ETRNL_AUTO_UPDATE=0` or the source checkout is dirty) and the agent continues the requested work — it never stops to ask update/snooze/continue. Any remaining remote or tool-stack updates are surfaced as informational only and are never turned into a blocking prompt.
 - `ETRNL_SKILL_UPDATE_TIMEOUT_SEC` bounds each prompt-router skill-update subprocess; default is `5` seconds when unset.
+- `ETRNL_SKILL_UPDATE_INTERVAL_SEC` stamp-gates the prompt-router skill-update check so it runs at most once per interval instead of on every prompt after a skill match; default is `1800` seconds. `ETRNL_SKILL_UPDATE_STAMP` overrides the stamp file path for tests.
 - `ETRNL_SKILL_UPDATE_MAX_CHARS` caps the skill-update context the prompt router injects; default is `1200` characters when unset.
 - `ETRNL_INSTALL_STATE` and `ETRNL_UPDATE_STATE` override the installed metadata and update cache paths for tests or custom Claude homes.
 
@@ -86,6 +87,9 @@ Workflow state:
 - `ETRNL_ARTIFACTS_DIR` overrides local review, browser-QA, context, and buglog artifact storage.
 - `ETRNL_STATE_DIR` overrides canonical ETRNL JSONL state storage for tests, staged installs, or local experiments.
 - Default ETRNL state lives under `~/.claude/etrnl/state`; `events.jsonl` is canonical and `views/` are rebuildable materialized projections.
+- `ETRNL_STATE_ROTATE_BYTES` (default 5MB) and `ETRNL_STATE_ROTATE_KEEP_DAYS` (default `14`) control event-log rotation: past the size threshold, events older than the window move to a dated `events-archive-*.jsonl` in the same directory on the next append.
+- `ETRNL_STATE_LOCK_WAIT_MS` (default `10000`) bounds how long state appends wait for the store lock before failing.
+- `ETRNL_TRANSCRIPT_SCAN_BYTES` (default `2000000`) caps how much of a large transcript the hooks scan when extracting the current assistant message.
 - `ETRNL_BUGLOG` overrides the project bug-memory file used by `project-buglog.mjs`.
 - `ETRNL_LEARNING_HINTS=0` disables the pretool guard's inline project bug-memory hints (from `scripts/project-buglog.mjs`); enabled by default when unset.
 - `ETRNL_LEARNING_STARTUP_HINTS=1` enables project-level bug-memory hints at SessionStart; `0` disables them. When unset, hints are only considered when scoped workflow-health reports active trouble.
@@ -94,7 +98,7 @@ Workflow state:
 - `ETRNL_STALE_RUN_HOURS`, `ETRNL_CONTEXT_STALE_HOURS`, and `ETRNL_LEDGER_READ_CONCURRENCY` tune workflow-health and context staleness checks.
 - `ETRNL_STATE_PRIVATE_PROJECT_NAMES` and `ETRNL_TOOL_EFFECTIVENESS_PRIVATE_PROJECT_NAMES` add comma-separated local private project names to privacy rejection without committing those names to the public repo. `ETRNL_TOOL_EFFECTIVENESS_PRIVATE_PROJECT_NAMES` falls back to `ETRNL_STATE_PRIVATE_PROJECT_NAMES` when unset.
 - `ETRNL_WORKFLOW_HEALTH_STRICT=1` or `node scripts/workflow-health.mjs doctor --strict` turns runtime workflow findings into a failing workflow-health doctor. `ETRNL_DOCTOR_STRICT_RUNTIME=1` applies that strict runtime gate from `scripts/doctor.sh`.
-- `DOCTOR_JOBS` (default `min(8, nproc)`) and `scripts/doctor.sh --jobs N` tune parallel syntax, schema JSON, and heavy-suite concurrency in doctor.
+- `DOCTOR_JOBS` (default `min(16, nproc)`) and `scripts/doctor.sh --jobs N` tune parallel syntax, schema JSON, and heavy-suite concurrency in doctor.
 - `DOCTOR_INSTALL_SUITE=smoke|full` and `ETRNL_DOCTOR_FULL_INSTALL=1` select the install integration tier in doctor. Default full doctor runs `tests/test-install-smoke.sh` with `RUN_INSTALL_SMOKE_MODE=fast`; release and install-path validation should set `ETRNL_DOCTOR_FULL_INSTALL=1` to run `tests/test-install.sh`.
 - `ETRNL_PERF_MAX_GATE_REPEATS` (default `3`), `ETRNL_PERF_MAX_COMPACT_STALE` (default `5`), and `ETRNL_PERF_MAX_WAIT_RATIO` (default `0.5`) tune workflow-health performance threshold warnings on `gateMaxRepeatsAtTreeHash`, `compactStaleEvents`, and `waitCallRatio`; non-zero exit only under `workflow-health.mjs doctor --strict`.
 - `ETRNL_TOOL_EFFECTIVENESS_DISABLED=1` is reserved and not yet wired: it is documented for a future hook-side tool-effectiveness kill switch but is not currently read by any hook or script, so setting it has no effect today.

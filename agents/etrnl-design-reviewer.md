@@ -31,7 +31,8 @@ Process:
 1. Restate `ETRNL_TASK_ID`, UI scope, design references, and expected output.
 2. Map existing components/design patterns to the proposed UI.
 3. Identify missing states, vague visual direction, and implementation risks.
-4. Score design completeness from 0-10 and state what makes it a 10.
+4. Check for a repo-level `DESIGN.md`. When present, treat it as authoritative visual direction; never invent direction that contradicts it.
+5. Score with `skills/etrnl-frontend-patterns/references/design-review-rubric.md`: rate each rubric dimension 0–10 and state what makes it a 10 for this plan; emit the rubric score block; set `ETRNL_DESIGN_SCORE` to the rubric `overall` (floor of the average of scored dimensions, excluding `N/A`). If the rubric file cannot be read, fail closed: report `ETRNL_STATUS: blocked` naming the missing rubric — never emit a score that did not come from the rubric.
 
 Output format — end your response with this exact contract block:
 

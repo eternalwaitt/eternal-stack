@@ -93,6 +93,7 @@ Run the review gauntlet required by the plan's `Risk tier` before finalizing. Ti
    - Reuse `references/review-contract.md` instead of duplicating a long prompt.
    - Run `references/coderabbit-preemption.md` so plan tasks pre-empt the preemptable CodeRabbit finding classes before code exists: Tier A (deterministic guards) and Tier B (spec checklist). Tier C is emergent — it only exists once code is written — so pin its categories (review lenses) for the post-edit review pass instead of requiring them up front.
 3. Design review, when UI scope exists:
+   - Load `etrnl-frontend-patterns`; check for repo `DESIGN.md` (authoritative when present; when design-heavy and absent, propose creating one via the design-md workflow).
    - Check information hierarchy, interaction states, responsive behavior, accessibility, and existing design-system reuse.
    - Add a design/mock artifact slot when visuals would materially reduce ambiguity.
 4. DX review, when developer-facing scope exists:

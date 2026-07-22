@@ -28,13 +28,30 @@ cc_etrnl_state_script() {
 }
 
 cc_project_fingerprint() {
-  local cwd="${1:-$(pwd -P)}"
-  node -e '
-const crypto = require("node:crypto");
-const path = require("node:path");
-const resolved = path.resolve(process.argv[1] || "unknown");
-process.stdout.write(crypto.createHash("sha256").update(resolved).digest("hex").slice(0, 16));
-' "$cwd" 2>/dev/null || printf 'unknown-project'
+  local cwd="${1:-$(pwd -P)}" resolved hash
+  # Digest-compatible with the previous node path.resolve implementation for
+  # the absolute, already-normalized paths callers pass, without a ~100ms node
+  # spawn: make the path absolute and strip trailing slashes.
+  if [[ "$cwd" == /* ]]; then
+    resolved="$cwd"
+  else
+    resolved="$(pwd -P)/${cwd:-unknown}"
+  fi
+  while [[ "$resolved" == */ && "$resolved" != "/" ]]; do
+    resolved="${resolved%/}"
+  done
+  if command -v sha256sum >/dev/null 2>&1; then
+    hash="$(printf '%s' "$resolved" | sha256sum | cut -d' ' -f1)"
+  elif command -v shasum >/dev/null 2>&1; then
+    hash="$(printf '%s' "$resolved" | shasum -a 256 | cut -d' ' -f1)"
+  else
+    hash=""
+  fi
+  if [[ -n "$hash" ]]; then
+    printf '%s' "${hash:0:16}"
+  else
+    printf 'unknown-project'
+  fi
 }
 
 cc_etrnl_state_available() {
@@ -408,6 +425,14 @@ cc_state_install_default_if_missing() {
 cc_state_init() {
   local file lock tmp
   file="$(cc_state_file)"
+  # Fast path: a file already at the current schema needs no upgrade rewrite.
+  # Skipping the lock + jq rewrite here removes two file writes and several jq
+  # spawns from nearly every hook invocation (init runs before every read and
+  # update). Reads race safely: state writes are atomic renames, so this sees
+  # either the old or the new complete file, and both are v5 when this passes.
+  if [[ -f "$file" ]] && jq -e '.schemaVersion == 5' "$file" >/dev/null 2>&1; then
+    return 0
+  fi
   if ! lock="$(cc_state_acquire_lock)"; then
     printf 'claude-guard warning: state init skipped due to lock timeout\n' >&2
     return 1
@@ -827,7 +852,7 @@ cc_state_batch_increment_edit_generation() {
 }
 
 cc_state_commit_batch() {
-  local file lock tmp started_on_disk started_batch on_disk_generation start_generation merged_payload max_items
+  local file lock tmp started_on_disk started_batch on_disk_generation start_generation merged_payload max_items final_payload
   cc_state_require_batch || return 1
   file="$(cc_state_file)"
   if ! lock="$(cc_state_acquire_lock)"; then
@@ -889,7 +914,8 @@ cc_state_commit_batch() {
     cc_state_abort_batch
     return 1
   fi
-  if jq -c "$(cc_state_upgrade_filter)" <<<"$merged_payload" >"$tmp"; then
+  if final_payload="$(jq -c "$(cc_state_upgrade_filter)" <<<"$merged_payload")" \
+    && printf '%s\n' "$final_payload" >"$tmp"; then
     if ! chmod 600 "$tmp" || ! mv -- "$tmp" "$file"; then
       rm -f -- "$tmp"
       cc_state_release_lock "$lock"
@@ -902,6 +928,10 @@ cc_state_commit_batch() {
     cc_state_abort_batch
     return 1
   fi
+  # Expose the exact payload just written so callers can skip an immediate
+  # cc_state_read (a full lock + init + jq round-trip) right after commit.
+  # shellcheck disable=SC2034  # consumed by sourcing hooks (posttoolbatch observer)
+  CC_STATE_COMMITTED_PAYLOAD="$final_payload"
   cc_state_release_lock "$lock"
   cc_state_abort_batch
 }

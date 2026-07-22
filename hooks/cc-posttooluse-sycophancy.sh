@@ -23,15 +23,17 @@ source "$SCRIPT_DIR/lib/command-classifiers.sh"
 cc_json_read_stdin
 cc_json_require_jq || exit 0
 cc_json_valid || exit 0
+
+# Empty assistant text is the common case; check it before paying state init.
+message="$(cc_json_current_assistant_text || true)"
+if [[ -z "$message" ]]; then
+  exit 0
+fi
+
 skip_dedup=0
 if ! cc_state_init; then
   printf 'claude-guard warning: failed to initialize state; running PostToolUse sycophancy check without dedup\n' >&2
   skip_dedup=1
-fi
-
-message="$(cc_json_current_assistant_text || true)"
-if [[ -z "$message" ]]; then
-  exit 0
 fi
 
 if violation="$(cc_evidence_discipline_violation "$message")"; then

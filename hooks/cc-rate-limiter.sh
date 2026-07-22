@@ -6,6 +6,11 @@ if [[ "${CLAUDE_GUARD_DISABLED:-0}" == "1" || "${ETRNL_RATE_LIMITER:-1}" == "0" 
 fi
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+# shellcheck source=hooks/lib/profile.sh
+source "$SCRIPT_DIR/lib/profile.sh" 2>/dev/null || true
+if declare -F etrnl_profile_skip_advisory >/dev/null 2>&1 && etrnl_profile_skip_advisory; then
+  exit 0
+fi
 # shellcheck source=hooks/lib/json.sh
 source "$SCRIPT_DIR/lib/json.sh"
 # shellcheck source=hooks/lib/event-extract.sh
@@ -38,6 +43,28 @@ chmod 700 "$root" 2>/dev/null || true
 
 counter="$root/${session_id}.log"
 lock="$counter.lock"
+# Reap a stale lock before waiting: the critical section is milliseconds, so a
+# lock older than 10s belongs to a SIGKILLed holder (the EXIT trap never ran).
+# Without this, one orphaned lock adds the full LOCK_TIMEOUT spin to every
+# later tool call in the session and silently disables the limiter. Ownership
+# check: the holder writes owner.pid right after mkdir, so an aged lock is
+# reaped only when its recorded owner is dead — or when owner.pid never
+# appeared, which after 10s means the holder died inside that same millisecond
+# window. A live owner is always left alone regardless of age.
+if [[ -d "$lock" ]]; then
+  lock_mtime="$(stat -f %m "$lock" 2>/dev/null || stat -c %Y "$lock" 2>/dev/null || printf '0')"
+  if [[ "$lock_mtime" =~ ^[0-9]+$ ]] && (( $(date +%s) - lock_mtime > 10 )); then
+    lock_owner=""
+    if [[ -f "$lock/owner.pid" ]]; then
+      read -r lock_owner <"$lock/owner.pid" 2>/dev/null || lock_owner=""
+    fi
+    if [[ "$lock_owner" =~ ^[0-9]+$ ]] && kill -0 "$lock_owner" 2>/dev/null; then
+      : # live owner: never reap
+    else
+      rm -rf -- "$lock" 2>/dev/null || true
+    fi
+  fi
+fi
 lock_start="$(date +%s)"
 until mkdir "$lock" 2>/dev/null; do
   if (( $(date +%s) - lock_start >= LOCK_TIMEOUT )); then
@@ -45,10 +72,11 @@ until mkdir "$lock" 2>/dev/null; do
   fi
   sleep 0.05
 done
+printf '%s\n' "$$" >"$lock/owner.pid" 2>/dev/null || true
 tmp=""
 cleanup() {
   [[ -z "${tmp:-}" || ! -f "$tmp" ]] || rm -f -- "$tmp"
-  rmdir "$lock" 2>/dev/null || true
+  rm -rf -- "$lock" 2>/dev/null || true
 }
 trap cleanup EXIT
 

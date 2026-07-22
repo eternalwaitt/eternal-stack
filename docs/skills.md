@@ -14,7 +14,7 @@ Pick the namespace that matches the job. Operations skills are host maintenance 
 | `etrnl-audit-*` | Quality gates | Code health, security, performance, docs, browser QA, deep audits |
 | `etrnl-ops-*` | Host and stack maintenance | Save/restore workflow context, reclaim disk, tune agent instruction files |
 | `etrnl-comm-*` | Outbound communication | Private email reply checks before send |
-| `etrnl-backend-patterns`, `etrnl-code-review-excellence`, `etrnl-deep-audit*` | Reference orchestrators | Load `references/` modules on demand; not thin one-shot commands |
+| `etrnl-backend-patterns`, `etrnl-frontend-patterns`, `etrnl-code-review-excellence`, `etrnl-deep-audit*` | Reference orchestrators | Load `references/` modules on demand; not thin one-shot commands |
 
 Hooks route prompts to these skills and enforce guardrails at tool boundaries. See [hooks.md](hooks.md).
 
@@ -92,6 +92,7 @@ Host, session, and stack maintenance. These skills do not implement product feat
 | Command | Invocation | Purpose |
 | --- | --- | --- |
 | `/etrnl-backend-patterns` | Model or user | Classifies backend tasks and loads only the needed `references/` modules (oRPC, API, data, Prisma, SQL, security, resilience, observability, architecture). |
+| `/etrnl-frontend-patterns` | Model or user | Classifies frontend design tasks, checks repo `DESIGN.md`, loads only the needed `references/` modules (DESIGN.md workflow, brand presets, motion, design-review rubric), and routes to at most one bundled generation skill. |
 | `/etrnl-router` | Model or user | Routes a request to the right `etrnl-*` skill or agent via a decision tree over dev/audit/ops families plus reviewer/worker agents, with an always-on operating-behaviors preamble. |
 
 ## Custom Commands
@@ -130,6 +131,29 @@ Brooks bundled content for this stack; prefer these references over a separate `
 | `references/architecture.md` | Service layers, boundaries, events/outbox, CQRS, sagas |
 
 Bundled backend guidance for this stack; supersedes a separate `backend-patterns` install.
+
+## Frontend Patterns
+
+`/etrnl-frontend-patterns` is the single slash entry for frontend design work. Reference modules live under `skills/etrnl-frontend-patterns/references/` and are loaded on demand by the orchestrator — they are not separate owned skills or commands.
+
+| Module file | Covers |
+| --- | --- |
+| `references/design-md-workflow.md` | Repo-root `DESIGN.md` artifact convention (token YAML + prose intent), when agents read or refresh it, and token export notes |
+| `references/design-presets/linear.md` | Brand `DESIGN.md` starting points (also `stripe.md`, `vercel.md`, `notion.md`) |
+| `references/motion-interaction.md` | Motion, easing, duration, and interruptibility patterns for product UI |
+| `references/design-review-rubric.md` | Per-dimension 0–10 design review rubric consumed by `etrnl-design-reviewer` |
+
+Generation-skill routing (load at most one per task):
+
+| Scope | Bundled skill |
+| --- | --- |
+| Baseline visual direction when building new UI | `frontend-design` |
+| Product-UI craft: critique, audit, polish | `impeccable` |
+| Landing pages, portfolios, marketing redesigns | `design-taste-frontend` |
+| WCAG/a11y audit or remediation depth | `wcag-accessibility` |
+| UX research: personas, journey mapping, usability testing | `ux-researcher-designer` |
+
+`etrnl-frontend-patterns` is the routing authority for these bundled skills; for whole-product UI audits use `/etrnl-deep-audit-ux` instead.
 
 ## Deep Audit Skills
 
@@ -189,6 +213,21 @@ Beads is not an ETRNL bundled execution skill. It is allowed as explicit backlog
 | `orpc-patterns` | Inlined + bundled | oRPC depth; default to `etrnl-backend-patterns/references/orpc.md`. |
 | `brooks-audit` | Inlined + bundled | Default to `etrnl-code-review-excellence/references/brooks-*.md`; full skill also vendored under `skills/bundled/`. |
 | `backend-patterns` | Superseded | Use `/etrnl-backend-patterns` instead. |
+| `frontend-design` | Bundled frontend | Baseline visual direction and aesthetic choices when building new UI. |
+| `impeccable` | Bundled frontend | Product-UI craft: critique, audit, and polish of application interfaces (vendored fork; upstream scripts and self-update removed). |
+| `design-taste-frontend` | Bundled frontend | Landing pages, portfolios, and marketing redesigns only. |
+| `wcag-accessibility` | Bundled frontend | WCAG 2.1/2.2 accessibility audits and remediation on explicit a11y asks. |
+| `ux-researcher-designer` | Bundled frontend | Personas, journey mapping, usability-test frameworks, and research synthesis. |
+
+### Optional upstream installs (not vendored — no license)
+
+These upstream skills are useful but not vendored in Eternal Stack — they lack a license, carry an un-auditable reference corpus, or both. Install them directly from upstream when you need them:
+
+| Upstream | Install from | Why not vendored |
+| --- | --- | --- |
+| `web-design-guidelines`, `react-best-practices` | [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills) | No license in upstream repository |
+| AccessLint skills | [AccessLint/skills](https://github.com/AccessLint/skills) | No license in upstream repository |
+| `ui-ux-pro-max-skill` | [nextlevelbuilder/ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) | Heavy 43-file reference corpus; reference value does not justify vendored surface area |
 
 ## Deterministic Helpers
 
@@ -266,7 +305,7 @@ These repo-owned agents are installed by default into `~/.claude/agents/`. They 
 | `etrnl-investigator` | Read-only root-cause diagnosis for repeated failures or blockers. |
 | `etrnl-scout` | Read-only repo discovery and existing-pattern mapping. |
 | `etrnl-adversary` | Read-only Codex-style challenge pass for plans, diffs, and completion claims. |
-| `etrnl-design-reviewer` | Read-only UI/design reviewer for hierarchy, states, accessibility, and responsiveness. |
+| `etrnl-design-reviewer` | Read-only UI/design reviewer with per-dimension 0–10 rubric scoring, repo `DESIGN.md` check, hierarchy, states, accessibility, and responsiveness. |
 | `etrnl-dx-reviewer` | Read-only developer-experience reviewer for install, commands, docs, errors, and rollback. |
 | `etrnl-browser-qa` | Browser evidence collector that produces `browser-qa-report.json` artifacts. |
 | `etrnl-test-wiring-auditor` | Read-only, diff-driven test-wiring auditor: maps each behavioral change to its required test and emits `PASS`/`ADD_REQUIRED` with `required_tests[]`; never proposes removing a test or weakening a gate. |

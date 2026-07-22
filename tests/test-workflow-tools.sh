@@ -1076,8 +1076,59 @@ tool_effectiveness_codex_import_json="$(node "$ROOT/scripts/tool-effectiveness.m
 assert_json_expr "tool-effectiveness codex import sanitizes tool events" "$tool_effectiveness_codex_import_json" '.command == "import-codex" and .dryRun == true and .eventsImported == 2 and (.rejected | length) == 0'
 assert_json_expr "tool-effectiveness codex import preserves explicit outcomes" "$tool_effectiveness_codex_import_json" '(.events[] | select(.tool == "codegraph") | .eligible == true and .toolUsed == true and .usefulWork == true and .downstreamArtifact == true) and (.events[] | select(.tool == "beads") | .eligible == false and .toolUsed == false and .usefulWork == false and .downstreamArtifact == false)'
 assert_command "update shell syntax" bash -n "$ROOT/scripts/update.sh"
-grep -Fq 'install.sh" --preserve-settings' "$ROOT/scripts/update.sh" || fail "update.sh must preserve settings on upgrade"
-grep -Fq 'post_upgrade_canary="$ROOT/scripts/post-upgrade-canary.sh"' "$ROOT/scripts/update.sh" || fail "update.sh must assign post_upgrade_canary before use"
+if grep -Fq 'install.sh" --preserve-settings' "$ROOT/scripts/update.sh"; then
+  ok "update.sh preserves settings on upgrade"
+else
+  not_ok "update.sh preserves settings on upgrade"
+fi
+# Behavioral canary contract: a stub install that runs the canary once, driven
+# by the real update.sh, must leave the canary count at exactly 1 (update must
+# not invoke the canary again). Grep alone cannot catch an indirect second call.
+canary_behavior_root="$TMPROOT/canary-behavior"
+canary_behavior_home="$TMPROOT/canary-behavior-home"
+mkdir -p "$canary_behavior_root/scripts" "$canary_behavior_home/scripts"
+canary_count_file="$canary_behavior_home/canary-count"
+: >"$canary_count_file"
+cat >"$canary_behavior_home/scripts/post-upgrade-canary.sh" <<BASH
+#!/usr/bin/env bash
+printf '1\n' >>"$canary_count_file"
+BASH
+chmod +x "$canary_behavior_home/scripts/post-upgrade-canary.sh"
+cat >"$canary_behavior_root/scripts/install.sh" <<'BASH'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+TARGET="${CLAUDE_HOME:-$HOME/.claude}"
+# Mirror install.sh's final canary invocation against the installed target.
+CLAUDE_HOME="$TARGET" "$TARGET/scripts/post-upgrade-canary.sh"
+BASH
+chmod +x "$canary_behavior_root/scripts/install.sh"
+# Trimmed update driver: same install call + preserve-settings flag as update.sh.
+cat >"$canary_behavior_root/scripts/update.sh" <<'BASH'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
+"$ROOT/scripts/install.sh" --preserve-settings
+BASH
+chmod +x "$canary_behavior_root/scripts/update.sh"
+CLAUDE_HOME="$canary_behavior_home" bash "$canary_behavior_root/scripts/update.sh"
+canary_runs="$(wc -l <"$canary_count_file" | tr -d '[:space:]')"
+if [[ "$canary_runs" == "1" ]]; then
+  ok "update path runs post-upgrade canary exactly once via install"
+else
+  not_ok "update path runs post-upgrade canary exactly once via install (got $canary_runs)"
+fi
+# Keep the source-text guards as a fast regression against reintroducing a
+# second canary call directly in update.sh.
+if grep -Eq '^[^#]*post-upgrade-canary' "$ROOT/scripts/update.sh"; then
+  not_ok "update.sh does not duplicate the post-upgrade canary install.sh runs"
+else
+  ok "update.sh does not duplicate the post-upgrade canary install.sh runs"
+fi
+if grep -Eq '^[^#]*scripts/post-upgrade-canary\.sh' "$ROOT/scripts/install.sh"; then
+  ok "install.sh runs the post-upgrade canary"
+else
+  not_ok "install.sh runs the post-upgrade canary"
+fi
 auto_update_source="$TMPROOT/auto-update-source"
 auto_update_home="$TMPROOT/auto-update-home"
 mkdir -p "$auto_update_source/scripts" "$auto_update_home/etrnl"
@@ -2140,18 +2191,27 @@ if [[ -f "$INIT_SCRIPT" ]]; then
 
   # init --check-mtime reports stale after manifest bump (mtime path is opt-in;
   # default --check is checksum-only so a byte-identical clone never false-flags).
+  # Runs against a sandboxed copy of the script + rule pack: touching the real
+  # repo source races concurrent sessions, and the old `git checkout` cleanup
+  # silently reverted uncommitted user edits to that file.
+  init_sandbox="$TMPROOT/init-sandbox"
+  mkdir -p "$init_sandbox/scripts"
+  cp "$INIT_SCRIPT" "$init_sandbox/scripts/init-project-rules.sh"
+  cp -R "$ROOT/rules" "$init_sandbox/rules"
+  cp "$ROOT/rules-manifest.json" "$init_sandbox/rules-manifest.json"
+  SANDBOX_INIT_SCRIPT="$init_sandbox/scripts/init-project-rules.sh"
   real_target="$TMPROOT/init-real-target"
   mkdir -p "$real_target"
-  bash "$INIT_SCRIPT" --profile eternal-saas "$real_target" >/dev/null 2>&1 || true
-  # simulate manifest bump by touching source (sleep ensures different mtime second)
+  bash "$SANDBOX_INIT_SCRIPT" --profile eternal-saas "$real_target" >/dev/null 2>&1 || true
+  # simulate manifest bump by touching sandbox source (sleep ensures different mtime second)
   sleep 1
-  touch "$ROOT/rules/eternal-saas/project/orpc.md"
+  touch "$init_sandbox/rules/eternal-saas/project/orpc.md"
   # default --check must NOT flag a byte-identical touch as stale, AND must succeed
   # (exit 0). Masking the exit with `|| true` would let an unrelated failure — a
   # missing receipt, an install error, any non-`stale:` fault — pass this regression
   # silently, since the grep below only looks for a `stale:` line.
   default_check_rc=0
-  default_check_out="$(bash "$INIT_SCRIPT" --check --profile eternal-saas "$real_target" 2>&1)" || default_check_rc=$?
+  default_check_out="$(bash "$SANDBOX_INIT_SCRIPT" --check --profile eternal-saas "$real_target" 2>&1)" || default_check_rc=$?
   if (( default_check_rc != 0 )); then
     not_ok "init default --check ignores mtime-only source touch (command failed rc=$default_check_rc: $default_check_out)"
   elif printf '%s' "$default_check_out" | grep -q "^stale:"; then
@@ -2159,19 +2219,18 @@ if [[ -f "$INIT_SCRIPT" ]]; then
   else
     ok "init default --check ignores mtime-only source touch"
   fi
-  check_out="$(bash "$INIT_SCRIPT" --check-mtime --profile eternal-saas "$real_target" 2>&1)" || true
+  check_out="$(bash "$SANDBOX_INIT_SCRIPT" --check-mtime --profile eternal-saas "$real_target" 2>&1)" || true
   assert_contains "init --check-mtime reports stale after manifest bump" "$check_out" "stale"
-  git -C "$ROOT" checkout -- rules/eternal-saas/project/orpc.md 2>/dev/null || true
 
   # init --check reports locally-modified after target edit
   target_orpc="$real_target/.claude/rules/eternal-saas/project/orpc.md"
   if [[ -f "$target_orpc" ]]; then
     printf '\n# local modification\n' >> "$target_orpc"
-    check_modified="$(bash "$INIT_SCRIPT" --check --profile eternal-saas "$real_target" 2>&1)" || true
+    check_modified="$(bash "$SANDBOX_INIT_SCRIPT" --check --profile eternal-saas "$real_target" 2>&1)" || true
     assert_contains "init --check reports locally-modified" "$check_modified" "locally-modified"
 
     # --force required to overwrite locally-modified
-    if bash "$INIT_SCRIPT" --profile eternal-saas "$real_target" 2>/dev/null; then
+    if bash "$SANDBOX_INIT_SCRIPT" --profile eternal-saas "$real_target" 2>/dev/null; then
       not_ok "init refuses to overwrite locally-modified without --force"
     else
       ok "init refuses to overwrite locally-modified without --force"
@@ -2412,7 +2471,11 @@ state_preserve_probe="$(
     source "$1"
     cc_state_init
     cc_state_mark_path reads "/known/preserved.ts"
-    # Force cc_state_init to fail on the next call: pre-hold an un-reapable lock.
+    # Force cc_state_init to fail on the next call: downgrade schemaVersion so
+    # the already-current fast path misses (init must take the lock to upgrade),
+    # then pre-hold an un-reapable lock.
+    state_file="$(cc_state_file)"
+    jq ".schemaVersion = 4" "$state_file" >"$state_file.tmp" && mv "$state_file.tmp" "$state_file"
     export CLAUDE_GUARD_LOCK_STALE_SECS=99999
     lock="$(cc_state_lock)"
     mkdir "$lock"

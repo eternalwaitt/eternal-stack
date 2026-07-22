@@ -84,17 +84,9 @@ if (( PULL_FIRST == 1 )); then
   git -C "$ROOT" pull --ff-only
 fi
 
+# install.sh already runs the post-upgrade canary against the installed target
+# as its final step; running it again here doubled ~8 hook/node spawns per update.
 "$ROOT/scripts/install.sh" --preserve-settings
-
-post_upgrade_canary="$ROOT/scripts/post-upgrade-canary.sh"
-if [[ ! -f "$post_upgrade_canary" ]]; then
-  printf 'fatal: post-upgrade canary script missing: %s\n' "$post_upgrade_canary" >&2
-  exit 1
-fi
-if ! bash "$post_upgrade_canary"; then
-  printf 'fatal: post-upgrade canary failed\n' >&2
-  exit 1
-fi
 
 new_commit="$(git_commit_or_unknown)"
 new_short="${new_commit:0:12}"
