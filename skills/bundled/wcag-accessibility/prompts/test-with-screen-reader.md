@@ -7,7 +7,7 @@ and want Claude to generate a reproducible test script.
 
 ## Prompt (copy & paste)
 
-```
+```text
 Generate a step-by-step screen reader test script for the following component/flow.
 
 **Screen reader:** [NVDA + Firefox / VoiceOver + Safari / TalkBack + Chrome]

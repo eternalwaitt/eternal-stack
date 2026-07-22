@@ -203,9 +203,11 @@ Illustration or icon (not just text on blank page)
 
 **Storage patterns**:
 ```javascript
-// Track which onboarding steps user has seen
-localStorage.setItem('onboarding-completed', 'true');
-localStorage.setItem('feature-tooltip-seen-reports', 'true');
+// Track which onboarding steps this user has seen. Scope keys to the
+// account/workspace (or store server-side): a global key on a shared
+// browser suppresses onboarding for the next user who signs in.
+localStorage.setItem(`onboarding-completed:${userId}`, 'true');
+localStorage.setItem(`feature-tooltip-seen-reports:${userId}`, 'true');
 ```
 
 **IMPORTANT**: Don't show same onboarding twice (annoying). Track completion and respect dismissals.

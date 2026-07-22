@@ -346,13 +346,13 @@ components:
     padding: "4px 10px"
   badge-pink:
     backgroundColor: "{colors.brand-pink}"
-    textColor: "{colors.on-primary}"
+    textColor: "{colors.ink-deep}"
     typography: "{typography.caption-bold}"
     rounded: "{rounded.full}"
     padding: "4px 10px"
   badge-orange:
     backgroundColor: "{colors.brand-orange}"
-    textColor: "{colors.on-primary}"
+    textColor: "{colors.ink-deep}"
     typography: "{typography.caption-bold}"
     rounded: "{rounded.full}"
     padding: "4px 10px"
@@ -370,7 +370,7 @@ components:
     padding: "2px 8px"
   badge-tag-green:
     backgroundColor: "{colors.card-tint-mint}"
-    textColor: "{colors.brand-green}"
+    textColor: "{colors.charcoal}"
     typography: "{typography.caption-bold}"
     rounded: "{rounded.sm}"
     padding: "2px 8px"

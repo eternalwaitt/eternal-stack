@@ -6,7 +6,7 @@ Use when writing user stories for a sprint — turn WCAG success criteria into d
 
 ## Prompt (copy & paste)
 
-```
+```text
 Convert the following WCAG Success Criteria into developer-ready Acceptance Criteria for a user story.
 
 For each criterion, write:

@@ -114,13 +114,10 @@ Add personality and joy through these methods:
 
 ### Personality in Copy
 
-**Playful error messages**:
+**Error messages — personality stays out** (see [clarify.md](clarify.md)): errors must state what happened and the recovery action, empathetically and without jokes. Keep personality in success, empty, and celebration states:
 ```
-"Error 404"
-"This page is playing hide and seek. (And winning)"
-
 "Connection failed"
-"Looks like the internet took a coffee break. Want to retry?"
+"Couldn't reach the server. Check your connection and retry."
 ```
 
 **Encouraging empty states**:
@@ -211,7 +208,7 @@ Add personality and joy through these methods:
 - Konami code unlocks special theme
 - Hidden keyboard shortcuts (Cmd+K for special features)
 - Hover reveals on logos or illustrations
-- Alt text jokes on images (for screen reader users too!)
+- Playful visible captions on images (alt text stays informational — describe the image's meaning, or empty `alt=""` for decorative images; jokes there replace content for screen-reader users)
 - Console messages for developers ("Like what you see? We're hiring!")
 
 **Seasonal touches**:

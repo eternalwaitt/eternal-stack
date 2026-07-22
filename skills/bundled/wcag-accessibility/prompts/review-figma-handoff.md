@@ -6,7 +6,7 @@ Use when a designer hands off specs to dev and you want a structured a11y review
 
 ## Prompt (copy & paste)
 
-```
+```text
 Review the following design handoff for accessibility gaps before development begins.
 
 Evaluate each category and flag what is missing or unclear:

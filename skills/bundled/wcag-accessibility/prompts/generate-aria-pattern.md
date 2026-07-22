@@ -6,7 +6,7 @@ Use when you need complete, production-ready code for a complex accessible widge
 
 ## Prompt (copy & paste)
 
-```
+```text
 Write a production-ready, fully accessible [COMPONENT] in [HTML+JS / React / Vue 3 / Svelte / Angular].
 
 Requirements:

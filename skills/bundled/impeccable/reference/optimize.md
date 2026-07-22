@@ -5,7 +5,7 @@ Performance is a feature. Identify the actual bottleneck for THIS interface, fix
 Understand current performance and identify problems:
 
 1. **Measure current state**:
-   - **Core Web Vitals**: LCP, FID/INP, CLS scores
+   - **Core Web Vitals**: LCP, INP, CLS scores
    - **Load time**: Time to interactive, first contentful paint
    - **Bundle size**: JavaScript, CSS, image sizes
    - **Runtime performance**: Frame rate, memory usage, CPU usage
@@ -35,11 +35,11 @@ Create systematic improvement plan:
 
 ```html
 <img 
-  src="hero.webp"
-  srcset="hero-400.webp 400w, hero-800.webp 800w, hero-1200.webp 1200w"
+  src="gallery-photo.webp"
+  srcset="gallery-400.webp 400w, gallery-800.webp 800w, gallery-1200.webp 1200w"
   sizes="(max-width: 400px) 400px, (max-width: 800px) 800px, 1200px"
   loading="lazy"
-  alt="Hero image"
+  alt="Below-fold gallery photo — never lazy-load above-the-fold/LCP images"
 />
 ```
 
@@ -196,7 +196,7 @@ const observer = new IntersectionObserver((entries) => {
 - Use CDN
 - Server-side rendering
 
-### First Input Delay (FID < 100ms) / INP (< 200ms)
+### Interaction to Next Paint (INP < 200ms)
 - Break up long tasks
 - Defer non-critical JavaScript
 - Use web workers for heavy computation
@@ -226,7 +226,7 @@ const observer = new IntersectionObserver((entries) => {
 - Performance monitoring (Sentry, DataDog, New Relic)
 
 **Key metrics**:
-- LCP, FID/INP, CLS (Core Web Vitals)
+- LCP, INP, CLS (Core Web Vitals)
 - Time to Interactive (TTI)
 - First Contentful Paint (FCP)
 - Total Blocking Time (TBT)

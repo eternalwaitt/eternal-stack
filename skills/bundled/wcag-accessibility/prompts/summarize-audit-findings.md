@@ -6,12 +6,12 @@ Use when you have raw audit findings and need an exec-friendly summary.
 
 ## Prompt (copy & paste)
 
-```
+```text
 Summarize the following accessibility audit findings into an executive summary for non-technical stakeholders.
 
 Requirements:
 - Plain language — no jargon (or explain any technical term in parentheses)
-- Lead with business risk: legal exposure, user exclusion numbers, brand impact
+- Lead with business risk: legal exposure, affected user groups, brand impact. Use user-impact numbers only when the supplied findings or cited sources include them; otherwise describe affected groups qualitatively and mark the metric unavailable — never invent figures
 - Group issues by severity (Critical / Serious / Moderate / Minor)
 - Highlight the top 3 issues that need immediate attention
 - Include a one-paragraph description of what each critical issue means for a real user

@@ -1,12 +1,12 @@
 ---
 name: money-vo-discipline
-description: "Money value object discipline for agency-tbd — all monetary values must use the Money VO from @agency-tbd/domain, never raw numbers. BRL (R$) primary currency."
+description: "Money value object discipline for agency-tbd - all monetary values must use the Money VO from @agency-tbd/domain, never raw numbers. BRL (R$) primary currency."
 version: 1.0.0
 source: unknown
 category: backend
 tags: [money, value-object, currency, brl, prices, amounts, fees, budgets, deals, prisma-json, formatters, agency-tbd, critical]
 ---
-# Money Value Object Discipline — agency-tbd
+# Money Value Object Discipline - agency-tbd
 
 ## Purpose
 
@@ -27,7 +27,7 @@ import { Money } from '@agency-tbd/domain';
 ### Creating Money
 
 ```typescript
-// From integer cents (preferred — no floating point risk)
+// From integer cents (preferred - no floating point risk)
 const price = Money.fromCents(1000); // R$ 10,00
 
 // From decimal amount (use only when reading external input)
@@ -44,7 +44,7 @@ const diff  = total.subtract(half);  // R$ 15,00
 
 ### Display
 
-Always use the project formatter — never call `.toFixed(2)` directly.
+Always use the project formatter - never call `.toFixed(2)` directly.
 
 ```typescript
 import { formatMoney } from '~/lib/formatters';
@@ -75,19 +75,19 @@ await prisma.deal.create({
 ## Anti-Patterns
 
 ```typescript
-// WRONG — raw number arithmetic
+// WRONG - raw number arithmetic
 const total = deal.value * 1.1;
 
-// WRONG — floating point hell
+// WRONG - floating point hell
 const fee = 100.50 + 50.30; // => 150.80000000000001
 
-// WRONG — as any cast
+// WRONG - as any cast
 const money = deal.dealValue as any;
 
-// WRONG — formatting directly
+// WRONG - formatting directly
 const display = price.toFixed(2); // loses locale formatting (pt-BR)
 
-// WRONG — passing cents as a plain number to a function
+// WRONG - passing cents as a plain number to a function
 function applyFee(amountInCents: number) { /* ... */ }
 ```
 
@@ -127,10 +127,10 @@ return {
 Primary currency is **BRL (Brazilian Real)**.
 
 - Format: `R$ X.XXX,XX` (period as thousands separator, comma as decimal)
-- Always use `formatMoney()` from `~/lib/formatters` — it applies the correct pt-BR locale automatically
+- Always use `formatMoney()` from `~/lib/formatters` - it applies the correct pt-BR locale automatically
 
 ## Integration
 
 Use with:
-- `tenant-isolation-patterns` — Monetary Prisma columns always need `tenantId` in their `where` clause
-- `orpc-patterns` — Validate monetary input with Zod (e.g. `z.number().int().nonnegative()` for cents) before constructing a Money instance
+- `tenant-isolation-patterns` - Monetary Prisma columns always need `tenantId` in their `where` clause
+- `orpc-patterns` - Validate monetary input with Zod (e.g. `z.number().int().nonnegative()` for cents) before constructing a Money instance

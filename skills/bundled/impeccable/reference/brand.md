@@ -19,7 +19,7 @@ Then the inverse test: in one sentence, describe what you're about to build the 
 
 ### Font selection procedure
 
-Every project. Never skip.
+For greenfield work or deliberate identity changes, follow every step — never skip. If the project already has an established brand font, identity-preservation wins: keep it unless the user explicitly requests a departure.
 
 1. Read the brief. Write three concrete brand-voice words. Not "modern" or "elegant," but "warm and mechanical and opinionated" or "calm and clinical and careful." Physical-object words.
 2. List the three fonts you'd reach for by reflex. If any appear in the reflex-reject list below, reject them; they are training-data defaults and they create monoculture.

@@ -5,7 +5,7 @@ The setup command for a project. One codebase crawl feeds everything it writes:
 
 - **PRODUCT.md** (strategic): root project file for register, target users, product purpose, brand personality, anti-references, strategic design principles. Answers "who/what/why".
 - **DESIGN.md** (visual): root project file for visual theme, color palette, typography, components, layout. Follows the [DESIGN.md format spec](https://raw.githubusercontent.com/google-labs-code/design.md/main/docs/spec.md). Answers "how it looks".
-- **`.impeccable/live/config.json`** (live mode): pre-configured so `$impeccable live` boots straight into variant mode with no first-time detour.
+- Live mode is unavailable in this vendored copy; init does not create `.impeccable/live/config.json` (see Step 6 and [live.md](live.md)).
 
 It closes by pointing the user at the best command to run next. Every other impeccable command reads PRODUCT.md and DESIGN.md before doing any work.
 

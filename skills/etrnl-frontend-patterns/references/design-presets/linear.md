@@ -213,6 +213,7 @@ components:
     typography: "{typography.body}"
     rounded: "{rounded.md}"
     padding: 8px 12px
+    outline: "2px {colors.primary-focus} at 50% opacity"
   pricing-tab-default:
     backgroundColor: "{colors.canvas}"
     textColor: "{colors.ink-subtle}"

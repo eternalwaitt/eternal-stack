@@ -243,7 +243,14 @@ export function withLock(root, fn) {
   while (Date.now() < deadline) {
     try {
       fs.mkdirSync(lock, { mode: 0o700 });
-      fs.writeFileSync(path.join(lock, "owner.json"), `${JSON.stringify({ pid: process.pid, at: nowIso() })}\n`, { mode: 0o600 });
+      try {
+        fs.writeFileSync(path.join(lock, "owner.json"), `${JSON.stringify({ pid: process.pid, at: nowIso() })}\n`, { mode: 0o600 });
+      } catch (ownerError) {
+        // An ownerless lock directory would block every later withLock caller,
+        // so release the just-created lock before propagating the failure.
+        fs.rmSync(lock, { recursive: true, force: true });
+        throw ownerError;
+      }
       acquired = true;
       break;
     } catch (error) {

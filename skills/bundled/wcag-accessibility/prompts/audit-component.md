@@ -6,7 +6,7 @@ Use when you want Claude to evaluate a UI component for accessibility issues.
 
 ## Prompt (copy & paste)
 
-```
+```text
 Audit the following [HTML / React / Vue / Svelte] component for accessibility issues.
 
 For each issue found:

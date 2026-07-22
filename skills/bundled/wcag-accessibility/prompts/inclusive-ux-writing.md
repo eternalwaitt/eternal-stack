@@ -7,7 +7,7 @@ for plain language, inclusive terminology, and cognitive accessibility.
 
 ## Prompt (copy & paste)
 
-```
+```text
 Review the following UI copy for inclusive language and plain language principles.
 
 For each text string, evaluate:
@@ -46,5 +46,5 @@ Good: "Create your account" | "Download accessibility guide (PDF, 2MB)" | "Read 
 
 - Review in batches of 10–20 strings for best output quality.
 - Include context: where does this copy appear? What's the user trying to do?
-- For error messages, also verify the technical implementation uses `role="alert"`.
+- For error messages, also verify the message is programmatically associated with the field (`aria-describedby`) and announced through a live region whose politeness matches the urgency — `polite` for inline validation, `assertive`/`role="alert"` only for urgent, blocking errors (a blanket `role="alert"` interrupts users and duplicates announcements).
 - Check `data/glossary-es.csv` if reviewing Spanish copy.

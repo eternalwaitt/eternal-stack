@@ -90,7 +90,7 @@ This walks through framework detection, database selection, auth method choices,
 | Using table name in config               | Use ORM model name, not DB table name                                          |
 | Forgetting CLI after plugin changes      | Re-run `npx @better-auth/cli@latest generate`                                  |
 | `tanstackStartCookies()` not last plugin | Must be the last plugin in array (TanStack Start)                              |
-| Checking `session` for login state       | Check `session?.user` — session object is always truthy                        |
+| Checking `session` for login state       | Check `session?.user` - session object is always truthy                        |
 | Missing `nodejs_compat` flag             | Required in `wrangler.toml` for Cloudflare Workers                             |
 | Kysely CamelCasePlugin with auth         | Use separate Kysely instance without the plugin                                |
 | Using old `reactStartCookies` import     | Renamed to `tanstackStartCookies` from `better-auth/tanstack-start` in v1.4.14 |
@@ -118,9 +118,9 @@ This walks through framework detection, database selection, auth method choices,
 
 When working on auth, delegate to:
 
-- `application-security` — Security architecture and threat modeling
-- `database` — Drizzle ORM schema and migrations
-- `tanstack-start` — TanStack Start integration patterns
+- `application-security` - Security architecture and threat modeling
+- `database` - Drizzle ORM schema and migrations
+- `tanstack-start` - TanStack Start integration patterns
 
 ## Resources
 
@@ -133,13 +133,13 @@ When working on auth, delegate to:
 
 ## References
 
-- [Database Adapters](references/database-adapters.md) — Drizzle, Kysely, Prisma adapters, Cloudflare Workers factory pattern
-- [Session Management](references/sessions.md) — Cookie cache, stateless sessions, storage priority, freshAge constraints
-- [Plugins and Social Auth](references/plugins.md) — Plugin setup, OAuth 2.1 provider, admin RBAC, social provider scopes
-- [Email and Password](references/email-password.md) — Verification, password reset, timing attack prevention, hashing (scrypt, argon2), token security
-- [Two-Factor Authentication](references/two-factor.md) — TOTP, email/SMS OTP, backup codes, trusted devices, 2FA session flow
-- [Organizations](references/organizations.md) — Multi-tenant orgs, teams, invitations, RBAC, dynamic access control, lifecycle hooks
-- [Configuration](references/configuration.md) — User/account config, rate limiting, hooks, CSRF, trusted origins, cookie/OAuth security, production checklist
-- [Framework Integration](references/frameworks.md) — TanStack Start setup, Expo/React Native, client imports, type safety
-- [Migration Guides](references/migration-guides.md) — Migrate from NextAuth/Auth.js, Clerk, or Supabase Auth with schema mappings and session strategies
-- [Troubleshooting](references/troubleshooting.md) — D1 consistency, CORS, OAuth redirect, admin 403, nanostore refresh, known bugs
+- [Database Adapters](references/database-adapters.md) - Drizzle, Kysely, Prisma adapters, Cloudflare Workers factory pattern
+- [Session Management](references/sessions.md) - Cookie cache, stateless sessions, storage priority, freshAge constraints
+- [Plugins and Social Auth](references/plugins.md) - Plugin setup, OAuth 2.1 provider, admin RBAC, social provider scopes
+- [Email and Password](references/email-password.md) - Verification, password reset, timing attack prevention, hashing (scrypt, argon2), token security
+- [Two-Factor Authentication](references/two-factor.md) - TOTP, email/SMS OTP, backup codes, trusted devices, 2FA session flow
+- [Organizations](references/organizations.md) - Multi-tenant orgs, teams, invitations, RBAC, dynamic access control, lifecycle hooks
+- [Configuration](references/configuration.md) - User/account config, rate limiting, hooks, CSRF, trusted origins, cookie/OAuth security, production checklist
+- [Framework Integration](references/frameworks.md) - TanStack Start setup, Expo/React Native, client imports, type safety
+- [Migration Guides](references/migration-guides.md) - Migrate from NextAuth/Auth.js, Clerk, or Supabase Auth with schema mappings and session strategies
+- [Troubleshooting](references/troubleshooting.md) - D1 consistency, CORS, OAuth redirect, admin 403, nanostore refresh, known bugs

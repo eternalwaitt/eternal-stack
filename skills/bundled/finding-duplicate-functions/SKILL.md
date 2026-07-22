@@ -1,6 +1,6 @@
 ---
 name: finding-duplicate-functions
-description: "Find semantic duplicates in codebases — functions that serve the same purpose but were implemented independently. Use when auditing LLM-generated code, reducing tech debt, or consolidating utils/helpers."
+description: "Find semantic duplicates in codebases - functions that serve the same purpose but were implemented independently. Use when auditing LLM-generated code, reducing tech debt, or consolidating utils/helpers."
 version: 1.0.0
 source: https://github.com/obra/superpowers-lab/tree/main/skills/finding-duplicate-functions
 category: universal

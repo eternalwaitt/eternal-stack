@@ -10,6 +10,7 @@ category: frontend
 Comprehensive toolkit for user-centered research and experience design.
 
 ## Core Capabilities
+
 - Data-driven persona generation from user data and interviews
 - Customer journey mapping
 - Usability testing frameworks

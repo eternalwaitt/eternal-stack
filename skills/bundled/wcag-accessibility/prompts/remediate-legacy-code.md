@@ -7,7 +7,7 @@ jQuery-heavy pages, server-rendered HTML without ARIA, Bootstrap 3, etc.
 
 ## Prompt (copy & paste)
 
-```
+```text
 You are an accessibility remediation specialist. I need you to audit and fix the
 following legacy [HTML / jQuery / Bootstrap 3 / PHP-rendered] code for accessibility.
 
@@ -28,7 +28,7 @@ following legacy [HTML / jQuery / Bootstrap 3 / PHP-rendered] code for accessibi
 - Missing `type` attribute on `<button>` (defaults to submit inside forms)
 - `<a href="#">` used for actions → use `<button>`
 - `placeholder` used as the only label → add proper `<label>`
-- `$.show()` / `$.hide()` making content appear without SR announcement → add `aria-live`
+- `$.show()` / `$.hide()` toggling content → match the fix to the pattern: disclosures need `aria-expanded` state wiring, modals need focus management, and only status messages belong in an `aria-live` region
 - Bootstrap modal without focus trap → add focus management
 - Icon fonts (Font Awesome `<i class="fa">`) → add `aria-hidden="true"` and SR text
 - `alert()` for error messages → use `role="alert"` live regions

@@ -87,10 +87,11 @@ PASS/FAIL checklist. Any FAIL means the run is incomplete:
 - Every runtime claim without browser evidence, and every check whose bound capability was unavailable, is filed as `source_limited`, not clean.
 - No local target paths, account identifiers, or private material appear in the artifact.
 
-Red-capable gate. This command exits non-zero when the ui-ux-product registry entry, its worklists, or the artifact envelope break:
+Red-capable gate. Both commands must exit 0 before completion — the first covers the ui-ux-product registry entry and worklists, the second the report artifact envelope:
 
-```
-node scripts/deep-audit-artifact-check.mjs validate-registry --root .   # expected exit 0; non-zero => ui-ux-product registry/worklist defect
+```bash
+node scripts/deep-audit-artifact-check.mjs validate-registry --root .   # non-zero => ui-ux-product registry/worklist defect
+node scripts/deep-audit-artifact-check.mjs validate --artifact <artifact>   # non-zero => artifact envelope defect
 ```
 
 Direct invocation final output includes:

@@ -6,7 +6,7 @@ Use when you need draft alt text for informative images. Always review before sh
 
 ## Prompt — informative image (copy & paste)
 
-```
+```text
 Write accessible alt text for the following image used in a [website / app / email].
 
 Context:
@@ -28,7 +28,7 @@ Rules to follow:
 
 ## Prompt — complex image / infographic
 
-```
+```text
 Write a long description for the following complex image / infographic.
 
 The alt attribute will be: alt="[SHORT TITLE]" with aria-describedby pointing to a hidden long description block.

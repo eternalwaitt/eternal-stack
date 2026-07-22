@@ -123,7 +123,7 @@ Each wave gate is a hard stop:
 
 ### React-doctor gate (React/Next UI scope)
 
-When the TASK-changed file set from the execution ledger (not `git status`) includes React/Next UI files (`.tsx`/`.jsx`, or `app/`/`src/` under Next) and react-doctor is available, run `npx --no-install react-doctor --diff` against the task's base commit recorded in the ledger. Findings on task-changed files must be triaged in the ledger before completion (fail-closed). Findings on files the task did not change are recorded but never block. When react-doctor is not installed, record an unavailable check and continue (fail-open availability). Escape hatch: a ledger `not-applicable` entry with rationale.
+When the TASK-changed file set from the execution ledger (not `git status`) includes React/Next UI files (`.tsx`/`.jsx`, or `app/`/`src/` under Next) and react-doctor is available, run `npx --no-install react-doctor --diff <ledger-base-commit>` — pass the task's base commit recorded in the ledger explicitly; bare `--diff` auto-detects a branch base that can differ from it. Findings on task-changed files must be triaged in the ledger before completion (fail-closed). Findings on files the task did not change are recorded but never block. When react-doctor is not installed, record an unavailable check and continue (fail-open availability). Escape hatch: a ledger `not-applicable` entry with rationale.
 
 ## Completion
 

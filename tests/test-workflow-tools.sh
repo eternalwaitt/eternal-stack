@@ -1082,13 +1082,16 @@ else
   not_ok "update.sh preserves settings on upgrade"
 fi
 # install.sh runs the post-upgrade canary as its final step; update.sh must not
-# run it a second time (each run spawns ~8 hook/node processes).
-if grep -Eq '(^|[^#])bash[^#]*post-upgrade-canary' "$ROOT/scripts/update.sh"; then
+# run it a second time (each run spawns ~8 hook/node processes). Match any
+# non-comment reference in update.sh (an indirect `bash "$CANARY"` still needs
+# a path assignment naming the script), and require a non-comment execution
+# line in install.sh so a mention in a comment cannot satisfy the check.
+if grep -Eq '^[^#]*post-upgrade-canary' "$ROOT/scripts/update.sh"; then
   not_ok "update.sh does not duplicate the post-upgrade canary install.sh runs"
 else
   ok "update.sh does not duplicate the post-upgrade canary install.sh runs"
 fi
-if grep -Fq 'post-upgrade-canary' "$ROOT/scripts/install.sh"; then
+if grep -Eq '^[^#]*scripts/post-upgrade-canary\.sh' "$ROOT/scripts/install.sh"; then
   ok "install.sh runs the post-upgrade canary"
 else
   not_ok "install.sh runs the post-upgrade canary"

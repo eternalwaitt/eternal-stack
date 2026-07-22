@@ -7,7 +7,7 @@ Accessibility Conformance Report (ACR / VPAT) language.
 
 ## Prompt (copy & paste)
 
-```
+```text
 You are an accessibility conformance specialist. Given the following audit findings,
 generate the corresponding VPAT 2.5 entries.
 
@@ -42,7 +42,9 @@ For each WCAG Success Criterion affected:
 ## Tips
 
 - The more specific your findings, the more accurate the VPAT entries.
-- Include severity counts (Critical: 2, Serious: 5, Moderate: 3, Minor: 1) for better
-  conformance statement accuracy.
+- Conformance levels (Supports / Partially Supports / Does Not Support) must come from
+  criterion-level evidence and scope — which criterion, on which pages/processes, with
+  what remarks. Severity counts are useful context for prioritization but never
+  establish a conformance level on their own.
 - Use the `templates/vpat-2.5-template.md` to paste the generated entries directly.
 - Review the output with your legal/compliance team before publishing.

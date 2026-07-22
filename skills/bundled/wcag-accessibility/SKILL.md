@@ -852,7 +852,14 @@ struct EmailField: View {
             if isInvalid {
                 Text("Enter a valid email address")
                     .foregroundColor(.red)
-                    .accessibilityLiveRegion(.assertive)
+                    // SwiftUI has no live-region modifier; post an
+                    // announcement so VoiceOver reads the new error.
+                    .onAppear {
+                        UIAccessibility.post(
+                            notification: .announcement,
+                            argument: "Enter a valid email address"
+                        )
+                    }
             }
         }
     }
@@ -925,10 +932,15 @@ fun EmailField(email: String, onValueChange: (String) -> Unit, isError: Boolean)
     )
 }
 
-// Reduce motion
+// Reduce motion — Compose has no cross-platform reduce-motion local
+// (Wear OS has LocalReduceMotion); on Android read the animator scale.
 @Composable
 fun AnimatedContent() {
-    val reduceMotion = LocalAccessibilityManager.current?.isReduceMotionEnabled ?: false
+    val context = LocalContext.current
+    val reduceMotion = Settings.Global.getFloat(
+        context.contentResolver,
+        Settings.Global.ANIMATOR_DURATION_SCALE, 1f
+    ) == 0f
     val animationSpec = if (reduceMotion) snap() else tween(300)
     // use animationSpec in animations
 }
@@ -1277,6 +1289,12 @@ const touched = ref(false);
 const isInvalid = computed(() => touched.value && !/^[^@]+@[^@]+\.[^@]+$/.test(email.value));
 const errorId = 'email-error';
 const hintId  = 'email-hint';
+
+function handleSubmit() {
+  touched.value = true;
+  if (isInvalid.value) return;
+  // submit email.value
+}
 </script>
 
 <template>
@@ -1309,44 +1327,39 @@ const hintId  = 'email-hint';
 </template>
 ```
 
-### Accessible modal (Vue 3 + Teleport)
+### Accessible modal (Vue 3 + native dialog)
 ```vue
 <script setup lang="ts">
 import { ref, watch, nextTick } from 'vue';
 const props = defineProps<{ open: boolean }>();
 const emit  = defineEmits<{ (e: 'close'): void }>();
-const closeBtn = ref<HTMLButtonElement | null>(null);
+const dialog = ref<HTMLDialogElement | null>(null);
 
+// Native <dialog> + showModal() gives complete modal behavior for free:
+// focus trap, Escape handling, top layer, the rest of the page made inert,
+// and focus restored to the opener on close. A hand-rolled role="dialog"
+// needs all of that implemented (and tested) manually.
 watch(() => props.open, async (val) => {
-  if (val) {
-    await nextTick();
-    closeBtn.value?.focus(); // Move focus into dialog
-  }
+  await nextTick();
+  if (val) dialog.value?.showModal();
+  else dialog.value?.close();
 });
-
-function handleKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape') emit('close');
-}
 </script>
 
 <template>
-  <!-- Teleport out of current DOM tree so aria-modal works correctly -->
   <Teleport to="body">
-    <div
-      v-if="open"
-      role="dialog"
-      aria-modal="true"
+    <dialog
+      ref="dialog"
       aria-labelledby="modal-title"
       aria-describedby="modal-desc"
-      @keydown="handleKeydown"
+      @close="emit('close')"
+      @cancel="emit('close')"
     >
       <h2 id="modal-title">Confirm action</h2>
       <p id="modal-desc">This cannot be undone.</p>
-      <button ref="closeBtn" @click="emit('close')">Cancel</button>
+      <button @click="emit('close')">Cancel</button>
       <button class="primary">Confirm</button>
-    </div>
-    <!-- Backdrop -->
-    <div v-if="open" aria-hidden="true" @click="emit('close')" />
+    </dialog>
   </Teleport>
 </template>
 ```
@@ -1433,8 +1446,8 @@ function EmailInput({ value, onChange, error }: InputProps) {
         value={value}
         onChangeText={onChange}
         accessibilityLabelledBy="email-label"
-        accessibilityInvalidated={!!error}        // maps to aria-invalid
-        accessibilityErrorMessage={error}          // RN 0.74+
+        aria-invalid={!!error}                     // RN 0.71+ web-standard prop
+        accessibilityHint={error || undefined}     // surface the error text
         keyboardType="email-address"
         autoComplete="email"
         textContentType="emailAddress"            // iOS autofill

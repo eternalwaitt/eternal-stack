@@ -57,9 +57,10 @@ Focus trapping in modals used to require complex JavaScript. Now use the `inert`
 <main inert>
   <!-- Content behind modal can't be focused or clicked -->
 </main>
-<dialog open>
+<dialog>
   <h2>Modal Title</h2>
-  <!-- Focus stays inside modal -->
+  <!-- Opened with dialog.showModal(): focus is trapped inside;
+       <dialog open> alone is NON-modal and does not trap focus -->
 </dialog>
 ```
 
@@ -82,7 +83,7 @@ For tooltips, dropdowns, and non-modal overlays, use native popovers:
 </div>
 ```
 
-**Benefits**: Light-dismiss (click outside closes), proper stacking, no z-index wars, accessible by default.
+**Benefits**: Light-dismiss (click outside closes), top-layer stacking, no z-index wars. Note: `popover` supplies dismissal and stacking only; it adds no menu/dialog semantics. Add the pattern’s required roles (`role="menu"`/`"menuitem"` etc.), labeling, and arrow-key handling yourself.
 
 ## Dropdown & Overlay Positioning
 
@@ -111,7 +112,7 @@ The modern solution uses the CSS Anchor Positioning API to tether an overlay to 
 }
 ```
 
-Because the dropdown uses `position: fixed`, it escapes any `overflow` clipping on ancestor elements. The `@position-try` block handles viewport edges automatically. **Browser support**: Chrome 125+, Edge 125+. Not yet in Firefox or Safari - use a fallback for those browsers.
+Because the dropdown uses `position: fixed`, it escapes any `overflow` clipping on ancestor elements. The `@position-try` block handles viewport edges automatically. **Browser support**: Chromium 125+, Safari 26+, and current Firefox releases; keep a fallback for older versions.
 
 ### Popover + Anchor Combo
 

@@ -27,7 +27,7 @@ Core responsibilities:
 3. Write only the assigned browser QA artifact path when requested.
 4. Do not modify application source files.
 
-Evidence checklist (screenshot and console evidence only — no source review):
+Evidence checklist (runtime evidence only — no source review; every listed item is required):
 - Route, viewport, screenshot, console, network, accessibility, and responsive coverage.
 - Design evidence: spacing or alignment inconsistencies; visual hierarchy problems; AI-slop patterns (generic gradients, templated hero layouts, inconsistent border radii); interaction latency (slow transitions, missing loading states).
 

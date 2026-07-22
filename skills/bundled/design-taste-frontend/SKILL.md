@@ -445,14 +445,18 @@ export function HorizontalPan({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (reduce || !wrap.current || !track.current) return;
     const ctx = gsap.context(() => {
-      const distance = track.current!.scrollWidth - window.innerWidth;
+      // Function-based values so invalidateOnRefresh recomputes travel on
+      // resize/font/layout changes; a captured const would go stale.
+      const travel = () =>
+        Math.max(0, track.current!.scrollWidth - wrap.current!.clientWidth);
+      if (travel() === 0) return;                        // nothing to pan
       gsap.to(track.current, {
-        x: -distance,
+        x: () => -travel(),
         ease: "none",
         scrollTrigger: {
           trigger: wrap.current,
           start: "top top",                              // pin starts when section top hits viewport top
-          end: () => `+=${distance}`,                    // scroll distance = track width minus viewport
+          end: () => `+=${travel()}`,                    // scroll distance = track width minus viewport
           pin: true,
           scrub: 1,
           invalidateOnRefresh: true,
@@ -472,7 +476,7 @@ export function HorizontalPan({ children }: { children: React.ReactNode }) {
 }
 ```
 
-Critical points: `start: "top top"`, `pin: true`, `end: "+=${distance}"` (scroll length = horizontal travel needed), `scrub: 1`. The wrapper is pinned, the inner track slides horizontally as the user scrolls vertically.
+Critical points: `start: "top top"`, `pin: true`, function-based `x`/`end` values (recomputed on refresh; scroll length = horizontal travel needed), `scrub: 1`. The wrapper is pinned, the inner track slides horizontally as the user scrolls vertically.
 
 ### 5.C Scroll-Reveal Stagger - Canonical Skeleton (lighter alternative)
 

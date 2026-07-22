@@ -75,27 +75,27 @@ Copy a preset to repo root as `DESIGN.md`, rename `name`, replace brand-specific
 
 ## Token Export Targets
 
-When the team uses tooling, export tokens from `DESIGN.md` rather than duplicating values:
+When the team uses tooling, export tokens from `DESIGN.md` rather than duplicating values. Pin the CLI version in every invocation (the upstream format is alpha; unpinned runs can change lint/export behavior without a repository diff) and bump the pin deliberately:
 
 ```bash
 # Tailwind v3 theme.extend JSON
-npx @google/design.md export --format json-tailwind DESIGN.md > tailwind.theme.json
+npx @google/design.md@0.3.0 export --format json-tailwind DESIGN.md > tailwind.theme.json
 
 # Tailwind v4 @theme CSS block
-npx @google/design.md export --format css-tailwind DESIGN.md > theme.css
+npx @google/design.md@0.3.0 export --format css-tailwind DESIGN.md > theme.css
 
 # W3C Design Tokens Format Module (DTCG JSON)
-npx @google/design.md export --format dtcg DESIGN.md > tokens.json
+npx @google/design.md@0.3.0 export --format dtcg DESIGN.md > tokens.json
 ```
 
-On Windows/PowerShell, use `npx -p @google/design.md designmd lint DESIGN.md` when the `.md` suffix collides with file associations.
+On Windows/PowerShell, use `npx -p @google/design.md@0.3.0 designmd lint DESIGN.md` when the `.md` suffix collides with file associations.
 
 ## Validation and Contrast
 
 Run the linter before treating tokens as ship-ready:
 
 ```bash
-npx @google/design.md lint DESIGN.md
+npx @google/design.md@0.3.0 lint DESIGN.md
 ```
 
 The linter flags broken token references, orphaned colors, section order drift, and **WCAG contrast warnings** on component `backgroundColor`/`textColor` pairs (AA minimum 4.5:1 for normal text). Fix contrast at the token level — do not rely on implementers to guess accessible pairs.
@@ -103,7 +103,7 @@ The linter flags broken token references, orphaned colors, section order drift, 
 Compare versions when refreshing brand direction:
 
 ```bash
-npx @google/design.md diff DESIGN.md DESIGN-v2.md
+npx @google/design.md@0.3.0 diff DESIGN.md DESIGN-v2.md
 ```
 
 ## Agent Rules

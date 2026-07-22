@@ -103,7 +103,7 @@ ux_heuristics: 6/10
 overall: 5/10
 ```
 
-Use `N/A` only when the plan has zero UI scope; explain in one line.
+`N/A` is allowed per dimension when that dimension is genuinely out of the plan's scope (e.g. `motion_quality` for a static settings form); each `N/A` requires a one-line justification. `overall` is the floor of the average of scored dimensions, excluding justified `N/A` entries. An unjustified `N/A` is a review defect — score the dimension instead.
 
 ### Findings by severity
 

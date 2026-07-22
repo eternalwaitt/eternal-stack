@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-router`; on update, never stop to ask; local updates auto-apply when enabled and safe.
 
-Route each request to exactly one `etrnl-*` skill or agent. Match the trigger, invoke the named surface, and hand off. Do not reimplement a family's workflow inline; open the matched skill and follow it.
+Route each request to exactly one destination: an `etrnl-*` skill or agent, or a bundled skill this file names directly (`wcag-accessibility`, `ux-researcher-designer`). Match the trigger, invoke the named surface, and hand off. Do not reimplement a family's workflow inline; open the matched skill and follow it.
 
 ## Operating behaviors (always on)
 

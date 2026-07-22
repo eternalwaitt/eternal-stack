@@ -99,7 +99,7 @@
 
 ## 🤝 Communities
 
-- [A11y Slack](https://www.a11yproject.com/) — **A11Y Project** · Ongoing · _Community_
+- [The A11Y Project](https://www.a11yproject.com/) — **A11Y Project** · Ongoing · _Community_
 - [Accessibility Subreddit](https://www.reddit.com/r/accessibility/) — **Reddit** · Ongoing · _Community_
 - [WAI Interest Group](https://www.w3.org/WAI/about/groups/) — **W3C WAI** · Ongoing · _Community_
 

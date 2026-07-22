@@ -11,7 +11,7 @@ Run comprehensive checks across 5 dimensions. Score each dimension 0-4 using the
 ### 1. Accessibility (A11y)
 
 **Check for**:
-- **Contrast issues**: Text contrast ratios < 4.5:1 (or 7:1 for AAA)
+- **Contrast issues**: Body text < 4.5:1, large text (≥24px or ≥18.5px bold) < 3:1, non-text UI components < 3:1 (AA); 7:1 body / 4.5:1 large for AAA
 - **Missing ARIA**: Interactive elements without proper roles, labels, or states
 - **Keyboard navigation**: Missing focus indicators, illogical tab order, keyboard traps
 - **Semantic HTML**: Improper heading hierarchy, missing landmarks, divs instead of buttons
@@ -25,7 +25,7 @@ Run comprehensive checks across 5 dimensions. Score each dimension 0-4 using the
 **Check for**:
 - **Layout thrashing**: Reading/writing layout properties in loops
 - **Expensive animations**: Casual layout-property animation, unbounded blur/filter/shadow effects, or effects that visibly drop frames
-- **Missing optimization**: Images without lazy loading, unoptimized assets, missing will-change
+- **Missing optimization**: Below-fold images without lazy loading, unoptimized assets (`will-change` is an opt-in hint — flag unnecessary use, not absence)
 - **Bundle size**: Unnecessary imports, unused dependencies
 - **Render performance**: Unnecessary re-renders, missing memoization
 

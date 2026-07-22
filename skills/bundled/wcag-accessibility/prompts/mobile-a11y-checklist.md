@@ -7,7 +7,7 @@ Jetpack Compose) and you want a platform-specific accessibility checklist and fi
 
 ## Prompt (copy & paste)
 
-```
+```text
 Generate a complete mobile accessibility checklist and audit for the following:
 
 **Platform:** [React Native / SwiftUI (iOS) / Jetpack Compose (Android)]
@@ -26,7 +26,7 @@ For each platform, check:
 - [ ] `importantForAccessibility="no"` on decorative views
 - [ ] `accessibilityLiveRegion` for dynamic content updates ("polite" or "assertive")
 - [ ] Touch targets >= 44x44 pt (use minHeight/minWidth on StyleSheet)
-- [ ] Text scales with Dynamic Type (avoid fixed font sizes — use sp units via PixelRatio)
+- [ ] Text scales with user font settings: keep `allowFontScaling` (default true), cap with `maxFontSizeMultiplier` where layout requires, and use `dynamicTypeRamp` on iOS
 - [ ] `reduceMotionEnabled` check: `AccessibilityInfo.isReduceMotionEnabled()`
 - [ ] Keyboard/Switch Access: all interactive elements reachable without touch
 - [ ] Focus management on screen transitions: `AccessibilityInfo.setAccessibilityFocus(ref)`

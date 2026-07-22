@@ -5,14 +5,14 @@ Resolve one stable target, run two independent assessments, synthesize a design 
 
 ### Hard Invariants
 
-- Assessment A (design review) and Assessment B (detector/browser evidence) are both required.
+- Assessment A (design review) and Assessment B (mechanical scan/browser evidence) are both required.
 - Assessment A and B MUST run as two isolated sub-agents whenever a sub-agent/Task tool is exposed. Running them inline in this context is "possible" but is NOT permitted; it is a degraded run. Inline is allowed ONLY when no sub-agent tool exists (or the user declined, on harnesses that ask).
 - If you degrade for any reason, the report's first line MUST be a banner: `⚠️ DEGRADED: single-context (<reason>)`. A silent degraded critique is a failed critique.
-- Assessment A must finish before detector findings enter the parent synthesis context. Detector output is deterministic, but it still anchors judgment.
+- Assessment A must finish before Assessment B findings enter the parent synthesis context. Mechanical-scan output is checklist-driven, but it still anchors judgment.
 - A skipped manual code review is a failed critique run unless browser inspection was attempted and failed for a documented reason.
 - Viewable targets require browser inspection when available.
 - Any local server started only for critique visualization must run in the background, have a recorded stop method, and be stopped before final reporting unless the user asks to keep it.
-- Do not claim a user-visible overlay exists unless script injection succeeded and the detector ran in the page.
+- Do not claim a user-visible overlay exists unless script injection succeeded and the overlay script ran in the page.
 
 ### Setup
 
@@ -83,7 +83,7 @@ Codex failure accounting: final Run Notes must include target slug, ignore list,
 
 ### Generate Combined Critique Report
 
-Synthesize both assessments into a single report. Do NOT simply concatenate. Weave the findings together, noting where the LLM review and detector agree, where the detector caught issues the LLM missed, and where detector findings are false positives.
+Synthesize both assessments into a single report. Do NOT simply concatenate. Weave the findings together, noting where the LLM review and the mechanical scan agree, where the scan caught issues the LLM missed, and where scan findings are false positives.
 
 The chat response is the primary user-facing deliverable. Present the full structured critique below in chat; do not replace it with a summary and a link. The persisted snapshot is only an archive/backlog for later commands.
 
@@ -124,7 +124,7 @@ Be honest with scores. A 4 means genuinely excellent. Most real interfaces score
 
 **LLM assessment**: Your own evaluation of AI slop tells. Cover overall aesthetic feel, layout sameness, generic composition, missed opportunities for personality.
 
-**Deterministic scan**: Summarize what the automated detector found, with counts and file locations. Note any additional issues the detector caught that you missed, and flag any false positives.
+**Mechanical scan**: Summarize what the Assessment B manual mechanical scan found, with counts and file locations. Note any additional issues the scan caught that you missed, and flag any false positives.
 
 **Visual overlays** (if injection succeeded): Tell the user that overlays are now visible in the **[Human]** tab in their browser, highlighting the detected issues. Summarize what the console output reported. If browser visualization was attempted but injection failed, say that no reliable user-visible overlay is available and report the fallback signal instead.
 
@@ -166,7 +166,7 @@ Provocative questions that might unlock better solutions:
 - "What would a confident version of this look like?"
 
 #### Run Notes
-Keep this compact. Include status for target slug, ignore list, assessment independence, CLI detector, browser visibility, overlay injection, live server cleanup, and temp-file cleanup. For failed or skipped steps, give the concrete observed reason and the fallback signal used. In the final chat response, also include snapshot write and trend read status after persistence has run.
+Keep this compact. Include status for target slug, ignore list, assessment independence, mechanical scan, browser visibility, overlay injection, live server cleanup, and temp-file cleanup. For failed or skipped steps, give the concrete observed reason and the fallback signal used. In the final chat response, also include snapshot write and trend read status after persistence has run.
 
 Codex Run Notes are final-chat only. Do not include this section in the persisted snapshot body, because persistence, trend read, and temp cleanup happen after the snapshot write and would otherwise archive stale status such as "pending after persistence."
 
@@ -184,11 +184,11 @@ Once the report above is finalized, write it to `.impeccable/critique/` so the u
 
 Skip this step if the Setup slug was null (vague or root-level target).
 
-1. **Write the snapshot directly** as `.impeccable/critique/<slug>-<YYYY-MM-DD>.md` (create the directory if needed). Start the file with YAML frontmatter — `target` (user phrasing), `date`, `total_score`, `p0_count`, `p1_count` — then the full critique report body (heuristic table, anti-patterns verdict, priority issues, persona red flags, minor observations, and questions), stopping before the "Ask the User" / "Recommended Actions" sections that come later.
+1. **Write the snapshot directly** as `.impeccable/critique/<slug>-<YYYY-MM-DD>.md` (create the directory if needed). Start the file with YAML frontmatter — `target` (user phrasing, JSON-quoted so quotes/colons/newlines cannot break the YAML), `date`, `total_score`, `p0_count`, `p1_count` — then the full critique report body (heuristic table, anti-patterns verdict, priority issues, persona red flags, minor observations, and questions), stopping before the "Ask the User" / "Recommended Actions" sections that come later.
 
    Codex: exclude Run Notes from the snapshot body; Run Notes are final-chat only.
 
-2. **Read the trend** for context: list prior snapshot files for the same slug in `.impeccable/critique/` and read the `total_score` from the frontmatter of the most recent 5 (including the one you just wrote).
+2. **Read the trend** for context: list prior snapshot files for the same slug in `.impeccable/critique/`, sort them by the `date` field parsed from frontmatter (filesystem order is not chronological), and read the `total_score` from the most recent 5 (including the one you just wrote).
 
 3. **Append a single line to the user-visible output**, after the report and before the questions:
 

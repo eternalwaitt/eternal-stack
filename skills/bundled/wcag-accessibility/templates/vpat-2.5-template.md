@@ -80,7 +80,7 @@ The following are the terms used for conformance levels in this report:
 | **3.3.1 Error Identification** (Level A) | | |
 | **3.3.2 Labels or Instructions** (Level A) | | |
 | **3.3.7 Redundant Entry** (Level A — WCAG 2.2) | | |
-| **4.1.1 Parsing** (Level A — Obsolete in WCAG 2.2) | Not Applicable | Criterion removed in WCAG 2.2 |
+| **4.1.1 Parsing** (Level A) | Supports | Always satisfied for HTML/XML per W3C errata when reporting against WCAG 2.1; the criterion is removed only in WCAG 2.2. Use Not Applicable only when the scoped product has no applicable markup |
 | **4.1.2 Name, Role, Value** (Level A) | | |
 
 ---

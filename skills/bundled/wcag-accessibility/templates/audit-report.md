@@ -31,7 +31,7 @@
 | Minor | [n] |
 | **Total** | **[n]** |
 
-**Overall conformance**: Partially Conforms / Does Not Conform / Fully Conforms to WCAG [version] Level AA.
+**Conformance of evaluated scope**: Partially Conforms / Does Not Conform / Fully Conforms to WCAG [version] Level AA **for the sampled URLs and processes listed below**. WCAG conformance applies to full pages and complete processes; a sampled audit cannot establish a product-wide conformance claim — state one only after a complete evaluation of the declared scope.
 
 ---
 

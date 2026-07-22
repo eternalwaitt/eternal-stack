@@ -637,25 +637,33 @@ model Post {
 ```
 
 ```typescript
-// Tenant-scoped queries
-function withTenant(tenantId: string) {
-  return {
-    user: {
-      findMany: (args) => prisma.user.findMany({
-        ...args,
-        where: { ...args?.where, tenantId }
-      }),
-      create: (args) => prisma.user.create({
-        ...args,
-        data: { ...args.data, tenantId }
-      })
-    }
-  };
-}
+// Every Prisma query must include tenantId - no exceptions (see tenant-isolation-patterns).
+const users = await prisma.user.findMany({
+  where: { tenantId: ctx.tenantId },
+});
 
-// Usage
-const tenantPrisma = withTenant(currentTenantId);
-const users = await tenantPrisma.user.findMany();
+await prisma.user.create({
+  data: {
+    ...input,
+    tenantId: ctx.tenantId,
+  },
+});
+
+// Nested reads must scope relations too; parent filters do not inherit.
+const author = await prisma.user.findFirst({
+  where: {
+    id: input.authorId,
+    tenantId: ctx.tenantId,
+  },
+  include: {
+    posts: {
+      where: {
+        tenantId: ctx.tenantId,
+        deletedAt: null,
+      },
+    },
+  },
+});
 ```
 
 ## Integration

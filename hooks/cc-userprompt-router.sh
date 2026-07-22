@@ -133,6 +133,11 @@ cc_prompt_add_context_file() {
   resolved="$(cd -- "$(dirname -- "$file")" 2>/dev/null && pwd -P)/$(basename -- "$file")" || return 0
   [[ "$cc_prompt_seen_files" != *"|$resolved|"* ]] || return 0
   cc_prompt_seen_files+="|$resolved|"
+  # Mtime-aware companion used by the final injected-context fingerprint, so an
+  # edited file reinjects instead of matching the stale paths-only fingerprint.
+  local seen_mtime
+  seen_mtime="$(stat -f %m "$resolved" 2>/dev/null || stat -c %Y "$resolved" 2>/dev/null || printf '0')"
+  cc_prompt_seen_fingerprint+="|$resolved@$seen_mtime|"
   content="$(<"$resolved")"
   [[ -n "$content" ]] || return 0
   block=$'\n'"## $label: $resolved"$'\n'"$content"$'\n'
@@ -177,7 +182,7 @@ cc_prompt_add_referenced_markdown() {
 }
 
 cc_prompt_claude_context() {
-  local inject_mode force_always global_claude project_file fingerprint fingerprint_hash cc_prompt_context cc_prompt_seen_files cc_prompt_remaining_chars raw_mode
+  local inject_mode force_always global_claude project_file fingerprint fingerprint_hash cc_prompt_context cc_prompt_seen_files cc_prompt_seen_fingerprint cc_prompt_remaining_chars raw_mode
   raw_mode="${ETRNL_INJECT_CLAUDE_MD:-once}"
   inject_mode="$(printf '%s' "$raw_mode" | tr '[:upper:]' '[:lower:]')"
   case "$inject_mode" in
@@ -189,6 +194,7 @@ cc_prompt_claude_context() {
 
   cc_prompt_context=""
   cc_prompt_seen_files=""
+  cc_prompt_seen_fingerprint=""
   cc_prompt_remaining_chars="$(cc_prompt_context_cap "${ETRNL_CLAUDE_MD_MAX_CHARS:-}")"
   global_claude="$HOME/.claude/CLAUDE.md"
 
@@ -228,10 +234,10 @@ cc_prompt_claude_context() {
   done < <(cc_prompt_collect_upward "$cwd")
 
   [[ -n "$cc_prompt_seen_files" ]] || return 0
-  if fingerprint_hash="$(printf '%s' "$cc_prompt_seen_files" | cc_prompt_sha256)"; then
+  if fingerprint_hash="$(printf '%s' "$cc_prompt_seen_fingerprint" | cc_prompt_sha256)"; then
     fingerprint="claude-md-context-injected:$fingerprint_hash"
   else
-    fingerprint="claude-md-context-paths:$cc_prompt_seen_files"
+    fingerprint="claude-md-context-paths:$cc_prompt_seen_fingerprint"
   fi
   if [[ "$force_always" != "true" ]] \
     && cc_state_has_warning_fingerprint "$fingerprint"; then

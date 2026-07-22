@@ -8,7 +8,7 @@ and semantic accessibility requirements.
 
 ## Prompt (copy & paste)
 
-```
+```text
 Audit the following design tokens for WCAG 2.1/2.2 AA compliance.
 
 For each token pair that is used as text-on-background or UI-on-background,

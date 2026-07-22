@@ -522,7 +522,8 @@ The mesh gradient does most of the heavy decorative lifting; whitespace separate
 | Ultra-wide | ≥ 1400px | Content stays centred at 1400 px; bands stretch edge-to-edge in colour but content holds the max-width. |
 
 #### Touch Targets
-The `button-primary` pill renders at ~32 px tall in nav and ~48 px tall in marketing contexts. Marketing CTAs comfortably meet WCAG AAA at all breakpoints; nav buttons inflate touch area through `{spacing.xs}` padding on mobile to meet the 44 × 44 px floor.
+
+The `button-primary` pill renders at ~32 px tall in nav and ~48 px tall in marketing contexts. Marketing CTAs comfortably meet WCAG AAA at all breakpoints. The 28 px nav CTAs (`nav-cta-signup`, `nav-cta-login`, `nav-cta-ask-ai`) do not meet the floor on their own: on mobile, wrap each in a hit-area wrapper or apply `min-height: 44px` so the effective target reaches the 44 × 44 px floor while keeping the 28 px visual height.
 
 #### Collapsing Strategy
 - **Nav**: full link row + Ask AI / Log In / Sign Up pills at desktop. Collapses to logo + hamburger at mobile with the menu opening as a full-overlay.
