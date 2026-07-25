@@ -8,6 +8,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Removed
+
+### Security
+
+### Deprecated
+
+## v0.11.1
+
+2026-07-25
+
+
+### Added
+
 - Both settings templates ship `codegraph prompt-hook` on `UserPromptSubmit`, alongside the existing `rtk hook claude` precedent for third-party tool hooks. Install resets foreign hook entries before merging the stack template, so a hook present only in a user's home was silently dropped on every install; shipping it in the template makes it survive. The entry carries an explicit 10s timeout, matching the convention every other hook in those files follows.
 - `scripts/lib/json-file-store.mjs` provides the cross-process primitives every writer of a concurrently-written JSON file needs: a `mkdir`-based lock, `rename()`-backed atomic replace, and a `updateJsonUnderLock` helper that keeps the read and the write in one critical section. Extracted from the lock that `execution-ledger.mjs` already held privately rather than written as a second implementation.
 - `scripts/lib/ux-finding-taxonomy.mjs` owns the UI/UX severity and finding-status enums that three scripts previously hand-rolled independently.
@@ -27,12 +44,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - `writeJsonAtomic` preserves an existing file's permissions. `rename()` replaces the destination with the temp file's mode, so a store previously at `0600` silently widened to the umask default on the first rewrite by a caller that omitted `mode`.
 - `diff-triviality.mjs` no longer shifts File map column indices when a row has a blank Change cell. `filter(Boolean)` dropped the empty cell, so an unrelated column supplied the Change note and could classify a runtime script as non-behavioral.
 - `agent-task-packet-check.mjs` reuses the Sol-escalation predicate and canonical model set exported from `codex-model-routing.mjs` instead of re-implementing the regex and hardcoding model names, and `codex-rollout-baseline.mjs` derives its headline model from the same source and recurses into nested subagent spawns instead of counting only direct children.
-
-### Removed
-
-### Security
-
-### Deprecated
 
 ## v0.11.0
 
@@ -458,6 +469,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ### Security
 
 - Public repository boundary: no private identity, credentials, transcripts, or local planning artifacts in tracked files.
+
 
 
 
