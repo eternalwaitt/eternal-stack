@@ -14,6 +14,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Fixed
 
+- Install copies `tests/lib/parallel-run.sh` and `rules-manifest.json` into the installed home. Both are read by the installed test suites, and neither was in the copy list — so `doctor-etrnl.sh` in an installed home failed `test-hooks.sh` on a missing source file and `test-workflow-tools.sh` on a missing manifest. The repo doctor passed throughout because it runs from a tree where both files exist.
+
 ### Removed
 
 ### Security

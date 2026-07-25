@@ -399,7 +399,9 @@ validate_source_install_inputs() {
     "$ROOT/tests/test-hooks.sh" \
     "$ROOT/tests/test-workflow-tools.sh" \
     "$ROOT/tests/lib/harness.sh" \
-    "$ROOT/tests/lib/busy-port-server.mjs"; do
+    "$ROOT/tests/lib/parallel-run.sh" \
+    "$ROOT/tests/lib/busy-port-server.mjs" \
+    "$ROOT/rules-manifest.json"; do
     [[ -f "$file" ]] || missing+=("$file")
   done
   for file in hooks skills docs rules/etrnl tests/fixtures scripts/lib templates/hindsight schemas; do
@@ -865,7 +867,11 @@ done
 cp -- "$ROOT/tests/test-hooks.sh" "$TARGET/tests/test-hooks.sh"
 cp -- "$ROOT/tests/test-workflow-tools.sh" "$TARGET/tests/test-workflow-tools.sh"
 cp -- "$ROOT/tests/lib/harness.sh" "$TARGET/tests/lib/harness.sh"
+cp -- "$ROOT/tests/lib/parallel-run.sh" "$TARGET/tests/lib/parallel-run.sh"
 cp -- "$ROOT/tests/lib/busy-port-server.mjs" "$TARGET/tests/lib/busy-port-server.mjs"
+# tests/test-workflow-tools.sh reads $ROOT/rules-manifest.json, so the installed
+# home needs it for the installed suite to run.
+cp -- "$ROOT/rules-manifest.json" "$TARGET/rules-manifest.json"
 copy_dir_contents "$ROOT/tests/fixtures" "$TARGET/tests/fixtures"
 ln -sf -- "../tests/test-hooks.sh" "$TARGET/hooks/test-hooks.sh"
 ln -sf -- "../tests/test-workflow-tools.sh" "$TARGET/hooks/test-workflow-tools.sh"
