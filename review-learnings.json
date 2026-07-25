@@ -18,7 +18,8 @@
     "review_rubric:validation_fail_closed:stability-availability": 1,
     "review_rubric:security_privacy_tenancy:security-privacy": 1,
     "deterministic_guard:correctness_state:functional-correctness": 1,
-    "review_rubric:correctness_state:stability-availability": 1
+    "review_rubric:correctness_state:stability-availability": 1,
+    "review_rubric:reuse_maintainability:data-integrity-integration": 1
   },
   "promoted": {
     "review_rubric:reuse_maintainability:maintainability": {
@@ -40,6 +41,7 @@
   "processedReviews": [
     "pr-22-round-1",
     "pr-22-round-2",
-    "pr-22-round-3"
+    "pr-22-round-3",
+    "pr-22-round-4"
   ]
 }
