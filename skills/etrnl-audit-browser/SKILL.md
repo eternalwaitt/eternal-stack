@@ -31,6 +31,7 @@ This reusable skill is the canonical browser QA workflow; `agents/etrnl-browser-
 7. Create a structured artifact. Use schema v2 matrix evidence for new UI work:
    - Build one matrix row per route x viewport with `route`, `viewport`, `status`, `screenshot`, `screenshotSha256`, `capturedAt`, `consoleErrors`, and `failedRequests`.
    - Failure rows include `trace`, `traceSha256`, `video`, `videoSha256`, and `pageErrors` when those artifacts exist; passed rows must keep `pageErrors` empty.
+   - Rows carry `designEvidence` when the run collects craft observations: an array of `{ "category": spacing|hierarchy|slop|latency|contrast|overflow|state|copy, "severity": critical|high|medium|opportunity, "note": "<what the user sees>" }`. `etrnl-deep-audit-ux` consumes these rows as runtime UI evidence; summarize them in `--design-evidence`.
    - `status complete` must have real console/network summaries, numeric counts, non-empty screenshot files under the artifact root, matching screenshot hashes, fresh capture timestamps, and provenance fields: `tool`, `targetUrl`, `command`, `capturedAt`.
    - First run `node ~/.claude/scripts/browser-qa-report.mjs hash <screenshot-path>` for each screenshot.
    - Put the returned SHA256 value into that row's `screenshotSha256` field inside the `--matrix` JSON.

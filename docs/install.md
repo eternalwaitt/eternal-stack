@@ -1,6 +1,6 @@
 # Install
 
-Public home: [github.com/eternalwaitt/eternal-stack](https://github.com/eternalwaitt/eternal-stack). Overview and doc map: [README.md](../README.md). Hook reference: [hooks.md](hooks.md). Guard rules: [guards.md](guards.md). Rollout sequencing: [migration.md](migration.md).
+Public home: [github.com/eternalwaitt/eternal-stack](https://github.com/eternalwaitt/eternal-stack). Overview and doc map: [README.md](../README.md). Hook reference: [hooks.md](hooks.md). Guard rules: [guards.md](guards.md). Rollout sequencing: [migration.md](migration.md). Env var tuning after install: [configuration.md](configuration.md) — see its `Codex-first efficiency profile` section for the low-context runbook (RTK, MCP prune, hook profile, spawn model routing).
 
 ```bash
 ./scripts/install.sh --profile core

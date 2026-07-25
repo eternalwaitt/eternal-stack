@@ -150,6 +150,31 @@ copy_dir_contents() {
   fi
 }
 
+# Copy one installed skill directory into the install backup, at most once per run.
+# Four passes can target the same backup path in a single install: the pre-overlay
+# skill loops, backup_removed_skills, and the three sync_* helpers below. `cp -R`
+# into a path that ALREADY EXISTS nests the copy inside it
+# ($BACKUP/skills/<name>/<name>) instead of replacing it, and rollback then
+# restores that nested duplicate alongside the real tree.
+#
+# First writer wins. Every pass runs before the overlay rewrites the skill, so
+# each would capture the same pre-install bytes — skipping an already-captured
+# path is lossless, and it makes nesting impossible no matter how REMOVED_SKILLS,
+# OWNED_SKILLS, and BUNDLED_SKILLS overlap. Treat -e or -L as captured so an
+# already-backed-up dangling symlink is not copied over.
+backup_skill_dir_once() {
+  local installed_dir="$1"
+  local backup_path="$2"
+  if [[ ! -d "$installed_dir" ]]; then
+    return 0
+  fi
+  if [[ -e "$backup_path" || -L "$backup_path" ]]; then
+    return 0
+  fi
+  mkdir -p -- "$(dirname -- "$backup_path")"
+  cp -R -- "$installed_dir" "$backup_path"
+}
+
 sync_owned_skills() {
   local source_dir="$1"
   local target_dir="$2"
@@ -164,8 +189,8 @@ sync_owned_skills() {
     mkdir -p "$backup_dir"
   fi
   for skill in "${OWNED_SKILLS[@]}"; do
-    if [[ -n "$backup_dir" && -d "$target_dir/$skill" ]]; then
-      cp -R -- "$target_dir/${skill:?}" "$backup_dir/${skill:?}"
+    if [[ -n "$backup_dir" ]]; then
+      backup_skill_dir_once "$target_dir/${skill:?}" "$backup_dir/${skill:?}"
     fi
     rm -rf -- "$target_dir/${skill:?}"
     cp -R -- "$source_dir/${skill:?}" "$target_dir/${skill:?}"
@@ -190,8 +215,8 @@ sync_bundled_skills() {
       printf 'fatal: missing bundled skill source %s/%s\n' "$source_dir" "$skill" >&2
       return 1
     fi
-    if [[ -n "$backup_dir" && -d "$target_dir/$skill" ]]; then
-      cp -R -- "$target_dir/${skill:?}" "$backup_dir/${skill:?}"
+    if [[ -n "$backup_dir" ]]; then
+      backup_skill_dir_once "$target_dir/${skill:?}" "$backup_dir/${skill:?}"
     fi
     rm -rf -- "$target_dir/${skill:?}"
     cp -R -- "$source_dir/${skill:?}" "$target_dir/${skill:?}"
@@ -208,9 +233,7 @@ sync_skill_support_dir() {
     return 1
   fi
   mkdir -p "$target_dir" "$backup_dir"
-  if [[ -d "$target_dir/$support_name" ]]; then
-    cp -R -- "$target_dir/${support_name:?}" "$backup_dir/${support_name:?}"
-  fi
+  backup_skill_dir_once "$target_dir/${support_name:?}" "$backup_dir/${support_name:?}"
   rm -rf -- "$target_dir/${support_name:?}"
   cp -R -- "$source_dir/${support_name:?}" "$target_dir/${support_name:?}"
 }
@@ -255,8 +278,7 @@ backup_removed_skills() {
   local skill
   for skill in "${REMOVED_SKILLS[@]}"; do
     if [[ -d "$target_dir/$skill" ]]; then
-      mkdir -p "$backup_dir"
-      cp -R -- "$target_dir/${skill:?}" "$backup_dir/${skill:?}"
+      backup_skill_dir_once "$target_dir/${skill:?}" "$backup_dir/${skill:?}"
       removed_moved=1
     fi
   done
@@ -662,9 +684,18 @@ done
 
 mkdir -p "$BACKUP/skills"
 for skill in "${OWNED_SKILLS[@]}" "${BUNDLED_SKILLS[@]}"; do
-  if [[ -d "$TARGET/skills/$skill" ]]; then
-    cp -R -- "$TARGET/skills/$skill" "$BACKUP/skills/$skill"
-  fi
+  backup_skill_dir_once "$TARGET/skills/$skill" "$BACKUP/skills/$skill"
+done
+# The Claude loop above had no Codex counterpart, yet scripts/rollback-local.sh
+# rm -rf's every OWNED_SKILLS and BUNDLED_SKILLS entry in the Codex home and then
+# restores it from $BACKUP/codex-skills — so a rollback after an upgrade deleted
+# every owned Codex skill with nothing to restore from. Cover both sets, because
+# rollback removes both. Runs here, before backup_removed_skills and before the
+# overlay, so it captures pre-install bytes; a host with no Codex home yields no
+# copies because backup_skill_dir_once skips a missing directory.
+mkdir -p "$BACKUP/codex-skills"
+for skill in "${OWNED_SKILLS[@]}" "${BUNDLED_SKILLS[@]}"; do
+  backup_skill_dir_once "$CODEX_TARGET/skills/$skill" "$BACKUP/codex-skills/$skill"
 done
 mkdir -p "$BACKUP/codex-scripts" "$BACKUP/codex-scripts/lib"
 for script in doctor.sh doctor-etrnl.sh; do
@@ -760,9 +791,9 @@ fi
 rm -rf -- "$TARGET/hooks/fixtures" "$TARGET/tests/fixtures"
 mkdir -p "$TARGET/hooks" "$TARGET/scripts" "$TARGET/docs/templates" "$TARGET/skills" "$TARGET/agents" "$TARGET/commands" "$TARGET/rules" "$TARGET/tests/lib" "$TARGET/tests/fixtures"
 copy_dir_contents "$ROOT/hooks" "$TARGET/hooks"
-sync_owned_skills "$ROOT/skills" "$TARGET/skills"
+sync_owned_skills "$ROOT/skills" "$TARGET/skills" "$BACKUP/skills"
 sync_bundled_skills "$ROOT/skills/bundled" "$TARGET/skills" "$BACKUP/skills"
-sync_owned_skills "$ROOT/skills" "$CODEX_TARGET/skills"
+sync_owned_skills "$ROOT/skills" "$CODEX_TARGET/skills" "$BACKUP/codex-skills"
 sync_bundled_skills "$ROOT/skills/bundled" "$CODEX_TARGET/skills" "$BACKUP/codex-skills"
 sync_skill_support_dir "$ROOT/skills" "$TARGET/skills" "$BACKUP/skills" common
 sync_skill_support_dir "$ROOT/skills" "$CODEX_TARGET/skills" "$BACKUP/codex-skills" common

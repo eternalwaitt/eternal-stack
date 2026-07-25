@@ -16,6 +16,8 @@
       "expectedOutput": "skills/etrnl-dev-review/SKILL.md with Evidence Flow and TDD Enforcement sections; contract check passes",
       "verificationCommand": "node scripts/skill-contract-check.mjs --root .",
       "modelTier": "standard",
+      "codexModel": "gpt-5.6-terra",
+      "codexReasoningEffort": "medium",
       "timeoutSec": 300,
       "retryPolicy": {"maxRetries": 1, "backoff": "linear", "initialDelayMs": 1000},
       "noRevert": true,

@@ -35,7 +35,7 @@ UI/UX/product (`ui-ux-product`) is not an orchestrator mode. Route those prompts
    - `code-excellence`: invoke `etrnl-code-review-excellence` after code-excellence worklists exist.
    - `production-readiness`: invoke `etrnl-audit-production` after production worklists exist.
    - `security`: invoke `etrnl-audit-security` after security worklists exist; require exploitable-bug evidence for findings and explicit non-findings for clean rows.
-   - `performance`: invoke `etrnl-audit-performance` after performance worklists exist; use the six-lane cap from the `etrnl-dev-execute` parallel-fanout contract and require every registered lane receipt.
+   - `performance`: invoke `etrnl-audit-performance` after performance worklists exist; use the six-lane cap from the `etrnl-dev-execute` parallel-fanout contract and require every registered lane receipt. Lane spawns set model and reasoning effort from `categoryLaneDispatch(categoryId)`; never let a lane inherit the parent model.
    - `shared-reuse`: load `references/categories/shared-reuse.md` after reuse worklists exist.
    - `repo-hygiene`: load `references/categories/repo-hygiene.md` after repo-hygiene worklists exist.
    - `tooling-ecosystem`: invoke `etrnl-audit-tooling` after tooling worklists exist.

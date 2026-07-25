@@ -55,6 +55,8 @@ flowchart TB
   UPE --> cc-userprompt-expansion
   PT --> cc-rtk-rg-compat
   PT --> cc-pretooluse-guard
+  PT --> cc-compact-suggest
+  PT --> cc-question-preference
   PU --> cc-rate-limiter
   PU --> cc-posttooluse-sycophancy
   PU --> cc-posttooluse-quality
@@ -93,6 +95,8 @@ Every hook entrypoint under `hooks/` is listed below. Matchers and timeouts come
 | `cc-userprompt-expansion.sh` | `UserPromptExpansion` | — | Yes | Yes | No | Expand in-root `@*.md` imports for prompt context |
 | `cc-rtk-rg-compat.sh` | `PreToolUse` | `Bash` | Yes | Yes | Rewrites | Proxy `rg` flags RTK mishandles to `rtk proxy --ultra-compact` |
 | `cc-pretooluse-guard.sh` | `PreToolUse` | `Bash\|Read\|Edit\|Write\|MultiEdit\|WebSearch\|Task\|TaskCreate\|Agent\|mcp__serena__search_for_pattern` | No | Yes | Yes | Policy denies before tools run (see [guards.md](guards.md)) |
+| `cc-compact-suggest.sh` | `PreToolUse` | `Task\|Read\|Grep\|Glob\|WebFetch\|WebSearch` | Yes | Yes | No | Advise a checkpoint-and-compact when the context window passes a scaled threshold |
+| `cc-question-preference.sh` | `PreToolUse` | `AskUserQuestion\|mcp__.*ask_user.*\|mcp__.*ask_question.*` | Yes | Yes | Yes | Auto-decide low-stakes questions from a preference map; one-way doors always reach the user |
 | `cc-rate-limiter.sh` | `PostToolUse` | — | Yes | Yes | No | Advisory warnings for rapid tool use and repeated failures |
 | `cc-posttooluse-sycophancy.sh` | `PostToolUse` | — | No | Yes | Yes | Block agreement-without-evidence in assistant text after tools |
 | `cc-posttooluse-quality.sh` | `PostToolUse` | — | No | Yes | Yes | Block complexity/test-quality regressions on edited files |
@@ -124,6 +128,8 @@ Runs on every user prompt before the model sees it.
 - Applies keyword routing hints for bundled backend-pattern workflows.
 - When `update-check.mjs` reports stale repo-owned skills or tool stack, injects a short informational note (local updates auto-applied; remote/tool-stack items informational only) and continues honoring the requested `etrnl-*` skill without stopping to ask.
 
+Advisory notes are deduplicated and budgeted. Each note is fingerprinted, so an identical hint is injected once per turn and once per session, and the running total of injected note characters is capped by `ETRNL_USERPROMPT_CONTEXT_MAX_CHARS`. Routing decisions are recorded in `requestedSkills` **before** this filter runs, so a suppressed hint has still routed its skill — dedup changes what is re-sent, never where a prompt routes. Standing protocol text is appended last so a tight budget is spent on task-specific routing hints before generic boilerplate. Reinjected `CLAUDE.md` context is tracked separately under its own `ETRNL_CLAUDE_MD_MAX_CHARS` cap.
+
 Fail-open: skips context injection on parse or state errors.
 
 ### `cc-userprompt-expansion.sh`
@@ -149,6 +155,26 @@ Notable behaviors:
 - WebSearch / Serena / Task: stale search canary, scoped pattern search, subagent packet requirements.
 
 Fail-closed when strict hooks are enabled and internal guard logic errors occur.
+
+### `cc-compact-suggest.sh`
+
+Advisory only — never blocks. Re-sent context, not generation, dominates token cost, so this hook nudges toward a deliberate checkpoint before the window is carried forward indefinitely.
+
+Reads the live context size from the event payload (`context.used_tokens`, or a `usage` block summing input, both cache buckets, and output) and falls back to the newest assistant `usage` entry in the transcript. Only the last `ETRNL_TRANSCRIPT_SCAN_BYTES` of a large transcript are scanned.
+
+The threshold is a percentage of the window rather than a fixed count, so a smaller `ETRNL_COMPACT_WINDOW_TOKENS` trips earlier. Once fired, a per-session stamp under `ETRNL_COMPACT_SUGGEST_DIR` debounces repeats for `ETRNL_COMPACT_SUGGEST_INTERVAL_SEC`; the stamp is checked before any transcript read, so the common path stays cheap.
+
+Skipped entirely when `ETRNL_HOOK_PROFILE=minimal`, when named in `ETRNL_SKIP_HOOKS`, or with `ETRNL_COMPACT_SUGGEST=0` / `CLAUDE_GUARD_DISABLED=1`. Fail-open on missing `jq`, invalid JSON, or an unreadable transcript.
+
+### `cc-question-preference.sh`
+
+Stops repeated low-stakes `AskUserQuestion` ping-pong. Intercepts `AskUserQuestion` and MCP ask tools; the settings matcher is a coarse filter and the hook re-checks the tool name itself so it stays correct when a host routes an ask tool under another name.
+
+A mandatory safety clamp runs **before** any preference lookup: questions touching deploy, production schema and migrations, destructive data operations, auth, or money always reach the user. No preference file, topic entry, or environment override can auto-answer a one-way door.
+
+For everything else the hook resolves a mode from the first readable preference map, then denies with the auto-decided option carried in the deny reason so the model proceeds instead of asking. Modes and file locations are documented in [configuration.md](configuration.md). When no preference is configured the hook allows the ask, matching pre-hook behavior.
+
+The deny is deliberate rather than fail-open, but it degrades safely: without a concrete option to carry, an unreadable or malformed file, or a missing mode, the hook allows the ask.
 
 ### `cc-rate-limiter.sh`
 

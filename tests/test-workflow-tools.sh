@@ -1075,6 +1075,12 @@ assert_json_expr "tool-effectiveness baseline emits tool medians" "$tool_effecti
 tool_effectiveness_codex_import_json="$(node "$ROOT/scripts/tool-effectiveness.mjs" import-codex --fixtures "$ROOT/tests/fixtures/tool-effectiveness/codex" --dry-run --json)"
 assert_json_expr "tool-effectiveness codex import sanitizes tool events" "$tool_effectiveness_codex_import_json" '.command == "import-codex" and .dryRun == true and .eventsImported == 2 and (.rejected | length) == 0'
 assert_json_expr "tool-effectiveness codex import preserves explicit outcomes" "$tool_effectiveness_codex_import_json" '(.events[] | select(.tool == "codegraph") | .eligible == true and .toolUsed == true and .usefulWork == true and .downstreamArtifact == true) and (.events[] | select(.tool == "beads") | .eligible == false and .toolUsed == false and .usefulWork == false and .downstreamArtifact == false)'
+tool_effectiveness_disabled_summarize_json="$(ETRNL_TOOL_EFFECTIVENESS_DISABLED=1 node "$ROOT/scripts/tool-effectiveness.mjs" summarize --fixtures "$ROOT/tests/fixtures/tool-effectiveness" --json)"
+assert_json_expr "tool-effectiveness disabled summarize returns disabled" "$tool_effectiveness_disabled_summarize_json" '.disabled == true and (.tools? // null) == null'
+tool_effectiveness_disabled_import_json="$(ETRNL_TOOL_EFFECTIVENESS_DISABLED=1 node "$ROOT/scripts/tool-effectiveness.mjs" import-codex --fixtures "$ROOT/tests/fixtures/tool-effectiveness/codex" --dry-run --json)"
+assert_json_expr "tool-effectiveness disabled import-codex returns disabled" "$tool_effectiveness_disabled_import_json" '.disabled == true and (.eventsImported? // null) == null'
+tool_effectiveness_disabled_baseline_json="$(ETRNL_TOOL_EFFECTIVENESS_DISABLED=1 node "$ROOT/scripts/tool-effectiveness.mjs" baseline --fixtures "$ROOT/tests/fixtures/tool-effectiveness" --json)"
+assert_json_expr "tool-effectiveness disabled baseline returns disabled" "$tool_effectiveness_disabled_baseline_json" '.disabled == true and (.byTool? // null) == null'
 assert_command "update shell syntax" bash -n "$ROOT/scripts/update.sh"
 if grep -Fq 'install.sh" --preserve-settings' "$ROOT/scripts/update.sh"; then
   ok "update.sh preserves settings on upgrade"
@@ -1753,6 +1759,27 @@ effectiveness_scoped_status_json="$(ETRNL_RUNS_DIR="$health_root/runs" ETRNL_ART
 assert_json_expr "workflow health scoped status suppresses global effectiveness" "$effectiveness_scoped_status_json" '.effectiveness == null'
 effectiveness_doctor_json="$(ETRNL_RUNS_DIR="$health_root/runs" ETRNL_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" doctor --json --all)"
 assert_json_expr "workflow health doctor reports effectiveness health" "$effectiveness_doctor_json" '.effectiveness.events == 1 and .effectiveness.malformed == 0'
+effectiveness_kill_switch_root="$TMPROOT/effectiveness-kill-switch"
+mkdir -p "$effectiveness_kill_switch_root/runs" "$effectiveness_kill_switch_root/artifacts/tool-effectiveness"
+jq -c '.events[0]' "$ROOT/tests/fixtures/tool-effectiveness/events.json" >"$effectiveness_kill_switch_root/artifacts/tool-effectiveness/events.jsonl"
+printf '%s\n' '{"schemaVersion":2,"runId":"effectiveness-run","sessionId":"effectiveness-session","cwd":"/tmp/effectiveness","projectId":"effectiveness","updatedAt":"2026-07-20T00:00:00Z","tasks":[{"id":"T1","status":"verified"}],"agents":[],"checks":[],"events":[]}' >"$effectiveness_kill_switch_root/runs/effectiveness-run.json"
+effectiveness_kill_switch_status_enabled_json="$(ETRNL_RUNS_DIR="$effectiveness_kill_switch_root/runs" ETRNL_ARTIFACTS_DIR="$effectiveness_kill_switch_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" status --json --all)"
+assert_json_expr "workflow health effectiveness kill switch status enabled" "$effectiveness_kill_switch_status_enabled_json" '.effectiveness != null and .effectiveness.events >= 1'
+effectiveness_kill_switch_status_disabled_json="$(ETRNL_TOOL_EFFECTIVENESS_DISABLED=1 ETRNL_RUNS_DIR="$effectiveness_kill_switch_root/runs" ETRNL_ARTIFACTS_DIR="$effectiveness_kill_switch_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" status --json --all)"
+assert_json_expr "workflow health effectiveness kill switch status disabled" "$effectiveness_kill_switch_status_disabled_json" '.effectiveness == null'
+effectiveness_kill_switch_doctor_enabled_json="$(ETRNL_RUNS_DIR="$effectiveness_kill_switch_root/runs" ETRNL_ARTIFACTS_DIR="$effectiveness_kill_switch_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" doctor --json --all)"
+assert_json_expr "workflow health effectiveness kill switch doctor enabled" "$effectiveness_kill_switch_doctor_enabled_json" '.effectiveness != null and .effectiveness.events >= 1'
+effectiveness_kill_switch_doctor_disabled_json="$(ETRNL_TOOL_EFFECTIVENESS_DISABLED=1 ETRNL_RUNS_DIR="$effectiveness_kill_switch_root/runs" ETRNL_ARTIFACTS_DIR="$effectiveness_kill_switch_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" doctor --json --all)"
+assert_json_expr "workflow health effectiveness kill switch doctor disabled" "$effectiveness_kill_switch_doctor_disabled_json" '.effectiveness == null'
+effectiveness_malformed_root="$TMPROOT/effectiveness-malformed"
+mkdir -p "$effectiveness_malformed_root/runs" "$effectiveness_malformed_root/artifacts/tool-effectiveness"
+jq -c '.events[0]' "$ROOT/tests/fixtures/tool-effectiveness/events.json" >"$effectiveness_malformed_root/artifacts/tool-effectiveness/events.jsonl"
+printf '%s\n' '{not-json' >>"$effectiveness_malformed_root/artifacts/tool-effectiveness/events.jsonl"
+printf '%s\n' '{"schemaVersion":2,"runId":"effectiveness-malformed-run","sessionId":"effectiveness-malformed-session","cwd":"/tmp/effectiveness-malformed","projectId":"effectiveness-malformed","updatedAt":"2026-07-20T00:00:00Z","tasks":[{"id":"T1","status":"verified"}],"agents":[],"checks":[],"events":[]}' >"$effectiveness_malformed_root/runs/effectiveness-malformed-run.json"
+effectiveness_malformed_doctor_enabled_json="$(ETRNL_RUNS_DIR="$effectiveness_malformed_root/runs" ETRNL_ARTIFACTS_DIR="$effectiveness_malformed_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" doctor --json --all)"
+assert_json_expr "workflow health effectiveness malformed finding enabled" "$effectiveness_malformed_doctor_enabled_json" 'any(.runtimeFindings[]; .id == "malformed-effectiveness-events") and .effectiveness.malformed >= 1'
+effectiveness_malformed_doctor_disabled_json="$(ETRNL_TOOL_EFFECTIVENESS_DISABLED=1 ETRNL_RUNS_DIR="$effectiveness_malformed_root/runs" ETRNL_ARTIFACTS_DIR="$effectiveness_malformed_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" doctor --json --all)"
+assert_json_expr "workflow health effectiveness malformed finding disabled" "$effectiveness_malformed_doctor_disabled_json" '.effectiveness == null and all(.runtimeFindings[]?; .id != "malformed-effectiveness-events")'
 jq -n '{"schemaVersion":2,"runId":"old-terminal-run","sessionId":"old","cwd":"/tmp/old","projectId":"old","updatedAt":"2000-01-01T00:00:00Z","tasks":[{"id":"T1","status":"verified"}],"agents":[],"checks":[{"name":"fixture","status":"passed"}],"events":[]}' >"$health_root/runs/old-terminal-run.json"
 prune_health_json="$(ETRNL_RUNS_DIR="$health_root/runs" ETRNL_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" prune --older-than-days 30 --dry-run --json --all)"
 assert_json_expr "workflow health prune dry-run reports prunable ledgers" "$prune_health_json" '.command == "prune" and .dryRun == true and (.prunable | map(.runId) | index("old-terminal-run")) != null and .pruned == 0'
@@ -1998,6 +2025,32 @@ assert_json_expr "agent packet template includes reviewer contract" "$agent_temp
 assert_json_expr "agent packet template includes critical stop fields" "$agent_template" '(.packet.criticalPath | length) > 0 and (.packet.stopCondition | length) > 0'
 assert_json_expr "write packet template defaults modelTier to standard" "$agent_template" '.packet.modelTier == "standard"'
 assert_json_expr "read-only packet template defaults modelTier to fast" "$read_only_template" '.packet.modelTier == "fast"'
+assert_json_expr "write packet template defaults codexModel to terra" "$agent_template" '.packet.codexModel == "gpt-5.6-terra" and .packet.codexReasoningEffort == "medium"'
+assert_json_expr "read-only packet template defaults codexModel to luna" "$read_only_template" '.packet.codexModel == "gpt-5.6-luna" and .packet.codexReasoningEffort == "low"'
+mini_template="$(node "$ROOT/scripts/agent-task-packet-check.mjs" --template mini)"
+assert_json_expr "mini packet template includes reduced write fields" "$mini_template" '.packet.taskId != null and (.packet.writeScope | length) > 0 and (.packet.verificationCommand | length) > 0 and .packet.codexModel == "gpt-5.6-terra"'
+assert_command "codex model routing tier defaults" node --input-type=module <<'JS'
+import { resolveCodexModel } from "./scripts/lib/codex-model-routing.mjs";
+const expect = (actual, expected, label) => {
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    throw new Error(`${label}: expected ${JSON.stringify(expected)} got ${JSON.stringify(actual)}`);
+  }
+};
+expect(resolveCodexModel({ modelTier: "fast" }), { model: "gpt-5.6-luna", reasoningEffort: "low" }, "fast tier");
+expect(resolveCodexModel({ modelTier: "standard" }), { model: "gpt-5.6-terra", reasoningEffort: "medium" }, "standard tier");
+expect(resolveCodexModel({ modelTier: "top" }), { model: "gpt-5.6-terra", reasoningEffort: "high" }, "top tier");
+JS
+if codex_env_out="$(ETRNL_CODEX_MODEL_STANDARD="gpt-5.6-luna" node --input-type=module -e 'import { resolveCodexModel } from "./scripts/lib/codex-model-routing.mjs"; console.log(JSON.stringify(resolveCodexModel({ modelTier: "standard" })));')"; then
+  assert_json_expr "codex model routing env override" "$codex_env_out" '.model == "gpt-5.6-luna" and .reasoningEffort == "medium"'
+else
+  not_ok "codex model routing env override failed: $codex_env_out"
+fi
+write_missing_codex_packet="$(jq -cn '{packet:{mode:"write",goal:"Implement",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T1",lineageId:"wave-1.T1",writeScope:["scripts/example.mjs"],forbiddenPaths:["docs/other.md"],verificationCommand:"node --check scripts/example.mjs",modelTier:"standard",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none"}}')"
+if write_missing_codex_out="$(node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$write_missing_codex_packet" 2>&1)"; then
+  not_ok "write packet rejects missing codexModel"
+else
+  assert_contains "write packet rejects missing codexModel" "$write_missing_codex_out" "codexModel"
+fi
 read_only_top_packet="$(jq -cn '{packet:{mode:"read-only",goal:"Scout",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"findings",noRevert:true,modelTier:"top"}}')"
 if read_only_top_out="$(node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$read_only_top_packet" 2>&1)"; then
   assert_contains "read-only top tier warns without justification" "$read_only_top_out" "modelTierJustification"
@@ -2022,6 +2075,8 @@ deep_packet="$(
         forbiddenPaths: ["docs/owned-by-other.md"],
         verificationCommand: "tests/test-workflow-tools.sh",
         modelTier: "standard",
+        codexModel: "gpt-5.6-terra",
+        codexReasoningEffort: "medium",
         timeoutSec: 1800,
         retryPolicy: "stop on blocker",
         webSearchGuidance: "none",
@@ -2048,27 +2103,27 @@ deep_packet="$(
   '
 )"
 assert_command "agent packet accepts deep-stack execution contract" node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$deep_packet"
-bad_deep_packet="$(jq -cn '{packet:{mode:"write",goal:"Implement deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T1",lineageId:"wave-1.T1",writeScope:["scripts/deep-stack-check.mjs"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"tests/test-workflow-tools.sh",modelTier:"standard",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,specReviewRequired:true,qualityReviewRequired:true,reviewers:["etrnl-spec-reviewer","etrnl-quality-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
+bad_deep_packet="$(jq -cn '{packet:{mode:"write",goal:"Implement deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T1",lineageId:"wave-1.T1",writeScope:["scripts/deep-stack-check.mjs"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"tests/test-workflow-tools.sh",modelTier:"standard",codexModel:"gpt-5.6-terra",codexReasoningEffort:"medium",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,specReviewRequired:true,qualityReviewRequired:true,reviewers:["etrnl-spec-reviewer","etrnl-quality-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
 if bad_deep_packet_out="$(node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$bad_deep_packet" 2>&1)"; then
   not_ok "agent packet rejects missing deep-stack contract"
 else
   assert_contains "agent packet rejects missing deep-stack contract" "$bad_deep_packet_out" "deepStackArtifacts"
 fi
-bad_deep_packet_reviewers="$(jq -cn '{packet:{mode:"write",goal:"Implement deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T1",lineageId:"wave-1.T1",writeScope:["scripts/deep-stack-check.mjs"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"tests/test-workflow-tools.sh",modelTier:"standard",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,deepStackArtifacts:"tests/fixtures/deep-stack/deep-stack.valid.json",riskTier:{tier:2,reason:"multi-file after review",verificationGate:"tests/test-workflow-tools.sh"},completionEvidence:"completion audit row",tddRequired:true,tddEvidence:"red/green evidence",reuseArtifact:"reuse binding row",simplifierEvidence:"code-simplifier evidence",specReviewRequired:true,qualityReviewRequired:true,simplifierReviewRequired:true,reviewers:["etrnl-spec-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
+bad_deep_packet_reviewers="$(jq -cn '{packet:{mode:"write",goal:"Implement deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T1",lineageId:"wave-1.T1",writeScope:["scripts/deep-stack-check.mjs"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"tests/test-workflow-tools.sh",modelTier:"standard",codexModel:"gpt-5.6-terra",codexReasoningEffort:"medium",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,deepStackArtifacts:"tests/fixtures/deep-stack/deep-stack.valid.json",riskTier:{tier:2,reason:"multi-file after review",verificationGate:"tests/test-workflow-tools.sh"},completionEvidence:"completion audit row",tddRequired:true,tddEvidence:"red/green evidence",reuseArtifact:"reuse binding row",simplifierEvidence:"code-simplifier evidence",specReviewRequired:true,qualityReviewRequired:true,simplifierReviewRequired:true,reviewers:["etrnl-spec-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
 if bad_deep_packet_reviewers_out="$(node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$bad_deep_packet_reviewers" 2>&1)"; then
   not_ok "agent packet rejects missing deep-stack reviewer"
 else
   assert_contains "agent packet rejects missing deep-stack reviewer" "$bad_deep_packet_reviewers_out" "etrnl-quality-reviewer"
 fi
-deep_packet_no_tdd="$(jq -cn '{packet:{mode:"write",goal:"Install-only deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T3",lineageId:"wave-1.T3",writeScope:["docs/runbook.md"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"tests/test-workflow-tools.sh",modelTier:"standard",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,deepStackArtifacts:"tests/fixtures/deep-stack/deep-stack.valid.json",riskTier:{tier:2,reason:"docs-only after review",verificationGate:"tests/test-workflow-tools.sh"},completionEvidence:"completion audit row",tddRequired:false,reuseArtifact:"reuse binding row",simplifierEvidence:"code-simplifier evidence",specReviewRequired:true,qualityReviewRequired:true,simplifierReviewRequired:true,reviewers:["etrnl-spec-reviewer","etrnl-quality-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
+deep_packet_no_tdd="$(jq -cn '{packet:{mode:"write",goal:"Install-only deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T3",lineageId:"wave-1.T3",writeScope:["docs/runbook.md"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"tests/test-workflow-tools.sh",modelTier:"standard",codexModel:"gpt-5.6-terra",codexReasoningEffort:"medium",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,deepStackArtifacts:"tests/fixtures/deep-stack/deep-stack.valid.json",riskTier:{tier:2,reason:"docs-only after review",verificationGate:"tests/test-workflow-tools.sh"},completionEvidence:"completion audit row",tddRequired:false,reuseArtifact:"reuse binding row",simplifierEvidence:"code-simplifier evidence",specReviewRequired:true,qualityReviewRequired:true,simplifierReviewRequired:true,reviewers:["etrnl-spec-reviewer","etrnl-quality-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
 assert_command "agent packet accepts deep-stack without TDD when tddRequired is false" node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$deep_packet_no_tdd"
-new_surface_packet="$(jq -cn '{packet:{mode:"write",goal:"Add helper",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T2",lineageId:"wave-1.T2",writeScope:["scripts/new-helper.mjs"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"node --check scripts/new-helper.mjs",modelTier:"standard",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",createsNewSurface:true}}')"
+new_surface_packet="$(jq -cn '{packet:{mode:"write",goal:"Add helper",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T2",lineageId:"wave-1.T2",writeScope:["scripts/new-helper.mjs"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"node --check scripts/new-helper.mjs",modelTier:"standard",codexModel:"gpt-5.6-terra",codexReasoningEffort:"medium",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",createsNewSurface:true}}')"
 if new_surface_packet_out="$(node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$new_surface_packet" 2>&1)"; then
   not_ok "agent packet rejects new surface without reuse binding"
 else
   assert_contains "agent packet rejects new surface without reuse binding" "$new_surface_packet_out" "reuseArtifact"
 fi
-bad_deep_packet_no_scope="$(jq -cn '{packet:{mode:"write",goal:"Implement deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T1",lineageId:"wave-1.T1",verificationCommand:"tests/test-workflow-tools.sh",modelTier:"standard",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,specReviewRequired:true,qualityReviewRequired:true,reviewers:["etrnl-spec-reviewer","etrnl-quality-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
+bad_deep_packet_no_scope="$(jq -cn '{packet:{mode:"write",goal:"Implement deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T1",lineageId:"wave-1.T1",verificationCommand:"tests/test-workflow-tools.sh",modelTier:"standard",codexModel:"gpt-5.6-terra",codexReasoningEffort:"medium",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,specReviewRequired:true,qualityReviewRequired:true,reviewers:["etrnl-spec-reviewer","etrnl-quality-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
 if bad_deep_packet_no_scope_out="$(node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$bad_deep_packet_no_scope" 2>&1)"; then
   not_ok "agent packet rejects deep-stack contract without write scope"
 else
@@ -2944,5 +2999,482 @@ else
   # TODO-integration: pending Lane A review-merge blocking partition
   not_ok "behavior eval: review-merge blocking output restricted to P0/P1 (TODO-integration: pending Lane A)"
 fi
+
+# --- TG-03: ledger gate reporting ---
+gates_plan="$TMPROOT/tg03-gates-plan.md"
+cat >"$gates_plan" <<'PLAN'
+# Gate Fixture Plan
+
+Status: Final
+Goal: Exercise history --gates.
+
+## Phases
+
+| Phase | Task groups | Gate |
+| --- | --- | --- |
+| P0 Setup | TG-A | setup gate green |
+| P1 Build | TG-B | build gate green |
+| P2 Ship | TG-C | ship gate green |
+
+## Autoplan decision log
+
+| Phase | Decision | Gate |
+| --- | --- | --- |
+| CEO | ship it | decoy gate |
+PLAN
+node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-gates --plan "$gates_plan" >/dev/null
+node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-gates --task G1 --title "Gate task 1" --status verified
+node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-gates --task G2 --title "Gate task 2" --status skipped
+node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-gates --task G3 --title "Gate task 3" --status in_progress
+node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-gates --task G4 --title "Gate task 4" --status pending
+node "$ROOT/scripts/execution-ledger.mjs" set-phase --session fixture-gates --phase P0 --workstream stack-routing --status verified
+node "$ROOT/scripts/execution-ledger.mjs" set-phase --session fixture-gates --phase P1 --workstream stack-routing --status in_progress
+node "$ROOT/scripts/execution-ledger.mjs" record-uat --session fixture-gates --artifact "$TMPROOT/tg03-uat.json" --open-findings 1
+node "$ROOT/scripts/execution-ledger.mjs" record-trajectory --session fixture-gates --wave wave-1 --recurring-finding-count 3 --stream-alternation-count 4 --rounds-since-progress 2
+assert_command "history --gates exits zero with plan" node "$ROOT/scripts/execution-ledger.mjs" history --gates --session fixture-gates --plan "$gates_plan"
+gates_out="$(node "$ROOT/scripts/execution-ledger.mjs" history --gates --session fixture-gates --plan "$gates_plan")"
+assert_contains "history --gates reports done/total tasks" "$gates_out" "tasks=2/4"
+assert_contains "history --gates reports ledger phase" "$gates_out" "phase=P1"
+assert_contains "history --gates reports ledger workstream" "$gates_out" "workstream=stack-routing"
+assert_contains "history --gates reports UAT gate artifact" "$gates_out" "uatGate=$TMPROOT/tg03-uat.json"
+assert_contains "history --gates names the next unverified gate" "$gates_out" "nextGate=build gate green"
+assert_not_contains "history --gates skips gates for verified phases" "$gates_out" "setup gate green"
+assert_not_contains "history --gates ignores later Phase/Gate tables" "$gates_out" "decoy gate"
+assert_not_contains "history --gates never emits a time estimate" "$gates_out" "remainingBandMinutes"
+node "$ROOT/scripts/execution-ledger.mjs" set-phase --session fixture-gates --phase P1 --workstream stack-routing --status verified
+gates_advanced_out="$(node "$ROOT/scripts/execution-ledger.mjs" history --gates --session fixture-gates --plan "$gates_plan")"
+assert_contains "history --gates advances to the next gate when a phase verifies" "$gates_advanced_out" "nextGate=ship gate green"
+assert_not_contains "history --gates drops the verified phase gate" "$gates_advanced_out" "build gate green"
+node "$ROOT/scripts/execution-ledger.mjs" set-phase --session fixture-gates --phase P1 --workstream stack-routing --status in_progress
+assert_command "history --gates exits zero without --plan" node "$ROOT/scripts/execution-ledger.mjs" history --gates --session fixture-gates
+gates_no_plan_out="$(node "$ROOT/scripts/execution-ledger.mjs" history --gates --session fixture-gates)"
+assert_contains "history --gates without plan keeps task counts" "$gates_no_plan_out" "tasks=2/4"
+assert_contains "history --gates without plan reports no plan source" "$gates_no_plan_out" "planStatus=not-provided"
+assert_contains "history --gates without plan reports unknown next gate" "$gates_no_plan_out" "nextGate=unknown"
+assert_not_contains "history --gates without plan omits gate names" "$gates_no_plan_out" "build gate green"
+assert_command "history --gates exits zero when plan file is missing" node "$ROOT/scripts/execution-ledger.mjs" history --gates --session fixture-gates --plan "$TMPROOT/tg03-absent-plan.md"
+gates_missing_plan_out="$(node "$ROOT/scripts/execution-ledger.mjs" history --gates --session fixture-gates --plan "$TMPROOT/tg03-absent-plan.md")"
+assert_contains "history --gates reports a missing plan file" "$gates_missing_plan_out" "planStatus=missing"
+assert_contains "history --gates falls back to task counts on missing plan" "$gates_missing_plan_out" "tasks=2/4"
+gates_json="$(node "$ROOT/scripts/execution-ledger.mjs" history --gates --session fixture-gates --plan "$gates_plan" --json)"
+assert_json_expr "history --gates json reports counts and metadata" "$gates_json" '.done == 2 and .total == 4 and .remaining == 2 and .phase == "P1" and .workstream == "stack-routing" and .uatOpenFindings == 1'
+assert_json_expr "history --gates json names the next gate" "$gates_json" '.planStatus == "parsed" and .nextGate.gate == "build gate green" and .nextGate.phase == "P1 Build"'
+gates_json_no_plan="$(node "$ROOT/scripts/execution-ledger.mjs" history --gates --session fixture-gates --json)"
+assert_json_expr "history --gates json nulls next gate without plan" "$gates_json_no_plan" '.nextGate == null and .planStatus == "not-provided" and .done == 2 and .total == 4'
+assert_json_expr "history --gates json emits wave trajectory counters" "$gates_json" '(.waves | length) == 1 and .waves[0].waveId == "wave-1" and .waves[0].recurringFindingCount == 3 and .waves[0].streamAlternationCount == 4 and .waves[0].roundsSinceProgress == 2'
+node "$ROOT/scripts/execution-ledger.mjs" record-trajectory --session fixture-gates --wave wave-1 --rounds-since-progress 0
+node "$ROOT/scripts/execution-ledger.mjs" record-trajectory --session fixture-gates --wave wave-2 --recurring-finding-count 1
+gates_json_updated="$(node "$ROOT/scripts/execution-ledger.mjs" history --gates --session fixture-gates --json)"
+assert_json_expr "record-trajectory updates one counter and keeps the rest" "$gates_json_updated" '.waves[0].roundsSinceProgress == 0 and .waves[0].recurringFindingCount == 3 and .waves[0].streamAlternationCount == 4'
+assert_json_expr "record-trajectory tracks counters per wave" "$gates_json_updated" '(.waves | length) == 2 and .waves[1].waveId == "wave-2" and .waves[1].recurringFindingCount == 1 and .waves[1].streamAlternationCount == 0'
+gates_ledger_path="$(jq -r .path "$ETRNL_RUNS_DIR/current-fixture-gates.json")"
+assert_json_expr "ledger persists wave trajectory counters" "$(jq -c . "$gates_ledger_path")" '(.waves | map(select(.waveId == "wave-1")) | first | .streamAlternationCount) == 4'
+assert_command "execution ledger validates recorded waves" node "$ROOT/scripts/execution-ledger.mjs" validate "$gates_ledger_path"
+if node "$ROOT/scripts/execution-ledger.mjs" record-trajectory --session fixture-gates --wave wave-3 --recurring-finding-count notanumber >/dev/null 2>&1; then
+  not_ok "record-trajectory rejects non-numeric counters"
+else
+  ok "record-trajectory rejects non-numeric counters"
+fi
+if node "$ROOT/scripts/execution-ledger.mjs" record-trajectory --session fixture-gates --recurring-finding-count 1 >/dev/null 2>&1; then
+  not_ok "record-trajectory requires --wave"
+else
+  ok "record-trajectory requires --wave"
+fi
+bad_wave_ledger="$TMPROOT/tg03-bad-wave-ledger.json"
+jq '.waves = [{waveId:"wave-1",recurringFindingCount:-2,streamAlternationCount:0,roundsSinceProgress:0}]' "$gates_ledger_path" >"$bad_wave_ledger"
+if bad_wave_out="$(node "$ROOT/scripts/execution-ledger.mjs" validate "$bad_wave_ledger" 2>&1)"; then
+  not_ok "execution ledger rejects negative trajectory counters"
+else
+  assert_contains "execution ledger names the invalid trajectory counter" "$bad_wave_out" "recurringFindingCount must be a non-negative integer"
+  ok "execution ledger rejects negative trajectory counters"
+fi
+assert_contains "execution ledger usage documents the gates flag" "$(node "$ROOT/scripts/execution-ledger.mjs" bogus-command 2>&1 || true)" "--gates"
+
+# --- TG-11: plan triviality triage ---
+triage() { node "$ROOT/scripts/diff-triviality.mjs" classify-plan --root "$ROOT" --plan "$1" ${2:-}; }
+
+tg11_trivial_plan="$TMPROOT/tg11-trivial.md"
+cat >"$tg11_trivial_plan" <<'PLAN'
+# Trivial Fixture Plan
+
+Status: Final
+Risk tier: 2 — documentation refresh only
+
+## File map
+
+| Path | Change |
+| --- | --- |
+| `docs/skills.md` | modify — refresh the routing table |
+| `README.md` | modify — doc index link |
+| `CHANGELOG.md` | modify — release note |
+
+## Task groups
+PLAN
+assert_command "classify-plan exits zero on a trivial plan" node "$ROOT/scripts/diff-triviality.mjs" classify-plan --root "$ROOT" --plan "$tg11_trivial_plan"
+tg11_trivial_out="$(triage "$tg11_trivial_plan")"
+assert_contains "classify-plan marks a 3-path non-behavioral tier 2 plan trivial" "$tg11_trivial_out" "scope=trivial"
+assert_contains "classify-plan reports the trivial file count" "$tg11_trivial_out" "files=3"
+assert_contains "classify-plan reports zero behavioral rows on a trivial plan" "$tg11_trivial_out" "behavioral=0"
+tg11_trivial_json="$(triage "$tg11_trivial_plan" --json)"
+assert_json_expr "classify-plan json reports trivial scope, tier, and counts" "$tg11_trivial_json" '.scope == "trivial" and .tier == 2 and .fileCount == 3 and (.behavioralPaths | length) == 0'
+assert_json_expr "classify-plan json classifies every file-map row" "$tg11_trivial_json" '(.rows | length) == 3 and (.rows | map(.runtime) | all(. == false))'
+
+tg11_four_path_plan="$TMPROOT/tg11-four-path.md"
+cat >"$tg11_four_path_plan" <<'PLAN'
+# Four Path Fixture Plan
+
+Risk tier: 2 — documentation refresh only
+
+## File map
+
+| Path | Change |
+| --- | --- |
+| `docs/skills.md` | modify — refresh the routing table |
+| `docs/install.md` | modify — refresh the install notes |
+| `README.md` | modify — doc index link |
+| `CHANGELOG.md` | modify — release note |
+PLAN
+tg11_four_path_out="$(triage "$tg11_four_path_plan")"
+assert_contains "classify-plan drops a 4-path plan out of trivial" "$tg11_four_path_out" "scope=small"
+assert_contains "classify-plan names the file-count cap as the reason" "$tg11_four_path_out" "reason=file-count-above-trivial-cap"
+
+tg11_behavioral_plan="$TMPROOT/tg11-behavioral.md"
+cat >"$tg11_behavioral_plan" <<'PLAN'
+# Behavioral Fixture Plan
+
+Risk tier: 2 — one script change
+
+## File map
+
+| Path | Change |
+| --- | --- |
+| `docs/skills.md` | modify — refresh the routing table |
+| `scripts/workflow-health.mjs` | modify — add a projection |
+| `CHANGELOG.md` | modify — release note |
+PLAN
+tg11_behavioral_out="$(triage "$tg11_behavioral_plan")"
+assert_contains "classify-plan denies trivial to a 3-path behavioral plan" "$tg11_behavioral_out" "scope=small"
+assert_contains "classify-plan names the behavioral change as the reason" "$tg11_behavioral_out" "reason=behavioral-change-declared"
+assert_json_expr "classify-plan json names the behavioral path" "$(triage "$tg11_behavioral_plan" --json)" '.behavioralPaths == ["scripts/workflow-health.mjs"] and .fileCount == 3'
+
+tg11_declared_plan="$TMPROOT/tg11-declared.md"
+cat >"$tg11_declared_plan" <<'PLAN'
+# Declared Non-Behavioral Fixture Plan
+
+Risk tier: 2 — local rename
+
+## File map
+
+| Path | Change |
+| --- | --- |
+| `scripts/workflow-health.mjs` | modify — rename a local variable, no behavioral change |
+| `CHANGELOG.md` | modify — release note |
+PLAN
+assert_contains "classify-plan honors an explicit no-behavioral-change row" "$(triage "$tg11_declared_plan")" "scope=trivial"
+
+tg11_tier3_plan="$TMPROOT/tg11-tier3.md"
+cat >"$tg11_tier3_plan" <<'PLAN'
+# Tier 3 Fixture Plan
+
+Risk tier: 3 — installed-home behavior
+
+## File map
+
+| Path | Change |
+| --- | --- |
+| `docs/skills.md` | modify — refresh the routing table |
+| `CHANGELOG.md` | modify — release note |
+PLAN
+tg11_tier3_out="$(triage "$tg11_tier3_plan")"
+assert_contains "classify-plan keeps tier 3 large at two paths" "$tg11_tier3_out" "scope=large"
+assert_contains "classify-plan names tier 3 as the large reason" "$tg11_tier3_out" "reason=tier-3-full-packet"
+
+tg11_underdeclared_plan="$TMPROOT/tg11-underdeclared.md"
+cat >"$tg11_underdeclared_plan" <<'PLAN'
+# Under-declared Fixture Plan
+
+Risk tier: 2 — claims tier 2 while touching a tier 3 surface
+
+## File map
+
+| Path | Change |
+| --- | --- |
+| `hooks/cc-rate-limiter.sh` | modify — comment only, no behavioral change |
+| `CHANGELOG.md` | modify — release note |
+PLAN
+tg11_underdeclared_out="$(triage "$tg11_underdeclared_plan")"
+assert_contains "classify-plan refuses a light shape on an under-declared tier 3 surface" "$tg11_underdeclared_out" "scope=large"
+assert_contains "classify-plan names the under-declared surface" "$tg11_underdeclared_out" "reason=tier-3-surface-under-declared"
+
+tg11_config_plan="$TMPROOT/tg11-config.md"
+cat >"$tg11_config_plan" <<'PLAN'
+# Config Fixture Plan
+
+Risk tier: 2 — profile template
+
+## File map
+
+| Path | Change |
+| --- | --- |
+| `templates/stack-profile.core.json` | modify — comment only, no behavioral change |
+| `CHANGELOG.md` | modify — release note |
+PLAN
+assert_contains "classify-plan denies trivial to a data/config row despite the declaration" "$(triage "$tg11_config_plan")" "scope=small"
+
+tg11_wide_plan="$TMPROOT/tg11-wide.md"
+{
+  printf '# Wide Fixture Plan\n\nRisk tier: 2 — many docs\n\n## File map\n\n| Path | Change |\n| --- | --- |\n'
+  for n in $(seq 1 9); do printf '| `docs/note-%s.md` | modify — refresh the note |\n' "$n"; done
+} >"$tg11_wide_plan"
+tg11_wide_out="$(triage "$tg11_wide_plan")"
+assert_contains "classify-plan marks a 9-path documentation plan large" "$tg11_wide_out" "scope=large"
+assert_contains "classify-plan names the small cap as the large reason" "$tg11_wide_out" "reason=file-count-above-small-cap"
+
+tg11_multi_cell_plan="$TMPROOT/tg11-multi-cell.md"
+cat >"$tg11_multi_cell_plan" <<'PLAN'
+# Multi Path Cell Fixture Plan
+
+Risk tier: 2 — one row naming several files
+
+## File map
+
+| Path | Change |
+| --- | --- |
+| `docs/skills.md`, `docs/install.md`, `README.md`, `CHANGELOG.md` | modify — refresh the docs |
+PLAN
+assert_json_expr "classify-plan counts every path inside one file-map cell" "$(triage "$tg11_multi_cell_plan" --json)" '.fileCount == 4 and .scope == "small"'
+
+tg11_tier1_plan="$TMPROOT/tg11-tier1.md"
+cat >"$tg11_tier1_plan" <<'PLAN'
+# Tier 1 Fixture Plan
+
+Risk tier: 1 — quick dev lane
+
+## File map
+
+| Path | Change |
+| --- | --- |
+| `docs/skills.md` | modify — typo fix |
+PLAN
+assert_contains "classify-plan reports no triage below tier 2" "$(triage "$tg11_tier1_plan")" "scope=not-applicable"
+
+tg11_nomap_plan="$TMPROOT/tg11-nomap.md"
+printf '# No File Map Fixture Plan\n\nRisk tier: 2 — no file map\n\n## Task groups\n' >"$tg11_nomap_plan"
+assert_contains "classify-plan falls back to large on an unparseable file map" "$(triage "$tg11_nomap_plan")" "reason=file-map-empty"
+
+assert_command "classify-plan exits zero on a missing plan file" node "$ROOT/scripts/diff-triviality.mjs" classify-plan --root "$ROOT" --plan "$TMPROOT/tg11-absent.md"
+tg11_absent_out="$(triage "$TMPROOT/tg11-absent.md")"
+assert_contains "classify-plan falls back to large on a missing plan file" "$tg11_absent_out" "scope=large"
+assert_contains "classify-plan names the unreadable plan" "$tg11_absent_out" "reason=plan-unreadable"
+
+if node "$ROOT/scripts/diff-triviality.mjs" classify-plan --root "$ROOT" >/dev/null 2>&1; then
+  not_ok "classify-plan requires --plan"
+else
+  ok "classify-plan requires --plan"
+fi
+assert_contains "diff-triviality usage documents classify-plan" "$(node "$ROOT/scripts/diff-triviality.mjs" bogus-command 2>&1 || true)" "classify-plan"
+assert_json_expr "classify keeps the Stop-verifier fast path after the plan extension" "$(node "$ROOT/scripts/diff-triviality.mjs" classify --root "$ROOT" --json README.md)" '.trivial == true and .total == 1'
+
+tg11_sandbox="$TMPROOT/tg11-sandbox"
+mkdir -p "$tg11_sandbox/scripts" "$tg11_sandbox/schemas"
+cp "$ROOT/scripts/diff-triviality.mjs" "$tg11_sandbox/scripts/diff-triviality.mjs"
+cp "$ROOT/schemas/review-classification-rules-v1.json" "$tg11_sandbox/schemas/review-classification-rules-v1.json"
+assert_json_expr "classify survives without scripts/lib (Stop-verifier fast path)" "$(node "$tg11_sandbox/scripts/diff-triviality.mjs" classify --root "$ROOT" --json README.md)" '.trivial == true'
+assert_contains "classify-plan falls back to large without the tier parser" "$(node "$tg11_sandbox/scripts/diff-triviality.mjs" classify-plan --root "$ROOT" --plan "$tg11_trivial_plan")" "reason=plan-helper-unavailable"
+
+tg11_autoplan_skill="$(cat "$ROOT/skills/etrnl-dev-autoplan/SKILL.md")"
+assert_contains "autoplan tier assessment references the plan classifier" "$tg11_autoplan_skill" "classify-plan --plan <plan-path> --json"
+assert_contains "autoplan emits a scope triage line" "$tg11_autoplan_skill" "Scope triage: <value>"
+assert_contains "autoplan keeps tier 3 large at every file count" "$tg11_autoplan_skill" "Tier 3 is Large at every file count"
+tg11_execute_skill="$(cat "$ROOT/skills/etrnl-dev-execute/SKILL.md")"
+assert_contains "execute skill carries the plan scope triage section" "$tg11_execute_skill" "## Plan scope triage"
+assert_contains "execute skill dispatches trivial work with the mini packet" "$tg11_execute_skill" "--template mini"
+assert_contains "execute skill spawns no reviewers on a trivial scope" "$tg11_execute_skill" "Spawn no \`etrnl-spec-reviewer\`"
+assert_contains "execute skill keeps tier 3 out of the trivial shape" "$tg11_execute_skill" "Tier 3 is never Trivial"
+
+# --- TG-12: review economy ---
+tg12_dir="$TMPROOT/tg12"
+mkdir -p "$tg12_dir"
+tg12_plan="$tg12_dir/plan.md"
+cat >"$tg12_plan" <<'PLAN'
+# Review Economy Fixture Plan
+
+Status: Final
+Goal: Exercise trajectory park thresholds.
+
+## Phases
+
+| Phase | Task groups | Gate |
+| --- | --- | --- |
+| P0 Review | TG-A | review gate green |
+PLAN
+node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-tg12 --plan "$tg12_plan" >/dev/null
+node "$ROOT/scripts/execution-ledger.mjs" record-trajectory --session fixture-tg12 --wave wave-clean --recurring-finding-count 2 --stream-alternation-count 3 --rounds-since-progress 1
+node "$ROOT/scripts/execution-ledger.mjs" record-trajectory --session fixture-tg12 --wave wave-recurring --recurring-finding-count 3 --stream-alternation-count 0 --rounds-since-progress 0
+node "$ROOT/scripts/execution-ledger.mjs" record-trajectory --session fixture-tg12 --wave wave-alternation --recurring-finding-count 0 --stream-alternation-count 4 --rounds-since-progress 0
+node "$ROOT/scripts/execution-ledger.mjs" record-trajectory --session fixture-tg12 --wave wave-stalled --recurring-finding-count 0 --stream-alternation-count 0 --rounds-since-progress 2
+tg12_gates="$tg12_dir/gates.json"
+node "$ROOT/scripts/execution-ledger.mjs" history --gates --session fixture-tg12 --json >"$tg12_gates"
+assert_json_expr "TG-12 reads trajectory counters from the ledger gates CLI" "$(jq -c . "$tg12_gates")" '(.waves | length) == 4'
+
+tg12_findings="$tg12_dir/findings.json"
+cat >"$tg12_findings" <<'JSON'
+[
+  {"reviewer":"etrnl-quality-reviewer","severity":"P2","confidence":0.75,"file":"src/a.ts","line":4,"fingerprint":"fp-recurring","summary":"Naming nit","autofix_class":"safe_auto"}
+]
+JSON
+tg12_zero_findings="$tg12_dir/zero-findings.json"
+cat >"$tg12_zero_findings" <<'JSON'
+[
+  {"reviewer":"etrnl-dx-reviewer","severity":"P3","confidence":0.70,"file":"docs/a.md","line":2,"summary":"Doc gap","autofix_class":"manual"}
+]
+JSON
+tg12_park() { node "$ROOT/scripts/review-merge.mjs" --file "$tg12_findings" --trajectory "$tg12_gates" --wave "$@"; }
+
+tg12_clean_park="$(tg12_park wave-clean)"
+assert_json_expr "review-merge keeps a converging stream unparked" "$tg12_clean_park" '.park.parked == false and (.park.reasons | length) == 0'
+assert_json_expr "review-merge exposes the park limits as named constants" "$tg12_clean_park" '.park.limits.recurringFindingCount == 3 and .park.limits.streamAlternationCount == 4 and .park.limits.roundsSinceProgress == 2'
+assert_json_expr "review-merge echoes the ledger counters it evaluated" "$tg12_clean_park" '.park.waveId == "wave-clean" and .park.counters.recurringFindingCount == 2 and .park.counters.streamAlternationCount == 3 and .park.counters.roundsSinceProgress == 1'
+
+tg12_recurring_park="$(tg12_park wave-recurring)"
+assert_json_expr "review-merge parks on the recurring-finding threshold" "$tg12_recurring_park" '.park.parked == true and (.park.reasons | length) == 1 and .park.reasons[0].reasonCode == "recurring-finding-limit" and .park.reasons[0].value == 3 and .park.reasons[0].limit == 3'
+tg12_alternation_park="$(tg12_park wave-alternation)"
+assert_json_expr "review-merge parks on the stream-alternation threshold" "$tg12_alternation_park" '.park.parked == true and (.park.reasons | length) == 1 and .park.reasons[0].reasonCode == "stream-alternation-limit" and .park.reasons[0].value == 4'
+tg12_stalled_park="$(tg12_park wave-stalled)"
+assert_json_expr "review-merge parks on the rounds-since-progress threshold" "$tg12_stalled_park" '.park.parked == true and (.park.reasons | length) == 1 and .park.reasons[0].reasonCode == "rounds-since-progress-limit" and .park.reasons[0].value == 2'
+
+tg12_before_cap="$(tg12_park wave-recurring --reopen-round 1 --reopen-cap 4)"
+assert_json_expr "review-merge parks before the reopen cap is exhausted" "$tg12_before_cap" '.park.parked == true and .park.reopenRoundsUsed == 1 and .park.reopenCap == 4 and .park.reopenCapExhausted == false'
+assert_contains "review-merge markdown names the park reason" "$(node "$ROOT/scripts/review-merge.mjs" --file "$tg12_findings" --trajectory "$tg12_gates" --wave wave-recurring --markdown)" "parked — recurring-finding-limit"
+
+assert_json_expr "review-merge raises the recurring limit from the environment" "$(ETRNL_REVIEW_RECURRING_FINDING_LIMIT=4 tg12_park wave-recurring)" '.park.parked == false and .park.limits.recurringFindingCount == 4'
+assert_json_expr "review-merge lowers the alternation limit from the environment" "$(ETRNL_REVIEW_STREAM_ALTERNATION_LIMIT=2 tg12_park wave-clean)" '.park.parked == true and .park.reasons[0].reasonCode == "stream-alternation-limit"'
+assert_json_expr "review-merge lowers the progress limit from the environment" "$(ETRNL_REVIEW_ROUNDS_SINCE_PROGRESS_LIMIT=1 tg12_park wave-clean)" '.park.parked == true and .park.reasons[0].reasonCode == "rounds-since-progress-limit"'
+if ETRNL_REVIEW_RECURRING_FINDING_LIMIT=0 tg12_park wave-recurring >/dev/null 2>&1; then
+  not_ok "review-merge rejects a non-positive park limit override"
+else
+  ok "review-merge rejects a non-positive park limit override"
+fi
+if tg12_park wave-absent >/dev/null 2>&1; then
+  not_ok "review-merge fails closed when the named wave is absent"
+else
+  ok "review-merge fails closed when the named wave is absent"
+fi
+if node "$ROOT/scripts/review-merge.mjs" --file "$tg12_findings" --wave wave-recurring >/dev/null 2>&1; then
+  not_ok "review-merge rejects --wave without --trajectory"
+else
+  ok "review-merge rejects --wave without --trajectory"
+fi
+assert_json_expr "review-merge reports no trajectory source when none is passed" "$(node "$ROOT/scripts/review-merge.mjs" --file "$tg12_findings")" '.park.parked == false and .park.trajectoryStatus == "not-provided"'
+
+tg12_rules_root="$tg12_dir/rules-root"
+mkdir -p "$tg12_rules_root/src"
+printf 'const x = 1; // FIXME-TG12\n' >"$tg12_rules_root/src/app.ts"
+tg12_rules_cfg="$tg12_dir/tg12-review-rules.json"
+cat >"$tg12_rules_cfg" <<'JSON'
+{
+  "schemaVersion": 1,
+  "rulesetId": "tg12-fixture",
+  "version": 1,
+  "enabledRuleIds": ["tg12-no-fixme"],
+  "rules": [
+    {
+      "ruleId": "tg12-no-fixme",
+      "mode": "block",
+      "engine": "literal",
+      "lensId": "lens-tg12",
+      "category": "maintainability",
+      "severity": "P2",
+      "scopeGlobs": ["src/*.ts"],
+      "literal": { "needle": "FIXME-TG12" }
+    }
+  ]
+}
+JSON
+tg12_rules() { node "$ROOT/scripts/review-rules.mjs" check --config "$tg12_rules_cfg" --root "$tg12_rules_root" "$@"; }
+if tg12_rules --json >/dev/null 2>&1; then
+  not_ok "review-rules still blocks without --report-only"
+else
+  ok "review-rules still blocks without --report-only"
+fi
+assert_json_expr "review-rules blocks a block-mode match by default" "$(tg12_rules --json || true)" '.status == "block" and .reportOnly == false'
+assert_command "review-rules --report-only exits zero on a block-mode match" node "$ROOT/scripts/review-rules.mjs" check --config "$tg12_rules_cfg" --root "$tg12_rules_root" --report-only
+tg12_report_only_status=0
+tg12_rules --report-only --json >/dev/null 2>&1 || tg12_report_only_status=$?
+assert_contains "review-rules --report-only never returns the block exit code" "$tg12_report_only_status" "0"
+tg12_report_only="$(tg12_rules --report-only --json || true)"
+assert_json_expr "review-rules --report-only returns the findings" "$tg12_report_only" '(.findings | length) == 1 and .findings[0].ruleId == "tg12-no-fixme"'
+assert_json_expr "review-rules --report-only reports without escalating" "$tg12_report_only" '.status == "report-only" and .reportOnly == true and .blockingCount == 1'
+assert_json_expr "review-rules --report-only leaves the authored rule mode alone" "$tg12_report_only" '.findings[0].mode == "block"'
+assert_contains "review-rules --report-only labels the text output" "$(tg12_rules --report-only || true)" "report-only: no escalation to block"
+tg12_rules_cfg_before="$(shasum "$tg12_rules_cfg" | awk '{print $1}')"
+tg12_rules --report-only >/dev/null || true
+assert_contains "review-rules --report-only never rewrites the ruleset" "$(shasum "$tg12_rules_cfg" | awk '{print $1}')" "$tg12_rules_cfg_before"
+if tg12_rules --json >/dev/null 2>&1; then
+  not_ok "review-rules blocks again after a report-only run"
+else
+  ok "review-rules blocks again after a report-only run"
+fi
+tg12_broken_cfg="$tg12_dir/tg12-broken-rules.json"
+jq '.rules[0].engine = "no-such-engine"' "$tg12_rules_cfg" >"$tg12_broken_cfg"
+tg12_broken_status=0
+node "$ROOT/scripts/review-rules.mjs" check --config "$tg12_broken_cfg" --root "$tg12_rules_root" --report-only --json >/dev/null 2>&1 || tg12_broken_status=$?
+assert_contains "review-rules --report-only keeps cannot-evaluate failing closed" "$tg12_broken_status" "2"
+
+tg12_learnings="$tg12_dir/review-learnings.json"
+cat >"$tg12_learnings" <<'JSON'
+{
+  "schemaVersion": 1,
+  "recurrences": { "tg12-seed-key": 2 },
+  "promoted": {},
+  "cleanRuns": {}
+}
+JSON
+tg12_reviewers="etrnl-quality-reviewer,etrnl-security-reviewer,etrnl-tenancy-reviewer,flows-and-states,accessibility"
+tg12_dispatch() { node "$ROOT/scripts/review-merge.mjs" --file "$1" --dispatched "$tg12_reviewers" --learnings "$tg12_learnings"; }
+tg12_skip_plan() { node "$ROOT/scripts/review-merge.mjs" skip-plan --reviewers "$tg12_reviewers" --learnings "$tg12_learnings" --json; }
+tg12_dispatch_out="$(tg12_dispatch "$tg12_zero_findings")"
+assert_json_expr "review-merge records a zero-finding dispatch per reviewer" "$tg12_dispatch_out" '(.dispatchAccounting.reviewers | length) == 5 and (.dispatchAccounting.reviewers[0].zeroFindingStreak) == 1 and (.dispatchAccounting.reviewers[0].findingCount) == 0'
+for _ in 2 3 4; do tg12_dispatch "$tg12_zero_findings" >/dev/null; done
+assert_json_expr "review-merge persists reviewer counters in review-learnings.json" "$(jq -c . "$tg12_learnings")" '.reviewerDispatches["etrnl-quality-reviewer"].zeroFindingStreak == 4 and .reviewerDispatches["etrnl-quality-reviewer"].dispatches == 4'
+assert_json_expr "review-merge keeps the review-learn rows in the shared store" "$(jq -c . "$tg12_learnings")" '.recurrences["tg12-seed-key"] == 2 and .schemaVersion == 1'
+tg12_pre_skip="$(tg12_skip_plan)"
+assert_json_expr "adaptive skip holds below the streak limit" "$tg12_pre_skip" '(.skips | length) == 0 and (.dispatch | length) == 5 and .streakLimit == 5'
+assert_json_expr "adaptive skip lowers the streak limit from the environment" "$(ETRNL_REVIEW_ADAPTIVE_SKIP_STREAK=3 tg12_skip_plan)" '(.skips | length) == 1 and .streakLimit == 3 and .skips[0].reviewer == "etrnl-quality-reviewer"'
+tg12_dispatch "$tg12_zero_findings" >/dev/null
+tg12_skip_out="$(tg12_skip_plan)"
+assert_json_expr "adaptive skip drops a reviewer at five zero-finding dispatches" "$tg12_skip_out" '(.skips | length) == 1 and .skips[0].reviewer == "etrnl-quality-reviewer" and .skips[0].zeroFindingStreak == 5'
+assert_json_expr "adaptive skip carries a machine-readable reason" "$tg12_skip_out" '.skips[0].reasonCode == "zero-finding-streak" and (.skips[0].reason | length) > 0 and .skips[0].count == 1 and .skipEvaluation == "evaluated"'
+assert_json_expr "adaptive skip exempts the security reviewer" "$tg12_skip_out" '(.dispatch | index("etrnl-security-reviewer")) != null and ([.exemptions[] | select(.reviewer == "etrnl-security-reviewer") | .reasonCode] == ["exempt-security"])'
+assert_json_expr "adaptive skip exempts the tenancy reviewer" "$tg12_skip_out" '(.dispatch | index("etrnl-tenancy-reviewer")) != null and ([.exemptions[] | select(.reviewer == "etrnl-tenancy-reviewer") | .reasonCode] == ["exempt-tenancy"])'
+assert_json_expr "adaptive skip exempts registered deep-audit lanes" "$tg12_skip_out" '(.dispatch | index("flows-and-states")) != null and (.dispatch | index("accessibility")) != null and ([.exemptions[] | select(.reasonCode == "exempt-audit-lane") | .reviewer] | sort) == ["accessibility","flows-and-states"]'
+assert_json_expr "adaptive skip keeps a zero-finding audit lane at full streak" "$tg12_skip_out" '([.exemptions[] | select(.reviewer == "flows-and-states") | .zeroFindingStreak] == [5])'
+tg12_dispatch "$tg12_findings" >/dev/null
+assert_json_expr "one finding resets the reviewer streak" "$(jq -c . "$tg12_learnings")" '.reviewerDispatches["etrnl-quality-reviewer"].zeroFindingStreak == 0 and .reviewerDispatches["etrnl-quality-reviewer"].lastFindingCount == 1'
+assert_json_expr "adaptive skip dispatches the reviewer again after a reset" "$(tg12_skip_plan)" '(.skips | length) == 0 and (.dispatch | length) == 5'
+tg12_shared_store="$tg12_dir/shared-learnings.json"
+cp "$tg12_learnings" "$tg12_shared_store"
+tg12_learn_findings="$tg12_dir/learn-findings.json"
+printf '[{"summary":"avoid any in tests","category":"types"}]\n' >"$tg12_learn_findings"
+node "$ROOT/scripts/review-learn.mjs" learn --findings "$tg12_learn_findings" --root "$tg12_dir" --ledger "$tg12_shared_store" --json >/dev/null
+assert_json_expr "review-learn keeps the reviewer dispatch counters in the shared store" "$(jq -c . "$tg12_shared_store")" '.reviewerDispatches["etrnl-quality-reviewer"].dispatches >= 5 and (.recurrences | length) >= 1'
+if node "$ROOT/scripts/review-merge.mjs" skip-plan --learnings "$tg12_learnings" --json >/dev/null 2>&1; then
+  not_ok "skip-plan requires --reviewers"
+else
+  ok "skip-plan requires --reviewers"
+fi
+
+tg12_bounded_review="$(cat "$ROOT/skills/etrnl-dev-execute/references/bounded-review.md")"
+assert_contains "bounded-review documents the recurring-finding park limit" "$tg12_bounded_review" "ETRNL_REVIEW_RECURRING_FINDING_LIMIT"
+assert_contains "bounded-review documents the alternation park limit" "$tg12_bounded_review" "ETRNL_REVIEW_STREAM_ALTERNATION_LIMIT"
+assert_contains "bounded-review documents the progress park limit" "$tg12_bounded_review" "ETRNL_REVIEW_ROUNDS_SINCE_PROGRESS_LIMIT"
+assert_contains "bounded-review documents the report-only deterministic pass" "$tg12_bounded_review" "--report-only"
+assert_contains "bounded-review carries the tier 3 Codex-profile carve-out" "$tg12_bounded_review" "Codex-profile carve-out"
+assert_contains "bounded-review keeps tier 3 gates at full strength" "$tg12_bounded_review" "Tier 3 gates hold at full strength on every wave"
+assert_contains "bounded-review exempts deep-audit lanes from adaptive skip" "$tg12_bounded_review" "every deep-audit lane registered in \`scripts/lib/deep-audit-categories.mjs\`"
+assert_contains "bounded-review reuses the review-learnings store" "$tg12_bounded_review" "reviewerDispatches"
+tg12_batch_execution="$(cat "$ROOT/skills/etrnl-dev-execute/references/batch-execution.md")"
+assert_contains "batch-execution defers tier 0-2 human-verify pauses" "$tg12_batch_execution" "## Human-verify batching (tier ≤ 2 default)"
+assert_contains "batch-execution keeps tier 3 UAT gates in place" "$tg12_batch_execution" "Tier 3 keeps explicit UAT gates where the plan places them"
 
 finish_tests

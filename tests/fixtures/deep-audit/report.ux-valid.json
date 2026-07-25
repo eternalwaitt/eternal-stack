@@ -1,0 +1,394 @@
+{
+  "schemaVersion": 1,
+  "auditId": "deep-audit-ux-valid",
+  "categoryRegistryVersion": "2026-07-24.1",
+  "registeredCategories": [
+    "code-excellence",
+    "ui-ux-product",
+    "production-readiness",
+    "security",
+    "performance",
+    "shared-reuse",
+    "repo-hygiene",
+    "tooling-ecosystem"
+  ],
+  "knownUnimplementedCategories": [
+    "api-data",
+    "payments",
+    "privacy-compliance"
+  ],
+  "coverageStatement": "Coverage: ui-ux-product completed across 2 routes, 3 viewports, and 12 state cells. Known not-yet-registered audit domains: api-data, payments, privacy-compliance. This is not a claim that every possible audit domain has run.",
+  "targetLabel": "synthetic-app",
+  "targetFingerprint": "repo:synthetic-app@ux-valid",
+  "requestedCategories": [
+    "ui-ux-product"
+  ],
+  "runArtifactLabel": "deep-audit-ux-valid-run",
+  "worklists": {
+    "ux_routes": {
+      "count": 2,
+      "sha256": "sha256:ux_routes",
+      "artifactLabel": "ux-routes"
+    },
+    "ux_components": {
+      "count": 1,
+      "sha256": "sha256:ux_components",
+      "artifactLabel": "ux-components"
+    },
+    "ux_states": {
+      "count": 2,
+      "sha256": "sha256:ux_states",
+      "artifactLabel": "ux-states"
+    },
+    "ux_styles": {
+      "count": 3,
+      "sha256": "sha256:ux_styles",
+      "artifactLabel": "ux-styles"
+    },
+    "ux_copy": {
+      "count": 4,
+      "sha256": "sha256:ux_copy",
+      "artifactLabel": "ux-copy"
+    },
+    "ux_accessibility": {
+      "count": 2,
+      "sha256": "sha256:ux_accessibility",
+      "artifactLabel": "ux-accessibility"
+    }
+  },
+  "categoryReports": [
+    {
+      "categoryId": "ui-ux-product",
+      "status": "findings_present",
+      "consumedWorklistHashes": {
+        "ux_routes": "sha256:ux_routes",
+        "ux_components": "sha256:ux_components",
+        "ux_states": "sha256:ux_states",
+        "ux_styles": "sha256:ux_styles",
+        "ux_copy": "sha256:ux_copy",
+        "ux_accessibility": "sha256:ux_accessibility"
+      },
+      "coverage": {
+        "routesTotal": 2,
+        "routesCovered": 2,
+        "surfacesTotal": 2,
+        "surfacesCovered": 2,
+        "stateCellsTotal": 12,
+        "stateCellsCovered": 10,
+        "viewportsCovered": [
+          "375x812",
+          "768x1024",
+          "1440x900"
+        ],
+        "axesCovered": {
+          "viewports": [
+            "375x812",
+            "768x1024",
+            "1440x900"
+          ],
+          "themes": [
+            "light",
+            "dark"
+          ],
+          "locales": [
+            "en",
+            "pt-BR"
+          ],
+          "textDirections": [
+            "ltr"
+          ],
+          "authStates": [
+            "anonymous"
+          ],
+          "dataVolumes": [
+            "empty",
+            "single",
+            "many",
+            "overflow"
+          ],
+          "zoomLevels": [
+            "100",
+            "200"
+          ]
+        }
+      },
+      "coverageExceptions": [
+        {
+          "kind": "state-cells",
+          "count": 2,
+          "reason": "optimistic and partial states unreachable without a write fixture"
+        }
+      ],
+      "quickWins": [
+        {
+          "id": "ux-qw-1",
+          "route": "/",
+          "change": "Replace p-[13px] with the p-3 spacing step",
+          "effort": "single token swap"
+        }
+      ],
+      "systemicFindings": [
+        {
+          "pattern": "Arbitrary Tailwind values used next to a defined scale",
+          "instanceCount": 2,
+          "instances": [
+            "app/page.tsx:3",
+            "app/page.tsx:4"
+          ],
+          "remediation": "Map both call sites onto the spacing and type scale"
+        }
+      ],
+      "checks": [
+        {
+          "checkId": "ux-01-primary-flows",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Primary product flows - 0 findings",
+          "nonFindings": {
+            "routesCovered": [
+              "/",
+              "/dashboard"
+            ],
+            "viewportsCovered": [
+              "375x812",
+              "768x1024",
+              "1440x900"
+            ],
+            "statesExercised": [
+              "entry",
+              "primary action",
+              "error recovery",
+              "exit"
+            ],
+            "baselineCompared": "Nielsen heuristics 1 and 9",
+            "evidenceType": "browser-qa screenshots per step"
+          },
+          "uxHealthScore": {
+            "score": 8,
+            "whatMakesTen": "Add an inline recovery path on the dashboard submit error instead of a toast"
+          }
+        },
+        {
+          "checkId": "ux-02-information-hierarchy",
+          "status": "finding",
+          "uxHealthScore": {
+            "score": 5,
+            "whatMakesTen": "Give the landing route one primary action with visual weight above the hero copy"
+          },
+          "findings": [
+            {
+              "id": "ux-02-1",
+              "route": "/",
+              "viewport": "all",
+              "symptom": "The landing headline offers no action, so a first-time visitor has no next step",
+              "evidence": "screenshot ux-landing-1440.png plus app/page.tsx heading block",
+              "baseline": "design-review-rubric hard rejection 2: strong headline with no clear action",
+              "severity": "high",
+              "status": "open",
+              "remediation": "Add a primary button under the headline bound to the signup route"
+            }
+          ]
+        },
+        {
+          "checkId": "ux-03-states-feedback",
+          "status": "finding",
+          "uxHealthScore": {
+            "score": 6,
+            "whatMakesTen": "Cover empty and error states for the invoice list alongside the existing loading state"
+          },
+          "findings": [
+            {
+              "id": "ux-03-1",
+              "route": "/dashboard",
+              "viewport": "all",
+              "symptom": "An empty invoice result renders a blank panel with no explanation or action",
+              "evidence": "screenshot ux-dashboard-empty-375.png",
+              "baseline": "ux-03 state matrix requires an empty state per async surface",
+              "severity": "medium",
+              "status": "open",
+              "remediation": "Add an empty state with a create-invoice action"
+            }
+          ]
+        },
+        {
+          "checkId": "ux-04-accessibility",
+          "status": "finding",
+          "uxHealthScore": {
+            "score": 4,
+            "whatMakesTen": "Label every control and pass the keyboard walkthrough with a visible focus ring"
+          },
+          "findings": [
+            {
+              "id": "ux-04-1",
+              "route": "/dashboard",
+              "viewport": "all",
+              "symptom": "The search field announces nothing to a screen reader because its placeholder is the only label",
+              "evidence": "keyboard walkthrough transcript plus app/dashboard/page.tsx input",
+              "baseline": "WCAG 2.1 3.3.2 Labels or Instructions, A",
+              "severity": "high",
+              "status": "open",
+              "remediation": "Add a visible label bound to the input id"
+            }
+          ]
+        },
+        {
+          "checkId": "ux-05-responsive-visual-polish",
+          "status": "finding",
+          "uxHealthScore": {
+            "score": 5,
+            "whatMakesTen": "Move both arbitrary values onto the scale and replace the default gradient with a token accent"
+          },
+          "findings": [
+            {
+              "id": "ux-05-1",
+              "route": "/",
+              "viewport": "all",
+              "symptom": "The hero uses a stock purple gradient that matches no product accent",
+              "evidence": "ux-inventory mechanicalScan.gradientDefaults app/page.tsx:3",
+              "baseline": "design-review-rubric anti-slop: purple-gradient defaults",
+              "severity": "opportunity",
+              "status": "open",
+              "remediation": "Replace the gradient with the single product accent token"
+            }
+          ]
+        },
+        {
+          "checkId": "ux-06-product-copy",
+          "status": "finding",
+          "uxHealthScore": {
+            "score": 6,
+            "whatMakesTen": "Name the action in every button label and say what happened in every error string"
+          },
+          "findings": [
+            {
+              "id": "ux-06-1",
+              "route": "/dashboard",
+              "viewport": "all",
+              "symptom": "The primary button reads Submit, so the user cannot tell what will be saved",
+              "evidence": "app/dashboard/page.tsx button label",
+              "baseline": "ux-06 action labels must name the action",
+              "severity": "medium",
+              "status": "open",
+              "remediation": "Rename the label to Save invoice"
+            }
+          ]
+        },
+        {
+          "checkId": "ux-07-cross-cutting-axes",
+          "status": "finding",
+          "uxHealthScore": {
+            "score": 3,
+            "whatMakesTen": "Ship dark-mode tokens and verify pt-BR strings at 200% zoom without clipping"
+          },
+          "findings": [
+            {
+              "id": "ux-07-1",
+              "route": "/dashboard",
+              "viewport": "375x812",
+              "symptom": "Longer pt-BR labels clip inside the button at 200% zoom",
+              "evidence": "screenshot ux-dashboard-ptbr-zoom200-375.png",
+              "baseline": "WCAG 2.1 1.4.4 Resize Text, AA",
+              "severity": "high",
+              "status": "open",
+              "remediation": "Let the button wrap and set a min-height instead of a fixed height"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "laneReceipts": [
+    {
+      "categoryId": "ui-ux-product",
+      "laneId": "flows-and-states",
+      "status": "completed",
+      "consumedWorklistHashes": {
+        "ux_routes": "sha256:ux_routes",
+        "ux_components": "sha256:ux_components",
+        "ux_states": "sha256:ux_states",
+        "ux_styles": "sha256:ux_styles",
+        "ux_copy": "sha256:ux_copy",
+        "ux_accessibility": "sha256:ux_accessibility"
+      },
+      "summary": "Walked both routes end to end and exercised 10 of 12 state cells."
+    },
+    {
+      "categoryId": "ui-ux-product",
+      "laneId": "hierarchy-and-visual",
+      "status": "completed",
+      "consumedWorklistHashes": {
+        "ux_routes": "sha256:ux_routes",
+        "ux_components": "sha256:ux_components",
+        "ux_states": "sha256:ux_states",
+        "ux_styles": "sha256:ux_styles",
+        "ux_copy": "sha256:ux_copy",
+        "ux_accessibility": "sha256:ux_accessibility"
+      },
+      "summary": "Compared both routes against the rubric hard rejections at three viewports."
+    },
+    {
+      "categoryId": "ui-ux-product",
+      "laneId": "accessibility",
+      "status": "completed",
+      "consumedWorklistHashes": {
+        "ux_routes": "sha256:ux_routes",
+        "ux_components": "sha256:ux_components",
+        "ux_states": "sha256:ux_states",
+        "ux_styles": "sha256:ux_styles",
+        "ux_copy": "sha256:ux_copy",
+        "ux_accessibility": "sha256:ux_accessibility"
+      },
+      "summary": "Keyboard walkthrough plus criterion mapping across both interactive surfaces."
+    },
+    {
+      "categoryId": "ui-ux-product",
+      "laneId": "copy-and-trust",
+      "status": "completed",
+      "consumedWorklistHashes": {
+        "ux_routes": "sha256:ux_routes",
+        "ux_components": "sha256:ux_components",
+        "ux_states": "sha256:ux_states",
+        "ux_styles": "sha256:ux_styles",
+        "ux_copy": "sha256:ux_copy",
+        "ux_accessibility": "sha256:ux_accessibility"
+      },
+      "summary": "Reviewed all four copy sources for action labels and error recovery text."
+    },
+    {
+      "categoryId": "ui-ux-product",
+      "laneId": "cross-cutting-axes",
+      "status": "completed",
+      "consumedWorklistHashes": {
+        "ux_routes": "sha256:ux_routes",
+        "ux_components": "sha256:ux_components",
+        "ux_states": "sha256:ux_states",
+        "ux_styles": "sha256:ux_styles",
+        "ux_copy": "sha256:ux_copy",
+        "ux_accessibility": "sha256:ux_accessibility"
+      },
+      "summary": "Exercised light and dark themes, both locales, and 100/200 zoom levels."
+    }
+  ],
+  "confirmedClean": [
+    "ui-ux-product/ux-01-primary-flows"
+  ],
+  "checksSkipped": [],
+  "findings": [
+    "ux-02-1 high: landing headline with no action",
+    "ux-03-1 medium: missing empty state on the dashboard invoice list",
+    "ux-04-1 high: placeholder-as-label on the dashboard search field",
+    "ux-05-1 opportunity: stock purple gradient in the hero",
+    "ux-06-1 medium: Submit label does not name the action",
+    "ux-07-1 high: pt-BR label clipping at 200% zoom"
+  ],
+  "sourceLimitedBlockers": [],
+  "synthesis": {
+    "status": "findings_present",
+    "summary": "Six UI/UX findings across both routes, with two state cells deferred behind a write-fixture exception."
+  },
+  "verification": [
+    {
+      "command": "node scripts/deep-audit-artifact-check.mjs validate --artifact tests/fixtures/deep-audit/report.ux-valid.json",
+      "status": "passed"
+    }
+  ]
+}

@@ -16,6 +16,8 @@
       "expectedOutput": "CHANGELOG updated with release section",
       "verificationCommand": "node scripts/changelog-release-check.mjs",
       "modelTier": "fast",
+      "codexModel": "gpt-5.6-luna",
+      "codexReasoningEffort": "low",
       "timeoutSec": 120,
       "retryPolicy": {"maxRetries": 2, "backoff": "linear", "initialDelayMs": 500},
       "noRevert": true,

@@ -1550,6 +1550,155 @@ else
   not_ok "precompact should fail-open when retro script absent"
 fi
 
+# --- TG-13: context-cost hooks (compact suggest, question preference, router budget) ---
+
+# cc-compact-suggest: advisory fires on a window-scaled threshold, not a fixed count.
+compact_stamp_dir="$TMPROOT/compact-stamps"
+compact_event() {
+  jq -cn --argjson used "$1" --arg session "$2" \
+    '{session_id:$session,hook_event_name:"PreToolUse",tool_name:"Read",usage:{input_tokens:$used,cache_read_input_tokens:0,cache_creation_input_tokens:0,output_tokens:0}}'
+}
+export ETRNL_COMPACT_SUGGEST_DIR="$compact_stamp_dir"
+
+out="$(run_hook cc-compact-suggest.sh "$(compact_event 100000 compact-under)")"
+if [[ -z "$out" ]]; then ok "compact suggest stays quiet below the threshold"; else not_ok "compact suggest should stay quiet below the threshold: $out"; fi
+out="$(run_hook cc-compact-suggest.sh "$(compact_event 160000 compact-over)")"
+assert_json_expr "compact suggest advises at the default 75% threshold" "$out" '.hookSpecificOutput.hookEventName == "PreToolUse" and (.hookSpecificOutput.additionalContext | test("80%"))'
+out="$(run_hook cc-compact-suggest.sh "$(compact_event 160000 compact-over)")"
+if [[ -z "$out" ]]; then ok "compact suggest debounces a repeat within the interval"; else not_ok "compact suggest should debounce a repeat: $out"; fi
+# Window-scaled, not hard-coded: 60k trips a 64k window but not the 200k default.
+out="$(ETRNL_COMPACT_WINDOW_TOKENS=64000 run_hook cc-compact-suggest.sh "$(compact_event 60000 compact-small-window)")"
+assert_json_expr "compact suggest scales the threshold to the configured window" "$out" '.hookSpecificOutput.additionalContext | test("of 64000 tokens")'
+out="$(run_hook cc-compact-suggest.sh "$(compact_event 60000 compact-large-window)")"
+if [[ -z "$out" ]]; then ok "compact suggest leaves the same count quiet in a larger window"; else not_ok "compact suggest should scale with the window: $out"; fi
+out="$(ETRNL_HOOK_PROFILE=minimal run_hook cc-compact-suggest.sh "$(compact_event 190000 compact-minimal)")"
+if [[ -z "$out" ]]; then ok "compact suggest is skipped in the minimal profile"; else not_ok "minimal profile should skip compact suggest: $out"; fi
+out="$(ETRNL_SKIP_HOOKS=cc-rate-limiter,cc-compact-suggest run_hook cc-compact-suggest.sh "$(compact_event 190000 compact-skip)")"
+if [[ -z "$out" ]]; then ok "ETRNL_SKIP_HOOKS disables compact suggest by name"; else not_ok "ETRNL_SKIP_HOOKS should disable compact suggest: $out"; fi
+out="$(ETRNL_COMPACT_SUGGEST=0 run_hook cc-compact-suggest.sh "$(compact_event 190000 compact-off)")"
+if [[ -z "$out" ]]; then ok "ETRNL_COMPACT_SUGGEST=0 disables compact suggest"; else not_ok "ETRNL_COMPACT_SUGGEST=0 should disable compact suggest: $out"; fi
+if out="$(printf '{bad' | "$ROOT/hooks/cc-compact-suggest.sh")" && [[ -z "$out" ]]; then
+  ok "compact suggest fails open on malformed input"
+else
+  not_ok "compact suggest should fail open on malformed input"
+fi
+unset ETRNL_COMPACT_SUGGEST_DIR
+
+# ETRNL_SKIP_HOOKS is a shared profile mechanism, so prove it on an unrelated hook too.
+skip_router_event="$(jq -cn '{session_id:"skip-router",hook_event_name:"UserPromptSubmit",prompt:"UI review"}')"
+out="$(HOME="$TMPROOT/home" ETRNL_SKIP_HOOKS=cc-userprompt-router run_hook cc-userprompt-router.sh "$skip_router_event")"
+if [[ -z "$out" ]]; then ok "ETRNL_SKIP_HOOKS disables the prompt router by name"; else not_ok "ETRNL_SKIP_HOOKS should disable the prompt router: $out"; fi
+out="$(HOME="$TMPROOT/home" ETRNL_SKIP_HOOKS=cc-rate-limiter run_hook cc-userprompt-router.sh "$skip_router_event")"
+assert_contains "ETRNL_SKIP_HOOKS only disables the hooks it names" "$out" "etrnl-deep-audit-ux"
+
+# cc-question-preference: preference map plus a non-negotiable one-way-door clamp.
+question_repo="$TMPROOT/question-repo"
+mkdir -p "$question_repo/.etrnl"
+cat >"$question_repo/.etrnl/question-preferences.json" <<'JSON'
+{
+  "mode": "never-ask",
+  "topics": {
+    "test-framework": { "match": "test framework", "mode": "never-ask", "answer": "vitest" },
+    "commit-style": { "match": "commit message", "mode": "always-ask" }
+  }
+}
+JSON
+question_event() {
+  jq -cn --arg cwd "$question_repo" --arg question "$1" --arg tool "${2:-AskUserQuestion}" \
+    '{session_id:"question-pref",hook_event_name:"PreToolUse",cwd:$cwd,tool_name:$tool,tool_input:{questions:[{question:$question,header:"Pick one",options:[{label:"Option A"},{label:"Option B"}]}]}}'
+}
+
+out="$(run_hook cc-question-preference.sh "$(question_event "Which naming convention should I use for the helper?")")"
+assert_json_expr "question preference denies a low-stakes ask under never-ask" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+assert_contains "never-ask deny carries the auto-decided option" "$out" 'auto-decided \"Option A\"'
+out="$(run_hook cc-question-preference.sh "$(question_event "Which test framework do you want?")")"
+assert_contains "topic entry supplies its own auto-decided answer" "$out" 'auto-decided \"vitest\"'
+out="$(run_hook cc-question-preference.sh "$(question_event "What commit message should I write?")")"
+if [[ -z "$out" ]]; then ok "topic mode always-ask overrides the file-level never-ask"; else not_ok "topic always-ask should allow the ask: $out"; fi
+
+# MANDATORY CLAMP: never-ask must not swallow a one-way door. Each of these stays with
+# the user even though the file-level mode is never-ask.
+one_way_questions=(
+  "Should I deploy this to production?"
+  "Apply the schema migration to the prod database?"
+  "Change the auth session token handling?"
+  "Should we charge the customer a refund via Stripe?"
+  "This will drop the users table, proceed?"
+)
+for one_way_question in "${one_way_questions[@]}"; do
+  out="$(run_hook cc-question-preference.sh "$(question_event "$one_way_question")")"
+  if [[ -z "$out" ]]; then
+    ok "one-way door reaches the user despite never-ask: $one_way_question"
+  else
+    not_ok "one-way door must not be auto-decided: $one_way_question"
+  fi
+done
+out="$(ETRNL_QUESTION_PREFERENCE_MODE=never-ask run_hook cc-question-preference.sh "$(question_event "Should I deploy this to production?")")"
+if [[ -z "$out" ]]; then ok "env never-ask override cannot auto-decide a one-way door"; else not_ok "env override must not bypass the one-way-door clamp: $out"; fi
+
+out="$(run_hook cc-question-preference.sh "$(question_event "Which log level should the helper use?" "mcp__somesrv__ask_user_question")")"
+assert_json_expr "question preference intercepts MCP ask tools" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+out="$(run_hook cc-question-preference.sh "$(question_event "Which log level should the helper use?" "Read")")"
+if [[ -z "$out" ]]; then ok "question preference ignores tools that are not asks"; else not_ok "question preference should ignore non-ask tools: $out"; fi
+no_pref_event="$(jq -cn --arg cwd "$TMPROOT/question-empty" '{session_id:"question-pref",hook_event_name:"PreToolUse",cwd:$cwd,tool_name:"AskUserQuestion",tool_input:{questions:[{question:"Which color?",options:[{label:"A"}]}]}}')"
+out="$(HOME="$TMPROOT/question-nohome" run_hook cc-question-preference.sh "$no_pref_event")"
+if [[ -z "$out" ]]; then ok "question preference allows the ask with no preference file"; else not_ok "missing preference file should allow the ask: $out"; fi
+# Home-level map is the fallback when the repo has none.
+mkdir -p "$TMPROOT/question-home/.claude/etrnl"
+printf '%s\n' '{"mode":"never-ask"}' >"$TMPROOT/question-home/.claude/etrnl/question-preferences.json"
+out="$(HOME="$TMPROOT/question-home" run_hook cc-question-preference.sh "$no_pref_event")"
+assert_json_expr "question preference falls back to the home preference map" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+out="$(ETRNL_QUESTION_PREFERENCE=0 run_hook cc-question-preference.sh "$(question_event "Which naming convention should I use?")")"
+if [[ -z "$out" ]]; then ok "ETRNL_QUESTION_PREFERENCE=0 disables the question hook"; else not_ok "ETRNL_QUESTION_PREFERENCE=0 should disable the question hook: $out"; fi
+out="$(ETRNL_SKIP_HOOKS=cc-question-preference run_hook cc-question-preference.sh "$(question_event "Which naming convention should I use?")")"
+if [[ -z "$out" ]]; then ok "ETRNL_SKIP_HOOKS disables the question hook by name"; else not_ok "ETRNL_SKIP_HOOKS should disable the question hook: $out"; fi
+if out="$(printf '{bad' | "$ROOT/hooks/cc-question-preference.sh")" && [[ -z "$out" ]]; then
+  ok "question preference fails open on malformed input"
+else
+  not_ok "question preference should fail open on malformed input"
+fi
+
+# Router injected-char budget and hint dedup.
+budget_home="$TMPROOT/router-budget-home"
+budget_repo="$TMPROOT/router-budget-repo"
+mkdir -p "$budget_home" "$budget_repo"
+router_prompt_event() {
+  jq -cn --arg session "$1" --arg prompt "$2" --arg cwd "$budget_repo" \
+    '{session_id:$session,hook_event_name:"UserPromptSubmit",prompt:$prompt,cwd:$cwd}'
+}
+out="$(HOME="$budget_home" run_hook cc-userprompt-router.sh "$(router_prompt_event dedup-a "UI review")")"
+assert_contains "router injects the UX hint on first use" "$out" "etrnl-deep-audit-ux"
+out="$(HOME="$budget_home" run_hook cc-userprompt-router.sh "$(router_prompt_event dedup-a "UI review")")"
+assert_not_contains "router dedups an identical hint inside one session" "$out" "etrnl-deep-audit-ux"
+assert_json_expr "router still records the routed skill when the hint is deduped" \
+  "$(cat "$TMPROOT/claude-guard-dedup-a.json")" 'any(.requestedSkills[]?.value; . == "etrnl-deep-audit-ux")'
+out="$(HOME="$budget_home" ETRNL_USERPROMPT_DEDUP=0 run_hook cc-userprompt-router.sh "$(router_prompt_event dedup-off "UI review")")"
+assert_contains "router repeats the hint when dedup is disabled (first)" "$out" "etrnl-deep-audit-ux"
+out="$(HOME="$budget_home" ETRNL_USERPROMPT_DEDUP=0 run_hook cc-userprompt-router.sh "$(router_prompt_event dedup-off "UI review")")"
+assert_contains "router repeats the hint when dedup is disabled (second)" "$out" "etrnl-deep-audit-ux"
+out="$(HOME="$budget_home" ETRNL_USERPROMPT_CONTEXT_MAX_CHARS=0 run_hook cc-userprompt-router.sh "$(router_prompt_event budget-zero "UI review")")"
+if [[ -z "$out" ]]; then ok "router injects nothing once the session char budget is exhausted"; else not_ok "zero char budget should suppress injection: $out"; fi
+assert_json_expr "router tracks injected chars in session state" \
+  "$(cat "$TMPROOT/claude-guard-dedup-a.json")" '(.userPromptInjectedChars // 0) > 0'
+
+# HIGHEST-RISK REGRESSION: the plain-UI phrasing an in-flight lane taught the router must
+# survive dedup and the char cap together. Each phrase is checked in its own session (the
+# real-world case) and then all four in one capped session, where the hint may legitimately
+# be deduped but the routing decision must still be recorded.
+ux_phrases=("audit my UI" "UI review" "UI polish" "improve the interface")
+ux_phrase_index=0
+for ux_phrase in "${ux_phrases[@]}"; do
+  ux_phrase_index=$((ux_phrase_index + 1))
+  out="$(HOME="$budget_home" ETRNL_USERPROMPT_CONTEXT_MAX_CHARS=400 run_hook cc-userprompt-router.sh "$(router_prompt_event "ux-phrase-$ux_phrase_index" "$ux_phrase")")"
+  assert_contains "plain-UI phrasing routes with dedup and char cap active: $ux_phrase" "$out" "etrnl-deep-audit-ux"
+done
+for ux_phrase in "${ux_phrases[@]}"; do
+  HOME="$budget_home" ETRNL_USERPROMPT_CONTEXT_MAX_CHARS=400 run_hook cc-userprompt-router.sh "$(router_prompt_event ux-shared "$ux_phrase")" >/dev/null || true
+done
+assert_json_expr "every plain-UI phrase records the UX route in one capped session" \
+  "$(cat "$TMPROOT/claude-guard-ux-shared.json")" \
+  '([.requestedSkills[]? | select(.value == "etrnl-deep-audit-ux")] | length) >= 4'
+
 run_parallel_guard_fixture_matrix deny "${invalid_guard_fixtures[@]}"
 run_parallel_guard_fixture_matrix allow "${valid_guard_fixtures[@]}"
 

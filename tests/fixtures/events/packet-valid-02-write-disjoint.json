@@ -16,6 +16,8 @@
       "expectedOutput": "modified agent-task-packet-check.mjs with disjoint check and passing tests",
       "verificationCommand": "node scripts/skill-behavior-smoke.mjs",
       "modelTier": "standard",
+      "codexModel": "gpt-5.6-terra",
+      "codexReasoningEffort": "medium",
       "timeoutSec": 600,
       "retryPolicy": {"maxRetries": 1, "backoff": "linear", "initialDelayMs": 1000},
       "noRevert": true,

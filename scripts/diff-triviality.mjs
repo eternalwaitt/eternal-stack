@@ -11,10 +11,16 @@
 // same path taxonomy the review pipeline uses) plus a tight metadata-basename
 // allowlist for files that carry no glob (VERSION, LICENSE, .gitignore, ...).
 //
+// `classify-plan` applies the same taxonomy to a plan's `## File map` rows before
+// any code exists, so `/etrnl-dev-execute` can pick an execution shape from the
+// plan alone. Same fail-safe direction: uncertainty resolves to the heaviest
+// shape (`large`), never the lightest.
+//
 // Usage:
 //   node scripts/diff-triviality.mjs classify [--root <dir>] [--json] [path ...]
 //   node scripts/diff-triviality.mjs classify --root <dir> --stdin-json   # paths as JSON array on stdin
 //   node scripts/diff-triviality.mjs classify --root <dir> --git          # paths from `git diff --name-only HEAD`
+//   node scripts/diff-triviality.mjs classify-plan --plan <plan.md> [--json]
 
 import { readFileSync, existsSync, realpathSync } from "node:fs";
 import { spawnSync } from "node:child_process";
@@ -44,7 +50,22 @@ const METADATA_BASENAMES = new Set([
 ]);
 const METADATA_PATTERNS = [/^LICENSE(\.[A-Za-z0-9]+)?$/, /^CHANGELOG(\.[A-Za-z0-9]+)?$/];
 
-const VALUE_FLAGS = new Set(["--root"]);
+const VALUE_FLAGS = new Set(["--root", "--plan"]);
+
+// Plan-scope triage thresholds. TRIVIAL_MAX_PATHS is the plan contract (at most
+// three files); SMALL_MAX_PATHS mirrors requiresTier2Escalation in
+// scripts/lib/plan-risk-tier.mjs so one file-count boundary governs the repo.
+const TRIVIAL_MAX_PATHS = 3;
+const SMALL_MAX_PATHS = 8;
+
+// The only way a runtime file-map row clears the behavioral bar: the plan states
+// it outright in the Change column. Silence resolves to behavioral, because a
+// plan row cannot prove that an edit to executable source leaves behavior intact.
+const NON_BEHAVIORAL_DECLARATIONS = [
+  /\bno behavio(?:u)?ral change\b/i, /\bno behavio(?:u)?r change\b/i,
+  /\bnon-behavio(?:u)?ral\b/i, /\bcomments? only\b/i, /\btypo fix\b/i,
+  /\bdocs only\b/i, /\bdocumentation only\b/i,
+];
 
 function argv() {
   const a = process.argv.slice(2);
@@ -179,10 +200,134 @@ function readStdinPaths() {
   return trimmed.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
 }
 
-function main() {
+// Paths named in one `## File map` cell. The taxonomy row for a bundle of
+// related files backticks each one, so a single cell can carry several paths and
+// each counts toward the file budget.
+function pathsInCell(cell) {
+  const ticked = [...cell.matchAll(/`([^`]+)`/g)].map((m) => m[1].trim()).filter(Boolean);
+  if (ticked.length > 0) return ticked;
+  const bare = cell.trim();
+  return bare && !bare.includes(" ") ? [bare] : [];
+}
+
+// One row per distinct path in the plan's `## File map` table, carrying that
+// row's Change note. Header and separator rows are dropped.
+function planFileMapRows(planText, { sectionBody }) {
+  const rows = [];
+  const seen = new Set();
+  for (const line of sectionBody(planText, "File map").split("\n")) {
+    const cells = line.split("|").map((cell) => cell.trim()).filter(Boolean);
+    if (cells.length < 2) continue;
+    if (/^[-:\s]+$/.test(cells[0])) continue;
+    if (/^path$/i.test(cells[0])) continue;
+    const change = cells[1];
+    for (const raw of pathsInCell(cells[0])) {
+      const cleaned = raw.replace(/^[`'"]+|[`'"]+$/g, "").trim();
+      if (!cleaned || seen.has(cleaned)) continue;
+      seen.add(cleaned);
+      rows.push({ path: cleaned, change });
+    }
+  }
+  return rows;
+}
+
+function classifyPlanRow(row, root, rules, { requiresTier3Escalation }) {
+  const rel = normalize(row.path, root);
+  const target = rel ?? row.path;
+  // The tier-3 auto-escalation set (hooks, installers, auth, money, migrations,
+  // tenancy) carries full gates whatever the plan's Risk tier line claims.
+  const escalated = requiresTier3Escalation([target, row.change]);
+  // Schema and data/config files change behavior through data, so no plan
+  // sentence waives them; they block Trivial without forcing the Large shape.
+  const fenced = escalated || DATA_CONFIG_EXTS.has(extensionOf(target));
+  // An out-of-root path is unclassifiable, so it counts as runtime (fail-safe).
+  const runtime = rel === null ? true : classifyPath(rel, rules).runtime;
+  const declaredNonBehavioral = NON_BEHAVIORAL_DECLARATIONS.some((re) => re.test(row.change));
+  let behavioral;
+  if (fenced) behavioral = true;
+  else if (!runtime) behavioral = false;
+  else behavioral = !declaredNonBehavioral;
+  return { path: target, change: row.change, runtime, fenced, escalated, behavioral };
+}
+
+// Trivial / Small / Large triage for a plan, read from its `Risk tier:` line and
+// `## File map` rows. Trivial needs BOTH conditions: at most three paths AND no
+// row carrying a behavioral, API, or schema change. Tier 3 is Large at every
+// file count; tier 0-1 runs the quick-dev lane and has no triage.
+function classifyPlan(planPath, root, rules, planLib) {
+  let planText;
+  try {
+    planText = readFileSync(planPath, "utf8");
+  } catch {
+    return { scope: "large", reason: "plan-unreadable", tier: null, fileCount: 0, behavioralPaths: [], rows: [] };
+  }
+  const { tier } = planLib.parseRiskTier(planText);
+  const rows = planFileMapRows(planText, planLib).map((row) => classifyPlanRow(row, root, rules, planLib));
+  const behavioralPaths = rows.filter((row) => row.behavioral).map((row) => row.path).sort();
+  const base = { tier, fileCount: rows.length, behavioralPaths, rows };
+  if (tier >= 3) return { scope: "large", reason: "tier-3-full-packet", ...base };
+  if (rows.some((row) => row.escalated)) {
+    return { scope: "large", reason: "tier-3-surface-under-declared", ...base };
+  }
+  if (tier < 2) return { scope: "not-applicable", reason: "tier-below-2-quick-dev-lane", ...base };
+  if (rows.length === 0) return { scope: "large", reason: "file-map-empty", ...base };
+  if (rows.length > SMALL_MAX_PATHS) return { scope: "large", reason: "file-count-above-small-cap", ...base };
+  if (rows.length > TRIVIAL_MAX_PATHS) return { scope: "small", reason: "file-count-above-trivial-cap", ...base };
+  if (behavioralPaths.length > 0) return { scope: "small", reason: "behavioral-change-declared", ...base };
+  return { scope: "trivial", reason: "within-file-cap-and-non-behavioral", ...base };
+}
+
+function loadRulesOrNull() {
+  if (!existsSync(schemaPath)) return null;
+  try {
+    return loadPathRules();
+  } catch {
+    return null;
+  }
+}
+
+// Loaded lazily so the Stop-verifier `classify` path keeps working when
+// scripts/lib is absent (a partial install, or a single-file copy of this
+// script). A plan triage without the tier parser cannot be proven Trivial.
+async function loadPlanLibOrNull() {
+  try {
+    return await import("./lib/plan-risk-tier.mjs");
+  } catch {
+    return null;
+  }
+}
+
+async function planCommand(value, asJson) {
+  const planPath = value("--plan");
+  if (!planPath) {
+    process.stderr.write("usage: diff-triviality.mjs classify-plan --plan <plan-path> [--root <dir>] [--json]\n");
+    process.exit(2);
+  }
+  const root = realOr(path.resolve(value("--root", process.cwd())));
+  const rules = loadRulesOrNull();
+  const planLib = await loadPlanLibOrNull();
+  // No taxonomy and no tier parser mean no path can be proven non-runtime and no
+  // tier can be read, so no plan can be proven Trivial (same fail-safe stance as
+  // `classify`).
+  const unavailable = rules === null ? "schema-unavailable" : planLib === null ? "plan-helper-unavailable" : "";
+  if (unavailable) {
+    emitPlan({ scope: "large", reason: unavailable, tier: null, fileCount: 0, behavioralPaths: [], rows: [] }, asJson);
+    return;
+  }
+  emitPlan(classifyPlan(path.resolve(planPath), root, rules, planLib), asJson);
+}
+
+async function main() {
   const { command, flag, value, positionals } = argv();
+  if (command === "classify-plan") {
+    await planCommand(value, flag("--json"));
+    return;
+  }
   if (command !== "classify") {
-    process.stderr.write("usage: diff-triviality.mjs classify [--root <dir>] [--json] [--git|--stdin-json] [path ...]\n");
+    process.stderr.write(
+      "usage: diff-triviality.mjs classify [--root <dir>] [--json] [--git|--stdin-json] [path ...]\n" +
+      "       diff-triviality.mjs classify-plan --plan <plan-path> [--root <dir>] [--json]\n"
+    );
     process.exit(2);
   }
   const root = realOr(path.resolve(value("--root", process.cwd())));
@@ -216,6 +361,14 @@ function main() {
   emit({ trivial, total: paths.length, runtime: runtime.sort(), nonRuntime: nonRuntime.sort() }, flag("--json"));
 }
 
+function emitPlan(payload, asJson) {
+  if (asJson) { process.stdout.write(JSON.stringify(payload, null, 2) + "\n"); return; }
+  process.stdout.write(
+    `scope=${payload.scope} tier=${payload.tier ?? "unknown"} files=${payload.fileCount} ` +
+    `behavioral=${payload.behavioralPaths.length} reason=${payload.reason}\n`
+  );
+}
+
 function emit(payload, asJson) {
   if (asJson) { process.stdout.write(JSON.stringify(payload, null, 2) + "\n"); return; }
   process.stdout.write(
@@ -223,4 +376,4 @@ function emit(payload, asJson) {
   );
 }
 
-main();
+await main();

@@ -1,5 +1,7 @@
+import { MODEL_TIERS, resolveCodexModel } from "./codex-model-routing.mjs";
+
 /** Version for the deep-audit category registry schema and expected fixture snapshots. */
-export const CATEGORY_REGISTRY_VERSION = "2026-06-09.1";
+export const CATEGORY_REGISTRY_VERSION = "2026-07-24.1";
 
 /** Category ids intentionally left out of the registered deep-audit gate set. */
 export const KNOWN_UNIMPLEMENTED_CATEGORIES = [
@@ -98,6 +100,28 @@ function check(checkId, label, requiredWorklists, applicabilityGate, laneId = ""
   return { checkId, label, requiredWorklists, applicabilityGate, laneId };
 }
 
+function assertLaneTier(laneId, modelTier, modelTierJustification) {
+  if (typeof modelTier !== "string" || !MODEL_TIERS.has(modelTier)) {
+    throw new Error(`lane ${laneId}: modelTier must be one of fast, standard, top (got: ${JSON.stringify(modelTier)})`);
+  }
+  if (modelTier === "top" && !(typeof modelTierJustification === "string" && modelTierJustification.trim())) {
+    throw new Error(`lane ${laneId}: modelTier "top" requires a modelTierJustification`);
+  }
+}
+
+/**
+ * Build a fanout lane. A spawn that omits `model` inherits the parent thread model, so `modelTier`
+ * is mandatory here and the tier is validated when the registry loads, not at dispatch time.
+ */
+function lane(laneId, label, allowedWorklists, modelTier, modelTierJustification = "") {
+  assertLaneTier(laneId, modelTier, modelTierJustification);
+  const entry = { laneId, label, allowedWorklists, receiptFields: RECEIPT_FIELDS, modelTier };
+  if (modelTierJustification.trim()) {
+    entry.modelTierJustification = modelTierJustification.trim();
+  }
+  return entry;
+}
+
 /**
  * Canonical registry for deep-audit categories, required worklists, checks, and lane receipts.
  */
@@ -123,17 +147,24 @@ export const REGISTERED_DEEP_AUDIT_CATEGORIES = [
     skillName: "etrnl-deep-audit-ux",
     orchestratorIncluded: false,
     referencePath: "skills/etrnl-deep-audit-ux/references/audit-checks.md",
-    executionMode: "sequential",
+    executionMode: "fanout",
     requiredWorklists: worklists.ux,
     checks: [
-      check("ux-01-primary-flows", "Primary product flows", ["ux_routes", "ux_components"], "User-facing routes, screens, or views exist"),
-      check("ux-02-information-hierarchy", "Information hierarchy and scanning", ["ux_routes", "ux_copy"], "Screens contain navigable content or decisions"),
-      check("ux-03-states-feedback", "States, feedback, and empty paths", ["ux_states", "ux_components"], "Interactive components, async data, forms, or lists exist"),
-      check("ux-04-accessibility", "Accessibility and keyboard paths", ["ux_accessibility", "ux_components"], "Interactive or semantic UI exists"),
-      check("ux-05-responsive-visual-polish", "Responsive visual polish", ["ux_styles", "ux_routes"], "CSS, layout, or viewport-sensitive surfaces exist"),
-      check("ux-06-product-copy", "Product copy and trust cues", ["ux_copy", "ux_routes"], "User-facing text exists"),
+      check("ux-01-primary-flows", "Primary product flows", ["ux_routes", "ux_components"], "User-facing routes, screens, or views exist", "flows-and-states"),
+      check("ux-02-information-hierarchy", "Information hierarchy and scanning", ["ux_routes", "ux_copy"], "Screens contain navigable content or decisions", "hierarchy-and-visual"),
+      check("ux-03-states-feedback", "States, feedback, and empty paths", ["ux_states", "ux_components"], "Interactive components, async data, forms, or lists exist", "flows-and-states"),
+      check("ux-04-accessibility", "Accessibility and keyboard paths", ["ux_accessibility", "ux_components"], "Interactive or semantic UI exists", "accessibility"),
+      check("ux-05-responsive-visual-polish", "Responsive visual polish", ["ux_styles", "ux_routes"], "CSS, layout, or viewport-sensitive surfaces exist", "hierarchy-and-visual"),
+      check("ux-06-product-copy", "Product copy and trust cues", ["ux_copy", "ux_routes"], "User-facing text exists", "copy-and-trust"),
+      check("ux-07-cross-cutting-axes", "Theme, locale, density, and zoom axes", ["ux_styles", "ux_copy"], "Theme modes, locales, variable-length data, or zoom-sensitive layout exist", "cross-cutting-axes"),
     ],
-    lanes: [],
+    lanes: [
+      lane("flows-and-states", "Primary flows and interaction states", ["ux_routes", "ux_components", "ux_states"], "standard"),
+      lane("hierarchy-and-visual", "Hierarchy, responsive layout, and visual craft", ["ux_routes", "ux_copy", "ux_styles"], "standard"),
+      lane("accessibility", "Accessibility and keyboard paths", ["ux_accessibility", "ux_components"], "standard"),
+      lane("copy-and-trust", "Product copy and trust cues", ["ux_copy", "ux_routes"], "fast"),
+      lane("cross-cutting-axes", "Theme, locale, density, and zoom axes", ["ux_styles", "ux_copy"], "fast"),
+    ],
   },
   {
     categoryId: "production-readiness",
@@ -195,42 +226,12 @@ export const REGISTERED_DEEP_AUDIT_CATEGORIES = [
       check("perf-06-infrastructure-network", "Infrastructure and network performance", ["perf_route_handlers", "perf_next_configs", "perf_large_files"], "Routes, config, or assets exist", "infrastructure-network"),
     ],
     lanes: [
-      {
-        laneId: "database-query-performance",
-        label: "Database query performance",
-        allowedWorklists: ["perf_queries"],
-        receiptFields: RECEIPT_FIELDS,
-      },
-      {
-        laneId: "server-response-caching",
-        label: "Server response time and caching",
-        allowedWorklists: ["perf_pages", "perf_route_handlers", "perf_dynamic_routes"],
-        receiptFields: RECEIPT_FIELDS,
-      },
-      {
-        laneId: "bundle-code-splitting",
-        label: "Bundle size and code splitting",
-        allowedWorklists: ["perf_client", "perf_dynamic", "perf_deps"],
-        receiptFields: RECEIPT_FIELDS,
-      },
-      {
-        laneId: "react-rendering",
-        label: "React rendering performance",
-        allowedWorklists: ["perf_client", "perf_pages", "perf_compiler_status"],
-        receiptFields: RECEIPT_FIELDS,
-      },
-      {
-        laneId: "perceived-performance",
-        label: "Perceived performance and UX speed",
-        allowedWorklists: ["perf_pages", "perf_loading", "perf_client"],
-        receiptFields: RECEIPT_FIELDS,
-      },
-      {
-        laneId: "infrastructure-network",
-        label: "Infrastructure and network performance",
-        allowedWorklists: ["perf_route_handlers", "perf_next_configs", "perf_large_files"],
-        receiptFields: RECEIPT_FIELDS,
-      },
+      lane("database-query-performance", "Database query performance", ["perf_queries"], "standard"),
+      lane("server-response-caching", "Server response time and caching", ["perf_pages", "perf_route_handlers", "perf_dynamic_routes"], "standard"),
+      lane("bundle-code-splitting", "Bundle size and code splitting", ["perf_client", "perf_dynamic", "perf_deps"], "fast"),
+      lane("react-rendering", "React rendering performance", ["perf_client", "perf_pages", "perf_compiler_status"], "standard"),
+      lane("perceived-performance", "Perceived performance and UX speed", ["perf_pages", "perf_loading", "perf_client"], "standard"),
+      lane("infrastructure-network", "Infrastructure and network performance", ["perf_route_handlers", "perf_next_configs", "perf_large_files"], "fast"),
     ],
   },
   {
@@ -299,4 +300,30 @@ export function orchestratorCategoryIds() {
  */
 export function findCategory(categoryId) {
   return REGISTERED_DEEP_AUDIT_CATEGORIES.find((category) => category.categoryId === categoryId);
+}
+
+/**
+ * Resolve the explicit spawn model and reasoning effort for one registered lane.
+ *
+ * @param {{ laneId: string, modelTier: string, modelTierJustification?: string }} laneEntry
+ * @returns {{ laneId: string, modelTier: string, model: string, reasoningEffort: string }}
+ */
+export function resolveLaneDispatch(laneEntry) {
+  const { laneId, modelTier, modelTierJustification } = laneEntry ?? {};
+  assertLaneTier(laneId, modelTier, modelTierJustification);
+  const { model, reasoningEffort } = resolveCodexModel({ modelTier, modelTierJustification });
+  return { laneId, modelTier, model, reasoningEffort };
+}
+
+/**
+ * Resolve every lane spawn for one category in registry order.
+ *
+ * @returns {Array<{ laneId: string, modelTier: string, model: string, reasoningEffort: string }>}
+ */
+export function categoryLaneDispatch(categoryId) {
+  const category = findCategory(categoryId);
+  if (!category) {
+    throw new Error(`unknown deep-audit category: ${JSON.stringify(categoryId)}`);
+  }
+  return category.lanes.map((laneEntry) => resolveLaneDispatch(laneEntry));
 }

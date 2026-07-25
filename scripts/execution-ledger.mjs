@@ -13,6 +13,9 @@ const STATUSES = new Set(["pending", "in_progress", "reviewing", "changes_reques
 const PHASE_STATUSES = new Set(["pending", "in_progress", "uat", "verified", "blocked", "skipped"]);
 const CHECK_STATUSES = new Set(["passed", "failed", "blocked", "skipped"]);
 const AGENT_DONE = new Set(["completed", "verified", "skipped"]);
+// Trajectory counters live on the ledger's own wave rows so bounded-review consumers
+// read them through `history --gates --json` instead of adding a second store.
+const TRAJECTORY_COUNTERS = ["recurringFindingCount", "streamAlternationCount", "roundsSinceProgress"];
 const EVIDENCE_DONE = new Set(["passed", "verified", "red_green_verified", "not_applicable", "skipped"]);
 const REVIEW_DONE = new Set(["verified", "completed"]);
 // Defaults allow brief multi-agent contention; tune with env vars for unusually slow disks.
@@ -135,6 +138,7 @@ function validateLedger(ledger) {
   if (ledger.specialistEvidence && !Array.isArray(ledger.specialistEvidence)) errors.push("specialistEvidence must be an array");
   if (ledger.completionAudit && !Array.isArray(ledger.completionAudit)) errors.push("completionAudit must be an array");
   if (ledger.installProof && !Array.isArray(ledger.installProof)) errors.push("installProof must be an array");
+  if (ledger.waves && !Array.isArray(ledger.waves)) errors.push("waves must be an array");
   if (ledger.phaseId !== undefined && typeof ledger.phaseId !== "string") errors.push("phaseId must be a string");
   if (ledger.workstreamId !== undefined && typeof ledger.workstreamId !== "string") errors.push("workstreamId must be a string");
   if (ledger.uatArtifact !== undefined && typeof ledger.uatArtifact !== "string") errors.push("uatArtifact must be a string");
@@ -159,6 +163,16 @@ function validateLedger(ledger) {
     if (!phase.id) errors.push("phase is missing id");
     if (!PHASE_STATUSES.has(phase.status)) {
       errors.push(`phase ${phase.id || "<unknown>"} has invalid status ${phase.status}`);
+    }
+  }
+  for (const wave of Array.isArray(ledger.waves) ? ledger.waves : []) {
+    if (!wave.waveId) errors.push("wave is missing waveId");
+    for (const counter of TRAJECTORY_COUNTERS) {
+      const value = wave[counter];
+      if (value === undefined) continue;
+      if (!Number.isInteger(value) || value < 0) {
+        errors.push(`wave ${wave.waveId || "<unknown>"} ${counter} must be a non-negative integer`);
+      }
     }
   }
   for (const check of Array.isArray(ledger.checks) ? ledger.checks : []) {
@@ -368,6 +382,7 @@ function initLedger() {
     artifacts: [],
     requiredArtifacts: [],
     phases: [],
+    waves: [],
     decisions: [],
     events: [{ type: "ledger.init", at }],
     continuations: { count: 0, max: 3, lastReason: "" },
@@ -1280,6 +1295,174 @@ function historyProgress() {
   }
 }
 
+function markdownRowCells(line) {
+  const trimmed = line.trim();
+  const inner = trimmed.slice(1, trimmed.endsWith("|") ? -1 : undefined);
+  return inner.split("|").map((cell) => cell.trim());
+}
+
+// Reads the first plan table that carries both a Phase and a Gate column (the
+// `## Phases` table). Later tables such as the autoplan decision log repeat those
+// headers, so parsing stops once the first matching table ends.
+function parsePlanPhaseGates(planText) {
+  const rows = [];
+  let phaseIndex = -1;
+  let gateIndex = -1;
+  for (const line of planText.split("\n")) {
+    if (!line.trim().startsWith("|")) {
+      if (rows.length > 0) break;
+      phaseIndex = -1;
+      gateIndex = -1;
+      continue;
+    }
+    const cells = markdownRowCells(line);
+    if (phaseIndex === -1) {
+      const headers = cells.map((cell) => cell.toLowerCase());
+      phaseIndex = headers.indexOf("phase");
+      gateIndex = headers.indexOf("gate");
+      if (phaseIndex === -1 || gateIndex === -1) {
+        phaseIndex = -1;
+        gateIndex = -1;
+      }
+      continue;
+    }
+    if (cells.every((cell) => /^:?-{2,}:?$/.test(cell))) continue;
+    const phase = cells[phaseIndex] || "";
+    const gate = cells[gateIndex] || "";
+    if (phase) rows.push({ phase, gate });
+  }
+  return rows;
+}
+
+function phaseKey(value) {
+  return String(value || "").trim().split(/\s+/)[0].toLowerCase();
+}
+
+function nextPlanGate(ledger, gateRows) {
+  const statusByPhase = new Map();
+  for (const phase of ledger.phases ?? []) {
+    if (phase.id) statusByPhase.set(phaseKey(phase.id), phase.status);
+  }
+  for (const row of gateRows) {
+    const status = statusByPhase.get(phaseKey(row.phase));
+    if (status && ["verified", "skipped"].includes(status)) continue;
+    return row;
+  }
+  return null;
+}
+
+function waveTrajectory(ledger) {
+  return (ledger.waves ?? []).map((wave) => ({
+    waveId: wave.waveId,
+    recurringFindingCount: Number(wave.recurringFindingCount || 0),
+    streamAlternationCount: Number(wave.streamAlternationCount || 0),
+    roundsSinceProgress: Number(wave.roundsSinceProgress || 0),
+  }));
+}
+
+// Gate reporting never estimates time. When --plan is absent or unreadable the
+// report degrades to ledger-only fields and still exits 0.
+function historyGates() {
+  const file = currentLedgerOrFail();
+  const ledger = readJson(file);
+  const tasks = ledger.tasks ?? [];
+  const total = tasks.length;
+  const done = tasks.filter((task) => TASK_DONE.has(task.status)).length;
+  const planArg = argValue("--plan");
+  let planStatus = planArg ? "missing" : "not-provided";
+  let nextGate = null;
+  if (planArg) {
+    const planPath = path.isAbsolute(planArg) ? planArg : path.resolve(ledger.cwd || process.cwd(), planArg);
+    try {
+      const gateRows = parsePlanPhaseGates(readFileSync(planPath, "utf8"));
+      planStatus = gateRows.length > 0 ? "parsed" : "no-gates";
+      nextGate = nextPlanGate(ledger, gateRows);
+    } catch {
+      planStatus = "missing";
+    }
+  }
+  const waves = waveTrajectory(ledger);
+  if (args.includes("--json")) {
+    console.log(JSON.stringify({
+      runId: ledger.runId,
+      done,
+      total,
+      remaining: Math.max(total - done, 0),
+      phase: ledger.phaseId || null,
+      phaseStatus: ledger.phaseStatus || null,
+      workstream: ledger.workstreamId || null,
+      uatGate: ledger.uatArtifact || null,
+      uatOpenFindings: Number(ledger.uatOpenFindings || 0),
+      planStatus,
+      nextGate: nextGate ? { phase: nextGate.phase, gate: nextGate.gate } : null,
+      waves,
+    }));
+    return;
+  }
+  console.log(
+    `${ledger.runId} tasks=${done}/${total} phase=${ledger.phaseId || "unknown"} `
+    + `phaseStatus=${ledger.phaseStatus || "unknown"} workstream=${ledger.workstreamId || "unknown"} `
+    + `uatGate=${ledger.uatArtifact || "none"} uatOpenFindings=${Number(ledger.uatOpenFindings || 0)}`,
+  );
+  console.log(
+    `planStatus=${planStatus} nextGate=${nextGate ? nextGate.gate || "unnamed" : "unknown"} `
+    + `nextGatePhase=${nextGate ? nextGate.phase : "unknown"}`,
+  );
+  for (const wave of waves) {
+    console.log(
+      `wave ${wave.waveId} recurringFindingCount=${wave.recurringFindingCount} `
+      + `streamAlternationCount=${wave.streamAlternationCount} roundsSinceProgress=${wave.roundsSinceProgress}`,
+    );
+  }
+}
+
+function applyRecordTrajectory(ledger, waveId, counters) {
+  ledger.waves = ledger.waves ?? [];
+  const existing = ledger.waves.find((wave) => wave.waveId === waveId);
+  const next = {
+    waveId,
+    recurringFindingCount: 0,
+    streamAlternationCount: 0,
+    roundsSinceProgress: 0,
+    ...existing,
+    ...counters,
+    at: nowIso(),
+  };
+  ledger.waves = existing
+    ? ledger.waves.map((wave) => wave.waveId === waveId ? next : wave)
+    : [...ledger.waves, next];
+  ledger.updatedAt = nowIso();
+  appendEvent(ledger, "trajectory.recorded", { waveId, ...counters });
+}
+
+function recordTrajectory() {
+  const waveId = argValue("--wave", argValue("--wave-id"));
+  if (!waveId) {
+    console.error("record-trajectory requires --wave.");
+    process.exit(2);
+  }
+  const counters = {};
+  for (const [flag, key] of [
+    ["--recurring-finding-count", "recurringFindingCount"],
+    ["--stream-alternation-count", "streamAlternationCount"],
+    ["--rounds-since-progress", "roundsSinceProgress"],
+  ]) {
+    const raw = argValue(flag);
+    if (!raw) continue;
+    const parsed = Number.parseInt(raw, 10);
+    if (!Number.isInteger(parsed) || parsed < 0 || String(parsed) !== raw.trim()) {
+      console.error(`record-trajectory ${flag} must be a non-negative integer.`);
+      process.exit(2);
+    }
+    counters[key] = parsed;
+  }
+  const file = currentLedgerOrFail();
+  updateJson(file, (ledger) => {
+    applyRecordTrajectory(ledger, waveId, counters);
+    return ledger;
+  });
+}
+
 function recordDecision() {
   const topic = argValue("--topic");
   const decision = argValue("--decision");
@@ -1307,6 +1490,10 @@ function recordDecision() {
 function history() {
   if (args.includes("--progress")) {
     historyProgress();
+    return;
+  }
+  if (args.includes("--gates")) {
+    historyGates();
     return;
   }
   mkdirSync(runsDir(), { recursive: true, mode: 0o700 });
@@ -1339,10 +1526,11 @@ else if (command === "record-completion-audit") recordCompletionAudit();
 else if (command === "record-install-proof") recordInstallProof();
 else if (command === "record-task-bundle") recordTaskBundle();
 else if (command === "record-subagent") recordSubagent();
+else if (command === "record-trajectory") recordTrajectory();
 else if (command === "record-decision") recordDecision();
 else if (command === "history") history();
 else {
-  console.error(`usage: execution-ledger.mjs init|validate|check-stop [--require-ledger] [--require-tasks] [--require-plan-phases]|check-bound-execute|set-task|set-phase|record-uat|record-check|require-artifact|record-artifact|record-agent|record-review|record-tdd|record-simplifier|record-specialist|record-completion-audit|record-install-proof|record-task-bundle [--file <path>]|<json-stdin>|record-decision|record-subagent|history [--progress] [--renegotiation-check] [--json]`);
+  console.error(`usage: execution-ledger.mjs init|validate|check-stop [--require-ledger] [--require-tasks] [--require-plan-phases]|check-bound-execute|set-task|set-phase|record-uat|record-check|require-artifact|record-artifact|record-agent|record-review|record-tdd|record-simplifier|record-specialist|record-completion-audit|record-install-proof|record-task-bundle [--file <path>]|<json-stdin>|record-trajectory --wave <id> [--recurring-finding-count <n>] [--stream-alternation-count <n>] [--rounds-since-progress <n>]|record-decision|record-subagent|history [--progress] [--renegotiation-check] [--gates] [--plan <path>] [--json]`);
   console.error(reopenCapUsageText());
   process.exit(2);
 }

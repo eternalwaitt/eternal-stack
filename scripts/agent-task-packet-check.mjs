@@ -1,6 +1,12 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import {
+  CODEX_MODELS,
+  MODEL_TIERS,
+  REASONING_EFFORTS,
+  resolveCodexModel,
+} from "./lib/codex-model-routing.mjs";
 import { packetHash } from "./lib/evidence-trace.mjs";
 import { readStdinRaw } from "./lib/read-stdin.mjs";
 
@@ -11,13 +17,32 @@ const templateIndex = args.indexOf("--template");
 if (templateIndex !== -1) {
   const templateMode = args[templateIndex + 1];
   if (!templateMode || templateMode.startsWith("--")) {
-    console.error('usage: agent-task-packet-check.mjs --template [read-only|write]');
+    console.error('usage: agent-task-packet-check.mjs --template [read-only|write|mini]');
     process.exit(2);
   }
-  if (templateMode !== "read-only" && templateMode !== "write") {
-    console.error('usage: agent-task-packet-check.mjs --template [read-only|write]');
+  if (templateMode !== "read-only" && templateMode !== "write" && templateMode !== "mini") {
+    console.error('usage: agent-task-packet-check.mjs --template [read-only|write|mini]');
     process.exit(2);
   }
+  if (templateMode === "mini") {
+    const modelTier = "standard";
+    const resolved = resolveCodexModel({ modelTier });
+    const packet = {
+      mode: "write",
+      taskId: "T1",
+      goal: "One bounded change with explicit verification.",
+      scope: "Exact files or behavior boundary for this task.",
+      verificationCommand: "project-specific verification command",
+      writeScope: ["path/to/owned-file"],
+      modelTier,
+      codexModel: resolved.model,
+      codexReasoningEffort: resolved.reasoningEffort,
+    };
+    console.log(JSON.stringify({ packet }, null, 2));
+    process.exit(0);
+  }
+  const templateModelTier = templateMode === "read-only" ? "fast" : "standard";
+  const resolvedModel = resolveCodexModel({ modelTier: templateModelTier });
   const packet = {
     mode: templateMode,
     goal: "Inspect or change one bounded subsystem.",
@@ -27,7 +52,9 @@ if (templateIndex !== -1) {
     readSet: ["path/to/read-first"],
     expectedOutput: "Concise findings or changed files plus verification evidence.",
     noRevert: true,
-    modelTier: templateMode === "read-only" ? "fast" : "standard",
+    modelTier: templateModelTier,
+    codexModel: resolvedModel.model,
+    codexReasoningEffort: resolvedModel.reasoningEffort,
   };
   if (templateMode === "write") {
     Object.assign(packet, {
@@ -92,6 +119,8 @@ const fieldAliases = new Map([
   ["verification_command", "verificationCommand"],
   ["model_tier", "modelTier"],
   ["model_tier_justification", "modelTierJustification"],
+  ["codex_model", "codexModel"],
+  ["codex_reasoning_effort", "codexReasoningEffort"],
   ["timeout_sec", "timeoutSec"],
   ["retry_policy", "retryPolicy"],
   ["web_search_guidance", "webSearchGuidance"],
@@ -216,6 +245,7 @@ const writeFields = [
   "forbiddenPaths",
   "verificationCommand",
   "modelTier",
+  "codexModel",
   "timeoutSec",
   "retryPolicy",
   "webSearchGuidance",
@@ -286,7 +316,6 @@ if ("timeoutSec" in packet && (!Number.isFinite(packet.timeoutSec) || packet.tim
   violations.push("timeoutSec must be a number > 0");
 }
 
-const MODEL_TIERS = new Set(["fast", "standard", "top"]);
 if ("modelTier" in packet) {
   if (typeof packet.modelTier !== "string" || !MODEL_TIERS.has(packet.modelTier)) {
     violations.push('modelTier must be one of "fast", "standard", or "top"');
@@ -296,6 +325,25 @@ if ("modelTier" in packet) {
     && !(typeof packet.modelTierJustification === "string" && packet.modelTierJustification.trim().length > 0)
   ) {
     warnings.push("read-only packet requests modelTier top without modelTierJustification");
+  }
+}
+
+if ("codexModel" in packet) {
+  if (typeof packet.codexModel !== "string" || !CODEX_MODELS.has(packet.codexModel)) {
+    violations.push('codexModel must be one of "gpt-5.6-sol", "gpt-5.6-terra", or "gpt-5.6-luna"');
+  } else if (
+    packet.codexModel === "gpt-5.6-sol"
+    && !(typeof packet.modelTierJustification === "string" && /integration[- ]owner|adversarial/i.test(packet.modelTierJustification))
+  ) {
+    violations.push("gpt-5.6-sol requires modelTierJustification naming integration-owner or adversarial escalation");
+  }
+}
+
+if ("codexReasoningEffort" in packet) {
+  if (typeof packet.codexReasoningEffort !== "string" || !REASONING_EFFORTS.has(packet.codexReasoningEffort)) {
+    violations.push('codexReasoningEffort must be one of "low", "medium", or "high"');
+  } else if (!("codexModel" in packet)) {
+    violations.push("codexReasoningEffort requires codexModel");
   }
 }
 
@@ -475,6 +523,7 @@ if (missing.length > 0 || violations.length > 0) {
   console.error("Include every required structured field so the worker can run without follow-up questions.");
   console.error("Template: node scripts/agent-task-packet-check.mjs --template write");
   console.error('modelTier intent values: fast (read-only/mechanical), standard (write implementation), top (tier-3 money/migration/security review). Override with modelTierJustification.');
+  console.error('Write packets must include codexModel so subagents never inherit the parent thread model.');
   process.exit(1);
 }
 

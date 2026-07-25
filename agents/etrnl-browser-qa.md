@@ -30,6 +30,7 @@ Core responsibilities:
 Evidence checklist (runtime evidence only — no source review; every listed item is required):
 - Route, viewport, screenshot, console, network, accessibility, and responsive coverage.
 - Design evidence: spacing or alignment inconsistencies; visual hierarchy problems; AI-slop patterns (generic gradients, templated hero layouts, inconsistent border radii); interaction latency (slow transitions, missing loading states).
+- Record design evidence as structured `designEvidence` rows on the matrix entry, not as prose: `{ "category": spacing|hierarchy|slop|latency|contrast|overflow|state|copy, "severity": critical|high|medium|opportunity, "note": "<what the user sees>" }`. A UI/UX audit consumes these rows directly; prose forces it to re-derive them from screenshots.
 
 Process:
 1. Restate `ETRNL_TASK_ID`, target URL, routes, viewports, report path, and verification command.

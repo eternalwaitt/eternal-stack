@@ -81,34 +81,19 @@ Freeze scope before drafting task groups, and hold it through execution:
 3. Reject integrity, tamper-proofing, cryptographic-receipt, and provenance-hardening scope unless the one-sentence goal names it. These are the recurring drift vectors; a plan that grows one without an explicit ask is over-engineered — cut it. `node scripts/deep-stack-check.mjs validate-plan` enforces this mechanically for new create rows and drifting task groups.
 4. Commit each task group independently so value lands incrementally and a drifting task group reverts alone.
 
+## Tier assessment and Codex model routing
+
+Tier ≥ 2 plans state what the declared tier costs before the task groups, and route every planned packet to an explicit model. Tier 0–1 plans skip both.
+
+Emit `## Tier assessment` before `## What already exists` with five lines: declared `Risk tier` and its trigger, tier cost, execution cost shape, model cost shape, and `Scope triage: <value>`. It informs the owner and never blocks `Status: Final`. Resolve the triage with `node scripts/diff-triviality.mjs classify-plan --plan <plan-path> --json` and copy the returned `scope` verbatim. Tier 3 is Large at every file count.
+
+Load `references/tier-assessment-and-model-routing.md` before writing that section, the `Scope triage:` line, or any packet model. It carries the five-line field contract, the scope triage table, the Codex model map resolved through `scripts/lib/codex-model-routing.mjs`, the rule that an omitted or inherited `model` is a packet defect rather than a fallback, and the `## Parallelization strategy` row format.
+
 ## Full Deep Stack Review
 
 Run the review gauntlet required by the plan's `Risk tier` before finalizing. Tier 0–1 use one merged quality review lane only — no task packets, no multi-reviewer fan-out, no deep-stack bundle. Tier 2 requires engineering plus adversarial lanes. Tier 3 requires all eight lanes and a validated `Deep stack artifacts:` bundle before execution.
 
-1. CEO/founder review:
-   - Validate the premise, user value, scope, 6-month regret, and better alternatives.
-   - Record quick wins, rejected expansions, premise challenges, and user-direction conflicts.
-2. Engineering review:
-   - Validate architecture, data flow, failure modes, rollback, tests, parallelization, reuse, latency, install risk, and type boundaries.
-   - Reuse `references/review-contract.md` instead of duplicating a long prompt.
-   - Run `references/coderabbit-preemption.md` so plan tasks pre-empt the preemptable CodeRabbit finding classes before code exists: Tier A (deterministic guards) and Tier B (spec checklist). Tier C is emergent — it only exists once code is written — so pin its categories (review lenses) for the post-edit review pass instead of requiring them up front.
-3. Design review, when UI scope exists:
-   - Load `etrnl-frontend-patterns`; check for repo `DESIGN.md` (authoritative when present; when design-heavy and absent, propose creating one via the design-md workflow).
-   - Check information hierarchy, interaction states, responsive behavior, accessibility, and existing design-system reuse.
-   - Add a design/mock artifact slot when visuals would materially reduce ambiguity.
-4. DX review, when developer-facing scope exists:
-   - Check install, commands, docs, structured errors, staged install, upgrade path, rollback, cache/latency budgets, and time-to-first-success.
-5. Adversarial review:
-   - Reuse `/etrnl-dev-stress-test` posture.
-   - Challenge the most likely false assumption, hidden coupling, verification gaps, and shareable-repo leakage.
-6. Outside voices:
-   - Use `etrnl-scout`, `etrnl-adversary`, `etrnl-design-reviewer`, and `etrnl-dx-reviewer` as read-only subagent candidates when scope is large enough.
-   - Load `references/reviewer-routing.md` to assign each reviewer agent its disjoint gate; never route two agents to the same gate.
-   - Load `references/reversible-compression.md` for every read-only subagent packet so each agent writes full evidence to a content-addressed artifact and returns only the receipt.
-   - If Codex, Gemini, Octopus, gstack design, or GPT image/mock tooling is installed, mark it as an applicable escalation path; report missing tools instead of silently skipping them.
-7. Specialist convergence:
-   - Run or explicitly disposition reuse, code-simplifier, code-review-excellence, advanced TypeScript, and domain-specific companion lanes.
-   - Close, disprove, or explicitly user-accept every high/blocker finding before finalization.
+Load `references/deep-stack-review.md` for the lane definitions: CEO/founder, engineering (with `references/review-contract.md` and `references/coderabbit-preemption.md`), design, DX, adversarial, outside voices (with `references/reviewer-routing.md` and `references/reversible-compression.md`), and specialist convergence. Close, disprove, or explicitly user-accept every high/blocker finding before finalization.
 
 ## Hybrid Deep Stack Artifacts
 
@@ -161,7 +146,7 @@ Before finalizing any plan for a capability or feature that competes with or par
 1. Ground the plan in current repo evidence before proposing changes.
 2. Identify existing files, helpers, hooks, scripts, tests, and docs to reuse.
 3. Group work by subsystem and dependency.
-4. Name disjoint write scopes and safe subagent candidates.
+4. Name disjoint write scopes and safe subagent candidates, and route each candidate to an explicit model and reasoning effort per the Codex model map in `references/tier-assessment-and-model-routing.md`.
 5. Include verification commands for each phase and the final gate.
 6. For multi-session, multi-route, or multi-workstream plans, include conditional `Phase:`, `Workstream:`, and `UAT Gate:` metadata so `/etrnl-dev-execute` can record phase/UAT state in the ledger.
 7. Do not include `## Immediate First Patch`, `## First Slice`, or similar partial-completion headings in a final all-phases plan. Express sequencing under `## Phases` instead.
@@ -198,7 +183,8 @@ Skip task packet drafting for tier 0–1 — the quick-dev lane has no packets. 
 - forbidden files
 - expected output
 - verification command
-- model tier
+- model tier (`fast`, `standard`, or `top`)
+- `codexModel` and `codexReasoningEffort` resolved from that tier by `scripts/lib/codex-model-routing.mjs`, plus `modelTierJustification` when the packet escalates to `gpt-5.6-sol`
 - timeout
 - retry policy
 - do-not-revert instruction
@@ -216,6 +202,7 @@ Return or save a single implementation plan with this readiness-compatible shape
 - `Non-goals:`
 - `Deep stack artifacts:` metadata for every non-trivial final plan at tier ≥ 2.
 - Conditional `Phase:`, `Workstream:`, and `UAT Gate:` metadata when the plan spans multiple phases, routes, or workstreams.
+- `## Tier assessment` for every tier ≥ 2 plan — informational, never a Final gate.
 - `## What already exists`
 - `## NOT in scope`
 - `## File map`
@@ -225,7 +212,7 @@ Return or save a single implementation plan with this readiness-compatible shape
 - `## Test plan`
 - `## Test-first execution plan`
 - `## Failure modes`
-- `## Parallelization strategy`
+- `## Parallelization strategy` — with the required `Agent/model/effort` column on every packet row
 - `## Verification gates`
 - `## Rollback`
 - `## Execution handoff`
@@ -246,6 +233,8 @@ The Plan Readiness Report must explicitly cover:
 - Parallelization
 - Final decision inputs that justify the verdict section
 - Autoplan parity scorecard with context recovery, reuse, review coverage, external evidence, test-first plan, artifact validity, execution handoff, and open-risk closure scores (tier 3 only; every score 9 or 10)
+
+Tier 3 runs the bounded convergence loop in `references/plan-review-convergence.md` before `## Verdict`: `etrnl-spec-reviewer` → `etrnl-quality-reviewer` → `etrnl-adversary`, at most 3 cycles, stalling when the open-high count stops decreasing, every spawn explicit at `gpt-5.6-luna`/low per `scripts/lib/codex-model-routing.mjs`. A capped or stalled loop emits `Blocked until <specific blocker>`, and handoff then requires an owner override logged with `scripts/execution-ledger.mjs record-decision`. Tier 0–2 skip the loop.
 
 The final plan must include a separate `## Verdict` section with one explicit outcome:
 - Ready for execution

@@ -57,15 +57,15 @@ Completion means every item inside the plan's `Execution scope` is verified or e
     - Emit heartbeat text at wave and task boundaries: `[checkpoint] wave <n> task <id> starting`.
     - If a subagent completion signal is missing, spot-check expected output, git state, and ledger artifacts before deciding whether to retry or continue.
     - While a subagent owns a task, do not duplicate its implementation locally.
-    - Default `maxConcurrentLanes` to 3 unless the plan's `## Parallelization strategy` justifies more in one explicit line.
-    - Any duration estimate given to the user during execution MUST quote `node ~/.claude/scripts/execution-ledger.mjs history --progress --session "$CLAUDE_SESSION_ID"`; if the ledger cannot provide it, say so instead of guessing.
+    - Default `maxConcurrentLanes` to 3 unless the plan's `## Parallelization strategy` justifies more in one explicit line. The Codex execute profile drops that default to 2.
+    - Progress reported to the user is ledger position plus named gates only, per the Progress reporting rules in `references/codex-execute-profile.md`. Rolling hour ETAs are prohibited on every host; when the ledger cannot supply a field, report that field as unavailable instead of guessing.
     - When `history --progress --renegotiation-check` shows `renegotiationRequired=true`, pause once: present a consolidation proposal (bundle remaining waves per screen/domain for all tiers; one merged review per wave; tier-3 surfaces keep tier-3 lenses and gates per wave — no batching exemption), take ONE user decision, log it via `record-decision`, and never re-ask.
-    - Model tier defaults: read-only scout/review/consumer-trace lanes → `fast`; write implementation → `standard`; tier-3 money/migration/security review → `top`; packet override needs one `modelTierJustification` line.
-4. Subagent packets scale to tier and wave shape:
+    - Model tier defaults: read-only scout/review/consumer-trace lanes → `fast`; write implementation → `standard`; tier-3 money/migration/security review → `top`; packet override needs one `modelTierJustification` line. Resolve each tier to a slug and reasoning effort through `scripts/lib/codex-model-routing.mjs`; never hand-write a model string.
+4. Subagent packets scale to tier, scope triage, and wave shape. The plan's `Scope triage:` line selects the shape; see `## Plan scope triage`.
    - **Tier 0–1 quick-dev lane:** no task packets, no reviewer fan-out, no deep-stack artifacts. Parent executes TDD probe → surgical fix → targeted tests → `review-rules.mjs` → ONE merged quality lens. State success criteria up front as the stop condition.
    - **Sequential single-task work (tier ≥ 2):** 5-field mini-packet — `taskId`, `goal`, `exact scope`, `verification command`, `write scope` (or read-only). No hash, lineageId, reviewers, waveId, or completionReceipt.
    - **Parallel multi-file write waves at tier ≥ 2:** full packet schema below (hash, reviewers, waveId, completionReceipt when required).
-   - Generate skeletons with `agent-task-packet-check.mjs --template read-only|write`; pass as `tool_input.packet` or JSON-only prompt (no Markdown wrapper). Retry JSON on packet rejection — do not switch to parent edits.
+   - Generate skeletons with `agent-task-packet-check.mjs --template read-only|write|mini`; pass as `tool_input.packet` or JSON-only prompt (no Markdown wrapper). Retry JSON on packet rejection — do not switch to parent edits.
    - Full-packet fields (tier ≥ 2 parallel writes): use `agent-task-packet-check.mjs --template write` for the canonical schema (lineageId, reviewers, waveId, TDD/deep-stack flags, completionReceipt when required).
    - Run `node ~/.claude/scripts/agent-task-packet-check.mjs --hash` on the final packet JSON and keep the packet hash with task notes.
    - Oversized handoffs: create `## Execution Digest` or `## Plan Index` and dispatch bounded chunks by task id.
@@ -81,9 +81,33 @@ Completion means every item inside the plan's `Execution scope` is verified or e
 9. Preserve user changes and do not revert unrelated dirty files.
 10. Before broad edits, invoke required domain companions when installed (`eternal-best-practices`, `finding-duplicate-functions`, `code-simplifier`, `etrnl-code-review-excellence`). Record missing skills and compensating checks before continuing.
 
+## Codex execute profile
+
+`ETRNL_EXECUTE_HOST` selects the process profile at startup: `codex` runs the Codex profile, `claude` runs the Claude path in every other section with no change, and an unset value runs the Codex profile only under a detected Codex CLI session. Any other value is a configuration defect. State the resolved profile and the signal that selected it in the first status line of the run.
+
+Load `references/codex-execute-profile.md` before the first spawn on the Codex host. It carries host detection, the profile defaults (`maxConcurrentLanes` 2, one merged per-wave review at tier 0–2, tier 3 gates at full strength on every wave), the spawn contract (explicit `model` and reasoning effort on every spawn, `inherit` as a packet defect), and the progress-reporting command contract.
+
+## Plan scope triage
+
+The plan's `## Tier assessment` section carries a `Scope triage:` line reading `Trivial`, `Small`, or `Large`. Read it at startup and run the matching shape on every host, under either profile. When the line is absent, resolve the scope with `node scripts/diff-triviality.mjs classify-plan --plan <plan-path> --json` (after install, `node ~/.claude/scripts/diff-triviality.mjs classify-plan --plan <plan-path> --json`) and quote the returned `scope` and `reason` in the first status line. When that command fails, run the `Large` shape.
+
+| Scope | Packets | Review | Scaffolding |
+| --- | --- | --- | --- |
+| Trivial | `--template mini` only | `review-rules.mjs check --changed-only` plus the plan's verification gates | None |
+| Small | Mini-packet per sequential task; full packet for a parallel multi-file write wave | One merged quality review per wave | Waves only where two tasks run in parallel |
+| Large | Full packet schema | Reviewer roles named by the plan and the declared tier | Full phase and wave scaffolding |
+
+Trivial shape rules:
+
+1. Dispatch every task with the mini packet from `node scripts/agent-task-packet-check.mjs --template mini` (after install, `node ~/.claude/scripts/agent-task-packet-check.mjs --template mini`). Fill `taskId`, `goal`, `scope`, `verificationCommand`, and `writeScope`, and carry the `codexModel` and `codexReasoningEffort` the template resolves. Generate no full packet, no `lineageId`, no `waveId`, and no `completionReceipt`.
+2. Spawn no `etrnl-spec-reviewer`, no `etrnl-quality-reviewer`, no simplifier lens, and no adversarial pass. This replaces the per-wave merged quality review that `references/codex-execute-profile.md` runs at tier 0–2; that merged review holds at `Small` and `Large`.
+3. Skip wave tables, `execution-wave-check.mjs` overlap checks, and phase scaffolding. Ledger `set-task`, `record-check`, and the completion gates still run on every task.
+4. Tier 3 is never Trivial. A `Scope triage: Trivial` line on a tier 3 plan is a plan defect: run the Large shape and report the defect in the first status line.
+5. A scope expansion past the plan's `## File map` ends the Trivial shape mid-run. Re-run `classify-plan`, state the new scope, and run the returned shape for the remaining tasks.
+
 ## Bounded CodeRabbit-lens review (risk-tiered)
 
-After the final edit of a task or wave, run parallel reviewers, merge with `node scripts/review-merge.mjs`, fix `safe_auto` immediately, and reopen only on P0/P1 blockers. Load `references/bounded-review.md` for synthesis, reopen caps (ledger-enforced), and per-tier depth.
+After the final edit of a task or wave, run `node scripts/review-rules.mjs check --changed-only` whenever the tree has source changes, then run parallel reviewers, merge with `node scripts/review-merge.mjs`, fix `safe_auto` immediately, and reopen only on P0/P1 blockers. Load `references/bounded-review.md` for synthesis, reopen caps (ledger-enforced), and per-tier depth.
 
 ### Wave and task exit check
 

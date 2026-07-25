@@ -108,6 +108,8 @@ Fanout categories require one lane receipt for every registered lane. Each recei
 
 Lane receipts consume the shared category worklist hashes. Fanout lanes do not rescan broad target inventory independently.
 
+Every registered lane declares a `modelTier` (`fast`, `standard`, or `top`). Dispatch resolves it with `categoryLaneDispatch(categoryId)` from `scripts/lib/deep-audit-categories.mjs` and passes the resulting `model` and `reasoningEffort` on the spawn. A spawn that omits `model` inherits the parent thread model, so an inherited lane is a dispatch defect, not a default. A lane at the `top` tier also carries `modelTierJustification`.
+
 ## Coverage Statement
 
 For `all_registered`, emit:

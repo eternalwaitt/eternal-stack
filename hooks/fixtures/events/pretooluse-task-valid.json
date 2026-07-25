@@ -21,6 +21,8 @@
       "expectedOutput": "changed files and verification",
       "verificationCommand": "pnpm test",
       "modelTier": "standard",
+      "codexModel": "gpt-5.6-terra",
+      "codexReasoningEffort": "medium",
       "timeoutSec": 1200,
       "retryPolicy": {
         "maxRetries": 1,

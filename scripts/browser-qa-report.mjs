@@ -35,6 +35,45 @@ function parseJsonArg(flag, fallback = undefined) {
   }
 }
 
+// Design-evidence rows let a UI/UX audit consume runtime craft observations from
+// the same matrix that already proves the route loaded, instead of re-deriving
+// them from screenshots. Rows stay opt-in so existing QA reports keep validating.
+const DESIGN_EVIDENCE_CATEGORIES = new Set([
+  "spacing",
+  "hierarchy",
+  "slop",
+  "latency",
+  "contrast",
+  "overflow",
+  "state",
+  "copy",
+]);
+const DESIGN_EVIDENCE_SEVERITIES = new Set(["critical", "high", "medium", "opportunity"]);
+
+function validateDesignEvidence(row, index, errors) {
+  if (row.designEvidence === undefined) return;
+  if (!Array.isArray(row.designEvidence)) {
+    errors.push(`matrix[${index}].designEvidence must be an array when provided`);
+    return;
+  }
+  for (const [entryIndex, entry] of row.designEvidence.entries()) {
+    const label = `matrix[${index}].designEvidence[${entryIndex}]`;
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      errors.push(`${label} must be an object`);
+      continue;
+    }
+    if (!DESIGN_EVIDENCE_CATEGORIES.has(String(entry.category || ""))) {
+      errors.push(`${label}.category must be one of: ${Array.from(DESIGN_EVIDENCE_CATEGORIES).join(", ")}`);
+    }
+    if (!DESIGN_EVIDENCE_SEVERITIES.has(String(entry.severity || ""))) {
+      errors.push(`${label}.severity must be one of: ${Array.from(DESIGN_EVIDENCE_SEVERITIES).join(", ")}`);
+    }
+    if (String(entry.note || "").trim() === "") {
+      errors.push(`${label}.note is required`);
+    }
+  }
+}
+
 function hasCheckedSummary(value) {
   const summary = String(value || "").trim().toLowerCase();
   return summary.length > 0
@@ -75,6 +114,7 @@ function hasCliCreateArgs() {
     || argValue(args, "--network")
     || argValue(args, "--accessibility")
     || argValue(args, "--responsive")
+    || argValue(args, "--design-evidence")
   );
 }
 
@@ -201,6 +241,7 @@ function reportErrors(report, options = {}) {
         }
         if (typeof row.route !== "string" || row.route.trim() === "") errors.push(`matrix[${index}].route is required`);
         if (typeof row.viewport !== "string" || row.viewport.trim() === "") errors.push(`matrix[${index}].viewport is required`);
+        validateDesignEvidence(row, index, errors);
         if (report.status === "complete") {
           if (!["passed", "failed", "blocked", "skipped"].includes(String(row.status || ""))) {
             errors.push(`matrix[${index}].status must be passed, failed, blocked, or skipped`);
@@ -304,6 +345,7 @@ function create() {
     networkSummary: input.networkSummary || argValue(args, "--network", "not checked"),
     accessibilitySummary: input.accessibilitySummary || argValue(args, "--accessibility", "not checked"),
     responsiveSummary: input.responsiveSummary || argValue(args, "--responsive", "not checked"),
+    designEvidenceSummary: input.designEvidenceSummary || argValue(args, "--design-evidence", "not checked"),
     status: input.status || argValue(args, "--status", "draft"),
   };
   if (schemaVersion === 2) {

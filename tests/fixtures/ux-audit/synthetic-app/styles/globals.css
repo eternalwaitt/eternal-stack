@@ -1,0 +1,13 @@
+:root {
+  --surface: #ffffff;
+}
+
+body {
+  font-size: 14px;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #101014;
+  }
+}

@@ -30,6 +30,7 @@ const sinceDays = Number(flagValue("--since-days", "0"));
 const cwdFilter = flagValue("--cwd");
 const projectFilter = flagValue("--project");
 const projectsConfigPath = flagValue("--projects-config");
+const toolEffectivenessDisabled = process.env.ETRNL_TOOL_EFFECTIVENESS_DISABLED === "1";
 
 if (!VALID_COMMANDS.has(command)) usage();
 
@@ -54,6 +55,10 @@ function escapeRegex(value) {
 function emit(value) {
   if (jsonMode || typeof value !== "string") console.log(JSON.stringify(value, null, 2));
   else console.log(value);
+}
+
+function disabledResponse() {
+  return { disabled: true };
 }
 
 function allFiles(dir) {
@@ -413,6 +418,10 @@ function importCodex() {
 }
 
 try {
+  if (toolEffectivenessDisabled && (command === "summarize" || command === "import-codex" || command === "baseline")) {
+    emit(disabledResponse());
+    process.exit(0);
+  }
   if (command === "validate-fixtures") validateFixtures();
   else if (command === "baseline") emit(baseline(loadSource().events));
   else if (command === "import-codex") importCodex();

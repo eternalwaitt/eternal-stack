@@ -121,6 +121,9 @@ CRITICAL_SCRIPTS=(
   deep-audit-artifact-check.mjs
   plan-readiness-check.mjs
   performance-baseline.mjs
+  ux-inventory.mjs
+  ux-audit-check.mjs
+  codex-rollout-baseline.mjs
   pr-preflight.mjs
   canary-codex-hindsight.mjs
   live-hook-noise-report.mjs
@@ -168,6 +171,9 @@ INSTALL_SCRIPTS=(
   deep-audit-artifact-check.mjs
   plan-readiness-check.mjs
   performance-baseline.mjs
+  ux-inventory.mjs
+  ux-audit-check.mjs
+  codex-rollout-baseline.mjs
   pr-preflight.mjs
   agent-task-packet-check.mjs
   guard-override-token.mjs
