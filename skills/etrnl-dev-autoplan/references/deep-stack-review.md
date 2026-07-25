@@ -2,7 +2,7 @@
 
 Load this file from `etrnl-dev-autoplan` before finalizing a tier ≥ 2 plan. It carries the full lane definitions the `## Autoplan Depth Contract` names.
 
-Run the review gauntlet required by the plan's `Risk tier` before finalizing. Tier 0–1 use one merged quality review lane only — no task packets, no multi-reviewer fan-out, no deep-stack bundle. Tier 2 requires engineering plus adversarial lanes. Tier 3 requires all eight lanes — CEO/founder, engineering, design, DX, adversarial, reuse, simplifier, and specialist convergence — plus outside-voice routing and a validated `Deep stack artifacts:` bundle before execution.
+Run the review gauntlet required by the plan's `Risk tier` before finalizing. Tier 0–1 use one merged quality review lane only — no task packets, no multi-reviewer fan-out, no deep-stack bundle. Tier 2 requires engineering plus adversarial lanes. A tier 3 plan requires every applicable lane — CEO/founder, engineering, adversarial, reuse, simplifier, and specialist convergence unconditionally, plus design when UI scope exists and DX when developer-facing scope exists — together with outside-voice routing and a validated `Deep stack artifacts:` bundle before execution. The two scoped lanes are exempt when their scope is absent; a plan that touches no UI does not owe a design lane.
 
 1. CEO/founder review:
    - Validate the premise, user value, scope, 6-month regret, and better alternatives.
