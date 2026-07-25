@@ -3568,13 +3568,14 @@ const { withFileLock } = await import(pathToFileURL(process.env.RACE_LIB).href);
 const wait = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 const log = (line) => appendFileSync(process.env.RACE_LOG, `${line}\n`);
 
-writeFileSync(`${process.env.RACE_READY}-${process.pid}`, "");
 // Wake on a shared wall-clock deadline. Staggered starts let a late worker see the
 // winner's fresh lock and wait politely, which never exercises the reclaim path.
 const startAt = Number(process.env.RACE_START_AT);
+const arrivedInTime = Date.now() < startAt;
 const lead = startAt - Date.now() - 20;
 if (lead > 0) wait(lead);
 while (Date.now() < startAt) { /* spin the last few ms so all workers start together */ }
+if (arrivedInTime) writeFileSync(`${process.env.RACE_READY}-${process.pid}`, "");
 
 try {
   withFileLock(process.env.RACE_STORE, () => {
@@ -3649,6 +3650,12 @@ import("node:url").then(async ({ pathToFileURL }) => {
 assert_contains "an orphaned reclaim marker fails closed and names itself" "$lock_orphan_probe" "ORPHAN=reported"
 assert_contains "the orphaned-marker acquire returns within its timeout" "$(( $(date +%s) - lock_orphan_started < 15 ? 1 : 0 ))" "1"
 rm -rf "$lock_orphan_store.lock" "$lock_orphan_store.lock.reclaim"
+# No churn probe covers the timeout check that now runs before every retry path. A
+# churner that deletes and recreates the lock races the acquirer, so the acquirer
+# sometimes wins a gap and returns "acquired" instead of timing out — the probe reds on
+# correct code. It also cannot force the vanished-lock branch on every iteration, so it
+# stayed green with the check in its old position. Non-discriminating and flaky both,
+# which is worse than absent: the bound is by construction, argued at the check itself.
 # A release must not delete a lock directory this process no longer owns: that is the
 # same double-ownership bug one level down, reachable when a critical section overruns
 # staleMs and a waiter legitimately reclaims the lock mid-flight.

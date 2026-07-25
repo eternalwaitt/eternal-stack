@@ -120,6 +120,20 @@ export function acquireFileLock(file, options = {}) {
       return () => releaseIfOwned(lockDir, token);
     } catch (error) {
       if (error?.code !== "EEXIST") throw error;
+      // Checked before every retry path, not just the one that falls through to the
+      // sleep below. Both `continue`s here jump straight back to the mkdir, so a lock
+      // that keeps vanishing, or a reclaim that keeps winning and then losing the
+      // recreate, would otherwise run past `timeoutMs` unbounded. Churn cannot
+      // reproduce that on demand — most iterations see a lock that does exist — so
+      // this is a bound by construction rather than one a test pins down.
+      if (Date.now() - startedAt > timeoutMs) {
+        // The reclaim marker is held for three syscalls, so one that outlives this
+        // wait was orphaned by a process killed mid-reclaim. Nothing reclaims a
+        // stale lock while it stands, which fails closed rather than risking two
+        // holders — name it so an operator knows what to remove.
+        const orphan = statLock(reclaimMarker(lockDir)) ? ` (stale reclaim marker present: ${reclaimMarker(lockDir)})` : "";
+        throw new Error(`Timed out waiting for ${label} lock: ${lockDir}${orphan}`);
+      }
       attempts += 1;
       const stats = statLock(lockDir);
       if (!stats) continue;
@@ -129,14 +143,6 @@ export function acquireFileLock(file, options = {}) {
       if (Date.now() - stats.mtimeMs > staleMs) {
         const staleToken = readLockOwner(lockDir);
         if (staleToken && reclaimStaleLock(lockDir, staleMs, staleToken)) continue;
-      }
-      if (Date.now() - startedAt > timeoutMs) {
-        // The reclaim marker is held for three syscalls, so one that outlives this
-        // wait was orphaned by a process killed mid-reclaim. Nothing reclaims a
-        // stale lock while it stands, which fails closed rather than risking two
-        // holders — name it so an operator knows what to remove.
-        const orphan = statLock(reclaimMarker(lockDir)) ? ` (stale reclaim marker present: ${reclaimMarker(lockDir)})` : "";
-        throw new Error(`Timed out waiting for ${label} lock: ${lockDir}${orphan}`);
       }
       sleepMs(Math.min(250, 25 + attempts * 10));
     }
@@ -163,7 +169,7 @@ export function withFileLock(file, callback, options = {}) {
 // narrow a preserved 0644 under a restrictive umask.
 export function writeJsonAtomic(file, value, options = {}) {
   mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
-  const tmp = `${file}.tmp-${process.pid}-${Date.now()}`;
+  const tmp = `${file}.tmp-${randomUUID()}`;
   const body = `${JSON.stringify(value, null, 2)}\n`;
   const mode = options.mode ?? currentMode(file);
   if (mode === undefined) {
