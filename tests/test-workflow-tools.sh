@@ -3274,6 +3274,13 @@ rollout_line 2 400 >"$tg11_rollout_dir/grandchildthread-rollout.jsonl"
 tg11_rollout_json="$(node "$ROOT/scripts/codex-rollout-baseline.mjs" --rollout "$tg11_rollout_dir/parentthread-rollout.jsonl" --json)"
 assert_json_expr "codex rollout aggregation follows a subagent that spawns its own subagent" "$tg11_rollout_json" '.subagents.count == 2 and .subagents.tokens.inputTokens == 600 and .combined.tokens.inputTokens == 700'
 assert_json_expr "codex rollout aggregation reports every discovered subagent thread once" "$tg11_rollout_json" '(.subagents.threadIds | sort) == ["childthread","grandchildthread"] and (.subagents.files | length) == 2'
+# A spawned id whose rollout was never captured must not inflate threadIds past count:
+# a consumer checks threadIds.length against count, so an id that contributed no stats
+# belongs under its own key instead.
+{ rollout_line 0 100; spawn_line "childthread"; spawn_line "nevercapturedthread"; } >"$tg11_rollout_dir/parentthread-rollout.jsonl"
+tg11_unresolved_json="$(node "$ROOT/scripts/codex-rollout-baseline.mjs" --rollout "$tg11_rollout_dir/parentthread-rollout.jsonl" --json)"
+assert_json_expr "codex rollout threadIds stay one-to-one with the counted rollouts" "$tg11_unresolved_json" '(.subagents.threadIds | length) == .subagents.count and (.subagents.files | length) == .subagents.count'
+assert_json_expr "codex rollout reports a spawned thread with no rollout file separately" "$tg11_unresolved_json" '.subagents.unresolvedThreadIds == ["nevercapturedthread"] and (.subagents.threadIds | sort) == ["childthread","grandchildthread"]'
 
 tg11_blank_change_plan="$TMPROOT/tg11-blank-change.md"
 cat >"$tg11_blank_change_plan" <<'PLAN'
@@ -3546,6 +3553,198 @@ node "$ROOT/scripts/review-learn.mjs" learn --findings "$tg12_learn_root/as-any.
 assert_exit_status "review-learn fails when the ruleset write fails" "$tg12_learn_order_status" "1"
 assert_no_file "review-learn never persists the ledger when the ruleset write fails" "$tg12_learn_ledger_dir/review-learnings.json"
 assert_no_directory "review-learn releases the store lock when the ruleset write fails" "$tg12_learn_ledger_dir/review-learnings.json.lock"
+
+# Stale-lock reclaim must let exactly one waiter through. RED: drop reclaimStaleLock's
+# marker and re-check for a bare `rmSync(lockDir)`, and the waiters that read one stale
+# mtime each delete the lock a faster waiter has already recreated — six of eight then
+# run inside the critical section together and collide on the sentinel.
+lock_race_dir="$TMPROOT/lock-reclaim-race"
+mkdir -p "$lock_race_dir"
+cat >"$lock_race_dir/worker.mjs" <<'NODE'
+import { appendFileSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+
+const { withFileLock } = await import(pathToFileURL(process.env.RACE_LIB).href);
+const wait = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+const log = (line) => appendFileSync(process.env.RACE_LOG, `${line}\n`);
+
+writeFileSync(`${process.env.RACE_READY}-${process.pid}`, "");
+// Wake on a shared wall-clock deadline. Staggered starts let a late worker see the
+// winner's fresh lock and wait politely, which never exercises the reclaim path.
+const startAt = Number(process.env.RACE_START_AT);
+const lead = startAt - Date.now() - 20;
+if (lead > 0) wait(lead);
+while (Date.now() < startAt) { /* spin the last few ms so all workers start together */ }
+
+try {
+  withFileLock(process.env.RACE_STORE, () => {
+    // An exclusive create is the probe: if the sentinel already exists, a second
+    // process is inside the critical section this lock is supposed to serialize.
+    try {
+      writeFileSync(process.env.RACE_SENTINEL, String(process.pid), { flag: "wx" });
+    } catch {
+      let holder = "gone";
+      try { holder = readFileSync(process.env.RACE_SENTINEL, "utf8").trim(); } catch { /* released */ }
+      log(`overlap pid=${process.pid} heldBy=${holder}`);
+      return;
+    }
+    wait(150);
+    rmSync(process.env.RACE_SENTINEL, { force: true });
+    log(`exclusive pid=${process.pid}`);
+  }, { staleMs: 5000, timeoutMs: 20000 });
+} catch (error) {
+  log(`error pid=${process.pid} ${error.message}`);
+}
+NODE
+# Two rounds: with a synchronized start a single round misses the cascade about one
+# time in eight, which would make the red signal a coin flip.
+for lock_race_round in 1 2; do
+  lock_race_store="$lock_race_dir/store-$lock_race_round.json"
+  lock_race_log="$lock_race_dir/log-$lock_race_round"
+  printf '{}\n' >"$lock_race_store"
+  : >"$lock_race_log"
+  # Seed a lock already older than staleMs so every worker starts out wanting to
+  # reclaim it. mkdir sets mtime to now, so backdate afterwards.
+  mkdir -p "$lock_race_store.lock"
+  printf '999999 seeded-orphan\n' >"$lock_race_store.lock/owner"
+  touch -t 202001010000 "$lock_race_store.lock"
+  lock_race_pids=()
+  lock_race_start=$(( $(date +%s) * 1000 + 1500 ))
+  for _ in 1 2 3 4 5 6 7 8; do
+    RACE_LIB="$ROOT/scripts/lib/json-file-store.mjs" RACE_STORE="$lock_race_store" \
+      RACE_SENTINEL="$lock_race_dir/in-critical-section-$lock_race_round" RACE_LOG="$lock_race_log" \
+      RACE_READY="$lock_race_dir/ready-$lock_race_round" RACE_START_AT="$lock_race_start" \
+      node "$lock_race_dir/worker.mjs" &
+    lock_race_pids+=("$!")
+  done
+  for lock_race_pid in "${lock_race_pids[@]}"; do wait "$lock_race_pid" || true; done
+  # A worker that booted after the deadline never contended, which would quietly
+  # weaken the whole probe.
+  assert_contains "all eight reclaimers reach the shared start deadline (round $lock_race_round)" "$(find "$lock_race_dir" -maxdepth 1 -name "ready-$lock_race_round-*" | wc -l | tr -d ' ')" "8"
+  assert_not_contains "stale-lock reclaim never puts two writers in the critical section (round $lock_race_round)" "$(cat "$lock_race_log")" "overlap"
+  assert_contains "every racing reclaimer completes its critical section (round $lock_race_round)" "$(grep -c '^exclusive ' "$lock_race_log" | tr -d ' ')" "8"
+  assert_no_file "stale-lock reclaim leaves no sentinel behind (round $lock_race_round)" "$lock_race_dir/in-critical-section-$lock_race_round"
+  assert_no_directory "the last holder releases the store lock (round $lock_race_round)" "$lock_race_store.lock"
+  assert_no_directory "stale-lock reclaim clears its marker (round $lock_race_round)" "$lock_race_store.lock.reclaim"
+done
+# A reclaim marker orphaned by a process killed mid-reclaim must fail closed: no stale
+# lock is reclaimed while it stands, so the acquire has to reach its timeout and name
+# the marker rather than spinning on a refused reclaim.
+lock_orphan_store="$lock_race_dir/orphan-store.json"
+mkdir -p "$lock_orphan_store.lock" "$lock_orphan_store.lock.reclaim"
+printf '999999 seeded-orphan\n' >"$lock_orphan_store.lock/owner"
+touch -t 202001010000 "$lock_orphan_store.lock"
+lock_orphan_started="$(date +%s)"
+lock_orphan_probe="$(RACE_LIB="$ROOT/scripts/lib/json-file-store.mjs" node -e '
+import("node:url").then(async ({ pathToFileURL }) => {
+  const { acquireFileLock } = await import(pathToFileURL(process.env.RACE_LIB).href);
+  try {
+    acquireFileLock(process.argv[1], { staleMs: 5000, timeoutMs: 1000, label: "probe" })();
+    process.stdout.write("ORPHAN=acquired\n");
+  } catch (error) {
+    process.stdout.write(`ORPHAN=${/stale reclaim marker present/.test(error.message) ? "reported" : "unexplained"}\n`);
+  }
+});
+' "$lock_orphan_store")"
+assert_contains "an orphaned reclaim marker fails closed and names itself" "$lock_orphan_probe" "ORPHAN=reported"
+assert_contains "the orphaned-marker acquire returns within its timeout" "$(( $(date +%s) - lock_orphan_started < 15 ? 1 : 0 ))" "1"
+rm -rf "$lock_orphan_store.lock" "$lock_orphan_store.lock.reclaim"
+# A release must not delete a lock directory this process no longer owns: that is the
+# same double-ownership bug one level down, reachable when a critical section overruns
+# staleMs and a waiter legitimately reclaims the lock mid-flight.
+lock_owner_probe="$(RACE_LIB="$ROOT/scripts/lib/json-file-store.mjs" node -e '
+import("node:url").then(async ({ pathToFileURL }) => {
+  const { acquireFileLock } = await import(pathToFileURL(process.env.RACE_LIB).href);
+  const { existsSync, rmSync, mkdirSync, writeFileSync } = await import("node:fs");
+  const store = process.argv[1];
+  const release = acquireFileLock(store, { staleMs: 5000, timeoutMs: 5000 });
+  rmSync(`${store}.lock`, { recursive: true, force: true });
+  mkdirSync(`${store}.lock`);
+  writeFileSync(`${store}.lock/owner`, "other-holder\n");
+  release();
+  process.stdout.write(existsSync(`${store}.lock`) ? "FOREIGNLOCK=kept\n" : "FOREIGNLOCK=deleted\n");
+  rmSync(`${store}.lock`, { recursive: true, force: true });
+});
+' "$lock_race_dir/owner-store.json")"
+assert_contains "release leaves a lock reclaimed by another holder in place" "$lock_owner_probe" "FOREIGNLOCK=kept"
+# Reclaim must verify owner identity, not just staleness: if the real owner releases and a
+# new acquirer replaces the lock while a reclaimer holds the marker, deleting on mtime
+# alone would remove the fresh lock and let two writers into the critical section.
+lock_reclaim_refuse_store="$lock_race_dir/reclaim-refuse-store.json"
+mkdir -p "$lock_reclaim_refuse_store.lock"
+printf '111 stale-a\n' >"$lock_reclaim_refuse_store.lock/owner"
+touch -t 202001010000 "$lock_reclaim_refuse_store.lock"
+printf '222 stale-b\n' >"$lock_reclaim_refuse_store.lock/owner"
+lock_reclaim_refuse_probe="$(RACE_LIB="$ROOT/scripts/lib/json-file-store.mjs" node -e '
+import("node:url").then(async ({ pathToFileURL }) => {
+  const { reclaimStaleLock } = await import(pathToFileURL(process.env.RACE_LIB).href);
+  const { existsSync } = await import("node:fs");
+  const store = process.argv[1];
+  const lockDir = `${store}.lock`;
+  const reclaimed = reclaimStaleLock(lockDir, 5000, "111 stale-a");
+  process.stdout.write(
+    reclaimed ? "RECLAIM=removed\n" : existsSync(lockDir) ? "RECLAIM=refused\n" : "RECLAIM=vanished\n",
+  );
+});
+' "$lock_reclaim_refuse_store")"
+assert_contains "stale-lock reclaim refuses when the owner token was replaced" "$lock_reclaim_refuse_probe" "RECLAIM=refused"
+assert_directory "stale-lock reclaim leaves a replaced lock directory in place" "$lock_reclaim_refuse_store.lock"
+rm -rf "$lock_reclaim_refuse_store.lock" "$lock_reclaim_refuse_store.lock.reclaim"
+lock_reclaim_success_store="$lock_race_dir/reclaim-success-store.json"
+mkdir -p "$lock_reclaim_success_store.lock"
+printf '333 stale-c\n' >"$lock_reclaim_success_store.lock/owner"
+touch -t 202001010000 "$lock_reclaim_success_store.lock"
+lock_reclaim_success_probe="$(RACE_LIB="$ROOT/scripts/lib/json-file-store.mjs" node -e '
+import("node:url").then(async ({ pathToFileURL }) => {
+  const { reclaimStaleLock } = await import(pathToFileURL(process.env.RACE_LIB).href);
+  const { existsSync } = await import("node:fs");
+  const store = process.argv[1];
+  const lockDir = `${store}.lock`;
+  const reclaimed = reclaimStaleLock(lockDir, 5000, "333 stale-c");
+  process.stdout.write(
+    reclaimed && !existsSync(lockDir) ? "RECLAIM=cleared\n" : "RECLAIM=failed\n",
+  );
+});
+' "$lock_reclaim_success_store")"
+assert_contains "stale-lock reclaim still removes an unchanged stale lock" "$lock_reclaim_success_probe" "RECLAIM=cleared"
+assert_no_directory "stale-lock reclaim clears the lock directory on success" "$lock_reclaim_success_store.lock"
+assert_no_directory "stale-lock reclaim clears its marker on success" "$lock_reclaim_success_store.lock.reclaim"
+# A typo'd override must fall back to the module default. Number("abc") is NaN, and
+# every `elapsed > limit` comparison against NaN is false, which disables both the
+# staleness reclaim and the timeout. This probes the staleness side because its
+# consequence is observable in milliseconds: an hour-old lock against a defaulted
+# 120s staleMs is reclaimed and acquired, while a NaN staleMs never reclaims and the
+# acquire can only end in the timeout. The timeout side shares positiveMs, and its
+# unfixed behavior is an unbounded wait that no bounded assertion can observe.
+lock_nan_store="$lock_race_dir/nan-store.json"
+mkdir -p "$lock_nan_store.lock"
+printf '999999 seeded-orphan\n' >"$lock_nan_store.lock/owner"
+touch -t 202001010000 "$lock_nan_store.lock"
+lock_nan_probe="$(RACE_LIB="$ROOT/scripts/lib/json-file-store.mjs" node -e '
+import("node:url").then(async ({ pathToFileURL }) => {
+  const { acquireFileLock } = await import(pathToFileURL(process.env.RACE_LIB).href);
+  try {
+    acquireFileLock(process.argv[1], { staleMs: "abc", timeoutMs: 2000 })();
+    process.stdout.write("STALEMS=reclaimed\n");
+  } catch {
+    process.stdout.write("STALEMS=timedout\n");
+  }
+});
+' "$lock_nan_store")"
+assert_contains "a non-numeric staleMs falls back to the default instead of never reclaiming" "$lock_nan_probe" "STALEMS=reclaimed"
+# rename() replaces the destination with the temp file's mode, so a 0600 store would
+# widen to the umask default on any rewrite by a caller that omits `mode`.
+lock_mode_probe="$(RACE_LIB="$ROOT/scripts/lib/json-file-store.mjs" node -e '
+import("node:url").then(async ({ pathToFileURL }) => {
+  const { writeJsonAtomic } = await import(pathToFileURL(process.env.RACE_LIB).href);
+  const { statSync } = await import("node:fs");
+  const store = process.argv[1];
+  writeJsonAtomic(store, { seeded: true }, { mode: 0o600 });
+  writeJsonAtomic(store, { rewritten: true });
+  process.stdout.write(`MODE=${(statSync(store).mode & 0o777).toString(8)}\n`);
+});
+' "$lock_race_dir/mode-store.json")"
+assert_contains "an atomic rewrite preserves the existing store permissions" "$lock_mode_probe" "MODE=600"
 if node "$ROOT/scripts/review-merge.mjs" skip-plan --learnings "$tg12_learnings" --json >/dev/null 2>&1; then
   not_ok "skip-plan requires --reviewers"
 else

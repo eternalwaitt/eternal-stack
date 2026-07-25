@@ -197,28 +197,43 @@ function subagentRolloutResolver(parentFile) {
 // Discovery walks breadth-first, tracking both thread ids and resolved file
 // paths: two ids can name the same rollout, and a cycle in the recorded ids
 // must not loop forever.
+// Every discovered id lands in exactly one of the two returned id lists, so a
+// consumer can check `threadIds.length === count === files.length` and still see
+// which ids the report does not account for. `threadIds` holds the ids that
+// contributed a parsed rollout; `unresolvedThreadIds` holds the rest — an id with
+// no rollout file on disk (a subagent whose log was not captured) or one whose
+// rollout was already counted under another id.
 async function collectSubagentRollouts(parentFile, parentStats) {
   const resolveThreadFile = subagentRolloutResolver(parentFile);
   const visitedThreads = new Set();
   const visitedFiles = new Set([path.resolve(parentFile)]);
   const files = [];
   const statsList = [];
+  const threadIds = [];
+  const unresolvedThreadIds = [];
   const queue = [...parentStats.subagentThreadIds];
   while (queue.length > 0) {
     const threadId = String(queue.shift() || "").trim();
     if (!threadId || visitedThreads.has(threadId)) continue;
     visitedThreads.add(threadId);
     const file = resolveThreadFile(threadId);
-    if (!file) continue;
+    if (!file) {
+      unresolvedThreadIds.push(threadId);
+      continue;
+    }
     const resolved = path.resolve(file);
-    if (visitedFiles.has(resolved)) continue;
+    if (visitedFiles.has(resolved)) {
+      unresolvedThreadIds.push(threadId);
+      continue;
+    }
     visitedFiles.add(resolved);
     const stats = await parseRolloutFile(file);
     files.push(file);
     statsList.push(stats);
+    threadIds.push(threadId);
     for (const nested of stats.subagentThreadIds) queue.push(nested);
   }
-  return { files, statsList, threadIds: [...visitedThreads] };
+  return { files, statsList, threadIds, unresolvedThreadIds };
 }
 
 function mergeTurnModels(target, source) {
@@ -295,7 +310,8 @@ function printAggregateReport(report) {
   console.log(`compactions (combined): ${formatCount(report.combined.compactionCount)}`);
 }
 
-function aggregateReport(rolloutFile, parentStats, subagentFiles, subagentStatsList, subagentThreadIds) {
+function aggregateReport(rolloutFile, parentStats, discovery) {
+  const { files: subagentFiles, statsList: subagentStatsList, threadIds, unresolvedThreadIds } = discovery;
   const combined = emptyStats();
   const sections = [parentStats, ...subagentStatsList];
   for (const stats of sections) {
@@ -327,7 +343,8 @@ function aggregateReport(rolloutFile, parentStats, subagentFiles, subagentStatsL
     parent: statsToSection(parentStats),
     subagents: {
       count: subagentStatsList.length,
-      threadIds: subagentThreadIds,
+      threadIds,
+      unresolvedThreadIds,
       files: subagentFiles,
       tokens: { ...subagentTokens },
       turnModels: subagentStatsList.reduce((acc, stats) => {
@@ -354,8 +371,7 @@ async function analyzeRollout(rolloutFile) {
     process.exit(2);
   }
   const parentStats = await parseRolloutFile(rolloutFile);
-  const { files, statsList, threadIds } = await collectSubagentRollouts(rolloutFile, parentStats);
-  return aggregateReport(rolloutFile, parentStats, files, statsList, threadIds);
+  return aggregateReport(rolloutFile, parentStats, await collectSubagentRollouts(rolloutFile, parentStats));
 }
 
 function readJson(flag, positional = false) {

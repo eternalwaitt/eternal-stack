@@ -26,8 +26,10 @@ import path from "node:path";
 import { classify } from "./lib/coderabbit-classifier.mjs";
 import { withFileLock, writeJsonAtomic } from "./lib/json-file-store.mjs";
 
-// review-merge.mjs writes reviewer-dispatch rows into the same store. Both
-// writers must name the same lock or neither excludes the other.
+// review-merge.mjs writes reviewer-dispatch rows into the same store. Mutual
+// exclusion comes from the lock directory the store path derives, so both writers
+// contend on it whatever they call it; the label only names the store in a timeout
+// message. It matches review-merge.mjs so the two report the same wait.
 const LEDGER_LOCK = { label: "review learnings" };
 
 function parseArgs(argv) {

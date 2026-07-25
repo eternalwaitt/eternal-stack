@@ -20,9 +20,12 @@ const TRAJECTORY_COUNTERS = ["recurringFindingCount", "streamAlternationCount", 
 const EVIDENCE_DONE = new Set(["passed", "verified", "red_green_verified", "not_applicable", "skipped"]);
 const REVIEW_DONE = new Set(["verified", "completed"]);
 // Defaults allow brief multi-agent contention; tune with env vars for unusually slow disks.
+// The raw env values are passed through on purpose: acquireFileLock validates them and
+// falls back to its own defaults, so a typo cannot turn the timeout into NaN — which
+// would compare false against every elapsed time and spin the lock loop forever.
 const LOCK_OPTIONS = {
-  timeoutMs: Number(process.env.ETRNL_LEDGER_LOCK_TIMEOUT_MS || 30000),
-  staleMs: Number(process.env.ETRNL_LEDGER_LOCK_STALE_MS || 120000),
+  timeoutMs: process.env.ETRNL_LEDGER_LOCK_TIMEOUT_MS,
+  staleMs: process.env.ETRNL_LEDGER_LOCK_STALE_MS,
   label: "execution ledger",
 };
 
