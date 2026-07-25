@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Added
 
+- Both settings templates ship `codegraph prompt-hook` on `UserPromptSubmit`, alongside the existing `rtk hook claude` precedent for third-party tool hooks. Install resets foreign hook entries before merging the stack template, so a hook present only in a user's home was silently dropped on every install; shipping it in the template makes it survive.
+
 ### Changed
 
 ### Fixed
