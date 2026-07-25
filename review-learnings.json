@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "recurrences": {
+    "review_rubric:transactions_concurrency:data-integrity-integration": 1,
+    "review_rubric:types_schema_contracts:data-integrity-integration": 1,
+    "review_rubric:correctness_state:functional-correctness": 1,
+    "deterministic_guard:reuse_maintainability:maintainability": 1,
+    "review_rubric:reuse_maintainability:maintainability": 1,
+    "review_rubric:correctness_state:data-integrity-integration": 1,
+    "test_template:validation_fail_closed:maintainability": 1,
+    "review_rubric:test_delta:functional-correctness": 1,
+    "test_template:correctness_state:data-integrity-integration": 1,
+    "test_template:test_delta:maintainability": 1,
+    "test_template:reuse_maintainability:functional-correctness": 1,
+    "review_rubric:validation_fail_closed:functional-correctness": 1,
+    "review_rubric:reuse_maintainability:stability-availability": 1,
+    "review_rubric:transactions_concurrency:stability-availability": 1
+  },
+  "promoted": {},
+  "cleanRuns": {},
+  "processedReviews": [
+    "pr-22-round-1"
+  ]
+}
