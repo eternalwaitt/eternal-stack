@@ -664,6 +664,27 @@ fi
 if [[ ! -e "$TARGET/tests/fixtures" && ! -L "$TARGET/tests/fixtures" && -d "$ROOT/tests/fixtures" ]]; then
   printf 'tests/fixtures\n' >> "$BACKUP/new-source-paths.txt"
 fi
+# The overlay below also writes stack-owned files outside hooks/ and the fixture
+# trees: the installed test suites, their libraries, the rules manifest those
+# suites read, and the hook-side symlinks into them. Nothing backs these up, so
+# without a manifest entry a rollback left stale copies in a home that had none
+# before. Record only the ones with no pre-install counterpart, which is the same
+# contract as the hook loop above. Checked here, before the overlay writes them,
+# so -e/-L still reflect pre-install state.
+for install_created_rel in \
+  tests/test-hooks.sh \
+  tests/test-workflow-tools.sh \
+  tests/lib/harness.sh \
+  tests/lib/parallel-run.sh \
+  tests/lib/busy-port-server.mjs \
+  rules-manifest.json \
+  hooks/test-hooks.sh \
+  hooks/test-workflow-tools.sh \
+  hooks/lib/test-harness.sh; do
+  if [[ ! -e "$TARGET/$install_created_rel" && ! -L "$TARGET/$install_created_rel" ]]; then
+    printf '%s\n' "$install_created_rel" >> "$BACKUP/new-source-paths.txt"
+  fi
+done
 
 mkdir -p "$BACKUP/agents"
 for agent in "${OWNED_AGENTS[@]}"; do

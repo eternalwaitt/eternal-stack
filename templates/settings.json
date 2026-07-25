@@ -25,7 +25,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "codegraph prompt-hook"
+            "command": "codegraph prompt-hook",
+            "timeout": 10
           }
         ]
       }
@@ -68,7 +69,7 @@
         ]
       },
       {
-        "matcher": "AskUserQuestion|mcp__.*ask_user.*|mcp__.*ask_question.*",
+        "matcher": "AskUserQuestion|mcp__.*ask_user.*|mcp__.*ask_question.*|mcp__.*[Aa]sk[Uu]ser[Qq]uestion.*|mcp__.*user_question.*",
         "hooks": [
           {
             "type": "command",

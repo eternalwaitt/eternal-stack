@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { argValue } from "./lib/cli-args.mjs";
+import { updateJsonUnderLock } from "./lib/json-file-store.mjs";
 import { readStdinJson } from "./lib/read-stdin.mjs";
 
 const args = process.argv.slice(2);
@@ -128,29 +129,43 @@ function learningsPath() {
   return path.join(root ? path.resolve(root) : process.cwd(), "review-learnings.json");
 }
 
-function readLearnings(storePath) {
+// Throws rather than exits: this runs inside the store lock, and process.exit()
+// skips the finally block that releases it, stranding every other lane behind a
+// lock directory until the staleness timeout reclaims it.
+function parseLearnings(storePath) {
   if (!existsSync(storePath)) return { schemaVersion: 1, recurrences: {}, promoted: {}, cleanRuns: {} };
+  const parsed = JSON.parse(readFileSync(storePath, "utf8"));
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(`${storePath} is not a review-learnings object`);
+  }
+  return parsed;
+}
+
+function readLearnings(storePath) {
   try {
-    const parsed = JSON.parse(readFileSync(storePath, "utf8"));
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      abort(`${storePath} is not a review-learnings object`);
-    }
-    return parsed;
+    return parseLearnings(storePath);
   } catch (error) {
     abort(`cannot read ${storePath}: ${error.message}`);
   }
   return null;
 }
 
-// The store belongs to review-learn.mjs. Every write rewrites the whole parsed
-// object, so the reviewer-dispatch key is additive and both writers survive the
-// other's rows.
-function writeLearnings(storePath, store) {
+// The store belongs to review-learn.mjs and this command rewrites the whole
+// parsed object, so a concurrent writer's rows survive only when the read and
+// the write are one critical section. Parallel reviewer lanes are the point of
+// this feature, so the read happens inside the lock and the replacement lands
+// through rename(): a crashed writer leaves the previous store intact.
+function updateLearnings(storePath, mutate) {
   try {
-    writeFileSync(storePath, `${JSON.stringify(store, null, 2)}\n`);
+    return updateJsonUnderLock(storePath, {
+      read: parseLearnings,
+      update: mutate,
+      label: "review learnings",
+    });
   } catch (error) {
-    abort(`cannot write ${storePath}: ${error.message}`);
+    abort(`cannot update ${storePath}: ${error.message}`);
   }
+  return null;
 }
 
 function normalizeSummary(summary) {
@@ -321,6 +336,9 @@ function evaluatePark() {
   const limits = parkLimits();
   const reopenRoundsUsed = nonNegativeIntArg("--reopen-round");
   const reopenCap = nonNegativeIntArg("--reopen-cap");
+  // Report-only: the reopen cap is enforced by the caller that owns the loop, so
+  // exhausting it is never a park reason code here. Parking happens on the
+  // trajectory counters below, which is what lets a stream stop before the cap.
   const reopenCapExhausted = reopenRoundsUsed === null || reopenCap === null
     ? null
     : reopenRoundsUsed >= reopenCap;
@@ -371,25 +389,27 @@ function recordDispatchOutcome(findings) {
   if (dispatched.length === 0) return null;
   const streakLimit = positiveIntEnv(ADAPTIVE_SKIP_STREAK_ENV, ADAPTIVE_SKIP_STREAK_DEFAULT);
   const storePath = learningsPath();
-  const store = readLearnings(storePath);
-  if (!store.reviewerDispatches || typeof store.reviewerDispatches !== "object" || Array.isArray(store.reviewerDispatches)) {
-    store.reviewerDispatches = {};
-  }
   const reviewers = [];
   const at = new Date().toISOString();
-  for (const reviewer of dispatched) {
-    const findingCount = findings.filter((finding) => String(finding.reviewer) === reviewer).length;
-    const prior = store.reviewerDispatches[reviewer] ?? {};
-    const row = {
-      dispatches: Number(prior.dispatches || 0) + 1,
-      zeroFindingStreak: findingCount === 0 ? Number(prior.zeroFindingStreak || 0) + 1 : 0,
-      lastFindingCount: findingCount,
-      updatedAt: at,
-    };
-    store.reviewerDispatches[reviewer] = row;
-    reviewers.push({ reviewer, findingCount, ...row });
-  }
-  writeLearnings(storePath, store);
+  updateLearnings(storePath, (store) => {
+    reviewers.length = 0;
+    if (!store.reviewerDispatches || typeof store.reviewerDispatches !== "object" || Array.isArray(store.reviewerDispatches)) {
+      store.reviewerDispatches = {};
+    }
+    for (const reviewer of dispatched) {
+      const findingCount = findings.filter((finding) => String(finding.reviewer) === reviewer).length;
+      const prior = store.reviewerDispatches[reviewer] ?? {};
+      const row = {
+        dispatches: Number(prior.dispatches || 0) + 1,
+        zeroFindingStreak: findingCount === 0 ? Number(prior.zeroFindingStreak || 0) + 1 : 0,
+        lastFindingCount: findingCount,
+        updatedAt: at,
+      };
+      store.reviewerDispatches[reviewer] = row;
+      reviewers.push({ reviewer, findingCount, ...row });
+    }
+    return store;
+  });
   return { store: storePath, streakLimit, reviewers };
 }
 

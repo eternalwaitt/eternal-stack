@@ -7,6 +7,18 @@ cd "$ROOT"
 source ./tests/lib/harness.sh
 cc_test_init
 
+# Exit statuses need exact equality: substring matching passes 0 against 10, 20, and 102.
+assert_exit_status() {
+  local name="$1"
+  local actual="$2"
+  local expected="$3"
+  if [[ "$actual" == "$expected" ]]; then
+    ok "$name"
+  else
+    not_ok "$name (expected exit $expected, got $actual)"
+  fi
+}
+
 state_lock_probe="$(
   HOOK_INPUT='{"session_id":"fixture-lock"}' CLAUDE_GUARD_STATE_DIR="$TMPROOT" bash -c '
     source "$1"
@@ -823,6 +835,14 @@ security_missing_evidence_fixture="$TMPROOT/deep-audit-security-missing-evidence
 jq '.categoryReports |= map(if .categoryId == "security" then (.checks[0].nonFindings = {}) else . end)' "$ROOT/tests/fixtures/deep-audit/report.valid.json" >"$security_missing_evidence_fixture"
 security_missing_evidence_json="$(node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$security_missing_evidence_fixture" --json 2>/dev/null || true)"
 assert_json_expr "deep-audit security clean rows require non-findings" "$security_missing_evidence_json" 'any(.errors[]; .errorCode == "SECURITY_NON_FINDING_FIELD_MISSING" or .errorCode == "SECURITY_NON_FINDINGS_MISSING")'
+ux_status_missing_fixture="$TMPROOT/deep-audit-ux-status-missing.json"
+jq '.categoryReports |= map(if .categoryId == "ui-ux-product" then (.checks |= map(if .findings then .findings |= map(del(.status)) else . end)) else . end)' "$ROOT/tests/fixtures/deep-audit/report.ux-valid.json" >"$ux_status_missing_fixture"
+ux_status_missing_json="$(node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$ux_status_missing_fixture" --json 2>/dev/null || true)"
+assert_json_expr "deep-audit ux findings require a disposition status" "$ux_status_missing_json" 'any(.errors[]; .errorCode == "UX_FINDING_FIELD_MISSING" and (.jsonPath | endswith(".status")))'
+ux_status_invalid_fixture="$TMPROOT/deep-audit-ux-status-invalid.json"
+jq '.categoryReports |= map(if .categoryId == "ui-ux-product" then (.checks |= map(if .findings then .findings |= map(.status = "wontfix") else . end)) else . end)' "$ROOT/tests/fixtures/deep-audit/report.ux-valid.json" >"$ux_status_invalid_fixture"
+ux_status_invalid_json="$(node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$ux_status_invalid_fixture" --json 2>/dev/null || true)"
+assert_json_expr "deep-audit ux findings reject an unregistered status" "$ux_status_invalid_json" 'any(.errors[]; .errorCode == "UX_FINDING_STATUS_INVALID")'
 assert_command "cli arg parser edge cases" node --input-type=module <<'JS'
 import { argValue } from "./scripts/lib/cli-args.mjs";
 const expect = (actual, expected, label) => {
@@ -3091,7 +3111,7 @@ fi
 assert_contains "execution ledger usage documents the gates flag" "$(node "$ROOT/scripts/execution-ledger.mjs" bogus-command 2>&1 || true)" "--gates"
 
 # --- TG-11: plan triviality triage ---
-triage() { node "$ROOT/scripts/diff-triviality.mjs" classify-plan --root "$ROOT" --plan "$1" ${2:-}; }
+triage() { local plan="$1"; shift; node "$ROOT/scripts/diff-triviality.mjs" classify-plan --root "$ROOT" --plan "$plan" "$@"; }
 
 tg11_trivial_plan="$TMPROOT/tg11-trivial.md"
 cat >"$tg11_trivial_plan" <<'PLAN'
@@ -3243,6 +3263,32 @@ Risk tier: 2 — one row naming several files
 | `docs/skills.md`, `docs/install.md`, `README.md`, `CHANGELOG.md` | modify — refresh the docs |
 PLAN
 assert_json_expr "classify-plan counts every path inside one file-map cell" "$(triage "$tg11_multi_cell_plan" --json)" '.fileCount == 4 and .scope == "small"'
+
+tg11_rollout_dir="$TMPROOT/tg11-rollout"
+mkdir -p "$tg11_rollout_dir"
+rollout_line() { printf '{"type":"event_msg","timestamp":"2026-01-01T10:0%s:00.000Z","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":%s,"cached_input_tokens":0,"cache_write_input_tokens":0,"output_tokens":0,"reasoning_output_tokens":0,"total_tokens":%s}}}}\n' "$1" "$2" "$2"; }
+spawn_line() { printf '{"type":"event_msg","timestamp":"2026-01-01T10:00:00.000Z","payload":{"type":"sub_agent_activity","agent_thread_id":"%s"}}\n' "$1"; }
+{ rollout_line 0 100; spawn_line "childthread"; } >"$tg11_rollout_dir/parentthread-rollout.jsonl"
+{ rollout_line 1 200; spawn_line "grandchildthread"; } >"$tg11_rollout_dir/childthread-rollout.jsonl"
+rollout_line 2 400 >"$tg11_rollout_dir/grandchildthread-rollout.jsonl"
+tg11_rollout_json="$(node "$ROOT/scripts/codex-rollout-baseline.mjs" --rollout "$tg11_rollout_dir/parentthread-rollout.jsonl" --json)"
+assert_json_expr "codex rollout aggregation follows a subagent that spawns its own subagent" "$tg11_rollout_json" '.subagents.count == 2 and .subagents.tokens.inputTokens == 600 and .combined.tokens.inputTokens == 700'
+assert_json_expr "codex rollout aggregation reports every discovered subagent thread once" "$tg11_rollout_json" '(.subagents.threadIds | sort) == ["childthread","grandchildthread"] and (.subagents.files | length) == 2'
+
+tg11_blank_change_plan="$TMPROOT/tg11-blank-change.md"
+cat >"$tg11_blank_change_plan" <<'PLAN'
+# Blank Change Cell Fixture Plan
+
+Risk tier: 2 — one row leaves the Change cell empty
+
+## File map
+
+| Path | Change | Responsibility |
+| --- | --- | --- |
+| `scripts/workflow-health.mjs` |  | Documentation only. |
+PLAN
+assert_json_expr "classify-plan reads a blank Change cell as undeclared instead of borrowing the next column" "$(triage "$tg11_blank_change_plan" --json)" '(.rows[] | select(.path == "scripts/workflow-health.mjs") | .change == "" and .behavioral == true)'
+assert_contains "classify-plan keeps a blank-Change runtime row out of the trivial shape" "$(triage "$tg11_blank_change_plan")" "scope=small"
 
 tg11_tier1_plan="$TMPROOT/tg11-tier1.md"
 cat >"$tg11_tier1_plan" <<'PLAN'
@@ -3401,7 +3447,7 @@ assert_json_expr "review-rules blocks a block-mode match by default" "$(tg12_rul
 assert_command "review-rules --report-only exits zero on a block-mode match" node "$ROOT/scripts/review-rules.mjs" check --config "$tg12_rules_cfg" --root "$tg12_rules_root" --report-only
 tg12_report_only_status=0
 tg12_rules --report-only --json >/dev/null 2>&1 || tg12_report_only_status=$?
-assert_contains "review-rules --report-only never returns the block exit code" "$tg12_report_only_status" "0"
+assert_exit_status "review-rules --report-only never returns the block exit code" "$tg12_report_only_status" "0"
 tg12_report_only="$(tg12_rules --report-only --json || true)"
 assert_json_expr "review-rules --report-only returns the findings" "$tg12_report_only" '(.findings | length) == 1 and .findings[0].ruleId == "tg12-no-fixme"'
 assert_json_expr "review-rules --report-only reports without escalating" "$tg12_report_only" '.status == "report-only" and .reportOnly == true and .blockingCount == 1'
@@ -3419,7 +3465,7 @@ tg12_broken_cfg="$tg12_dir/tg12-broken-rules.json"
 jq '.rules[0].engine = "no-such-engine"' "$tg12_rules_cfg" >"$tg12_broken_cfg"
 tg12_broken_status=0
 node "$ROOT/scripts/review-rules.mjs" check --config "$tg12_broken_cfg" --root "$tg12_rules_root" --report-only --json >/dev/null 2>&1 || tg12_broken_status=$?
-assert_contains "review-rules --report-only keeps cannot-evaluate failing closed" "$tg12_broken_status" "2"
+assert_exit_status "review-rules --report-only keeps cannot-evaluate failing closed" "$tg12_broken_status" "2"
 
 tg12_learnings="$tg12_dir/review-learnings.json"
 cat >"$tg12_learnings" <<'JSON'
@@ -3458,6 +3504,48 @@ tg12_learn_findings="$tg12_dir/learn-findings.json"
 printf '[{"summary":"avoid any in tests","category":"types"}]\n' >"$tg12_learn_findings"
 node "$ROOT/scripts/review-learn.mjs" learn --findings "$tg12_learn_findings" --root "$tg12_dir" --ledger "$tg12_shared_store" --json >/dev/null
 assert_json_expr "review-learn keeps the reviewer dispatch counters in the shared store" "$(jq -c . "$tg12_shared_store")" '.reviewerDispatches["etrnl-quality-reviewer"].dispatches >= 5 and (.recurrences | length) >= 1'
+tg12_race_store="$tg12_dir/race-learnings.json"
+printf '{"schemaVersion":1,"recurrences":{},"promoted":{},"cleanRuns":{}}\n' >"$tg12_race_store"
+for lane in a b c d e f; do
+  printf '[{"reviewer":"lane-%s","severity":"P2","confidence":0.9,"file":"src/x.ts","line":1,"summary":"lane %s finding","autofix_class":"manual"}]\n' "$lane" "$lane" >"$tg12_dir/race-$lane.json"
+  node "$ROOT/scripts/review-merge.mjs" --file "$tg12_dir/race-$lane.json" --dispatched "lane-$lane" --learnings "$tg12_race_store" >/dev/null &
+done
+wait
+assert_json_expr "concurrent review-merge lanes each keep their dispatch row" "$(jq -c . "$tg12_race_store")" '[.reviewerDispatches | keys[]] | sort == ["lane-a","lane-b","lane-c","lane-d","lane-e","lane-f"]'
+assert_json_expr "concurrent review-merge lanes leave the store parseable and seeded" "$(jq -c . "$tg12_race_store")" '.schemaVersion == 1 and (.recurrences | type) == "object"'
+tg12_mixed_store="$tg12_dir/mixed-learnings.json"
+printf '{"schemaVersion":1,"recurrences":{},"promoted":{},"cleanRuns":{}}\n' >"$tg12_mixed_store"
+printf '[{"summary":"avoid any in mixed race","category":"types"}]\n' >"$tg12_dir/mixed-learn.json"
+for n in 1 2 3 4; do
+  printf '[{"reviewer":"mixed-%s","severity":"P2","confidence":0.9,"file":"src/m.ts","line":1,"summary":"mixed finding %s","autofix_class":"manual"}]\n' "$n" "$n" >"$tg12_dir/mixed-merge-$n.json"
+done
+for n in 1 2 3 4; do
+  node "$ROOT/scripts/review-learn.mjs" learn --findings "$tg12_dir/mixed-learn.json" --root "$tg12_dir" --ledger "$tg12_mixed_store" --json >/dev/null &
+  node "$ROOT/scripts/review-merge.mjs" --file "$tg12_dir/mixed-merge-$n.json" --dispatched "mixed-$n" --learnings "$tg12_mixed_store" >/dev/null &
+done
+wait
+assert_json_expr "review-learn counts every concurrent run when review-merge writes the same store" "$(jq -c . "$tg12_mixed_store")" '.recurrences["review_rubric:unspecified:types"] == 4'
+assert_json_expr "review-merge rows survive a concurrent review-learn run" "$(jq -c . "$tg12_mixed_store")" '([.reviewerDispatches | keys[]] | sort) == ["mixed-1","mixed-2","mixed-3","mixed-4"]'
+tg12_learn_root="$tg12_dir/learn-root"
+mkdir -p "$tg12_learn_root/templates"
+cp "$ROOT/templates/review-rules.example.json" "$tg12_learn_root/templates/review-rules.example.json"
+printf '[{"summary":"Avoid `as any` cast","body":"unsafe type escape","severity":"minor","lensId":"types_schema_contracts","category":"unsafe-type-escape"}]\n' >"$tg12_learn_root/as-any.json"
+# review-rules.json is a hand-formatted tracked config: a run that promotes nothing must not reflow it.
+printf '{\n    "schemaVersion": 1,\n    "rulesetId": "handformatted",\n    "version": 1,\n    "enabledRuleIds": [],\n    "rules": []\n}\n' >"$tg12_learn_root/review-rules.json"
+tg12_rules_hash_before="$(shasum "$tg12_learn_root/review-rules.json" | awk '{print $1}')"
+node "$ROOT/scripts/review-learn.mjs" learn --findings "$tg12_learn_root/as-any.json" --root "$tg12_learn_root" --json >/dev/null
+assert_contains "review-learn leaves the hand-formatted ruleset untouched on a no-promotion run" "$(shasum "$tg12_learn_root/review-rules.json" | awk '{print $1}')" "$tg12_rules_hash_before"
+assert_file "review-learn still persists the ledger on a no-promotion run" "$tg12_learn_root/review-learnings.json"
+# Crash consistency: the ledger's promoted/cleanRuns entries are what stop a retry from
+# reinstalling a guard, so a failed review-rules.json write must never persist the ledger.
+printf 'not a directory\n' >"$tg12_dir/learn-blocked"
+tg12_learn_ledger_dir="$tg12_dir/learn-ledger-only"
+mkdir -p "$tg12_learn_ledger_dir"
+tg12_learn_order_status=0
+node "$ROOT/scripts/review-learn.mjs" learn --findings "$tg12_learn_root/as-any.json" --root "$tg12_learn_root" --rules "$tg12_dir/learn-blocked/review-rules.json" --ledger "$tg12_learn_ledger_dir/review-learnings.json" --threshold 1 --json >/dev/null 2>&1 || tg12_learn_order_status=$?
+assert_exit_status "review-learn fails when the ruleset write fails" "$tg12_learn_order_status" "1"
+assert_no_file "review-learn never persists the ledger when the ruleset write fails" "$tg12_learn_ledger_dir/review-learnings.json"
+assert_no_directory "review-learn releases the store lock when the ruleset write fails" "$tg12_learn_ledger_dir/review-learnings.json.lock"
 if node "$ROOT/scripts/review-merge.mjs" skip-plan --learnings "$tg12_learnings" --json >/dev/null 2>&1; then
   not_ok "skip-plan requires --reviewers"
 else

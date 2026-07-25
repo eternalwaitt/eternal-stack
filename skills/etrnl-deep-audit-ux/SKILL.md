@@ -139,7 +139,7 @@ Return:
 
 - coverage counters and worklist counts;
 - `uxHealthScore` per check with `whatMakesTen`;
-- findings by check id and severity (each with route, viewport, symptom, evidence, baseline, remediation);
+- findings by check id and severity (each with route, viewport, symptom, evidence, baseline, status, remediation);
 - quick wins and systemic patterns with instance counts;
 - `CONFIRMED_CLEAN` rows with the non-finding shape;
 - `CHECKS_SKIPPED`, `not_applicable`, and `coverageExceptions` rows;
@@ -155,7 +155,7 @@ PASS/FAIL checklist. Any FAIL means the run is incomplete:
 - The `ui-ux-product` registry entry resolves with all seven `ux-0N` checks, five lanes, and their required worklists present.
 - `ux-inventory.mjs` ran against the target and its worklist hashes appear in `consumedWorklistHashes`.
 - Coverage counters equal the inventory totals, or every shortfall carries a `coverageExceptions` row.
-- Every finding carries route, viewport, symptom, evidence, named baseline, severity from the four-tier ladder, and remediation.
+- Every finding carries route, viewport, symptom, evidence, named baseline, severity from the four-tier ladder, a `status` from `open`, `fixed`, `accepted_risk`, `blocked`, `false_positive`, and remediation.
 - Every clean check states routes/viewports covered, states exercised, baseline compared, and evidence type.
 - Every finding and clean check carries `uxHealthScore` with `whatMakesTen`.
 - Every runtime claim without browser evidence, and every check whose bound capability was unavailable, is filed as `source_limited`, not clean.

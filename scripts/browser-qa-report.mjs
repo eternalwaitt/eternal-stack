@@ -5,6 +5,7 @@ import path from "node:path";
 import { argValue } from "./lib/cli-args.mjs";
 import { fileInfo, fileSha256, isFreshIso, nowIso, resolveContainedPath } from "./lib/evidence-trace.mjs";
 import { readStdinJson as readSharedStdinJson } from "./lib/read-stdin.mjs";
+import { UX_SEVERITIES, UX_SEVERITY_SET } from "./lib/ux-finding-taxonomy.mjs";
 
 const args = process.argv.slice(2);
 const command = args[0] ?? "help";
@@ -48,7 +49,7 @@ const DESIGN_EVIDENCE_CATEGORIES = new Set([
   "state",
   "copy",
 ]);
-const DESIGN_EVIDENCE_SEVERITIES = new Set(["critical", "high", "medium", "opportunity"]);
+const DESIGN_EVIDENCE_SEVERITIES = UX_SEVERITY_SET;
 
 function validateDesignEvidence(row, index, errors) {
   if (row.designEvidence === undefined) return;
@@ -66,7 +67,7 @@ function validateDesignEvidence(row, index, errors) {
       errors.push(`${label}.category must be one of: ${Array.from(DESIGN_EVIDENCE_CATEGORIES).join(", ")}`);
     }
     if (!DESIGN_EVIDENCE_SEVERITIES.has(String(entry.severity || ""))) {
-      errors.push(`${label}.severity must be one of: ${Array.from(DESIGN_EVIDENCE_SEVERITIES).join(", ")}`);
+      errors.push(`${label}.severity must be one of: ${UX_SEVERITIES.join(", ")}`);
     }
     if (String(entry.note || "").trim() === "") {
       errors.push(`${label}.note is required`);

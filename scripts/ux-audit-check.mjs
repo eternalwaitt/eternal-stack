@@ -4,12 +4,12 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { argValue } from "./lib/cli-args.mjs";
 import { nowIso } from "./lib/evidence-trace.mjs";
+import { UX_FINDING_STATUSES, UX_FINDING_STATUS_SET, UX_SEVERITIES } from "./lib/ux-finding-taxonomy.mjs";
 
 const args = process.argv.slice(2);
 const command = args[0] || "help";
 const jsonOutput = args.includes("--json");
 const UX_CATEGORY_ID = "ui-ux-product";
-const TERMINAL_FINDING_STATUSES = new Set(["open", "fixed", "accepted_risk", "blocked", "false_positive"]);
 
 function usage() {
   console.error([
@@ -124,8 +124,8 @@ function coverageDefects(inventory, artifact) {
   }
   for (const [index, finding] of asArray(report.checks).flatMap((check) => asArray(check.findings)).entries()) {
     const status = String(finding?.status || "open");
-    if (!TERMINAL_FINDING_STATUSES.has(status)) {
-      defects.push(defect("invalid-finding-status", `finding ${index} uses status ${status}`, `Use one of: ${Array.from(TERMINAL_FINDING_STATUSES).join(", ")}.`));
+    if (!UX_FINDING_STATUS_SET.has(status)) {
+      defects.push(defect("invalid-finding-status", `finding ${index} uses status ${status}`, `Use one of: ${UX_FINDING_STATUSES.join(", ")}.`));
     }
   }
   return defects;
@@ -157,7 +157,7 @@ function baselinesDir() {
 }
 
 function severityCounts(report) {
-  const counts = { critical: 0, high: 0, medium: 0, opportunity: 0 };
+  const counts = Object.fromEntries(UX_SEVERITIES.map((severity) => [severity, 0]));
   for (const check of asArray(report.checks)) {
     for (const finding of asArray(check.findings)) {
       const severity = String(finding?.severity || "");
@@ -241,7 +241,7 @@ function runTrend() {
     };
   });
   const severityDelta = {};
-  for (const severity of ["critical", "high", "medium", "opportunity"]) {
+  for (const severity of UX_SEVERITIES) {
     const beforeCount = Number(before.severityCounts?.[severity] ?? 0);
     const afterCount = Number(after.severityCounts?.[severity] ?? 0);
     severityDelta[severity] = { before: beforeCount, after: afterCount, delta: afterCount - beforeCount };

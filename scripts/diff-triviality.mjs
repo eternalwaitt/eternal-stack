@@ -216,7 +216,11 @@ function planFileMapRows(planText, { sectionBody }) {
   const rows = [];
   const seen = new Set();
   for (const line of sectionBody(planText, "File map").split("\n")) {
-    const cells = line.split("|").map((cell) => cell.trim()).filter(Boolean);
+    // Empty cells are kept: dropping them shifts every later column left, so a
+    // row with a blank Change cell would read its behavior declaration out of an
+    // unrelated column and buy a lighter shape than the row declares.
+    const cells = line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|")
+      .map((cell) => cell.trim());
     if (cells.length < 2) continue;
     if (/^[-:\s]+$/.test(cells[0])) continue;
     if (/^path$/i.test(cells[0])) continue;

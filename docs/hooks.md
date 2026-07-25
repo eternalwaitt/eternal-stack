@@ -96,7 +96,7 @@ Every hook entrypoint under `hooks/` is listed below. Matchers and timeouts come
 | `cc-rtk-rg-compat.sh` | `PreToolUse` | `Bash` | Yes | Yes | Rewrites | Proxy `rg` flags RTK mishandles to `rtk proxy --ultra-compact` |
 | `cc-pretooluse-guard.sh` | `PreToolUse` | `Bash\|Read\|Edit\|Write\|MultiEdit\|WebSearch\|Task\|TaskCreate\|Agent\|mcp__serena__search_for_pattern` | No | Yes | Yes | Policy denies before tools run (see [guards.md](guards.md)) |
 | `cc-compact-suggest.sh` | `PreToolUse` | `Task\|Read\|Grep\|Glob\|WebFetch\|WebSearch` | Yes | Yes | No | Advise a checkpoint-and-compact when the context window passes a scaled threshold |
-| `cc-question-preference.sh` | `PreToolUse` | `AskUserQuestion\|mcp__.*ask_user.*\|mcp__.*ask_question.*` | Yes | Yes | Yes | Auto-decide low-stakes questions from a preference map; one-way doors always reach the user |
+| `cc-question-preference.sh` | `PreToolUse` | `AskUserQuestion\|mcp__.*ask_user.*\|mcp__.*ask_question.*\|mcp__.*[Aa]sk[Uu]ser[Qq]uestion.*\|mcp__.*user_question.*` | Yes | Yes | Yes | Auto-decide low-stakes questions from a preference map; one-way doors always reach the user |
 | `cc-rate-limiter.sh` | `PostToolUse` | — | Yes | Yes | No | Advisory warnings for rapid tool use and repeated failures |
 | `cc-posttooluse-sycophancy.sh` | `PostToolUse` | — | No | Yes | Yes | Block agreement-without-evidence in assistant text after tools |
 | `cc-posttooluse-quality.sh` | `PostToolUse` | — | No | Yes | Yes | Block complexity/test-quality regressions on edited files |

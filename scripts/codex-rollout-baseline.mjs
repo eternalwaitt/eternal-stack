@@ -4,6 +4,7 @@ import { homedir } from "node:os";
 import path from "node:path";
 import readline from "node:readline";
 import { argValue } from "./lib/cli-args.mjs";
+import { SOL_ESCALATION_MODEL } from "./lib/codex-model-routing.mjs";
 import { nowIso } from "./lib/evidence-trace.mjs";
 
 const args = process.argv.slice(2);
@@ -174,27 +175,50 @@ async function parseRolloutFile(file) {
   return stats;
 }
 
-function findSubagentRollouts(parentFile, threadIds) {
+function subagentRolloutResolver(parentFile) {
   const dir = path.dirname(parentFile);
   const parentBase = path.basename(parentFile);
-  const matches = new Map();
   let entries = [];
   try {
     entries = readdirSync(dir);
   } catch {
-    return matches;
+    entries = [];
   }
-  for (const threadId of threadIds) {
-    if (!threadId) continue;
-    for (const name of entries) {
-      if (!name.endsWith(".jsonl")) continue;
-      if (name === parentBase) continue;
-      if (!name.includes(threadId)) continue;
-      const full = path.join(dir, name);
-      if (!matches.has(threadId)) matches.set(threadId, full);
-    }
+  const candidates = entries.filter((name) => name.endsWith(".jsonl") && name !== parentBase);
+  return (threadId) => {
+    const name = candidates.find((candidate) => candidate.includes(threadId));
+    return name ? path.join(dir, name) : "";
+  };
+}
+
+// A subagent can spawn its own child agents — the task-packet contract models
+// that case as `nativeChildAgents: "modeled"` — so a single-level scan drops a
+// whole branch of the spawn tree out of `combined` and `subagentSharePct`.
+// Discovery walks breadth-first, tracking both thread ids and resolved file
+// paths: two ids can name the same rollout, and a cycle in the recorded ids
+// must not loop forever.
+async function collectSubagentRollouts(parentFile, parentStats) {
+  const resolveThreadFile = subagentRolloutResolver(parentFile);
+  const visitedThreads = new Set();
+  const visitedFiles = new Set([path.resolve(parentFile)]);
+  const files = [];
+  const statsList = [];
+  const queue = [...parentStats.subagentThreadIds];
+  while (queue.length > 0) {
+    const threadId = String(queue.shift() || "").trim();
+    if (!threadId || visitedThreads.has(threadId)) continue;
+    visitedThreads.add(threadId);
+    const file = resolveThreadFile(threadId);
+    if (!file) continue;
+    const resolved = path.resolve(file);
+    if (visitedFiles.has(resolved)) continue;
+    visitedFiles.add(resolved);
+    const stats = await parseRolloutFile(file);
+    files.push(file);
+    statsList.push(stats);
+    for (const nested of stats.subagentThreadIds) queue.push(nested);
   }
-  return matches;
+  return { files, statsList, threadIds: [...visitedThreads] };
 }
 
 function mergeTurnModels(target, source) {
@@ -250,7 +274,7 @@ function printAggregateReport(report) {
   const spawnTotal = report.parent.spawnModelSplit.explicit + report.parent.spawnModelSplit.inherited;
   const explicitSpawnPct = sharePct(report.parent.spawnModelSplit.explicit, spawnTotal);
   const subagentTurnTotal = turnModelTotal(report.subagents.turnModels);
-  const subagentSolTurns = report.subagents.turnModels["gpt-5.6-sol"] || 0;
+  const subagentSolTurns = report.subagents.turnModels[SOL_ESCALATION_MODEL] || 0;
   const subagentSolSharePct = sharePct(subagentSolTurns, subagentTurnTotal);
   const subagentCachedInputSharePct = sharePct(
     report.subagents.tokens.cachedInputTokens,
@@ -264,14 +288,14 @@ function printAggregateReport(report) {
   console.log(`subagent share (input/total): ${formatPct(report.subagentSharePct.inputTokens)} / ${formatPct(report.subagentSharePct.totalTokens)}`);
   console.log(`spawn_agent explicit/inherited: ${formatCount(report.parent.spawnModelSplit.explicit)}/${formatCount(report.parent.spawnModelSplit.inherited)} (${formatPct(explicitSpawnPct)} explicit model)`);
   console.log(`parent turn models: ${formatTurnModelDistribution(report.parent.turnModels) || "none"}`);
-  console.log(`subagent turn models: ${formatTurnModelDistribution(report.subagents.turnModels) || "none"} (gpt-5.6-sol ${formatPct(subagentSolSharePct)} of ${formatCount(subagentTurnTotal)} turns)`);
+  console.log(`subagent turn models: ${formatTurnModelDistribution(report.subagents.turnModels) || "none"} (${SOL_ESCALATION_MODEL} ${formatPct(subagentSolSharePct)} of ${formatCount(subagentTurnTotal)} turns)`);
   console.log(`subagent cached input share: ${formatPct(subagentCachedInputSharePct)} (${formatCount(report.subagents.tokens.cachedInputTokens)} of ${formatCount(report.subagents.tokens.inputTokens)} input tokens)`);
   console.log(`compactions (parent): ${formatCount(report.parent.compactionCount)}`);
   console.log(`compactions (subagents): ${formatCount(subagentCompactionCount(report))}`);
   console.log(`compactions (combined): ${formatCount(report.combined.compactionCount)}`);
 }
 
-function aggregateReport(rolloutFile, parentStats, subagentFiles, subagentStatsList) {
+function aggregateReport(rolloutFile, parentStats, subagentFiles, subagentStatsList, subagentThreadIds) {
   const combined = emptyStats();
   const sections = [parentStats, ...subagentStatsList];
   for (const stats of sections) {
@@ -303,7 +327,7 @@ function aggregateReport(rolloutFile, parentStats, subagentFiles, subagentStatsL
     parent: statsToSection(parentStats),
     subagents: {
       count: subagentStatsList.length,
-      threadIds: [...parentStats.subagentThreadIds],
+      threadIds: subagentThreadIds,
       files: subagentFiles,
       tokens: { ...subagentTokens },
       turnModels: subagentStatsList.reduce((acc, stats) => {
@@ -330,14 +354,8 @@ async function analyzeRollout(rolloutFile) {
     process.exit(2);
   }
   const parentStats = await parseRolloutFile(rolloutFile);
-  const subagentMap = findSubagentRollouts(rolloutFile, parentStats.subagentThreadIds);
-  const subagentFiles = [];
-  const subagentStatsList = [];
-  for (const file of subagentMap.values()) {
-    subagentFiles.push(file);
-    subagentStatsList.push(await parseRolloutFile(file));
-  }
-  return aggregateReport(rolloutFile, parentStats, subagentFiles, subagentStatsList);
+  const { files, statsList, threadIds } = await collectSubagentRollouts(rolloutFile, parentStats);
+  return aggregateReport(rolloutFile, parentStats, files, statsList, threadIds);
 }
 
 function readJson(flag, positional = false) {

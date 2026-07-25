@@ -24,6 +24,11 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { classify } from "./lib/coderabbit-classifier.mjs";
+import { withFileLock, writeJsonAtomic } from "./lib/json-file-store.mjs";
+
+// review-merge.mjs writes reviewer-dispatch rows into the same store. Both
+// writers must name the same lock or neither excludes the other.
+const LEDGER_LOCK = { label: "review learnings" };
 
 function parseArgs(argv) {
   const out = { findings: null, root: process.cwd(), rules: null, ledger: null, templates: null, reviewId: null, threshold: 3, corpus: null, minPrecision: 0.8, dryRun: false, json: false };
@@ -171,13 +176,76 @@ function main() {
   });
   const droppedByDisposition = findings.length - admissible.length;
 
-  const ledger = readJson(args.ledger, { schemaVersion: 1, recurrences: {}, promoted: {}, cleanRuns: {} });
-  const rules = readJson(args.rules, { schemaVersion: 1, rulesetId: "learned", version: 1, enabledRuleIds: [], rules: [] });
   const templates = readJson(args.templates, { rules: [] });
 
   const classified = admissible.map((f) => ({ finding: f, ...classify(f) }));
   const seen = new Set(classified.map((c) => c.key));
 
+  // Each pass reads its own copies, so a discarded pass cannot leak mutations
+  // into the authoritative one.
+  const readLedger = () => readJson(args.ledger, { schemaVersion: 1, recurrences: {}, promoted: {}, cleanRuns: {} });
+  const readRules = () => readJson(args.rules, { schemaVersion: 1, rulesetId: "learned", version: 1, enabledRuleIds: [], rules: [] });
+
+  // A precision measurement depends only on the template and the corpus, never on
+  // the ledger, so the result is cached per rule id and reused across passes.
+  const precisionCache = new Map();
+  const precisionFor = (tmpl) => {
+    if (!precisionCache.has(tmpl.ruleId)) precisionCache.set(tmpl.ruleId, measurePrecision(tmpl, args.corpus));
+    return precisionCache.get(tmpl.ruleId);
+  };
+
+  let result;
+  if (args.dryRun) {
+    result = applyLearning({ ledger: readLedger(), rules: readRules(), templates, classified, seen, args, precisionFor });
+  } else {
+    // Precision probes spawn the review-rules engine once per candidate. Doing
+    // that while holding the store lock would stall every other writer past its
+    // lock timeout, so a throwaway pass outside the lock warms the measurement
+    // cache first; the authoritative pass inside the lock then reuses it.
+    if (args.corpus) applyLearning({ ledger: readLedger(), rules: readRules(), templates, classified, seen, args, precisionFor });
+    // The ledger is read inside the lock: review-merge.mjs writes reviewer rows
+    // to this store, and a decision computed from a pre-lock snapshot would
+    // overwrite whatever landed in between.
+    result = withFileLock(args.ledger, () => {
+      const ledger = readLedger();
+      const rules = readRules();
+      const outcome = applyLearning({ ledger, rules, templates, classified, seen, args, precisionFor });
+      // Order matters for crash consistency. The ledger's `promoted`/`cleanRuns`
+      // entries are what STOP a later run from re-installing a guard, so they are
+      // committed only AFTER the guard is durably in review-rules.json. Write the
+      // rules first; if that write throws, the ledger is never persisted, so a
+      // retry recovers and installs the missing guard. review-rules.json is a
+      // hand-formatted tracked config, so it is only written when a promotion or
+      // escalation actually changed it — a no-op run must not reflow it. The
+      // ledger is canonical JSON (idempotent rewrite = no diff).
+      if (outcome.promotions.length > 0 || outcome.escalations.length > 0) {
+        writeJsonAtomic(args.rules, rules);
+      }
+      writeJsonAtomic(args.ledger, ledger);
+      return outcome;
+    }, LEDGER_LOCK);
+  }
+  const { promotions, candidates, escalations, alreadyProcessed } = result;
+
+  const metric = {
+    schemaVersion: 1,
+    findingsProcessed: admissible.length,
+    droppedByDisposition,
+    distinctKeys: seen.size,
+    alreadyProcessed,
+    newGuardPromotions: promotions,
+    newChecklistCandidates: candidates,
+    escalations,
+  };
+  process.stdout.write(args.json
+    ? JSON.stringify(metric, null, 2) + "\n"
+    : `review-learn: ${admissible.length} findings${droppedByDisposition ? ` (+${droppedByDisposition} dropped by disposition)` : ""}, ${promotions.length} guard promotion(s), ${candidates.length} checklist candidate(s), ${escalations.length} escalation(s)${alreadyProcessed ? " (review already processed; no-op)" : ""}\n`);
+}
+
+// One learning pass over a ledger/rules pair. Mutates both and reports what it
+// changed, so `main` can run it against throwaway copies outside the store lock
+// and against the authoritative copies inside it.
+function applyLearning({ ledger, rules, templates, classified, seen, args, precisionFor }) {
   const promotions = [], candidates = [], escalations = [];
 
   // Idempotency: a stable --review-id identifies the review that surfaced these
@@ -216,7 +284,7 @@ function main() {
           // this branch is skipped and promotion stays frequency-only (legacy).
           let precision = null;
           if (args.corpus) {
-            precision = measurePrecision(tmpl, args.corpus);
+            precision = precisionFor(tmpl);
             if (precision < args.minPrecision) {
               ledger.promoted[c.key] = {
                 type: "checklist_candidate",
@@ -266,33 +334,7 @@ function main() {
     if (args.reviewId) ledger.processedReviews.push(args.reviewId);
   }
 
-  if (!args.dryRun) {
-    // Order matters for crash consistency. The ledger's `promoted`/`cleanRuns` entries
-    // are what STOP a later run from re-installing a guard, so they must be committed
-    // only AFTER the guard is durably in review-rules.json. Write the rules first; if
-    // that write throws, we never persist the ledger, so a retry recovers and installs
-    // the missing guard. review-rules.json is a hand-formatted tracked config, so only
-    // write it when a promotion or escalation actually changed it — a no-op run must
-    // not reflow it. The ledger is canonical JSON (idempotent rewrite = no diff).
-    if (promotions.length > 0 || escalations.length > 0) {
-      writeFileSync(args.rules, JSON.stringify(rules, null, 2) + "\n");
-    }
-    writeFileSync(args.ledger, JSON.stringify(ledger, null, 2) + "\n");
-  }
-
-  const metric = {
-    schemaVersion: 1,
-    findingsProcessed: admissible.length,
-    droppedByDisposition,
-    distinctKeys: seen.size,
-    alreadyProcessed,
-    newGuardPromotions: promotions,
-    newChecklistCandidates: candidates,
-    escalations,
-  };
-  process.stdout.write(args.json
-    ? JSON.stringify(metric, null, 2) + "\n"
-    : `review-learn: ${admissible.length} findings${droppedByDisposition ? ` (+${droppedByDisposition} dropped by disposition)` : ""}, ${promotions.length} guard promotion(s), ${candidates.length} checklist candidate(s), ${escalations.length} escalation(s)${alreadyProcessed ? " (review already processed; no-op)" : ""}\n`);
+  return { promotions, candidates, escalations, alreadyProcessed };
 }
 
 main();

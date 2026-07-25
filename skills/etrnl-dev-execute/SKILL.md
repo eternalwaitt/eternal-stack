@@ -107,7 +107,7 @@ Trivial shape rules:
 
 ## Bounded CodeRabbit-lens review (risk-tiered)
 
-After the final edit of a task or wave, run `node scripts/review-rules.mjs check --changed-only` whenever the tree has source changes, then run parallel reviewers, merge with `node scripts/review-merge.mjs`, fix `safe_auto` immediately, and reopen only on P0/P1 blockers. Load `references/bounded-review.md` for synthesis, reopen caps (ledger-enforced), and per-tier depth.
+After the final edit of a task or wave, run `node scripts/review-rules.mjs check --changed-only` whenever the tree has source changes, then run parallel reviewers, merge with `node scripts/review-merge.mjs` (both under `~/.claude/scripts/` after install), fix `safe_auto` immediately, and reopen only on P0/P1 blockers. Load `references/bounded-review.md` for synthesis, reopen caps (ledger-enforced), and per-tier depth.
 
 ### Wave and task exit check
 

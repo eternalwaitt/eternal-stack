@@ -5,6 +5,8 @@ import {
   CODEX_MODELS,
   MODEL_TIERS,
   REASONING_EFFORTS,
+  SOL_ESCALATION_MODEL,
+  allowsSolEscalation,
   resolveCodexModel,
 } from "./lib/codex-model-routing.mjs";
 import { packetHash } from "./lib/evidence-trace.mjs";
@@ -330,12 +332,13 @@ if ("modelTier" in packet) {
 
 if ("codexModel" in packet) {
   if (typeof packet.codexModel !== "string" || !CODEX_MODELS.has(packet.codexModel)) {
-    violations.push('codexModel must be one of "gpt-5.6-sol", "gpt-5.6-terra", or "gpt-5.6-luna"');
+    const known = [...CODEX_MODELS].map((model) => `"${model}"`);
+    violations.push(`codexModel must be one of ${known.slice(0, -1).join(", ")}, or ${known.at(-1)}`);
   } else if (
-    packet.codexModel === "gpt-5.6-sol"
-    && !(typeof packet.modelTierJustification === "string" && /integration[- ]owner|adversarial/i.test(packet.modelTierJustification))
+    packet.codexModel === SOL_ESCALATION_MODEL
+    && !allowsSolEscalation(packet.modelTierJustification)
   ) {
-    violations.push("gpt-5.6-sol requires modelTierJustification naming integration-owner or adversarial escalation");
+    violations.push(`${SOL_ESCALATION_MODEL} requires modelTierJustification naming integration-owner or adversarial escalation`);
   }
 }
 

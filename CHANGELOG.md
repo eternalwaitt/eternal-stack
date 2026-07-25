@@ -8,13 +8,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Added
 
-- Both settings templates ship `codegraph prompt-hook` on `UserPromptSubmit`, alongside the existing `rtk hook claude` precedent for third-party tool hooks. Install resets foreign hook entries before merging the stack template, so a hook present only in a user's home was silently dropped on every install; shipping it in the template makes it survive.
+- Both settings templates ship `codegraph prompt-hook` on `UserPromptSubmit`, alongside the existing `rtk hook claude` precedent for third-party tool hooks. Install resets foreign hook entries before merging the stack template, so a hook present only in a user's home was silently dropped on every install; shipping it in the template makes it survive. The entry carries an explicit 10s timeout, matching the convention every other hook in those files follows.
+- `scripts/lib/json-file-store.mjs` provides the cross-process primitives every writer of a concurrently-written JSON file needs: a `mkdir`-based lock, `rename()`-backed atomic replace, and a `updateJsonUnderLock` helper that keeps the read and the write in one critical section. Extracted from the lock that `execution-ledger.mjs` already held privately rather than written as a second implementation.
+- `scripts/lib/ux-finding-taxonomy.mjs` owns the UI/UX severity and finding-status enums that three scripts previously hand-rolled independently.
 
 ### Changed
+
+- The UI/UX finding `status` field is enforced by `deep-audit-artifact-check.mjs` with a new `UX_FINDING_STATUS_INVALID` error, resolving a contract that documented `status` as required in `audit-checks.md` while no validator checked it. Every existing fixture already emitted `status`, so no artifact migration is required.
+- The `cc-question-preference.sh` settings matcher covers every ask-tool name the hook itself accepts. The matcher was narrower than the hook, so `mcp__*askUserQuestion*` and `mcp__*user_question*` names were filtered out before the hook could ever see them.
 
 ### Fixed
 
 - Install copies `tests/lib/parallel-run.sh` and `rules-manifest.json` into the installed home. Both are read by the installed test suites, and neither was in the copy list — so `doctor-etrnl.sh` in an installed home failed `test-hooks.sh` on a missing source file and `test-workflow-tools.sh` on a missing manifest. The repo doctor passed throughout because it runs from a tree where both files exist.
+- Concurrent writers no longer lose rows from `review-learnings.json`. `review-merge.mjs` and `review-learn.mjs` both did an unlocked read-modify-write on the shared store, so parallel reviewer lanes — the workflow the feature exists to enable — silently dropped each other's rows, and a crash mid-write truncated the store for both. Both writers now serialize on one lock and replace the file atomically. Measured before the fix: six concurrent lanes left one surviving row out of six, and a mixed learn/merge race lost two of four recurrence increments plus two of four reviewer rows.
+- Install records newly created files in the rollback manifest, so rolling back no longer leaves stale copies of `tests/`, `tests/lib/`, and `rules-manifest.json` behind on a host that had no prior install. The three hook symlinks pointing into `tests/` are recorded too, since removing their targets without them would leave dangling links.
+- `diff-triviality.mjs` no longer shifts File map column indices when a row has a blank Change cell. `filter(Boolean)` dropped the empty cell, so an unrelated column supplied the Change note and could classify a runtime script as non-behavioral.
+- `agent-task-packet-check.mjs` reuses the Sol-escalation predicate and canonical model set exported from `codex-model-routing.mjs` instead of re-implementing the regex and hardcoding model names, and `codex-rollout-baseline.mjs` derives its headline model from the same source and recurses into nested subagent spawns instead of counting only direct children.
 
 ### Removed
 

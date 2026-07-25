@@ -425,7 +425,7 @@ if [[ -f "$BACKUP/new-source-paths.txt" ]]; then
     # Defense-in-depth: only ever delete under the known stack-owned subtrees, and
     # reject any path that could traverse out of the install home.
     case "$new_rel" in
-      hooks/* | tests/fixtures) : ;;
+      hooks/* | tests/fixtures | tests/lib/* | tests/test-hooks.sh | tests/test-workflow-tools.sh | rules-manifest.json) : ;;
       *) continue ;;
     esac
     case "$new_rel" in

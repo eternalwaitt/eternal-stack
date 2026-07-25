@@ -11,6 +11,7 @@ import {
   orchestratorCategoryIds,
   registeredCategoryIds,
 } from "./lib/deep-audit-categories.mjs";
+import { UX_FINDING_STATUS_SET, UX_FINDING_STATUSES, UX_SEVERITIES, UX_SEVERITY_SET } from "./lib/ux-finding-taxonomy.mjs";
 
 const args = process.argv.slice(2);
 const command = args[0] || "help";
@@ -69,8 +70,7 @@ const REQUIRED_ARTIFACT_FIELDS = [
 const VALID_CHECK_STATUSES = new Set(["finding", "confirmed_clean", "skipped", "not_applicable", "source_limited"]);
 const VALID_LANE_STATUSES = new Set(["completed", "source_limited", "blocked"]);
 const UX_CATEGORY_ID = "ui-ux-product";
-const UX_SEVERITIES = new Set(["critical", "high", "medium", "opportunity"]);
-const UX_FINDING_FIELDS = ["route", "viewport", "symptom", "evidence", "baseline", "severity", "remediation"];
+const UX_FINDING_FIELDS = ["route", "viewport", "symptom", "evidence", "baseline", "severity", "status", "remediation"];
 const UX_NON_FINDING_FIELDS = ["routesCovered", "viewportsCovered", "statesExercised", "baselineCompared", "evidenceType"];
 const UX_COVERAGE_COUNTERS = [
   "routesTotal",
@@ -279,8 +279,11 @@ function validateUxCheckEntry(check, artifactPath, errors, jsonPath) {
           errors.push(diagnostic("UX_FINDING_FIELD_MISSING", artifactPath, `${check.checkId} finding ${findingIndex} lacks ${field}.`, "UI/UX findings must describe what a user hits on a named surface against a named baseline.", `Add ${field} to the UI/UX finding.`, `${jsonPath}.findings[${findingIndex}].${field}`));
         }
       }
-      if (finding?.severity && !UX_SEVERITIES.has(String(finding.severity))) {
-        errors.push(diagnostic("UX_SEVERITY_INVALID", artifactPath, `${check.checkId} finding ${findingIndex} uses severity ${JSON.stringify(finding.severity)}.`, "UI/UX severities must stay machine-readable and keep an improvement tier.", `Use one of: ${Array.from(UX_SEVERITIES).join(", ")}.`, `${jsonPath}.findings[${findingIndex}].severity`));
+      if (finding?.severity && !UX_SEVERITY_SET.has(String(finding.severity))) {
+        errors.push(diagnostic("UX_SEVERITY_INVALID", artifactPath, `${check.checkId} finding ${findingIndex} uses severity ${JSON.stringify(finding.severity)}.`, "UI/UX severities must stay machine-readable and keep an improvement tier.", `Use one of: ${UX_SEVERITIES.join(", ")}.`, `${jsonPath}.findings[${findingIndex}].severity`));
+      }
+      if (finding?.status && !UX_FINDING_STATUS_SET.has(String(finding.status))) {
+        errors.push(diagnostic("UX_FINDING_STATUS_INVALID", artifactPath, `${check.checkId} finding ${findingIndex} uses status ${JSON.stringify(finding.status)}.`, "A finding whose disposition is unreadable cannot be tracked to closure or counted as accepted risk.", `Use one of: ${UX_FINDING_STATUSES.join(", ")}.`, `${jsonPath}.findings[${findingIndex}].status`));
       }
     }
   }

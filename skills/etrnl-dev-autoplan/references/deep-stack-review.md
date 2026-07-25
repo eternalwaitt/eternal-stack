@@ -2,7 +2,7 @@
 
 Load this file from `etrnl-dev-autoplan` before finalizing a tier ≥ 2 plan. It carries the full lane definitions the `## Autoplan Depth Contract` names.
 
-Run the review gauntlet required by the plan's `Risk tier` before finalizing. Tier 0–1 use one merged quality review lane only — no task packets, no multi-reviewer fan-out, no deep-stack bundle. Tier 2 requires engineering plus adversarial lanes. Tier 3 requires all eight lanes and a validated `Deep stack artifacts:` bundle before execution.
+Run the review gauntlet required by the plan's `Risk tier` before finalizing. Tier 0–1 use one merged quality review lane only — no task packets, no multi-reviewer fan-out, no deep-stack bundle. Tier 2 requires engineering plus adversarial lanes. Tier 3 requires all eight lanes — CEO/founder, engineering, design, DX, adversarial, reuse, simplifier, and specialist convergence — plus outside-voice routing and a validated `Deep stack artifacts:` bundle before execution.
 
 1. CEO/founder review:
    - Validate the premise, user value, scope, 6-month regret, and better alternatives.
@@ -20,11 +20,16 @@ Run the review gauntlet required by the plan's `Risk tier` before finalizing. Ti
 5. Adversarial review:
    - Reuse `/etrnl-dev-stress-test` posture.
    - Challenge the most likely false assumption, hidden coupling, verification gaps, and shareable-repo leakage.
-6. Outside voices:
+6. Outside voices — subagent routing for the lanes above, not a separate lane:
    - Use `etrnl-scout`, `etrnl-adversary`, `etrnl-design-reviewer`, and `etrnl-dx-reviewer` as read-only subagent candidates when scope is large enough.
    - Load `references/reviewer-routing.md` to assign each reviewer agent its disjoint gate; never route two agents to the same gate.
    - Load `references/reversible-compression.md` for every read-only subagent packet so each agent writes full evidence to a content-addressed artifact and returns only the receipt.
    - If Codex, Gemini, Octopus, gstack design, or GPT image/mock tooling is installed, mark it as an applicable escalation path; report missing tools instead of silently skipping them.
-7. Specialist convergence:
-   - Run or explicitly disposition reuse, code-simplifier, code-review-excellence, advanced TypeScript, and domain-specific companion lanes.
+7. Reuse lane:
+   - Run or explicitly disposition the reuse pass over existing files, helpers, hooks, scripts, tests, and docs the plan extends.
+   - Record the outcome in the deep-stack `reuseInventory` and plan `## What already exists`.
+8. Simplifier lane:
+   - Run or explicitly disposition `code-simplifier` over the planned surfaces.
+9. Specialist convergence:
+   - Run or explicitly disposition code-review-excellence, advanced TypeScript, and domain-specific companion lanes.
    - Close, disprove, or explicitly user-accept every high/blocker finding before finalization.

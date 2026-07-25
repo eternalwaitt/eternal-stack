@@ -9,6 +9,11 @@ const TIER_DEFAULTS = {
   top: { model: "gpt-5.6-terra", reasoningEffort: "high" },
 };
 
+// The escalation model is named once so a routing change moves every consumer
+// with it — a validator, a rollout metric, or a docs string that hardcodes the
+// slug reports on a model the router no longer selects.
+export const SOL_ESCALATION_MODEL = "gpt-5.6-sol";
+
 // gpt-5.6-sol is allowed only when modelTierJustification names integration-owner or adversarial escalation.
 const SOL_ESCALATION_PATTERN = /integration[- ]owner|adversarial/i;
 
@@ -16,7 +21,7 @@ function tierEnvVarName(modelTier) {
   return `ETRNL_CODEX_MODEL_${modelTier.toUpperCase()}`;
 }
 
-function allowsSolEscalation(modelTierJustification) {
+export function allowsSolEscalation(modelTierJustification) {
   return typeof modelTierJustification === "string"
     && SOL_ESCALATION_PATTERN.test(modelTierJustification);
 }
@@ -34,9 +39,9 @@ function assertKnownEffort(reasoningEffort, source) {
 }
 
 function assertSolEscalationAllowed(model, modelTierJustification) {
-  if (model === "gpt-5.6-sol" && !allowsSolEscalation(modelTierJustification)) {
+  if (model === SOL_ESCALATION_MODEL && !allowsSolEscalation(modelTierJustification)) {
     throw new Error(
-      "gpt-5.6-sol requires modelTierJustification naming integration-owner or adversarial escalation",
+      `${SOL_ESCALATION_MODEL} requires modelTierJustification naming integration-owner or adversarial escalation`,
     );
   }
 }

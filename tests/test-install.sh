@@ -123,6 +123,7 @@ assert_executable "installed skill behavior smoke helper" "$CLAUDE_HOME/scripts/
 assert_executable "installed changelog release helper" "$CLAUDE_HOME/scripts/changelog-release-check.mjs"
 assert_executable "installed ux inventory helper" "$CLAUDE_HOME/scripts/ux-inventory.mjs"
 assert_executable "installed ux audit check helper" "$CLAUDE_HOME/scripts/ux-audit-check.mjs"
+assert_executable "installed codex rollout baseline helper" "$CLAUDE_HOME/scripts/codex-rollout-baseline.mjs"
 assert_executable "installed port guard helper" "$CLAUDE_HOME/scripts/port-guard.mjs"
 assert_executable "installed update check helper" "$CLAUDE_HOME/scripts/update-check.mjs"
 assert_executable "installed skill update prompt helper" "$CLAUDE_HOME/scripts/skill-update-prompt.mjs"
@@ -459,6 +460,28 @@ assert_contains "rollback restores user-dropped tests/fixtures file" "$(cat "$wi
 # its original external target.
 assert_symlink "rollback restores the overwritten hook as a symlink" "$wider_home/hooks/cc-rate-limiter.sh"
 assert_contains "rollback restores the hook symlink's original target" "$(readlink "$wider_home/hooks/cc-rate-limiter.sh" 2>/dev/null || true)" "$external_hook_target"
+# Install also writes the test suites, their libraries, the rules manifest those
+# suites read, and the hook-side symlinks into them. Nothing backs those up, so
+# rollback must remove the ones it created; leaving them behind strands stale
+# copies and dangling hook symlinks in a home that had none. -e||-L so a dangling
+# link still counts as present. The user-dropped tests/fixtures assertion above
+# is the counterpart: a path that pre-existed is restored, never removed.
+for wider_install_created in \
+  tests/test-hooks.sh \
+  tests/test-workflow-tools.sh \
+  tests/lib/harness.sh \
+  tests/lib/parallel-run.sh \
+  tests/lib/busy-port-server.mjs \
+  rules-manifest.json \
+  hooks/test-hooks.sh \
+  hooks/test-workflow-tools.sh \
+  hooks/lib/test-harness.sh; do
+  if [[ -e "$wider_home/$wider_install_created" || -L "$wider_home/$wider_install_created" ]]; then
+    not_ok "rollback removes install-created $wider_install_created"
+  else
+    ok "rollback removes install-created $wider_install_created"
+  fi
+done
 
 # ── Directory-level symlink handling ───────────────────────────────────────────
 # The scenario above covers a FILE-level hook symlink. These cover the

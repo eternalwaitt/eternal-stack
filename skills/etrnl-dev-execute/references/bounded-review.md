@@ -38,11 +38,11 @@ Reopen caps bound the worst case. Trajectory counters end a loop that stopped co
 3. Evaluate the park decision inside synthesis: `node scripts/review-merge.mjs --file <findings.json> --trajectory <gates.json> --wave <id> --reopen-round <used> --reopen-cap <cap>`. The merged report carries a `park` object.
 4. Park the stream when `park.parked` is true. Each limit is a named constant with an env override:
 
-| Counter | Limit | Env override | Reason code |
-| --- | --- | --- | --- |
-| `recurringFindingCount` | 3 | `ETRNL_REVIEW_RECURRING_FINDING_LIMIT` | `recurring-finding-limit` |
-| `streamAlternationCount` | 4 | `ETRNL_REVIEW_STREAM_ALTERNATION_LIMIT` | `stream-alternation-limit` |
-| `roundsSinceProgress` | 2 | `ETRNL_REVIEW_ROUNDS_SINCE_PROGRESS_LIMIT` | `rounds-since-progress-limit` |
+   | Counter | Limit | Env override | Reason code |
+   | --- | --- | --- | --- |
+   | `recurringFindingCount` | 3 | `ETRNL_REVIEW_RECURRING_FINDING_LIMIT` | `recurring-finding-limit` |
+   | `streamAlternationCount` | 4 | `ETRNL_REVIEW_STREAM_ALTERNATION_LIMIT` | `stream-alternation-limit` |
+   | `roundsSinceProgress` | 2 | `ETRNL_REVIEW_ROUNDS_SINCE_PROGRESS_LIMIT` | `rounds-since-progress-limit` |
 
 5. Any single tripped counter parks the stream while reopen rounds remain: `park.reopenCapExhausted` reports `false` in that case and the loop stops anyway.
 6. On a park, record a blocker naming every `park.reasons[].reasonCode`, keep the open findings as non-blocking notes, and continue other work. Reopen that stream only after an owner decision logged with `node scripts/execution-ledger.mjs record-decision`.

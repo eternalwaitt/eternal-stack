@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import { argValue as readArgValue } from "./lib/cli-args.mjs";
+import { updateJsonUnderLock, withFileLock, writeJsonAtomic } from "./lib/json-file-store.mjs";
 import { nowIso, safeId } from "./lib/evidence-trace.mjs";
 import { worktreeHash } from "./lib/etrnl-state-core.mjs";
 import { parseRiskTier } from "./lib/plan-risk-tier.mjs";
@@ -19,9 +20,11 @@ const TRAJECTORY_COUNTERS = ["recurringFindingCount", "streamAlternationCount", 
 const EVIDENCE_DONE = new Set(["passed", "verified", "red_green_verified", "not_applicable", "skipped"]);
 const REVIEW_DONE = new Set(["verified", "completed"]);
 // Defaults allow brief multi-agent contention; tune with env vars for unusually slow disks.
-const LOCK_TIMEOUT_MS = Number(process.env.ETRNL_LEDGER_LOCK_TIMEOUT_MS || 30000);
-const LOCK_STALE_MS = Number(process.env.ETRNL_LEDGER_LOCK_STALE_MS || 120000);
-const LOCK_SLEEP = new Int32Array(new SharedArrayBuffer(4));
+const LOCK_OPTIONS = {
+  timeoutMs: Number(process.env.ETRNL_LEDGER_LOCK_TIMEOUT_MS || 30000),
+  staleMs: Number(process.env.ETRNL_LEDGER_LOCK_STALE_MS || 120000),
+  label: "execution ledger",
+};
 
 const args = process.argv.slice(2);
 const command = args[0] ?? "help";
@@ -50,67 +53,16 @@ function readJson(file) {
   }
 }
 
-function sleepMs(ms) {
-  Atomics.wait(LOCK_SLEEP, 0, 0, ms);
-}
-
-function acquireFileLock(file) {
-  const lockDir = `${file}.lock`;
-  const startedAt = Date.now();
-  let attempts = 0;
-  while (true) {
-    try {
-      mkdirSync(lockDir, { mode: 0o700 });
-      writeFileSync(path.join(lockDir, "owner"), `${process.pid} ${new Date().toISOString()}\n`, { mode: 0o600 });
-      return () => rmSync(lockDir, { recursive: true, force: true });
-    } catch (error) {
-      if (error?.code !== "EEXIST") throw error;
-      attempts += 1;
-      try {
-        const stats = statSync(lockDir);
-        if (Date.now() - stats.mtimeMs > LOCK_STALE_MS) {
-          rmSync(lockDir, { recursive: true, force: true });
-          continue;
-        }
-      } catch (statError) {
-        if (statError?.code === "ENOENT") continue;
-        throw statError;
-      }
-      if (Date.now() - startedAt > LOCK_TIMEOUT_MS) {
-        throw new Error(`Timed out waiting for execution ledger lock: ${lockDir}`);
-      }
-      sleepMs(Math.min(250, 25 + attempts * 10));
-    }
-  }
-}
-
-function withFileLock(file, callback) {
-  mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
-  const release = acquireFileLock(file);
-  try {
-    return callback();
-  } finally {
-    release();
-  }
-}
-
-function writeJsonUnlocked(file, value) {
-  mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
-  const tmp = `${file}.tmp-${process.pid}-${Date.now()}`;
-  writeFileSync(tmp, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
-  renameSync(tmp, file);
-}
-
 function writeJson(file, value) {
-  withFileLock(file, () => writeJsonUnlocked(file, value));
+  withFileLock(file, () => writeJsonAtomic(file, value, { mode: 0o600 }), LOCK_OPTIONS);
 }
 
 function updateJson(file, updater) {
-  return withFileLock(file, () => {
-    const current = readJson(file);
-    const next = updater(current) || current;
-    writeJsonUnlocked(file, next);
-    return next;
+  return updateJsonUnderLock(file, {
+    read: readJson,
+    update: updater,
+    mode: 0o600,
+    ...LOCK_OPTIONS,
   });
 }
 
