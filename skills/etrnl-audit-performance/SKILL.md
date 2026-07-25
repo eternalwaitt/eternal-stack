@@ -18,7 +18,7 @@ This is a category skill, not the full orchestrator. Use `/etrnl-deep-audit` for
 1. Build every `perf_*` worklist from the registry before lane analysis starts.
 1. Record each worklist path, item count, and content hash in the artifact envelope.
 1. Load `references/audit-checks.md` before auditing.
-1. Run the six registered lanes against the shared worklists only.
+1. Run the six registered lanes against the shared worklists only. Each lane spawn carries an explicit model and reasoning effort from the lane's registry `modelTier` — resolve with `categoryLaneDispatch("performance")` from `scripts/lib/deep-audit-categories.mjs`; an omitted `model` inherits the parent thread model and is a dispatch defect.
 1. Record one lane receipt per registry lane, including `laneId`, `categoryId`, `status`, `consumedWorklistHashes`, and `summary`.
 1. For every registered `perf-*` check, record findings, `CONFIRMED_CLEAN`, `CHECKS_SKIPPED`, `not_applicable`, or `source_limited`.
 1. Record a next-run baseline artifact when route, bundle, query, or infrastructure measurements exist:

@@ -97,6 +97,8 @@ These hooks are documented in [hooks.md](hooks.md); they are listed here because
 | Auto gate recording (`ledger-gate-record.sh`) | fail-open (skip record) | record allowlisted gate commands only; non-allowlisted commands never auto-recorded |
 | `cc-subagentstop-record.sh` | fail-closed when ledger active | block malformed subagent output |
 | `cc-userprompt-router.sh` | fail-open (skip injection) | route/inject context |
+| `cc-compact-suggest.sh` | fail-open (exit 0) | advisory checkpoint-and-compact note only |
+| `cc-question-preference.sh` | fail-open (allow the ask) | deny the ask and carry the auto-decided option, except one-way doors which always allow |
 | `cc-sessionstart-restore.sh` / `update-check.mjs` | skip update check silently | run local auto-update when enabled |
 | `update-check.mjs` dirty source | skip auto-update unless `ETRNL_AUTO_UPDATE_DIRTY=1` | n/a |
 

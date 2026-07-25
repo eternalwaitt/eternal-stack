@@ -6,17 +6,22 @@
 // Usage:
 //   node scripts/review-rules.mjs check [--config <path>] [--root <dir>]
 //                                       [--changed-only] [--base <ref>] [--json]
+//                                       [--report-only]
 // --changed-only scopes to the working tree (pre-commit / local); --base <ref>
 // scopes to the outgoing commit range <ref>...HEAD (pre-push, where the worktree
 // is clean) and fails closed when <ref> cannot be resolved.
 // Exit 1 when any block-mode rule matches; warn-mode matches report but pass.
+// --report-only reports the same findings and exits 0 even when a block-mode rule
+// matched. It never rewrites a rule's mode and never touches the review-learn
+// warn-to-block promotion state, so it is a reporting scope, not a mode change: a
+// block-mode rule stays block-mode and blocks on the next run without the flag.
 
 import { readFileSync, existsSync, lstatSync, realpathSync, globSync } from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
 function parseArgs(argv) {
-  const out = { config: null, root: process.cwd(), changedOnly: false, base: null, json: false };
+  const out = { config: null, root: process.cwd(), changedOnly: false, base: null, json: false, reportOnly: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--config") out.config = argv[++i];
@@ -24,6 +29,7 @@ function parseArgs(argv) {
     else if (a === "--changed-only") out.changedOnly = true;
     else if (a === "--base") out.base = argv[++i];
     else if (a === "--json") out.json = true;
+    else if (a === "--report-only") out.reportOnly = true;
     else if (a === "check") continue;
     else throw new Error(`unknown argument: ${a}`);
   }
@@ -262,17 +268,28 @@ function main() {
   }
 
   const blocking = findings.filter((f) => f.mode === "block");
+  // Report-only keeps every finding and its authored mode; it withholds the
+  // escalation to a blocking exit so a reviewer loop reads the deterministic tail
+  // without the gate stopping the wave.
+  const status = blocking.length ? (args.reportOnly ? "report-only" : "block") : "pass";
   if (args.json) {
-    process.stdout.write(JSON.stringify({ schemaVersion: 1, status: blocking.length ? "block" : "pass", findings }, null, 2) + "\n");
+    process.stdout.write(JSON.stringify({
+      schemaVersion: 1,
+      status,
+      reportOnly: args.reportOnly,
+      blockingCount: blocking.length,
+      findings,
+    }, null, 2) + "\n");
   } else if (findings.length === 0) {
     process.stdout.write(`review-rules: pass (${rules.length} active rule(s), no matches)\n`);
   } else {
     for (const f of findings) {
       process.stdout.write(`  [${f.mode}] ${f.ruleId} (${f.category}) ${f.file}:${f.line}  ${f.snippet}\n`);
     }
-    process.stdout.write(`review-rules: ${blocking.length} blocking, ${findings.length - blocking.length} warn\n`);
+    const suffix = args.reportOnly ? " (report-only: no escalation to block)" : "";
+    process.stdout.write(`review-rules: ${blocking.length} blocking, ${findings.length - blocking.length} warn${suffix}\n`);
   }
-  process.exit(blocking.length ? EXIT_BLOCK : EXIT_PASS);
+  process.exit(blocking.length && !args.reportOnly ? EXIT_BLOCK : EXIT_PASS);
 }
 
 // Exit codes are a contract for callers (pre-push, CI): 0 pass, 1 a block-mode

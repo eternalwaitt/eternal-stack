@@ -17,6 +17,13 @@ source "$SCRIPT_DIR/lib/cleanup.sh"
 # shellcheck source=hooks/lib/profile.sh
 source "$SCRIPT_DIR/lib/profile.sh" 2>/dev/null || true
 
+# Naming the router in ETRNL_SKIP_HOOKS disables it completely, including the
+# skill-routing state other hooks read. The minimal profile is the softer lever:
+# it drops advisory context but keeps that state.
+if declare -F etrnl_profile_hook_skipped >/dev/null 2>&1 && etrnl_profile_hook_skipped; then
+  exit 0
+fi
+
 cc_json_read_stdin
 cc_json_require_jq || exit 0
 cc_json_valid || exit 0
@@ -268,12 +275,13 @@ fi
 notes=()
 # CLAUDE.md reinjection is advisory context; the minimal profile skips it (the
 # skill-routing state recorded above still runs — other hooks depend on it).
+# It is kept out of `notes` because it carries its own char cap
+# (ETRNL_CLAUDE_MD_MAX_CHARS) and its own once-per-session fingerprint, including
+# the ETRNL_INJECT_CLAUDE_MD=always escape that note-level dedup would defeat.
 claude_context=""
 if ! declare -F etrnl_profile_skip_advisory >/dev/null 2>&1 || ! etrnl_profile_skip_advisory; then
   claude_context="$(cc_prompt_claude_context)"
 fi
-[[ -z "$claude_context" ]] || notes+=("$claude_context")
-notes+=("Evidence-first correction protocol: do not use reflexive agreement phrases like \"You're right\". State what is verified or unverified, then name the evidence check or correction.")
 
 cc_prompt_skill_update_note() {
   [[ "${ETRNL_SKILL_UPDATE_CHECK:-1}" != "0" ]] || return 0
@@ -365,7 +373,7 @@ documentation_health_pattern='documentation[[:space:]-]+health|docs[[:space:]-]+
 code_health_pattern='code[[:space:]]+health|repo[[:space:]]+rot|audit[[:space:]]+.*(whole|entire)[[:space:]]+codebase|no[[:space:]]+skips|dead[[:space:]]+code|pr-gate|architecture[[:space:]]+health'
 ci_cd_pattern='ci/cd|ci-cd|ci[[:space:]-]+pipeline|pr[[:space:]-]+ci|ci[[:space:]-]+.*pr|pipeline[[:space:]-]+(failed|failure|broken|failing)|workflow[[:space:]-]+run[[:space:]-]+(failed|failure|broken|failing)|continuous[[:space:]]+integration|continuous[[:space:]]+delivery|github[[:space:]]+actions?|gitlab[[:space:]]+ci|jenkins|branch[[:space:]-]+protection|deployment[[:space:]-]+automation|release[[:space:]-]+gate|deploy[[:space:]-]+gate|oidc|sbom|cosign|docker[[:space:]-]+image[[:space:]-]+build|canary[[:space:]-]+deploy|blue[[:space:]-]+green|rollback[[:space:]-]+pipeline|flaky[[:space:]-]+ci|slow[[:space:]-]+build'
 code_excellence_pattern='code[[:space:]-]+excellence|code[[:space:]-]+review[[:space:]-]+excellence|engineering[[:space:]-]+excellence|code[[:space:]-]+quality[[:space:]-]+audit|maintainability[[:space:]-]+audit|architecture[[:space:]-]+quality|type[[:space:]-]+safety[[:space:]-]+audit|error[[:space:]-]+handling[[:space:]-]+audit|brooks[[:space:]-]+(audit|health|lint)|circular[[:space:]]+import|module[[:space:]]+dependenc|layering[[:space:]]+integrit|clean[[:space:]]+architecture|structural[[:space:]]+decay|codebase[[:space:]]+tour|explain[[:space:]].*codebase[[:space:]]+to[[:space:]]+a[[:space:]]+new[[:space:]]+developer'
-ui_ux_pattern='ui[[:space:]/-]*ux|ux[[:space:]-]+audit|product[[:space:]-]+audit|design[[:space:]-]+audit|accessibility[[:space:]-]+audit|responsive[[:space:]-]+audit|interaction[[:space:]-]+quality|visual[[:space:]-]+qa'
+ui_ux_pattern='ui[[:space:]/-]*ux|ux[[:space:]-]+(audit|review|pass)|ui[[:space:]-]+(audit|review|qa|polish|improvements?)|(audit|review|critique|polish|improve)[[:space:]-]+(the|my|our|this)?[[:space:]-]*(ui|ux|interface|screens?)([^a-z]|$)|product[[:space:]-]+audit|design[[:space:]-]+audit|accessibility[[:space:]-]+audit|responsive[[:space:]-]+audit|interaction[[:space:]-]+quality|visual[[:space:]-]+qa'
 reuse_pattern='shared[[:space:]-]+reuse|reuse[[:space:]-]+audit|duplication[[:space:]-]+audit|duplicate[[:space:]-]+logic|component[[:space:]-]+reuse|helper[[:space:]-]+reuse|abstraction[[:space:]-]+audit'
 repo_hygiene_pattern='repo[[:space:]-]+hygiene|repository[[:space:]-]+hygiene|repo[[:space:]-]+health|file[[:space:]-]+organization|dead[[:space:]-]+files|generated[[:space:]-]+artifact|gitignore|readme[[:space:]-]+health'
 tooling_ecosystem_pattern='tooling[[:space:]-]+ecosystem|developer[[:space:]-]+experience[[:space:]-]+audit|devex[[:space:]-]+audit|toolchain[[:space:]-]+audit|scripts?[[:space:]-]+audit|formatter[[:space:]-]+lint|local[[:space:]-]+setup|onboarding[[:space:]-]+tooling'
@@ -569,9 +577,90 @@ if ! declare -F etrnl_profile_skip_advisory >/dev/null 2>&1 || ! etrnl_profile_s
   cc_prompt_skill_update_note
 fi
 
+# Standing protocol text is appended last so a tight session budget is spent on
+# task-specific routing hints before generic boilerplate.
+notes+=("Evidence-first correction protocol: do not use reflexive agreement phrases like \"You're right\". State what is verified or unverified, then name the evidence check or correction.")
+
+cc_prompt_note_fingerprint() {
+  local text="$1" hash
+  if hash="$(printf '%s' "$text" | cc_prompt_sha256)"; then
+    printf 'userprompt-note:%s\n' "$hash"
+  else
+    printf 'userprompt-note-raw:%s\n' "${text:0:200}"
+  fi
+}
+
+# Deliberately not cc_prompt_context_cap: that helper folds 0 into its default because a
+# zero-length CLAUDE.md cap is meaningless, but 0 here is a valid operator setting that
+# means "inject no advisory notes at all". Only an unset or malformed value falls back.
+cc_prompt_note_budget() {
+  local raw="${ETRNL_USERPROMPT_CONTEXT_MAX_CHARS:-}"
+  if [[ "$raw" =~ ^[0-9]+$ ]]; then
+    printf '%s\n' "$raw"
+  else
+    printf '8000\n'
+  fi
+}
+
+cc_prompt_session_injected_chars() {
+  local value
+  value="$(cc_state_read 2>/dev/null | jq -r '.userPromptInjectedChars // 0' 2>/dev/null || printf '0')"
+  [[ "$value" =~ ^[0-9]+$ ]] || value=0
+  printf '%s\n' "$value"
+}
+
+# Hint dedup plus a per-session character budget. Re-sent context, not
+# generation, is the measured token cost driver, so an identical hint is injected
+# once per session and the running total is capped by
+# ETRNL_USERPROMPT_CONTEXT_MAX_CHARS. Routing decisions are recorded in
+# requestedSkills before this filter runs, so a hint suppressed here has still
+# routed its skill.
+cc_prompt_emit_notes() {
+  local budget used remaining note fingerprint block emitted fingerprints_json now
+  local turn_seen="" msg="" fingerprint_lines=""
+  budget="$(cc_prompt_note_budget)"
+  used="$(cc_prompt_session_injected_chars)"
+  remaining=$(( budget - used ))
+  emitted=0
+  for note in "${notes[@]}"; do
+    [[ -n "$note" ]] || continue
+    (( remaining > 0 )) || break
+    fingerprint="$(cc_prompt_note_fingerprint "$note")"
+    [[ "$turn_seen" != *"|$fingerprint|"* ]] || continue
+    turn_seen+="|$fingerprint|"
+    if [[ "${ETRNL_USERPROMPT_DEDUP:-1}" != "0" ]] \
+      && cc_state_has_warning_fingerprint "$fingerprint"; then
+      continue
+    fi
+    block="$note"
+    (( ${#block} <= remaining )) || block="${block:0:remaining}"
+    msg+="$block"$'\n'
+    remaining=$(( remaining - ${#block} ))
+    emitted=$(( emitted + ${#block} ))
+    fingerprint_lines+="$fingerprint"$'\n'
+  done
+  (( emitted > 0 )) || return 0
+  fingerprints_json="$(printf '%s' "$fingerprint_lines" | jq -R -s 'split("\n") | map(select(. != ""))' 2>/dev/null || printf '[]')"
+  now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  cc_state_update --skip-edit-generation-bump \
+    --argjson fingerprints "$fingerprints_json" --arg now "$now" --argjson added "$emitted" \
+    '.warningFingerprints = ((.warningFingerprints // {}) + (reduce $fingerprints[] as $fp ({}; .[$fp] = $now)))
+     | .userPromptInjectedChars = ((.userPromptInjectedChars // 0) + $added)' >/dev/null || true
+  printf '%s' "$msg"
+}
+
+notes_context=""
 if (( ${#notes[@]} > 0 )); then
-  msg="$(printf '%s\n' "${notes[@]}")"
-  max_msg="$(cc_prompt_context_cap "${ETRNL_USERPROMPT_CONTEXT_MAX_CHARS:-}")"
-  msg="${msg:0:max_msg}"
+  notes_context="$(cc_prompt_emit_notes)"
+fi
+# Emptiness is tracked with explicit flags rather than a whitespace-stripping
+# parameter substitution: bash 3.2 evaluates `${var//[[:space:]]/}` in quadratic
+# time, and the reinjected CLAUDE.md block is large enough to stall the hook.
+if [[ -n "$claude_context" || -n "$notes_context" ]]; then
+  msg="$claude_context"
+  if [[ -n "$notes_context" ]]; then
+    [[ -z "$msg" ]] || msg+=$'\n'
+    msg+="$notes_context"
+  fi
   cc_json_emit_context "UserPromptSubmit" "$msg"
 fi

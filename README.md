@@ -89,7 +89,7 @@ Don't skip those steps. Strict mode with untested hooks will interrupt things yo
 | [docs/rules.md](docs/rules.md) | Cross-host rule pack: module catalog, host activation, `init-project-rules.sh` |
 | [docs/install.md](docs/install.md) | Install, update, uninstall, profiles, strict mode |
 | [docs/migration.md](docs/migration.md) | Rollout sequencing — safe migration order |
-| [docs/configuration.md](docs/configuration.md) | Profiles, strict mode, env var tuning |
+| [docs/configuration.md](docs/configuration.md) | Profiles, strict mode, env var tuning, Codex-first efficiency profile |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | Common issues, repo vs installed paths, bypass |
 | [docs/compact-recovery.md](docs/compact-recovery.md) | Compact recovery: state capture and safe continuation after auto-compaction |
 | [docs/skills.md](docs/skills.md) | `etrnl-*` skills by namespace and bundled inventory |

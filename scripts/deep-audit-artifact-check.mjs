@@ -11,6 +11,7 @@ import {
   orchestratorCategoryIds,
   registeredCategoryIds,
 } from "./lib/deep-audit-categories.mjs";
+import { UX_FINDING_STATUS_SET, UX_FINDING_STATUSES, UX_SEVERITIES, UX_SEVERITY_SET } from "./lib/ux-finding-taxonomy.mjs";
 
 const args = process.argv.slice(2);
 const command = args[0] || "help";
@@ -20,6 +21,7 @@ const VALID_FIXTURES = [
   "tests/fixtures/deep-audit/report.valid.json",
   "tests/fixtures/deep-audit/report.production-valid.json",
   "tests/fixtures/deep-audit/report.performance-valid.json",
+  "tests/fixtures/deep-audit/report.ux-valid.json",
   "tests/fixtures/deep-audit/report.source-limited.json",
 ];
 
@@ -39,6 +41,8 @@ const INVALID_FIXTURES = [
   ["tests/fixtures/deep-audit/report.unknown-check-id.json", "CHECK_UNKNOWN"],
   ["tests/fixtures/deep-audit/report.duplicate-check-id.json", "CHECK_DUPLICATE"],
   ["tests/fixtures/deep-audit/report.unexpected-local-inventory-flag.json", "CATEGORY_LOCAL_INVENTORY"],
+  ["tests/fixtures/deep-audit/report.ux-coverage-incomplete.json", "UX_COVERAGE_INCOMPLETE"],
+  ["tests/fixtures/deep-audit/report.ux-finding-field-missing.json", "UX_FINDING_FIELD_MISSING"],
 ];
 
 const REQUIRED_ARTIFACT_FIELDS = [
@@ -65,6 +69,17 @@ const REQUIRED_ARTIFACT_FIELDS = [
 
 const VALID_CHECK_STATUSES = new Set(["finding", "confirmed_clean", "skipped", "not_applicable", "source_limited"]);
 const VALID_LANE_STATUSES = new Set(["completed", "source_limited", "blocked"]);
+const UX_CATEGORY_ID = "ui-ux-product";
+const UX_FINDING_FIELDS = ["route", "viewport", "symptom", "evidence", "baseline", "severity", "status", "remediation"];
+const UX_NON_FINDING_FIELDS = ["routesCovered", "viewportsCovered", "statesExercised", "baselineCompared", "evidenceType"];
+const UX_COVERAGE_COUNTERS = [
+  "routesTotal",
+  "routesCovered",
+  "surfacesTotal",
+  "surfacesCovered",
+  "stateCellsTotal",
+  "stateCellsCovered",
+];
 
 function usage() {
   console.error([
@@ -256,6 +271,84 @@ function validateSecurityCheckEntry(check, artifactPath, errors, jsonPath) {
   }
 }
 
+function validateUxCheckEntry(check, artifactPath, errors, jsonPath) {
+  if (check.status === "finding") {
+    for (const [findingIndex, finding] of asArray(check.findings).entries()) {
+      for (const field of UX_FINDING_FIELDS) {
+        if (!String(finding?.[field] || "").trim()) {
+          errors.push(diagnostic("UX_FINDING_FIELD_MISSING", artifactPath, `${check.checkId} finding ${findingIndex} lacks ${field}.`, "UI/UX findings must describe what a user hits on a named surface against a named baseline.", `Add ${field} to the UI/UX finding.`, `${jsonPath}.findings[${findingIndex}].${field}`));
+        }
+      }
+      if (finding?.severity && !UX_SEVERITY_SET.has(String(finding.severity))) {
+        errors.push(diagnostic("UX_SEVERITY_INVALID", artifactPath, `${check.checkId} finding ${findingIndex} uses severity ${JSON.stringify(finding.severity)}.`, "UI/UX severities must stay machine-readable and keep an improvement tier.", `Use one of: ${UX_SEVERITIES.join(", ")}.`, `${jsonPath}.findings[${findingIndex}].severity`));
+      }
+      if (finding?.status && !UX_FINDING_STATUS_SET.has(String(finding.status))) {
+        errors.push(diagnostic("UX_FINDING_STATUS_INVALID", artifactPath, `${check.checkId} finding ${findingIndex} uses status ${JSON.stringify(finding.status)}.`, "A finding whose disposition is unreadable cannot be tracked to closure or counted as accepted risk.", `Use one of: ${UX_FINDING_STATUSES.join(", ")}.`, `${jsonPath}.findings[${findingIndex}].status`));
+      }
+    }
+  }
+  if (check.status === "confirmed_clean") {
+    const nonFindings = check.nonFindings;
+    if (!nonFindings || typeof nonFindings !== "object" || Array.isArray(nonFindings)) {
+      errors.push(diagnostic("UX_NON_FINDING_FIELD_MISSING", artifactPath, `${check.checkId} is confirmed clean without explicit non-findings.`, "A clean UI/UX check must state what it covered and what it compared against.", `Add nonFindings with ${UX_NON_FINDING_FIELDS.join(", ")}.`, `${jsonPath}.nonFindings`));
+    } else {
+      for (const field of UX_NON_FINDING_FIELDS) {
+        const value = nonFindings[field];
+        const present = Array.isArray(value) ? value.length > 0 : String(value || "").trim().length > 0;
+        if (!present) {
+          errors.push(diagnostic("UX_NON_FINDING_FIELD_MISSING", artifactPath, `${check.checkId} nonFindings lacks ${field}.`, "Clean UI/UX rows cannot hide sampled coverage behind a summary sentence.", `Add nonFindings.${field}.`, `${jsonPath}.nonFindings.${field}`));
+        }
+      }
+    }
+  }
+  if (["finding", "confirmed_clean"].includes(check.status)) {
+    const score = check.uxHealthScore;
+    const value = Number(score?.score);
+    if (!score || typeof score !== "object" || Array.isArray(score) || !Number.isFinite(value) || value < 0 || value > 10) {
+      errors.push(diagnostic("UX_HEALTH_SCORE_MISSING", artifactPath, `${check.checkId} lacks a 0-10 uxHealthScore.`, "An audited UI check must score shipped quality, not only defect presence.", "Add uxHealthScore with a numeric score between 0 and 10 and a whatMakesTen string.", `${jsonPath}.uxHealthScore`));
+    } else if (!String(score.whatMakesTen || "").trim()) {
+      errors.push(diagnostic("UX_HEALTH_SCORE_MISSING", artifactPath, `${check.checkId} uxHealthScore lacks whatMakesTen.`, "A score without the specific gap to a 10 gives no improvement path.", "Add uxHealthScore.whatMakesTen naming the concrete change that reaches 10.", `${jsonPath}.uxHealthScore.whatMakesTen`));
+    }
+  }
+}
+
+function uxCoverageException(report, kind) {
+  return asArray(report.coverageExceptions)
+    .filter((entry) => entry?.kind === kind && String(entry?.reason || "").trim().length > 0)
+    .reduce((total, entry) => total + (Number.isInteger(entry.count) ? entry.count : 0), 0);
+}
+
+function validateUxCategoryReport(report, artifactPath, errors, reportPath) {
+  const coverage = report.coverage;
+  if (!coverage || typeof coverage !== "object" || Array.isArray(coverage)) {
+    errors.push(diagnostic("UX_COVERAGE_INCOMPLETE", artifactPath, "ui-ux-product report has no coverage counters.", "Without a denominator a UI/UX run cannot prove it audited more than a shortlist.", `Add a coverage object with ${UX_COVERAGE_COUNTERS.join(", ")} and axesCovered.`, `${reportPath}.coverage`));
+    return;
+  }
+  for (const counter of UX_COVERAGE_COUNTERS) {
+    if (!Number.isInteger(coverage[counter])) {
+      errors.push(diagnostic("UX_COVERAGE_INCOMPLETE", artifactPath, `coverage.${counter} is missing or not an integer.`, "Coverage counters are the denominator that blocks silent sampling.", `Set coverage.${counter} from the ux-inventory worklist counts.`, `${reportPath}.coverage.${counter}`));
+    }
+  }
+  for (const [kind, totalField, coveredField] of [
+    ["routes", "routesTotal", "routesCovered"],
+    ["surfaces", "surfacesTotal", "surfacesCovered"],
+    ["state-cells", "stateCellsTotal", "stateCellsCovered"],
+  ]) {
+    const total = coverage[totalField];
+    const covered = coverage[coveredField];
+    if (!Number.isInteger(total) || !Number.isInteger(covered)) continue;
+    if (covered + uxCoverageException(report, kind) < total) {
+      errors.push(diagnostic("UX_COVERAGE_INCOMPLETE", artifactPath, `${covered} of ${total} ${kind} are dispositioned.`, "Unaudited UI surfaces cannot disappear from the report.", `Audit the remaining ${kind} or add coverageExceptions rows of kind ${kind} with reason and count.`, `${reportPath}.coverage.${coveredField}`));
+    }
+  }
+  if (!Array.isArray(report.quickWins)) {
+    errors.push(diagnostic("UX_QUICK_WINS_MISSING", artifactPath, "ui-ux-product report has no quickWins array.", "Low-cost improvements are the output users act on first; an absent list hides them.", "Add a quickWins array; an empty array states no quick win survived triage.", `${reportPath}.quickWins`));
+  }
+  if (!Array.isArray(report.systemicFindings)) {
+    errors.push(diagnostic("UX_QUICK_WINS_MISSING", artifactPath, "ui-ux-product report has no systemicFindings array.", "Repeated defects collapse into a shortlist unless they are filed once with an instance count.", "Add a systemicFindings array with pattern, instanceCount, and instance evidence.", `${reportPath}.systemicFindings`));
+  }
+}
+
 function validateRequiredFields(artifact, artifactPath, errors) {
   for (const field of REQUIRED_ARTIFACT_FIELDS) {
     if (!(field in artifact)) {
@@ -358,7 +451,13 @@ function validateCategoryReport(report, reportIndex, artifact, artifactPath, reg
     if (category.categoryId === "security") {
       validateSecurityCheckEntry(check, artifactPath, errors, checkPath);
     }
+    if (category.categoryId === UX_CATEGORY_ID) {
+      validateUxCheckEntry(check, artifactPath, errors, checkPath);
+    }
   });
+  if (category.categoryId === UX_CATEGORY_ID) {
+    validateUxCategoryReport(report, artifactPath, errors, reportPath);
+  }
   for (const registeredCheck of category.checks) {
     if (!covered.has(registeredCheck.checkId)) {
       errors.push(diagnostic("CHECK_OMITTED", artifactPath, `${registeredCheck.checkId} is missing from ${category.categoryId}.`, "No-sampling requires every registered check to be represented.", "Add a finding, confirmed_clean, skipped, not_applicable, or source_limited row for this check.", reportPath));

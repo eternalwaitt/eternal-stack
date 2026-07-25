@@ -6,6 +6,7 @@ Run parallel reviewers after the final edit of a task or wave, merge findings on
 
 1. Run `node scripts/review-rules.mjs check --changed-only` and fix every block-mode match before any LLM reviewer runs.
 2. Exclude findings that match a `review-rules.mjs` or linter rule ID from LLM review scope — fix them mechanically and record the rule ID.
+3. `node scripts/review-rules.mjs check --changed-only --report-only` returns the same findings and exits 0 with no escalation to block. Read the deterministic tail with it mid-wave without stopping the wave. It rewrites no rule mode and touches no warn-to-block promotion state, so the blocking run in step 1 still gates LLM review and push.
 
 ## Parallel review and synthesis
 
@@ -25,10 +26,42 @@ Run parallel reviewers after the final edit of a task or wave, merge findings on
    - Reopen only when code changed for a P0/P1 blocker; never reopen on finding-churn alone.
    - Counting rule matches the ledger error text: the first verified/completed review for a task+reviewer+lineageId is the initial pass; each later verified/completed row for the same triple is one reopen round.
 
+## Trajectory park thresholds
+
+Reopen caps bound the worst case. Trajectory counters end a loop that stopped converging before the cap runs out.
+
+1. Record the counters on the wave row after every review round with `node scripts/execution-ledger.mjs record-trajectory --wave <id> --recurring-finding-count <n> --stream-alternation-count <n> --rounds-since-progress <n>`. Each flag sets an absolute value, and a partial update keeps the counters it omits.
+   - `recurringFindingCount` — rounds in which the same fingerprint stayed open.
+   - `streamAlternationCount` — hand-offs between review streams on one task.
+   - `roundsSinceProgress` — rounds since the merged finding count last fell.
+2. Read them back with `node scripts/execution-ledger.mjs history --gates --json`, which emits `.waves[]` rows carrying `waveId` and the three counters.
+3. Evaluate the park decision inside synthesis: `node scripts/review-merge.mjs --file <findings.json> --trajectory <gates.json> --wave <id> --reopen-round <used> --reopen-cap <cap>`. The merged report carries a `park` object.
+4. Park the stream when `park.parked` is true. Each limit is a named constant with an env override:
+
+   | Counter | Limit | Env override | Reason code |
+   | --- | --- | --- | --- |
+   | `recurringFindingCount` | 3 | `ETRNL_REVIEW_RECURRING_FINDING_LIMIT` | `recurring-finding-limit` |
+   | `streamAlternationCount` | 4 | `ETRNL_REVIEW_STREAM_ALTERNATION_LIMIT` | `stream-alternation-limit` |
+   | `roundsSinceProgress` | 2 | `ETRNL_REVIEW_ROUNDS_SINCE_PROGRESS_LIMIT` | `rounds-since-progress-limit` |
+
+5. Any single tripped counter parks the stream while reopen rounds remain: `park.reopenCapExhausted` reports `false` in that case and the loop stops anyway.
+6. On a park, record a blocker naming every `park.reasons[].reasonCode`, keep the open findings as non-blocking notes, and continue other work. Reopen that stream only after an owner decision logged with `node scripts/execution-ledger.mjs record-decision`.
+
+## Adaptive reviewer skip
+
+A reviewer that returns nothing on five consecutive dispatches stops earning its turn cost.
+
+1. Record each dispatch outcome during synthesis: `node scripts/review-merge.mjs --file <findings.json> --dispatched <reviewer-ids> --learnings <path>`. Counters persist under `reviewerDispatches` in `review-learnings.json`, the store `scripts/review-learn.mjs` already owns; each writer rewrites the whole object and keeps the other's keys.
+2. Plan the next dispatch with `node scripts/review-merge.mjs skip-plan --reviewers <ids> --json`. Dispatch every id in `dispatch` and skip every row in `skips`.
+3. The limit is five consecutive zero-finding dispatches, overridable with `ETRNL_REVIEW_ADAPTIVE_SKIP_STREAK`. One finding resets the streak to 0.
+4. Exemptions always dispatch and never accrue a skip: security lenses, tenancy lenses, and every deep-audit lane registered in `scripts/lib/deep-audit-categories.mjs`. A deep-audit lane reporting zero findings states coverage, not redundancy, and skipping it reintroduces the sampling those lanes exist to remove.
+5. Each skip row carries `reasonCode`, `reason`, and the `zeroFindingStreak` behind it, following the `coverageExceptions` precedent in `scripts/ux-audit-check.mjs`. Copy the rows into the wave's review artifact so a review that never ran stays distinguishable from a review that found nothing.
+6. When the lane registry fails to load, `skipEvaluation` reports `unavailable` and every named reviewer dispatches.
+
 ## Review depth by tier
 
 - **Tier ≤ 2:** one merged reviewer pass per wave over the combined diff, plus one whole-branch adversarial pass at plan end. This replaces the spec→quality chain for tier ≤ 2 waves.
-- **Tier 3:** keep the full spec → quality → simplifier chain per write task, but review the wave diff and re-verify only changed lenses after each fix round.
+- **Tier 3:** keep the full spec → quality → simplifier chain per write task, review the wave diff, and re-verify only changed lenses after each fix round. **Codex-profile carve-out:** when the run resolves the Codex execute profile (`ETRNL_EXECUTE_HOST=codex`, or a detected Codex session), wave 1 runs that per-write-task chain and wave 2 onward runs the same three roles as one merged review per wave over the wave diff, except on a wave the plan names for full fan-out, which keeps the per-task chain. The carve-out moves review cadence only. Tier 3 gates hold at full strength on every wave — staged install proof, rollback proof, reopen-until-clean caps, consumer-trace on shared contracts, and the auth/money/tenancy/migration lenses — and no carve-out downgrades a plan's declared risk tier.
 
 ## Shared contracts
 

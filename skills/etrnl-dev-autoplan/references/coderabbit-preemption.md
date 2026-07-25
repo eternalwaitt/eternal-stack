@@ -54,6 +54,18 @@ Bake the applicable items into the plan's task acceptance and the spec. These pr
 
 **Stack pack** (for `eternal-stack` itself): fenced-block languages, valid doc/file cross-references, shell `set -u` safety, flags documented must actually control behavior, cross-host integrity covers `.cursor`/Codex files, no rule-content duplication.
 
+## Ordering — pre-push guard runs before reviewer fan-out
+
+The Tier A guard is the first gate on a changed tree, ahead of every LLM reviewer:
+
+1. `node scripts/review-rules.mjs check --changed-only` on a dirty working tree, or `node scripts/review-rules.mjs check --base <remote_sha>` at push time.
+2. Fix every block-mode finding the guard reports.
+3. Only then spawn reviewers for the Tier C lenses.
+
+Reviewer turns spent on fenced-block languages, `as any` escapes, and broken doc references are pure waste: the guard catches those classes deterministically in one process, while each reviewer spawn pays a full context load for the same finding. A plan that fans out reviewers before the guard runs is a plan defect — name the guard step in the plan's `## Verification gates` section so execute runs it first.
+
+Each reviewer spawned after the guard carries an explicit Codex model and reasoning effort from `scripts/lib/codex-model-routing.mjs`. Read-only reviewers resolve to `gpt-5.6-luna` at low effort; an inherited model puts every reviewer on the parent thread's flagship.
+
 ## Tier C — Needs semantic review (flag for the reviewer; no rule catches these)
 
 Mark these categories in the plan so the reviewer reasons about them explicitly — they are emergent and reviewer-only:

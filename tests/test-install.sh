@@ -121,6 +121,9 @@ assert_executable "installed replay fixture helper" "$CLAUDE_HOME/scripts/replay
 assert_executable "installed skill contract helper" "$CLAUDE_HOME/scripts/skill-contract-check.mjs"
 assert_executable "installed skill behavior smoke helper" "$CLAUDE_HOME/scripts/skill-behavior-smoke.mjs"
 assert_executable "installed changelog release helper" "$CLAUDE_HOME/scripts/changelog-release-check.mjs"
+assert_executable "installed ux inventory helper" "$CLAUDE_HOME/scripts/ux-inventory.mjs"
+assert_executable "installed ux audit check helper" "$CLAUDE_HOME/scripts/ux-audit-check.mjs"
+assert_executable "installed codex rollout baseline helper" "$CLAUDE_HOME/scripts/codex-rollout-baseline.mjs"
 assert_executable "installed port guard helper" "$CLAUDE_HOME/scripts/port-guard.mjs"
 assert_executable "installed update check helper" "$CLAUDE_HOME/scripts/update-check.mjs"
 assert_executable "installed skill update prompt helper" "$CLAUDE_HOME/scripts/skill-update-prompt.mjs"
@@ -195,6 +198,23 @@ assert_json_expr "post-install: reset removed risky top-level settings" "$(jq -c
 assert_json_expr "post-install: reset preserved enabled plugin settings" "$(jq -c . "$CLAUDE_HOME/settings.json")" '.enabledPlugins["foreign-plugin@example"] == true'
 assert_json_expr "post-install: reset preserved statusLine" "$(jq -c . "$CLAUDE_HOME/settings.json")" '.statusLine.command == "bash ~/.claude/statusline.sh"'
 assert_json_expr "post-install: reset removed foreign hooks before stack merge" "$(jq -c . "$CLAUDE_HOME/settings.json")" '([.hooks.SessionStart[]?.hooks[]?.command // empty | select(test("foreign-session-start"))] | length) == 0'
+
+# TG-13: the two context-cost hooks ship and register in both templates. Registration is
+# checked on the merged settings (the template groups must survive the merge) and on the
+# templates themselves, so a template edit that drops one is caught without an install.
+assert_executable "post-install: cc-compact-suggest.sh present" "$CLAUDE_HOME/hooks/cc-compact-suggest.sh"
+assert_executable "post-install: cc-question-preference.sh present" "$CLAUDE_HOME/hooks/cc-question-preference.sh"
+assert_json_expr "post-install: compact suggest registered on PreToolUse" "$(jq -c . "$CLAUDE_HOME/settings.json")" '([.hooks.PreToolUse[]?.hooks[]?.command // empty | select(test("cc-compact-suggest\\.sh"))] | length) == 1'
+assert_json_expr "post-install: question preference registered on PreToolUse" "$(jq -c . "$CLAUDE_HOME/settings.json")" '([.hooks.PreToolUse[]?.hooks[]?.command // empty | select(test("cc-question-preference\\.sh"))] | length) == 1'
+for template_file in settings.json settings.strict.json; do
+  template_json="$(jq -c . "$ROOT/templates/$template_file")"
+  assert_json_expr "template $template_file registers cc-compact-suggest.sh" "$template_json" '([.hooks.PreToolUse[]?.hooks[]?.command // empty | select(test("cc-compact-suggest\\.sh"))] | length) == 1'
+  assert_json_expr "template $template_file registers cc-question-preference.sh" "$template_json" '([.hooks.PreToolUse[]?.hooks[]?.command // empty | select(test("cc-question-preference\\.sh"))] | length) == 1'
+  assert_json_expr "template $template_file matches MCP ask tools, not just AskUserQuestion" "$template_json" '[.hooks.PreToolUse[]? | select(any(.hooks[]?.command // ""; test("cc-question-preference\\.sh"))) | .matcher] | first | test("AskUserQuestion") and test("mcp__")'
+  # The RTK entry landed with an in-flight lane; the new hooks are appended after the
+  # existing chain, so the Bash group must still lead with rtk-rg-compat then rtk itself.
+  assert_json_expr "template $template_file keeps the existing Bash PreToolUse order" "$template_json" '[.hooks.PreToolUse[] | select(.matcher == "Bash") | .hooks[].command] == ["bash ~/.claude/hooks/cc-rtk-rg-compat.sh", "rtk hook claude"]'
+done
 shopt -s nullglob
 backup_settings=("$CLAUDE_HOME"/backups/etrnl-install-*/settings.json)
 shopt -u nullglob
@@ -440,6 +460,28 @@ assert_contains "rollback restores user-dropped tests/fixtures file" "$(cat "$wi
 # its original external target.
 assert_symlink "rollback restores the overwritten hook as a symlink" "$wider_home/hooks/cc-rate-limiter.sh"
 assert_contains "rollback restores the hook symlink's original target" "$(readlink "$wider_home/hooks/cc-rate-limiter.sh" 2>/dev/null || true)" "$external_hook_target"
+# Install also writes the test suites, their libraries, the rules manifest those
+# suites read, and the hook-side symlinks into them. Nothing backs those up, so
+# rollback must remove the ones it created; leaving them behind strands stale
+# copies and dangling hook symlinks in a home that had none. -e||-L so a dangling
+# link still counts as present. The user-dropped tests/fixtures assertion above
+# is the counterpart: a path that pre-existed is restored, never removed.
+for wider_install_created in \
+  tests/test-hooks.sh \
+  tests/test-workflow-tools.sh \
+  tests/lib/harness.sh \
+  tests/lib/parallel-run.sh \
+  tests/lib/busy-port-server.mjs \
+  rules-manifest.json \
+  hooks/test-hooks.sh \
+  hooks/test-workflow-tools.sh \
+  hooks/lib/test-harness.sh; do
+  if [[ -e "$wider_home/$wider_install_created" || -L "$wider_home/$wider_install_created" ]]; then
+    not_ok "rollback removes install-created $wider_install_created"
+  else
+    ok "rollback removes install-created $wider_install_created"
+  fi
+done
 
 # ── Directory-level symlink handling ───────────────────────────────────────────
 # The scenario above covers a FILE-level hook symlink. These cover the
@@ -532,5 +574,116 @@ assert_symlink "rollback restores the dangling hooks/fixtures symlink" "$symnest
 assert_contains "rollback restores the hooks/fixtures symlink target" "$(readlink "$symnest_home/hooks/fixtures" 2>/dev/null || true)" "$symnest_hooks_dangle"
 assert_symlink "rollback restores the dangling tests/fixtures symlink" "$symnest_home/tests/fixtures"
 assert_contains "rollback restores the tests/fixtures symlink target" "$(readlink "$symnest_home/tests/fixtures" 2>/dev/null || true)" "$symnest_tests_dangle"
+
+# ── Rollback byte-identity over a POPULATED home ──────────────────────────────
+# Every other rollback case above installs into an empty (or lightly seeded) home,
+# so the install.json backup holds almost nothing and rollback only ever removes —
+# the restore-over-existing path never runs. Two backup defects shipped green
+# behind that gap:
+#   (1) Claude bundled skills were backed up twice in one run, so the second cp -R
+#       nested inside the first and rollback restored skills/<name>/<name>.
+#   (2) Nothing backed up the Codex home's owned skills while rollback rm -rf's
+#       each one, so a rollback left the Codex host with zero owned skills.
+# Neither shows up in a changed-files-were-restored check; both show up as extra or
+# missing files. So install twice (the second install is the upgrade whose backup
+# must capture a full stack home), drift the home, roll back, and compare a
+# per-file sha256 manifest of BOTH homes: zero differing, zero extra, zero missing.
+byteid_home="$TMPROOT/byteid-claude"
+byteid_codex="$TMPROOT/byteid-codex"
+# backups/ holds the rollback source itself and grows per install; etrnl/ carries
+# the per-run install.json stamp. Neither is restorable state, so both are pruned.
+# Symlinks are recorded by target rather than hashed so a link restored as a
+# dereferenced copy counts as differing.
+byteid_manifest() {
+  local out="$1" home entry
+  : >"$out"
+  for home in "$byteid_home" "$byteid_codex"; do
+    if [[ ! -d "$home" ]]; then
+      continue
+    fi
+    ( cd "$home" && find . \( -path ./backups -o -path ./etrnl \) -prune -o \( -type f -o -type l \) -print ) \
+      | LC_ALL=C sort \
+      | while IFS= read -r entry; do
+          if [[ -L "$home/$entry" ]]; then
+            printf '%s|%s\tlink:%s\n' "${home##*/}" "$entry" "$(readlink "$home/$entry")"
+          else
+            printf '%s|%s\t%s\n' "${home##*/}" "$entry" "$(shasum -a 256 "$home/$entry" | cut -d' ' -f1)"
+          fi
+        done >>"$out"
+  done
+}
+CLAUDE_HOME="$byteid_home" CODEX_HOME="$byteid_codex" "$ROOT/scripts/install.sh" >/dev/null
+byteid_manifest "$TMPROOT/byteid-pre.txt"
+CLAUDE_HOME="$byteid_home" CODEX_HOME="$byteid_codex" "$ROOT/scripts/install.sh" >/dev/null
+# Drift both homes across owned, bundled, and hook surfaces so the comparison
+# cannot pass by the rollback being a no-op.
+printf '\n# BYTEID-MUTATION\n' >>"$byteid_home/skills/etrnl-dev-execute/SKILL.md"
+printf '\n# BYTEID-MUTATION\n' >>"$byteid_home/skills/code-simplifier/SKILL.md"
+printf '\n# BYTEID-MUTATION\n' >>"$byteid_codex/skills/etrnl-dev-autoplan/SKILL.md"
+printf 'BYTEID-MUTATION\n' >"$byteid_home/hooks/cc-stop-verifier.sh"
+rm -f "$byteid_home/hooks/cc-question-preference.sh"
+byteid_manifest "$TMPROOT/byteid-drift.txt"
+if cmp -s "$TMPROOT/byteid-pre.txt" "$TMPROOT/byteid-drift.txt"; then
+  not_ok "rollback byte-identity: drift step changed the populated home"
+else
+  ok "rollback byte-identity: drift step changed the populated home"
+fi
+CLAUDE_HOME="$byteid_home" CODEX_HOME="$byteid_codex" "$byteid_home/scripts/rollback-local.sh" >/dev/null
+byteid_manifest "$TMPROOT/byteid-post.txt"
+LC_ALL=C sort -o "$TMPROOT/byteid-pre.txt" "$TMPROOT/byteid-pre.txt"
+LC_ALL=C sort -o "$TMPROOT/byteid-post.txt" "$TMPROOT/byteid-post.txt"
+cut -f1 "$TMPROOT/byteid-pre.txt" >"$TMPROOT/byteid-pre.keys"
+cut -f1 "$TMPROOT/byteid-post.txt" >"$TMPROOT/byteid-post.keys"
+byteid_missing=$(LC_ALL=C comm -23 "$TMPROOT/byteid-pre.keys" "$TMPROOT/byteid-post.keys" | grep -c . || true)
+byteid_extra=$(LC_ALL=C comm -13 "$TMPROOT/byteid-pre.keys" "$TMPROOT/byteid-post.keys" | grep -c . || true)
+byteid_differing=$(LC_ALL=C join -t"$(printf '\t')" "$TMPROOT/byteid-pre.txt" "$TMPROOT/byteid-post.txt" \
+  | awk -F'\t' '$2 != $3' | grep -c . || true)
+printf 'test-install: rollback byte-identity manifest: %s differing, %s extra, %s missing (%s files)\n' \
+  "$byteid_differing" "$byteid_extra" "$byteid_missing" "$(wc -l <"$TMPROOT/byteid-pre.txt" | tr -d ' ')" >&2
+if [[ "$byteid_differing" == "0" ]]; then
+  ok "rollback restores a populated home with zero differing files"
+else
+  not_ok "rollback restores a populated home with zero differing files: $byteid_differing differ"
+fi
+# A non-zero extra count is the nested-duplicate backup defect: rollback faithfully
+# restores whatever install captured, so a nested backup copy lands as stray files.
+if [[ "$byteid_extra" == "0" ]]; then
+  ok "rollback restores a populated home with zero extra files"
+else
+  not_ok "rollback restores a populated home with zero extra files: $byteid_extra extra (nested backup copy?)"
+fi
+# A non-zero missing count is a backup gap: rollback removed a skill the backup
+# never captured, most likely the Codex owned-skill set.
+if [[ "$byteid_missing" == "0" ]]; then
+  ok "rollback restores a populated home with zero missing files"
+else
+  not_ok "rollback restores a populated home with zero missing files: $byteid_missing missing (unbacked-up skills?)"
+fi
+# Name each defect directly so a regression says which one returned, rather than
+# only moving a count.
+byteid_nested=0
+for skill in "${OWNED_SKILLS[@]}" "${BUNDLED_SKILLS[@]}"; do
+  for byteid_host in "$byteid_home" "$byteid_codex"; do
+    if [[ -d "$byteid_host/skills/$skill/$skill" ]]; then
+      byteid_nested=$((byteid_nested + 1))
+    fi
+  done
+done
+if (( byteid_nested == 0 )); then
+  ok "rollback does not restore nested skills/<name>/<name> duplicates"
+else
+  not_ok "rollback does not restore nested skills/<name>/<name> duplicates: $byteid_nested nested"
+fi
+byteid_codex_lost=0
+for skill in "${OWNED_SKILLS[@]}"; do
+  if [[ ! -f "$byteid_codex/skills/$skill/SKILL.md" ]]; then
+    byteid_codex_lost=$((byteid_codex_lost + 1))
+  fi
+done
+if (( byteid_codex_lost == 0 )); then
+  ok "rollback keeps every owned Codex skill (backup covers the Codex home)"
+else
+  not_ok "rollback keeps every owned Codex skill (backup covers the Codex home): $byteid_codex_lost of ${#OWNED_SKILLS[@]} lost"
+fi
 
 finish_tests

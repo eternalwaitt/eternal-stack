@@ -343,6 +343,8 @@ const validTaskPacket = {
       expectedOutput: "report",
       verificationCommand: "test",
       modelTier: "standard",
+      codexModel: "gpt-5.6-terra",
+      codexReasoningEffort: "medium",
       timeoutSec: 60,
       retryPolicy: "none",
       noRevert: true,

@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 1,
+  "root": "synthetic-app",
+  "generatedAt": "2026-07-24T00:00:00.000Z",
+  "worklists": {
+    "ux_routes": {
+      "artifactLabel": "ux-routes",
+      "count": 2,
+      "sha256": "sha256:ux_routes",
+      "items": [
+        "app/dashboard/page.tsx",
+        "app/page.tsx"
+      ]
+    },
+    "ux_components": {
+      "artifactLabel": "ux-components",
+      "count": 1,
+      "sha256": "sha256:ux_components",
+      "items": [
+        "components/status-badge.tsx"
+      ]
+    },
+    "ux_states": {
+      "artifactLabel": "ux-states",
+      "count": 2,
+      "sha256": "sha256:ux_states",
+      "items": [
+        "app/dashboard/page.tsx",
+        "app/page.tsx"
+      ]
+    },
+    "ux_styles": {
+      "artifactLabel": "ux-styles",
+      "count": 3,
+      "sha256": "sha256:ux_styles",
+      "items": [
+        "app/page.tsx",
+        "components/status-badge.tsx",
+        "styles/globals.css"
+      ]
+    },
+    "ux_copy": {
+      "artifactLabel": "ux-copy",
+      "count": 4,
+      "sha256": "sha256:ux_copy",
+      "items": [
+        "app/dashboard/page.tsx",
+        "app/page.tsx",
+        "messages/en.json",
+        "messages/pt-BR.json"
+      ]
+    },
+    "ux_accessibility": {
+      "artifactLabel": "ux-accessibility",
+      "count": 2,
+      "sha256": "sha256:ux_accessibility",
+      "items": [
+        "app/dashboard/page.tsx",
+        "app/page.tsx"
+      ]
+    }
+  },
+  "axes": {
+    "viewports": [
+      "375x812",
+      "768x1024",
+      "1440x900"
+    ],
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "locales": [
+      "en",
+      "pt-BR"
+    ],
+    "textDirections": [
+      "ltr"
+    ],
+    "authStates": [
+      "anonymous"
+    ],
+    "dataVolumes": [
+      "empty",
+      "single",
+      "many",
+      "overflow"
+    ],
+    "zoomLevels": [
+      "100",
+      "200"
+    ]
+  },
+  "totals": {
+    "routes": 2,
+    "surfaces": 2,
+    "stateCells": 12,
+    "routeViewportCells": 6,
+    "statesPerSurface": 6
+  },
+  "mechanicalScan": {
+    "arbitrarySpacing": {
+      "label": "Arbitrary spacing values next to a scale",
+      "count": 1,
+      "rows": [
+        {
+          "path": "app/page.tsx",
+          "line": 3,
+          "match": "p-[13px]"
+        }
+      ]
+    },
+    "reducedMotionFallbackPresent": false,
+    "designBaselinePresent": false
+  }
+}

@@ -7,6 +7,18 @@ cd "$ROOT"
 source ./tests/lib/harness.sh
 cc_test_init
 
+# Exit statuses need exact equality: substring matching passes 0 against 10, 20, and 102.
+assert_exit_status() {
+  local name="$1"
+  local actual="$2"
+  local expected="$3"
+  if [[ "$actual" == "$expected" ]]; then
+    ok "$name"
+  else
+    not_ok "$name (expected exit $expected, got $actual)"
+  fi
+}
+
 state_lock_probe="$(
   HOOK_INPUT='{"session_id":"fixture-lock"}' CLAUDE_GUARD_STATE_DIR="$TMPROOT" bash -c '
     source "$1"
@@ -823,6 +835,14 @@ security_missing_evidence_fixture="$TMPROOT/deep-audit-security-missing-evidence
 jq '.categoryReports |= map(if .categoryId == "security" then (.checks[0].nonFindings = {}) else . end)' "$ROOT/tests/fixtures/deep-audit/report.valid.json" >"$security_missing_evidence_fixture"
 security_missing_evidence_json="$(node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$security_missing_evidence_fixture" --json 2>/dev/null || true)"
 assert_json_expr "deep-audit security clean rows require non-findings" "$security_missing_evidence_json" 'any(.errors[]; .errorCode == "SECURITY_NON_FINDING_FIELD_MISSING" or .errorCode == "SECURITY_NON_FINDINGS_MISSING")'
+ux_status_missing_fixture="$TMPROOT/deep-audit-ux-status-missing.json"
+jq '.categoryReports |= map(if .categoryId == "ui-ux-product" then (.checks |= map(if .findings then .findings |= map(del(.status)) else . end)) else . end)' "$ROOT/tests/fixtures/deep-audit/report.ux-valid.json" >"$ux_status_missing_fixture"
+ux_status_missing_json="$(node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$ux_status_missing_fixture" --json 2>/dev/null || true)"
+assert_json_expr "deep-audit ux findings require a disposition status" "$ux_status_missing_json" 'any(.errors[]; .errorCode == "UX_FINDING_FIELD_MISSING" and (.jsonPath | endswith(".status")))'
+ux_status_invalid_fixture="$TMPROOT/deep-audit-ux-status-invalid.json"
+jq '.categoryReports |= map(if .categoryId == "ui-ux-product" then (.checks |= map(if .findings then .findings |= map(.status = "wontfix") else . end)) else . end)' "$ROOT/tests/fixtures/deep-audit/report.ux-valid.json" >"$ux_status_invalid_fixture"
+ux_status_invalid_json="$(node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$ux_status_invalid_fixture" --json 2>/dev/null || true)"
+assert_json_expr "deep-audit ux findings reject an unregistered status" "$ux_status_invalid_json" 'any(.errors[]; .errorCode == "UX_FINDING_STATUS_INVALID")'
 assert_command "cli arg parser edge cases" node --input-type=module <<'JS'
 import { argValue } from "./scripts/lib/cli-args.mjs";
 const expect = (actual, expected, label) => {
@@ -1075,6 +1095,12 @@ assert_json_expr "tool-effectiveness baseline emits tool medians" "$tool_effecti
 tool_effectiveness_codex_import_json="$(node "$ROOT/scripts/tool-effectiveness.mjs" import-codex --fixtures "$ROOT/tests/fixtures/tool-effectiveness/codex" --dry-run --json)"
 assert_json_expr "tool-effectiveness codex import sanitizes tool events" "$tool_effectiveness_codex_import_json" '.command == "import-codex" and .dryRun == true and .eventsImported == 2 and (.rejected | length) == 0'
 assert_json_expr "tool-effectiveness codex import preserves explicit outcomes" "$tool_effectiveness_codex_import_json" '(.events[] | select(.tool == "codegraph") | .eligible == true and .toolUsed == true and .usefulWork == true and .downstreamArtifact == true) and (.events[] | select(.tool == "beads") | .eligible == false and .toolUsed == false and .usefulWork == false and .downstreamArtifact == false)'
+tool_effectiveness_disabled_summarize_json="$(ETRNL_TOOL_EFFECTIVENESS_DISABLED=1 node "$ROOT/scripts/tool-effectiveness.mjs" summarize --fixtures "$ROOT/tests/fixtures/tool-effectiveness" --json)"
+assert_json_expr "tool-effectiveness disabled summarize returns disabled" "$tool_effectiveness_disabled_summarize_json" '.disabled == true and (.tools? // null) == null'
+tool_effectiveness_disabled_import_json="$(ETRNL_TOOL_EFFECTIVENESS_DISABLED=1 node "$ROOT/scripts/tool-effectiveness.mjs" import-codex --fixtures "$ROOT/tests/fixtures/tool-effectiveness/codex" --dry-run --json)"
+assert_json_expr "tool-effectiveness disabled import-codex returns disabled" "$tool_effectiveness_disabled_import_json" '.disabled == true and (.eventsImported? // null) == null'
+tool_effectiveness_disabled_baseline_json="$(ETRNL_TOOL_EFFECTIVENESS_DISABLED=1 node "$ROOT/scripts/tool-effectiveness.mjs" baseline --fixtures "$ROOT/tests/fixtures/tool-effectiveness" --json)"
+assert_json_expr "tool-effectiveness disabled baseline returns disabled" "$tool_effectiveness_disabled_baseline_json" '.disabled == true and (.byTool? // null) == null'
 assert_command "update shell syntax" bash -n "$ROOT/scripts/update.sh"
 if grep -Fq 'install.sh" --preserve-settings' "$ROOT/scripts/update.sh"; then
   ok "update.sh preserves settings on upgrade"
@@ -1753,6 +1779,27 @@ effectiveness_scoped_status_json="$(ETRNL_RUNS_DIR="$health_root/runs" ETRNL_ART
 assert_json_expr "workflow health scoped status suppresses global effectiveness" "$effectiveness_scoped_status_json" '.effectiveness == null'
 effectiveness_doctor_json="$(ETRNL_RUNS_DIR="$health_root/runs" ETRNL_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" doctor --json --all)"
 assert_json_expr "workflow health doctor reports effectiveness health" "$effectiveness_doctor_json" '.effectiveness.events == 1 and .effectiveness.malformed == 0'
+effectiveness_kill_switch_root="$TMPROOT/effectiveness-kill-switch"
+mkdir -p "$effectiveness_kill_switch_root/runs" "$effectiveness_kill_switch_root/artifacts/tool-effectiveness"
+jq -c '.events[0]' "$ROOT/tests/fixtures/tool-effectiveness/events.json" >"$effectiveness_kill_switch_root/artifacts/tool-effectiveness/events.jsonl"
+printf '%s\n' '{"schemaVersion":2,"runId":"effectiveness-run","sessionId":"effectiveness-session","cwd":"/tmp/effectiveness","projectId":"effectiveness","updatedAt":"2026-07-20T00:00:00Z","tasks":[{"id":"T1","status":"verified"}],"agents":[],"checks":[],"events":[]}' >"$effectiveness_kill_switch_root/runs/effectiveness-run.json"
+effectiveness_kill_switch_status_enabled_json="$(ETRNL_RUNS_DIR="$effectiveness_kill_switch_root/runs" ETRNL_ARTIFACTS_DIR="$effectiveness_kill_switch_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" status --json --all)"
+assert_json_expr "workflow health effectiveness kill switch status enabled" "$effectiveness_kill_switch_status_enabled_json" '.effectiveness != null and .effectiveness.events >= 1'
+effectiveness_kill_switch_status_disabled_json="$(ETRNL_TOOL_EFFECTIVENESS_DISABLED=1 ETRNL_RUNS_DIR="$effectiveness_kill_switch_root/runs" ETRNL_ARTIFACTS_DIR="$effectiveness_kill_switch_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" status --json --all)"
+assert_json_expr "workflow health effectiveness kill switch status disabled" "$effectiveness_kill_switch_status_disabled_json" '.effectiveness == null'
+effectiveness_kill_switch_doctor_enabled_json="$(ETRNL_RUNS_DIR="$effectiveness_kill_switch_root/runs" ETRNL_ARTIFACTS_DIR="$effectiveness_kill_switch_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" doctor --json --all)"
+assert_json_expr "workflow health effectiveness kill switch doctor enabled" "$effectiveness_kill_switch_doctor_enabled_json" '.effectiveness != null and .effectiveness.events >= 1'
+effectiveness_kill_switch_doctor_disabled_json="$(ETRNL_TOOL_EFFECTIVENESS_DISABLED=1 ETRNL_RUNS_DIR="$effectiveness_kill_switch_root/runs" ETRNL_ARTIFACTS_DIR="$effectiveness_kill_switch_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" doctor --json --all)"
+assert_json_expr "workflow health effectiveness kill switch doctor disabled" "$effectiveness_kill_switch_doctor_disabled_json" '.effectiveness == null'
+effectiveness_malformed_root="$TMPROOT/effectiveness-malformed"
+mkdir -p "$effectiveness_malformed_root/runs" "$effectiveness_malformed_root/artifacts/tool-effectiveness"
+jq -c '.events[0]' "$ROOT/tests/fixtures/tool-effectiveness/events.json" >"$effectiveness_malformed_root/artifacts/tool-effectiveness/events.jsonl"
+printf '%s\n' '{not-json' >>"$effectiveness_malformed_root/artifacts/tool-effectiveness/events.jsonl"
+printf '%s\n' '{"schemaVersion":2,"runId":"effectiveness-malformed-run","sessionId":"effectiveness-malformed-session","cwd":"/tmp/effectiveness-malformed","projectId":"effectiveness-malformed","updatedAt":"2026-07-20T00:00:00Z","tasks":[{"id":"T1","status":"verified"}],"agents":[],"checks":[],"events":[]}' >"$effectiveness_malformed_root/runs/effectiveness-malformed-run.json"
+effectiveness_malformed_doctor_enabled_json="$(ETRNL_RUNS_DIR="$effectiveness_malformed_root/runs" ETRNL_ARTIFACTS_DIR="$effectiveness_malformed_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" doctor --json --all)"
+assert_json_expr "workflow health effectiveness malformed finding enabled" "$effectiveness_malformed_doctor_enabled_json" 'any(.runtimeFindings[]; .id == "malformed-effectiveness-events") and .effectiveness.malformed >= 1'
+effectiveness_malformed_doctor_disabled_json="$(ETRNL_TOOL_EFFECTIVENESS_DISABLED=1 ETRNL_RUNS_DIR="$effectiveness_malformed_root/runs" ETRNL_ARTIFACTS_DIR="$effectiveness_malformed_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" doctor --json --all)"
+assert_json_expr "workflow health effectiveness malformed finding disabled" "$effectiveness_malformed_doctor_disabled_json" '.effectiveness == null and all(.runtimeFindings[]?; .id != "malformed-effectiveness-events")'
 jq -n '{"schemaVersion":2,"runId":"old-terminal-run","sessionId":"old","cwd":"/tmp/old","projectId":"old","updatedAt":"2000-01-01T00:00:00Z","tasks":[{"id":"T1","status":"verified"}],"agents":[],"checks":[{"name":"fixture","status":"passed"}],"events":[]}' >"$health_root/runs/old-terminal-run.json"
 prune_health_json="$(ETRNL_RUNS_DIR="$health_root/runs" ETRNL_ARTIFACTS_DIR="$health_root/artifacts" node "$ROOT/scripts/workflow-health.mjs" prune --older-than-days 30 --dry-run --json --all)"
 assert_json_expr "workflow health prune dry-run reports prunable ledgers" "$prune_health_json" '.command == "prune" and .dryRun == true and (.prunable | map(.runId) | index("old-terminal-run")) != null and .pruned == 0'
@@ -1998,6 +2045,32 @@ assert_json_expr "agent packet template includes reviewer contract" "$agent_temp
 assert_json_expr "agent packet template includes critical stop fields" "$agent_template" '(.packet.criticalPath | length) > 0 and (.packet.stopCondition | length) > 0'
 assert_json_expr "write packet template defaults modelTier to standard" "$agent_template" '.packet.modelTier == "standard"'
 assert_json_expr "read-only packet template defaults modelTier to fast" "$read_only_template" '.packet.modelTier == "fast"'
+assert_json_expr "write packet template defaults codexModel to terra" "$agent_template" '.packet.codexModel == "gpt-5.6-terra" and .packet.codexReasoningEffort == "medium"'
+assert_json_expr "read-only packet template defaults codexModel to luna" "$read_only_template" '.packet.codexModel == "gpt-5.6-luna" and .packet.codexReasoningEffort == "low"'
+mini_template="$(node "$ROOT/scripts/agent-task-packet-check.mjs" --template mini)"
+assert_json_expr "mini packet template includes reduced write fields" "$mini_template" '.packet.taskId != null and (.packet.writeScope | length) > 0 and (.packet.verificationCommand | length) > 0 and .packet.codexModel == "gpt-5.6-terra"'
+assert_command "codex model routing tier defaults" node --input-type=module <<'JS'
+import { resolveCodexModel } from "./scripts/lib/codex-model-routing.mjs";
+const expect = (actual, expected, label) => {
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    throw new Error(`${label}: expected ${JSON.stringify(expected)} got ${JSON.stringify(actual)}`);
+  }
+};
+expect(resolveCodexModel({ modelTier: "fast" }), { model: "gpt-5.6-luna", reasoningEffort: "low" }, "fast tier");
+expect(resolveCodexModel({ modelTier: "standard" }), { model: "gpt-5.6-terra", reasoningEffort: "medium" }, "standard tier");
+expect(resolveCodexModel({ modelTier: "top" }), { model: "gpt-5.6-terra", reasoningEffort: "high" }, "top tier");
+JS
+if codex_env_out="$(ETRNL_CODEX_MODEL_STANDARD="gpt-5.6-luna" node --input-type=module -e 'import { resolveCodexModel } from "./scripts/lib/codex-model-routing.mjs"; console.log(JSON.stringify(resolveCodexModel({ modelTier: "standard" })));')"; then
+  assert_json_expr "codex model routing env override" "$codex_env_out" '.model == "gpt-5.6-luna" and .reasoningEffort == "medium"'
+else
+  not_ok "codex model routing env override failed: $codex_env_out"
+fi
+write_missing_codex_packet="$(jq -cn '{packet:{mode:"write",goal:"Implement",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T1",lineageId:"wave-1.T1",writeScope:["scripts/example.mjs"],forbiddenPaths:["docs/other.md"],verificationCommand:"node --check scripts/example.mjs",modelTier:"standard",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none"}}')"
+if write_missing_codex_out="$(node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$write_missing_codex_packet" 2>&1)"; then
+  not_ok "write packet rejects missing codexModel"
+else
+  assert_contains "write packet rejects missing codexModel" "$write_missing_codex_out" "codexModel"
+fi
 read_only_top_packet="$(jq -cn '{packet:{mode:"read-only",goal:"Scout",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"findings",noRevert:true,modelTier:"top"}}')"
 if read_only_top_out="$(node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$read_only_top_packet" 2>&1)"; then
   assert_contains "read-only top tier warns without justification" "$read_only_top_out" "modelTierJustification"
@@ -2022,6 +2095,8 @@ deep_packet="$(
         forbiddenPaths: ["docs/owned-by-other.md"],
         verificationCommand: "tests/test-workflow-tools.sh",
         modelTier: "standard",
+        codexModel: "gpt-5.6-terra",
+        codexReasoningEffort: "medium",
         timeoutSec: 1800,
         retryPolicy: "stop on blocker",
         webSearchGuidance: "none",
@@ -2048,27 +2123,27 @@ deep_packet="$(
   '
 )"
 assert_command "agent packet accepts deep-stack execution contract" node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$deep_packet"
-bad_deep_packet="$(jq -cn '{packet:{mode:"write",goal:"Implement deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T1",lineageId:"wave-1.T1",writeScope:["scripts/deep-stack-check.mjs"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"tests/test-workflow-tools.sh",modelTier:"standard",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,specReviewRequired:true,qualityReviewRequired:true,reviewers:["etrnl-spec-reviewer","etrnl-quality-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
+bad_deep_packet="$(jq -cn '{packet:{mode:"write",goal:"Implement deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T1",lineageId:"wave-1.T1",writeScope:["scripts/deep-stack-check.mjs"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"tests/test-workflow-tools.sh",modelTier:"standard",codexModel:"gpt-5.6-terra",codexReasoningEffort:"medium",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,specReviewRequired:true,qualityReviewRequired:true,reviewers:["etrnl-spec-reviewer","etrnl-quality-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
 if bad_deep_packet_out="$(node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$bad_deep_packet" 2>&1)"; then
   not_ok "agent packet rejects missing deep-stack contract"
 else
   assert_contains "agent packet rejects missing deep-stack contract" "$bad_deep_packet_out" "deepStackArtifacts"
 fi
-bad_deep_packet_reviewers="$(jq -cn '{packet:{mode:"write",goal:"Implement deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T1",lineageId:"wave-1.T1",writeScope:["scripts/deep-stack-check.mjs"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"tests/test-workflow-tools.sh",modelTier:"standard",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,deepStackArtifacts:"tests/fixtures/deep-stack/deep-stack.valid.json",riskTier:{tier:2,reason:"multi-file after review",verificationGate:"tests/test-workflow-tools.sh"},completionEvidence:"completion audit row",tddRequired:true,tddEvidence:"red/green evidence",reuseArtifact:"reuse binding row",simplifierEvidence:"code-simplifier evidence",specReviewRequired:true,qualityReviewRequired:true,simplifierReviewRequired:true,reviewers:["etrnl-spec-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
+bad_deep_packet_reviewers="$(jq -cn '{packet:{mode:"write",goal:"Implement deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T1",lineageId:"wave-1.T1",writeScope:["scripts/deep-stack-check.mjs"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"tests/test-workflow-tools.sh",modelTier:"standard",codexModel:"gpt-5.6-terra",codexReasoningEffort:"medium",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,deepStackArtifacts:"tests/fixtures/deep-stack/deep-stack.valid.json",riskTier:{tier:2,reason:"multi-file after review",verificationGate:"tests/test-workflow-tools.sh"},completionEvidence:"completion audit row",tddRequired:true,tddEvidence:"red/green evidence",reuseArtifact:"reuse binding row",simplifierEvidence:"code-simplifier evidence",specReviewRequired:true,qualityReviewRequired:true,simplifierReviewRequired:true,reviewers:["etrnl-spec-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
 if bad_deep_packet_reviewers_out="$(node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$bad_deep_packet_reviewers" 2>&1)"; then
   not_ok "agent packet rejects missing deep-stack reviewer"
 else
   assert_contains "agent packet rejects missing deep-stack reviewer" "$bad_deep_packet_reviewers_out" "etrnl-quality-reviewer"
 fi
-deep_packet_no_tdd="$(jq -cn '{packet:{mode:"write",goal:"Install-only deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T3",lineageId:"wave-1.T3",writeScope:["docs/runbook.md"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"tests/test-workflow-tools.sh",modelTier:"standard",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,deepStackArtifacts:"tests/fixtures/deep-stack/deep-stack.valid.json",riskTier:{tier:2,reason:"docs-only after review",verificationGate:"tests/test-workflow-tools.sh"},completionEvidence:"completion audit row",tddRequired:false,reuseArtifact:"reuse binding row",simplifierEvidence:"code-simplifier evidence",specReviewRequired:true,qualityReviewRequired:true,simplifierReviewRequired:true,reviewers:["etrnl-spec-reviewer","etrnl-quality-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
+deep_packet_no_tdd="$(jq -cn '{packet:{mode:"write",goal:"Install-only deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T3",lineageId:"wave-1.T3",writeScope:["docs/runbook.md"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"tests/test-workflow-tools.sh",modelTier:"standard",codexModel:"gpt-5.6-terra",codexReasoningEffort:"medium",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,deepStackArtifacts:"tests/fixtures/deep-stack/deep-stack.valid.json",riskTier:{tier:2,reason:"docs-only after review",verificationGate:"tests/test-workflow-tools.sh"},completionEvidence:"completion audit row",tddRequired:false,reuseArtifact:"reuse binding row",simplifierEvidence:"code-simplifier evidence",specReviewRequired:true,qualityReviewRequired:true,simplifierReviewRequired:true,reviewers:["etrnl-spec-reviewer","etrnl-quality-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
 assert_command "agent packet accepts deep-stack without TDD when tddRequired is false" node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$deep_packet_no_tdd"
-new_surface_packet="$(jq -cn '{packet:{mode:"write",goal:"Add helper",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T2",lineageId:"wave-1.T2",writeScope:["scripts/new-helper.mjs"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"node --check scripts/new-helper.mjs",modelTier:"standard",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",createsNewSurface:true}}')"
+new_surface_packet="$(jq -cn '{packet:{mode:"write",goal:"Add helper",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T2",lineageId:"wave-1.T2",writeScope:["scripts/new-helper.mjs"],forbiddenPaths:["docs/owned-by-other.md"],verificationCommand:"node --check scripts/new-helper.mjs",modelTier:"standard",codexModel:"gpt-5.6-terra",codexReasoningEffort:"medium",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",createsNewSurface:true}}')"
 if new_surface_packet_out="$(node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$new_surface_packet" 2>&1)"; then
   not_ok "agent packet rejects new surface without reuse binding"
 else
   assert_contains "agent packet rejects new surface without reuse binding" "$new_surface_packet_out" "reuseArtifact"
 fi
-bad_deep_packet_no_scope="$(jq -cn '{packet:{mode:"write",goal:"Implement deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T1",lineageId:"wave-1.T1",verificationCommand:"tests/test-workflow-tools.sh",modelTier:"standard",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,specReviewRequired:true,qualityReviewRequired:true,reviewers:["etrnl-spec-reviewer","etrnl-quality-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
+bad_deep_packet_no_scope="$(jq -cn '{packet:{mode:"write",goal:"Implement deep stack",contextSummary:"ctx",cwd:"/repo",scope:"scope",readSet:["README.md"],expectedOutput:"done",noRevert:true,taskId:"T1",lineageId:"wave-1.T1",verificationCommand:"tests/test-workflow-tools.sh",modelTier:"standard",codexModel:"gpt-5.6-terra",codexReasoningEffort:"medium",timeoutSec:1800,retryPolicy:"stop on blocker",webSearchGuidance:"none",deepStackExecution:true,specReviewRequired:true,qualityReviewRequired:true,reviewers:["etrnl-spec-reviewer","etrnl-quality-reviewer"],integrationOwner:"parent",expectedDiffShape:"bounded patch"}}')"
 if bad_deep_packet_no_scope_out="$(node "$ROOT/scripts/agent-task-packet-check.mjs" <<<"$bad_deep_packet_no_scope" 2>&1)"; then
   not_ok "agent packet rejects deep-stack contract without write scope"
 else
@@ -2944,5 +3019,756 @@ else
   # TODO-integration: pending Lane A review-merge blocking partition
   not_ok "behavior eval: review-merge blocking output restricted to P0/P1 (TODO-integration: pending Lane A)"
 fi
+
+# --- TG-03: ledger gate reporting ---
+gates_plan="$TMPROOT/tg03-gates-plan.md"
+cat >"$gates_plan" <<'PLAN'
+# Gate Fixture Plan
+
+Status: Final
+Goal: Exercise history --gates.
+
+## Phases
+
+| Phase | Task groups | Gate |
+| --- | --- | --- |
+| P0 Setup | TG-A | setup gate green |
+| P1 Build | TG-B | build gate green |
+| P2 Ship | TG-C | ship gate green |
+
+## Autoplan decision log
+
+| Phase | Decision | Gate |
+| --- | --- | --- |
+| CEO | ship it | decoy gate |
+PLAN
+node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-gates --plan "$gates_plan" >/dev/null
+node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-gates --task G1 --title "Gate task 1" --status verified
+node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-gates --task G2 --title "Gate task 2" --status skipped
+node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-gates --task G3 --title "Gate task 3" --status in_progress
+node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-gates --task G4 --title "Gate task 4" --status pending
+node "$ROOT/scripts/execution-ledger.mjs" set-phase --session fixture-gates --phase P0 --workstream stack-routing --status verified
+node "$ROOT/scripts/execution-ledger.mjs" set-phase --session fixture-gates --phase P1 --workstream stack-routing --status in_progress
+node "$ROOT/scripts/execution-ledger.mjs" record-uat --session fixture-gates --artifact "$TMPROOT/tg03-uat.json" --open-findings 1
+node "$ROOT/scripts/execution-ledger.mjs" record-trajectory --session fixture-gates --wave wave-1 --recurring-finding-count 3 --stream-alternation-count 4 --rounds-since-progress 2
+assert_command "history --gates exits zero with plan" node "$ROOT/scripts/execution-ledger.mjs" history --gates --session fixture-gates --plan "$gates_plan"
+gates_out="$(node "$ROOT/scripts/execution-ledger.mjs" history --gates --session fixture-gates --plan "$gates_plan")"
+assert_contains "history --gates reports done/total tasks" "$gates_out" "tasks=2/4"
+assert_contains "history --gates reports ledger phase" "$gates_out" "phase=P1"
+assert_contains "history --gates reports ledger workstream" "$gates_out" "workstream=stack-routing"
+assert_contains "history --gates reports UAT gate artifact" "$gates_out" "uatGate=$TMPROOT/tg03-uat.json"
+assert_contains "history --gates names the next unverified gate" "$gates_out" "nextGate=build gate green"
+assert_not_contains "history --gates skips gates for verified phases" "$gates_out" "setup gate green"
+assert_not_contains "history --gates ignores later Phase/Gate tables" "$gates_out" "decoy gate"
+assert_not_contains "history --gates never emits a time estimate" "$gates_out" "remainingBandMinutes"
+node "$ROOT/scripts/execution-ledger.mjs" set-phase --session fixture-gates --phase P1 --workstream stack-routing --status verified
+gates_advanced_out="$(node "$ROOT/scripts/execution-ledger.mjs" history --gates --session fixture-gates --plan "$gates_plan")"
+assert_contains "history --gates advances to the next gate when a phase verifies" "$gates_advanced_out" "nextGate=ship gate green"
+assert_not_contains "history --gates drops the verified phase gate" "$gates_advanced_out" "build gate green"
+node "$ROOT/scripts/execution-ledger.mjs" set-phase --session fixture-gates --phase P1 --workstream stack-routing --status in_progress
+assert_command "history --gates exits zero without --plan" node "$ROOT/scripts/execution-ledger.mjs" history --gates --session fixture-gates
+gates_no_plan_out="$(node "$ROOT/scripts/execution-ledger.mjs" history --gates --session fixture-gates)"
+assert_contains "history --gates without plan keeps task counts" "$gates_no_plan_out" "tasks=2/4"
+assert_contains "history --gates without plan reports no plan source" "$gates_no_plan_out" "planStatus=not-provided"
+assert_contains "history --gates without plan reports unknown next gate" "$gates_no_plan_out" "nextGate=unknown"
+assert_not_contains "history --gates without plan omits gate names" "$gates_no_plan_out" "build gate green"
+assert_command "history --gates exits zero when plan file is missing" node "$ROOT/scripts/execution-ledger.mjs" history --gates --session fixture-gates --plan "$TMPROOT/tg03-absent-plan.md"
+gates_missing_plan_out="$(node "$ROOT/scripts/execution-ledger.mjs" history --gates --session fixture-gates --plan "$TMPROOT/tg03-absent-plan.md")"
+assert_contains "history --gates reports a missing plan file" "$gates_missing_plan_out" "planStatus=missing"
+assert_contains "history --gates falls back to task counts on missing plan" "$gates_missing_plan_out" "tasks=2/4"
+gates_json="$(node "$ROOT/scripts/execution-ledger.mjs" history --gates --session fixture-gates --plan "$gates_plan" --json)"
+assert_json_expr "history --gates json reports counts and metadata" "$gates_json" '.done == 2 and .total == 4 and .remaining == 2 and .phase == "P1" and .workstream == "stack-routing" and .uatOpenFindings == 1'
+assert_json_expr "history --gates json names the next gate" "$gates_json" '.planStatus == "parsed" and .nextGate.gate == "build gate green" and .nextGate.phase == "P1 Build"'
+gates_json_no_plan="$(node "$ROOT/scripts/execution-ledger.mjs" history --gates --session fixture-gates --json)"
+assert_json_expr "history --gates json nulls next gate without plan" "$gates_json_no_plan" '.nextGate == null and .planStatus == "not-provided" and .done == 2 and .total == 4'
+assert_json_expr "history --gates json emits wave trajectory counters" "$gates_json" '(.waves | length) == 1 and .waves[0].waveId == "wave-1" and .waves[0].recurringFindingCount == 3 and .waves[0].streamAlternationCount == 4 and .waves[0].roundsSinceProgress == 2'
+node "$ROOT/scripts/execution-ledger.mjs" record-trajectory --session fixture-gates --wave wave-1 --rounds-since-progress 0
+node "$ROOT/scripts/execution-ledger.mjs" record-trajectory --session fixture-gates --wave wave-2 --recurring-finding-count 1
+gates_json_updated="$(node "$ROOT/scripts/execution-ledger.mjs" history --gates --session fixture-gates --json)"
+assert_json_expr "record-trajectory updates one counter and keeps the rest" "$gates_json_updated" '.waves[0].roundsSinceProgress == 0 and .waves[0].recurringFindingCount == 3 and .waves[0].streamAlternationCount == 4'
+assert_json_expr "record-trajectory tracks counters per wave" "$gates_json_updated" '(.waves | length) == 2 and .waves[1].waveId == "wave-2" and .waves[1].recurringFindingCount == 1 and .waves[1].streamAlternationCount == 0'
+gates_ledger_path="$(jq -r .path "$ETRNL_RUNS_DIR/current-fixture-gates.json")"
+assert_json_expr "ledger persists wave trajectory counters" "$(jq -c . "$gates_ledger_path")" '(.waves | map(select(.waveId == "wave-1")) | first | .streamAlternationCount) == 4'
+assert_command "execution ledger validates recorded waves" node "$ROOT/scripts/execution-ledger.mjs" validate "$gates_ledger_path"
+if node "$ROOT/scripts/execution-ledger.mjs" record-trajectory --session fixture-gates --wave wave-3 --recurring-finding-count notanumber >/dev/null 2>&1; then
+  not_ok "record-trajectory rejects non-numeric counters"
+else
+  ok "record-trajectory rejects non-numeric counters"
+fi
+if node "$ROOT/scripts/execution-ledger.mjs" record-trajectory --session fixture-gates --recurring-finding-count 1 >/dev/null 2>&1; then
+  not_ok "record-trajectory requires --wave"
+else
+  ok "record-trajectory requires --wave"
+fi
+bad_wave_ledger="$TMPROOT/tg03-bad-wave-ledger.json"
+jq '.waves = [{waveId:"wave-1",recurringFindingCount:-2,streamAlternationCount:0,roundsSinceProgress:0}]' "$gates_ledger_path" >"$bad_wave_ledger"
+if bad_wave_out="$(node "$ROOT/scripts/execution-ledger.mjs" validate "$bad_wave_ledger" 2>&1)"; then
+  not_ok "execution ledger rejects negative trajectory counters"
+else
+  assert_contains "execution ledger names the invalid trajectory counter" "$bad_wave_out" "recurringFindingCount must be a non-negative integer"
+  ok "execution ledger rejects negative trajectory counters"
+fi
+assert_contains "execution ledger usage documents the gates flag" "$(node "$ROOT/scripts/execution-ledger.mjs" bogus-command 2>&1 || true)" "--gates"
+
+# --- TG-11: plan triviality triage ---
+triage() { local plan="$1"; shift; node "$ROOT/scripts/diff-triviality.mjs" classify-plan --root "$ROOT" --plan "$plan" "$@"; }
+
+tg11_trivial_plan="$TMPROOT/tg11-trivial.md"
+cat >"$tg11_trivial_plan" <<'PLAN'
+# Trivial Fixture Plan
+
+Status: Final
+Risk tier: 2 — documentation refresh only
+
+## File map
+
+| Path | Change |
+| --- | --- |
+| `docs/skills.md` | modify — refresh the routing table |
+| `README.md` | modify — doc index link |
+| `CHANGELOG.md` | modify — release note |
+
+## Task groups
+PLAN
+assert_command "classify-plan exits zero on a trivial plan" node "$ROOT/scripts/diff-triviality.mjs" classify-plan --root "$ROOT" --plan "$tg11_trivial_plan"
+tg11_trivial_out="$(triage "$tg11_trivial_plan")"
+assert_contains "classify-plan marks a 3-path non-behavioral tier 2 plan trivial" "$tg11_trivial_out" "scope=trivial"
+assert_contains "classify-plan reports the trivial file count" "$tg11_trivial_out" "files=3"
+assert_contains "classify-plan reports zero behavioral rows on a trivial plan" "$tg11_trivial_out" "behavioral=0"
+tg11_trivial_json="$(triage "$tg11_trivial_plan" --json)"
+assert_json_expr "classify-plan json reports trivial scope, tier, and counts" "$tg11_trivial_json" '.scope == "trivial" and .tier == 2 and .fileCount == 3 and (.behavioralPaths | length) == 0'
+assert_json_expr "classify-plan json classifies every file-map row" "$tg11_trivial_json" '(.rows | length) == 3 and (.rows | map(.runtime) | all(. == false))'
+
+tg11_four_path_plan="$TMPROOT/tg11-four-path.md"
+cat >"$tg11_four_path_plan" <<'PLAN'
+# Four Path Fixture Plan
+
+Risk tier: 2 — documentation refresh only
+
+## File map
+
+| Path | Change |
+| --- | --- |
+| `docs/skills.md` | modify — refresh the routing table |
+| `docs/install.md` | modify — refresh the install notes |
+| `README.md` | modify — doc index link |
+| `CHANGELOG.md` | modify — release note |
+PLAN
+tg11_four_path_out="$(triage "$tg11_four_path_plan")"
+assert_contains "classify-plan drops a 4-path plan out of trivial" "$tg11_four_path_out" "scope=small"
+assert_contains "classify-plan names the file-count cap as the reason" "$tg11_four_path_out" "reason=file-count-above-trivial-cap"
+
+tg11_behavioral_plan="$TMPROOT/tg11-behavioral.md"
+cat >"$tg11_behavioral_plan" <<'PLAN'
+# Behavioral Fixture Plan
+
+Risk tier: 2 — one script change
+
+## File map
+
+| Path | Change |
+| --- | --- |
+| `docs/skills.md` | modify — refresh the routing table |
+| `scripts/workflow-health.mjs` | modify — add a projection |
+| `CHANGELOG.md` | modify — release note |
+PLAN
+tg11_behavioral_out="$(triage "$tg11_behavioral_plan")"
+assert_contains "classify-plan denies trivial to a 3-path behavioral plan" "$tg11_behavioral_out" "scope=small"
+assert_contains "classify-plan names the behavioral change as the reason" "$tg11_behavioral_out" "reason=behavioral-change-declared"
+assert_json_expr "classify-plan json names the behavioral path" "$(triage "$tg11_behavioral_plan" --json)" '.behavioralPaths == ["scripts/workflow-health.mjs"] and .fileCount == 3'
+
+tg11_declared_plan="$TMPROOT/tg11-declared.md"
+cat >"$tg11_declared_plan" <<'PLAN'
+# Declared Non-Behavioral Fixture Plan
+
+Risk tier: 2 — local rename
+
+## File map
+
+| Path | Change |
+| --- | --- |
+| `scripts/workflow-health.mjs` | modify — rename a local variable, no behavioral change |
+| `CHANGELOG.md` | modify — release note |
+PLAN
+assert_contains "classify-plan honors an explicit no-behavioral-change row" "$(triage "$tg11_declared_plan")" "scope=trivial"
+
+tg11_tier3_plan="$TMPROOT/tg11-tier3.md"
+cat >"$tg11_tier3_plan" <<'PLAN'
+# Tier 3 Fixture Plan
+
+Risk tier: 3 — installed-home behavior
+
+## File map
+
+| Path | Change |
+| --- | --- |
+| `docs/skills.md` | modify — refresh the routing table |
+| `CHANGELOG.md` | modify — release note |
+PLAN
+tg11_tier3_out="$(triage "$tg11_tier3_plan")"
+assert_contains "classify-plan keeps tier 3 large at two paths" "$tg11_tier3_out" "scope=large"
+assert_contains "classify-plan names tier 3 as the large reason" "$tg11_tier3_out" "reason=tier-3-full-packet"
+
+tg11_underdeclared_plan="$TMPROOT/tg11-underdeclared.md"
+cat >"$tg11_underdeclared_plan" <<'PLAN'
+# Under-declared Fixture Plan
+
+Risk tier: 2 — claims tier 2 while touching a tier 3 surface
+
+## File map
+
+| Path | Change |
+| --- | --- |
+| `hooks/cc-rate-limiter.sh` | modify — comment only, no behavioral change |
+| `CHANGELOG.md` | modify — release note |
+PLAN
+tg11_underdeclared_out="$(triage "$tg11_underdeclared_plan")"
+assert_contains "classify-plan refuses a light shape on an under-declared tier 3 surface" "$tg11_underdeclared_out" "scope=large"
+assert_contains "classify-plan names the under-declared surface" "$tg11_underdeclared_out" "reason=tier-3-surface-under-declared"
+
+tg11_config_plan="$TMPROOT/tg11-config.md"
+cat >"$tg11_config_plan" <<'PLAN'
+# Config Fixture Plan
+
+Risk tier: 2 — profile template
+
+## File map
+
+| Path | Change |
+| --- | --- |
+| `templates/stack-profile.core.json` | modify — comment only, no behavioral change |
+| `CHANGELOG.md` | modify — release note |
+PLAN
+assert_contains "classify-plan denies trivial to a data/config row despite the declaration" "$(triage "$tg11_config_plan")" "scope=small"
+
+tg11_wide_plan="$TMPROOT/tg11-wide.md"
+{
+  printf '# Wide Fixture Plan\n\nRisk tier: 2 — many docs\n\n## File map\n\n| Path | Change |\n| --- | --- |\n'
+  for n in $(seq 1 9); do printf '| `docs/note-%s.md` | modify — refresh the note |\n' "$n"; done
+} >"$tg11_wide_plan"
+tg11_wide_out="$(triage "$tg11_wide_plan")"
+assert_contains "classify-plan marks a 9-path documentation plan large" "$tg11_wide_out" "scope=large"
+assert_contains "classify-plan names the small cap as the large reason" "$tg11_wide_out" "reason=file-count-above-small-cap"
+
+tg11_multi_cell_plan="$TMPROOT/tg11-multi-cell.md"
+cat >"$tg11_multi_cell_plan" <<'PLAN'
+# Multi Path Cell Fixture Plan
+
+Risk tier: 2 — one row naming several files
+
+## File map
+
+| Path | Change |
+| --- | --- |
+| `docs/skills.md`, `docs/install.md`, `README.md`, `CHANGELOG.md` | modify — refresh the docs |
+PLAN
+assert_json_expr "classify-plan counts every path inside one file-map cell" "$(triage "$tg11_multi_cell_plan" --json)" '.fileCount == 4 and .scope == "small"'
+
+tg11_rollout_dir="$TMPROOT/tg11-rollout"
+mkdir -p "$tg11_rollout_dir"
+rollout_line() { printf '{"type":"event_msg","timestamp":"2026-01-01T10:0%s:00.000Z","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":%s,"cached_input_tokens":0,"cache_write_input_tokens":0,"output_tokens":0,"reasoning_output_tokens":0,"total_tokens":%s}}}}\n' "$1" "$2" "$2"; }
+spawn_line() { printf '{"type":"event_msg","timestamp":"2026-01-01T10:00:00.000Z","payload":{"type":"sub_agent_activity","agent_thread_id":"%s"}}\n' "$1"; }
+{ rollout_line 0 100; spawn_line "childthread"; } >"$tg11_rollout_dir/parentthread-rollout.jsonl"
+{ rollout_line 1 200; spawn_line "grandchildthread"; } >"$tg11_rollout_dir/childthread-rollout.jsonl"
+rollout_line 2 400 >"$tg11_rollout_dir/grandchildthread-rollout.jsonl"
+tg11_rollout_json="$(node "$ROOT/scripts/codex-rollout-baseline.mjs" --rollout "$tg11_rollout_dir/parentthread-rollout.jsonl" --json)"
+assert_json_expr "codex rollout aggregation follows a subagent that spawns its own subagent" "$tg11_rollout_json" '.subagents.count == 2 and .subagents.tokens.inputTokens == 600 and .combined.tokens.inputTokens == 700'
+assert_json_expr "codex rollout aggregation reports every discovered subagent thread once" "$tg11_rollout_json" '(.subagents.threadIds | sort) == ["childthread","grandchildthread"] and (.subagents.files | length) == 2'
+# A spawned id whose rollout was never captured must not inflate threadIds past count:
+# a consumer checks threadIds.length against count, so an id that contributed no stats
+# belongs under its own key instead.
+{ rollout_line 0 100; spawn_line "childthread"; spawn_line "nevercapturedthread"; } >"$tg11_rollout_dir/parentthread-rollout.jsonl"
+tg11_unresolved_json="$(node "$ROOT/scripts/codex-rollout-baseline.mjs" --rollout "$tg11_rollout_dir/parentthread-rollout.jsonl" --json)"
+assert_json_expr "codex rollout threadIds stay one-to-one with the counted rollouts" "$tg11_unresolved_json" '(.subagents.threadIds | length) == .subagents.count and (.subagents.files | length) == .subagents.count'
+assert_json_expr "codex rollout reports a spawned thread with no rollout file separately" "$tg11_unresolved_json" '.subagents.unresolvedThreadIds == ["nevercapturedthread"] and (.subagents.threadIds | sort) == ["childthread","grandchildthread"]'
+
+tg11_blank_change_plan="$TMPROOT/tg11-blank-change.md"
+cat >"$tg11_blank_change_plan" <<'PLAN'
+# Blank Change Cell Fixture Plan
+
+Risk tier: 2 — one row leaves the Change cell empty
+
+## File map
+
+| Path | Change | Responsibility |
+| --- | --- | --- |
+| `scripts/workflow-health.mjs` |  | Documentation only. |
+PLAN
+assert_json_expr "classify-plan reads a blank Change cell as undeclared instead of borrowing the next column" "$(triage "$tg11_blank_change_plan" --json)" '(.rows[] | select(.path == "scripts/workflow-health.mjs") | .change == "" and .behavioral == true)'
+assert_contains "classify-plan keeps a blank-Change runtime row out of the trivial shape" "$(triage "$tg11_blank_change_plan")" "scope=small"
+
+tg11_tier1_plan="$TMPROOT/tg11-tier1.md"
+cat >"$tg11_tier1_plan" <<'PLAN'
+# Tier 1 Fixture Plan
+
+Risk tier: 1 — quick dev lane
+
+## File map
+
+| Path | Change |
+| --- | --- |
+| `docs/skills.md` | modify — typo fix |
+PLAN
+assert_contains "classify-plan reports no triage below tier 2" "$(triage "$tg11_tier1_plan")" "scope=not-applicable"
+
+tg11_nomap_plan="$TMPROOT/tg11-nomap.md"
+printf '# No File Map Fixture Plan\n\nRisk tier: 2 — no file map\n\n## Task groups\n' >"$tg11_nomap_plan"
+assert_contains "classify-plan falls back to large on an unparseable file map" "$(triage "$tg11_nomap_plan")" "reason=file-map-empty"
+
+assert_command "classify-plan exits zero on a missing plan file" node "$ROOT/scripts/diff-triviality.mjs" classify-plan --root "$ROOT" --plan "$TMPROOT/tg11-absent.md"
+tg11_absent_out="$(triage "$TMPROOT/tg11-absent.md")"
+assert_contains "classify-plan falls back to large on a missing plan file" "$tg11_absent_out" "scope=large"
+assert_contains "classify-plan names the unreadable plan" "$tg11_absent_out" "reason=plan-unreadable"
+
+if node "$ROOT/scripts/diff-triviality.mjs" classify-plan --root "$ROOT" >/dev/null 2>&1; then
+  not_ok "classify-plan requires --plan"
+else
+  ok "classify-plan requires --plan"
+fi
+assert_contains "diff-triviality usage documents classify-plan" "$(node "$ROOT/scripts/diff-triviality.mjs" bogus-command 2>&1 || true)" "classify-plan"
+assert_json_expr "classify keeps the Stop-verifier fast path after the plan extension" "$(node "$ROOT/scripts/diff-triviality.mjs" classify --root "$ROOT" --json README.md)" '.trivial == true and .total == 1'
+
+tg11_sandbox="$TMPROOT/tg11-sandbox"
+mkdir -p "$tg11_sandbox/scripts" "$tg11_sandbox/schemas"
+cp "$ROOT/scripts/diff-triviality.mjs" "$tg11_sandbox/scripts/diff-triviality.mjs"
+cp "$ROOT/schemas/review-classification-rules-v1.json" "$tg11_sandbox/schemas/review-classification-rules-v1.json"
+assert_json_expr "classify survives without scripts/lib (Stop-verifier fast path)" "$(node "$tg11_sandbox/scripts/diff-triviality.mjs" classify --root "$ROOT" --json README.md)" '.trivial == true'
+assert_contains "classify-plan falls back to large without the tier parser" "$(node "$tg11_sandbox/scripts/diff-triviality.mjs" classify-plan --root "$ROOT" --plan "$tg11_trivial_plan")" "reason=plan-helper-unavailable"
+
+tg11_autoplan_skill="$(cat "$ROOT/skills/etrnl-dev-autoplan/SKILL.md")"
+assert_contains "autoplan tier assessment references the plan classifier" "$tg11_autoplan_skill" "classify-plan --plan <plan-path> --json"
+assert_contains "autoplan emits a scope triage line" "$tg11_autoplan_skill" "Scope triage: <value>"
+assert_contains "autoplan keeps tier 3 large at every file count" "$tg11_autoplan_skill" "Tier 3 is Large at every file count"
+tg11_execute_skill="$(cat "$ROOT/skills/etrnl-dev-execute/SKILL.md")"
+assert_contains "execute skill carries the plan scope triage section" "$tg11_execute_skill" "## Plan scope triage"
+assert_contains "execute skill dispatches trivial work with the mini packet" "$tg11_execute_skill" "--template mini"
+assert_contains "execute skill spawns no reviewers on a trivial scope" "$tg11_execute_skill" "Spawn no \`etrnl-spec-reviewer\`"
+assert_contains "execute skill keeps tier 3 out of the trivial shape" "$tg11_execute_skill" "Tier 3 is never Trivial"
+
+# --- TG-12: review economy ---
+tg12_dir="$TMPROOT/tg12"
+mkdir -p "$tg12_dir"
+tg12_plan="$tg12_dir/plan.md"
+cat >"$tg12_plan" <<'PLAN'
+# Review Economy Fixture Plan
+
+Status: Final
+Goal: Exercise trajectory park thresholds.
+
+## Phases
+
+| Phase | Task groups | Gate |
+| --- | --- | --- |
+| P0 Review | TG-A | review gate green |
+PLAN
+node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-tg12 --plan "$tg12_plan" >/dev/null
+node "$ROOT/scripts/execution-ledger.mjs" record-trajectory --session fixture-tg12 --wave wave-clean --recurring-finding-count 2 --stream-alternation-count 3 --rounds-since-progress 1
+node "$ROOT/scripts/execution-ledger.mjs" record-trajectory --session fixture-tg12 --wave wave-recurring --recurring-finding-count 3 --stream-alternation-count 0 --rounds-since-progress 0
+node "$ROOT/scripts/execution-ledger.mjs" record-trajectory --session fixture-tg12 --wave wave-alternation --recurring-finding-count 0 --stream-alternation-count 4 --rounds-since-progress 0
+node "$ROOT/scripts/execution-ledger.mjs" record-trajectory --session fixture-tg12 --wave wave-stalled --recurring-finding-count 0 --stream-alternation-count 0 --rounds-since-progress 2
+tg12_gates="$tg12_dir/gates.json"
+node "$ROOT/scripts/execution-ledger.mjs" history --gates --session fixture-tg12 --json >"$tg12_gates"
+assert_json_expr "TG-12 reads trajectory counters from the ledger gates CLI" "$(jq -c . "$tg12_gates")" '(.waves | length) == 4'
+
+tg12_findings="$tg12_dir/findings.json"
+cat >"$tg12_findings" <<'JSON'
+[
+  {"reviewer":"etrnl-quality-reviewer","severity":"P2","confidence":0.75,"file":"src/a.ts","line":4,"fingerprint":"fp-recurring","summary":"Naming nit","autofix_class":"safe_auto"}
+]
+JSON
+tg12_zero_findings="$tg12_dir/zero-findings.json"
+cat >"$tg12_zero_findings" <<'JSON'
+[
+  {"reviewer":"etrnl-dx-reviewer","severity":"P3","confidence":0.70,"file":"docs/a.md","line":2,"summary":"Doc gap","autofix_class":"manual"}
+]
+JSON
+tg12_park() { node "$ROOT/scripts/review-merge.mjs" --file "$tg12_findings" --trajectory "$tg12_gates" --wave "$@"; }
+
+tg12_clean_park="$(tg12_park wave-clean)"
+assert_json_expr "review-merge keeps a converging stream unparked" "$tg12_clean_park" '.park.parked == false and (.park.reasons | length) == 0'
+assert_json_expr "review-merge exposes the park limits as named constants" "$tg12_clean_park" '.park.limits.recurringFindingCount == 3 and .park.limits.streamAlternationCount == 4 and .park.limits.roundsSinceProgress == 2'
+assert_json_expr "review-merge echoes the ledger counters it evaluated" "$tg12_clean_park" '.park.waveId == "wave-clean" and .park.counters.recurringFindingCount == 2 and .park.counters.streamAlternationCount == 3 and .park.counters.roundsSinceProgress == 1'
+
+tg12_recurring_park="$(tg12_park wave-recurring)"
+assert_json_expr "review-merge parks on the recurring-finding threshold" "$tg12_recurring_park" '.park.parked == true and (.park.reasons | length) == 1 and .park.reasons[0].reasonCode == "recurring-finding-limit" and .park.reasons[0].value == 3 and .park.reasons[0].limit == 3'
+tg12_alternation_park="$(tg12_park wave-alternation)"
+assert_json_expr "review-merge parks on the stream-alternation threshold" "$tg12_alternation_park" '.park.parked == true and (.park.reasons | length) == 1 and .park.reasons[0].reasonCode == "stream-alternation-limit" and .park.reasons[0].value == 4'
+tg12_stalled_park="$(tg12_park wave-stalled)"
+assert_json_expr "review-merge parks on the rounds-since-progress threshold" "$tg12_stalled_park" '.park.parked == true and (.park.reasons | length) == 1 and .park.reasons[0].reasonCode == "rounds-since-progress-limit" and .park.reasons[0].value == 2'
+
+tg12_before_cap="$(tg12_park wave-recurring --reopen-round 1 --reopen-cap 4)"
+assert_json_expr "review-merge parks before the reopen cap is exhausted" "$tg12_before_cap" '.park.parked == true and .park.reopenRoundsUsed == 1 and .park.reopenCap == 4 and .park.reopenCapExhausted == false'
+assert_contains "review-merge markdown names the park reason" "$(node "$ROOT/scripts/review-merge.mjs" --file "$tg12_findings" --trajectory "$tg12_gates" --wave wave-recurring --markdown)" "parked — recurring-finding-limit"
+
+assert_json_expr "review-merge raises the recurring limit from the environment" "$(ETRNL_REVIEW_RECURRING_FINDING_LIMIT=4 tg12_park wave-recurring)" '.park.parked == false and .park.limits.recurringFindingCount == 4'
+assert_json_expr "review-merge lowers the alternation limit from the environment" "$(ETRNL_REVIEW_STREAM_ALTERNATION_LIMIT=2 tg12_park wave-clean)" '.park.parked == true and .park.reasons[0].reasonCode == "stream-alternation-limit"'
+assert_json_expr "review-merge lowers the progress limit from the environment" "$(ETRNL_REVIEW_ROUNDS_SINCE_PROGRESS_LIMIT=1 tg12_park wave-clean)" '.park.parked == true and .park.reasons[0].reasonCode == "rounds-since-progress-limit"'
+if ETRNL_REVIEW_RECURRING_FINDING_LIMIT=0 tg12_park wave-recurring >/dev/null 2>&1; then
+  not_ok "review-merge rejects a non-positive park limit override"
+else
+  ok "review-merge rejects a non-positive park limit override"
+fi
+if tg12_park wave-absent >/dev/null 2>&1; then
+  not_ok "review-merge fails closed when the named wave is absent"
+else
+  ok "review-merge fails closed when the named wave is absent"
+fi
+if node "$ROOT/scripts/review-merge.mjs" --file "$tg12_findings" --wave wave-recurring >/dev/null 2>&1; then
+  not_ok "review-merge rejects --wave without --trajectory"
+else
+  ok "review-merge rejects --wave without --trajectory"
+fi
+assert_json_expr "review-merge reports no trajectory source when none is passed" "$(node "$ROOT/scripts/review-merge.mjs" --file "$tg12_findings")" '.park.parked == false and .park.trajectoryStatus == "not-provided"'
+
+tg12_rules_root="$tg12_dir/rules-root"
+mkdir -p "$tg12_rules_root/src"
+printf 'const x = 1; // FIXME-TG12\n' >"$tg12_rules_root/src/app.ts"
+tg12_rules_cfg="$tg12_dir/tg12-review-rules.json"
+cat >"$tg12_rules_cfg" <<'JSON'
+{
+  "schemaVersion": 1,
+  "rulesetId": "tg12-fixture",
+  "version": 1,
+  "enabledRuleIds": ["tg12-no-fixme"],
+  "rules": [
+    {
+      "ruleId": "tg12-no-fixme",
+      "mode": "block",
+      "engine": "literal",
+      "lensId": "lens-tg12",
+      "category": "maintainability",
+      "severity": "P2",
+      "scopeGlobs": ["src/*.ts"],
+      "literal": { "needle": "FIXME-TG12" }
+    }
+  ]
+}
+JSON
+tg12_rules() { node "$ROOT/scripts/review-rules.mjs" check --config "$tg12_rules_cfg" --root "$tg12_rules_root" "$@"; }
+if tg12_rules --json >/dev/null 2>&1; then
+  not_ok "review-rules still blocks without --report-only"
+else
+  ok "review-rules still blocks without --report-only"
+fi
+assert_json_expr "review-rules blocks a block-mode match by default" "$(tg12_rules --json || true)" '.status == "block" and .reportOnly == false'
+assert_command "review-rules --report-only exits zero on a block-mode match" node "$ROOT/scripts/review-rules.mjs" check --config "$tg12_rules_cfg" --root "$tg12_rules_root" --report-only
+tg12_report_only_status=0
+tg12_rules --report-only --json >/dev/null 2>&1 || tg12_report_only_status=$?
+assert_exit_status "review-rules --report-only never returns the block exit code" "$tg12_report_only_status" "0"
+tg12_report_only="$(tg12_rules --report-only --json || true)"
+assert_json_expr "review-rules --report-only returns the findings" "$tg12_report_only" '(.findings | length) == 1 and .findings[0].ruleId == "tg12-no-fixme"'
+assert_json_expr "review-rules --report-only reports without escalating" "$tg12_report_only" '.status == "report-only" and .reportOnly == true and .blockingCount == 1'
+assert_json_expr "review-rules --report-only leaves the authored rule mode alone" "$tg12_report_only" '.findings[0].mode == "block"'
+assert_contains "review-rules --report-only labels the text output" "$(tg12_rules --report-only || true)" "report-only: no escalation to block"
+tg12_rules_cfg_before="$(shasum "$tg12_rules_cfg" | awk '{print $1}')"
+tg12_rules --report-only >/dev/null || true
+assert_contains "review-rules --report-only never rewrites the ruleset" "$(shasum "$tg12_rules_cfg" | awk '{print $1}')" "$tg12_rules_cfg_before"
+if tg12_rules --json >/dev/null 2>&1; then
+  not_ok "review-rules blocks again after a report-only run"
+else
+  ok "review-rules blocks again after a report-only run"
+fi
+tg12_broken_cfg="$tg12_dir/tg12-broken-rules.json"
+jq '.rules[0].engine = "no-such-engine"' "$tg12_rules_cfg" >"$tg12_broken_cfg"
+tg12_broken_status=0
+node "$ROOT/scripts/review-rules.mjs" check --config "$tg12_broken_cfg" --root "$tg12_rules_root" --report-only --json >/dev/null 2>&1 || tg12_broken_status=$?
+assert_exit_status "review-rules --report-only keeps cannot-evaluate failing closed" "$tg12_broken_status" "2"
+
+tg12_learnings="$tg12_dir/review-learnings.json"
+cat >"$tg12_learnings" <<'JSON'
+{
+  "schemaVersion": 1,
+  "recurrences": { "tg12-seed-key": 2 },
+  "promoted": {},
+  "cleanRuns": {}
+}
+JSON
+tg12_reviewers="etrnl-quality-reviewer,etrnl-security-reviewer,etrnl-tenancy-reviewer,flows-and-states,accessibility"
+tg12_dispatch() { node "$ROOT/scripts/review-merge.mjs" --file "$1" --dispatched "$tg12_reviewers" --learnings "$tg12_learnings"; }
+tg12_skip_plan() { node "$ROOT/scripts/review-merge.mjs" skip-plan --reviewers "$tg12_reviewers" --learnings "$tg12_learnings" --json; }
+tg12_dispatch_out="$(tg12_dispatch "$tg12_zero_findings")"
+assert_json_expr "review-merge records a zero-finding dispatch per reviewer" "$tg12_dispatch_out" '(.dispatchAccounting.reviewers | length) == 5 and (.dispatchAccounting.reviewers[0].zeroFindingStreak) == 1 and (.dispatchAccounting.reviewers[0].findingCount) == 0'
+for _ in 2 3 4; do tg12_dispatch "$tg12_zero_findings" >/dev/null; done
+assert_json_expr "review-merge persists reviewer counters in review-learnings.json" "$(jq -c . "$tg12_learnings")" '.reviewerDispatches["etrnl-quality-reviewer"].zeroFindingStreak == 4 and .reviewerDispatches["etrnl-quality-reviewer"].dispatches == 4'
+assert_json_expr "review-merge keeps the review-learn rows in the shared store" "$(jq -c . "$tg12_learnings")" '.recurrences["tg12-seed-key"] == 2 and .schemaVersion == 1'
+tg12_pre_skip="$(tg12_skip_plan)"
+assert_json_expr "adaptive skip holds below the streak limit" "$tg12_pre_skip" '(.skips | length) == 0 and (.dispatch | length) == 5 and .streakLimit == 5'
+assert_json_expr "adaptive skip lowers the streak limit from the environment" "$(ETRNL_REVIEW_ADAPTIVE_SKIP_STREAK=3 tg12_skip_plan)" '(.skips | length) == 1 and .streakLimit == 3 and .skips[0].reviewer == "etrnl-quality-reviewer"'
+tg12_dispatch "$tg12_zero_findings" >/dev/null
+tg12_skip_out="$(tg12_skip_plan)"
+assert_json_expr "adaptive skip drops a reviewer at five zero-finding dispatches" "$tg12_skip_out" '(.skips | length) == 1 and .skips[0].reviewer == "etrnl-quality-reviewer" and .skips[0].zeroFindingStreak == 5'
+assert_json_expr "adaptive skip carries a machine-readable reason" "$tg12_skip_out" '.skips[0].reasonCode == "zero-finding-streak" and (.skips[0].reason | length) > 0 and .skips[0].count == 1 and .skipEvaluation == "evaluated"'
+assert_json_expr "adaptive skip exempts the security reviewer" "$tg12_skip_out" '(.dispatch | index("etrnl-security-reviewer")) != null and ([.exemptions[] | select(.reviewer == "etrnl-security-reviewer") | .reasonCode] == ["exempt-security"])'
+assert_json_expr "adaptive skip exempts the tenancy reviewer" "$tg12_skip_out" '(.dispatch | index("etrnl-tenancy-reviewer")) != null and ([.exemptions[] | select(.reviewer == "etrnl-tenancy-reviewer") | .reasonCode] == ["exempt-tenancy"])'
+assert_json_expr "adaptive skip exempts registered deep-audit lanes" "$tg12_skip_out" '(.dispatch | index("flows-and-states")) != null and (.dispatch | index("accessibility")) != null and ([.exemptions[] | select(.reasonCode == "exempt-audit-lane") | .reviewer] | sort) == ["accessibility","flows-and-states"]'
+assert_json_expr "adaptive skip keeps a zero-finding audit lane at full streak" "$tg12_skip_out" '([.exemptions[] | select(.reviewer == "flows-and-states") | .zeroFindingStreak] == [5])'
+tg12_dispatch "$tg12_findings" >/dev/null
+assert_json_expr "one finding resets the reviewer streak" "$(jq -c . "$tg12_learnings")" '.reviewerDispatches["etrnl-quality-reviewer"].zeroFindingStreak == 0 and .reviewerDispatches["etrnl-quality-reviewer"].lastFindingCount == 1'
+assert_json_expr "adaptive skip dispatches the reviewer again after a reset" "$(tg12_skip_plan)" '(.skips | length) == 0 and (.dispatch | length) == 5'
+tg12_shared_store="$tg12_dir/shared-learnings.json"
+cp "$tg12_learnings" "$tg12_shared_store"
+tg12_learn_findings="$tg12_dir/learn-findings.json"
+printf '[{"summary":"avoid any in tests","category":"types"}]\n' >"$tg12_learn_findings"
+node "$ROOT/scripts/review-learn.mjs" learn --findings "$tg12_learn_findings" --root "$tg12_dir" --ledger "$tg12_shared_store" --json >/dev/null
+assert_json_expr "review-learn keeps the reviewer dispatch counters in the shared store" "$(jq -c . "$tg12_shared_store")" '.reviewerDispatches["etrnl-quality-reviewer"].dispatches >= 5 and (.recurrences | length) >= 1'
+tg12_race_store="$tg12_dir/race-learnings.json"
+printf '{"schemaVersion":1,"recurrences":{},"promoted":{},"cleanRuns":{}}\n' >"$tg12_race_store"
+for lane in a b c d e f; do
+  printf '[{"reviewer":"lane-%s","severity":"P2","confidence":0.9,"file":"src/x.ts","line":1,"summary":"lane %s finding","autofix_class":"manual"}]\n' "$lane" "$lane" >"$tg12_dir/race-$lane.json"
+  node "$ROOT/scripts/review-merge.mjs" --file "$tg12_dir/race-$lane.json" --dispatched "lane-$lane" --learnings "$tg12_race_store" >/dev/null &
+done
+wait
+assert_json_expr "concurrent review-merge lanes each keep their dispatch row" "$(jq -c . "$tg12_race_store")" '[.reviewerDispatches | keys[]] | sort == ["lane-a","lane-b","lane-c","lane-d","lane-e","lane-f"]'
+assert_json_expr "concurrent review-merge lanes leave the store parseable and seeded" "$(jq -c . "$tg12_race_store")" '.schemaVersion == 1 and (.recurrences | type) == "object"'
+tg12_mixed_store="$tg12_dir/mixed-learnings.json"
+printf '{"schemaVersion":1,"recurrences":{},"promoted":{},"cleanRuns":{}}\n' >"$tg12_mixed_store"
+printf '[{"summary":"avoid any in mixed race","category":"types"}]\n' >"$tg12_dir/mixed-learn.json"
+for n in 1 2 3 4; do
+  printf '[{"reviewer":"mixed-%s","severity":"P2","confidence":0.9,"file":"src/m.ts","line":1,"summary":"mixed finding %s","autofix_class":"manual"}]\n' "$n" "$n" >"$tg12_dir/mixed-merge-$n.json"
+done
+for n in 1 2 3 4; do
+  node "$ROOT/scripts/review-learn.mjs" learn --findings "$tg12_dir/mixed-learn.json" --root "$tg12_dir" --ledger "$tg12_mixed_store" --json >/dev/null &
+  node "$ROOT/scripts/review-merge.mjs" --file "$tg12_dir/mixed-merge-$n.json" --dispatched "mixed-$n" --learnings "$tg12_mixed_store" >/dev/null &
+done
+wait
+assert_json_expr "review-learn counts every concurrent run when review-merge writes the same store" "$(jq -c . "$tg12_mixed_store")" '.recurrences["review_rubric:unspecified:types"] == 4'
+assert_json_expr "review-merge rows survive a concurrent review-learn run" "$(jq -c . "$tg12_mixed_store")" '([.reviewerDispatches | keys[]] | sort) == ["mixed-1","mixed-2","mixed-3","mixed-4"]'
+tg12_learn_root="$tg12_dir/learn-root"
+mkdir -p "$tg12_learn_root/templates"
+cp "$ROOT/templates/review-rules.example.json" "$tg12_learn_root/templates/review-rules.example.json"
+printf '[{"summary":"Avoid `as any` cast","body":"unsafe type escape","severity":"minor","lensId":"types_schema_contracts","category":"unsafe-type-escape"}]\n' >"$tg12_learn_root/as-any.json"
+# review-rules.json is a hand-formatted tracked config: a run that promotes nothing must not reflow it.
+printf '{\n    "schemaVersion": 1,\n    "rulesetId": "handformatted",\n    "version": 1,\n    "enabledRuleIds": [],\n    "rules": []\n}\n' >"$tg12_learn_root/review-rules.json"
+tg12_rules_hash_before="$(shasum "$tg12_learn_root/review-rules.json" | awk '{print $1}')"
+node "$ROOT/scripts/review-learn.mjs" learn --findings "$tg12_learn_root/as-any.json" --root "$tg12_learn_root" --json >/dev/null
+assert_contains "review-learn leaves the hand-formatted ruleset untouched on a no-promotion run" "$(shasum "$tg12_learn_root/review-rules.json" | awk '{print $1}')" "$tg12_rules_hash_before"
+assert_file "review-learn still persists the ledger on a no-promotion run" "$tg12_learn_root/review-learnings.json"
+# Crash consistency: the ledger's promoted/cleanRuns entries are what stop a retry from
+# reinstalling a guard, so a failed review-rules.json write must never persist the ledger.
+printf 'not a directory\n' >"$tg12_dir/learn-blocked"
+tg12_learn_ledger_dir="$tg12_dir/learn-ledger-only"
+mkdir -p "$tg12_learn_ledger_dir"
+tg12_learn_order_status=0
+node "$ROOT/scripts/review-learn.mjs" learn --findings "$tg12_learn_root/as-any.json" --root "$tg12_learn_root" --rules "$tg12_dir/learn-blocked/review-rules.json" --ledger "$tg12_learn_ledger_dir/review-learnings.json" --threshold 1 --json >/dev/null 2>&1 || tg12_learn_order_status=$?
+assert_exit_status "review-learn fails when the ruleset write fails" "$tg12_learn_order_status" "1"
+assert_no_file "review-learn never persists the ledger when the ruleset write fails" "$tg12_learn_ledger_dir/review-learnings.json"
+assert_no_directory "review-learn releases the store lock when the ruleset write fails" "$tg12_learn_ledger_dir/review-learnings.json.lock"
+
+# Stale-lock reclaim must let exactly one waiter through. RED: drop reclaimStaleLock's
+# marker and re-check for a bare `rmSync(lockDir)`, and the waiters that read one stale
+# mtime each delete the lock a faster waiter has already recreated — six of eight then
+# run inside the critical section together and collide on the sentinel.
+lock_race_dir="$TMPROOT/lock-reclaim-race"
+mkdir -p "$lock_race_dir"
+cat >"$lock_race_dir/worker.mjs" <<'NODE'
+import { appendFileSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+
+const { withFileLock } = await import(pathToFileURL(process.env.RACE_LIB).href);
+const wait = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+const log = (line) => appendFileSync(process.env.RACE_LOG, `${line}\n`);
+
+// Wake on a shared wall-clock deadline. Staggered starts let a late worker see the
+// winner's fresh lock and wait politely, which never exercises the reclaim path.
+const startAt = Number(process.env.RACE_START_AT);
+const arrivedInTime = Date.now() < startAt;
+const lead = startAt - Date.now() - 20;
+if (lead > 0) wait(lead);
+while (Date.now() < startAt) { /* spin the last few ms so all workers start together */ }
+if (arrivedInTime) writeFileSync(`${process.env.RACE_READY}-${process.pid}`, "");
+
+try {
+  withFileLock(process.env.RACE_STORE, () => {
+    // An exclusive create is the probe: if the sentinel already exists, a second
+    // process is inside the critical section this lock is supposed to serialize.
+    try {
+      writeFileSync(process.env.RACE_SENTINEL, String(process.pid), { flag: "wx" });
+    } catch {
+      let holder = "gone";
+      try { holder = readFileSync(process.env.RACE_SENTINEL, "utf8").trim(); } catch { /* released */ }
+      log(`overlap pid=${process.pid} heldBy=${holder}`);
+      return;
+    }
+    wait(150);
+    rmSync(process.env.RACE_SENTINEL, { force: true });
+    log(`exclusive pid=${process.pid}`);
+  }, { staleMs: 5000, timeoutMs: 20000 });
+} catch (error) {
+  log(`error pid=${process.pid} ${error.message}`);
+}
+NODE
+# Two rounds: with a synchronized start a single round misses the cascade about one
+# time in eight, which would make the red signal a coin flip.
+for lock_race_round in 1 2; do
+  lock_race_store="$lock_race_dir/store-$lock_race_round.json"
+  lock_race_log="$lock_race_dir/log-$lock_race_round"
+  printf '{}\n' >"$lock_race_store"
+  : >"$lock_race_log"
+  # Seed a lock already older than staleMs so every worker starts out wanting to
+  # reclaim it. mkdir sets mtime to now, so backdate afterwards.
+  mkdir -p "$lock_race_store.lock"
+  printf '999999 seeded-orphan\n' >"$lock_race_store.lock/owner"
+  touch -t 202001010000 "$lock_race_store.lock"
+  lock_race_pids=()
+  lock_race_start=$(( $(date +%s) * 1000 + 1500 ))
+  for _ in 1 2 3 4 5 6 7 8; do
+    RACE_LIB="$ROOT/scripts/lib/json-file-store.mjs" RACE_STORE="$lock_race_store" \
+      RACE_SENTINEL="$lock_race_dir/in-critical-section-$lock_race_round" RACE_LOG="$lock_race_log" \
+      RACE_READY="$lock_race_dir/ready-$lock_race_round" RACE_START_AT="$lock_race_start" \
+      node "$lock_race_dir/worker.mjs" &
+    lock_race_pids+=("$!")
+  done
+  for lock_race_pid in "${lock_race_pids[@]}"; do wait "$lock_race_pid" || true; done
+  # A worker that booted after the deadline never contended, which would quietly
+  # weaken the whole probe.
+  assert_contains "all eight reclaimers reach the shared start deadline (round $lock_race_round)" "$(find "$lock_race_dir" -maxdepth 1 -name "ready-$lock_race_round-*" | wc -l | tr -d ' ')" "8"
+  assert_not_contains "stale-lock reclaim never puts two writers in the critical section (round $lock_race_round)" "$(cat "$lock_race_log")" "overlap"
+  assert_contains "every racing reclaimer completes its critical section (round $lock_race_round)" "$(grep -c '^exclusive ' "$lock_race_log" | tr -d ' ')" "8"
+  assert_no_file "stale-lock reclaim leaves no sentinel behind (round $lock_race_round)" "$lock_race_dir/in-critical-section-$lock_race_round"
+  assert_no_directory "the last holder releases the store lock (round $lock_race_round)" "$lock_race_store.lock"
+  assert_no_directory "stale-lock reclaim clears its marker (round $lock_race_round)" "$lock_race_store.lock.reclaim"
+done
+# A reclaim marker orphaned by a process killed mid-reclaim must fail closed: no stale
+# lock is reclaimed while it stands, so the acquire has to reach its timeout and name
+# the marker rather than spinning on a refused reclaim.
+lock_orphan_store="$lock_race_dir/orphan-store.json"
+mkdir -p "$lock_orphan_store.lock" "$lock_orphan_store.lock.reclaim"
+printf '999999 seeded-orphan\n' >"$lock_orphan_store.lock/owner"
+touch -t 202001010000 "$lock_orphan_store.lock"
+lock_orphan_started="$(date +%s)"
+lock_orphan_probe="$(RACE_LIB="$ROOT/scripts/lib/json-file-store.mjs" node -e '
+import("node:url").then(async ({ pathToFileURL }) => {
+  const { acquireFileLock } = await import(pathToFileURL(process.env.RACE_LIB).href);
+  try {
+    acquireFileLock(process.argv[1], { staleMs: 5000, timeoutMs: 1000, label: "probe" })();
+    process.stdout.write("ORPHAN=acquired\n");
+  } catch (error) {
+    process.stdout.write(`ORPHAN=${/stale reclaim marker present/.test(error.message) ? "reported" : "unexplained"}\n`);
+  }
+});
+' "$lock_orphan_store")"
+assert_contains "an orphaned reclaim marker fails closed and names itself" "$lock_orphan_probe" "ORPHAN=reported"
+assert_contains "the orphaned-marker acquire returns within its timeout" "$(( $(date +%s) - lock_orphan_started < 15 ? 1 : 0 ))" "1"
+rm -rf "$lock_orphan_store.lock" "$lock_orphan_store.lock.reclaim"
+# No churn probe covers the timeout check that now runs before every retry path. A
+# churner that deletes and recreates the lock races the acquirer, so the acquirer
+# sometimes wins a gap and returns "acquired" instead of timing out — the probe reds on
+# correct code. It also cannot force the vanished-lock branch on every iteration, so it
+# stayed green with the check in its old position. Non-discriminating and flaky both,
+# which is worse than absent: the bound is by construction, argued at the check itself.
+# A release must not delete a lock directory this process no longer owns: that is the
+# same double-ownership bug one level down, reachable when a critical section overruns
+# staleMs and a waiter legitimately reclaims the lock mid-flight.
+lock_owner_probe="$(RACE_LIB="$ROOT/scripts/lib/json-file-store.mjs" node -e '
+import("node:url").then(async ({ pathToFileURL }) => {
+  const { acquireFileLock } = await import(pathToFileURL(process.env.RACE_LIB).href);
+  const { existsSync, rmSync, mkdirSync, writeFileSync } = await import("node:fs");
+  const store = process.argv[1];
+  const release = acquireFileLock(store, { staleMs: 5000, timeoutMs: 5000 });
+  rmSync(`${store}.lock`, { recursive: true, force: true });
+  mkdirSync(`${store}.lock`);
+  writeFileSync(`${store}.lock/owner`, "other-holder\n");
+  release();
+  process.stdout.write(existsSync(`${store}.lock`) ? "FOREIGNLOCK=kept\n" : "FOREIGNLOCK=deleted\n");
+  rmSync(`${store}.lock`, { recursive: true, force: true });
+});
+' "$lock_race_dir/owner-store.json")"
+assert_contains "release leaves a lock reclaimed by another holder in place" "$lock_owner_probe" "FOREIGNLOCK=kept"
+# Reclaim must verify owner identity, not just staleness: if the real owner releases and a
+# new acquirer replaces the lock while a reclaimer holds the marker, deleting on mtime
+# alone would remove the fresh lock and let two writers into the critical section.
+lock_reclaim_refuse_store="$lock_race_dir/reclaim-refuse-store.json"
+mkdir -p "$lock_reclaim_refuse_store.lock"
+printf '111 stale-a\n' >"$lock_reclaim_refuse_store.lock/owner"
+touch -t 202001010000 "$lock_reclaim_refuse_store.lock"
+printf '222 stale-b\n' >"$lock_reclaim_refuse_store.lock/owner"
+lock_reclaim_refuse_probe="$(RACE_LIB="$ROOT/scripts/lib/json-file-store.mjs" node -e '
+import("node:url").then(async ({ pathToFileURL }) => {
+  const { reclaimStaleLock } = await import(pathToFileURL(process.env.RACE_LIB).href);
+  const { existsSync } = await import("node:fs");
+  const store = process.argv[1];
+  const lockDir = `${store}.lock`;
+  const reclaimed = reclaimStaleLock(lockDir, 5000, "111 stale-a");
+  process.stdout.write(
+    reclaimed ? "RECLAIM=removed\n" : existsSync(lockDir) ? "RECLAIM=refused\n" : "RECLAIM=vanished\n",
+  );
+});
+' "$lock_reclaim_refuse_store")"
+assert_contains "stale-lock reclaim refuses when the owner token was replaced" "$lock_reclaim_refuse_probe" "RECLAIM=refused"
+assert_directory "stale-lock reclaim leaves a replaced lock directory in place" "$lock_reclaim_refuse_store.lock"
+rm -rf "$lock_reclaim_refuse_store.lock" "$lock_reclaim_refuse_store.lock.reclaim"
+lock_reclaim_success_store="$lock_race_dir/reclaim-success-store.json"
+mkdir -p "$lock_reclaim_success_store.lock"
+printf '333 stale-c\n' >"$lock_reclaim_success_store.lock/owner"
+touch -t 202001010000 "$lock_reclaim_success_store.lock"
+lock_reclaim_success_probe="$(RACE_LIB="$ROOT/scripts/lib/json-file-store.mjs" node -e '
+import("node:url").then(async ({ pathToFileURL }) => {
+  const { reclaimStaleLock } = await import(pathToFileURL(process.env.RACE_LIB).href);
+  const { existsSync } = await import("node:fs");
+  const store = process.argv[1];
+  const lockDir = `${store}.lock`;
+  const reclaimed = reclaimStaleLock(lockDir, 5000, "333 stale-c");
+  process.stdout.write(
+    reclaimed && !existsSync(lockDir) ? "RECLAIM=cleared\n" : "RECLAIM=failed\n",
+  );
+});
+' "$lock_reclaim_success_store")"
+assert_contains "stale-lock reclaim still removes an unchanged stale lock" "$lock_reclaim_success_probe" "RECLAIM=cleared"
+assert_no_directory "stale-lock reclaim clears the lock directory on success" "$lock_reclaim_success_store.lock"
+assert_no_directory "stale-lock reclaim clears its marker on success" "$lock_reclaim_success_store.lock.reclaim"
+# A typo'd override must fall back to the module default. Number("abc") is NaN, and
+# every `elapsed > limit` comparison against NaN is false, which disables both the
+# staleness reclaim and the timeout. This probes the staleness side because its
+# consequence is observable in milliseconds: an hour-old lock against a defaulted
+# 120s staleMs is reclaimed and acquired, while a NaN staleMs never reclaims and the
+# acquire can only end in the timeout. The timeout side shares positiveMs, and its
+# unfixed behavior is an unbounded wait that no bounded assertion can observe.
+lock_nan_store="$lock_race_dir/nan-store.json"
+mkdir -p "$lock_nan_store.lock"
+printf '999999 seeded-orphan\n' >"$lock_nan_store.lock/owner"
+touch -t 202001010000 "$lock_nan_store.lock"
+lock_nan_probe="$(RACE_LIB="$ROOT/scripts/lib/json-file-store.mjs" node -e '
+import("node:url").then(async ({ pathToFileURL }) => {
+  const { acquireFileLock } = await import(pathToFileURL(process.env.RACE_LIB).href);
+  try {
+    acquireFileLock(process.argv[1], { staleMs: "abc", timeoutMs: 2000 })();
+    process.stdout.write("STALEMS=reclaimed\n");
+  } catch {
+    process.stdout.write("STALEMS=timedout\n");
+  }
+});
+' "$lock_nan_store")"
+assert_contains "a non-numeric staleMs falls back to the default instead of never reclaiming" "$lock_nan_probe" "STALEMS=reclaimed"
+# rename() replaces the destination with the temp file's mode, so a 0600 store would
+# widen to the umask default on any rewrite by a caller that omits `mode`.
+lock_mode_probe="$(RACE_LIB="$ROOT/scripts/lib/json-file-store.mjs" node -e '
+import("node:url").then(async ({ pathToFileURL }) => {
+  const { writeJsonAtomic } = await import(pathToFileURL(process.env.RACE_LIB).href);
+  const { statSync } = await import("node:fs");
+  const store = process.argv[1];
+  writeJsonAtomic(store, { seeded: true }, { mode: 0o600 });
+  writeJsonAtomic(store, { rewritten: true });
+  process.stdout.write(`MODE=${(statSync(store).mode & 0o777).toString(8)}\n`);
+});
+' "$lock_race_dir/mode-store.json")"
+assert_contains "an atomic rewrite preserves the existing store permissions" "$lock_mode_probe" "MODE=600"
+if node "$ROOT/scripts/review-merge.mjs" skip-plan --learnings "$tg12_learnings" --json >/dev/null 2>&1; then
+  not_ok "skip-plan requires --reviewers"
+else
+  ok "skip-plan requires --reviewers"
+fi
+
+tg12_bounded_review="$(cat "$ROOT/skills/etrnl-dev-execute/references/bounded-review.md")"
+assert_contains "bounded-review documents the recurring-finding park limit" "$tg12_bounded_review" "ETRNL_REVIEW_RECURRING_FINDING_LIMIT"
+assert_contains "bounded-review documents the alternation park limit" "$tg12_bounded_review" "ETRNL_REVIEW_STREAM_ALTERNATION_LIMIT"
+assert_contains "bounded-review documents the progress park limit" "$tg12_bounded_review" "ETRNL_REVIEW_ROUNDS_SINCE_PROGRESS_LIMIT"
+assert_contains "bounded-review documents the report-only deterministic pass" "$tg12_bounded_review" "--report-only"
+assert_contains "bounded-review carries the tier 3 Codex-profile carve-out" "$tg12_bounded_review" "Codex-profile carve-out"
+assert_contains "bounded-review keeps tier 3 gates at full strength" "$tg12_bounded_review" "Tier 3 gates hold at full strength on every wave"
+assert_contains "bounded-review exempts deep-audit lanes from adaptive skip" "$tg12_bounded_review" "every deep-audit lane registered in \`scripts/lib/deep-audit-categories.mjs\`"
+assert_contains "bounded-review reuses the review-learnings store" "$tg12_bounded_review" "reviewerDispatches"
+tg12_batch_execution="$(cat "$ROOT/skills/etrnl-dev-execute/references/batch-execution.md")"
+assert_contains "batch-execution defers tier 0-2 human-verify pauses" "$tg12_batch_execution" "## Human-verify batching (tier ≤ 2 default)"
+assert_contains "batch-execution keeps tier 3 UAT gates in place" "$tg12_batch_execution" "Tier 3 keeps explicit UAT gates where the plan places them"
 
 finish_tests

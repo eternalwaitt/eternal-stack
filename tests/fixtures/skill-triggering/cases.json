@@ -113,6 +113,28 @@
     ]
   },
   {
+    "name": "plain ui improvement prompt routes etrnl-deep-audit-ux",
+    "prompt": "audit my UI for improvements and tell me what to polish",
+    "expectedSkills": [
+      "etrnl-deep-audit-ux"
+    ],
+    "unexpectedSkills": [
+      "etrnl-audit-code",
+      "etrnl-deep-audit"
+    ]
+  },
+  {
+    "name": "interface review prompt routes etrnl-deep-audit-ux",
+    "prompt": "review the interface of our checkout screens",
+    "expectedSkills": [
+      "etrnl-deep-audit-ux"
+    ],
+    "unexpectedSkills": [
+      "etrnl-audit-code",
+      "etrnl-deep-audit"
+    ]
+  },
+  {
     "name": "deep audit prompt routes etrnl-deep-audit",
     "prompt": "run the full registered deep audit with production readiness and performance categories",
     "expectedSkills": [

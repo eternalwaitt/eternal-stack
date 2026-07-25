@@ -24,6 +24,14 @@ Use during `etrnl-dev-execute` when the plan enumerates many similar per-item fi
 3. Warm environment rules: compose volumes persist across waves — never run `down -v` mid-run; keep Testcontainers reuse on; replay migrations only on schema change; reserve production builds for wave close.
 4. Record the env URL and migration version in run notes at wave start and after any schema change.
 
+## Human-verify batching (tier ≤ 2 default)
+
+1. Tier 0–2 default: defer every mid-wave human-verify pause to the wave or phase boundary. Collect the deferred items into one batched verification list and present that list once, at wave close or phase close.
+2. A mid-wave pause at tier 0–2 runs in exactly two cases: the plan names that pause as a gate, or a blocker stops the wave outright.
+3. Tier 3 keeps explicit UAT gates where the plan places them. The deferral is a tier 0–2 default and never relocates a tier-3 gate to a phase boundary.
+4. A batched pause keeps per-item attribution: every item names its own evidence and disposition, so one pause never merges two items' outcomes.
+5. Record the outcome one row per item — `node scripts/execution-ledger.mjs record-check` for tier 0–2 verification, `node scripts/execution-ledger.mjs record-uat` for a tier-3 UAT gate.
+
 ## Review and commit batching
 
 1. One merged review pass per wave over the combined diff (see `bounded-review.md`). Tier-3 surfaces keep tier-3 lenses and reopen caps on the wave diff — per-item review chains are for genuinely independent risk, not items sharing one surface. Batching applies at every tier; tier 3 keeps stricter gates, not a batching exemption.

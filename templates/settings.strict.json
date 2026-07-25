@@ -20,6 +20,15 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "codegraph prompt-hook",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "UserPromptExpansion": [
@@ -41,6 +50,11 @@
             "type": "command",
             "command": "bash ~/.claude/hooks/cc-rtk-rg-compat.sh",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "rtk hook claude",
+            "timeout": 10
           }
         ]
       },
@@ -50,6 +64,26 @@
           {
             "type": "command",
             "command": "bash ~/.claude/hooks/cc-pretooluse-guard.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Task|Read|Grep|Glob|WebFetch|WebSearch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/cc-compact-suggest.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "AskUserQuestion|mcp__.*ask_user.*|mcp__.*ask_question.*|mcp__.*[Aa]sk[Uu]ser[Qq]uestion.*|mcp__.*user_question.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/cc-question-preference.sh",
             "timeout": 10
           }
         ]

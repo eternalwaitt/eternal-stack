@@ -16,6 +16,8 @@
       "expectedOutput": "patched scripts with tests",
       "verificationCommand": "./tests/test-workflow-tools.sh",
       "modelTier": "standard",
+      "codexModel": "gpt-5.6-terra",
+      "codexReasoningEffort": "medium",
       "timeoutSec": 600,
       "retryPolicy": {
         "maxRetries": 1,

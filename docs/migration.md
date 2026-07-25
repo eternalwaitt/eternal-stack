@@ -12,6 +12,6 @@ Rollout order is intentionally conservative:
 8. Hard blockers one group at a time with `ETRNL_ENABLE_STRICT=1`, including `PreToolUse`, `PostToolUseFailure`, `Stop`, and `SubagentStop`.
 9. CLAUDE.md pruning only after prompt reinjection is verified.
 10. Hindsight canary and memory consolidation.
-11. Plugin and permission cleanup.
+11. Plugin and permission cleanup. MCP and plugin pruning is a manual operator rollout step — see the `Codex-first efficiency profile` section in [configuration.md](configuration.md) — not an install-time side effect; Eternal Stack does not auto-remove user MCP servers during install.
 
 Do not remove plugins, memory systems, or broad permissions until rollback and tests pass.
