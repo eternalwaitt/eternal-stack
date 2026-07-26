@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ### Added
 
 - `scripts/lib/private-strings.mjs` owns private-string detection for tracked artifacts, replacing four independent copies of the same pattern list in `deep-audit-artifact-check.mjs`, `tool-effectiveness.mjs`, `session-deep-dive.mjs`, and `stack-profile-check.mjs`.
-- `planned` joins `passed`, `not_applicable`, and `blocked` as an install-proof stage status, so a plan can commit to the staged install, doctor/canary, and rollback gates it has not run yet and `/etrnl-dev-execute` upgrades each one to `passed` from the execution run.
+- `planned` joins `passed`, `not_applicable`, and `blocked` as an install-proof stage status and requires the gate command in its `command` field, so a plan can commit to the staged install, doctor/canary, and rollback gates it has not run yet and `/etrnl-dev-execute` upgrades each one to `passed` from the execution run.
 - `planTouchesInstallSurface()` in `scripts/lib/plan-risk-tier.mjs` reports whether a plan changes an installable surface. The tier-3 auto-escalation list is now split into install-surface patterns (`hooks/`, `scripts/install*.sh`, `scripts/update.sh`) and high-risk domain patterns (auth, payment, money, migration, tenant); their union is unchanged, so escalation behavior is identical.
 
 ### Changed
@@ -17,6 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - `etrnl-dev-autoplan` records install proof as `planned` while planning and `not_applicable` when no install surface is in scope, and declares the risk tier the deterministic gate requires. Escalating above that floor on judgment is still allowed but must be named as a judgment call on the `Risk tier` line rather than attributed to the readiness gate.
 
 ### Fixed
+
+- `planTouchesInstallSurface()` now evaluates only changed paths extracted from `## File map` and `## Task groups`, so prose references to an installer no longer make a tier-3 plan reject valid `not_applicable` install proof.
+- `private-strings.mjs` now detects `file://localhost` private paths and Windows drive paths encoded in file URIs, closing absolute-path forms that bypassed artifact privacy checks.
+- `SECRET_PATTERN` now recognizes the `gho_`, `ghu_`, `ghs_`, and `github_pat_` GitHub token prefixes that the shared sensitive-value detector already recognized, keeping direct secret scans aligned.
 
 - Tier-3 plans could never reach `Status: Final`. `validateInstallProof` and `validateRiskTier` demanded `passed` source-gate, staged-install, staged-doctor, and rollback proof before a plan counted as executable, but that proof only exists after the plan runs — so autoplan produced a complete, fully reviewed tier-3 plan and then stopped on `Blocked until <blocker>` for evidence it was structurally unable to hold, surfacing an unactionable error to the user. Tier 3 now accepts `planned` proof at plan time and `not_applicable` when the plan changes no install surface, because the tier-3 trigger list covers auth, money, migration, and tenant risk as well as installers, and staged *install* proof is meaningless for the former. `blocked` still fails the gate, standalone `--artifact` checks still assume an install surface and stay strict, and the Stop-time `missing-install-proof` gate in `cc-stop-verifier.sh` still requires real evidence before completion can be claimed. The deadlock went unnoticed because no tracked fixture exercised a passing tier-3 artifact — the only tier-3 fixture was a negative control.
 

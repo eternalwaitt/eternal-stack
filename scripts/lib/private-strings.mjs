@@ -10,18 +10,18 @@
 
 /** Path-like tokens anchored at an absolute root: POSIX, home-relative, Windows drive, UNC, file URL. */
 const ABSOLUTE_PATH_TOKEN =
-  /(?:^|[\s"'`(<[{=,;|])((?:file:\/\/)?(?:~|\/|[A-Za-z]:[\\/]|\\\\[A-Za-z0-9_.-]+\\)[^\s"'`)>\]},;|]*)/g;
+  /(?:^|[\s"'`(<[{=,;|])((?:file:\/\/(?:localhost)?(?:\/|[A-Za-z]:[\\/])|~|\/|[A-Za-z]:[\\/]|\\\\[A-Za-z0-9_.-]+\\)[^\s"'`)>\]},;|]*)/g;
 
 /** Private roots, tested only against tokens already known to be absolute. */
 const PRIVATE_PATH_ROOTS = [
-  /^(?:file:\/\/)?\/Users\/[^/\\\s]+/i,
+  /^(?:file:\/\/(?:localhost)?\/|\/)?Users\/[^/\\\s]+/i,
   /^(?:file:\/\/)?\/home\/[^/\\\s]+/i,
   /^(?:file:\/\/)?\/root(?:[/\\]|$)/i,
   /^(?:file:\/\/)?\/Volumes\/[^/\\\s]+/i,
   /^(?:file:\/\/)?\/tmp[/\\]/i,
   /^(?:file:\/\/)?\/private\/tmp[/\\]/i,
   /^(?:file:\/\/)?\/var\/folders[/\\]/i,
-  /^[A-Za-z]:[\\/]/,
+  /^(?:file:\/\/(?:localhost)?\/)?\/?[A-Za-z]:[\\/]/,
   /^\\\\[A-Za-z0-9_.-]+\\[A-Za-z0-9_.-]+/,
   /\/mnt\/[a-z]\/Users\/[^/\\\s]+/i,
   /\/mnt\/wsl\/[^/\\\s]+\/Users\/[^/\\\s]+/i,
@@ -48,7 +48,7 @@ const SENSITIVE_VALUE_PATTERNS = [
  * cloud access keys, Bearer tokens, and PEM private keys.
  */
 export const SECRET_PATTERN =
-  /sk-(proj-|ant-)?[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9_]{20,}|glpat-[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9-]{20,}|npm_[A-Za-z0-9]{20,}|\b(?:AKIA|ASIA|OCI)[A-Z0-9]{12,}\b|Bearer\s+[A-Za-z0-9._-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----/i;
+  /sk-(proj-|ant-)?[A-Za-z0-9_-]{20,}|(?:ghp|gho|ghu|ghs|github_pat)_[A-Za-z0-9_]{20,}|glpat-[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9-]{20,}|npm_[A-Za-z0-9]{20,}|\b(?:AKIA|ASIA|OCI)[A-Z0-9]{12,}\b|Bearer\s+[A-Za-z0-9._-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----/i;
 
 /**
  * Every absolute path token in `value` that resolves to a private root.

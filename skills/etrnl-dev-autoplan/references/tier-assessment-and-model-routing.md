@@ -38,7 +38,7 @@ Install proof is execution evidence, not plan evidence, so a plan commits to it 
 
 | Plan situation | `sourceGate`, `stagedInstall`, `stagedDoctor`, `rollbackVerification` |
 | --- | --- |
-| Tier 3 changing an install surface — `hooks/`, `scripts/install*.sh`, `scripts/update.sh` | `planned`, with the command that produces each proof in `evidence`. `/etrnl-dev-execute` records `passed` from the real staged run. |
+| Tier 3 changing an install surface — `hooks/`, `scripts/install*.sh`, `scripts/update.sh` | `planned`, with the gate command in `command` and its planned proof description in `evidence`. `/etrnl-dev-execute` records `passed` from the real staged run. |
 | Tier 3 driven by auth, payment, money, migration, tenant, or other non-install risk | `not_applicable`, with evidence stating that the plan installs nothing |
 | Tier 0–2 | `not_applicable` unless the plan installs something |
 

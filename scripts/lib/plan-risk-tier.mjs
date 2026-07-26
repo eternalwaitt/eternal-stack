@@ -153,7 +153,7 @@ export function requiresTier3Escalation(planText) {
  * a tier-3 plan owes staged-install and rollback proof at all.
  */
 export function planTouchesInstallSurface(planText) {
-  const haystack = Array.isArray(planText) ? planText.join("\n") : planTier3Haystack(planText);
+  const haystack = Array.isArray(planText) ? planText.join("\n") : collectPlanFilePaths(planText).join("\n");
   return INSTALL_SURFACE_PATTERNS.some((pattern) => pattern.test(haystack));
 }
 

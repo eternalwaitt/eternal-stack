@@ -1908,6 +1908,8 @@ if source_private_out="$(node "$ROOT/scripts/deep-stack-check.mjs" validate-sour
 else
   assert_contains "deep-stack source manifest rejects private paths" "$source_private_out" "SOURCE_PRIVATE_VALUE"
 fi
+assert_command "private strings detect localhost and Windows file URIs" node --input-type=module -e "import { hasPrivatePath } from '$ROOT/scripts/lib/private-strings.mjs'; if (!hasPrivatePath('file://localhost/Users/alice/x') || !hasPrivatePath('file:///C:/Users/alice/x') || hasPrivatePath('src/components/home/Nav.tsx')) process.exit(1);"
+assert_command "SECRET_PATTERN detects GitHub token prefixes" node --input-type=module -e "import { SECRET_PATTERN } from '$ROOT/scripts/lib/private-strings.mjs'; if (!['gho_abcdefghijklmnopqrstuvwxyz123456', 'ghu_abcdefghijklmnopqrstuvwxyz123456', 'ghs_abcdefghijklmnopqrstuvwxyz123456', 'github_pat_abcdefghijklmnopqrstuvwxyz123456'].every((token) => SECRET_PATTERN.test(token))) process.exit(1);"
 assert_command "deep-stack skill matrix accepts plain TypeScript negative control" node "$ROOT/scripts/deep-stack-check.mjs" validate-skills --artifact "$deep_stack_fixture"
 assert_command "deep-stack advanced TypeScript fixture validates" node "$ROOT/scripts/deep-stack-check.mjs" validate-skills --artifact "$ROOT/tests/fixtures/deep-stack/typescript.advanced-required.json"
 if reuse_out="$(node "$ROOT/scripts/deep-stack-check.mjs" validate-reuse --artifact "$ROOT/tests/fixtures/deep-stack/reuse.missing-justification.json" 2>&1)"; then
@@ -1961,8 +1963,15 @@ else
   assert_contains "deep-stack Tier 3 install proof requires staged proof" "$bad_install_proof_out" "INSTALL_PROOF_TIER3_STAGE"
 fi
 planned_install_proof_artifact="$TMPROOT/deep-stack-planned-install-proof.json"
-jq '(.riskTier.tier = 3) | (.installProof.sourceGate.status = "planned") | (.installProof.stagedInstall.status = "planned") | (.installProof.stagedDoctor.status = "planned") | (.installProof.rollbackVerification.status = "planned")' "$deep_stack_fixture" >"$planned_install_proof_artifact"
+jq '(.riskTier.tier = 3) | (.installProof.sourceGate.status = "planned") | (.installProof.stagedInstall.status = "planned") | (.installProof.stagedDoctor.status = "planned") | (.installProof.rollbackVerification.status = "planned") | (.installProof.sourceGate.command = "node scripts/source-gate.mjs") | (.installProof.stagedInstall.command = "bash scripts/install.sh") | (.installProof.stagedDoctor.command = "bash scripts/doctor.sh") | (.installProof.rollbackVerification.command = "bash scripts/rollback.sh")' "$deep_stack_fixture" >"$planned_install_proof_artifact"
 assert_command "deep-stack Tier 3 install proof accepts planned stages" node "$ROOT/scripts/deep-stack-check.mjs" validate-install-proof --artifact "$planned_install_proof_artifact"
+missing_planned_command_artifact="$TMPROOT/deep-stack-missing-planned-command.json"
+jq 'del(.installProof.stagedInstall.command)' "$planned_install_proof_artifact" >"$missing_planned_command_artifact"
+if missing_planned_command_out="$(node "$ROOT/scripts/deep-stack-check.mjs" validate-install-proof --artifact "$missing_planned_command_artifact" 2>&1)"; then
+  not_ok "deep-stack planned install proof requires command"
+else
+  assert_contains "deep-stack planned install proof requires command" "$missing_planned_command_out" "INSTALL_PROOF_PLANNED_COMMAND"
+fi
 blocked_install_proof_artifact="$TMPROOT/deep-stack-blocked-install-proof.json"
 jq '(.riskTier.tier = 3) | (.installProof.stagedInstall.status = "blocked") | (.installProof.stagedDoctor.status = "blocked") | (.installProof.rollbackVerification.status = "blocked")' "$deep_stack_fixture" >"$blocked_install_proof_artifact"
 if blocked_install_proof_out="$(node "$ROOT/scripts/deep-stack-check.mjs" validate-install-proof --artifact "$blocked_install_proof_artifact" 2>&1)"; then
@@ -1975,8 +1984,8 @@ mkdir -p "$tier3_surface_dir"
 jq '(.riskTier.tier = 3)' "$deep_stack_fixture" >"$tier3_surface_dir/deep-stack.valid.json"
 tier3_no_install_plan="$tier3_surface_dir/plan-no-install.md"
 cp "$ROOT/tests/fixtures/deep-stack/plan.deep-stack.valid.md" "$tier3_no_install_plan"
-perl -0pi -e 's/^Risk tier: 2\b.*$/Risk tier: 3 - judgment call on irreversible external writes, no installable surface in scope./m' "$tier3_no_install_plan"
-assert_command "deep-stack tier 3 without install surface accepts not_applicable proof" node "$ROOT/scripts/deep-stack-check.mjs" validate-plan --plan "$tier3_no_install_plan"
+perl -0pi -e 's/^Goal: (.*)$/Goal: $1 Mentions scripts\/install.sh only as prior-art context./m; s/^Risk tier: 2\b.*$/Risk tier: 3 - judgment call citing scripts\/install.sh, with no installable surface in scope./m' "$tier3_no_install_plan"
+assert_command "deep-stack tier 3 ignores install paths mentioned only in prose" node "$ROOT/scripts/deep-stack-check.mjs" validate-plan --plan "$tier3_no_install_plan"
 tier3_install_plan="$tier3_surface_dir/plan-install.md"
 cp "$ROOT/tests/fixtures/deep-stack/plan.deep-stack.valid.md" "$tier3_install_plan"
 perl -0pi -e 's/^Risk tier: 2\b.*$/Risk tier: 3 - installed stop-verifier hook change./m' "$tier3_install_plan"

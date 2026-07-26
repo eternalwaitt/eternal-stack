@@ -634,6 +634,9 @@ export function validateInstallProof(installProof, riskTier = {}, context = {}, 
       errors.push(error("INSTALL_PROOF_STAGE_STATUS", context.artifactPath, `installProof.${stage}.status`, "Install proof stage status is invalid.", "Use passed, planned, not_applicable, or blocked."));
     }
     requireString(row.evidence, `installProof.${stage}.evidence`, "INSTALL_PROOF_STAGE_EVIDENCE", context, errors);
+    if (row.status === "planned") {
+      requireString(row.command, `installProof.${stage}.command`, "INSTALL_PROOF_PLANNED_COMMAND", context, errors);
+    }
     rejectPrivateStrings(row, `installProof.${stage}`, context, errors);
   }
   if (riskTier?.tier === 3) {
