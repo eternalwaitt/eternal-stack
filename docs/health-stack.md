@@ -139,6 +139,7 @@ node scripts/review-merge.mjs skip-plan
 node scripts/diff-triviality.mjs classify --git --json
 node scripts/diff-triviality.mjs classify-plan --plan <plan-path> --json
 node scripts/execution-ledger.mjs history --gates --plan <plan-path> --json
+node scripts/execution-ledger.mjs reconcile
 node scripts/codex-rollout-baseline.mjs --rollout <rollout.jsonl> --json
 node scripts/codex-rollout-baseline.mjs baseline --rollout <rollout.jsonl>
 node scripts/codex-rollout-baseline.mjs trend --before <baseline.json> --after <baseline.json>
@@ -156,6 +157,7 @@ scripts/post-upgrade-canary.sh
 ```
 
 - `scripts/workflow-health.mjs` reads run ledgers in parallel with `ETRNL_LEDGER_READ_CONCURRENCY` (default `8`, capped at `12` for constrained systems). `workflow-health.mjs status` is the concise text surface used by SessionStart hints; `status --json` is the machine-readable surface for active run id, unfinished work, missing artifacts, browser/context freshness, phase/UAT state, stale run count, and the next deterministic action. `status --markdown [--write <path>]` emits a per-project handoff (≤60 lines) with recent sessions, median `tasksPerHour`, compaction counts, stale-verification resets, gate-repeat counts, and top recurring failures; add `--exit-code` to fail when median `tasksPerHour` across the last five sessions drops below `ETRNL_STATUS_MIN_TASKS_PER_HOUR` (default `1`) or median compactions/session exceeds `ETRNL_STATUS_MAX_COMPACTIONS_MEDIAN` (default `10`). `workflow-health.mjs summary` (and `summary --json`) adds per-session performance rows when derivable from ledgers and the state log: `gateMaxRepeatsAtTreeHash`, `compactCount`, `compactsWithUnchangedTree`, `compactStaleEvents`, `tasksCompletedPerHour`, and `waitCallRatio` (rows are omitted when not derivable; legacy ledgers stay safe). `workflow-health.mjs doctor` warns when a session exceeds `ETRNL_PERF_MAX_GATE_REPEATS` (default `3`), `ETRNL_PERF_MAX_COMPACT_STALE` (default `5`), or `ETRNL_PERF_MAX_WAIT_RATIO` (default `0.5`); non-zero exit only under `--strict`. Use `workflow-health.mjs doctor --strict` or `ETRNL_WORKFLOW_HEALTH_STRICT=1` when live runtime findings must fail closed instead of remaining diagnostic.
+- `execution-ledger.mjs reconcile` reports duplicate pointers aimed at one ledger, pointers whose ledger is gone, and ledgers whose `sessionId` differs from the bucket in their `runId`. `--apply` retires stale pointers into `runs/retired-pointers/` rather than deleting them and records a `ledger.reconciled` event; re-running preserves a standing divergence without restamping it.
 
 ### Wave-2 acceptance metrics
 

@@ -114,3 +114,27 @@ To inspect recent workflow state:
 ~/.claude/scripts/browser-qa-report.mjs summary
 ~/.claude/scripts/context-state.mjs list
 ```
+
+## Stop is blocked by a task or phase you never ran
+
+`check-stop` blocks on any ledger task or phase that is not `verified` or `skipped`, so an
+entry written by something other than the current orchestrator holds completion open. Read
+the `actor` on the offending event to find the writer before deciding what it means:
+
+```bash
+~/.claude/scripts/execution-ledger.mjs reconcile
+```
+
+Two causes are common. A write from an unrelated repo shows up as an `actor.cwd` that does
+not match the ledger's own `cwd`. A write that landed in the wrong run shows up as
+`actor.session` of `default`: `init --session "$CLAUDE_SESSION_ID"` resolves an unset
+variable to the shared `default` bucket, which every session and project on the machine
+resolves to as well. Export a real `CLAUDE_SESSION_ID`, or pass an explicit `--session`,
+to keep a run in its own bucket.
+
+`reconcile` reports duplicate pointers aimed at one ledger, pointers whose ledger is gone,
+and ledgers whose `sessionId` differs from the bucket in their `runId`. Add `--apply` to
+retire the stale pointers — they move to `runs/retired-pointers/` rather than being
+deleted, and each change is recorded as a `ledger.reconciled` event. A session divergence
+is only ever recorded, never rewritten: `workflow-health.mjs` resolves a ledger by
+`sessionId` while pointers resolve by bucket, so both values have to stay as they are.

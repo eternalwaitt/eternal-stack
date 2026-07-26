@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Added
 
+- Every execution-ledger event carries an `actor` recording the session bucket it resolved to plus the writing process's pid, ppid, and cwd, so a task or phase written by something other than the current orchestrator is attributable instead of anonymous. Self-reported identity from `--actor` or `ETRNL_AGENT` is kept separately under `actor.claims`, matching the trust boundary `agent-output-contract.mjs` already applies to a self-declared `ETRNL_AGENT`.
+- `execution-ledger.mjs reconcile` reports duplicate pointers aimed at one ledger, pointers whose ledger no longer exists, and ledgers whose `sessionId` diverges from the session bucket encoded in their `runId`. `--apply` retires stale pointers into `runs/retired-pointers/` and records each change as a `ledger.reconciled` event; re-running does not restamp a standing finding.
 - `scripts/lib/private-strings.mjs` owns private-string detection for tracked artifacts, replacing four independent copies of the same pattern list in `deep-audit-artifact-check.mjs`, `tool-effectiveness.mjs`, `session-deep-dive.mjs`, and `stack-profile-check.mjs`.
 - `planned` joins `passed`, `not_applicable`, and `blocked` as an install-proof stage status and requires the gate command in its `command` field, so a plan can commit to the staged install, doctor/canary, and rollback gates it has not run yet and `/etrnl-dev-execute` upgrades each one to `passed` from the execution run.
 - `planTouchesInstallSurface()` in `scripts/lib/plan-risk-tier.mjs` reports whether a plan changes an installable surface. The tier-3 auto-escalation list is now split into install-surface patterns (`hooks/`, `scripts/install*.sh`, `scripts/update.sh`) and high-risk domain patterns (auth, payment, money, migration, tenant); their union is unchanged, so escalation behavior is identical.
@@ -17,6 +19,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - `etrnl-dev-autoplan` records install proof as `planned` while planning and `not_applicable` when no install surface is in scope, and declares the risk tier the deterministic gate requires. Escalating above that floor on judgment is still allowed but must be named as a judgment call on the `Risk tier` line rather than attributed to the readiness gate.
 
 ### Fixed
+
+- A stray task or phase written into a run ledger left no trace of its writer, so a blocked stop gate could not be diagnosed. Ledger events recorded only what changed, never who changed it, and two ledger identities were silently conflated: the pointer bucket in `runId` and the owning session in `sessionId`. Because `init --session "$CLAUDE_SESSION_ID"` resolves an unset variable to the shared `default` bucket, unrelated sessions in unrelated repositories could resolve to one another's ledger through `current-default.json` and write ids that never appeared in the plan. Events now carry actor provenance and `reconcile` retires the aliased pointers that make the collision possible.
 
 - `planTouchesInstallSurface()` now evaluates only changed paths extracted from `## File map` and `## Task groups`, so prose references to an installer no longer make a tier-3 plan reject valid `not_applicable` install proof.
 - `private-strings.mjs` now detects `file://localhost` private paths and Windows drive paths encoded in file URIs, closing absolute-path forms that bypassed artifact privacy checks.
