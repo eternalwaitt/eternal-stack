@@ -87,7 +87,7 @@ Tier ≥ 2 plans state what the declared tier costs before the task groups, and 
 
 Emit `## Tier assessment` before `## What already exists` with five lines: declared `Risk tier` and its trigger, tier cost, execution cost shape, model cost shape, and `Scope triage: <value>`. It informs the owner and never blocks `Status: Final`. Resolve the triage with `node scripts/diff-triviality.mjs classify-plan --plan <plan-path> --json` and copy the returned `scope` verbatim. Tier 3 is Large at every file count.
 
-Load `references/tier-assessment-and-model-routing.md` before writing that section, the `Scope triage:` line, or any packet model. It carries the five-line field contract, the scope triage table, the Codex model map resolved through `scripts/lib/codex-model-routing.mjs`, the rule that an omitted or inherited `model` is a packet defect rather than a fallback, and the `## Parallelization strategy` row format.
+Load `references/tier-assessment-and-model-routing.md` before writing that section, the `Scope triage:` line, or any packet model. It carries the five-line field contract, the scope triage table, the Codex model map resolved through `scripts/lib/codex-model-routing.mjs`, the rule that an omitted or inherited `model` is a packet defect rather than a fallback, the `## Parallelization strategy` row format, and the tier-3 install-proof status rules.
 
 ## Full Deep Stack Review
 
@@ -117,7 +117,7 @@ The artifact bundle records:
 - completion reconciliation for every requested outcome, including accepted risk owner for high-impact incomplete rows
 - reuse binding rows for new surfaces, including searched paths, analogs, decision, and new-surface justification
 - TypeScript trigger evidence when public/exported contracts, schemas, state machines, DTO boundaries, or reusable type utilities are touched
-- Tier 3 install proof covering source gate, staged install, staged doctor/canary, rollback verification, live-install decision, and post-upgrade canary
+- Tier 3 install proof covering source gate, staged install, staged doctor/canary, rollback verification, live-install decision, and post-upgrade canary — `planned` at plan time, `not_applicable` without an install surface, never `blocked`
 - findings ledger with severity, confidence, owner, status, fingerprint, and fix evidence
 - completion audit with `DONE`, `PARTIAL`, `NOT_DONE`, `CHANGED`, or `BLOCKED`
 - Hybrid execution risk tier, required artifacts, verification gate, and accepted risks

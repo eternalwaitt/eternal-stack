@@ -8,7 +8,7 @@ Tier ≥ 2 plans state what the declared tier costs before the task groups, and 
 
 Emit a `## Tier assessment` section in the plan, placed before `## What already exists`. It carries five lines:
 
-1. Declared `Risk tier` and the exact trigger that set it — the auto-escalation path pattern, the >8-path file map, or the product-safety surface. `scripts/lib/plan-risk-tier.mjs` (`requiresTier3Escalation`, `requiresTier2Escalation`) owns the floor, so a lower tier is not selectable by taste.
+1. Declared `Risk tier` and the exact trigger that set it — the auto-escalation path pattern, the >8-path file map, or the product-safety surface. `scripts/lib/plan-risk-tier.mjs` (`requiresTier3Escalation`, `requiresTier2Escalation`) owns the floor, so a lower tier is not selectable by taste. Escalating above the floor is a judgment call and the trigger line names it as one; attributing a self-chosen tier to the readiness gate is a plan defect, because the declared tier decides which gates the plan then has to satisfy.
 2. What the tier costs this plan: review lanes to run, artifacts to produce, and the gates that block `Status: Final`. Tier 3 adds staged install proof and rollback verification.
 3. Execution cost shape: task-group count, distinct write scopes, and the concurrent-lane cap the `## Parallelization strategy` table sets.
 4. Model cost shape: the packet count at each `modelTier`, so the owner reads the spend profile before approving.
@@ -31,6 +31,20 @@ Both Trivial conditions hold together. A two-path plan that changes behavior is 
 Tier 3 is Large at every file count. A three-path change to auth, payments, tenancy, migrations, hooks, or the installer keeps full packets and full gates. `classify-plan` fences those surfaces by path as well, so an under-declared `Risk tier:` line returns `large` with `reason=tier-3-surface-under-declared` instead of a lighter shape.
 
 A file-map row states its change nature in the `Change` column. A runtime path counts as behavioral unless its row states `no behavioral change`, `comment only`, `typo fix`, or `docs only`; an empty note resolves to behavioral. Tier 0–1 plans return `not-applicable` and run the quick-dev lane with no triage line.
+
+## Tier-3 install proof
+
+Install proof is execution evidence, not plan evidence, so a plan commits to it instead of holding it. Each stage in the deep-stack bundle's `installProof` section takes `passed`, `planned`, `not_applicable`, or `blocked`.
+
+| Plan situation | `sourceGate`, `stagedInstall`, `stagedDoctor`, `rollbackVerification` |
+| --- | --- |
+| Tier 3 changing an install surface — `hooks/`, `scripts/install*.sh`, `scripts/update.sh` | `planned`, with the command that produces each proof in `evidence`. `/etrnl-dev-execute` records `passed` from the real staged run. |
+| Tier 3 driven by auth, payment, money, migration, tenant, or other non-install risk | `not_applicable`, with evidence stating that the plan installs nothing |
+| Tier 0–2 | `not_applicable` unless the plan installs something |
+
+`blocked` never satisfies the tier-3 gate. A tier-3 plan whose only blocker is proof it cannot hold until execution is a misclassification, not a real blocker: fix the stage statuses rather than emitting `Blocked until <blocker>`.
+
+`node scripts/deep-stack-check.mjs validate-plan --plan <plan-path>` reads the plan to decide which row applies. The `validate-install-proof --artifact` and `validate-risk-tier --artifact` subcommands see no plan text, so they assume an install surface and demand `passed` or `planned`.
 
 ## Codex model map
 
