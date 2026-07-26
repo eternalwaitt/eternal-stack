@@ -1908,7 +1908,7 @@ if source_private_out="$(node "$ROOT/scripts/deep-stack-check.mjs" validate-sour
 else
   assert_contains "deep-stack source manifest rejects private paths" "$source_private_out" "SOURCE_PRIVATE_VALUE"
 fi
-assert_command "private strings detect localhost and Windows file URIs" node --input-type=module -e "import { hasPrivatePath } from '$ROOT/scripts/lib/private-strings.mjs'; if (!hasPrivatePath('file://localhost/Users/alice/x') || !hasPrivatePath('file:///C:/Users/alice/x') || hasPrivatePath('src/components/home/Nav.tsx')) process.exit(1);"
+assert_command "private strings detect localhost and Windows file URIs" node --input-type=module -e "import { hasPrivatePath } from '$ROOT/scripts/lib/private-strings.mjs'; if (!hasPrivatePath('file://localhost/Users/alice/x') || !hasPrivatePath('file://C:/Users/alice/x') || !hasPrivatePath('file:///C:/Users/alice/x') || hasPrivatePath('Users/profile/page.tsx')) process.exit(1);"
 assert_command "SECRET_PATTERN detects GitHub token prefixes" node --input-type=module -e "import { SECRET_PATTERN } from '$ROOT/scripts/lib/private-strings.mjs'; if (!['gho_abcdefghijklmnopqrstuvwxyz123456', 'ghu_abcdefghijklmnopqrstuvwxyz123456', 'ghs_abcdefghijklmnopqrstuvwxyz123456', 'github_pat_abcdefghijklmnopqrstuvwxyz123456'].every((token) => SECRET_PATTERN.test(token))) process.exit(1);"
 assert_command "deep-stack skill matrix accepts plain TypeScript negative control" node "$ROOT/scripts/deep-stack-check.mjs" validate-skills --artifact "$deep_stack_fixture"
 assert_command "deep-stack advanced TypeScript fixture validates" node "$ROOT/scripts/deep-stack-check.mjs" validate-skills --artifact "$ROOT/tests/fixtures/deep-stack/typescript.advanced-required.json"

@@ -14,14 +14,14 @@ const ABSOLUTE_PATH_TOKEN =
 
 /** Private roots, tested only against tokens already known to be absolute. */
 const PRIVATE_PATH_ROOTS = [
-  /^(?:file:\/\/(?:localhost)?\/|\/)?Users\/[^/\\\s]+/i,
+  /^(?:file:\/\/(?:localhost)?\/|\/)Users\/[^/\\\s]+/i,
   /^(?:file:\/\/)?\/home\/[^/\\\s]+/i,
   /^(?:file:\/\/)?\/root(?:[/\\]|$)/i,
   /^(?:file:\/\/)?\/Volumes\/[^/\\\s]+/i,
   /^(?:file:\/\/)?\/tmp[/\\]/i,
   /^(?:file:\/\/)?\/private\/tmp[/\\]/i,
   /^(?:file:\/\/)?\/var\/folders[/\\]/i,
-  /^(?:file:\/\/(?:localhost)?\/)?\/?[A-Za-z]:[\\/]/,
+  /^(?:file:\/\/(?:localhost)?\/?)?\/?[A-Za-z]:[\\/]/,
   /^\\\\[A-Za-z0-9_.-]+\\[A-Za-z0-9_.-]+/,
   /\/mnt\/[a-z]\/Users\/[^/\\\s]+/i,
   /\/mnt\/wsl\/[^/\\\s]+\/Users\/[^/\\\s]+/i,
