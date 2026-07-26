@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import { argValue as readArgValue } from "./lib/cli-args.mjs";
@@ -86,6 +86,17 @@ function validateLedger(ledger) {
   if (ledger.artifacts && !Array.isArray(ledger.artifacts)) errors.push("artifacts must be an array");
   if (ledger.requiredArtifacts && !Array.isArray(ledger.requiredArtifacts)) errors.push("requiredArtifacts must be an array");
   if (ledger.schemaVersion === 2 && !Array.isArray(ledger.events)) errors.push("events must be an array");
+  // Events predating actor provenance stay valid; a malformed actor does not.
+  if (Array.isArray(ledger.events)) {
+    for (const [index, event] of ledger.events.entries()) {
+      if (event?.actor === undefined) continue;
+      if (typeof event.actor !== "object" || Array.isArray(event.actor)) {
+        errors.push(`events[${index}].actor must be an object`);
+      } else if (typeof event.actor.session !== "string" || event.actor.session.length === 0) {
+        errors.push(`events[${index}].actor.session must be a non-empty string`);
+      }
+    }
+  }
   if (ledger.reviews && !Array.isArray(ledger.reviews)) errors.push("reviews must be an array");
   if (ledger.phases && !Array.isArray(ledger.phases)) errors.push("phases must be an array");
   if (ledger.tddEvidence && !Array.isArray(ledger.tddEvidence)) errors.push("tddEvidence must be an array");
@@ -339,7 +350,7 @@ function initLedger() {
     phases: [],
     waves: [],
     decisions: [],
-    events: [{ type: "ledger.init", at }],
+    events: [{ type: "ledger.init", at, actor: eventActor() }],
     continuations: { count: 0, max: 3, lastReason: "" },
   };
   writeJson(file, ledger);
@@ -420,10 +431,34 @@ function currentLedgerOrFail() {
   return file;
 }
 
+// The session label a command resolves to, computed exactly like pointerPath so an
+// event records the bucket that was actually written, not the one the caller meant.
+// An empty --session (an unset CLAUDE_SESSION_ID expanded by the shell) collapses to
+// the shared "default" bucket; recording it is what makes that collapse visible.
+function resolvedSessionLabel() {
+  return safeId(argValue("--session", process.env.CLAUDE_SESSION_ID || "default"));
+}
+
+// Ledger events are the only record of which process mutated a run. session/pid/ppid/cwd
+// come from the OS and from pointer resolution, so they hold even when the caller lies;
+// --actor and ETRNL_AGENT are self-reported, so they land under `claims` and carry the
+// same trust caveat agent-output-contract.mjs applies to a self-declared ETRNL_AGENT.
+function eventActor() {
+  const claimed = argValue("--actor", process.env.ETRNL_AGENT || "").trim();
+  return {
+    session: resolvedSessionLabel(),
+    pid: process.pid,
+    ppid: process.ppid,
+    cwd: process.cwd(),
+    ...(claimed ? { claims: claimed } : {}),
+  };
+}
+
 function appendEvent(ledger, type, payload = {}) {
   if (ledger.schemaVersion !== 2) return;
   ledger.events = ledger.events ?? [];
-  ledger.events.push({ type, at: nowIso(), ...payload });
+  // actor is spread last so a payload key cannot forge it.
+  ledger.events.push({ type, at: nowIso(), ...payload, actor: eventActor() });
 }
 
 function resolvePlanPath(ledger) {
@@ -1442,6 +1477,123 @@ function recordDecision() {
   console.log(`Decision recorded: ${topic}=${decision}`);
 }
 
+// A ledger carries two session identities that are easy to confuse: the bucket its
+// pointer was filed under (encoded in runId by init) and the Claude session that owns
+// it (`sessionId`, which workflow-health filters on for session restore). They diverge
+// when init resolves an empty --session to the shared "default" bucket. Reconcile
+// retires duplicate and dangling pointers so a stale bucket cannot hand one run's
+// ledger to an unrelated session, and records — never silently rewrites — a divergence.
+function reconcilePointers() {
+  const apply = args.includes("--apply");
+  const asJson = args.includes("--json");
+  const dir = runsDir();
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  const entries = readdirSync(dir, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".json"));
+  const pointerNames = entries.map((entry) => entry.name).filter((name) => name.startsWith("current-"));
+
+  const byTarget = new Map();
+  const findings = [];
+  for (const name of pointerNames) {
+    let target = "";
+    try {
+      target = readJson(path.join(dir, name)).path || "";
+    } catch {
+      target = "";
+    }
+    if (!target || !existsSync(target)) {
+      findings.push({ kind: "dangling-pointer", pointer: name, target, action: "retire" });
+      continue;
+    }
+    if (!byTarget.has(target)) byTarget.set(target, []);
+    byTarget.get(target).push(name);
+  }
+
+  for (const [target, pointers] of byTarget) {
+    let ledger;
+    try {
+      ledger = readJson(target);
+    } catch {
+      continue;
+    }
+    const ownerSession = safeId(ledger.sessionId || "default");
+    // runId is `run-<bucket>-<timestamp>`; the bucket is everything between them.
+    const bucket = String(ledger.runId || "").replace(/^run-/, "").replace(/-\d+$/, "");
+    if (bucket && ownerSession !== bucket) {
+      findings.push({
+        kind: "session-divergence",
+        ledger: path.basename(target),
+        sessionId: ledger.sessionId || "",
+        pointerBucket: bucket,
+        action: "record",
+      });
+    }
+    if (pointers.length < 2) continue;
+    // Keep the pointer naming the owning session when one exists; otherwise the newest,
+    // since that is the pointer an active session most recently resolved through.
+    const preferred = pointers.find((name) => name === `current-${ownerSession}.json`)
+      ?? [...pointers].sort((a, b) => pointerUpdatedAt(dir, a) - pointerUpdatedAt(dir, b)).at(-1);
+    for (const name of pointers.filter((candidate) => candidate !== preferred)) {
+      findings.push({
+        kind: "aliased-pointer",
+        pointer: name,
+        ledger: path.basename(target),
+        keeping: preferred,
+        action: "retire",
+      });
+    }
+  }
+
+  if (apply) {
+    const retiredDir = path.join(dir, "retired-pointers");
+    for (const finding of findings) {
+      if (finding.action === "retire") {
+        mkdirSync(retiredDir, { recursive: true, mode: 0o700 });
+        renameSync(path.join(dir, finding.pointer), path.join(retiredDir, `${Date.now()}-${finding.pointer}`));
+      }
+      if (finding.action === "record" || finding.kind === "aliased-pointer") {
+        const target = path.join(dir, finding.ledger);
+        if (!existsSync(target)) continue;
+        const payload = {
+          finding: finding.kind,
+          ...(finding.pointer ? { retiredPointer: finding.pointer, keptPointer: finding.keeping } : {}),
+          ...(finding.pointerBucket ? { sessionId: finding.sessionId, pointerBucket: finding.pointerBucket } : {}),
+        };
+        updateJson(target, (ledger) => {
+          // A divergence is a standing property, so re-running must not restamp it.
+          const already = (ledger.events ?? []).some((event) => event.type === "ledger.reconciled"
+            && Object.entries(payload).every(([key, value]) => event[key] === value));
+          if (already) return ledger;
+          appendEvent(ledger, "ledger.reconciled", payload);
+          ledger.updatedAt = nowIso();
+          return ledger;
+        });
+      }
+    }
+  }
+
+  if (asJson) {
+    console.log(JSON.stringify({ applied: apply, pointers: pointerNames.length, findings }, null, 2));
+    return;
+  }
+  const verb = apply ? "reconciled" : "found (dry run; pass --apply)";
+  console.log(`${findings.length} finding(s) ${verb} across ${pointerNames.length} pointer(s)`);
+  for (const finding of findings) {
+    const detail = finding.kind === "session-divergence"
+      ? `${finding.ledger}: sessionId=${finding.sessionId} pointerBucket=${finding.pointerBucket}`
+      : `${finding.pointer} -> ${finding.ledger || finding.target || "missing"}${finding.keeping ? ` (keeping ${finding.keeping})` : ""}`;
+    console.log(`  ${finding.kind}: ${detail}`);
+  }
+}
+
+function pointerUpdatedAt(dir, name) {
+  try {
+    return Date.parse(readJson(path.join(dir, name)).updatedAt || "") || 0;
+  } catch {
+    return 0;
+  }
+}
+
 function history() {
   if (args.includes("--progress")) {
     historyProgress();
@@ -1483,9 +1635,10 @@ else if (command === "record-task-bundle") recordTaskBundle();
 else if (command === "record-subagent") recordSubagent();
 else if (command === "record-trajectory") recordTrajectory();
 else if (command === "record-decision") recordDecision();
+else if (command === "reconcile") reconcilePointers();
 else if (command === "history") history();
 else {
-  console.error(`usage: execution-ledger.mjs init|validate|check-stop [--require-ledger] [--require-tasks] [--require-plan-phases]|check-bound-execute|set-task|set-phase|record-uat|record-check|require-artifact|record-artifact|record-agent|record-review|record-tdd|record-simplifier|record-specialist|record-completion-audit|record-install-proof|record-task-bundle [--file <path>]|<json-stdin>|record-trajectory --wave <id> [--recurring-finding-count <n>] [--stream-alternation-count <n>] [--rounds-since-progress <n>]|record-decision|record-subagent|history [--progress] [--renegotiation-check] [--gates] [--plan <path>] [--json]`);
+  console.error(`usage: execution-ledger.mjs init|validate|check-stop [--require-ledger] [--require-tasks] [--require-plan-phases]|check-bound-execute|set-task|set-phase|record-uat|record-check|require-artifact|record-artifact|record-agent|record-review|record-tdd|record-simplifier|record-specialist|record-completion-audit|record-install-proof|record-task-bundle [--file <path>]|<json-stdin>|record-trajectory --wave <id> [--recurring-finding-count <n>] [--stream-alternation-count <n>] [--rounds-since-progress <n>]|record-decision|record-subagent|reconcile [--apply] [--json]|history [--progress] [--renegotiation-check] [--gates] [--plan <path>] [--json]`);
   console.error(reopenCapUsageText());
   process.exit(2);
 }
