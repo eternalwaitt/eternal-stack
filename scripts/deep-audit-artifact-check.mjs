@@ -12,6 +12,7 @@ import {
   registeredCategoryIds,
 } from "./lib/deep-audit-categories.mjs";
 import { UX_FINDING_STATUS_SET, UX_FINDING_STATUSES, UX_SEVERITIES, UX_SEVERITY_SET } from "./lib/ux-finding-taxonomy.mjs";
+import { hasPrivateString } from "./lib/private-strings.mjs";
 
 const args = process.argv.slice(2);
 const command = args[0] || "help";
@@ -136,25 +137,6 @@ function objectEntries(value) {
 
 function hasOwn(object, key) {
   return Object.prototype.hasOwnProperty.call(object, key);
-}
-
-function hasPrivateString(value) {
-  const patterns = [
-    /\/Users\//,
-    /\/home\//,
-    /\/Volumes\//,
-    /~\//,
-    /\/tmp\//,
-    /\/var\/folders\//,
-    /[A-Za-z]:\\/,
-    /\\\\[A-Za-z0-9_.-]+\\[A-Za-z0-9_.-]+/,
-    /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i,
-    /\b(sk|pk|ghp|gho|ghu|ghs|github_pat)_[A-Za-z0-9_]{12,}\b/,
-    /\bsk-(?:proj-)?[A-Za-z0-9_-]{12,}\b/,
-    /\b[A-Z0-9_]*(TOKEN|API_KEY|SECRET|PASSWORD)[A-Z0-9_]*=/,
-    /-----BEGIN [A-Z ]*PRIVATE KEY-----/,
-  ];
-  return typeof value === "string" && patterns.some((pattern) => pattern.test(value));
 }
 
 function walkStrings(value, visit, jsonPath = "$") {

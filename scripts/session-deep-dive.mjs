@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { argValue } from "./lib/cli-args.mjs";
 import { gitSubprocessLimits } from "./lib/env-utils.mjs";
+import { hasPrivatePath, redactPrivatePaths, SECRET_PATTERN } from "./lib/private-strings.mjs";
 
 const args = process.argv.slice(2);
 const jsonMode = args.includes("--json");
@@ -15,9 +16,6 @@ const codexRoot = expandHome(argValue(args, "--codex-root", root || "~/.codex/se
 const sinceDays = Number(argValue(args, "--since-days", fixtureRoot ? "0" : "10")) || 0;
 const cutoffMs = sinceDays > 0 ? Date.now() - sinceDays * 24 * 60 * 60 * 1000 : 0;
 
-const SECRET_PATTERN = /sk-(proj-|ant-)?[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9_]{20,}|glpat-[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9-]{20,}|npm_[A-Za-z0-9]{20,}|\b(?:AKIA|ASIA|OCI)[A-Z0-9]{12,}\b|Bearer\s+[A-Za-z0-9._-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----/i;
-const PRIVATE_PATH_PATTERN = /(?:\/Users\/[^/"\s]+|\/home\/[^/"\s]+|\/root(?:\/|["\s]|$)|[A-Za-z]:\\\\Users\\\\[^\\/"\s]+)/;
-const REDACT_PATH_PATTERN = /(?:\/Users\/[^/"\s]+(?:\/[^"'\s]*)?|\/home\/[^/"\s]+(?:\/[^"'\s]*)?|\/root(?:\/[^"'\s]*)?|[A-Za-z]:\\\\Users\\\\[^\\/"\s]+(?:\\\\[^"'\s]*)?)/g;
 const RAW_TEXT_FIELD_PATTERN = /"(?:promptText|rawPrompt|transcriptText|toolResultBody|messageText)"\s*:/;
 
 function expandHome(value) {
@@ -30,7 +28,7 @@ function usage() {
   process.exit(2);
 }
 function redactPrivate(value) {
-  return String(value || "").replace(REDACT_PATH_PATTERN, "<private-path>");
+  return redactPrivatePaths(value);
 }
 function listFiles(dir, out = []) {
   if (!dir || !existsSync(dir)) return out;
@@ -102,7 +100,7 @@ function toolNames(raw) {
 }
 function hasPrivateMaterial(raw) {
   const text = JSON.stringify(raw);
-  return SECRET_PATTERN.test(text) || PRIVATE_PATH_PATTERN.test(text) || RAW_TEXT_FIELD_PATTERN.test(text);
+  return SECRET_PATTERN.test(text) || hasPrivatePath(text) || RAW_TEXT_FIELD_PATTERN.test(text);
 }
 function toolEvent(raw, file, seq, contentItem = null) {
   const names = contentItem?.name ? [contentItem.name] : toolNames(raw);
@@ -277,7 +275,7 @@ function summarize() {
 }
 function assertOutputSafe(report) {
   const text = JSON.stringify(report);
-  if (SECRET_PATTERN.test(text) || PRIVATE_PATH_PATTERN.test(text) || RAW_TEXT_FIELD_PATTERN.test(text)) {
+  if (SECRET_PATTERN.test(text) || hasPrivatePath(text) || RAW_TEXT_FIELD_PATTERN.test(text)) {
     throw new Error("session deep-dive output failed privacy guard");
   }
 }

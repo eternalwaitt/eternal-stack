@@ -10,16 +10,24 @@ export const RISK_TIER_DEFINITIONS = [
   "Tier 3: hooks, installed-home changes, auth, money, security, migrations, data loss risk, or broad Eternal Stack behavior; full deep stack plus staged install and rollback proof.",
 ];
 
-const AUTO_ESCALATE_TIER3_PATTERNS = [
+// Tier 3 has two independent causes, and only one of them owes install proof:
+// an install surface can be staged, doctored, and rolled back, while high-risk
+// domain work has no install to stage.
+const INSTALL_SURFACE_PATTERNS = [
   /\bhooks\//i,
   /\bscripts\/install[^/\s]*\.sh\b/i,
   /\bscripts\/update\.sh\b/i,
+];
+
+const HIGH_RISK_DOMAIN_PATTERNS = [
   /\bauth\b/i,
   /\bpayment\b/i,
   /\bmoney\b/i,
   /\bmigration\b/i,
   /\btenant\b/i,
 ];
+
+const AUTO_ESCALATE_TIER3_PATTERNS = [...INSTALL_SURFACE_PATTERNS, ...HIGH_RISK_DOMAIN_PATTERNS];
 
 const SCOPE_DRIFT_KEYWORDS = [
   { label: "receipt store", pattern: /\breceipt store\b/i, goalWord: "receipt" },
@@ -138,6 +146,15 @@ function planTier3Haystack(planText) {
 export function requiresTier3Escalation(planText) {
   const haystack = Array.isArray(planText) ? planText.join("\n") : planTier3Haystack(planText);
   return AUTO_ESCALATE_TIER3_PATTERNS.some((pattern) => pattern.test(haystack));
+}
+
+/**
+ * Reports whether a plan changes an installable surface, which decides whether
+ * a tier-3 plan owes staged-install and rollback proof at all.
+ */
+export function planTouchesInstallSurface(planText) {
+  const haystack = Array.isArray(planText) ? planText.join("\n") : collectPlanFilePaths(planText).join("\n");
+  return INSTALL_SURFACE_PATTERNS.some((pattern) => pattern.test(haystack));
 }
 
 export function requiresTier2Escalation(filePaths) {

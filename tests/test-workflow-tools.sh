@@ -831,6 +831,13 @@ deep_audit_token_body="abcdefghijklmnopqrstuvwxyz123456"
 jq --arg token "$deep_audit_token_prefix$deep_audit_token_body" '.findings = [{"evidence": ("redaction fixture " + $token)}]' "$ROOT/tests/fixtures/deep-audit/report.production-valid.json" >"$deep_audit_private_token_fixture"
 deep_audit_private_token_json="$(node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$deep_audit_private_token_fixture" --json 2>/dev/null || true)"
 assert_json_expr "deep-audit private token redaction catches sk-proj" "$deep_audit_private_token_json" 'any(.errors[]; .errorCode == "PRIVATE_STRING")'
+deep_audit_repo_path_fixture="$TMPROOT/deep-audit-repo-relative-path.json"
+jq '.findings = [{"evidence": "src/components/home/Nav.tsx:26; src/pages/home/useHomeState.ts:192; src/tmp/cache.ts:4"}]' "$ROOT/tests/fixtures/deep-audit/report.production-valid.json" >"$deep_audit_repo_path_fixture"
+assert_command "deep-audit repo-relative home paths are not private strings" node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$deep_audit_repo_path_fixture"
+deep_audit_abs_home_fixture="$TMPROOT/deep-audit-absolute-home-path.json"
+jq '.findings = [{"evidence": "captured at /home/testuser/project/src/Nav.tsx:26"}]' "$ROOT/tests/fixtures/deep-audit/report.production-valid.json" >"$deep_audit_abs_home_fixture"
+deep_audit_abs_home_json="$(node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$deep_audit_abs_home_fixture" --json 2>/dev/null || true)"
+assert_json_expr "deep-audit absolute home paths remain private strings" "$deep_audit_abs_home_json" 'any(.errors[]; .errorCode == "PRIVATE_STRING")'
 security_missing_evidence_fixture="$TMPROOT/deep-audit-security-missing-evidence.json"
 jq '.categoryReports |= map(if .categoryId == "security" then (.checks[0].nonFindings = {}) else . end)' "$ROOT/tests/fixtures/deep-audit/report.valid.json" >"$security_missing_evidence_fixture"
 security_missing_evidence_json="$(node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$security_missing_evidence_fixture" --json 2>/dev/null || true)"
@@ -1901,6 +1908,8 @@ if source_private_out="$(node "$ROOT/scripts/deep-stack-check.mjs" validate-sour
 else
   assert_contains "deep-stack source manifest rejects private paths" "$source_private_out" "SOURCE_PRIVATE_VALUE"
 fi
+assert_command "private strings detect localhost and Windows file URIs" node --input-type=module -e "import { hasPrivatePath } from '$ROOT/scripts/lib/private-strings.mjs'; if (!hasPrivatePath('file://localhost/Users/alice/x') || !hasPrivatePath('file://C:/Users/alice/x') || !hasPrivatePath('file:///C:/Users/alice/x') || hasPrivatePath('Users/profile/page.tsx')) process.exit(1);"
+assert_command "SECRET_PATTERN detects GitHub token prefixes" node --input-type=module -e "import { SECRET_PATTERN } from '$ROOT/scripts/lib/private-strings.mjs'; if (!['gho_abcdefghijklmnopqrstuvwxyz123456', 'ghu_abcdefghijklmnopqrstuvwxyz123456', 'ghs_abcdefghijklmnopqrstuvwxyz123456', 'github_pat_abcdefghijklmnopqrstuvwxyz123456'].every((token) => SECRET_PATTERN.test(token))) process.exit(1);"
 assert_command "deep-stack skill matrix accepts plain TypeScript negative control" node "$ROOT/scripts/deep-stack-check.mjs" validate-skills --artifact "$deep_stack_fixture"
 assert_command "deep-stack advanced TypeScript fixture validates" node "$ROOT/scripts/deep-stack-check.mjs" validate-skills --artifact "$ROOT/tests/fixtures/deep-stack/typescript.advanced-required.json"
 if reuse_out="$(node "$ROOT/scripts/deep-stack-check.mjs" validate-reuse --artifact "$ROOT/tests/fixtures/deep-stack/reuse.missing-justification.json" 2>&1)"; then
@@ -1952,6 +1961,39 @@ if bad_install_proof_out="$(node "$ROOT/scripts/deep-stack-check.mjs" validate-i
   not_ok "deep-stack Tier 3 install proof requires staged proof"
 else
   assert_contains "deep-stack Tier 3 install proof requires staged proof" "$bad_install_proof_out" "INSTALL_PROOF_TIER3_STAGE"
+fi
+planned_install_proof_artifact="$TMPROOT/deep-stack-planned-install-proof.json"
+jq '(.riskTier.tier = 3) | (.installProof.sourceGate.status = "planned") | (.installProof.stagedInstall.status = "planned") | (.installProof.stagedDoctor.status = "planned") | (.installProof.rollbackVerification.status = "planned") | (.installProof.sourceGate.command = "node scripts/source-gate.mjs") | (.installProof.stagedInstall.command = "bash scripts/install.sh") | (.installProof.stagedDoctor.command = "bash scripts/doctor.sh") | (.installProof.rollbackVerification.command = "bash scripts/rollback.sh")' "$deep_stack_fixture" >"$planned_install_proof_artifact"
+assert_command "deep-stack Tier 3 install proof accepts planned stages" node "$ROOT/scripts/deep-stack-check.mjs" validate-install-proof --artifact "$planned_install_proof_artifact"
+missing_planned_command_artifact="$TMPROOT/deep-stack-missing-planned-command.json"
+jq 'del(.installProof.stagedInstall.command)' "$planned_install_proof_artifact" >"$missing_planned_command_artifact"
+if missing_planned_command_out="$(node "$ROOT/scripts/deep-stack-check.mjs" validate-install-proof --artifact "$missing_planned_command_artifact" 2>&1)"; then
+  not_ok "deep-stack planned install proof requires command"
+else
+  assert_contains "deep-stack planned install proof requires command" "$missing_planned_command_out" "INSTALL_PROOF_PLANNED_COMMAND"
+fi
+blocked_install_proof_artifact="$TMPROOT/deep-stack-blocked-install-proof.json"
+jq '(.riskTier.tier = 3) | (.installProof.stagedInstall.status = "blocked") | (.installProof.stagedDoctor.status = "blocked") | (.installProof.rollbackVerification.status = "blocked")' "$deep_stack_fixture" >"$blocked_install_proof_artifact"
+if blocked_install_proof_out="$(node "$ROOT/scripts/deep-stack-check.mjs" validate-install-proof --artifact "$blocked_install_proof_artifact" 2>&1)"; then
+  not_ok "deep-stack Tier 3 install proof rejects blocked stages"
+else
+  assert_contains "deep-stack Tier 3 install proof rejects blocked stages" "$blocked_install_proof_out" "INSTALL_PROOF_TIER3_STAGE"
+fi
+tier3_surface_dir="$TMPROOT/tier3-install-surface"
+mkdir -p "$tier3_surface_dir"
+jq '(.riskTier.tier = 3)' "$deep_stack_fixture" >"$tier3_surface_dir/deep-stack.valid.json"
+tier3_no_install_plan="$tier3_surface_dir/plan-no-install.md"
+cp "$ROOT/tests/fixtures/deep-stack/plan.deep-stack.valid.md" "$tier3_no_install_plan"
+perl -0pi -e 's/^Goal: (.*)$/Goal: $1 Mentions scripts\/install.sh only as prior-art context./m; s/^Risk tier: 2\b.*$/Risk tier: 3 - judgment call citing scripts\/install.sh, with no installable surface in scope./m' "$tier3_no_install_plan"
+assert_command "deep-stack tier 3 ignores install paths mentioned only in prose" node "$ROOT/scripts/deep-stack-check.mjs" validate-plan --plan "$tier3_no_install_plan"
+tier3_install_plan="$tier3_surface_dir/plan-install.md"
+cp "$ROOT/tests/fixtures/deep-stack/plan.deep-stack.valid.md" "$tier3_install_plan"
+perl -0pi -e 's/^Risk tier: 2\b.*$/Risk tier: 3 - installed stop-verifier hook change./m' "$tier3_install_plan"
+perl -0pi -e 's{^- scripts/deep-stack-check\.mjs: validates deep-stack artifacts\.$}{- hooks/cc-stop-verifier.sh: installed hook changed by this plan.}m' "$tier3_install_plan"
+if tier3_install_out="$(node "$ROOT/scripts/deep-stack-check.mjs" validate-plan --plan "$tier3_install_plan" 2>&1)"; then
+  not_ok "deep-stack tier 3 with install surface still demands staged proof"
+else
+  assert_contains "deep-stack tier 3 with install surface still demands staged proof" "$tier3_install_out" "INSTALL_PROOF_TIER3_STAGE"
 fi
 if risk_before_review_out="$(node "$ROOT/scripts/deep-stack-check.mjs" validate-risk-tier --artifact "$ROOT/tests/fixtures/deep-stack/risk-tier.before-review.json" 2>&1)"; then
   not_ok "deep-stack risk tier requires passed deep review"

@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { validatePlanScopeFreeze } from "./plan-risk-tier.mjs";
+import { planTouchesInstallSurface, validatePlanScopeFreeze } from "./plan-risk-tier.mjs";
 
 const HIGH_SEVERITIES = new Set(["blocker", "critical", "high", "p0", "p1"]);
 const TERMINAL_FINDING_STATUSES = new Set(["fixed", "closed", "resolved", "disproven", "false-positive", "false_positive", "accepted"]);
@@ -9,7 +9,7 @@ const VALID_COMPLETION = new Set(["DONE", "PARTIAL", "NOT_DONE", "CHANGED", "BLO
 const REVIEW_PHASES = ["ceo", "engineering", "dx", "adversarial", "specialist", "reuse", "simplifier"];
 const VALID_REVIEW_PHASE_STATUSES = new Set(["passed", "not_applicable", "blocked"]);
 const VALID_TDD_STATUSES = new Set(["red_green_verified", "not_test_first_possible_with_reason", "not_applicable"]);
-const VALID_INSTALL_STAGE_STATUSES = new Set(["passed", "not_applicable", "blocked"]);
+const VALID_INSTALL_STAGE_STATUSES = new Set(["passed", "planned", "not_applicable", "blocked"]);
 const INSTALL_PROOF_STAGES = ["sourceGate", "stagedInstall", "stagedDoctor", "rollbackVerification", "liveInstallDecision", "postUpgradeCanary"];
 const ADVANCED_TS_SURFACES = new Set([
   "exported-types",
@@ -227,7 +227,12 @@ export function validateDeepStackPlanText(planText, options = {}) {
       errors: [error("DEEP_ARTIFACT_INVALID_JSON", artifactPath, "$", `Artifact is not valid JSON: ${err.message}`, "Fix the JSON syntax in the artifact file.")],
     };
   }
-  return validateBundle(artifact, { ...options, artifactPath, planPath });
+  return validateBundle(artifact, {
+    ...options,
+    artifactPath,
+    planPath,
+    installSurfaceInScope: planTouchesInstallSurface(planText),
+  });
 }
 
 /**
@@ -240,6 +245,7 @@ export function validateBundle(artifact, options = {}) {
     artifactPath: options.artifactPath || "<artifact>",
     planPath: options.planPath || artifact?.planPath || "",
     requiredAcceptor: options.requiredAcceptor || "repository owner",
+    installSurfaceInScope: options.installSurfaceInScope !== false,
   };
   if (!artifact || typeof artifact !== "object" || Array.isArray(artifact)) {
     return { ok: false, errors: [error("DEEP_ARTIFACT_INVALID_JSON", context.artifactPath, "$", "Artifact must be a JSON object.", "Replace it with a deep-stack artifact object.")] };
@@ -405,9 +411,10 @@ export function validateRiskTier(riskTier, context = {}, errors = []) {
   if (!Array.isArray(riskTier.requiredArtifacts)) errors.push(error("RISK_TIER_ARTIFACTS", context.artifactPath, "riskTier.requiredArtifacts", "Risk tier must list required artifacts.", "Add requiredArtifacts as an array."));
   requireString(riskTier.verificationGate, "riskTier.verificationGate", "RISK_TIER_VERIFICATION", context, errors);
   if (riskTier.tier === 3) {
+    const accepted = tier3InstallStatuses(context.installSurfaceInScope);
     for (const [field, code] of [["stagedInstall", "RISK_TIER3_STAGED_INSTALL"], ["rollbackVerification", "RISK_TIER3_ROLLBACK"]]) {
-      if (riskTier?.[field]?.status !== "passed" && context.installProof?.[field]?.status !== "passed") {
-        errors.push(error(code, context.artifactPath, `riskTier.${field}.status`, "Tier 3 requires staged install and rollback verification.", "Run staged install, staged doctor/canary, and rollback verification before live install."));
+      if (!accepted.has(riskTier?.[field]?.status) && !accepted.has(context.installProof?.[field]?.status)) {
+        errors.push(error(code, context.artifactPath, `riskTier.${field}.status`, "Tier 3 requires staged install and rollback verification.", tier3InstallFix(context.installSurfaceInScope)));
       }
     }
   }
@@ -426,6 +433,26 @@ function validateDeepReview(deepReview, context, errors) {
 
 function sectionRequired(riskTier, artifactName) {
   return Array.isArray(riskTier?.requiredArtifacts) && riskTier.requiredArtifacts.includes(artifactName);
+}
+
+/**
+ * Staged install, doctor, and rollback proof are execution evidence, so a plan
+ * commits to them with `planned` and the execution run upgrades them to
+ * `passed`. Plans with no install surface settle them as `not_applicable`.
+ * An unknown install surface stays strict so standalone artifact checks and
+ * completed-run checks keep failing closed.
+ */
+function tier3InstallStatuses(installSurfaceInScope) {
+  return installSurfaceInScope === false
+    ? new Set(["passed", "planned", "not_applicable"])
+    : new Set(["passed", "planned"]);
+}
+
+function tier3InstallFix(installSurfaceInScope) {
+  if (installSurfaceInScope === false) {
+    return "This plan changes no install surface: set these stages to not_applicable with evidence saying so.";
+  }
+  return "Set these stages to planned with the gate command while planning, then to passed once the staged install, doctor/canary, and rollback runs are recorded.";
 }
 
 /**
@@ -588,7 +615,8 @@ export function validateTypeTriggerEvidence(typeTriggerEvidence, riskTier = {}, 
 
 /**
  * Validates source, staged, rollback, live-decision, and canary install proof
- * records, with tier 3 changes requiring passed staged proof.
+ * records. Tier 3 needs staged proof planned at plan time and passed once the
+ * install runs, or not_applicable when the plan changes no install surface.
  */
 export function validateInstallProof(installProof, riskTier = {}, context = {}, errors = []) {
   if (installProof === undefined && !sectionRequired(riskTier, "installProof") && riskTier?.tier !== 3) return errors;
@@ -603,15 +631,19 @@ export function validateInstallProof(installProof, riskTier = {}, context = {}, 
       continue;
     }
     if (!VALID_INSTALL_STAGE_STATUSES.has(row.status)) {
-      errors.push(error("INSTALL_PROOF_STAGE_STATUS", context.artifactPath, `installProof.${stage}.status`, "Install proof stage status is invalid.", "Use passed, not_applicable, or blocked."));
+      errors.push(error("INSTALL_PROOF_STAGE_STATUS", context.artifactPath, `installProof.${stage}.status`, "Install proof stage status is invalid.", "Use passed, planned, not_applicable, or blocked."));
     }
     requireString(row.evidence, `installProof.${stage}.evidence`, "INSTALL_PROOF_STAGE_EVIDENCE", context, errors);
+    if (row.status === "planned") {
+      requireString(row.command, `installProof.${stage}.command`, "INSTALL_PROOF_PLANNED_COMMAND", context, errors);
+    }
     rejectPrivateStrings(row, `installProof.${stage}`, context, errors);
   }
   if (riskTier?.tier === 3) {
+    const accepted = tier3InstallStatuses(context.installSurfaceInScope);
     for (const stage of ["sourceGate", "stagedInstall", "stagedDoctor", "rollbackVerification"]) {
-      if (installProof?.[stage]?.status !== "passed") {
-        errors.push(error("INSTALL_PROOF_TIER3_STAGE", context.artifactPath, `installProof.${stage}.status`, "Tier 3 changes require passed source, staged, doctor, and rollback proof.", "Run the staged install, doctor/canary, and rollback gates before marking Tier 3 executable."));
+      if (!accepted.has(installProof?.[stage]?.status)) {
+        errors.push(error("INSTALL_PROOF_TIER3_STAGE", context.artifactPath, `installProof.${stage}.status`, "Tier 3 changes require source, staged, doctor, and rollback proof.", tier3InstallFix(context.installSurfaceInScope)));
       }
     }
   }
