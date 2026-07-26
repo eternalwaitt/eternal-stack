@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fs from "node:fs";
 import path from "node:path";
+import { hasPrivatePath } from "./lib/private-strings.mjs";
 
 const args = process.argv.slice(2);
 const jsonMode = args.includes("--json");
@@ -49,13 +50,7 @@ function hasSecretLookingText(value) {
 }
 
 function hasPrivateHomePath(value) {
-  const normalized = String(value).replace(/\\/g, "/");
-  return /\/Users\/[^/\s]+/i.test(normalized) ||
-    /^[A-Za-z]:\/Users\/[^/\s]+/i.test(normalized) ||
-    /\/mnt\/[a-z]\/Users\/[^/\s]+/i.test(normalized) ||
-    /\/mnt\/wsl\/[^/\s]+\/Users\/[^/\s]+/i.test(normalized) ||
-    /\/home\/[^/\s]+/i.test(normalized) ||
-    /^\/root(?:\/|$)/i.test(normalized);
+  return hasPrivatePath(String(value));
 }
 
 function walk(value, trail = [], visit) {

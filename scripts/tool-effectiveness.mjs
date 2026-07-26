@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { homedir } from "node:os";
 import path from "node:path";
 import { compactHandoff, readEvents } from "./lib/etrnl-state-core.mjs";
+import { hasPrivatePath, SECRET_PATTERN } from "./lib/private-strings.mjs";
 
 const args = process.argv.slice(2);
 const command = args.find((arg) => !arg.startsWith("--")) || "help";
@@ -19,12 +20,6 @@ const configuredPrivateProjectNames = (process.env.ETRNL_TOOL_EFFECTIVENESS_PRIV
 const privateProjectPattern = configuredPrivateProjectNames.length > 0
   ? new RegExp(`\\b(${configuredPrivateProjectNames.map(escapeRegex).join("|")})\\b`)
   : null;
-/**
- * Secret-looking payloads rejected before import: OpenAI/Anthropic keys, GitHub/GitLab tokens,
- * Slack/npm tokens, cloud access keys, Bearer tokens, and PEM private keys.
- */
-const SECRET_PATTERN = /sk-(proj-|ant-)?[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9_]{20,}|glpat-[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9-]{20,}|npm_[A-Za-z0-9]{20,}|\b(?:AKIA|ASIA|OCI)[A-Z0-9]{12,}\b|Bearer\s+[A-Za-z0-9._-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----/i;
-const PRIVATE_HOME_PATH_PATTERN = /(?:\/Users\/[^/"\s]+|\/home\/[^/"\s]+|\/root(?:\/|["\s]|$)|[A-Za-z]:\\\\Users\\\\[^\\/"\s]+)/;
 const PRIVATE_TRANSCRIPT_PATH_PATTERN = /(?:\.codex\/sessions|\.claude\/projects|\.codex\\\\sessions|\.claude\\\\projects)/;
 const sinceDays = Number(flagValue("--since-days", "0"));
 const cwdFilter = flagValue("--cwd");
@@ -85,7 +80,7 @@ function privacyReason(value) {
   if (SECRET_PATTERN.test(text)) return "secret-looking-token";
   if (/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.test(text)) return "private-identity";
   if (/(postgres|mysql|mongodb|redis):\/\/[^/\s:@]+:[^@\s]+@/i.test(text)) return "credential-url";
-  if (PRIVATE_HOME_PATH_PATTERN.test(text)) return "private-home-path";
+  if (hasPrivatePath(text)) return "private-home-path";
   if (PRIVATE_TRANSCRIPT_PATH_PATTERN.test(text)) return "private-transcript-path";
   if (privateProjectPattern?.test(text)) return "private-project-name";
   return "";
