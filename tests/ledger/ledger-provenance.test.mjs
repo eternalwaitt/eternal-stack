@@ -91,6 +91,12 @@ test("validate rejects a malformed actor but accepts events written before prove
   const bad = ledger(runs, ["validate", file]);
   assert.equal(bad.status, 1);
   assert.match(bad.stderr, /actor must be an object/);
+
+  legacy.events = [{ type: "ledger.init", at: "2026-01-01T00:00:00Z", actor: null }];
+  writeFileSync(file, JSON.stringify(legacy));
+  const nullActor = ledger(runs, ["validate", file]);
+  assert.equal(nullActor.status, 1);
+  assert.match(nullActor.stderr, /actor must be an object/);
 });
 
 function seedAliasedRuns(runs) {

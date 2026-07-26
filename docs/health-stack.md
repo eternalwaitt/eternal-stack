@@ -140,7 +140,6 @@ node scripts/diff-triviality.mjs classify --git --json
 node scripts/diff-triviality.mjs classify-plan --plan <plan-path> --json
 node scripts/execution-ledger.mjs history --gates --plan <plan-path> --json
 node scripts/execution-ledger.mjs reconcile
-node scripts/execution-ledger.mjs reconcile --apply
 node scripts/codex-rollout-baseline.mjs --rollout <rollout.jsonl> --json
 node scripts/codex-rollout-baseline.mjs baseline --rollout <rollout.jsonl>
 node scripts/codex-rollout-baseline.mjs trend --before <baseline.json> --after <baseline.json>

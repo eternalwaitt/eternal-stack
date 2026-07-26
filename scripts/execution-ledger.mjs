@@ -90,7 +90,7 @@ function validateLedger(ledger) {
   if (Array.isArray(ledger.events)) {
     for (const [index, event] of ledger.events.entries()) {
       if (event?.actor === undefined) continue;
-      if (typeof event.actor !== "object" || Array.isArray(event.actor)) {
+      if (typeof event.actor !== "object" || event.actor === null || Array.isArray(event.actor)) {
         errors.push(`events[${index}].actor must be an object`);
       } else if (typeof event.actor.session !== "string" || event.actor.session.length === 0) {
         errors.push(`events[${index}].actor.session must be a non-empty string`);
@@ -322,7 +322,7 @@ function completionErrors(ledger, options = {}) {
 
 function initLedger() {
   const sessionId = argValue("--session", process.env.CLAUDE_SESSION_ID || "default");
-  const runId = `run-${safeId(sessionId)}-${Date.now()}`;
+  const runId = `run-${resolvedSessionLabel()}-${Date.now()}`;
   const file = path.join(runsDir(), `${runId}.json`);
   const cwd = path.resolve(argValue("--cwd", process.cwd()));
   const at = nowIso();
