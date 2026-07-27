@@ -141,7 +141,7 @@ Prompt context:
 Compact suggestion:
 
 - `ETRNL_COMPACT_SUGGEST=0` disables the PreToolUse advisory that recommends checkpointing and compacting a large context window.
-- `ETRNL_COMPACT_WINDOW_TOKENS` sets the assumed context window; default is `200000` tokens. The threshold is a share of this window, so lowering it makes the advisory fire earlier.
+- `ETRNL_COMPACT_WINDOW_TOKENS` pins the context window and overrides every other source. Left unset, the window is resolved per session: the host's `CLAUDE_CODE_MAX_CONTEXT_TOKENS`, then a `context_window.context_window_size` on the event payload, then the session model — `1000000` for the 1M generations (`claude-opus-4-7` and newer, `claude-sonnet-5`, `claude-fable-5`, `claude-mythos-*`) and for any model carrying a `[1m]` suffix, `200000` otherwise. `CLAUDE_CODE_DISABLE_1M_CONTEXT=1` is honored and keeps the `200000` assumption. The threshold is a share of the window, so a smaller window makes the advisory fire earlier.
 - `ETRNL_COMPACT_SUGGEST_PERCENT` sets the share of the window that triggers the advisory; default is `75` percent.
 - `ETRNL_COMPACT_SUGGEST_INTERVAL_SEC` debounces repeats within a session; default is `900` seconds. Set to `0` to advise on every matching tool call.
 - `ETRNL_COMPACT_SUGGEST_DIR` overrides the per-session debounce stamp directory.

@@ -160,7 +160,9 @@ Fail-closed when strict hooks are enabled and internal guard logic errors occur.
 
 Advisory only — never blocks. Re-sent context, not generation, dominates token cost, so this hook nudges toward a deliberate checkpoint before the window is carried forward indefinitely.
 
-Reads the live context size from the event payload (`context.used_tokens`, or a `usage` block summing input, both cache buckets, and output) and falls back to the newest assistant `usage` entry in the transcript. Only the last `ETRNL_TRANSCRIPT_SCAN_BYTES` of a large transcript are scanned.
+Reads the live context size from the event payload (`context.used_tokens`, `context_window.total_input_tokens`, or a `usage` block summing input, both cache buckets, and output) and falls back to the newest assistant entry in the transcript. Claude Code sends none of these to `PreToolUse` today, so the transcript is the normal source; the same pass reads the session model. Only the last `ETRNL_TRANSCRIPT_SCAN_BYTES` of a large transcript are scanned.
+
+The window is resolved per session rather than assumed, because a fixed size is wrong for whichever model generation it was not written for: `ETRNL_COMPACT_WINDOW_TOKENS`, then `CLAUDE_CODE_MAX_CONTEXT_TOKENS`, then a payload `context_window.context_window_size`, then the model (1M for the native-1M generations and for a `[1m]` suffix, 200k otherwise). Usage cannot exceed the real window, so an inferred window below the observed count is widened instead of reporting an over-budget session, and the reported percentage never exceeds 100.
 
 The threshold is a percentage of the window rather than a fixed count, so a smaller `ETRNL_COMPACT_WINDOW_TOKENS` trips earlier. Once fired, a per-session stamp under `ETRNL_COMPACT_SUGGEST_DIR` debounces repeats for `ETRNL_COMPACT_SUGGEST_INTERVAL_SEC`; the stamp is checked before any transcript read, so the common path stays cheap.
 
