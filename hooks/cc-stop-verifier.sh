@@ -112,6 +112,67 @@ cc_trivial_nonruntime_diff() {
   jq -e '.trivial == true' <<<"$verdict" >/dev/null 2>&1
 }
 
+# The stale-verification gate only has cause to fire for changes the last green
+# run no longer describes. When every path edited AFTER that run is non-runtime
+# (documentation, asset, metadata), the verified executable state is unchanged
+# and re-running the suite proves nothing new — that friction is what made the
+# gate fire on "fix code, run tests, update the changelog" turns, because
+# cc_trivial_nonruntime_diff classifies the whole worktree and any earlier code
+# change (or unrelated dirty file) keeps the fast-path shut. Scope is the only
+# difference: same classifier, same fail-safe direction — no classifier, no
+# node, no git root, an empty list, or any runtime path leaves the gate in force.
+cc_post_verification_edits_nonruntime() {
+  local paths="$1"
+  local classifier="$SCRIPT_DIR/../scripts/diff-triviality.mjs"
+  [[ -n "${paths//[[:space:]]/}" ]] || return 1
+  [[ -f "$classifier" ]] || return 1
+  command -v node >/dev/null 2>&1 || return 1
+  command -v git >/dev/null 2>&1 || return 1
+  local root verdict
+  root="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)" || return 1
+  [[ -n "$root" ]] || return 1
+  verdict="$(printf '%s\n' "$paths" | node "$classifier" classify --root "$root" --stdin-json --json 2>/dev/null)" || return 1
+  jq -e '.trivial == true' <<<"$verdict" >/dev/null 2>&1
+}
+
+# Name the paths and the gate so the agent can re-run the one command that went
+# stale instead of re-running every gate in the project.
+cc_stale_verification_detail() {
+  local paths="$1"
+  local root line shown="" total=0 last_run detail=""
+  root="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null || true)"
+  while IFS= read -r line; do
+    [[ -n "${line//[[:space:]]/}" ]] || continue
+    total=$((total + 1))
+    if (( total <= 5 )); then
+      # Recorded edits are absolute and may use a different symlink spelling of
+      # the root than git reports (macOS /tmp vs /private/tmp), so try both
+      # prefixes and fall back to the absolute path.
+      [[ -z "$root" ]] || line="${line#"$root/"}"
+      [[ -z "$cwd" ]] || line="${line#"$cwd/"}"
+      shown="${shown:+$shown }$line"
+    fi
+  done <<<"$paths"
+  if (( total > 0 )); then
+    detail=" Changed after the last recorded verification: $shown"
+    if (( total > 5 )); then
+      detail="$detail (+$((total - 5)) more)"
+    fi
+    detail="$detail."
+  fi
+  last_run="$(jq -r '
+    [.verificationRuns[]?, .qualityRuns[]?, .testRuns[]?, .browserRuns[]?]
+    | map(select((.at // "") != ""))
+    | sort_by(.at)
+    | last
+    | if . == null then "" else "\(.value // "") (\(.at // ""))" end
+  ' <<<"$state" 2>/dev/null || true)"
+  if [[ -n "${last_run// /}" && "$last_run" != " ()" ]]; then
+    detail="$detail Last recorded verification: $last_run."
+  fi
+  printf '%s' "$detail"
+}
+
 if violation="$(cc_evidence_discipline_violation "$message")"; then
   cc_state_append_value evidenceDisciplineViolations "$violation"
   python3 "$SCRIPT_DIR/cc-hindsight-lesson.py" >/dev/null 2>&1 &
@@ -564,7 +625,9 @@ if [[ "$claims_done" == "true" ]]; then
     exit 0
   fi
   # Current state stores edits as path -> timestamp; older state may use {at}.
-  timestamp_status="$(printf '%s' "$state" | CLAUDE_GUARD_CWD="$cwd" python3 -c '
+  # The checker prints its verdict on the first line; a "stale" verdict adds one
+  # line per path edited after the last recorded verification.
+  timestamp_output="$(printf '%s' "$state" | CLAUDE_GUARD_CWD="$cwd" python3 -c '
 import json
 import os
 import re
@@ -573,6 +636,13 @@ from datetime import datetime, timezone
 
 quality_re = re.compile(r"(^|[\s;&|])(tsc|eslint|oxlint|biome|prettier|typecheck|lint|test|build|pytest|ruff|mypy|pyright|cargo\s+(test|clippy|build|check)|go\s+(test|vet)|composer\s+test)([\s;&|]|$)|(pnpm|npm|yarn|bun)\s+(run\s+)?(typecheck|lint|test|build|check)([\s;&|]|$)", re.I)
 test_re = re.compile(r"(^|[\s;&|])(test|pytest|vitest|jest|mocha|ava|tap|cargo\s+test|go\s+test|composer\s+test)([\s;&|]|$)|(pnpm|npm|yarn|bun)\s+(run\s+)?test([\s;&|]|$)", re.I)
+# Mirrors cc_command_runs_project_gate_script / cc_command_runs_project_health_gate
+# for repos whose gates are scripts (`bash tests/test-hooks.sh`,
+# `bash scripts/doctor.sh`) rather than package-manager tasks. No primary-token
+# check is needed here: this only re-classifies commands the observer already
+# accepted as verification runs.
+project_gate_re = re.compile(r"(^|[\s;&|/])tests?/[^\s;&|]*\.(sh|bash|zsh|mjs|cjs|js|ts|py)([\s;&|]|$)|(^|[\s;&|])node(\s+[^\s;&|]+)*\s+--test([\s;&|]|$)", re.I)
+health_gate_re = re.compile(r"(^|[\s;&|/])doctor\.(sh|bash)([\s;&|]|$)", re.I)
 source_re = re.compile(r"\.(js|jsx|ts|tsx|mjs|cjs|py|rs|go|php|rb|java|kt|swift|sh|bash|zsh)$", re.I)
 test_path_re = re.compile(r"(\.test\.|\.spec\.|/tests?/|__tests__)", re.I)
 exempt_re = re.compile(r"(/(node_modules|dist|build|coverage|\.next|generated|__generated__|migrations)/|\.md$)", re.I)
@@ -596,11 +666,40 @@ def latest_run(items):
             values.append(epoch)
     return max(values, default=0)
 
-def classified_runs(state, bucket, pattern):
+def classified_runs(state, bucket, *patterns):
     runs = list(state.get(bucket) or [])
     if runs:
         return runs
-    return [item for item in state.get("verificationRuns") or [] if pattern.search(str(item.get("value") or ""))]
+    return [
+        item for item in state.get("verificationRuns") or []
+        if any(pattern.search(str(item.get("value") or "")) for pattern in patterns)
+    ]
+
+# Every state timestamp is second-granular (`date -u +%Y-%m-%dT%H:%M:%SZ`), so an
+# edit and a verification recorded in the same second tie and read as "the run
+# came first". editGeneration is the exact ordering signal: it bumps on every
+# non-exempt source edit, and commandLastEditGeneration stores its value at the
+# moment each command was recorded. A run still carrying the current generation
+# therefore had no source edit after it. Used only to break exact ties, never as
+# a general freshness source: a blocked re-run of the same command overwrites
+# that entry with a later generation.
+def run_generation_current(state, runs):
+    current = state.get("editGeneration")
+    if not isinstance(current, (int, float)) or isinstance(current, bool):
+        return False
+    generations = state.get("commandLastEditGeneration") or {}
+    for item in runs:
+        recorded = generations.get(str(item.get("value") or ""))
+        if isinstance(recorded, (int, float)) and not isinstance(recorded, bool) and recorded == current:
+            return True
+    return False
+
+def ran_after(state, latest_run_epoch, latest_edit_epoch, runs):
+    if latest_run_epoch > latest_edit_epoch:
+        return True
+    if latest_run_epoch and latest_run_epoch == latest_edit_epoch:
+        return run_generation_current(state, runs)
+    return False
 
 def project_has_tests(cwd):
     if not cwd or not os.path.isdir(cwd):
@@ -621,6 +720,7 @@ def project_has_tests(cwd):
 try:
     state = json.load(sys.stdin)
     edits = []
+    edit_entries = []
     source_edits = []
     non_test_source_edits = []
     test_edits = []
@@ -630,6 +730,7 @@ try:
         if epoch is None:
             continue
         edits.append(epoch)
+        edit_entries.append((epoch, str(path)))
         normalized = str(path).replace("\\", "/")
         if source_re.search(normalized) and not exempt_re.search(normalized):
             source_edits.append(epoch)
@@ -651,25 +752,40 @@ else:
     latest_source_edit = max(source_edits, default=0)
     latest_non_test_source_edit = max(non_test_source_edits, default=0)
     latest_test_edit = max(test_edits, default=0)
-    latest_quality = latest_run(classified_runs(state, "qualityRuns", quality_re))
-    latest_test = latest_run(classified_runs(state, "testRuns", test_re))
+    quality_runs = classified_runs(state, "qualityRuns", quality_re, project_gate_re, health_gate_re)
+    test_runs = classified_runs(state, "testRuns", test_re, project_gate_re)
+    latest_quality = latest_run(quality_runs)
+    latest_test = latest_run(test_runs)
     cwd = os.environ.get("CLAUDE_GUARD_CWD", "")
     if latest_edit and (not latest_verify or latest_edit > latest_verify):
+        # Paths follow the verdict so the caller can classify them: an edit set
+        # that is entirely non-runtime after the last green run leaves the
+        # verified behavior intact, and the caller drops the block for it.
         print("stale")
-    elif latest_source_edit and latest_quality <= latest_source_edit:
+        for _, path in sorted(set(
+            (epoch, path) for epoch, path in edit_entries if not latest_verify or epoch > latest_verify
+        )):
+            print(path)
+    elif latest_source_edit and not ran_after(state, latest_quality, latest_source_edit, quality_runs):
         print("missing-quality")
-    elif latest_test_edit and latest_test <= latest_test_edit:
+    elif latest_test_edit and not ran_after(state, latest_test, latest_test_edit, test_runs):
         print("missing-tests")
-    elif latest_non_test_source_edit and project_has_tests(cwd) and latest_test <= latest_non_test_source_edit:
+    elif latest_non_test_source_edit and project_has_tests(cwd) and not ran_after(state, latest_test, latest_non_test_source_edit, test_runs):
         print("missing-tests")
     else:
         print("fresh")
 ')"
+  timestamp_status="${timestamp_output%%$'\n'*}"
+  stale_paths=""
+  if [[ "$timestamp_status" == "stale" && "$timestamp_output" == *$'\n'* ]]; then
+    stale_paths="${timestamp_output#*$'\n'}"
+  fi
   if [[ "$timestamp_status" == malformed:* ]]; then
     cc_json_block "Guard state contains malformed verification timestamps. Re-run the project preflight so stale-verification checks can compare ISO timestamps safely."
     exit 0
   fi
-  if [[ "$trivial_diff" != "true" && "$timestamp_status" == "stale" ]]; then
+  if [[ "$trivial_diff" != "true" && "$timestamp_status" == "stale" ]] \
+    && ! cc_post_verification_edits_nonruntime "$stale_paths"; then
     current_tree_hash="$(cc_worktree_hash "$cwd")"
     last_green_tree_hash=""
     if [[ -n "${stop_status_json:-}" ]] && jq -e . >/dev/null 2>&1 <<<"${stop_status_json:-}"; then
@@ -679,7 +795,7 @@ else:
       last_green_tree_hash="$(cc_ledger_latest_verification_tree_hash "$(cc_session_id)")"
     fi
     if ! cc_tree_hash_verification_fresh "$current_tree_hash" "$last_green_tree_hash"; then
-      cc_json_block "You are trying to claim completion with stale verification. Edits happened after the last recorded verification. Re-run the project preflight or the plan's final verification gate, then answer with evidence."
+      cc_json_block "You are trying to claim completion with stale verification.$(cc_stale_verification_detail "$stale_paths") Re-run that gate (or the project preflight), then answer with evidence."
       exit 0
     fi
   fi

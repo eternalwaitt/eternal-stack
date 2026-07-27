@@ -2,7 +2,9 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { PR_BODY_TEMPLATE, validatePrDescription } from "./lib/pr-description-contract.mjs";
+import { classifyReleaseRisk } from "./lib/release-controls.mjs";
 import { readStdinJson, readStdinRaw } from "./lib/read-stdin.mjs";
+import { ensureReleaseControls } from "./release-controls-init.mjs";
 
 const args = process.argv.slice(2);
 const command = args[0] || "status";
@@ -68,6 +70,33 @@ function packageManagerGate() {
   return "";
 }
 
+function gitRepoRoot() {
+  const gitRoot = run("git", ["rev-parse", "--show-toplevel"]);
+  return gitRoot.ok ? gitRoot.stdout : process.cwd();
+}
+
+function autoEnsureReleaseControls(changedFiles) {
+  const releaseClass = classifyReleaseRisk({ changedFiles });
+  if (releaseClass === "routine") {
+    return { releaseClass, bootstrap: { ok: true, action: "skipped", reason: "routine release class" } };
+  }
+  const bootstrap = ensureReleaseControls(gitRepoRoot(), { releaseClass });
+  return { releaseClass, bootstrap };
+}
+
+function bootstrapWarnings(bootstrap) {
+  const warnings = [];
+  if (bootstrap.action === "init") {
+    const installed = (bootstrap.initResult?.results ?? [])
+      .filter((row) => row.status === "installed")
+      .map((row) => row.rel);
+    if (installed.length > 0) {
+      warnings.push(`release controls auto-bootstrapped: ${installed.join(", ")} — include in this PR/commit`);
+    }
+  }
+  return warnings;
+}
+
 function gitChangedFiles() {
   const porcelain = splitLines(run("git", ["status", "--porcelain"]).stdout);
   return porcelain.filter((line) => !line.startsWith("?? ")).map((line) => porcelainPath(line)).filter(Boolean);
@@ -108,6 +137,8 @@ function status() {
       }
     }
   }
+  const { releaseClass, bootstrap } = autoEnsureReleaseControls(changedFiles);
+  warnings.push(...bootstrapWarnings(bootstrap));
   emit({
     schemaVersion: 1,
     command: "status",
@@ -121,6 +152,8 @@ function status() {
     existingPr,
     checkSummary,
     suggestedLocalGate: packageManagerGate(),
+    releaseClass,
+    releaseControlsBootstrap: bootstrap,
     blockers,
     warnings,
   });
@@ -164,6 +197,7 @@ function template() {
 function validateBody() {
   const payload = readStdinJson({ required: true });
   const changedFiles = Array.isArray(payload.changedFiles) ? payload.changedFiles : gitChangedFiles();
+  const { releaseClass, bootstrap } = autoEnsureReleaseControls(changedFiles);
   const result = validatePrDescription(
     {
       title: payload.title,
@@ -172,14 +206,17 @@ function validateBody() {
     },
     { strict },
   );
+  const warnings = [...result.warnings, ...bootstrapWarnings(bootstrap)];
   emit({
     schemaVersion: 1,
     command: "validate-body",
     ok: result.ok,
+    releaseClass: result.releaseClass ?? releaseClass,
     shippingSensitive: result.shippingSensitive,
     largePr: result.largePr,
+    releaseControlsBootstrap: bootstrap,
     blockers: result.blockers,
-    warnings: result.warnings,
+    warnings,
   });
   process.exit(result.ok ? 0 : 1);
 }

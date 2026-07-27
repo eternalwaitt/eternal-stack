@@ -60,6 +60,8 @@ Sequential implementation, no parallelization opportunity.
 
 ## Rollback
 
+- Rollback command: `git revert HEAD && bash tests/test-hooks.sh`
+- Observability: `plan_readiness.pass` metric and structured log at readiness-check boundary.
 - Restore previous skill files from git.
 
 ## Execution handoff

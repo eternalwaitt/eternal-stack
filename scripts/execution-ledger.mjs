@@ -490,7 +490,7 @@ function doneReviewsForLineage(ledger, taskId, reviewer, lineageId) {
 }
 
 function reopenCapUsageText() {
-  return "Reopen counting rule: the first record-review with status verified/completed for a task+reviewer+lineageId is the initial pass (not a reopen); each later record-review for the same triple after a verified/completed row is one reopen round. Tier 0-2 allows 2 reopen rounds; tier 3 allows 4; unknown tier defaults to 3. Pass --override-owner-approved \"<reason>\" to exceed the cap.";
+  return "Reopen counting rule: the first record-review with status verified/completed for a task+reviewer+lineageId is the initial pass (not a reopen); each later record-review for the same triple after a verified/completed row is one reopen round. Tier 0-2 allows 2 reopen rounds; tier 3 allows 4; unknown tier defaults to 3. A finding that is not P0/P1 at the cap is a residual: record it as a non-blocking note and close the stream instead of reopening. Pass --override-owner-approved \"<reason>\" only for a P0/P1 that survived every round.";
 }
 
 function assertReviewReopenAllowed(ledger, { taskId, reviewer, lineageId, overrideReason }) {

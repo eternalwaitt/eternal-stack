@@ -741,6 +741,87 @@ pr_body_bad_json='{"title":"Update stuff","body":"## Summary\nonly tech","change
 pr_body_bad_out="$(printf '%s' "$pr_body_bad_json" | node "$ROOT/scripts/pr-preflight.mjs" validate-body --json 2>/dev/null || true)"
 assert_json_expr "pr preflight validate-body rejects thin shipping-sensitive body" "$pr_body_bad_out" '.ok == false and (.blockers | length) > 0'
 assert_command "pr preflight template emits skeleton" bash -c "node \"\$0/scripts/pr-preflight.mjs\" template | rg -q '## TL;DR'" "$ROOT"
+assert_command "release controls lib syntax" node --check "$ROOT/scripts/lib/release-controls.mjs"
+assert_command "release controls init syntax" node --check "$ROOT/scripts/release-controls-init.mjs"
+assert_command "release controls classify routine" node --input-type=module -e "
+import { classifyReleaseRisk, requirementsFor } from './scripts/lib/release-controls.mjs';
+const c = classifyReleaseRisk({ changedFiles: ['docs/README.md'] });
+if (c !== 'routine') process.exit(1);
+const req = requirementsFor('guarded', { flagProvider: 'none', observabilityPlatform: 'none' });
+if (!req.artifacts.some((a) => a.id === 'rollback_command')) process.exit(2);
+"
+assert_command "release controls classify guarded traffic path" node --input-type=module -e "
+import { classifyReleaseRisk } from './scripts/lib/release-controls.mjs';
+if (classifyReleaseRisk({ changedFiles: ['app/api/webhooks/route.ts'] }) !== 'guarded') process.exit(1);
+"
+release_init_repo="$TMPROOT/release-init-repo"
+mkdir -p "$release_init_repo"
+printf '%s\n' '{"name":"release-fixture","private":true}' >"$release_init_repo/package.json"
+release_init_dry="$(node "$ROOT/scripts/release-controls-init.mjs" init "$release_init_repo" --dry-run --json)"
+assert_json_expr "release controls init dry-run plans manifest" "$release_init_dry" '.ok == true and (.results | length) >= 3'
+node "$ROOT/scripts/release-controls-init.mjs" init "$release_init_repo" --json >/dev/null
+assert_file "release controls init writes manifest" "$release_init_repo/.etrnl/release.json"
+assert_command "release controls init check passes after init" node "$ROOT/scripts/release-controls-init.mjs" check "$release_init_repo"
+assert_command "release controls ensure skips eternal-stack repo" node --input-type=module -e "
+import { ensureReleaseControls } from './scripts/release-controls-init.mjs';
+const result = ensureReleaseControls(process.argv[1], { releaseClass: 'migration' });
+if (result.action !== 'skipped') throw new Error(JSON.stringify(result));
+" "$ROOT"
+release_auto_repo="$TMPROOT/release-auto-repo"
+rm -rf "$release_auto_repo"
+mkdir -p "$release_auto_repo"
+printf '%s\n' '{"name":"auto-release","private":true}' >"$release_auto_repo/package.json"
+release_auto_out="$(node --input-type=module -e "
+import { ensureReleaseControls } from './scripts/release-controls-init.mjs';
+const result = ensureReleaseControls(process.argv[1], { releaseClass: 'guarded' });
+process.stdout.write(JSON.stringify(result));
+" "$release_auto_repo")"
+assert_json_expr "release controls ensure bootstraps fresh app repo" "$release_auto_out" '.action == "init" and .ok == true'
+pr_body_guarded='## TL;DR
+Webhook handler.
+
+## Why this matters
+Reliable delivery.
+
+## What changes
+### Adding
+- webhook route
+
+## Impact
+- **Users / customers:** faster sync
+- **Operators / support:** metric on failures
+- **Risk:** low
+
+## Out of scope
+- retries v2
+
+## Technical notes
+- **Observability:** webhook_received.count metric and structured log at boundary
+
+## Rollout & rollback
+- **Rollout:** deploy to canary tenant via RELEASE_STAGE=canary
+- **Rollback:** `git revert HEAD && pnpm build`
+- **Breaking changes:** none
+
+## Verification / test plan
+```bash
+pnpm test
+```
+- Result: pass
+'
+pr_body_guarded_json="$(node -e 'const fs=require("fs"); process.stdout.write(JSON.stringify({title:"feat(webhooks): add inbound handler",body:fs.readFileSync(0,"utf8"),changedFiles:["app/api/webhooks/route.ts"]}))' <<<"$pr_body_guarded")"
+assert_command "pr preflight validate-body accepts guarded release body" bash -c "printf '%s' \"\$1\" | node \"\$0/scripts/pr-preflight.mjs\" validate-body --json >/dev/null" "$ROOT" "$pr_body_guarded_json"
+pr_auto_repo="$TMPROOT/pr-auto-bootstrap-repo"
+rm -rf "$pr_auto_repo"
+mkdir -p "$pr_auto_repo"
+printf '%s\n' '{"name":"pr-auto-release","private":true}' >"$pr_auto_repo/package.json"
+pr_auto_body_json="$(node -e 'process.stdout.write(JSON.stringify({title:"feat(api): webhook",body:process.argv[1],changedFiles:["app/api/webhooks/route.ts"]}))' "$pr_body_guarded")"
+(cd "$pr_auto_repo" && git init -q -b main && git config user.email test@example.com && git config user.name Test && git add package.json && git commit -qm init >/dev/null)
+pr_auto_validate="$(cd "$pr_auto_repo" && printf '%s' "$pr_auto_body_json" | node "$ROOT/scripts/pr-preflight.mjs" validate-body --json)"
+assert_json_expr "pr preflight auto-bootstraps release controls for guarded PR" "$pr_auto_validate" '.releaseControlsBootstrap.action == "init"'
+pr_body_guarded_thin_json='{"title":"feat(api): add route","body":"## TL;DR\nx\n\n## Why this matters\nx\n\n## What changes\n### Adding\n- route\n\n## Impact\n- **Users / customers:** x\n\n## Rollout & rollback\n- **Rollback:** revert later\n\n## Verification / test plan\n```bash\npnpm test\n```\n- Result: pass\n","changedFiles":["app/api/foo/route.ts"]}'
+pr_body_guarded_thin_out="$(printf '%s' "$pr_body_guarded_thin_json" | node "$ROOT/scripts/pr-preflight.mjs" validate-body --json 2>/dev/null || true)"
+assert_json_expr "pr preflight validate-body rejects thin guarded rollback" "$pr_body_guarded_thin_out" '.ok == false and (.blockers | join(" ") | test("rollback command"))'
 perf_baseline_fixture="$TMPROOT/performance-baseline.json"
 printf '%s\n' '{"schemaVersion":1,"baselineId":"base","targetLabel":"fixture","measurements":[{"route":"/","durationMs":100,"responseBytes":1000,"capturedAt":"2026-01-01T00:00:00Z"},{"route":"/removed","durationMs":75,"responseBytes":500,"capturedAt":"2026-01-01T00:00:00Z"}],"nextRun":{"command":"pnpm bench","thresholds":{"maxRegressionPct":20}}}' >"$perf_baseline_fixture"
 assert_command "performance baseline validates fixture" node "$ROOT/scripts/performance-baseline.mjs" validate "$perf_baseline_fixture"
@@ -3461,6 +3542,27 @@ else
   ok "review-merge rejects --wave without --trajectory"
 fi
 assert_json_expr "review-merge reports no trajectory source when none is passed" "$(node "$ROOT/scripts/review-merge.mjs" --file "$tg12_findings")" '.park.parked == false and .park.trajectoryStatus == "not-provided"'
+
+# Loop end disposition: a spent cap or a park must resolve mechanically, so the
+# only path that reaches the user is a P0/P1 that survived every round.
+tg12_blocking_findings="$tg12_dir/blocking-findings.json"
+cat >"$tg12_blocking_findings" <<'JSON'
+[
+  {"reviewer":"etrnl-quality-reviewer","severity":"P1","confidence":0.90,"file":"src/a.ts","line":9,"fingerprint":"fp-blocker","summary":"Resolver accepts traversal input","autofix_class":"manual"}
+]
+JSON
+tg12_cap_at() { node "$ROOT/scripts/review-merge.mjs" --file "$1" --reopen-round "$2" --reopen-cap "$3"; }
+
+assert_json_expr "review-merge closes a clean loop with rounds remaining" "$(tg12_cap_at "$tg12_findings" 1 4)" '.capDecision.decision == "close" and .capDecision.loopEnded == false and .capDecision.ownerDecisionRequired == false'
+assert_json_expr "review-merge reopens a blocking loop with rounds remaining" "$(tg12_cap_at "$tg12_blocking_findings" 1 4 || true)" '.capDecision.decision == "reopen" and .capDecision.ownerDecisionRequired == false and .capDecision.blockingCount == 1'
+tg12_residual_at_cap="$(tg12_cap_at "$tg12_zero_findings" 4 4)"
+assert_json_expr "review-merge proceeds autonomously when the cap ends on non-blocking findings" "$tg12_residual_at_cap" '.capDecision.decision == "proceed-with-residuals" and .capDecision.ownerDecisionRequired == false and .capDecision.loopEndReasons == ["reopen-cap-exhausted"] and .capDecision.residualCount == 1'
+assert_command "review-merge exits 0 on a residual-only cap exhaustion" node "$ROOT/scripts/review-merge.mjs" --file "$tg12_zero_findings" --reopen-round 4 --reopen-cap 4
+tg12_owner_at_cap="$(tg12_cap_at "$tg12_blocking_findings" 4 4 || true)"
+assert_json_expr "review-merge escalates only a surviving P0/P1 at the cap" "$tg12_owner_at_cap" '.capDecision.decision == "owner-decision" and .capDecision.ownerDecisionRequired == true and .capDecision.blockingFingerprints == ["fp-blocker"]'
+assert_contains "review-merge names the stream-only scope of an owner decision" "$tg12_owner_at_cap" "stop this task or stream only"
+assert_json_expr "review-merge treats a park as a loop end for non-blocking findings" "$(tg12_park wave-stalled)" '.capDecision.decision == "proceed-with-residuals" and .capDecision.loopEndReasons == ["rounds-since-progress-limit"]'
+assert_contains "review-merge markdown states the loop end decision" "$(node "$ROOT/scripts/review-merge.mjs" --file "$tg12_zero_findings" --reopen-round 4 --reopen-cap 4 --markdown)" "Decision: proceed-with-residuals"
 
 tg12_rules_root="$tg12_dir/rules-root"
 mkdir -p "$tg12_rules_root/src"

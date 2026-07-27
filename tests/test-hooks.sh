@@ -1020,6 +1020,59 @@ stale_stop="$(jq -cn '{session_id:"fixture-stale",last_assistant_message:"Done, 
 out="$(run_hook cc-stop-verifier.sh "$stale_stop")"
 assert_contains "stop verifier blocks stale verification" "$out" "stale verification"
 
+# Staleness is scoped to the edits that landed AFTER the last green run. A repo
+# whose working tree still carries runtime changes keeps the whole-tree
+# triviality fast-path shut, so a pass here proves the scoped classification —
+# not the fast-path — cleared the gate. The negative control below edits a
+# runtime file after the run and must still block, naming path and gate.
+scoped_stale_repo="$TMPROOT/scoped-stale-repo"
+mkdir -p "$scoped_stale_repo/src" "$scoped_stale_repo/docs"
+git -C "$scoped_stale_repo" init -q
+printf 'export const value = 2;\n' >"$scoped_stale_repo/src/app.ts"
+printf '# Guide\n' >"$scoped_stale_repo/docs/guide.md"
+scoped_stale_state="$TMPROOT/claude-guard-fixture-scoped-stale.json"
+jq -nc --arg src "$scoped_stale_repo/src/app.ts" --arg doc "$scoped_stale_repo/docs/guide.md" '{schemaVersion:4,reads:{},searches:{},edits:{($src):"2026-01-01T00:00:01Z",($doc):"2026-01-01T00:00:03Z"},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[{value:"pnpm test",at:"2026-01-01T00:00:02Z"}],qualityRuns:[{value:"pnpm test",at:"2026-01-01T00:00:02Z"}],testRuns:[{value:"pnpm test",at:"2026-01-01T00:00:02Z"}],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:false,planExecutionRequestedAt:"",lastPrompt:"",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$scoped_stale_state"
+scoped_stale_stop="$(jq -cn --arg root "$scoped_stale_repo" '{session_id:"fixture-scoped-stale",cwd:$root,last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$scoped_stale_stop")"
+if [[ -z "$out" ]]; then ok "docs-only edit after a green run is not stale verification"; else not_ok "docs-only edit after a green run should not be stale: $out"; fi
+
+jq --arg src "$scoped_stale_repo/src/app.ts" '.edits[$src] = "2026-01-01T00:00:04Z"' "$scoped_stale_state" >"$scoped_stale_state.tmp" && mv "$scoped_stale_state.tmp" "$scoped_stale_state"
+out="$(run_hook cc-stop-verifier.sh "$scoped_stale_stop")"
+assert_contains "runtime edit after a green run is still stale" "$out" "stale verification"
+assert_contains "stale block names the changed path" "$out" "src/app.ts"
+assert_contains "stale block names the last verification" "$out" "pnpm test"
+
+# Every state timestamp is second-granular, so an edit and a verification in the
+# same second tie. editGeneration breaks the tie; without that evidence the gate
+# stays in force.
+tie_state="$TMPROOT/claude-guard-fixture-tie.json"
+jq -nc --arg src "$TMPROOT/example/src/app.ts" '{schemaVersion:4,reads:{},searches:{},edits:{($src):"2026-01-01T00:00:02Z"},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[{value:"pnpm test",at:"2026-01-01T00:00:02Z"}],qualityRuns:[{value:"pnpm test",at:"2026-01-01T00:00:02Z"}],testRuns:[{value:"pnpm test",at:"2026-01-01T00:00:02Z"}],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:1,commandLastEditGeneration:{"pnpm test":1},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:false,planExecutionRequestedAt:"",lastPrompt:"",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$tie_state"
+tie_stop="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-tie",cwd:$root,last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$tie_stop")"
+if [[ -z "$out" ]]; then ok "same-second run at the current edit generation counts as fresh"; else not_ok "same-second run at the current edit generation should be fresh: $out"; fi
+jq '.commandLastEditGeneration = {"pnpm test":0}' "$tie_state" >"$tie_state.tmp" && mv "$tie_state.tmp" "$tie_state"
+out="$(run_hook cc-stop-verifier.sh "$tie_stop")"
+assert_contains "same-second run from an older generation still blocks" "$out" "without real quality verification"
+
+# Project-native gate scripts are verification; reading one is not.
+project_gate_quality="$(bash -c 'source "$1"; cc_command_is_quality_verification "$2"; echo $?' _ "$ROOT/hooks/lib/command-classifiers.sh" "bash tests/test-hooks.sh")"
+if [[ "$project_gate_quality" == "0" ]]; then ok "project test script counts as quality verification"; else not_ok "project test script should count as quality verification: got '$project_gate_quality'"; fi
+project_gate_test="$(bash -c 'source "$1"; cc_command_is_test_verification "$2"; echo $?' _ "$ROOT/hooks/lib/command-classifiers.sh" "bash tests/test-hooks.sh")"
+if [[ "$project_gate_test" == "0" ]]; then ok "project test script counts as test verification"; else not_ok "project test script should count as test verification: got '$project_gate_test'"; fi
+project_health_quality="$(bash -c 'source "$1"; cc_command_is_quality_verification "$2"; echo $?' _ "$ROOT/hooks/lib/command-classifiers.sh" "bash scripts/doctor.sh --changed")"
+if [[ "$project_health_quality" == "0" ]]; then ok "project health gate counts as quality verification"; else not_ok "project health gate should count as quality verification: got '$project_health_quality'"; fi
+project_health_test="$(bash -c 'source "$1"; cc_command_is_test_verification "$2"; echo $?' _ "$ROOT/hooks/lib/command-classifiers.sh" "bash scripts/doctor.sh --changed")"
+if [[ "$project_health_test" == "1" ]]; then ok "project health gate is not a test run"; else not_ok "project health gate should not count as a test run: got '$project_health_test'"; fi
+project_gate_read="$(bash -c 'source "$1"; cc_command_is_quality_verification "$2"; echo $?' _ "$ROOT/hooks/lib/command-classifiers.sh" "rg -n echo tests/test-hooks.sh")"
+if [[ "$project_gate_read" == "1" ]]; then ok "searching a gate script is not verification"; else not_ok "searching a gate script should not be verification: got '$project_gate_read'"; fi
+node_test_quality="$(bash -c 'source "$1"; cc_command_is_test_verification "$2"; echo $?' _ "$ROOT/hooks/lib/command-classifiers.sh" "node --test tests/unit")"
+if [[ "$node_test_quality" == "0" ]]; then ok "node --test counts as test verification"; else not_ok "node --test should count as test verification: got '$node_test_quality'"; fi
+
+gate_run_event="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-project-gate",tool_name:"Bash",status:"success",cwd:$root,tool_input:{command:"bash tests/test-hooks.sh"}}')"
+run_hook cc-posttoolbatch-observer.sh "$gate_run_event" >/dev/null || true
+gate_run_state="$(jq -c . "$TMPROOT/claude-guard-fixture-project-gate.json")"
+assert_json_expr "observer records project gate run as verification" "$gate_run_state" '(.verificationRuns | length) == 1 and (.qualityRuns | length) == 1 and (.testRuns | length) == 1'
+
 # Schema-edit migration evidence matrix
 schema_missing_state="$TMPROOT/claude-guard-fixture-schema-missing.json"
 jq -nc '{schemaVersion:2,reads:{},searches:{},edits:{"/tmp/example/prisma/schema.prisma":"2026-01-01T00:00:01Z"},commands:[],failures:[],skillCalls:[],requestedSkills:[],evidenceChallenges:[],evidenceDisciplineViolations:[],verificationRuns:[{value:"pnpm test",at:"2026-01-01T00:00:02Z"}],qualityRuns:[{value:"pnpm test",at:"2026-01-01T00:00:02Z"}],testRuns:[{value:"pnpm test",at:"2026-01-01T00:00:02Z"}],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],blockedCommands:[],successfulCommands:[],commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"",lastCompactSummary:"",cwd:"",settingsFingerprint:"",startedAt:""}' >"$schema_missing_state"

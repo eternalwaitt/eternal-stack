@@ -22,9 +22,26 @@ Run parallel reviewers after the final edit of a task or wave, merge findings on
 2. A review loop whose merged finding count did not decrease between rounds is stalled: park it, record a blocker, and continue other work.
 3. Reopen caps are enforced by `execution-ledger.mjs record-review`:
    - Tier 0–2: at most 2 reopen rounds per task+reviewer+lineageId, then record remaining findings as non-blocking notes and proceed.
-   - Tier 3 (auth, money, migrations, tenancy, security): reopen until clean, capped at 4 rounds; a still-open blocker at the cap stops the wave for a repository-owner decision (`--override-owner-approved`).
+   - Tier 3 (auth, money, migrations, tenancy, security): reopen until clean, capped at 4 rounds.
    - Reopen only when code changed for a P0/P1 blocker; never reopen on finding-churn alone.
    - Counting rule matches the ledger error text: the first verified/completed review for a task+reviewer+lineageId is the initial pass; each later verified/completed row for the same triple is one reopen round.
+   - What happens at the cap is decided by `## Loop end disposition`, not by asking the user.
+
+## Loop end disposition
+
+A spent reopen cap and a tripped park counter both end the loop. Severity decides what happens next, and the merged artifact already computes it: read `capDecision` and run the branch it names. Never derive this decision by hand, and never open a user prompt to obtain it.
+
+| `capDecision.decision` | Meaning | Run this |
+| --- | --- | --- |
+| `close` | No blocking findings, loop still open | Close the task or wave. |
+| `reopen` | P0/P1 open, rounds remain | Fix, then re-run only the covering lenses. |
+| `proceed-with-residuals` | Loop ended, no P0/P1 open | Record every residual as a non-blocking note, close the stream, continue. |
+| `owner-decision` | Loop ended, P0/P1 still open | Escalate per the rules below. |
+
+1. `proceed-with-residuals` is autonomous on every tier, tier 3 included. A finding that is not P0/P1 at the cap is a residual by definition — cosmetic, misleading, or incomplete output is a residual, not a blocker — so record it, keep the fingerprint, and move on. Asking the user to authorize another round here is a workflow defect, not caution.
+2. Before an `owner-decision` escalation, dispatch `etrnl-investigator` once on the open blocker and re-merge. Escalate only when the blocker survives that pass.
+3. An `owner-decision` stops the named task or stream only. Independent task groups keep running; a plan does not halt because one stream is parked. Park the stream per rule 6 below and continue the rest of the plan before reporting.
+4. When escalation is genuinely required, report the `capDecision.blockingFingerprints`, the fix attempted in each round, and the exact `record-review --override-owner-approved "<reason>"` command. Do not ask the user to judge severity, choose a path, or approve "one more cycle" in free text — the owner is confirming an override, not doing the triage.
 
 ## Trajectory park thresholds
 
@@ -35,7 +52,7 @@ Reopen caps bound the worst case. Trajectory counters end a loop that stopped co
    - `streamAlternationCount` — hand-offs between review streams on one task.
    - `roundsSinceProgress` — rounds since the merged finding count last fell.
 2. Read them back with `node scripts/execution-ledger.mjs history --gates --json`, which emits `.waves[]` rows carrying `waveId` and the three counters.
-3. Evaluate the park decision inside synthesis: `node scripts/review-merge.mjs --file <findings.json> --trajectory <gates.json> --wave <id> --reopen-round <used> --reopen-cap <cap>`. The merged report carries a `park` object.
+3. Evaluate the park decision inside synthesis: `node scripts/review-merge.mjs --file <findings.json> --trajectory <gates.json> --wave <id> --reopen-round <used> --reopen-cap <cap>`. The merged report carries a `park` object and the `capDecision` that acts on it. Pass `--reopen-round` and `--reopen-cap` on every synthesis run at tier 3 — without them the merge cannot see a spent cap and reports `close` where the loop actually ended.
 4. Park the stream when `park.parked` is true. Each limit is a named constant with an env override:
 
    | Counter | Limit | Env override | Reason code |
@@ -45,7 +62,7 @@ Reopen caps bound the worst case. Trajectory counters end a loop that stopped co
    | `roundsSinceProgress` | 2 | `ETRNL_REVIEW_ROUNDS_SINCE_PROGRESS_LIMIT` | `rounds-since-progress-limit` |
 
 5. Any single tripped counter parks the stream while reopen rounds remain: `park.reopenCapExhausted` reports `false` in that case and the loop stops anyway.
-6. On a park, record a blocker naming every `park.reasons[].reasonCode`, keep the open findings as non-blocking notes, and continue other work. Reopen that stream only after an owner decision logged with `node scripts/execution-ledger.mjs record-decision`.
+6. On a park, record a blocker naming every `park.reasons[].reasonCode`, keep the open findings as non-blocking notes, and continue other work. `capDecision` decides what follows: `proceed-with-residuals` closes that stream with the residuals recorded, and only `owner-decision` requires a decision logged with `node scripts/execution-ledger.mjs record-decision`.
 
 ## Adaptive reviewer skip
 

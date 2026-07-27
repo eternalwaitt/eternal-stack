@@ -178,18 +178,59 @@ cc_command_is_verification() {
   cc_command_is_quality_verification "$1"
 }
 
+# A repo whose gates are scripts rather than package-manager tasks — this one
+# included (`bash tests/test-hooks.sh`, `bash scripts/doctor.sh`) — matches none
+# of the patterns below: the bare `test` token needs word boundaries that
+# `tests/test-hooks.sh` does not provide, and there is no pnpm/npm task name.
+# Those runs then never reach verificationRuns, so the Stop verifier reports "no
+# verification evidence" right after the agent ran exactly what AGENTS.md
+# prescribes. An executing primary token is required so that reading a gate
+# script (`cat tests/test-hooks.sh`, `rg foo tests/run.sh`) is never counted as
+# running it.
+cc_command_runs_project_gate_script() {
+  local cmd token script_re node_test_re
+  cmd="$(cc_command_normalize "$1")"
+  token="$(cc_command_primary_token "$cmd" 2>/dev/null || true)"
+  case "$token" in
+    bash|sh|zsh|node|python|python3|uv|./*|/*|*/*) ;;
+    *) return 1 ;;
+  esac
+  # Regexes live in variables because bash 3.2 mis-parses these bracket
+  # expressions inline, the same reason cc_command_is_test_runner does it.
+  script_re='(^|[[:space:];&|/])tests?/[^[:space:];&|]*\.(sh|bash|zsh|mjs|cjs|js|ts|py)([[:space:];&|]|$)'
+  node_test_re='(^|[[:space:];&|])node([[:space:]]+[^[:space:];&|]+)*[[:space:]]+--test([[:space:];&|]|$)'
+  [[ "$cmd" =~ $script_re ]] || [[ "$cmd" =~ $node_test_re ]]
+}
+
+# Repo health gates (`scripts/doctor.sh`) prove quality, not test coverage, so
+# they are classified separately from the test-script gates above.
+cc_command_runs_project_health_gate() {
+  local cmd token doctor_re
+  cmd="$(cc_command_normalize "$1")"
+  token="$(cc_command_primary_token "$cmd" 2>/dev/null || true)"
+  case "$token" in
+    bash|sh|zsh|./*|/*|*/*) ;;
+    *) return 1 ;;
+  esac
+  doctor_re='(^|[[:space:];&|/])doctor\.(sh|bash)([[:space:];&|]|$)'
+  [[ "$cmd" =~ $doctor_re ]]
+}
+
 cc_command_is_quality_verification() {
   local cmd
   cmd="$(cc_command_normalize "$1")"
   [[ "$cmd" =~ (^|[[:space:];&|])(tsc|eslint|oxlint|biome|prettier|typecheck|lint|test|build|pytest|ruff|mypy|pyright|cargo[[:space:]]+(test|clippy|build|check)|go[[:space:]]+(test|vet)|composer[[:space:]]+test)([[:space:];&|]|$) ]] \
-    || [[ "$cmd" =~ (^|[[:space:];&|])(rtk[[:space:]]+)?(pnpm|npm|yarn|bun)([[:space:]]+[^[:space:];&|]+)*[[:space:]]+(run[[:space:]]+)?(typecheck|check-types|lint|test|build|check)([[:space:];&|]|$) ]]
+    || [[ "$cmd" =~ (^|[[:space:];&|])(rtk[[:space:]]+)?(pnpm|npm|yarn|bun)([[:space:]]+[^[:space:];&|]+)*[[:space:]]+(run[[:space:]]+)?(typecheck|check-types|lint|test|build|check)([[:space:];&|]|$) ]] \
+    || cc_command_runs_project_gate_script "$cmd" \
+    || cc_command_runs_project_health_gate "$cmd"
 }
 
 cc_command_is_test_verification() {
   local cmd
   cmd="$(cc_command_normalize "$1")"
   [[ "$cmd" =~ (^|[[:space:];&|])(test|pytest|vitest|jest|mocha|ava|tap|cargo[[:space:]]+test|go[[:space:]]+test|composer[[:space:]]+test)([[:space:];&|]|$) ]] \
-    || [[ "$cmd" =~ (pnpm|npm|yarn|bun)[[:space:]]+(run[[:space:]]+)?test([[:space:];&|]|$) ]]
+    || [[ "$cmd" =~ (pnpm|npm|yarn|bun)[[:space:]]+(run[[:space:]]+)?test([[:space:];&|]|$) ]] \
+    || cc_command_runs_project_gate_script "$cmd"
 }
 
 cc_command_is_browser_verification() {
