@@ -1577,6 +1577,37 @@ out="$(ETRNL_SKIP_HOOKS=cc-rate-limiter,cc-compact-suggest run_hook cc-compact-s
 if [[ -z "$out" ]]; then ok "ETRNL_SKIP_HOOKS disables compact suggest by name"; else not_ok "ETRNL_SKIP_HOOKS should disable compact suggest: $out"; fi
 out="$(ETRNL_COMPACT_SUGGEST=0 run_hook cc-compact-suggest.sh "$(compact_event 190000 compact-off)")"
 if [[ -z "$out" ]]; then ok "ETRNL_COMPACT_SUGGEST=0 disables compact suggest"; else not_ok "ETRNL_COMPACT_SUGGEST=0 should disable compact suggest: $out"; fi
+
+# The window comes from the session model, not a fixed 200k: assuming 200k in a
+# 1M session reported a nearly exhausted budget at 16% use.
+compact_transcript_dir="$TMPROOT/compact-transcripts"
+mkdir -p "$compact_transcript_dir"
+compact_model_event() { # model used session
+  local transcript="$compact_transcript_dir/$3.jsonl"
+  jq -cn --arg model "$1" --argjson used "$2" \
+    '{type:"assistant",message:{model:$model,usage:{input_tokens:$used,cache_read_input_tokens:0,cache_creation_input_tokens:0,output_tokens:0}}}' \
+    >"$transcript"
+  jq -cn --arg session "$3" --arg transcript "$transcript" \
+    '{session_id:$session,hook_event_name:"PreToolUse",tool_name:"Read",transcript_path:$transcript}'
+}
+
+out="$(run_hook cc-compact-suggest.sh "$(compact_model_event claude-opus-5 160000 compact-1m-quiet)")"
+if [[ -z "$out" ]]; then ok "compact suggest stays quiet at 16% of a 1M model window"; else not_ok "compact suggest should scale to a 1M model window: $out"; fi
+out="$(run_hook cc-compact-suggest.sh "$(compact_model_event claude-opus-5 800000 compact-1m-over)")"
+assert_json_expr "compact suggest advises at 80% of a 1M model window" "$out" '.hookSpecificOutput.additionalContext | test("of 1000000 tokens used \\(80%\\)")'
+out="$(run_hook cc-compact-suggest.sh "$(compact_model_event 'claude-sonnet-4-6[1m]' 160000 compact-1m-suffix)")"
+if [[ -z "$out" ]]; then ok "compact suggest reads a [1m] suffix as a 1M window"; else not_ok "[1m] suffix should widen the window: $out"; fi
+out="$(CLAUDE_CODE_DISABLE_1M_CONTEXT=1 run_hook cc-compact-suggest.sh "$(compact_model_event claude-opus-5 160000 compact-1m-disabled)")"
+assert_json_expr "CLAUDE_CODE_DISABLE_1M_CONTEXT keeps the 200k window" "$out" '.hookSpecificOutput.additionalContext | test("of 200000 tokens")'
+out="$(run_hook cc-compact-suggest.sh "$(compact_model_event claude-sonnet-4-5-20250929 160000 compact-200k-model)")"
+assert_json_expr "compact suggest still advises at 80% of a 200k model window" "$out" '.hookSpecificOutput.additionalContext | test("of 200000 tokens used \\(80%\\)")'
+# Usage above the assumed window disproves the assumption instead of reporting >100%.
+out="$(run_hook cc-compact-suggest.sh "$(compact_model_event claude-unreleased-9 300000 compact-unknown-model)")"
+if [[ -z "$out" ]]; then ok "compact suggest widens the assumed window for an unknown model past 200k"; else not_ok "unknown model above the assumed window should not report over budget: $out"; fi
+out="$(CLAUDE_CODE_MAX_CONTEXT_TOKENS=500000 run_hook cc-compact-suggest.sh "$(compact_model_event claude-opus-5 400000 compact-host-window)")"
+assert_json_expr "CLAUDE_CODE_MAX_CONTEXT_TOKENS overrides the model window" "$out" '.hookSpecificOutput.additionalContext | test("of 500000 tokens used \\(80%\\)")'
+out="$(ETRNL_COMPACT_WINDOW_TOKENS=64000 run_hook cc-compact-suggest.sh "$(compact_model_event claude-opus-5 60000 compact-env-window)")"
+assert_json_expr "ETRNL_COMPACT_WINDOW_TOKENS still wins over the model window" "$out" '.hookSpecificOutput.additionalContext | test("of 64000 tokens")'
 if out="$(printf '{bad' | "$ROOT/hooks/cc-compact-suggest.sh")" && [[ -z "$out" ]]; then
   ok "compact suggest fails open on malformed input"
 else
