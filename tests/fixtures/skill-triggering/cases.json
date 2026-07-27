@@ -595,6 +595,24 @@
     ]
   },
   {
+    "name": "routine ship feature phrasing does not route etrnl-ops-ship",
+    "prompt": "open a PR and ship this feature change to main",
+    "expectedSkills": [],
+    "unexpectedSkills": [
+      "etrnl-ops-ship"
+    ]
+  },
+  {
+    "name": "go no-go cutover routes etrnl-ops-ship",
+    "prompt": "record go/no-go and cut over release traffic to production",
+    "expectedSkills": [
+      "etrnl-ops-ship"
+    ],
+    "unexpectedSkills": [
+      "etrnl-dev-pr"
+    ]
+  },
+  {
     "name": "router prompt routes etrnl-router",
     "prompt": "which etrnl skill or agent should I use for this task",
     "expectedSkills": [

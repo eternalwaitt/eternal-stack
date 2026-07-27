@@ -150,6 +150,7 @@ Question preference:
 
 - `ETRNL_QUESTION_PREFERENCE=0` disables the hook that auto-decides low-stakes `AskUserQuestion` and MCP ask-tool prompts.
 - The preference map is read from the first readable file of `ETRNL_QUESTION_PREFERENCE_FILE`, then `.etrnl/question-preferences.json` in the project working directory, then `~/.claude/etrnl/question-preferences.json`. A malformed file is skipped rather than treated as empty.
+- Release capability manifest: `ETRNL_RELEASE_MANIFEST` override, then `.etrnl/release.json` in the project working directory, then `~/.claude/etrnl/release.json`. Committed in app repos. **Auto-bootstrapped** on first guarded/migration PR or tier ≥ 2 plan gate in deployable app repos via `pr-preflight.mjs` and `plan-readiness-check.mjs` — no manual setup step.
 - `ETRNL_QUESTION_PREFERENCE_MODE` overrides the resolved mode for a single run.
 - Modes are `always-ask` (default when nothing is configured, and identical to not installing the hook), `never-ask` (auto-decide and deny the ask), and `ask-only-for-one-way` (auto-decide everything except one-way doors, which the safety clamp already protects).
 - One-way doors always reach the user regardless of preference: deploy and release questions, production schema and migration changes, destructive data operations, auth and credentials, and money. No file entry or environment override can auto-answer them.

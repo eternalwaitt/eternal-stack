@@ -1,5 +1,11 @@
 /** Dual-audience PR description contract used by etrnl-dev-pr / pr-preflight.mjs */
 
+import {
+  classifyReleaseRisk,
+  isShippingSensitive,
+  validateReleaseSections,
+} from "./release-controls.mjs";
+
 export const PR_BODY_TEMPLATE = `## TL;DR
 <One sentence: what gets better for whom once this merges.>
 
@@ -85,18 +91,6 @@ const OPTIONAL_HEADINGS = [
   },
 ];
 
-const SHIPPING_SENSITIVE = [
-  /^hooks\//,
-  /^scripts\/install\.sh$/,
-  /^scripts\/doctor\.sh$/,
-  /^scripts\/rollback/,
-  /^schemas\//,
-  /^templates\//,
-  /^VERSION$/,
-  /^skills\//,
-  /migration/i,
-];
-
 const WEAK_TITLE_PATTERNS = [
   { pattern: /^update\s+/i, message: "title opens with 'Update' — name the outcome instead" },
   { pattern: /^refactor\s+/i, message: "title opens with 'Refactor' — name the outcome instead" },
@@ -122,13 +116,6 @@ function sectionContent(body, headingPatterns) {
     if (capture) chunks.push(line);
   }
   return chunks.join("\n").trim();
-}
-
-function isShippingSensitive(changedFiles) {
-  if (!Array.isArray(changedFiles) || changedFiles.length === 0) return false;
-  return changedFiles.some((file) =>
-    SHIPPING_SENSITIVE.some((pattern) => pattern.test(String(file || ""))),
-  );
 }
 
 function isLargePr(changedFiles) {
@@ -183,12 +170,25 @@ export function validatePrDescription({ title = "", body = "", changedFiles = []
     else warnings.push(msg);
   }
 
-  if (isShippingSensitive(changedFiles)) {
+  const releaseClass = classifyReleaseRisk({ changedFiles });
+  const technicalNotes = sectionContent(normalizedBody, [/^##\s+Technical notes\s*$/im]);
+  const releaseValidation = validateReleaseSections({
+    releaseClass,
+    body: normalizedBody,
+    technicalNotes,
+  });
+
+  if (releaseClass !== "routine") {
     if (!hasHeading(normalizedBody, OPTIONAL_HEADINGS[1].patterns)) {
-      const msg =
-        "shipping-sensitive paths changed — add ## Rollout & rollback (rollout, rollback, breaking changes)";
-      if (strict) blockers.push(msg);
-      else warnings.push(msg);
+      blockers.push(
+        `release class ${releaseClass} — add ## Rollout & rollback (rollout, rollback, breaking changes)`,
+      );
+    }
+    for (const blocker of releaseValidation.blockers) {
+      blockers.push(blocker);
+    }
+    for (const warning of releaseValidation.warnings) {
+      warnings.push(warning);
     }
   }
 
@@ -204,7 +204,10 @@ export function validatePrDescription({ title = "", body = "", changedFiles = []
     ok: blockers.length === 0,
     blockers,
     warnings,
-    shippingSensitive: isShippingSensitive(changedFiles),
+    releaseClass,
+    shippingSensitive: releaseClass !== "routine",
     largePr: isLargePr(changedFiles),
   };
 }
+
+export { classifyReleaseRisk, isShippingSensitive };

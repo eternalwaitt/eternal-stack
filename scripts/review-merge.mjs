@@ -65,6 +65,8 @@ Output: merged report JSON (default) or markdown (--markdown).
   residual     non-blocking gated_auto/manual findings (todos)
   dropped      findings below confidence threshold (never silent)
   park         trajectory park decision with named reason codes
+  capDecision  what to do when the loop ends: reopen, close, proceed-with-residuals,
+               or owner-decision (the only value that may interrupt the user)
 
 Trajectory park (--trajectory <ledger history --gates --json output>):
   recurringFindingCount >= ${PARK_LIMIT_DEFAULTS.recurringFindingCount}   env ${PARK_LIMIT_ENV.recurringFindingCount}
@@ -384,6 +386,64 @@ function evaluatePark() {
   };
 }
 
+// A spent reopen cap or a tripped park counter ends the loop; severity decides
+// what happens next, and the merge computes it so no caller has to improvise.
+// Only a P0/P1 that survived every round earns an owner's turn — a lower
+// severity is a residual by definition, and asking about one halts independent
+// work that the open finding never touched.
+function evaluateCapDecision(report, park) {
+  const loopEndReasons = park.reopenCapExhausted === true ? ["reopen-cap-exhausted"] : [];
+  for (const entry of park.reasons) loopEndReasons.push(entry.reasonCode);
+  const blockingCount = report.blocking.length;
+  const residualCount = report.residual.length;
+  const base = {
+    loopEnded: loopEndReasons.length > 0,
+    loopEndReasons,
+    blockingCount,
+    residualCount,
+    blockingFingerprints: report.blocking.map((item) => item.fingerprint),
+    waveId: park.waveId,
+    reopenRoundsUsed: park.reopenRoundsUsed,
+    reopenCap: park.reopenCap,
+  };
+
+  if (!base.loopEnded) {
+    return blockingCount > 0
+      ? {
+        ...base,
+        decision: "reopen",
+        ownerDecisionRequired: false,
+        reason: `${blockingCount} blocking finding(s) open with reopen rounds remaining`,
+        nextAction: "fix the blocking findings and re-run only the reviewers whose lenses cover the changed surfaces",
+      }
+      : {
+        ...base,
+        decision: "close",
+        ownerDecisionRequired: false,
+        reason: "no blocking findings",
+        nextAction: "close the task or wave",
+      };
+  }
+
+  if (blockingCount === 0) {
+    return {
+      ...base,
+      decision: "proceed-with-residuals",
+      ownerDecisionRequired: false,
+      reason: `loop ended (${loopEndReasons.join(", ")}) with no blocking findings; ${residualCount} residual finding(s) carry forward`,
+      nextAction: "record the residual findings as non-blocking notes, close the stream, and continue; do not ask the user to authorize another round",
+    };
+  }
+
+  return {
+    ...base,
+    decision: "owner-decision",
+    ownerDecisionRequired: true,
+    reason: `loop ended (${loopEndReasons.join(", ")}) with ${blockingCount} blocking finding(s) still open`,
+    nextAction: "stop this task or stream only, keep independent task groups running, and escalate the named blocking fingerprints with `execution-ledger.mjs record-decision` plus `record-review --override-owner-approved`",
+  };
+}
+
 function recordDispatchOutcome(findings) {
   const dispatched = listArg("--dispatched");
   if (dispatched.length === 0) return null;
@@ -426,6 +486,7 @@ function renderMarkdown(report) {
       "",
     );
   }
+  lines.push(`Decision: ${report.capDecision.decision} — ${report.capDecision.reason}`, "");
   for (const [title, items] of [
     ["Blocking (P0/P1)", report.blocking],
     ["Safe auto-fix", report.safe_auto],
@@ -539,6 +600,7 @@ function mergeMain() {
   const findings = loadFindings();
   const report = mergeFindings(findings);
   report.park = evaluatePark();
+  report.capDecision = evaluateCapDecision(report, report.park);
   report.dispatchAccounting = recordDispatchOutcome(findings);
 
   if (markdownMode) {

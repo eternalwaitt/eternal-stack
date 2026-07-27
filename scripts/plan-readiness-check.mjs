@@ -6,7 +6,14 @@ import {
   requiredSectionHeadingsForTier,
   requiresDeepStackArtifacts,
   validateRiskTierEscalation,
+  collectPlanFilePaths,
 } from './lib/plan-risk-tier.mjs';
+import {
+  classifyReleaseRisk,
+  observabilityMentioned,
+  rollbackSectionHasCommand,
+} from './lib/release-controls.mjs';
+import { ensureReleaseControls } from './release-controls-init.mjs';
 
 const args = process.argv.slice(2);
 const allowDraft = args.includes('--allow-draft');
@@ -97,6 +104,12 @@ function repairHintFor(name, message) {
       'In ## Test-first execution plan, add Red and Green rows or a concrete not-applicable rationale.',
     verification_commands:
       'In ## Verification gates, add exact commands or live checks with expected results.',
+    rollback_rehearsal:
+      'In ## Rollback, record rollback rehearsal with timestamp for migration-class plans.',
+    release_rollback_command:
+      'In ## Rollback, write the literal rollback command (git revert, vercel rollback, flag off, etc.).',
+    release_observability:
+      'In ## Rollback or ## Verification gates, name structured logs and metrics for each new traffic-serving path.',
   };
   return hintMap[name] ?? `Fix: ${message}`;
 }
@@ -275,6 +288,30 @@ if (isFinal) {
 
 for (const escalationFailure of validateRiskTierEscalation(text, effectiveTier)) {
   addFailure(escalationFailure.name, escalationFailure.message);
+}
+
+const planFilePaths = collectPlanFilePaths(text);
+const releaseClass = classifyReleaseRisk({
+  changedFiles: planFilePaths,
+  planTier: effectiveTier,
+  planText: text,
+});
+
+if (effectiveTier >= 2 && releaseClass !== 'routine') {
+  ensureReleaseControls(process.cwd(), { releaseClass });
+  const rollbackSection = sectionBody('Rollback');
+  if (!rollbackSectionHasCommand(rollbackSection)) {
+    addFailure(
+      'release_rollback_command',
+      'Tier >= 2 plans touching traffic or migration surfaces must include a literal rollback command in ## Rollback.',
+    );
+  }
+  if (!observabilityMentioned(`${rollbackSection}\n${sectionBody('Verification gates')}`)) {
+    addFailure(
+      'release_observability',
+      'Tier >= 2 plans touching traffic or migration surfaces must name observability (metric or structured log) per new traffic path.',
+    );
+  }
 }
 
 const optionalMetadata = {

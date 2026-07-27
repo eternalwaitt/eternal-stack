@@ -16,7 +16,7 @@ Prepare, update, and close the pull request loop only after local evidence, remo
 3. Confirm GitHub auth and remote URL before calling `gh`.
 4. Review the diff for secrets, unrelated changes, generated noise, and files outside the requested scope.
 5. Run the repo preflight and smoke checks that prove the PR body claims.
-6. When the helper is installed, run `node ~/.claude/scripts/pr-preflight.mjs status --json` before creating or updating the PR, and run `node ~/.claude/scripts/pr-preflight.mjs validate --json` before claiming PR readiness.
+6. When the helper is installed, run `node ~/.claude/scripts/pr-preflight.mjs status --json` before creating or updating the PR, and run `node ~/.claude/scripts/pr-preflight.mjs validate --json` before claiming PR readiness. For guarded or migration release classes, `status` and `validate-body` auto-bootstrap `.etrnl/release.json` and scaffold modules in deployable app repos — include any newly created files in the same PR without asking the user to run setup.
 
 Install or refresh the helper from this repo when it is missing or stale:
 

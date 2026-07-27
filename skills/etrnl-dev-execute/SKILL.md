@@ -40,7 +40,8 @@ Completion means every item inside the plan's `Execution scope` is verified or e
 
 1. Continue through the approved plan without asking between mechanical phases.
    - Treat `Execution scope: all_phases` as a hard contract to execute the full plan. If the plan has no `Execution scope`, stop and patch the plan before editing.
-2. Ask the user only for destructive actions, missing credentials, or scope expansion beyond the plan.
+2. Ask the user only for destructive actions, missing credentials, scope expansion beyond the plan, or a review loop whose merged `capDecision.ownerDecisionRequired` is `true`.
+   - An exhausted reopen cap is not by itself a question for the user. Run the `capDecision` branch from `references/bounded-review.md`; only an open P0/P1 at the cap reaches the user, and it stops that stream alone.
    - Taste and product defaults follow the `etrnl-dev-autoplan` Decision Policy: choose the default, log it to the ledger, and surface it at the final gate — do not use AskUserQuestion mid-run for taste.
    - Still ask for conflicting user edits, repeated stalls, or blockers that cannot be derived from the repo.
 3. Group tasks by dependency and write scope. Execute dependent work sequentially; dispatch independent read-only review or disjoint write work to fresh subagents. For explicit parallel fan-out requests, load `references/parallel-fanout.md` before widening lanes.
@@ -111,13 +112,15 @@ After the final edit of a task or wave, run `node scripts/review-rules.mjs check
 
 ### Wave and task exit check
 
-Close a task or wave only when acceptance criteria are met AND the merged review artifact has no `blocking` entries. A review loop whose merged finding count did not decrease between rounds is stalled: park it, record a blocker, and continue.
+Close a task or wave only when acceptance criteria are met AND the merged review artifact has no `blocking` entries. A review loop whose merged finding count did not decrease between rounds is stalled: park it, record a blocker, and continue. When the loop ends on a spent cap or a park counter, act on the merged `capDecision` — `proceed-with-residuals` closes the stream autonomously at every tier.
 
 ### Anti-rationalization
 
 | Excuse | Rule |
 | --- | --- |
 | "One more review round" | Capped at 2 fix rounds; record residual non-P0/P1 as todos and proceed. |
+| "Ask the owner to approve another cycle" | Only when `capDecision.ownerDecisionRequired` is `true`. A non-P0/P1 finding at the cap is a residual: record it and continue. |
+| "The cap is spent, so the run stops" | An `owner-decision` stops that stream only. Independent task groups keep executing. |
 | "Full doctor after a nit fix" | Run `bash scripts/doctor.sh --changed` only; full doctor stays for release/install. |
 | "Rebuild the canary to be safe" | Reuse the warm environment at unchanged tree hash; rebuild only when harness, migration, or shared surface changed. |
 

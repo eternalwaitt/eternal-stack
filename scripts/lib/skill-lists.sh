@@ -207,6 +207,7 @@ INSTALL_SCRIPTS=(
   stack-profile-check.mjs
   changelog-release-check.mjs
   changelog-scaffold.mjs
+  release-controls-init.mjs
   release.mjs
   port-guard.mjs
   update-check.mjs

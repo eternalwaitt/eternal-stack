@@ -125,7 +125,7 @@ Runs on every user prompt before the model sees it.
 
 - Detects `/etrnl-*` and related slash commands; records `requestedSkills` in session state.
 - Reinjects global `~/.claude/CLAUDE.md` and project `CLAUDE.md` / `AGENTS.md` hierarchy once per session (tunable via `ETRNL_INJECT_CLAUDE_MD`).
-- Applies keyword routing hints for bundled backend-pattern workflows.
+- Applies keyword routing hints for bundled backend-pattern workflows and explicit ship/rollout prompts (`staged rollout`, `go/no-go`, `cut over`, `ship to production`) — routine PR phrasing such as "ship this feature change" does not route `etrnl-ops-ship`.
 - When `update-check.mjs` reports stale repo-owned skills or tool stack, injects a short informational note (local updates auto-applied; remote/tool-stack items informational only) and continues honoring the requested `etrnl-*` skill without stopping to ask.
 
 Advisory notes are deduplicated and budgeted. Each note is fingerprinted, so an identical hint is injected once per turn and once per session, and the running total of injected note characters is capped by `ETRNL_USERPROMPT_CONTEXT_MAX_CHARS`. Routing decisions are recorded in `requestedSkills` **before** this filter runs, so a suppressed hint has still routed its skill — dedup changes what is re-sent, never where a prompt routes. Standing protocol text is appended last so a tight budget is spent on task-specific routing hints before generic boilerplate. Reinjected `CLAUDE.md` context is tracked separately under its own `ETRNL_CLAUDE_MD_MAX_CHARS` cap.

@@ -1,101 +1,83 @@
 ---
 name: etrnl-ops-ship
-description: ETRNL ship and launch-discipline workflow for Claude Code. Use when the user asks to ship, launch, roll out, cut over, release to production, or promote a change to users behind staged rollout, rollback readiness, and observability instrumentation.
+description: ETRNL ship and launch-discipline workflow for Claude Code. Use when the user asks for staged rollout, cut over, go/no-go, rollback readiness, or to promote a change to production by signal — not for routine PR or merge requests.
 disable-model-invocation: true
 ---
 # Ship
 
 Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-ops-ship`; on update, never stop to ask; local updates auto-apply when enabled and safe.
 
-This is the proactive ship workflow: staged rollout, rollback readiness, and observability instrumentation for a change going to users. Run this BEFORE the change reaches full traffic. The retrospective readiness audit is `etrnl-audit-production` (see the [skills catalog](../../docs/skills.md)) — run that as the pre-ship gate and do not restate its checklist here.
+Ship verifies release readiness that plan and PR already recorded, then promotes by signal. Ship does not originate requirements. If plan or PR work is missing, route back to that stage — never propose a follow-up release-controls PR as the remedy.
 
-Ship one change through one lifecycle stage: instrument it, gate it behind staged rollout, arm a tested rollback, record the go/no-go, then promote by signal. A change that reaches full traffic without instrumentation, without an armed rollback, and without a recorded go/no-go decision did not ship — it leaked.
+## Startup
 
-## 1. Staged rollout — no big-bang
+1. Classify release risk from changed files and plan tier: `routine`, `guarded`, or `migration`.
+2. Release controls bootstrap automatically — `pr-preflight` and `plan-readiness-check` call `ensureReleaseControls` for guarded/migration classes in deployable app repos. Do not ask the user to run setup scripts. When bootstrap just ran, include the scaffold files in the same PR/commit.
+3. Read the plan `## Rollback` section and the PR `## Rollout & rollback` section. Run `node ~/.claude/scripts/pr-preflight.mjs validate-body --json` — a failed PR gate blocks ship; remedy is `etrnl-dev-pr`, not another PR.
+4. Load `.etrnl/release.json` from the project and verify each required artifact has named evidence in plan, PR, or execution output.
 
-Define the stages before any traffic reaches the change. Promote by a named signal, never by clock or vibe.
+## Release classes
 
-- `canary`: route the change to a single instance, one internal tenant, or a fixed low-percentage slice. Promotion signal: error rate and the new-path metric hold at baseline across a named observation window with real traffic on the canary.
-- `percentage`: expand to a named traffic percentage (for example 10 percent, then 50 percent). Promotion signal: the new-path metric, error rate, and the critical-path latency span hold at baseline at each percentage step before the next expansion.
-- `full`: route 100 percent of traffic. Entry signal: every prior stage held its promotion signal and the rollback trigger never fired.
+- `routine`: revert path documented. Promote when PR gate is green.
+- `guarded`: literal rollback command, structured log and metric per new traffic path, stage gate when manifest declares a flag provider else deploy-and-watch window. Promote when promotion signal holds.
+- `migration`: everything in `guarded`, plus forward-compatibility proof, rehearsed rollback with timestamp, named owner, recorded go/no-go, and `etrnl-audit-production` green for this change only.
 
-Record the flag, environment variable, or router key that gates each stage and the exact command that advances one stage. Do not collapse stages. Do not advance a stage while its promotion signal is unmet — hold or roll back.
+`etrnl-audit-production` is required only for `migration` class ships.
 
-## 2. Rollback readiness — armed BEFORE ship
+## Verify, then promote
 
-Arm rollback before the canary takes traffic, not after an incident starts.
+1. Confirm PR gate passed (`pr-preflight validate-body` exit 0).
+2. Confirm instrumentation is live on new boundaries before traffic (logs/metrics from the shipping change, not a follow-up).
+3. For `guarded`/`migration`: advance stages by named signal — canary, percentage, full — using the manifest flag/env when declared; otherwise deploy and watch the named observation window.
+4. For `migration` only: confirm rollback rehearsal timestamp and go/no-go record before full traffic.
 
-- Name the exact rollback command or path: revert the flag, redeploy the prior build tag, disable the router key, or run the down-migration. Write the literal command, not a description of one.
-- Rehearse it before ship: execute the rollback in staging or against the canary, confirm the change reverts, and record the timestamped result. An unrehearsed rollback is not armed.
-- Name the trigger metric and its threshold: the exact metric, the numeric threshold, and the observation window that fire the rollback (for example error rate above 2 percent over 5 minutes, or p99 latency above the named ceiling). When the threshold is crossed, get the named owner's explicit confirmation, then run the rollback command — do not debate the decision once the owner confirms. The only exception: an approved automated rollback policy recorded before launch executes the rollback without waiting for confirmation.
-- For schema and data changes, confirm the rollback path is forward-compatible: the prior build reads the new schema, or the down-migration is tested and non-destructive. Do not ship a one-way migration behind a rollback claim.
+When a rollback trigger fires, run the literal rollback command from the manifest or PR body. Do not debate once the named owner confirms (unless an approved automated rollback policy was recorded before launch).
 
-## 3. Observability instrumentation — wired BEFORE ship
+## Hard rules
 
-Instrument the change before it takes traffic. If it is not instrumented, it did not ship. Add all four at the new boundary, in the same change that ships the code:
-
-- Structured logs at the new boundary: emit structured records (not free text) at each new entry and exit point, keyed with the request or trace identifier and the stage or flag state.
-- A metric per new code path: every new branch, endpoint, job, or consumer emits a counter or histogram. A new path with no metric is invisible and blocks ship.
-- An alert threshold: wire at least one alert on the new-path metric and on the error rate for the change, with the numeric threshold that pages the owner. The rollback trigger threshold and an alert threshold are wired to the same signal.
-- A trace or span for the critical path: the highest-value user flow through the change carries a span so latency and failures are attributable end to end.
-
-Do not defer instrumentation to a follow-up. Instrumentation lands in the shipping change or the change does not ship.
-
-## 4. Go/no-go gate
-
-Ship only after a recorded go/no-go decision. All four hold or the answer is no-go:
-
-- Named owner: one person owns this ship and owns the rollback decision. Record the name, not a team. Executing a production rollback requires this owner's explicit confirmation, unless an approved automated rollback policy was recorded before launch — a threshold breach alone does not auto-authorize a destructive production, migration, or data change.
-- Pre-ship audit green: `etrnl-audit-production` ran against this change and reports green. A red or unrun audit is an automatic no-go.
-- Rollback rehearsed: the rollback command executed in rehearsal with a recorded timestamped result.
-- Instrumentation live: logs, per-path metrics, the alert, and the critical-path span are emitting before traffic.
-
-Record the decision — go or no-go — with the owner, the timestamp, and the four states. A ship with no recorded go/no-go decision is an unauthorized ship.
+- Ship blocked when PR gate was skipped — run `etrnl-dev-pr` and fix blockers.
+- Do not ask the user to run `release-controls-init` manually — gates bootstrap automatically.
+- Do not defer instrumentation, rollback commands, or observability to a follow-up change.
+- Do not require `etrnl-audit-production` for `routine` or `guarded` class changes.
 
 ## Common Rationalizations
 
-- "It is a small change, skip the canary." Small changes cause outages. Run the canary stage.
-- "Instrument it after we confirm it works." Without instrumentation there is no way to confirm it works. Instrument first.
-- "Rollback is just redeploy, no need to rehearse." Unrehearsed rollbacks fail during the incident that needs them. Rehearse it.
-- "The migration is one-way, we will fix forward." Fix-forward is not a rollback. Arm a real rollback or hold the ship.
-- "Everyone is confident, no need to write down go/no-go." Undocumented go/no-go has no owner at 3 a.m. Record it.
+- "Write a follow-up release-controls PR." Plan, bootstrap, execute, and PR already own those requirements. Fix the failing gate, do not defer.
+- "Ask the user to run init." Bootstrap is automatic via `pr-preflight` and `plan-readiness-check`.
+- "Skip canary — small change." `guarded` and `migration` still need a promotion signal; use env gate or deploy-and-watch per manifest.
+- "Instrument after deploy." Instrumentation must be in the shipping change.
 
 ## Red Flags — stop and do not ship
 
-- No named metric or window for a stage promotion signal.
-- Rollback command is described but not written literally, or never rehearsed.
-- A new code path with no metric, or a new boundary with no structured log.
-- The rollback trigger has no numeric threshold or no observation window.
-- `etrnl-audit-production` was not run against this exact change, or came back red.
-- No named human owner for the ship and the rollback decision.
-- Plan to add logs, metrics, alerts, or the span in a later change.
+- PR `validate-body` not run or not green.
+- Bootstrap ran but scaffold files were not included in the PR/commit.
+- Rollback command described but not written literally.
+- New traffic path with no metric or structured log.
+- `migration` class without forward-compat statement, rehearsal timestamp, or audit green.
 
 ## When NOT to use
 
-- Retrospective production-readiness scoring of an existing deployed system: use `etrnl-audit-production`.
-- Local-only experiments and throwaway branches that never reach users or shared environments.
-- Pure documentation, config-comment, or non-runtime changes with no user-facing traffic and no new code path.
+- Opening or updating a PR, code review, or merge — use `etrnl-dev-pr`.
+- Retrospective production-readiness scoring — use `etrnl-audit-production`.
+- Local-only experiments that never reach users.
+- Pure documentation changes with no traffic-serving path.
 
 ## Verification
 
-Every item resolves to yes with named evidence, or ship is blocked. Count them.
+Resolve each item with named evidence or ship is blocked.
 
-Staged rollout:
-- [ ] Stages named: canary, percentage, full — each with its gating flag/env/router key and its stage-advance command.
-- [ ] Each stage has a named promotion signal (metric, error rate, latency span) and observation window.
+All classes:
+- [ ] Release class recorded (`routine`, `guarded`, or `migration`).
+- [ ] Release controls present (auto-bootstrapped or already committed).
+- [ ] PR gate green (`pr-preflight validate-body`).
 
-Rollback readiness:
-- [ ] Rollback command written literally and named.
-- [ ] Rollback rehearsed with a recorded timestamped result.
-- [ ] Trigger metric, numeric threshold, and observation window named.
+`guarded` and `migration`:
+- [ ] Literal rollback command matches plan/PR/manifest.
+- [ ] Each new traffic path has structured log and metric evidence.
+- [ ] Promotion signal and observation window named; stage gate or deploy-and-watch per manifest.
 
-Observability per new path:
-- [ ] Each new code path has a structured log at its boundary.
-- [ ] Each new code path has a metric (counter or histogram).
-- [ ] Each new code path (or the change error rate) has an alert with a numeric threshold.
-- [ ] The critical path carries a trace or span.
-
-Go/no-go:
-- [ ] `etrnl-audit-production` ran against this change and reports green.
-- [ ] Named human owner recorded for ship and rollback.
-- [ ] Go/no-go decision recorded with owner, timestamp, and the four states.
+`migration` only:
+- [ ] Forward-compatibility or tested down-migration stated.
+- [ ] Rollback rehearsed with timestamp.
+- [ ] `etrnl-audit-production` green for this change.
+- [ ] Named owner and go/no-go recorded.
