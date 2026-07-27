@@ -3,6 +3,13 @@
 cc_test_init() {
   TMPROOT="$(mktemp -d)"
   export TMPDIR="$TMPROOT"
+  # Hooks resolve home-level state as ${CLAUDE_HOME:-$HOME/.claude}, and these
+  # suites drive that path by overriding HOME per invocation. A CLAUDE_HOME
+  # inherited from the caller silently wins over every one of those overrides,
+  # so a staged install (CLAUDE_HOME=<tmp> scripts/install.sh) failed its own
+  # source-test gate on a home the suite never wrote. Suites and cases that want
+  # a specific home still set CLAUDE_HOME explicitly after init.
+  unset CLAUDE_HOME
   export CLAUDE_GUARD_STATE_DIR="$TMPROOT"
   export ETRNL_STATE_DIR="$TMPROOT/etrnl-state"
   export ETRNL_RUNS_DIR="$TMPROOT/runs"

@@ -1679,6 +1679,14 @@ mkdir -p "$TMPROOT/question-home/.claude/etrnl"
 printf '%s\n' '{"mode":"never-ask"}' >"$TMPROOT/question-home/.claude/etrnl/question-preferences.json"
 out="$(HOME="$TMPROOT/question-home" run_hook cc-question-preference.sh "$no_pref_event")"
 assert_json_expr "question preference falls back to the home preference map" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+# CLAUDE_HOME selects the home-level map, so an inherited one must not be able to
+# redirect the lookup silently: the harness clears it and this pins the contract.
+mkdir -p "$TMPROOT/question-claude-home/etrnl"
+printf '%s\n' '{"mode":"never-ask"}' >"$TMPROOT/question-claude-home/etrnl/question-preferences.json"
+out="$(HOME="$TMPROOT/question-nohome" CLAUDE_HOME="$TMPROOT/question-claude-home" run_hook cc-question-preference.sh "$no_pref_event")"
+assert_json_expr "question preference reads the CLAUDE_HOME preference map" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+out="$(HOME="$TMPROOT/question-home" CLAUDE_HOME="$TMPROOT/question-nohome" run_hook cc-question-preference.sh "$no_pref_event")"
+if [[ -z "$out" ]]; then ok "CLAUDE_HOME takes precedence over the HOME preference map"; else not_ok "CLAUDE_HOME should override the HOME preference map: $out"; fi
 out="$(ETRNL_QUESTION_PREFERENCE=0 run_hook cc-question-preference.sh "$(question_event "Which naming convention should I use?")")"
 if [[ -z "$out" ]]; then ok "ETRNL_QUESTION_PREFERENCE=0 disables the question hook"; else not_ok "ETRNL_QUESTION_PREFERENCE=0 should disable the question hook: $out"; fi
 out="$(ETRNL_SKIP_HOOKS=cc-question-preference run_hook cc-question-preference.sh "$(question_event "Which naming convention should I use?")")"
