@@ -13,8 +13,39 @@ cc_json_read_stdin() {
   # Measured inter-chunk gaps: ~1.3ms (fast writes), ~54ms max (50ms pauses).
   # 100ms idle gives 2x margin over the slow-chunk case.
   local _idle_ms=100
+  local _reader="${ETRNL_JSON_STDIN_READER:-auto}"
+  local _use_python=false _use_perl=false _use_head=false
 
-  if command -v python3 >/dev/null 2>&1; then
+  case "$_reader" in
+    python|python3)
+      _use_python=true
+      ;;
+    perl)
+      _use_perl=true
+      ;;
+    head|blocking|block)
+      _use_head=true
+      ;;
+    auto|"")
+      if command -v python3 >/dev/null 2>&1; then
+        _use_python=true
+      elif command -v perl >/dev/null 2>&1; then
+        _use_perl=true
+      else
+        _use_head=true
+      fi
+      ;;
+    *)
+      printf 'claude-guard error: unknown ETRNL_JSON_STDIN_READER=%s\n' "$_reader" >&2
+      return 1
+      ;;
+  esac
+
+  if [[ "$_use_python" == true ]]; then
+    if ! command -v python3 >/dev/null 2>&1; then
+      printf 'claude-guard error: python3 reader requested but python3 is unavailable\n' >&2
+      return 1
+    fi
     if ! HOOK_INPUT="$(
       python3 - "$_stdin_cap" "$_idle_ms" 3<&0 2>/dev/null <<'PY'
 import os
@@ -42,7 +73,11 @@ PY
       printf 'claude-guard error: failed to read hook input\n' >&2
       return 1
     fi
-  elif command -v perl >/dev/null 2>&1; then
+  elif [[ "$_use_perl" == true ]]; then
+    if ! command -v perl >/dev/null 2>&1; then
+      printf 'claude-guard error: perl reader requested but perl is unavailable\n' >&2
+      return 1
+    fi
     if ! HOOK_INPUT="$(
       perl - "$_stdin_cap" "$_idle_ms" 3<&0 2>/dev/null <<'PERL'
 use strict;
@@ -75,6 +110,7 @@ PERL
     fi
   else
     # Fallback when no idle-timeout reader is available (blocks on held-open stdin).
+    printf 'claude-guard warning: no python3 or perl found; falling back to blocking stdin read (may hang on held-open stdin)\n' >&2
     if ! HOOK_INPUT="$(head -c "$_stdin_cap")"; then
       printf 'claude-guard error: failed to read hook input\n' >&2
       return 1

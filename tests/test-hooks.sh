@@ -545,6 +545,12 @@ plan_exec_clear_state="$TMPROOT/claude-guard-fixture-plan-exec-clear.json"
 plan_exec_audit_prompt="$(jq -cn '{session_id:"fixture-plan-exec-clear",prompt:"audit the config and explain what changed"}')"
 run_hook cc-userprompt-router.sh "$plan_exec_audit_prompt" >/dev/null || true
 assert_json_expr "router clears plan execution on read-only audit prompt" "$(jq -c . "$plan_exec_clear_state")" '.planExecutionRequested == false'
+plan_exec_build_prompt="$(jq -cn '{session_id:"fixture-plan-exec-clear",prompt:"How is the build configured?"}')"
+run_hook cc-userprompt-router.sh "$plan_exec_build_prompt" >/dev/null || true
+assert_json_expr "router clears plan execution on read-only build noun prompt" "$(jq -c . "$plan_exec_clear_state")" '.planExecutionRequested == false'
+plan_exec_update_prompt="$(jq -cn '{session_id:"fixture-plan-exec-clear",prompt:"Explain the update process"}')"
+run_hook cc-userprompt-router.sh "$plan_exec_update_prompt" >/dev/null || true
+assert_json_expr "router clears plan execution on read-only update noun prompt" "$(jq -c . "$plan_exec_clear_state")" '.planExecutionRequested == false'
 
 skill_trigger_cases="$ROOT/tests/fixtures/skill-triggering/cases.json"
 skill_trigger_count="$(jq 'length' "$skill_trigger_cases")"
@@ -873,6 +879,16 @@ jq -nc --arg cwd "$zero_verify_repo" --arg f "$zero_verify_repo/src/app.ts" "$ze
 zero_verify_green_stop="$(jq -cn --arg cwd "$zero_verify_repo" '{session_id:"fixture-zero-verify-green",cwd:$cwd,last_assistant_message:"Done. Implemented and verified.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$zero_verify_green_stop")"
 assert_not_contains "stop verifier allows edits with verification runs past zero-verification gate" "$out" "claim completion without verification evidence"
+zero_verify_negated_state="$TMPROOT/claude-guard-fixture-zero-verify-negated.json"
+jq -nc --arg cwd "$zero_verify_repo" "$zero_verify_empty_state | .cwd = \$cwd" >"$zero_verify_negated_state"
+zero_verify_negated_stop="$(jq -cn --arg cwd "$zero_verify_repo" '{session_id:"fixture-zero-verify-negated",cwd:$cwd,last_assistant_message:"Done. Not verified yet.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$zero_verify_negated_stop")"
+if [[ -z "$out" ]]; then ok "stop verifier allows negated verification claim without runs"; else not_ok "negated verification claim should pass: $out"; fi
+zero_verify_hypothetical_state="$TMPROOT/claude-guard-fixture-zero-verify-hypothetical.json"
+jq -nc --arg cwd "$zero_verify_repo" "$zero_verify_empty_state | .cwd = \$cwd" >"$zero_verify_hypothetical_state"
+zero_verify_hypothetical_stop="$(jq -cn --arg cwd "$zero_verify_repo" '{session_id:"fixture-zero-verify-hypothetical",cwd:$cwd,last_assistant_message:"Done. If the tests passed we would ship.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$zero_verify_hypothetical_stop")"
+if [[ -z "$out" ]]; then ok "stop verifier allows hypothetical verification claim without runs"; else not_ok "hypothetical verification claim should pass: $out"; fi
 
 # --- Regression fixtures: guard false-positive fixes (stack-holes-remediation TG2/TG3/TG4) ---
 holes_guard() {
@@ -1986,5 +2002,51 @@ if python3 -c "import sys; sys.exit(0 if float('${CC_JSON_HELD_ELAPSED}') < 1.0 
 else
   not_ok "cc_json_read_stdin empty held-open stdin should return under 1s, got ${CC_JSON_HELD_ELAPSED}s"
 fi
+
+cc_json_read_stdin_forced_reader() {
+  local reader="$1"
+  local payload="$2"
+  local fifo="$TMPROOT/stdin-forced-$$-$RANDOM.fifo"
+  local result_file="$TMPROOT/stdin-forced-result-$$-$RANDOM.json"
+  local err_file="$TMPROOT/stdin-forced-err-$$-$RANDOM.txt"
+  mkfifo "$fifo"
+  ( printf '%s' "$payload"; sleep 15 ) >"$fifo" &
+  local writer_pid=$!
+  local start end elapsed
+  start="$(python3 -c 'import time; print(time.monotonic())')"
+  ETRNL_JSON_STDIN_READER="$reader" bash -c 'source "$1"; cc_json_read_stdin; printf "%s" "$HOOK_INPUT"' _ "$ROOT/hooks/lib/json.sh" <"$fifo" >"$result_file" 2>"$err_file"
+  end="$(python3 -c 'import time; print(time.monotonic())')"
+  elapsed="$(python3 -c "print(f'{$end - $start:.3f}')")"
+  kill "$writer_pid" 2>/dev/null || true
+  wait "$writer_pid" 2>/dev/null || true
+  rm -f "$fifo"
+  CC_JSON_FORCED_ELAPSED="$elapsed"
+  CC_JSON_FORCED_RESULT_FILE="$result_file"
+  CC_JSON_FORCED_ERR_FILE="$err_file"
+}
+
+cc_json_read_stdin_forced_reader perl "$stdin_large_batch"
+if python3 -c "import sys; sys.exit(0 if float('${CC_JSON_FORCED_ELAPSED}') < 1.0 else 1)"; then
+  ok "cc_json_read_stdin perl reader held-open returns under 1s (${CC_JSON_FORCED_ELAPSED}s)"
+else
+  not_ok "cc_json_read_stdin perl reader held-open should return under 1s, got ${CC_JSON_FORCED_ELAPSED}s"
+fi
+forced_perl_count="$(jq '.tool_calls | length' "$CC_JSON_FORCED_RESULT_FILE")"
+if [[ "$forced_perl_count" == "$stdin_large_count" ]]; then
+  ok "cc_json_read_stdin perl reader captures full large payload ($forced_perl_count tool_calls)"
+else
+  not_ok "cc_json_read_stdin perl reader truncated payload: got $forced_perl_count expected $stdin_large_count"
+fi
+
+blocking_payload='{"session_id":"stdin-blocking-fallback"}'
+blocking_err="$TMPROOT/stdin-blocking-err-$$-$RANDOM.txt"
+blocking_out="$TMPROOT/stdin-blocking-out-$$-$RANDOM.txt"
+ETRNL_JSON_STDIN_READER=blocking bash -c 'source "$1"; cc_json_read_stdin; printf "%s" "$HOOK_INPUT"' _ "$ROOT/hooks/lib/json.sh" <<<"$blocking_payload" >"$blocking_out" 2>"$blocking_err"
+if [[ "$(cat "$blocking_out")" == "$blocking_payload" ]]; then
+  ok "cc_json_read_stdin blocking reader captures closed stdin payload"
+else
+  not_ok "cc_json_read_stdin blocking reader should capture payload, got $(cat "$blocking_out")"
+fi
+assert_contains "cc_json_read_stdin blocking reader emits diagnostic warning" "$(cat "$blocking_err")" "falling back to blocking stdin read"
 
 finish_tests

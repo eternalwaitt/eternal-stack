@@ -400,13 +400,24 @@ restore_eternal_saas_pack() {
   local dest="$2"
   local label="$3"
   local tmp old
-  tmp="$dest.tmp"
-  old="$dest.old"
   mkdir -p "$(dirname -- "$dest")"
-  rm -rf -- "$tmp" "$old"
-  cp -R -- "$backup_src" "$tmp"
+  tmp="$(mktemp -d "$(dirname -- "$dest")/.eternal-saas.restore.XXXXXX")" || return 1
+  old="$(mktemp -d "$(dirname -- "$dest")/.eternal-saas.previous.XXXXXX")" || {
+    rm -rf -- "$tmp"
+    return 1
+  }
+  rmdir -- "$old"
+  if ! cp -R -- "$backup_src"/. "$tmp"; then
+    rm -rf -- "$tmp"
+    printf 'rollback error: failed to stage %s\n' "$label" >&2
+    return 1
+  fi
   if [[ -d "$dest" ]]; then
-    mv -- "$dest" "$old"
+    if ! mv -- "$dest" "$old"; then
+      rm -rf -- "$tmp"
+      printf 'rollback error: failed to preserve current %s\n' "$label" >&2
+      return 1
+    fi
   fi
   if mv -- "$tmp" "$dest"; then
     rm -rf -- "$old"

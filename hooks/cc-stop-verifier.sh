@@ -56,6 +56,11 @@ fi
 # casual "check"/"done" alone and identifier-embedded words (unverified, typecheck_pass_state).
 if [[ "$message_lower" =~ (^|[^[:alnum:]_])(tests[[:space:]]+pass(ed|ing)?|verified|build[[:space:]]+(succeeds|pass(es|ed)?)|lint[[:space:]]+pass(es|ed)?|typecheck[[:space:]]+pass(es|ed)?|checks[[:space:]]+pass(ed)?|ran[[:space:]]+(the[[:space:]]+)?tests|confirmed[[:space:]]+working)([^[:alnum:]_]|$) ]]; then
   claims_verification=true
+  # Negated or hypothetical phrasing ("not verified", "if the tests passed") is not evidence.
+  if [[ "$message_lower" =~ (^|[^[:alnum:]_])(not[[:space:]]+(yet[[:space:]]+)?(verified|confirmed)|unverified|not[[:space:]]+confirmed[[:space:]]+working)([^[:alnum:]_]|$) ]] \
+    || [[ "$message_lower" =~ (^|[^[:alnum:]_])if[[:space:]]+(the[[:space:]]+)?tests[[:space:]]+pass(ed|es|ing)?([^[:alnum:]_]|$) ]]; then
+    claims_verification=false
+  fi
 fi
 
 browser_qa_outstanding=false
@@ -426,12 +431,7 @@ cc_state_has_edits() {
 }
 
 cc_state_has_work_changes() {
-  cc_state_has_edits && return 0
-  command -v git >/dev/null 2>&1 || return 1
-  local root git_status
-  root="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)" || return 1
-  git_status="$(git -C "$root" -c core.quotepath=false status --porcelain=v1 --untracked-files=all 2>/dev/null)" || return 1
-  [[ -n "$git_status" ]]
+  cc_state_has_edits
 }
 
 cc_advice_message_has_source_evidence() {
