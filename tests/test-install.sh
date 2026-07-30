@@ -206,7 +206,7 @@ assert_file "installed packet fixture" "$CLAUDE_HOME/tests/fixtures/events/packe
 # Claude Code auto-loads every .md under ~/.claude/rules/ as user-scope memory, so only the
 # agent-neutral etrnl modules may land there. The stack-specific eternal-saas pack is source
 # material for init-project-rules.sh and stages under docs/templates/ instead; staging it in
-# rules/ put pnpm/Onveloz/tenant guidance into every unrelated repo.
+# Staging it there put stack-specific tenant guidance into every unrelated repo.
 assert_file "installed etrnl rule module" "$CLAUDE_HOME/rules/etrnl/workflow.md"
 assert_file "staged eternal-saas global scope outside the rules auto-load surface" "$CLAUDE_HOME/docs/templates/rules/eternal-saas/global/00-stack.md"
 assert_file "staged eternal-saas project scope outside the rules auto-load surface" "$CLAUDE_HOME/docs/templates/rules/eternal-saas/project/local-overrides.md"
@@ -276,6 +276,9 @@ if (( ${#backup_settings[@]} >= 1 )); then
   ok "post-install: prior Claude settings were backed up"
   latest_backup="${backup_settings[$((${#backup_settings[@]} - 1))]}"
   assert_json_expr "post-install: backup preserves risky settings for rollback" "$(jq -c . "$latest_backup")" '.autoCompactWindow == 400000 and .skipAutoPermissionPrompt == true'
+  assert_contains "post-install: records eternal-saas pack for rollback removal" \
+    "$(cat "$(dirname "$latest_backup")/new-source-paths.txt" 2>/dev/null || true)" \
+    "docs/templates/rules/eternal-saas"
 else
   not_ok "post-install: prior Claude settings were backed up"
 fi

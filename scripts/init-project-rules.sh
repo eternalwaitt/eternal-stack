@@ -77,8 +77,8 @@ if [[ "$PROFILE" != "eternal-saas" && "$PROFILE" != "eternal-saas-tcg" ]]; then
   exit 1
 fi
 
-if [[ ! -d "$PACK_ROOT" ]]; then
-  echo "error: eternal-saas rule pack not found at $ROOT/rules/eternal-saas or $ROOT/docs/templates/rules/eternal-saas" >&2
+if [[ ! -d "$PACK_ROOT/global" || ! -d "$PACK_ROOT/project" ]]; then
+  echo "error: eternal-saas rule pack must include global/ and project/ under $PACK_ROOT" >&2
   exit 1
 fi
 

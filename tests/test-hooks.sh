@@ -532,6 +532,20 @@ agent_packet_prompt="$(jq -cn '{session_id:"fixture-agent-packet-prompt",prompt:
 out="$(run_hook cc-userprompt-router.sh "$agent_packet_prompt")"
 assert_contains "agent packet prompt emits template command" "$out" "agent-task-packet-check.mjs --template"
 
+plan_exec_arm_prompt="$(jq -cn '{session_id:"fixture-plan-exec-arm",prompt:"implement the plan"}')"
+run_hook cc-userprompt-router.sh "$plan_exec_arm_prompt" >/dev/null || true
+plan_exec_arm_state="$TMPROOT/claude-guard-fixture-plan-exec-arm.json"
+assert_json_expr "router arms plan execution on implement the plan" "$(jq -c . "$plan_exec_arm_state")" '.planExecutionRequested == true'
+plan_exec_run_tests_prompt="$(jq -cn '{session_id:"fixture-plan-exec-arm",prompt:"review this and run the tests"}')"
+run_hook cc-userprompt-router.sh "$plan_exec_run_tests_prompt" >/dev/null || true
+assert_json_expr "router keeps plan execution armed when run the tests is requested" "$(jq -c . "$plan_exec_arm_state")" '.planExecutionRequested == true'
+plan_exec_clear_prompt="$(jq -cn '{session_id:"fixture-plan-exec-clear",prompt:"implement the plan"}')"
+run_hook cc-userprompt-router.sh "$plan_exec_clear_prompt" >/dev/null || true
+plan_exec_clear_state="$TMPROOT/claude-guard-fixture-plan-exec-clear.json"
+plan_exec_audit_prompt="$(jq -cn '{session_id:"fixture-plan-exec-clear",prompt:"audit the config and explain what changed"}')"
+run_hook cc-userprompt-router.sh "$plan_exec_audit_prompt" >/dev/null || true
+assert_json_expr "router clears plan execution on read-only audit prompt" "$(jq -c . "$plan_exec_clear_state")" '.planExecutionRequested == false'
+
 skill_trigger_cases="$ROOT/tests/fixtures/skill-triggering/cases.json"
 skill_trigger_count="$(jq 'length' "$skill_trigger_cases")"
 # Sandbox HOME for the router matrix: with the real HOME every call re-expands
@@ -822,25 +836,41 @@ true_completion_pending_stop="$(jq -cn '{session_id:"fixture-true-completion-pen
 out="$(run_hook cc-stop-verifier.sh "$true_completion_pending_stop")"
 assert_contains "stop verifier keeps true completion despite incidental work-state token" "$out" "claim completion without verification evidence"
 
+# Zero-verification gate matrix uses an isolated clean git repo so cc_state_has_work_changes
+# does not see the host workspace's dirty tree.
+zero_verify_repo="$TMPROOT/zero-verify-clean"
+mkdir -p "$zero_verify_repo"
+git -C "$zero_verify_repo" init -q
+git -C "$zero_verify_repo" config user.email "test@example.com"
+git -C "$zero_verify_repo" config user.name "Test"
+printf 'clean\n' >"$zero_verify_repo/README.md"
+git -C "$zero_verify_repo" add README.md
+git -C "$zero_verify_repo" commit -q -m "init"
+
 zero_verify_empty_state='{schemaVersion:5,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],skillRequestWaivers:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},contractVerdicts:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],toolSignals:[],firstEditAt:"",firstEditGeneration:0,toolUseBeforeFirstEdit:{},toolNoise:{},effectivenessCounters:{},newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:false,planExecutionRequestedAt:"",lastPrompt:"",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}'
 zero_verify_readonly_state="$TMPROOT/claude-guard-fixture-zero-verify-readonly.json"
-jq -nc "$zero_verify_empty_state" >"$zero_verify_readonly_state"
-zero_verify_readonly_stop="$(jq -cn '{session_id:"fixture-zero-verify-readonly",last_assistant_message:"Done. Config audit complete — no changes needed.",stop_hook_active:false}')"
+jq -nc --arg cwd "$zero_verify_repo" "$zero_verify_empty_state | .cwd = \$cwd" >"$zero_verify_readonly_state"
+zero_verify_readonly_stop="$(jq -cn --arg cwd "$zero_verify_repo" '{session_id:"fixture-zero-verify-readonly",cwd:$cwd,last_assistant_message:"Done. Config audit complete — no changes needed.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$zero_verify_readonly_stop")"
 if [[ -z "$out" ]]; then ok "stop verifier allows no-edit completion without verification claim"; else not_ok "no-edit completion without verification claim should pass: $out"; fi
 zero_verify_claim_state="$TMPROOT/claude-guard-fixture-zero-verify-claim.json"
-jq -nc "$zero_verify_empty_state" >"$zero_verify_claim_state"
-zero_verify_claim_stop="$(jq -cn '{session_id:"fixture-zero-verify-claim",last_assistant_message:"Done. Tests pass.",stop_hook_active:false}')"
+jq -nc --arg cwd "$zero_verify_repo" "$zero_verify_empty_state | .cwd = \$cwd" >"$zero_verify_claim_state"
+zero_verify_claim_stop="$(jq -cn --arg cwd "$zero_verify_repo" '{session_id:"fixture-zero-verify-claim",cwd:$cwd,last_assistant_message:"Done. Tests pass.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$zero_verify_claim_stop")"
 assert_contains "stop verifier blocks no-edit completion with verification claim" "$out" "claim completion without verification evidence"
+zero_verify_past_state="$TMPROOT/claude-guard-fixture-zero-verify-past.json"
+jq -nc --arg cwd "$zero_verify_repo" "$zero_verify_empty_state | .cwd = \$cwd" >"$zero_verify_past_state"
+zero_verify_past_stop="$(jq -cn --arg cwd "$zero_verify_repo" '{session_id:"fixture-zero-verify-past",cwd:$cwd,last_assistant_message:"Done. Tests passed.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$zero_verify_past_stop")"
+assert_contains "stop verifier blocks past-tense verification claim without runs" "$out" "claim completion without verification evidence"
 zero_verify_edits_state="$TMPROOT/claude-guard-fixture-zero-verify-edits.json"
-jq -nc --arg f "$TMPROOT/example/src/app.ts" "$zero_verify_empty_state | .edits = {(\$f): \"2026-01-01T00:00:01Z\"}" >"$zero_verify_edits_state"
-zero_verify_edits_stop="$(jq -cn '{session_id:"fixture-zero-verify-edits",last_assistant_message:"Done. Implemented the fix.",stop_hook_active:false}')"
+jq -nc --arg cwd "$zero_verify_repo" --arg f "$zero_verify_repo/src/app.ts" "$zero_verify_empty_state | .cwd = \$cwd | .edits = {(\$f): \"2026-01-01T00:00:01Z\"}" >"$zero_verify_edits_state"
+zero_verify_edits_stop="$(jq -cn --arg cwd "$zero_verify_repo" '{session_id:"fixture-zero-verify-edits",cwd:$cwd,last_assistant_message:"Done. Implemented the fix.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$zero_verify_edits_stop")"
 assert_contains "stop verifier blocks edits without verification runs" "$out" "claim completion without verification evidence"
 zero_verify_green_state="$TMPROOT/claude-guard-fixture-zero-verify-green.json"
-jq -nc --arg f "$TMPROOT/example/src/app.ts" "$zero_verify_empty_state | .edits = {(\$f): \"2026-01-01T00:00:01Z\"} | .verificationRuns = [{value: \"pnpm test\", at: \"2026-01-01T00:00:02Z\"}]" >"$zero_verify_green_state"
-zero_verify_green_stop="$(jq -cn '{session_id:"fixture-zero-verify-green",last_assistant_message:"Done. Implemented and verified.",stop_hook_active:false}')"
+jq -nc --arg cwd "$zero_verify_repo" --arg f "$zero_verify_repo/src/app.ts" "$zero_verify_empty_state | .cwd = \$cwd | .edits = {(\$f): \"2026-01-01T00:00:01Z\"} | .verificationRuns = [{value: \"pnpm test\", at: \"2026-01-01T00:00:02Z\"}]" >"$zero_verify_green_state"
+zero_verify_green_stop="$(jq -cn --arg cwd "$zero_verify_repo" '{session_id:"fixture-zero-verify-green",cwd:$cwd,last_assistant_message:"Done. Implemented and verified.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$zero_verify_green_stop")"
 assert_not_contains "stop verifier allows edits with verification runs past zero-verification gate" "$out" "claim completion without verification evidence"
 

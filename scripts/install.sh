@@ -500,6 +500,13 @@ validate_source_install_inputs() {
     "$TARGET/docs/templates/rules/eternal-saas" "$CODEX_TARGET/skills"; do
     if [[ -L "$stack_dir" ]]; then
       preflight+=("stack directory is a symlink (resolve to a real directory before installing): $stack_dir")
+    elif [[ -e "$stack_dir" && ! -d "$stack_dir" ]]; then
+      preflight+=("stack path is not a directory: $stack_dir")
+    fi
+  done
+  for eternal_saas_scope_dir in "$ROOT/rules/eternal-saas/global" "$ROOT/rules/eternal-saas/project"; do
+    if [[ ! -d "$eternal_saas_scope_dir" ]]; then
+      preflight+=("missing eternal-saas rule scope in source checkout: $eternal_saas_scope_dir")
     fi
   done
   if (( ${#preflight[@]} > 0 )); then
@@ -569,6 +576,9 @@ for stack_dir in "$TARGET/hooks" "$TARGET/skills" "$TARGET/rules" \
   "$TARGET/docs/templates/rules/eternal-saas" "$CODEX_TARGET/skills"; do
   if [[ -L "$stack_dir" ]]; then
     printf 'install error: %s is a symlink; resolve it to a real directory before installing (a symlinked stack root would be written through and its target clobbered)\n' "$stack_dir" >&2
+    exit 2
+  elif [[ -e "$stack_dir" && ! -d "$stack_dir" ]]; then
+    printf 'install error: %s is not a directory; resolve it before installing\n' "$stack_dir" >&2
     exit 2
   fi
 done
@@ -879,7 +889,10 @@ fi
 # This pack is staged under docs/templates/ rather than ~/.claude/rules/ because Claude Code
 # auto-loads every .md under ~/.claude/rules/ as user-scope memory: files without `paths:`
 # frontmatter load in every session, and the pack's `paths: ["**"]` entries match every repo.
-# Staging it there put stack-specific pnpm/Onveloz/tenant guidance into unrelated projects.
+# Staging it there put stack-specific tenant guidance into unrelated projects.
+if [[ ! -e "$TARGET/docs/templates/rules/eternal-saas" && ! -L "$TARGET/docs/templates/rules/eternal-saas" ]]; then
+  printf 'docs/templates/rules/eternal-saas\n' >> "$BACKUP/new-source-paths.txt"
+fi
 for eternal_saas_scope in global project; do
   eternal_saas_src="$ROOT/rules/eternal-saas/$eternal_saas_scope"
   if [[ ! -d "$eternal_saas_src" ]]; then
@@ -925,7 +938,7 @@ chmod_control_scripts "$TARGET"
 chmod_control_scripts "$CODEX_TARGET"
 
 if [[ "$RESET_CLAUDE_SETTINGS" == "1" ]]; then
-  reset_settings_preserving_enabled_plugins "$TARGET/settings.json" "$BACKUP/settings.json"
+  reset_settings_preserving_user_settings "$TARGET/settings.json" "$BACKUP/settings.json"
 fi
 node "$ROOT/scripts/merge-settings.mjs" "$TARGET/settings.json" "$SETTINGS_TEMPLATE"
 node "$ROOT/scripts/settings-audit.mjs" "$TARGET/settings.json" --fix >/dev/null

@@ -395,19 +395,41 @@ fi
 # Restore the eternal-saas pack staged by install.sh. Backups taken before the pack moved
 # out of ~/.claude/rules/ carry the legacy key, so restore whichever key the backup holds —
 # rolling back to a pre-move install must put the pack back where that install had it.
+restore_eternal_saas_pack() {
+  local backup_src="$1"
+  local dest="$2"
+  local label="$3"
+  local tmp old
+  tmp="$dest.tmp"
+  old="$dest.old"
+  mkdir -p "$(dirname -- "$dest")"
+  rm -rf -- "$tmp" "$old"
+  cp -R -- "$backup_src" "$tmp"
+  if [[ -d "$dest" ]]; then
+    mv -- "$dest" "$old"
+  fi
+  if mv -- "$tmp" "$dest"; then
+    rm -rf -- "$old"
+    restored+=("$label")
+    restored_count=$((restored_count + 1))
+  else
+    [[ ! -d "$old" ]] || mv -- "$old" "$dest"
+    rm -rf -- "$tmp"
+    printf 'rollback error: failed to restore %s\n' "$label" >&2
+    return 1
+  fi
+}
 if [[ -d "$BACKUP/docs-templates-rules/eternal-saas" ]]; then
-  rm -rf -- "${ROOT:?}/docs/templates/rules/eternal-saas"
-  mkdir -p "$ROOT/docs/templates/rules"
-  cp -R -- "$BACKUP/docs-templates-rules/eternal-saas" "$ROOT/docs/templates/rules/eternal-saas"
-  restored+=("docs/templates/rules/eternal-saas")
-  restored_count=$((restored_count + 1))
+  restore_eternal_saas_pack \
+    "$BACKUP/docs-templates-rules/eternal-saas" \
+    "$ROOT/docs/templates/rules/eternal-saas" \
+    "docs/templates/rules/eternal-saas"
 fi
 if [[ -d "$BACKUP/rules/eternal-saas" ]]; then
-  rm -rf -- "${ROOT:?}/rules/eternal-saas"
-  mkdir -p "$ROOT/rules"
-  cp -R -- "$BACKUP/rules/eternal-saas" "$ROOT/rules/eternal-saas"
-  restored+=("rules/eternal-saas")
-  restored_count=$((restored_count + 1))
+  restore_eternal_saas_pack \
+    "$BACKUP/rules/eternal-saas" \
+    "$ROOT/rules/eternal-saas" \
+    "rules/eternal-saas"
 fi
 
 # Restore Codex startup files installed by install.sh

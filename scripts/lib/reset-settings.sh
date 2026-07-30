@@ -3,7 +3,7 @@
 # Drop stack-owned hook wiring so merge-settings.mjs can re-apply the template cleanly.
 readonly ETRNL_RESET_SETTINGS_JQ='del(.hooks)'
 
-reset_settings_preserving_enabled_plugins() {
+reset_settings_preserving_user_settings() {
   local settings_file="$1"
   local backup_file="${2:-}"
   local tmp
@@ -23,4 +23,9 @@ reset_settings_preserving_enabled_plugins() {
   fi
   install -m 600 "$tmp" "$settings_file"
   rm -f "$tmp"
+}
+
+# Backward-compatible alias for callers that still use the old name.
+reset_settings_preserving_enabled_plugins() {
+  reset_settings_preserving_user_settings "$@"
 }
