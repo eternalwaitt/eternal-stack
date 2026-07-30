@@ -5,27 +5,31 @@ Run parallel reviewers after the final edit of a task or wave, merge findings on
 Helper paths: resolve once from the **target repository root**, then use that prefix for every command below.
 
 ```bash
-if [[ -f scripts/review-rules.mjs && -f VERSION && -d skills/etrnl-dev-execute ]]; then
-  ETRNL_HELPER=(node scripts)
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+REPO_KEY="$(printf '%s' "$REPO_ROOT" | shasum -a 256 | awk '{print $1}' | cut -c1-16)"
+if [[ -f "$REPO_ROOT/scripts/review-rules.mjs" && -f "$REPO_ROOT/VERSION" && -d "$REPO_ROOT/skills/etrnl-dev-execute" ]]; then
+  ETRNL_NODE=(node)
+  ETRNL_SCRIPT_ROOT="$REPO_ROOT/scripts"
 else
-  ETRNL_HELPER=(node "${HOME}/.claude/scripts")
+  ETRNL_NODE=(node)
+  ETRNL_SCRIPT_ROOT="${HOME}/.claude/scripts"
 fi
-REPO_SLUG="$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)")"
-REVIEW_LEARNINGS="${HOME}/.claude/review-learnings/${REPO_SLUG}/review-learnings.json"
+REVIEW_LEARNINGS="${HOME}/.claude/review-learnings/${REPO_KEY}/review-learnings.json"
+DEEP_AUDIT_REGISTRY="$ETRNL_SCRIPT_ROOT/lib/deep-audit-categories.mjs"
 ```
 
-Run helpers with `--root` set to the target repository. Never pass a repository-local `--learnings` or `--ledger` path; review memory lives only under `~/.claude/review-learnings/`.
+Run every helper with `--root "$REPO_ROOT"`. Never pass a repository-local `--learnings` or `--ledger` path; review memory lives only under `~/.claude/review-learnings/`.
 
 ## Deterministic-first
 
-1. Run `"${ETRNL_HELPER[@]}/review-rules.mjs" check --changed-only` and fix every block-mode match before any LLM reviewer runs.
+1. Run `"${ETRNL_NODE[@]}" "$ETRNL_SCRIPT_ROOT/review-rules.mjs" check --changed-only --root "$REPO_ROOT"` and fix every block-mode match before any LLM reviewer runs.
 2. Exclude findings that match a `review-rules.mjs` or linter rule ID from LLM review scope — fix them mechanically and record the rule ID.
-3. `"${ETRNL_HELPER[@]}/review-rules.mjs" check --changed-only --report-only` returns the same findings and exits 0 with no escalation to block. Read the deterministic tail with it mid-wave without stopping the wave. It rewrites no rule mode and touches no warn-to-block promotion state, so the blocking run in step 1 still gates LLM review and push.
+3. `"${ETRNL_NODE[@]}" "$ETRNL_SCRIPT_ROOT/review-rules.mjs" check --changed-only --report-only --root "$REPO_ROOT"` returns the same findings and exits 0 with no escalation to block. Read the deterministic tail with it mid-wave without stopping the wave. It rewrites no rule mode and touches no warn-to-block promotion state, so the blocking run in step 1 still gates LLM review and push.
 
 ## Parallel review and synthesis
 
 1. Dispatch reviewers in parallel. Each reviewer emits findings JSON with `reviewer`, `severity` (P0–P3), `confidence` (0–1), `file`, `line`, `fingerprint`, `summary`, and `autofix_class` (`safe_auto`, `gated_auto`, `manual`).
-2. Pipe the combined array through `"${ETRNL_HELPER[@]}/review-merge.mjs"` (or `--file`) to produce the single merged review artifact (JSON; add `--markdown` for human scan).
+2. Pipe the combined array through `"${ETRNL_NODE[@]}" "$ETRNL_SCRIPT_ROOT/review-merge.mjs"` (or `--file`) to produce the single merged review artifact (JSON; add `--markdown` for human scan).
 3. Fix every `safe_auto` finding immediately.
 4. Record `residual` (`gated_auto`/`manual`) findings as non-blocking todos — do not reopen the wave for them alone.
 5. Reopen and fix only when the merged artifact has `blocking` (P0/P1) entries. After code changes, re-run only the reviewers whose lenses cover the changed surfaces.
@@ -61,12 +65,12 @@ A spent reopen cap and a tripped park counter both end the loop. Severity decide
 
 Reopen caps bound the worst case. Trajectory counters end a loop that stopped converging before the cap runs out.
 
-1. Record the counters on the wave row after every review round with `"${ETRNL_HELPER[@]}/execution-ledger.mjs" record-trajectory --wave <id> --recurring-finding-count <n> --stream-alternation-count <n> --rounds-since-progress <n>`. Each flag sets an absolute value, and a partial update keeps the counters it omits.
+1. Record the counters on the wave row after every review round with `"${ETRNL_NODE[@]}" "$ETRNL_SCRIPT_ROOT/execution-ledger.mjs" record-trajectory --root "$REPO_ROOT" --wave <id> --recurring-finding-count <n> --stream-alternation-count <n> --rounds-since-progress <n>`. Each flag sets an absolute value, and a partial update keeps the counters it omits.
    - `recurringFindingCount` — rounds in which the same fingerprint stayed open.
    - `streamAlternationCount` — hand-offs between review streams on one task.
    - `roundsSinceProgress` — rounds since the merged finding count last fell.
-2. Read them back with `"${ETRNL_HELPER[@]}/execution-ledger.mjs" history --gates --json`, which emits `.waves[]` rows carrying `waveId` and the three counters.
-3. Evaluate the park decision inside synthesis: `"${ETRNL_HELPER[@]}/review-merge.mjs" --file <findings.json> --trajectory <gates.json> --wave <id> --reopen-round <used> --reopen-cap <cap>`. The merged report carries a `park` object and the `capDecision` that acts on it. Pass `--reopen-round` and `--reopen-cap` on every synthesis run at tier 3 — without them the merge cannot see a spent cap and reports `close` where the loop actually ended.
+2. Read them back with `"${ETRNL_NODE[@]}" "$ETRNL_SCRIPT_ROOT/execution-ledger.mjs" history --gates --json --root "$REPO_ROOT"`, which emits `.waves[]` rows carrying `waveId` and the three counters.
+3. Evaluate the park decision inside synthesis: `"${ETRNL_NODE[@]}" "$ETRNL_SCRIPT_ROOT/review-merge.mjs" --file <findings.json> --trajectory <gates.json> --wave <id> --reopen-round <used> --reopen-cap <cap> --root "$REPO_ROOT"`. The merged report carries a `park` object and the `capDecision` that acts on it. Pass `--reopen-round` and `--reopen-cap` on every synthesis run at tier 3 — without them the merge cannot see a spent cap and reports `close` where the loop actually ended.
 4. Park the stream when `park.parked` is true. Each limit is a named constant with an env override:
 
    | Counter | Limit | Env override | Reason code |
@@ -76,17 +80,17 @@ Reopen caps bound the worst case. Trajectory counters end a loop that stopped co
    | `roundsSinceProgress` | 2 | `ETRNL_REVIEW_ROUNDS_SINCE_PROGRESS_LIMIT` | `rounds-since-progress-limit` |
 
 5. Any single tripped counter parks the stream while reopen rounds remain: `park.reopenCapExhausted` reports `false` in that case and the loop stops anyway.
-6. On a park, record a blocker naming every `park.reasons[].reasonCode`, keep the open findings as non-blocking notes, and continue other work. `capDecision` decides what follows: `proceed-with-residuals` closes that stream with the residuals recorded, and only `owner-decision` requires a decision logged with `"${ETRNL_HELPER[@]}/execution-ledger.mjs" record-decision`.
+6. On a park, record a blocker naming every `park.reasons[].reasonCode`, keep the open findings as non-blocking notes, and continue other work. `capDecision` decides what follows: `proceed-with-residuals` closes that stream with the residuals recorded, and only `owner-decision` requires a decision logged with `"${ETRNL_NODE[@]}" "$ETRNL_SCRIPT_ROOT/execution-ledger.mjs" record-decision --root "$REPO_ROOT"`.
 
 ## Adaptive reviewer skip
 
 A reviewer that returns nothing on five consecutive dispatches stops earning its turn cost.
 
-1. Record each dispatch outcome during synthesis: `"${ETRNL_HELPER[@]}/review-merge.mjs" --file <findings.json> --dispatched <reviewer-ids> --learnings "$REVIEW_LEARNINGS"`. Counters persist under `reviewerDispatches` in the private overlay ledger; each writer rewrites the whole object and keeps the other's keys.
-2. Plan the next dispatch with `"${ETRNL_HELPER[@]}/review-merge.mjs" skip-plan --reviewers <ids> --learnings "$REVIEW_LEARNINGS" --json`. Dispatch every id in `dispatch` and skip every row in `skips`.
+1. Record each dispatch outcome during synthesis: `"${ETRNL_NODE[@]}" "$ETRNL_SCRIPT_ROOT/review-merge.mjs" --file <findings.json> --dispatched <reviewer-ids> --learnings "$REVIEW_LEARNINGS" --root "$REPO_ROOT"`. Counters persist under `reviewerDispatches` in the private overlay ledger; each writer rewrites the whole object and keeps the other's keys.
+2. Plan the next dispatch with `"${ETRNL_NODE[@]}" "$ETRNL_SCRIPT_ROOT/review-merge.mjs" skip-plan --reviewers <ids> --learnings "$REVIEW_LEARNINGS" --json --root "$REPO_ROOT"`. Dispatch every id in `dispatch` and skip every row in `skips`.
 3. The limit is five consecutive zero-finding dispatches, overridable with `ETRNL_REVIEW_ADAPTIVE_SKIP_STREAK`. One finding resets the streak to 0.
-4. Exemptions always dispatch and never accrue a skip: security lenses, tenancy lenses, and every deep-audit lane registered in `~/.claude/scripts/lib/deep-audit-categories.mjs`. A deep-audit lane reporting zero findings states coverage, not redundancy, and skipping it reintroduces the sampling those lanes exist to remove.
-5. Each skip row carries `reasonCode`, `reason`, and the `zeroFindingStreak` behind it, following the `coverageExceptions` precedent in `~/.claude/scripts/ux-audit-check.mjs`. Copy the rows into the wave's review artifact so a review that never ran stays distinguishable from a review that found nothing.
+4. Exemptions always dispatch and never accrue a skip: security lenses, tenancy lenses, and every deep-audit lane registered in `"$DEEP_AUDIT_REGISTRY"`. A deep-audit lane reporting zero findings states coverage, not redundancy, and skipping it reintroduces the sampling those lanes exist to remove.
+5. Each skip row carries `reasonCode`, `reason`, and the `zeroFindingStreak` behind it, following the `coverageExceptions` precedent in `"$ETRNL_SCRIPT_ROOT/ux-audit-check.mjs"`. Copy the rows into the wave's review artifact so a review that never ran stays distinguishable from a review that found nothing.
 6. When the lane registry fails to load, `skipEvaluation` reports `unavailable` and every named reviewer dispatches.
 
 ## Review depth by tier

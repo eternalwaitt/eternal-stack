@@ -54,10 +54,9 @@ if [[ "$message_lower" =~ (^|[^[:alnum:]_])(done|complete|completed|implemented|
 fi
 # Asserted verification without recorded runs — tighter than claims_done; excludes
 # casual "check"/"done" alone and identifier-embedded words (unverified, typecheck_pass_state).
-if [[ "$message_lower" =~ (^|[^[:alnum:]_])(tests[[:space:]]+pass(ed|ing)?|verified|build[[:space:]]+(succeeds|pass(es|ed)?)|lint[[:space:]]+pass(es|ed)?|typecheck[[:space:]]+pass(es|ed)?|checks[[:space:]]+pass(ed|ing)?|ran[[:space:]]+(the[[:space:]]+)?tests|confirmed[[:space:]]+working)([^[:alnum:]_]|$) ]]; then
+if [[ "$message_lower" =~ (^|[^[:alnum:]_])((not[[:space:]]+(yet[[:space:]]+)?)?(tests[[:space:]]+pass(ed|ing)?|verified|build[[:space:]]+(succeeds|pass(es|ed)?)|lint[[:space:]]+pass(es|ed)?|typecheck[[:space:]]+pass(es|ed)?|checks[[:space:]]+pass(ed|ing)?|ran[[:space:]]+(the[[:space:]]+)?tests|confirmed[[:space:]]+working))([^[:alnum:]_]|$) ]]; then
   claims_verification=true
-  # Negated or hypothetical phrasing ("not verified", "if the tests passed") is not evidence.
-  if [[ "$message_lower" =~ (^|[^[:alnum:]_])(not[[:space:]]+(yet[[:space:]]+)?(verified|confirmed)|unverified|not[[:space:]]+confirmed[[:space:]]+working)([^[:alnum:]_]|$) ]] \
+  if [[ "${BASH_REMATCH[2]}" =~ ^not[[:space:]] ]] \
     || [[ "$message_lower" =~ (^|[^[:alnum:]_])if[[:space:]]+(the[[:space:]]+)?tests[[:space:]]+pass(ed|es|ing)?([^[:alnum:]_]|$) ]]; then
     claims_verification=false
   fi

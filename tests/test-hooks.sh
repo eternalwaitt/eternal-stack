@@ -842,8 +842,8 @@ true_completion_pending_stop="$(jq -cn '{session_id:"fixture-true-completion-pen
 out="$(run_hook cc-stop-verifier.sh "$true_completion_pending_stop")"
 assert_contains "stop verifier keeps true completion despite incidental work-state token" "$out" "claim completion without verification evidence"
 
-# Zero-verification gate matrix uses an isolated clean git repo so cc_state_has_work_changes
-# does not see the host workspace's dirty tree.
+# Zero-verification gate matrix uses an isolated clean git repo so fixtures get a
+# deterministic cwd without inheriting the host workspace's dirty tree.
 zero_verify_repo="$TMPROOT/zero-verify-clean"
 mkdir -p "$zero_verify_repo"
 git -C "$zero_verify_repo" init -q
@@ -2025,6 +2025,7 @@ cc_json_read_stdin_forced_reader() {
   CC_JSON_FORCED_ERR_FILE="$err_file"
 }
 
+if command -v perl >/dev/null 2>&1; then
 cc_json_read_stdin_forced_reader perl "$stdin_large_batch"
 if python3 -c "import sys; sys.exit(0 if float('${CC_JSON_FORCED_ELAPSED}') < 1.0 else 1)"; then
   ok "cc_json_read_stdin perl reader held-open returns under 1s (${CC_JSON_FORCED_ELAPSED}s)"
@@ -2038,6 +2039,9 @@ else
   not_ok "cc_json_read_stdin perl reader truncated payload: got $forced_perl_count expected $stdin_large_count"
 fi
 assert_not_contains "cc_json_read_stdin perl reader emits no stderr diagnostics on success" "$(cat "$CC_JSON_FORCED_ERR_FILE")" "claude-guard"
+else
+  ok "cc_json_read_stdin perl reader skipped (perl unavailable)"
+fi
 
 blocking_payload='{"session_id":"stdin-blocking-fallback"}'
 blocking_err="$TMPROOT/stdin-blocking-err-$$-$RANDOM.txt"
