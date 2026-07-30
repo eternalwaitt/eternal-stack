@@ -32,7 +32,7 @@ ETRNL_ENABLE_STRICT=1 ./scripts/install.sh
 The installer:
 
 - backs up existing Claude settings and `CLAUDE.md`
-- resets managed `~/.claude/settings.json` by dropping stack-owned `hooks` before applying the selected etrnl stack while preserving all other user top-level settings; `--preserve-settings` additionally keeps existing user hooks instead of dropping them before merge
+- resets managed `~/.claude/settings.json` by dropping the existing `hooks` object (including user hooks) before applying the selected etrnl stack while preserving all other user top-level settings; `--preserve-settings` additionally keeps existing user hooks instead of dropping them before merge
 - backs up pre-existing repo-owned hooks, skills, and agent files so rollback can restore them or remove newly installed copies
 - copies reusable hooks, hook libraries, fixtures, docs, skills, generated `etrnl-*` slash command shims, and ETRNL agent templates
 - copies etrnl assets:

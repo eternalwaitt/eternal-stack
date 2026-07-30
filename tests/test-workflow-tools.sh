@@ -3922,6 +3922,8 @@ assert_contains "bounded-review carries the tier 3 Codex-profile carve-out" "$tg
 assert_contains "bounded-review keeps tier 3 gates at full strength" "$tg12_bounded_review" "Tier 3 gates hold at full strength on every wave"
 assert_contains "bounded-review exempts deep-audit lanes from adaptive skip" "$tg12_bounded_review" "every deep-audit lane registered in \`~/.claude/scripts/lib/deep-audit-categories.mjs\`"
 assert_contains "bounded-review reuses the review-learnings store" "$tg12_bounded_review" "reviewerDispatches"
+assert_contains "bounded-review requires private overlay learnings path" "$tg12_bounded_review" 'REVIEW_LEARNINGS="${HOME}/.claude/review-learnings/'
+assert_contains "bounded-review resolves helper root for source checkout" "$tg12_bounded_review" "ETRNL_HELPER=(node scripts)"
 tg12_dev_pr="$(cat "$ROOT/skills/etrnl-dev-pr/SKILL.md")"
 assert_contains "etrnl-dev-pr routes review-learn through the installed helper" "$tg12_dev_pr" "node ~/.claude/scripts/review-learn.mjs learn"
 assert_contains "etrnl-dev-pr warns against probing repo-local review-learn" "$tg12_dev_pr" "do not probe for \`scripts/review-learn.mjs\` in the target repo"

@@ -1997,10 +1997,10 @@ if [[ "$empty_held" == "{}" ]]; then
 else
   not_ok "cc_json_read_stdin empty held-open stdin should return {}, got $empty_held"
 fi
-if python3 -c "import sys; sys.exit(0 if float('${CC_JSON_HELD_ELAPSED}') < 1.0 else 1)"; then
+if python3 -c "import sys; sys.exit(0 if float('${CC_JSON_HELD_ELAPSED}') < 0.75 else 1)"; then
   ok "cc_json_read_stdin empty held-open stdin returns promptly (${CC_JSON_HELD_ELAPSED}s)"
 else
-  not_ok "cc_json_read_stdin empty held-open stdin should return under 1s, got ${CC_JSON_HELD_ELAPSED}s"
+  not_ok "cc_json_read_stdin empty held-open stdin should return under 0.75s, got ${CC_JSON_HELD_ELAPSED}s"
 fi
 
 cc_json_read_stdin_forced_reader() {
@@ -2037,6 +2037,7 @@ if [[ "$forced_perl_count" == "$stdin_large_count" ]]; then
 else
   not_ok "cc_json_read_stdin perl reader truncated payload: got $forced_perl_count expected $stdin_large_count"
 fi
+assert_not_contains "cc_json_read_stdin perl reader emits no stderr diagnostics on success" "$(cat "$CC_JSON_FORCED_ERR_FILE")" "claude-guard"
 
 blocking_payload='{"session_id":"stdin-blocking-fallback"}'
 blocking_err="$TMPROOT/stdin-blocking-err-$$-$RANDOM.txt"

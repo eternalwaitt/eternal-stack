@@ -13,6 +13,8 @@ cc_json_read_stdin() {
   # Measured inter-chunk gaps: ~1.3ms (fast writes), ~54ms max (50ms pauses).
   # 100ms idle gives 2x margin over the slow-chunk case.
   local _idle_ms=100
+  # Wait longer for the first byte so delayed hook delivery is not mistaken for empty stdin.
+  local _first_byte_wait_ms=500
   local _reader="${ETRNL_JSON_STDIN_READER:-auto}"
   local _use_python=false _use_perl=false _use_head=false
 
@@ -47,17 +49,19 @@ cc_json_read_stdin() {
       return 1
     fi
     if ! HOOK_INPUT="$(
-      python3 - "$_stdin_cap" "$_idle_ms" 3<&0 2>/dev/null <<'PY'
+      python3 - "$_stdin_cap" "$_idle_ms" "$_first_byte_wait_ms" 3<&0 2>/dev/null <<'PY'
 import os
 import select
 import sys
 
 max_bytes = int(sys.argv[1])
 idle_sec = int(sys.argv[2]) / 1000.0
+first_byte_sec = int(sys.argv[3]) / 1000.0
 data = bytearray()
 fd = 3  # caller stdin duplicated before the script heredoc
 while len(data) < max_bytes:
-    ready, _, _ = select.select([fd], [], [], idle_sec)
+    timeout = first_byte_sec if not data else idle_sec
+    ready, _, _ = select.select([fd], [], [], timeout)
     if ready:
         chunk = os.read(fd, min(65536, max_bytes - len(data)))
         if not chunk:
@@ -79,18 +83,20 @@ PY
       return 1
     fi
     if ! HOOK_INPUT="$(
-      perl - "$_stdin_cap" "$_idle_ms" 3<&0 2>/dev/null <<'PERL'
+      perl - "$_stdin_cap" "$_idle_ms" "$_first_byte_wait_ms" 3<&0 2>/dev/null <<'PERL'
 use strict;
 use warnings;
 use IO::Select;
 
 my $max_bytes = int($ARGV[0]);
 my $idle_sec  = int($ARGV[1]) / 1000.0;
+my $first_byte_sec = int($ARGV[2]) / 1000.0;
 open(my $in, '<&=', 3) or exit 1;
 my $data = "";
 my $sel  = IO::Select->new($in);
 while (length($data) < $max_bytes) {
-    my @ready = $sel->can_read($idle_sec);
+    my $timeout = length($data) ? $idle_sec : $first_byte_sec;
+    my @ready = $sel->can_read($timeout);
     if (@ready) {
         my $chunk = "";
         my $n = sysread($in, $chunk, 65536 > ($max_bytes - length($data)) ? ($max_bytes - length($data)) : 65536);

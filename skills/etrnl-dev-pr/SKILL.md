@@ -20,12 +20,14 @@ Helper paths: `node ~/.claude/scripts/<name>` after Eternal Stack install (appli
 5. Run the repo preflight and smoke checks that prove the PR body claims.
 6. When the helper is installed, run `node ~/.claude/scripts/pr-preflight.mjs status --json` before creating or updating the PR, and run `node ~/.claude/scripts/pr-preflight.mjs validate --json` before claiming PR readiness. For guarded or migration release classes, `status` and `validate-body` auto-bootstrap `.etrnl/release.json` and scaffold modules in deployable app repos — include any newly created files in the same PR without asking the user to run setup.
 
-Install or refresh the helper from this repo when it is missing or stale:
+Install or refresh the helper from the Eternal Stack source checkout (not the target application repo) when it is missing or stale:
 
 ```bash
+ETRNL_STACK_SRC="${ETRNL_STACK:-$HOME/Github/eternal-stack}"
 mkdir -p ~/.claude/scripts
-cp scripts/pr-preflight.mjs ~/.claude/scripts/pr-preflight.mjs
+cp "$ETRNL_STACK_SRC/scripts/pr-preflight.mjs" ~/.claude/scripts/pr-preflight.mjs
 chmod +x ~/.claude/scripts/pr-preflight.mjs
+cd "<target-repo-root>"
 node ~/.claude/scripts/pr-preflight.mjs status --json
 node ~/.claude/scripts/pr-preflight.mjs validate --json
 ```

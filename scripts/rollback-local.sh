@@ -424,7 +424,13 @@ restore_eternal_saas_pack() {
     restored+=("$label")
     restored_count=$((restored_count + 1))
   else
-    [[ ! -d "$old" ]] || mv -- "$old" "$dest"
+    if [[ -d "$old" ]]; then
+      if [[ -e "$dest" || -L "$dest" ]] || ! mv -- "$old" "$dest"; then
+        printf 'rollback error: failed to recover prior %s; preserved at %s\n' \
+          "$label" "$old" >&2
+        return 1
+      fi
+    fi
     rm -rf -- "$tmp"
     printf 'rollback error: failed to restore %s\n' "$label" >&2
     return 1
