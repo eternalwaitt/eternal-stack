@@ -16,7 +16,7 @@ cc_json_read_stdin() {
 
   if command -v python3 >/dev/null 2>&1; then
     if ! HOOK_INPUT="$(
-      python3 - "$_stdin_cap" "$_idle_ms" 3<&0 <<'PY'
+      python3 - "$_stdin_cap" "$_idle_ms" 3<&0 2>/dev/null <<'PY'
 import os
 import select
 import sys
@@ -38,13 +38,13 @@ while len(data) < max_bytes:
         break
 sys.stdout.buffer.write(data)
 PY
-    2>/dev/null)"; then
+    )"; then
       printf 'claude-guard error: failed to read hook input\n' >&2
       return 1
     fi
   elif command -v perl >/dev/null 2>&1; then
     if ! HOOK_INPUT="$(
-      perl - "$_stdin_cap" "$_idle_ms" 3<&0 <<'PERL'
+      perl - "$_stdin_cap" "$_idle_ms" 3<&0 2>/dev/null <<'PERL'
 use strict;
 use warnings;
 use IO::Select;
@@ -69,7 +69,7 @@ while (length($data) < $max_bytes) {
 }
 print $data;
 PERL
-    2>/dev/null)"; then
+    )"; then
       printf 'claude-guard error: failed to read hook input\n' >&2
       return 1
     fi
@@ -83,7 +83,7 @@ PERL
   # A read that fills the 4MiB cap exactly is almost certainly truncated;
   # downstream jq will fail on the cut JSON and every hook fails open with
   # no explanation, so name the cause here.
-  if ((${#HOOK_INPUT} >= 4194304)); then
+  if ((${#HOOK_INPUT} >= _stdin_cap)); then
     printf 'claude-guard warning: hook input reached the 4MiB stdin cap and may be truncated; hooks may fail open on invalid JSON\n' >&2
   fi
   if [[ -z "${HOOK_INPUT}" ]]; then

@@ -3925,6 +3925,8 @@ assert_contains "bounded-review reuses the review-learnings store" "$tg12_bounde
 tg12_dev_pr="$(cat "$ROOT/skills/etrnl-dev-pr/SKILL.md")"
 assert_contains "etrnl-dev-pr routes review-learn through the installed helper" "$tg12_dev_pr" "node ~/.claude/scripts/review-learn.mjs learn"
 assert_contains "etrnl-dev-pr warns against probing repo-local review-learn" "$tg12_dev_pr" "do not probe for \`scripts/review-learn.mjs\` in the target repo"
+assert_contains "etrnl-dev-pr keeps review-learnings.json out of the PR" "$tg12_dev_pr" "never commit it"
+assert_contains "etrnl-dev-pr requires owner confirmation before committing review-rules.json" "$tg12_dev_pr" "explicit repository-owner confirmation"
 tg12_batch_execution="$(cat "$ROOT/skills/etrnl-dev-execute/references/batch-execution.md")"
 assert_contains "batch-execution defers tier 0-2 human-verify pauses" "$tg12_batch_execution" "## Human-verify batching (tier ≤ 2 default)"
 assert_contains "batch-execution keeps tier 3 UAT gates in place" "$tg12_batch_execution" "Tier 3 keeps explicit UAT gates where the plan places them"

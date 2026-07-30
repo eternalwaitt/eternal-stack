@@ -495,7 +495,9 @@ validate_source_install_inputs() {
   # eternal-saas pack swaps the same way there; a symlinked parent is written
   # through the same way; `agents`/`commands` are copied file-by-file, so a
   # symlinked parent there cannot swap an off-tree subtree.
-  for stack_dir in "$TARGET/hooks" "$TARGET/skills" "$TARGET/rules" "$TARGET/docs/templates/rules" "$CODEX_TARGET/skills"; do
+  for stack_dir in "$TARGET/hooks" "$TARGET/skills" "$TARGET/rules" \
+    "$TARGET/docs" "$TARGET/docs/templates" "$TARGET/docs/templates/rules" \
+    "$TARGET/docs/templates/rules/eternal-saas" "$CODEX_TARGET/skills"; do
     if [[ -L "$stack_dir" ]]; then
       preflight+=("stack directory is a symlink (resolve to a real directory before installing): $stack_dir")
     fi
@@ -562,7 +564,9 @@ mkdir -p "$TARGET" "$BACKUP"
 # `agents`/`commands` are file-by-file copies and are exempt.
 # Fail closed here — the user resolves the link manually. Mirrors the dry-run
 # precondition in validate_source_install_inputs.
-for stack_dir in "$TARGET/hooks" "$TARGET/skills" "$TARGET/rules" "$TARGET/docs/templates/rules" "$CODEX_TARGET/skills"; do
+for stack_dir in "$TARGET/hooks" "$TARGET/skills" "$TARGET/rules" \
+  "$TARGET/docs" "$TARGET/docs/templates" "$TARGET/docs/templates/rules" \
+  "$TARGET/docs/templates/rules/eternal-saas" "$CODEX_TARGET/skills"; do
   if [[ -L "$stack_dir" ]]; then
     printf 'install error: %s is a symlink; resolve it to a real directory before installing (a symlinked stack root would be written through and its target clobbered)\n' "$stack_dir" >&2
     exit 2
@@ -878,7 +882,10 @@ fi
 # Staging it there put stack-specific pnpm/Onveloz/tenant guidance into unrelated projects.
 for eternal_saas_scope in global project; do
   eternal_saas_src="$ROOT/rules/eternal-saas/$eternal_saas_scope"
-  [[ -d "$eternal_saas_src" ]] || continue
+  if [[ ! -d "$eternal_saas_src" ]]; then
+    printf 'install error: missing eternal-saas rule scope: %s\n' "$eternal_saas_src" >&2
+    exit 1
+  fi
   eternal_saas_dest="$TARGET/docs/templates/rules/eternal-saas/$eternal_saas_scope"
   eternal_saas_tmp="$eternal_saas_dest.tmp"
   eternal_saas_old="$eternal_saas_dest.old"

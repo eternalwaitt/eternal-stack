@@ -1886,6 +1886,7 @@ cc_json_read_stdin_held_open() {
   bash -c 'source "$1"; cc_json_read_stdin; printf "%s" "$HOOK_INPUT"' _ "$ROOT/hooks/lib/json.sh" <"$fifo" >"$result_file"
   end="$(python3 -c 'import time; print(time.monotonic())')"
   elapsed="$(python3 -c "print(f'{$end - $start:.3f}')")"
+  kill "$writer_pid" 2>/dev/null || true
   wait "$writer_pid" 2>/dev/null || true
   rm -f "$fifo"
   CC_JSON_HELD_ELAPSED="$elapsed"
@@ -1913,6 +1914,7 @@ cc_json_read_stdin_chunked() {
   ) >"$fifo" &
   local writer_pid=$!
   bash -c 'source "$1"; cc_json_read_stdin; printf "%s" "$HOOK_INPUT"' _ "$ROOT/hooks/lib/json.sh" <"$fifo" >"$result_file"
+  kill "$writer_pid" 2>/dev/null || true
   wait "$writer_pid" 2>/dev/null || true
   rm -f "$fifo"
   CC_JSON_CHUNKED_RESULT_FILE="$result_file"
