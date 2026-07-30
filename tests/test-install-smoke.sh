@@ -16,7 +16,7 @@ run_install_smoke_fast_tests() {
   fi
   assert_contains "install dry-run names core profile" "$dry_run_out" "profile=core"
   assert_contains "install dry-run names stack validator" "$dry_run_out" "stack-profile-check.mjs"
-  assert_contains "install dry-run resets Claude settings before applying stack" "$dry_run_out" "reset it to vanilla while preserving enabledPlugins and statusLine before applying stack hooks"
+  assert_contains "install dry-run resets Claude settings before applying stack" "$dry_run_out" "drop stack-owned hooks, and re-apply stack hooks while preserving other user settings"
   core_dry_run_out="$(CLAUDE_HOME="$dry_run_home" CODEX_HOME="$dry_run_codex_home" "$ROOT/scripts/install.sh" --profile core --dry-run)"
   assert_contains "core profile dry-run skips global memory tools" "$core_dry_run_out" "core profile skips Hindsight, Beads, and CodeGraph bootstrap"
   preserve_dry_run_out="$(CLAUDE_HOME="$dry_run_home" CODEX_HOME="$dry_run_codex_home" "$ROOT/scripts/install.sh" --preserve-settings --dry-run)"
@@ -64,7 +64,7 @@ run_install_malformed_settings_tests() {
     not_ok "install recovers malformed settings: $bad_settings_out"
   fi
   assert_contains "install warns about malformed settings" "$bad_settings_out" "install warning: invalid JSON"
-  assert_json_expr "install malformed settings resets enabledPlugins" "$(jq -c . "$bad_settings_home/settings.json")" '.enabledPlugins == {}'
+  assert_json_expr "install malformed settings produces merged hooks" "$(jq -c . "$bad_settings_home/settings.json")" 'has("hooks") and ([.hooks.PreToolUse[]?.hooks[]?.command // empty | select(test("cc-pretooluse-guard|cc-rtk-rg-compat|rtk hook claude"))] | length) >= 1'
 }
 
 run_install_smoke_tests() {

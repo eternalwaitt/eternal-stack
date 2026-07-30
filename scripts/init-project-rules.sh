@@ -5,7 +5,14 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# In a repo checkout the pack is the tracked source under rules/. In an installed home it is
+# staged under docs/templates/ instead: install.sh keeps it out of ~/.claude/rules/ because
+# Claude Code auto-loads every .md there as user-scope memory. Prefer the tracked source so a
+# checkout always installs the current pack; fall back to the staged copy.
 PACK_ROOT="$ROOT/rules/eternal-saas"
+if [[ ! -d "$PACK_ROOT" && -d "$ROOT/docs/templates/rules/eternal-saas" ]]; then
+  PACK_ROOT="$ROOT/docs/templates/rules/eternal-saas"
+fi
 MANIFEST_SOURCE="$ROOT/rules-manifest.json"
 
 # ── argument parsing ────────────────────────────────────────────────────────
@@ -67,6 +74,11 @@ TARGET="$TARGET_PARENT/$(basename "$TARGET")"
 
 if [[ "$PROFILE" != "eternal-saas" && "$PROFILE" != "eternal-saas-tcg" ]]; then
   echo "error: unknown profile '$PROFILE'. Valid: eternal-saas, eternal-saas-tcg" >&2
+  exit 1
+fi
+
+if [[ ! -d "$PACK_ROOT" ]]; then
+  echo "error: eternal-saas rule pack not found at $ROOT/rules/eternal-saas or $ROOT/docs/templates/rules/eternal-saas" >&2
   exit 1
 fi
 

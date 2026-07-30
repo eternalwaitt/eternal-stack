@@ -40,9 +40,45 @@ JSON
 # shellcheck source=scripts/lib/reset-settings.sh
 source "$ROOT/scripts/lib/reset-settings.sh"
 reset_settings_out="$(reset_settings_preserving_enabled_plugins "$reset_settings_live/settings.json" "$reset_settings_backup/settings.json" 2>&1)"
-assert_contains "reset settings preserves enabledPlugins from backup" "$reset_settings_out" "preserved enabledPlugins and statusLine from install backup"
+assert_contains "reset settings preserves enabledPlugins from backup" "$reset_settings_out" "restored user settings from install backup (dropped hooks)"
 assert_json_expr "reset settings backup fallback keeps plugins" "$(jq -c . "$reset_settings_live/settings.json")" '.enabledPlugins["backup-plugin@example"] == true'
 assert_json_expr "reset settings backup fallback keeps statusLine" "$(jq -c . "$reset_settings_live/settings.json")" '.statusLine.command == "bash ~/.claude/statusline.sh"'
+
+reset_user_settings_home="$TMPROOT/reset-user-settings"
+mkdir -p "$reset_user_settings_home"
+cat >"$reset_user_settings_home/settings.json" <<'JSON'
+{
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Bash(npm test)"
+    ]
+  },
+  "skillOverrides": {
+    "foreign-skill@example": false
+  },
+  "skillListingBudgetFraction": 0.05,
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/foreign-session-start.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
+JSON
+reset_settings_preserving_enabled_plugins "$reset_user_settings_home/settings.json" ""
+node "$ROOT/scripts/merge-settings.mjs" "$reset_user_settings_home/settings.json" "$ROOT/templates/settings.json" >/dev/null
+assert_json_expr "reset preserves permissions" "$(jq -c . "$reset_user_settings_home/settings.json")" '.permissions.defaultMode == "acceptEdits" and (.permissions.allow | index("Bash(npm test)")) != null'
+assert_json_expr "reset preserves skillOverrides" "$(jq -c . "$reset_user_settings_home/settings.json")" '.skillOverrides["foreign-skill@example"] == false'
+assert_json_expr "reset preserves skillListingBudgetFraction" "$(jq -c . "$reset_user_settings_home/settings.json")" '.skillListingBudgetFraction == 0.05'
+assert_json_expr "reset replaces stale hooks from template" "$(jq -c . "$reset_user_settings_home/settings.json")" '([.hooks.SessionStart[]?.hooks[]?.command // empty | select(test("foreign-session-start"))] | length) == 0 and ([.hooks.SessionStart[]?.hooks[]?.command // empty | select(test("cc-sessionstart-restore"))] | length) == 1'
 
 mkdir -p "$CLAUDE_HOME/skills/etrnl-fix-issue" "$CODEX_HOME/skills/etrnl-fix-issue" "$CLAUDE_HOME/commands"
 printf 'legacy claude skill\n' >"$CLAUDE_HOME/skills/etrnl-fix-issue/SKILL.md"
@@ -53,6 +89,16 @@ cat >"$CLAUDE_HOME/settings.json" <<'JSON'
 {
   "autoCompactWindow": 400000,
   "skipAutoPermissionPrompt": true,
+  "skillListingBudgetFraction": 0.05,
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Bash(npm test)"
+    ]
+  },
+  "skillOverrides": {
+    "foreign-skill@example": false
+  },
   "enabledPlugins": {
     "foreign-plugin@example": true
   },
@@ -157,6 +203,14 @@ assert_executable "installed source-style workflow tests" "$CLAUDE_HOME/tests/te
 assert_file "installed source-style test harness" "$CLAUDE_HOME/tests/lib/harness.sh"
 assert_file "installed guard-pattern fixture" "$CLAUDE_HOME/tests/fixtures/guard-patterns/invalid-01-grep-direct.json"
 assert_file "installed packet fixture" "$CLAUDE_HOME/tests/fixtures/events/packet-valid-01-readonly.json"
+# Claude Code auto-loads every .md under ~/.claude/rules/ as user-scope memory, so only the
+# agent-neutral etrnl modules may land there. The stack-specific eternal-saas pack is source
+# material for init-project-rules.sh and stages under docs/templates/ instead; staging it in
+# rules/ put pnpm/Onveloz/tenant guidance into every unrelated repo.
+assert_file "installed etrnl rule module" "$CLAUDE_HOME/rules/etrnl/workflow.md"
+assert_file "staged eternal-saas global scope outside the rules auto-load surface" "$CLAUDE_HOME/docs/templates/rules/eternal-saas/global/00-stack.md"
+assert_file "staged eternal-saas project scope outside the rules auto-load surface" "$CLAUDE_HOME/docs/templates/rules/eternal-saas/project/local-overrides.md"
+assert_no_directory "install keeps the eternal-saas pack out of ~/.claude/rules/" "$CLAUDE_HOME/rules/eternal-saas"
 if compgen -G "$CLAUDE_HOME/hooks/__pycache__/*cc-hindsight-lesson*.pyc" >/dev/null; then
   not_ok "install excludes Python bytecode"
 else
@@ -194,7 +248,7 @@ for script_file in "${CRITICAL_SCRIPTS[@]}"; do
   fi
 done
 assert_file "post-install: settings.json present" "$CLAUDE_HOME/settings.json"
-assert_json_expr "post-install: reset removed risky top-level settings" "$(jq -c . "$CLAUDE_HOME/settings.json")" '(has("autoCompactWindow") | not) and (has("skipAutoPermissionPrompt") | not)'
+assert_json_expr "post-install: reset preserved user top-level settings" "$(jq -c . "$CLAUDE_HOME/settings.json")" '.autoCompactWindow == 400000 and .skipAutoPermissionPrompt == true and .skillListingBudgetFraction == 0.05 and .permissions.defaultMode == "acceptEdits" and .skillOverrides["foreign-skill@example"] == false'
 assert_json_expr "post-install: reset preserved enabled plugin settings" "$(jq -c . "$CLAUDE_HOME/settings.json")" '.enabledPlugins["foreign-plugin@example"] == true'
 assert_json_expr "post-install: reset preserved statusLine" "$(jq -c . "$CLAUDE_HOME/settings.json")" '.statusLine.command == "bash ~/.claude/statusline.sh"'
 assert_json_expr "post-install: reset removed foreign hooks before stack merge" "$(jq -c . "$CLAUDE_HOME/settings.json")" '([.hooks.SessionStart[]?.hooks[]?.command // empty | select(test("foreign-session-start"))] | length) == 0'
@@ -524,6 +578,30 @@ else
 fi
 assert_contains "install does not write through a symlinked rules root" "$(cat "$symrules_external/keepme.txt" 2>/dev/null || true)" "EXTERNAL-RULES-ROOT-SENTINEL"
 assert_symlink "install leaves the symlinked rules root in place for the user to resolve" "$symrules_home/rules"
+
+# An earlier install staged the eternal-saas pack in ~/.claude/rules/, where Claude Code
+# auto-loads it as user-scope memory in every repository. Installing over such a home must
+# retire that copy and back it up first, so rollback can still restore the prior layout.
+legacy_saas_home="$TMPROOT/legacy-saas-claude"
+legacy_saas_codex="$TMPROOT/legacy-saas-codex"
+mkdir -p "$legacy_saas_home/rules/eternal-saas/global" "$legacy_saas_codex"
+printf 'LEGACY-SAAS-RULES-SENTINEL\n' >"$legacy_saas_home/rules/eternal-saas/global/00-stack.md"
+if CLAUDE_HOME="$legacy_saas_home" CODEX_HOME="$legacy_saas_codex" "$ROOT/scripts/install.sh" >/dev/null 2>&1; then
+  ok "install succeeds over a home carrying the legacy eternal-saas rules copy"
+else
+  not_ok "install succeeds over a home carrying the legacy eternal-saas rules copy"
+fi
+assert_no_directory "install retires the legacy ~/.claude/rules/eternal-saas copy" "$legacy_saas_home/rules/eternal-saas"
+assert_file "install stages the pack under docs/templates instead" "$legacy_saas_home/docs/templates/rules/eternal-saas/global/00-stack.md"
+legacy_saas_backups=("$legacy_saas_home"/backups/etrnl-install-*)
+if (( ${#legacy_saas_backups[@]} >= 1 )); then
+  legacy_saas_backup="${legacy_saas_backups[$((${#legacy_saas_backups[@]} - 1))]}"
+  assert_contains "install backs up the legacy copy before retiring it" \
+    "$(cat "$legacy_saas_backup/rules/eternal-saas/global/00-stack.md" 2>/dev/null || true)" \
+    "LEGACY-SAAS-RULES-SENTINEL"
+else
+  not_ok "install backs up the legacy copy before retiring it"
+fi
 
 # (B)+(C)+(D) A nested hooks/lib symlink (to an external dir) plus dangling
 # hooks/fixtures and tests/fixtures symlinks. Install materializes lib as a real

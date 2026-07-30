@@ -12,15 +12,17 @@ Rule modules live in `rules/` and ship as a cross-host pack. Each module is a fo
 
 Cursor has no user-level rules directory — project `.mdc` files are the only automated surface. Global rules require manual copy to each project.
 
+Claude Code discovers every `.md` under a rules directory recursively and loads it as memory. A module **without** `paths:` frontmatter loads unconditionally in every session; `globs:` and `alwaysApply:` are Cursor fields and do not scope anything for Claude. Path scoping is also only reliable at project level, so treat `~/.claude/rules/` as always-on context: put a module there only when it should apply to every repo. The eternal-saas pack is stack-specific, so `install.sh` stages it under `~/.claude/docs/templates/rules/eternal-saas/` — source material for `init-project-rules.sh`, deliberately outside the auto-load surface — and only `rules/etrnl/` installs to `~/.claude/rules/`.
+
 ## Install
 
-**Global rules** (eternal-saas digest + etrnl rules) are installed by `scripts/install.sh`:
+**Global rules** (`rules/etrnl/` only) are installed to `~/.claude/rules/etrnl/` by `scripts/install.sh`, which also stages the eternal-saas pack under `~/.claude/docs/templates/rules/eternal-saas/` without loading it:
 
 ```bash
 ./scripts/install.sh --profile core
 ```
 
-**Project rules** (full scoped pack) are installed by `scripts/init-project-rules.sh`:
+**Project rules** (full scoped pack, both scopes) are installed by `scripts/init-project-rules.sh`:
 
 ```bash
 ./scripts/init-project-rules.sh --profile eternal-saas /path/to/project

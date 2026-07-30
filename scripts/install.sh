@@ -26,6 +26,7 @@ BACKUP="$TARGET/backups/etrnl-install-$STAMP"
 trap 'rc=$?; if (( rc != 0 )); then if [[ -d "$BACKUP" ]]; then printf "\ninstall FAILED (exit %d). Restore your previous config with:\n  bash %s/scripts/rollback-local.sh %s\n" "$rc" "$ROOT" "$BACKUP" >&2; else printf "\ninstall FAILED (exit %d) before any backup was taken; no changes were made.\n" "$rc" >&2; fi; fi' ERR
 SETTINGS_TEMPLATE="$ROOT/templates/settings.json"
 legacy_rules_present=0
+legacy_saas_rules_present=0
 DRY_RUN=0
 YES=0
 RESET_CLAUDE_SETTINGS=1
@@ -489,11 +490,12 @@ validate_source_install_inputs() {
   # root (no per-file backup) and the `cp -R` overlay writes THROUGH the link into
   # its external target, clobbering off-tree data that rollback never captured.
   # Reject it up front so the user resolves the link before installing. `rules` is
-  # included because `rules/etrnl` and `rules/eternal-saas/*` are `cp -R` subtree
-  # swaps under `$TARGET/rules` (see the atomic rules sync below), so a symlinked
-  # `rules` parent is written through the same way; `agents`/`commands` are copied
-  # file-by-file, so a symlinked parent there cannot swap an off-tree subtree.
-  for stack_dir in "$TARGET/hooks" "$TARGET/skills" "$TARGET/rules" "$CODEX_TARGET/skills"; do
+  # included because `rules/etrnl` is a `cp -R` subtree swap under `$TARGET/rules`
+  # (see the atomic rules sync below) and `docs/templates/rules` because the
+  # eternal-saas pack swaps the same way there; a symlinked parent is written
+  # through the same way; `agents`/`commands` are copied file-by-file, so a
+  # symlinked parent there cannot swap an off-tree subtree.
+  for stack_dir in "$TARGET/hooks" "$TARGET/skills" "$TARGET/rules" "$TARGET/docs/templates/rules" "$CODEX_TARGET/skills"; do
     if [[ -L "$stack_dir" ]]; then
       preflight+=("stack directory is a symlink (resolve to a real directory before installing): $stack_dir")
     fi
@@ -525,10 +527,11 @@ if [[ "$DRY_RUN" == "1" ]]; then
   printf 'Dry run: would install Codex skill/runtime files into %s\n' "$CODEX_TARGET"
   printf 'Dry run: would install %s/AGENTS.md from templates/AGENTS.global.md (ETRNL_INSTALL_STARTUP gated)\n' "$CODEX_TARGET"
   printf 'Dry run: would install %s/AGENTS.override.md from templates/AGENTS.override.codex.md (ETRNL_INSTALL_STARTUP gated)\n' "$CODEX_TARGET"
-  printf 'Dry run: would sync rules/eternal-saas/{global,project} to %s/rules/eternal-saas/ with atomic swap\n' "$TARGET"
+  printf 'Dry run: would sync rules/eternal-saas/{global,project} to %s/docs/templates/rules/eternal-saas/ with atomic swap\n' "$TARGET"
+  printf 'Dry run: would remove any legacy %s/rules/eternal-saas/ left by an earlier install\n' "$TARGET"
   printf 'Dry run: would copy settings, stack profile, and Hindsight config templates\n'
   if [[ "$RESET_CLAUDE_SETTINGS" == "1" ]]; then
-    printf 'Dry run: would back up %s/settings.json and reset it to vanilla while preserving enabledPlugins and statusLine before applying stack hooks\n' "$TARGET"
+    printf 'Dry run: would back up %s/settings.json, drop stack-owned hooks, and re-apply stack hooks while preserving other user settings\n' "$TARGET"
   else
     printf 'Dry run: would preserve existing %s/settings.json and merge stack hooks into it\n' "$TARGET"
   fi
@@ -553,12 +556,13 @@ mkdir -p "$TARGET" "$BACKUP"
 # Reject a symlinked stack subtree before any backup or overlay runs. `find` skips a
 # symlinked root (so the per-file backup below captures nothing) and the later
 # `cp -R` overlay writes THROUGH the link, clobbering an off-tree target that
-# rollback never recorded. `rules` is included because `rules/etrnl` and
-# `rules/eternal-saas/*` are `cp -R` subtree swaps under `$TARGET/rules` (see the
-# atomic rules sync below); `agents`/`commands` are file-by-file copies and are exempt.
+# rollback never recorded. `rules` is included because `rules/etrnl` is a `cp -R`
+# subtree swap under `$TARGET/rules`, and `docs/templates/rules` because the
+# eternal-saas pack swaps the same way there (see the atomic rules sync below);
+# `agents`/`commands` are file-by-file copies and are exempt.
 # Fail closed here — the user resolves the link manually. Mirrors the dry-run
 # precondition in validate_source_install_inputs.
-for stack_dir in "$TARGET/hooks" "$TARGET/skills" "$TARGET/rules" "$CODEX_TARGET/skills"; do
+for stack_dir in "$TARGET/hooks" "$TARGET/skills" "$TARGET/rules" "$TARGET/docs/templates/rules" "$CODEX_TARGET/skills"; do
   if [[ -L "$stack_dir" ]]; then
     printf 'install error: %s is a symlink; resolve it to a real directory before installing (a symlinked stack root would be written through and its target clobbered)\n' "$stack_dir" >&2
     exit 2
@@ -578,6 +582,11 @@ fi
 if [[ -d "$TARGET/rules/eternal-saas" ]]; then
   mkdir -p "$BACKUP/rules"
   cp -R -- "$TARGET/rules/eternal-saas" "$BACKUP/rules/eternal-saas"
+  legacy_saas_rules_present=1
+fi
+if [[ -d "$TARGET/docs/templates/rules/eternal-saas" ]]; then
+  mkdir -p "$BACKUP/docs-templates-rules"
+  cp -R -- "$TARGET/docs/templates/rules/eternal-saas" "$BACKUP/docs-templates-rules/eternal-saas"
 fi
 if [[ -d "$TARGET/rules/eternal-control" ]]; then
   mkdir -p "$BACKUP/rules"
@@ -860,18 +869,20 @@ fi
 if [[ "${ETRNL_INSTALL_STARTUP:-0}" == "1" || ! -f "$CODEX_TARGET/AGENTS.override.md" ]]; then
   cp -- "$ROOT/templates/AGENTS.override.codex.md" "$CODEX_TARGET/AGENTS.override.md"
 fi
-# Sync rules/eternal-saas/{global,project} to ~/.claude/rules/eternal-saas/ with atomic swap.
-# init-project-rules.sh installs BOTH scopes into a target project and sync-rule-exports.mjs
-# reads them, so the installed home needs the project templates as source material, not just
-# the global digest. Missing project rules previously broke init-project-rules and the
-# installed workflow-tool test harness.
+# Sync rules/eternal-saas/{global,project} to ~/.claude/docs/templates/rules/eternal-saas/
+# with atomic swap. init-project-rules.sh installs BOTH scopes into a target project, so the
+# installed home needs the project templates as source material, not just the global digest.
+# This pack is staged under docs/templates/ rather than ~/.claude/rules/ because Claude Code
+# auto-loads every .md under ~/.claude/rules/ as user-scope memory: files without `paths:`
+# frontmatter load in every session, and the pack's `paths: ["**"]` entries match every repo.
+# Staging it there put stack-specific pnpm/Onveloz/tenant guidance into unrelated projects.
 for eternal_saas_scope in global project; do
   eternal_saas_src="$ROOT/rules/eternal-saas/$eternal_saas_scope"
   [[ -d "$eternal_saas_src" ]] || continue
-  eternal_saas_dest="$TARGET/rules/eternal-saas/$eternal_saas_scope"
+  eternal_saas_dest="$TARGET/docs/templates/rules/eternal-saas/$eternal_saas_scope"
   eternal_saas_tmp="$eternal_saas_dest.tmp"
   eternal_saas_old="$eternal_saas_dest.old"
-  mkdir -p "$TARGET/rules/eternal-saas"
+  mkdir -p "$TARGET/docs/templates/rules/eternal-saas"
   rm -rf -- "$eternal_saas_tmp" "$eternal_saas_old"
   cp -R -- "$eternal_saas_src" "$eternal_saas_tmp"
   if [[ -d "$eternal_saas_dest" ]]; then
@@ -928,6 +939,12 @@ if [[ "$PROFILE" == "full" && "$SKIP_HINDSIGHT" != "1" ]]; then
 fi
 if [[ "$legacy_rules_present" == "1" ]]; then
   rm -rf -- "$TARGET/rules/eternal-control"
+fi
+# Earlier installs staged the eternal-saas pack under $TARGET/rules/eternal-saas, where Claude
+# Code auto-loads it as user-scope memory. The pack now lives under docs/templates/; drop the
+# old copy so it stops entering context. It is backed up above, so rollback still restores it.
+if [[ "$legacy_saas_rules_present" == "1" ]]; then
+  rm -rf -- "$TARGET/rules/eternal-saas"
 fi
 
 write_install_metadata() {

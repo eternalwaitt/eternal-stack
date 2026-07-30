@@ -9,6 +9,8 @@ Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --sk
 
 Prepare, update, and close the pull request loop only after local evidence, remote state, and reviewer feedback are known.
 
+Helper paths: `node ~/.claude/scripts/<name>` after Eternal Stack install (application repos), `node scripts/<name>` only in an eternal-stack source checkout. Both run the same helper; commands below use the installed path. Run review-learning and preflight helpers from the **target repository root** so `--root` resolves ledger and rules files in that repo.
+
 ## Preflight
 
 1. Inspect branch, default branch, upstream, dirty state, staged files, and untracked files.
@@ -82,7 +84,13 @@ Write for two readers: a business or product stakeholder who needs the story in 
 2. Inspect review feedback before final readiness: CodeRabbit, GitHub review threads, requested changes, and unresolved comments when the repo uses them.
 3. Classify every review item as fixed, already-covered, false-positive, source-limited, or explicitly deferred by the repository owner.
 4. Patch only real findings inside the PR scope, then rerun the relevant local gate and remote check query.
-5. Feed **only the confirmed-valid findings** to the learning loop so recurring classes preempt the next PR — the items you classified as real in step 3 (fixed or already-covered). Never pass false-positive, source-limited, or owner-deferred items: promoting them would turn a review mistake into a recurring guard or checklist candidate. Capture just those items as a JSON array (`[{ summary, body, severity, category, lensId, disposition }]`) and run `node scripts/review-learn.mjs learn --findings <findings.json>`. As a backstop, `review-learn` drops any item whose `disposition` field is `false-positive`, `source-limited`, `owner-deferred`, or `deferred`, so a mis-tagged file still cannot promote an excluded item. It tracks recurrence in `review-learnings.json` and at three recurrences auto-promotes: a template-matching class becomes a warn-mode guard in `review-rules.json` (escalating to block after two clean runs), and everything else becomes a tracked checklist candidate for `etrnl-dev-autoplan`. Commit the updated `review-rules.json` and `review-learnings.json` with the PR.
+5. Feed **only the confirmed-valid findings** to the learning loop so recurring classes preempt the next PR — the items you classified as real in step 3 (fixed or already-covered). Never pass false-positive, source-limited, or owner-deferred items: promoting them would turn a review mistake into a recurring guard or checklist candidate. Capture just those items as a JSON array (`[{ summary, body, severity, category, lensId, disposition }]`) and run from the target repo root:
+
+```bash
+node ~/.claude/scripts/review-learn.mjs learn --findings <findings.json> [--review-id <github-review-id>]
+```
+
+The helper is installed by Eternal Stack (`~/.claude/scripts/review-learn.mjs`), not vendored into application repositories — do not probe for `scripts/review-learn.mjs` in the target repo. If the helper is missing, refresh with `bash <eternal-stack>/scripts/install.sh` (or the repo's documented install path) before treating the recorder as unavailable. As a backstop, `review-learn` drops any item whose `disposition` field is `false-positive`, `source-limited`, `owner-deferred`, or `deferred`, so a mis-tagged file still cannot promote an excluded item. It tracks recurrence in `review-learnings.json` and at three recurrences auto-promotes: a template-matching class becomes a warn-mode guard in `review-rules.json` (escalating to block after two clean runs), and everything else becomes a tracked checklist candidate for `etrnl-dev-autoplan`. Commit the updated `review-rules.json` and `review-learnings.json` with the PR when either file changes.
 6. If the diff is too large to review coherently, split by ownership boundary or file set before creating more review churn.
 7. Final readiness requires a clean local gate, no failing required checks, no unresolved must-fix review items, and a PR body that matches the final diff.
 

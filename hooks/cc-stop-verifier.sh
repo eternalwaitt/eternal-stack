@@ -44,12 +44,18 @@ state="$(cc_state_read)"
 cwd="$(cc_project_cwd)"
 
 claims_done=false
+claims_verification=false
 # Non-alnum-and-underscore boundaries so "abandoned" (done), "autocomplete"
 # (complete), "prefixed" (fixed), "bypasses" (passes), "worshipped" (shipped), and
 # identifiers that embed a keyword — "done_flag", "fix_completed", "tests_pass_state"
 # — do not false-match; `_` is an identifier char, so it is excluded from the boundary.
 if [[ "$message_lower" =~ (^|[^[:alnum:]_])(done|complete|completed|implemented|fixed|passes|shipped|deployed|tests[[:space:]]+pass)([^[:alnum:]_]|$) ]]; then
   claims_done=true
+fi
+# Asserted verification without recorded runs — tighter than claims_done; excludes
+# casual "check"/"done" alone and identifier-embedded words (unverified, typecheck_pass_state).
+if [[ "$message_lower" =~ (^|[^[:alnum:]_])(tests[[:space:]]+pass(ing)?|verified|build[[:space:]]+(succeeds|pass(es)?)|lint[[:space:]]+pass(es)?|typecheck[[:space:]]+pass(es)?|checks[[:space:]]+pass|ran[[:space:]]+(the[[:space:]]+)?tests|confirmed[[:space:]]+working)([^[:alnum:]_]|$) ]]; then
+  claims_verification=true
 fi
 
 browser_qa_outstanding=false
@@ -552,7 +558,9 @@ if [[ "$claims_done" == "true" ]]; then
     fi
     email_triage_verified=true
   fi
-  if [[ "$email_triage_verified" != "true" && "$trivial_diff" != "true" ]] && jq -e '((.verificationRuns | length) == 0)' <<<"$state" >/dev/null; then
+  if [[ "$email_triage_verified" != "true" && "$trivial_diff" != "true" ]] \
+    && jq -e '((.verificationRuns | length) == 0)' <<<"$state" >/dev/null \
+    && { cc_state_has_edits || [[ "$claims_verification" == "true" ]]; }; then
     cc_json_block "You are trying to claim completion without verification evidence. Re-read the request, map each requested outcome to changed files or command results, run project preflight, verify user-visible behavior, then answer with evidence."
     exit 0
   fi

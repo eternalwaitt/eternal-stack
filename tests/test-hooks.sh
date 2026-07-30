@@ -822,6 +822,28 @@ true_completion_pending_stop="$(jq -cn '{session_id:"fixture-true-completion-pen
 out="$(run_hook cc-stop-verifier.sh "$true_completion_pending_stop")"
 assert_contains "stop verifier keeps true completion despite incidental work-state token" "$out" "claim completion without verification evidence"
 
+zero_verify_empty_state='{schemaVersion:5,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],skillRequestWaivers:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},contractVerdicts:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],toolSignals:[],firstEditAt:"",firstEditGeneration:0,toolUseBeforeFirstEdit:{},toolNoise:{},effectivenessCounters:{},newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:false,planExecutionRequestedAt:"",lastPrompt:"",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}'
+zero_verify_readonly_state="$TMPROOT/claude-guard-fixture-zero-verify-readonly.json"
+jq -nc "$zero_verify_empty_state" >"$zero_verify_readonly_state"
+zero_verify_readonly_stop="$(jq -cn '{session_id:"fixture-zero-verify-readonly",last_assistant_message:"Done. Config audit complete — no changes needed.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$zero_verify_readonly_stop")"
+if [[ -z "$out" ]]; then ok "stop verifier allows no-edit completion without verification claim"; else not_ok "no-edit completion without verification claim should pass: $out"; fi
+zero_verify_claim_state="$TMPROOT/claude-guard-fixture-zero-verify-claim.json"
+jq -nc "$zero_verify_empty_state" >"$zero_verify_claim_state"
+zero_verify_claim_stop="$(jq -cn '{session_id:"fixture-zero-verify-claim",last_assistant_message:"Done. Tests pass.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$zero_verify_claim_stop")"
+assert_contains "stop verifier blocks no-edit completion with verification claim" "$out" "claim completion without verification evidence"
+zero_verify_edits_state="$TMPROOT/claude-guard-fixture-zero-verify-edits.json"
+jq -nc --arg f "$TMPROOT/example/src/app.ts" "$zero_verify_empty_state | .edits = {(\$f): \"2026-01-01T00:00:01Z\"}" >"$zero_verify_edits_state"
+zero_verify_edits_stop="$(jq -cn '{session_id:"fixture-zero-verify-edits",last_assistant_message:"Done. Implemented the fix.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$zero_verify_edits_stop")"
+assert_contains "stop verifier blocks edits without verification runs" "$out" "claim completion without verification evidence"
+zero_verify_green_state="$TMPROOT/claude-guard-fixture-zero-verify-green.json"
+jq -nc --arg f "$TMPROOT/example/src/app.ts" "$zero_verify_empty_state | .edits = {(\$f): \"2026-01-01T00:00:01Z\"} | .verificationRuns = [{value: \"pnpm test\", at: \"2026-01-01T00:00:02Z\"}]" >"$zero_verify_green_state"
+zero_verify_green_stop="$(jq -cn '{session_id:"fixture-zero-verify-green",last_assistant_message:"Done. Implemented and verified.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$zero_verify_green_stop")"
+assert_not_contains "stop verifier allows edits with verification runs past zero-verification gate" "$out" "claim completion without verification evidence"
+
 # --- Regression fixtures: guard false-positive fixes (stack-holes-remediation TG2/TG3/TG4) ---
 holes_guard() {
   local c="$1" j
@@ -1850,5 +1872,87 @@ run_parallel_guard_fixture_matrix allow "${valid_guard_fixtures[@]}"
 # Packet fixture matrix (C3/C4): invalid packets should deny, valid packets should allow.
 run_parallel_packet_fixture_matrix deny "${invalid_packet_fixtures[@]}"
 run_parallel_packet_fixture_matrix allow "${valid_packet_fixtures[@]}"
+
+# cc_json_read_stdin: held-open stdin must return promptly (not block until EOF).
+cc_json_read_stdin_held_open() {
+  local payload="$1"
+  local fifo="$TMPROOT/stdin-held-$$-$RANDOM.fifo"
+  local result_file="$TMPROOT/stdin-held-result-$$-$RANDOM.json"
+  mkfifo "$fifo"
+  ( printf '%s' "$payload"; sleep 15 ) >"$fifo" &
+  local writer_pid=$!
+  local start end elapsed
+  start="$(python3 -c 'import time; print(time.monotonic())')"
+  bash -c 'source "$1"; cc_json_read_stdin; printf "%s" "$HOOK_INPUT"' _ "$ROOT/hooks/lib/json.sh" <"$fifo" >"$result_file"
+  end="$(python3 -c 'import time; print(time.monotonic())')"
+  elapsed="$(python3 -c "print(f'{$end - $start:.3f}')")"
+  wait "$writer_pid" 2>/dev/null || true
+  rm -f "$fifo"
+  CC_JSON_HELD_ELAPSED="$elapsed"
+  CC_JSON_HELD_RESULT_FILE="$result_file"
+}
+
+cc_json_read_stdin_chunked() {
+  local payload="$1"
+  local fifo="$TMPROOT/stdin-chunk-$$-$RANDOM.fifo"
+  local result_file="$TMPROOT/stdin-chunk-result-$$-$RANDOM.json"
+  local chunk_size=$(( ${#payload} / 5 ))
+  mkfifo "$fifo"
+  (
+    local i start
+    for i in 0 1 2 3 4; do
+      start=$(( i * chunk_size ))
+      if (( i == 4 )); then
+        printf '%s' "${payload:start}"
+      else
+        printf '%s' "${payload:start:chunk_size}"
+      fi
+      sleep 0.05
+    done
+    sleep 15
+  ) >"$fifo" &
+  local writer_pid=$!
+  bash -c 'source "$1"; cc_json_read_stdin; printf "%s" "$HOOK_INPUT"' _ "$ROOT/hooks/lib/json.sh" <"$fifo" >"$result_file"
+  wait "$writer_pid" 2>/dev/null || true
+  rm -f "$fifo"
+  CC_JSON_CHUNKED_RESULT_FILE="$result_file"
+}
+
+stdin_large_batch="$(node -e 'const tc=Array.from({length:200},(_,i)=>({tool_name:"Bash",tool_input:{command:"echo chunk-"+i}})); process.stdout.write(JSON.stringify({session_id:"stdin-regression",tool_calls:tc}))')"
+stdin_large_count="$(jq '.tool_calls | length' <<<"$stdin_large_batch")"
+
+cc_json_read_stdin_held_open "$stdin_large_batch"
+if python3 -c "import sys; sys.exit(0 if float('${CC_JSON_HELD_ELAPSED}') < 1.0 else 1)"; then
+  ok "cc_json_read_stdin held-open stdin returns under 1s (${CC_JSON_HELD_ELAPSED}s)"
+else
+  not_ok "cc_json_read_stdin held-open stdin should return under 1s, got ${CC_JSON_HELD_ELAPSED}s"
+fi
+held_count="$(jq '.tool_calls | length' "$CC_JSON_HELD_RESULT_FILE")"
+if [[ "$held_count" == "$stdin_large_count" ]]; then
+  ok "cc_json_read_stdin held-open captures full large payload ($held_count tool_calls)"
+else
+  not_ok "cc_json_read_stdin held-open truncated payload: got $held_count tool_calls expected $stdin_large_count"
+fi
+
+cc_json_read_stdin_chunked "$stdin_large_batch"
+chunked_count="$(jq '.tool_calls | length' "$CC_JSON_CHUNKED_RESULT_FILE")"
+if [[ "$chunked_count" == "$stdin_large_count" ]]; then
+  ok "cc_json_read_stdin chunked delivery captures full payload ($chunked_count tool_calls)"
+else
+  not_ok "cc_json_read_stdin chunked delivery truncated payload: got $chunked_count tool_calls expected $stdin_large_count"
+fi
+
+cc_json_read_stdin_held_open ""
+empty_held="$(jq -c . "$CC_JSON_HELD_RESULT_FILE")"
+if [[ "$empty_held" == "{}" ]]; then
+  ok "cc_json_read_stdin empty held-open stdin returns {} fallback"
+else
+  not_ok "cc_json_read_stdin empty held-open stdin should return {}, got $empty_held"
+fi
+if python3 -c "import sys; sys.exit(0 if float('${CC_JSON_HELD_ELAPSED}') < 1.0 else 1)"; then
+  ok "cc_json_read_stdin empty held-open stdin returns promptly (${CC_JSON_HELD_ELAPSED}s)"
+else
+  not_ok "cc_json_read_stdin empty held-open stdin should return under 1s, got ${CC_JSON_HELD_ELAPSED}s"
+fi
 
 finish_tests

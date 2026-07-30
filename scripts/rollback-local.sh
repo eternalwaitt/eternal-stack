@@ -135,7 +135,7 @@ if [[ "$DRY_RUN" == "1" ]]; then
     printf 'Dry run: would restore files: %s\n' "${restore_files[*]}"
   fi
   printf 'Dry run: would remove repo-owned agents, Claude/Codex skills, commands, and hooks before restoring backed-up copies.\n'
-  printf 'Dry run: would restore rules/eternal-saas and ~/.codex startup files from backup if present.\n'
+  printf 'Dry run: would restore the eternal-saas rule pack (docs/templates/rules/ or legacy rules/) and ~/.codex startup files from backup if present.\n'
   if [[ -f "$BACKUP/new-source-paths.txt" ]]; then
     # `grep -c .` already prints `0` on a manifest with no non-empty lines, but also
     # exits 1 there — so a `|| printf '0'` fallback would APPEND a second `0`, yielding
@@ -392,7 +392,16 @@ if [[ -e "$BACKUP/tests-fixtures" || -L "$BACKUP/tests-fixtures" ]]; then
   restored_count=$((restored_count + 1))
 fi
 
-# Restore rules/eternal-saas (global digest installed by install.sh)
+# Restore the eternal-saas pack staged by install.sh. Backups taken before the pack moved
+# out of ~/.claude/rules/ carry the legacy key, so restore whichever key the backup holds —
+# rolling back to a pre-move install must put the pack back where that install had it.
+if [[ -d "$BACKUP/docs-templates-rules/eternal-saas" ]]; then
+  rm -rf -- "${ROOT:?}/docs/templates/rules/eternal-saas"
+  mkdir -p "$ROOT/docs/templates/rules"
+  cp -R -- "$BACKUP/docs-templates-rules/eternal-saas" "$ROOT/docs/templates/rules/eternal-saas"
+  restored+=("docs/templates/rules/eternal-saas")
+  restored_count=$((restored_count + 1))
+fi
 if [[ -d "$BACKUP/rules/eternal-saas" ]]; then
   rm -rf -- "${ROOT:?}/rules/eternal-saas"
   mkdir -p "$ROOT/rules"

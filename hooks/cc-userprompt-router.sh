@@ -35,6 +35,12 @@ cwd="$(cc_event_cwd)"
 cc_state_update --arg prompt "$prompt" ".lastPrompt = \$prompt"
 prompt_lower="$(printf '%s' "$prompt" | tr '[:upper:]' '[:lower:]')"
 
+read_only_prompt_pattern='(^|[[:space:][:punct:]])(audit|review|check|assess|compare|explain|investigate|analy[sz]e|summari[sz]e|inspect|evaluate|look[[:space:]]+(at|over|through)|read[[:space:]-]+only)([[:space:][:punct:]]|$)|(^|[[:space:][:punct:]])(what|which|why|how)[[:space:]]'
+execution_intent_pattern='(^|[[:space:][:punct:]])(implement|execute|fix|edit|write|commit|ship|refactor|migrat(e|ion)|apply|patch|deploy|build|create|add|remove|delete|update|change|modify|carry[[:space:]]+out|run[[:space:]]+the[[:space:]]+plan|implement[[:space:]]+the[[:space:]]+plan|execute[[:space:]]+the[[:space:]]+plan|continue[[:space:]]+the[[:space:]]+plan|finish[[:space:]]+the[[:space:]]+plan|resume[[:space:]]+the[[:space:]]+plan)([[:space:][:punct:]]|$)|(^|[[:space:]])(do[[:space:]]+it|go[[:space:]]+ahead)([[:space:][:punct:]]|$)'
+if [[ "$prompt_lower" =~ $read_only_prompt_pattern ]] && [[ ! "$prompt_lower" =~ $execution_intent_pattern ]]; then
+  cc_state_update '.planExecutionRequested = false | .planExecutionRequestedAt = ""' >/dev/null || true
+fi
+
 record_skill() {
   local skill="$1"
   [[ -n "$skill" ]] && cc_state_append_value requestedSkills "$skill"
@@ -436,7 +442,7 @@ if [[ "$prompt_lower" =~ email[[:space:]-]+reply[[:space:]-]+quality|brazilian[[
   record_skill "etrnl-comm-email-reply-quality"
   notes+=("Use etrnl-comm-email-reply-quality: run vivaz-email drafts check, rewrite failed drafts with natural Brazilian Portuguese and humanizer cleanup, then rerun the checker before approval.")
 fi
-if [[ "$prompt_lower" =~ agent[[:space:]-]?files|instruction[[:space:]]+files|startup[[:space:]]+guidance|align[[:space:]]+.*agents\.md|align[[:space:]]+.*claude\.md|prune[[:space:]]+(agents|claude|rules)|rule[[:space:]-]?bloat|agents\.md[[:space:]]+(too[[:space:]]+long|too[[:space:]]+big|bloated)|claude\.md[[:space:]]+(too[[:space:]]+long|too[[:space:]]+big|bloated)|startup[[:space:]]+(file|context)[[:space:]]+(too[[:space:]]+long|bloated)|trim[[:space:]]+(agents|claude)\.md ]]; then
+if [[ "$prompt_lower" =~ (^|[^a-z])agents?\.md|agents?[[:space:]-]?files?|instruction[[:space:]]+files|startup[[:space:]]+guidance|align[[:space:]]+.*agents\.md|align[[:space:]]+.*claude\.md|prune[[:space:]]+(agents|claude|rules)|rule[[:space:]-]?bloat|agents\.md[[:space:]]+(too[[:space:]]+long|too[[:space:]]+big|bloated)|claude\.md[[:space:]]+(too[[:space:]]+long|too[[:space:]]+big|bloated)|startup[[:space:]]+(file|context)[[:space:]]+(too[[:space:]]+long|bloated)|trim[[:space:]]+(agents|claude)\.md ]]; then
   record_skill "etrnl-ops-agent-files"
   notes+=("Use etrnl-ops-agent-files: keep AGENTS.md, CLAUDE.md, rules, and agent instructions aligned without bloating startup context.")
 fi

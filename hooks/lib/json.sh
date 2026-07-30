@@ -5,21 +5,86 @@ _JSON_LIB_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 source "$_JSON_LIB_DIR/event-extract.sh"
 
 cc_json_read_stdin() {
-  local system
-  system="$(uname -s 2>/dev/null || printf 'unknown')"
-  if [[ "$system" == "Linux" ]]; then
-    if ! HOOK_INPUT="$(dd bs=1048576 count=4 iflag=fullblock 2>/dev/null)"; then
+  # Claude Code closes stdin on the first hook call of a session but keeps it
+  # open afterward; read-to-EOF (head -c) then blocks until the hook timeout.
+  # Use an idle-timeout reader instead: stop once stdin goes quiet after data.
+  # macOS /bin/bash 3.2 read -t accepts integer seconds only (no fractional).
+  local _stdin_cap=4194304
+  # Measured inter-chunk gaps: ~1.3ms (fast writes), ~54ms max (50ms pauses).
+  # 100ms idle gives 2x margin over the slow-chunk case.
+  local _idle_ms=100
+
+  if command -v python3 >/dev/null 2>&1; then
+    if ! HOOK_INPUT="$(
+      python3 - "$_stdin_cap" "$_idle_ms" 3<&0 <<'PY'
+import os
+import select
+import sys
+
+max_bytes = int(sys.argv[1])
+idle_sec = int(sys.argv[2]) / 1000.0
+data = bytearray()
+fd = 3  # caller stdin duplicated before the script heredoc
+while len(data) < max_bytes:
+    ready, _, _ = select.select([fd], [], [], idle_sec)
+    if ready:
+        chunk = os.read(fd, min(65536, max_bytes - len(data)))
+        if not chunk:
+            break
+        data.extend(chunk)
+    elif data:
+        break
+    else:
+        break
+sys.stdout.buffer.write(data)
+PY
+    2>/dev/null)"; then
       printf 'claude-guard error: failed to read hook input\n' >&2
       return 1
     fi
-    # A read that fills the 4MiB cap exactly is almost certainly truncated;
-    # downstream jq will fail on the cut JSON and every hook fails open with
-    # no explanation, so name the cause here.
-    if ((${#HOOK_INPUT} >= 4194304)); then
-      printf 'claude-guard warning: hook input reached the 4MiB stdin cap and may be truncated; hooks may fail open on invalid JSON\n' >&2
+  elif command -v perl >/dev/null 2>&1; then
+    if ! HOOK_INPUT="$(
+      perl - "$_stdin_cap" "$_idle_ms" 3<&0 <<'PERL'
+use strict;
+use warnings;
+use IO::Select;
+
+my $max_bytes = int($ARGV[0]);
+my $idle_sec  = int($ARGV[1]) / 1000.0;
+open(my $in, '<&=', 3) or exit 1;
+my $data = "";
+my $sel  = IO::Select->new($in);
+while (length($data) < $max_bytes) {
+    my @ready = $sel->can_read($idle_sec);
+    if (@ready) {
+        my $chunk = "";
+        my $n = sysread($in, $chunk, 65536 > ($max_bytes - length($data)) ? ($max_bytes - length($data)) : 65536);
+        last if !defined($n) || $n == 0;
+        $data .= $chunk;
+    } elsif (length($data)) {
+        last;
+    } else {
+        last;
+    }
+}
+print $data;
+PERL
+    2>/dev/null)"; then
+      printf 'claude-guard error: failed to read hook input\n' >&2
+      return 1
     fi
   else
-    IFS= read -r -d '' HOOK_INPUT || true
+    # Fallback when no idle-timeout reader is available (blocks on held-open stdin).
+    if ! HOOK_INPUT="$(head -c "$_stdin_cap")"; then
+      printf 'claude-guard error: failed to read hook input\n' >&2
+      return 1
+    fi
+  fi
+  # A read that fills the 4MiB cap exactly is almost certainly truncated;
+  # downstream jq will fail on the cut JSON and every hook fails open with
+  # no explanation, so name the cause here.
+  if ((${#HOOK_INPUT} >= 4194304)); then
+    printf 'claude-guard warning: hook input reached the 4MiB stdin cap and may be truncated; hooks may fail open on invalid JSON\n' >&2
   fi
   if [[ -z "${HOOK_INPUT}" ]]; then
     HOOK_INPUT="{}"

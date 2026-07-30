@@ -2395,7 +2395,18 @@ if [[ -f "$INIT_SCRIPT" ]]; then
   init_sandbox="$TMPROOT/init-sandbox"
   mkdir -p "$init_sandbox/scripts"
   cp "$INIT_SCRIPT" "$init_sandbox/scripts/init-project-rules.sh"
-  cp -R "$ROOT/rules" "$init_sandbox/rules"
+  # The pack is the tracked source under rules/ in a checkout and staged under
+  # docs/templates/rules/ in an installed home, where install.sh keeps it out of
+  # ~/.claude/rules/ because Claude Code auto-loads every .md there as user-scope memory.
+  # Mirror whichever layout this ROOT uses so the sandboxed script resolves the same pack.
+  if [[ -d "$ROOT/rules/eternal-saas" ]]; then
+    cp -R "$ROOT/rules" "$init_sandbox/rules"
+    init_sandbox_pack="$init_sandbox/rules/eternal-saas"
+  else
+    mkdir -p "$init_sandbox/docs/templates/rules"
+    cp -R "$ROOT/docs/templates/rules/eternal-saas" "$init_sandbox/docs/templates/rules/eternal-saas"
+    init_sandbox_pack="$init_sandbox/docs/templates/rules/eternal-saas"
+  fi
   cp "$ROOT/rules-manifest.json" "$init_sandbox/rules-manifest.json"
   SANDBOX_INIT_SCRIPT="$init_sandbox/scripts/init-project-rules.sh"
   real_target="$TMPROOT/init-real-target"
@@ -2403,7 +2414,7 @@ if [[ -f "$INIT_SCRIPT" ]]; then
   bash "$SANDBOX_INIT_SCRIPT" --profile eternal-saas "$real_target" >/dev/null 2>&1 || true
   # simulate manifest bump by touching sandbox source (sleep ensures different mtime second)
   sleep 1
-  touch "$init_sandbox/rules/eternal-saas/project/orpc.md"
+  touch "$init_sandbox_pack/project/orpc.md"
   # default --check must NOT flag a byte-identical touch as stale, AND must succeed
   # (exit 0). Masking the exit with `|| true` would let an unrelated failure — a
   # missing receipt, an install error, any non-`stale:` fault — pass this regression
@@ -3909,8 +3920,11 @@ assert_contains "bounded-review documents the progress park limit" "$tg12_bounde
 assert_contains "bounded-review documents the report-only deterministic pass" "$tg12_bounded_review" "--report-only"
 assert_contains "bounded-review carries the tier 3 Codex-profile carve-out" "$tg12_bounded_review" "Codex-profile carve-out"
 assert_contains "bounded-review keeps tier 3 gates at full strength" "$tg12_bounded_review" "Tier 3 gates hold at full strength on every wave"
-assert_contains "bounded-review exempts deep-audit lanes from adaptive skip" "$tg12_bounded_review" "every deep-audit lane registered in \`scripts/lib/deep-audit-categories.mjs\`"
+assert_contains "bounded-review exempts deep-audit lanes from adaptive skip" "$tg12_bounded_review" "every deep-audit lane registered in \`~/.claude/scripts/lib/deep-audit-categories.mjs\`"
 assert_contains "bounded-review reuses the review-learnings store" "$tg12_bounded_review" "reviewerDispatches"
+tg12_dev_pr="$(cat "$ROOT/skills/etrnl-dev-pr/SKILL.md")"
+assert_contains "etrnl-dev-pr routes review-learn through the installed helper" "$tg12_dev_pr" "node ~/.claude/scripts/review-learn.mjs learn"
+assert_contains "etrnl-dev-pr warns against probing repo-local review-learn" "$tg12_dev_pr" "do not probe for \`scripts/review-learn.mjs\` in the target repo"
 tg12_batch_execution="$(cat "$ROOT/skills/etrnl-dev-execute/references/batch-execution.md")"
 assert_contains "batch-execution defers tier 0-2 human-verify pauses" "$tg12_batch_execution" "## Human-verify batching (tier ≤ 2 default)"
 assert_contains "batch-execution keeps tier 3 UAT gates in place" "$tg12_batch_execution" "Tier 3 keeps explicit UAT gates where the plan places them"
