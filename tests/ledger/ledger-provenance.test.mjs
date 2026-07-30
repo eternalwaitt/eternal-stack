@@ -61,19 +61,77 @@ test("self-reported agent identity is recorded separately as a claim", () => {
 });
 
 // The incident signature: an unset CLAUDE_SESSION_ID expands to an empty --session, so
-// writes land in the machine-wide "default" bucket instead of the caller's own session.
-test("an empty session resolves to the shared default bucket and says so", () => {
+// writes used to land in a machine-wide "default" bucket that unrelated repositories
+// shared. The bucket is now qualified by worktree, so the collapse cannot cross projects.
+test("an empty session resolves to a worktree-scoped bucket, not a machine-wide one", () => {
   const { runs, project } = sandbox();
   assert.equal(ledger(runs, ["init", "--session", "", "--cwd", project]).status, 0);
-  assert.ok(existsSync(path.join(runs, "current-default.json")), "pointer filed under default");
+  assert.ok(!existsSync(path.join(runs, "current-default.json")), "no machine-wide default pointer");
+
+  const scoped = readdirSync(runs).filter((name) => /^current-default-[0-9a-f]+\.json$/.test(name));
+  assert.equal(scoped.length, 1, "exactly one worktree-scoped pointer");
+
+  const bucket = scoped[0].replace(/^current-/, "").replace(/\.json$/, "");
+  assert.equal(ledger(runs, ["set-task", "--session", "", "--task", "D1R7", "--title", "x", "--status", "in_progress"], { cwd: project }).status, 0);
+  const event = readLedger(runs, bucket).events.find((row) => row.taskId === "D1R7");
+  assert.equal(event.actor.session, bucket, "the resolved bucket is visible on the event");
+});
+
+test("a session in another worktree cannot resolve this run ledger", () => {
+  const { runs, project } = sandbox();
+  ledger(runs, ["init", "--session", "", "--cwd", project]);
 
   const stray = path.join(path.dirname(project), "unrelated-repo");
   mkdirSync(stray, { recursive: true });
-  assert.equal(ledger(runs, ["set-task", "--session", "", "--task", "D1R7", "--title", "x", "--status", "in_progress"], { cwd: stray }).status, 0);
+  const write = ledger(runs, ["set-task", "--session", "", "--task", "D1R7", "--title", "x", "--status", "in_progress"], { cwd: stray });
+  assert.equal(write.status, 1, "the cross-project write is refused");
+  assert.match(write.stderr, /No active execution ledger/);
 
-  const event = readLedger(runs, "default").events.find((row) => row.taskId === "D1R7");
-  assert.equal(event.actor.session, "default", "the shared bucket is visible on the event");
-  assert.match(event.actor.cwd, /unrelated-repo$/, "a write from another repo is attributable");
+  const scoped = readdirSync(runs).filter((name) => name.startsWith("current-default-"));
+  assert.equal(scoped.length, 1, "the refused write did not open a pointer of its own");
+  const owner = readLedger(runs, scoped[0].replace(/^current-/, "").replace(/\.json$/, ""));
+  assert.equal(owner.tasks.length, 0, "the other worktree's ledger is untouched");
+});
+
+// A session that started before scoping has only the shared pointer. It keeps working
+// in its own worktree; the same pointer read from anywhere else resolves to nothing.
+test("the pre-scoping shared pointer is honoured only inside its own worktree", () => {
+  const { runs, project } = sandbox();
+  ledger(runs, ["init", "--session", "legacy", "--cwd", project]);
+  const target = JSON.parse(readFileSync(path.join(runs, "current-legacy.json"), "utf8")).path;
+  writeFileSync(path.join(runs, "current-default.json"), JSON.stringify({ path: target, updatedAt: "2026-01-01T00:00:00Z" }));
+
+  const owned = ledger(runs, ["set-task", "--session", "", "--task", "OWN", "--title", "x", "--status", "in_progress"], { cwd: project });
+  assert.equal(owned.status, 0, "the owning worktree still resolves its in-flight ledger");
+
+  const stray = path.join(path.dirname(project), "other-repo");
+  mkdirSync(stray, { recursive: true });
+  const foreign = ledger(runs, ["set-task", "--session", "", "--task", "FOREIGN", "--title", "x", "--status", "in_progress"], { cwd: stray });
+  assert.equal(foreign.status, 1, "another worktree is refused through the same pointer");
+  assert.match(foreign.stderr, /belongs to another worktree/);
+
+  const after = JSON.parse(readFileSync(target, "utf8"));
+  assert.deepEqual(after.tasks.map((task) => task.id), ["OWN"]);
+});
+
+test("reconcile reports events written from outside the ledger's worktree", () => {
+  const { runs, project } = sandbox();
+  ledger(runs, ["init", "--session", "mixed", "--cwd", project]);
+  const target = JSON.parse(readFileSync(path.join(runs, "current-mixed.json"), "utf8")).path;
+
+  const contaminated = JSON.parse(readFileSync(target, "utf8"));
+  contaminated.events.push(
+    { type: "task.set", at: "2026-01-01T00:00:00Z", taskId: "X1", actor: { session: "mixed", cwd: path.join(path.dirname(project), "elsewhere") } },
+    { type: "task.set", at: "2026-01-01T00:01:00Z", taskId: "X2", actor: { session: "mixed", cwd: project } },
+    { type: "task.set", at: "2026-01-01T00:02:00Z", taskId: "X3" },
+  );
+  writeFileSync(target, JSON.stringify(contaminated));
+
+  const report = JSON.parse(ledger(runs, ["reconcile", "--json"]).stdout);
+  const finding = report.findings.find((row) => row.kind === "foreign-writer");
+  assert.ok(finding, "cross-worktree writes are reported");
+  assert.equal(finding.foreignEvents, 1, "only the event from another worktree counts");
+  assert.equal(finding.foreignWorktrees, 1);
 });
 
 test("validate rejects a malformed actor but accepts events written before provenance", () => {

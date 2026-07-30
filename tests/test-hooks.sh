@@ -1173,11 +1173,64 @@ bash_mutation_stop="$(jq -cn --arg root "$bash_mutation_repo" '{session_id:"fixt
 out="$(run_hook cc-stop-verifier.sh "$bash_mutation_stop")"
 assert_contains "bash-mutated source in git working tree defeats docs-only fast-path" "$out" "without verification evidence"
 
+# Requested-skill gate. The request must be RECENT (requestedSkills is
+# append-only and never cleared), and the block must be satisfiable by the
+# rationale its own message advertises — see cc_skill_request_waived.
+iso_ago() { date -u -v-"$1"S +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -d "$1 seconds ago" +%Y-%m-%dT%H:%M:%SZ; }
+requested_fresh_at="$(iso_ago 600)"
+requested_older_at="$(iso_ago 1200)"
 requested_state="$TMPROOT/claude-guard-fixture-requested.json"
-jq -nc '{schemaVersion:1,reads:{},searches:{},edits:{},commands:[],failures:[],skillCalls:[],requestedSkills:[{value:"etrnl-dev-plan",at:"2026-01-01T00:00:00Z"}],evidenceChallenges:[],evidenceDisciplineViolations:[],verificationRuns:[{value:"pnpm test",at:"2026-01-01T00:00:01Z"}],newFileSearches:[],lastPrompt:"",lastCompactSummary:"",cwd:"",settingsFingerprint:"",startedAt:""}' >"$requested_state"
+jq -nc --arg at "$requested_fresh_at" '{schemaVersion:1,reads:{},searches:{},edits:{},commands:[],failures:[],skillCalls:[],requestedSkills:[{value:"etrnl-dev-plan",at:$at}],evidenceChallenges:[],evidenceDisciplineViolations:[],verificationRuns:[{value:"pnpm test",at:$at}],newFileSearches:[],lastPrompt:"",lastCompactSummary:"",cwd:"",settingsFingerprint:"",startedAt:""}' >"$requested_state"
 requested_stop="$(jq -cn '{session_id:"fixture-requested",last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$requested_stop")"
 assert_contains "stop verifier blocks missing requested skill" "$out" "requested skill"
+assert_contains "requested skill block names the skill" "$out" "etrnl-dev-plan"
+
+# Naming the skill without a reason is not a waiver: the gate must not be
+# clearable by mentioning it in passing.
+requested_mention_stop="$(jq -cn '{session_id:"fixture-requested",last_assistant_message:"Done, tests pass. etrnl-dev-plan is the usual route for this.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$requested_mention_stop")"
+assert_contains "naming a requested skill without a reason is not a waiver" "$out" "requested skill"
+
+# norm() reduces etrnl-dev-plan to the bare word "plan"; a sentence that happens
+# to use it is not a waiver, or every reason-bearing message would clear the gate.
+requested_bare_word_stop="$(jq -cn '{session_id:"fixture-requested",last_assistant_message:"Done, tests pass. There was nothing to plan here, so I went straight to the fix instead.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$requested_bare_word_stop")"
+assert_contains "bare normalized alias in prose is not a waiver" "$out" "requested skill"
+
+# A stale request is a fact about an earlier turn, not evidence that this answer
+# ignored anything.
+requested_stale_state="$TMPROOT/claude-guard-fixture-requested-stale.json"
+jq -nc '{schemaVersion:1,reads:{},searches:{},edits:{},commands:[],failures:[],skillCalls:[],requestedSkills:[{value:"etrnl-dev-plan",at:"2026-01-01T00:00:00Z"}],evidenceChallenges:[],evidenceDisciplineViolations:[],verificationRuns:[{value:"pnpm test",at:"2026-01-01T00:00:01Z"}],newFileSearches:[],lastPrompt:"",lastCompactSummary:"",cwd:"",settingsFingerprint:"",startedAt:""}' >"$requested_stale_state"
+requested_stale_stop="$(jq -cn '{session_id:"fixture-requested-stale",last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$requested_stale_stop")"
+assert_not_contains "stale requested skill no longer blocks completion" "$out" "requested skill"
+
+# An unparseable timestamp counts as stale rather than as a permanent block.
+requested_undated_state="$TMPROOT/claude-guard-fixture-requested-undated.json"
+jq -nc '{schemaVersion:1,reads:{},searches:{},edits:{},commands:[],failures:[],skillCalls:[],requestedSkills:[{value:"etrnl-dev-plan"}],evidenceChallenges:[],evidenceDisciplineViolations:[],verificationRuns:[{value:"pnpm test",at:"2026-01-01T00:00:01Z"}],newFileSearches:[],lastPrompt:"",lastCompactSummary:"",cwd:"",settingsFingerprint:"",startedAt:""}' >"$requested_undated_state"
+requested_undated_stop="$(jq -cn '{session_id:"fixture-requested-undated",last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$requested_undated_stop")"
+assert_not_contains "undated requested skill does not block permanently" "$out" "requested skill"
+
+# Naming the skill AND saying why it does not apply clears the gate, and the
+# waiver is recorded so the next message does not have to repeat it.
+requested_waiver_state="$TMPROOT/claude-guard-fixture-requested-waiver.json"
+jq -nc --arg at "$requested_fresh_at" '{schemaVersion:1,reads:{},searches:{},edits:{},commands:[],failures:[],skillCalls:[],requestedSkills:[{value:"etrnl-dev-test",at:$at}],evidenceChallenges:[],evidenceDisciplineViolations:[],verificationRuns:[{value:"pnpm test",at:$at}],newFileSearches:[],lastPrompt:"",lastCompactSummary:"",cwd:"",settingsFingerprint:"",startedAt:""}' >"$requested_waiver_state"
+requested_waiver_stop="$(jq -cn '{session_id:"fixture-requested-waiver",last_assistant_message:"Done, tests pass. etrnl-dev-test has nothing to remediate here - the suite is already green and no test file changed.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$requested_waiver_stop")"
+assert_not_contains "named requested skill with a reason clears the gate" "$out" "requested skill"
+assert_json_expr "requested skill waiver is recorded" "$(jq -c . "$requested_waiver_state")" '[.skillRequestWaivers[]?.value] | index("dev-test") != null'
+requested_waiver_next_stop="$(jq -cn '{session_id:"fixture-requested-waiver",last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$requested_waiver_next_stop")"
+assert_not_contains "recorded waiver keeps later messages unblocked" "$out" "requested skill"
+
+# A request NEWER than the waiver is a new ask and blocks again.
+requested_rerequest_state="$TMPROOT/claude-guard-fixture-requested-rerequest.json"
+jq -nc --arg at "$requested_fresh_at" --arg waived "$requested_older_at" '{schemaVersion:1,reads:{},searches:{},edits:{},commands:[],failures:[],skillCalls:[],requestedSkills:[{value:"etrnl-dev-test",at:$at}],skillRequestWaivers:[{value:"dev-test",at:$waived}],evidenceChallenges:[],evidenceDisciplineViolations:[],verificationRuns:[{value:"pnpm test",at:$at}],newFileSearches:[],lastPrompt:"",lastCompactSummary:"",cwd:"",settingsFingerprint:"",startedAt:""}' >"$requested_rerequest_state"
+requested_rerequest_stop="$(jq -cn '{session_id:"fixture-requested-rerequest",last_assistant_message:"Done, tests pass.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$requested_rerequest_stop")"
+assert_contains "re-request after a waiver blocks again" "$out" "requested skill"
 
 doc_health_state="$TMPROOT/claude-guard-fixture-doc-health.json"
 jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[{value:"node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked",at:"2026-01-01T00:00:01Z"}],failures:[],skillCalls:[{value:"etrnl-audit-docs",at:"2026-01-01T00:00:00Z"}],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[{value:"etrnl-audit-docs",at:"2026-01-01T00:00:00Z"}],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[{value:"node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked",at:"2026-01-01T00:00:01Z"}],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:false,planExecutionRequestedAt:"",lastPrompt:"run documentation health",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$doc_health_state"

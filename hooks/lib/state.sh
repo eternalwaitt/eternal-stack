@@ -78,18 +78,12 @@ cc_ledger_latest_verification_tree_hash() {
   local session_id="$1"
   local repo_root
   repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd -P)"
+  # Resolution goes through the shared pointer module so the hook reads the same
+  # worktree-scoped ledger the ledger CLI writes, and never another project's.
   node --input-type=module -e "
 import fs from 'node:fs';
-import path from 'node:path';
-import { safeId } from 'file://${repo_root}/scripts/lib/evidence-trace.mjs';
-const runsDir = process.env.ETRNL_RUNS_DIR || path.join(process.env.CLAUDE_HOME || path.join(process.env.HOME || '', '.claude'), 'etrnl', 'runs');
-const pointer = path.join(runsDir, 'current-' + safeId(process.argv[1]) + '.json');
-let ledgerPath = '';
-try {
-  ledgerPath = JSON.parse(fs.readFileSync(pointer, 'utf8')).path || '';
-} catch {
-  process.exit(0);
-}
+import { currentLedgerPath } from 'file://${repo_root}/scripts/lib/ledger-pointer.mjs';
+const ledgerPath = currentLedgerPath(process.argv[1]);
 if (!ledgerPath) process.exit(0);
 const ledger = JSON.parse(fs.readFileSync(ledgerPath, 'utf8'));
 const passed = (ledger.checks || []).filter((check) => check.status === 'passed' && check.treeHash);
@@ -166,6 +160,7 @@ cc_state_default() {
     agentCalls: [],
     reviewerAgentCalls: [],
     requestedSkills: [],
+    skillRequestWaivers: [],
     evidenceChallenges: [],
     evidenceDisciplineViolations: [],
     evidenceViolationFingerprints: {},
@@ -345,6 +340,7 @@ def num(v): if (v | type) == "number" then v else 0 end;
   agentCalls: arr(.agentCalls),
   reviewerAgentCalls: arr(.reviewerAgentCalls),
   requestedSkills: arr(.requestedSkills),
+  skillRequestWaivers: arr(.skillRequestWaivers),
   evidenceChallenges: arr(.evidenceChallenges),
   evidenceDisciplineViolations: arr(.evidenceDisciplineViolations),
   evidenceViolationFingerprints: obj(.evidenceViolationFingerprints),

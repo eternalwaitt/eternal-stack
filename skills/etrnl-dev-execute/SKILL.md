@@ -9,6 +9,8 @@ Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --sk
 
 Execute an approved plan end to end. Create a run ledger, fan out bounded implementation subagents for parallel-safe work, review output, run verification, and continue through mechanical phases.
 
+Helper paths: `node scripts/<name>` in a source checkout, `node ~/.claude/scripts/<name>` after install. Both spellings run the same helper; commands below show one.
+
 Completion means every item inside the plan's `Execution scope` is verified or explicitly blocked. Do not silently choose the first phase, first patch, safest subset, MVP, or a shorter path. Partial execution is allowed only when the plan says `Execution scope: first_patch_only` or the user explicitly narrows the current turn.
 
 ## Startup
@@ -19,7 +21,7 @@ Completion means every item inside the plan's `Execution scope` is verified or e
    - `node ~/.claude/scripts/plan-readiness-check.mjs <plan-path>`
    - Do not probe helper availability with `--help`, pipes, `head`, or other legacy shell commands.
    - If the readiness check fails or a hook blocks the command, stop and report the blocker. Do not continue into implementation.
-   - If the plan contains `Deep stack artifacts:`, also run `node scripts/deep-stack-check.mjs validate-plan --plan <plan-path>` from a source checkout or `node ~/.claude/scripts/deep-stack-check.mjs validate-plan --plan <plan-path>` after install before editing.
+   - If the plan contains `Deep stack artifacts:`, also run `node scripts/deep-stack-check.mjs validate-plan --plan <plan-path>` before editing.
 4. Start a ledger when the helper is installed:
    - `node ~/.claude/scripts/execution-ledger.mjs init --plan <plan-path> --session "$CLAUDE_SESSION_ID"`
    - Progress: `set-task`, `set-phase`, `record-uat`, `require-artifact`, `record-check`, `record-decision`, `history --progress` (`--json`, `--renegotiation-check`).
@@ -41,15 +43,13 @@ Completion means every item inside the plan's `Execution scope` is verified or e
 1. Continue through the approved plan without asking between mechanical phases.
    - Treat `Execution scope: all_phases` as a hard contract to execute the full plan. If the plan has no `Execution scope`, stop and patch the plan before editing.
 2. Ask the user only for destructive actions, missing credentials, scope expansion beyond the plan, or a review loop whose merged `capDecision.ownerDecisionRequired` is `true`.
-   - An exhausted reopen cap is not by itself a question for the user. Run the `capDecision` branch from `references/bounded-review.md`; only an open P0/P1 at the cap reaches the user, and it stops that stream alone.
+   - An exhausted reopen cap is not by itself a question for the user; run the `capDecision` branch from `references/bounded-review.md`.
    - Taste and product defaults follow the `etrnl-dev-autoplan` Decision Policy: choose the default, log it to the ledger, and surface it at the final gate — do not use AskUserQuestion mid-run for taste.
    - Still ask for conflicting user edits, repeated stalls, or blockers that cannot be derived from the repo.
 3. Group tasks by dependency and write scope. Execute dependent work sequentially; dispatch independent read-only review or disjoint write work to fresh subagents. For explicit parallel fan-out requests, load `references/parallel-fanout.md` before widening lanes.
    - When the plan enumerates many similar per-item findings (checklist rows, board cards, per-screen fixes), load `references/batch-execution.md`; expensive harnesses, review chains, and commits run once per surface-grouped wave, not per item.
     - Use wave-based execution: earlier waves must finish before later waves.
-    - Before parallel work, run an overlap check with the plan's task file lists when practical:
-      `node ~/.claude/scripts/execution-wave-check.mjs < tasks.json`
-    - If any two tasks in a wave touch the same file, run that wave sequentially and log the planning defect.
+    - Before parallel work, run an overlap check against the plan's task file lists when practical (`node ~/.claude/scripts/execution-wave-check.mjs < tasks.json`); if two tasks in a wave touch the same file, run that wave sequentially and log the planning defect.
     - MUST dispatch write-capable implementation subagents for every parallel-safe wave with two or more independent source-file tasks.
     - The parent orchestrator must not edit files directly for tasks assigned to implementation subagents; it only coordinates, integrates, verifies, and repairs blocked work.
     - Use direct parent edits only for a single local task, a dependency-ordered sequential wave, an overlap conflict, missing subagent runtime, or a user-requested no-subagent run; state the exact sequential-degraded blocker before editing.
@@ -57,17 +57,15 @@ Completion means every item inside the plan's `Execution scope` is verified or e
     - Use worktree isolation only when the task is write-capable, disjoint, not touching submodule paths, and the runtime supports it.
     - Emit heartbeat text at wave and task boundaries: `[checkpoint] wave <n> task <id> starting`.
     - If a subagent completion signal is missing, spot-check expected output, git state, and ledger artifacts before deciding whether to retry or continue.
-    - While a subagent owns a task, do not duplicate its implementation locally.
     - Default `maxConcurrentLanes` to 3 unless the plan's `## Parallelization strategy` justifies more in one explicit line. The Codex execute profile drops that default to 2.
-    - Progress reported to the user is ledger position plus named gates only, per the Progress reporting rules in `references/codex-execute-profile.md`. Rolling hour ETAs are prohibited on every host; when the ledger cannot supply a field, report that field as unavailable instead of guessing.
+    - Progress reported to the user is ledger position plus named gates only, per the Progress reporting rules in `references/codex-execute-profile.md`. Rolling hour ETAs are prohibited on every host; report a field the ledger cannot supply as unavailable rather than guessing.
     - When `history --progress --renegotiation-check` shows `renegotiationRequired=true`, pause once: present a consolidation proposal (bundle remaining waves per screen/domain for all tiers; one merged review per wave; tier-3 surfaces keep tier-3 lenses and gates per wave — no batching exemption), take ONE user decision, log it via `record-decision`, and never re-ask.
     - Model tier defaults: read-only scout/review/consumer-trace lanes → `fast`; write implementation → `standard`; tier-3 money/migration/security review → `top`; packet override needs one `modelTierJustification` line. Resolve each tier to a slug and reasoning effort through `scripts/lib/codex-model-routing.mjs`; never hand-write a model string.
 4. Subagent packets scale to tier, scope triage, and wave shape. The plan's `Scope triage:` line selects the shape; see `## Plan scope triage`.
    - **Tier 0–1 quick-dev lane:** no task packets, no reviewer fan-out, no deep-stack artifacts. Parent executes TDD probe → surgical fix → targeted tests → `review-rules.mjs` → ONE merged quality lens. State success criteria up front as the stop condition.
    - **Sequential single-task work (tier ≥ 2):** 5-field mini-packet — `taskId`, `goal`, `exact scope`, `verification command`, `write scope` (or read-only). No hash, lineageId, reviewers, waveId, or completionReceipt.
-   - **Parallel multi-file write waves at tier ≥ 2:** full packet schema below (hash, reviewers, waveId, completionReceipt when required).
-   - Generate skeletons with `agent-task-packet-check.mjs --template read-only|write|mini`; pass as `tool_input.packet` or JSON-only prompt (no Markdown wrapper). Retry JSON on packet rejection — do not switch to parent edits.
-   - Full-packet fields (tier ≥ 2 parallel writes): use `agent-task-packet-check.mjs --template write` for the canonical schema (lineageId, reviewers, waveId, TDD/deep-stack flags, completionReceipt when required).
+   - **Parallel multi-file write waves at tier ≥ 2:** full packet schema, canonical in `agent-task-packet-check.mjs --template write` (lineageId, reviewers, waveId, TDD/deep-stack flags, completionReceipt when required).
+   - Generate skeletons with `agent-task-packet-check.mjs --template read-only|write|mini`; pass as `tool_input.packet` or JSON-only prompt (no Markdown wrapper).
    - Run `node ~/.claude/scripts/agent-task-packet-check.mjs --hash` on the final packet JSON and keep the packet hash with task notes.
    - Oversized handoffs: create `## Execution Digest` or `## Plan Index` and dispatch bounded chunks by task id.
 5. Use repo-owned agents by role: `etrnl-scout`, `etrnl-executor`, `etrnl-spec-reviewer`, `etrnl-quality-reviewer`, `etrnl-consumer-tracer`, `etrnl-investigator`, `etrnl-adversary`, `etrnl-design-reviewer`, `etrnl-dx-reviewer`, and `etrnl-browser-qa`.
@@ -84,13 +82,13 @@ Completion means every item inside the plan's `Execution scope` is verified or e
 
 ## Codex execute profile
 
-`ETRNL_EXECUTE_HOST` selects the process profile at startup: `codex` runs the Codex profile, `claude` runs the Claude path in every other section with no change, and an unset value runs the Codex profile only under a detected Codex CLI session. Any other value is a configuration defect. State the resolved profile and the signal that selected it in the first status line of the run.
+`ETRNL_EXECUTE_HOST` selects the profile at startup: `codex` runs the Codex profile, `claude` runs the Claude path unchanged, and an unset value runs the Codex profile only under a detected Codex CLI session. Any other value is a configuration defect. State the resolved profile and its selecting signal in the first status line.
 
 Load `references/codex-execute-profile.md` before the first spawn on the Codex host. It carries host detection, the profile defaults (`maxConcurrentLanes` 2, one merged per-wave review at tier 0–2, tier 3 gates at full strength on every wave), the spawn contract (explicit `model` and reasoning effort on every spawn, `inherit` as a packet defect), and the progress-reporting command contract.
 
 ## Plan scope triage
 
-The plan's `## Tier assessment` section carries a `Scope triage:` line reading `Trivial`, `Small`, or `Large`. Read it at startup and run the matching shape on every host, under either profile. When the line is absent, resolve the scope with `node scripts/diff-triviality.mjs classify-plan --plan <plan-path> --json` (after install, `node ~/.claude/scripts/diff-triviality.mjs classify-plan --plan <plan-path> --json`) and quote the returned `scope` and `reason` in the first status line. When that command fails, run the `Large` shape.
+The plan's `## Tier assessment` section carries a `Scope triage:` line reading `Trivial`, `Small`, or `Large`. Read it at startup and run the matching shape on every host, under either profile. When the line is absent, resolve the scope with `node scripts/diff-triviality.mjs classify-plan --plan <plan-path> --json` and quote the returned `scope` and `reason` in the first status line. When that command fails, run the `Large` shape.
 
 | Scope | Packets | Review | Scaffolding |
 | --- | --- | --- | --- |
@@ -100,15 +98,15 @@ The plan's `## Tier assessment` section carries a `Scope triage:` line reading `
 
 Trivial shape rules:
 
-1. Dispatch every task with the mini packet from `node scripts/agent-task-packet-check.mjs --template mini` (after install, `node ~/.claude/scripts/agent-task-packet-check.mjs --template mini`). Fill `taskId`, `goal`, `scope`, `verificationCommand`, and `writeScope`, and carry the `codexModel` and `codexReasoningEffort` the template resolves. Generate no full packet, no `lineageId`, no `waveId`, and no `completionReceipt`.
-2. Spawn no `etrnl-spec-reviewer`, no `etrnl-quality-reviewer`, no simplifier lens, and no adversarial pass. This replaces the per-wave merged quality review that `references/codex-execute-profile.md` runs at tier 0–2; that merged review holds at `Small` and `Large`.
+1. Dispatch every task with the mini packet from `node scripts/agent-task-packet-check.mjs --template mini`. Fill `taskId`, `goal`, `scope`, `verificationCommand`, and `writeScope`, and carry the `codexModel` and `codexReasoningEffort` the template resolves. Generate no full packet, no `lineageId`, no `waveId`, and no `completionReceipt`.
+2. Spawn no `etrnl-spec-reviewer`, `etrnl-quality-reviewer`, simplifier lens, or adversarial pass. This replaces the per-wave merged quality review that `references/codex-execute-profile.md` runs at tier 0–2; that review holds at `Small` and `Large`.
 3. Skip wave tables, `execution-wave-check.mjs` overlap checks, and phase scaffolding. Ledger `set-task`, `record-check`, and the completion gates still run on every task.
 4. Tier 3 is never Trivial. A `Scope triage: Trivial` line on a tier 3 plan is a plan defect: run the Large shape and report the defect in the first status line.
 5. A scope expansion past the plan's `## File map` ends the Trivial shape mid-run. Re-run `classify-plan`, state the new scope, and run the returned shape for the remaining tasks.
 
 ## Bounded CodeRabbit-lens review (risk-tiered)
 
-After the final edit of a task or wave, run `node scripts/review-rules.mjs check --changed-only` whenever the tree has source changes, then run parallel reviewers, merge with `node scripts/review-merge.mjs` (both under `~/.claude/scripts/` after install), fix `safe_auto` immediately, and reopen only on P0/P1 blockers. Load `references/bounded-review.md` for synthesis, reopen caps (ledger-enforced), and per-tier depth.
+After the final edit of a task or wave, run `node scripts/review-rules.mjs check --changed-only` whenever the tree has source changes, then run parallel reviewers, merge with `node scripts/review-merge.mjs`, fix `safe_auto` immediately, and reopen only on P0/P1 blockers. Load `references/bounded-review.md` for synthesis, reopen caps (ledger-enforced), and per-tier depth.
 
 ### Wave and task exit check
 
@@ -146,11 +144,11 @@ Each wave gate is a hard stop:
 1. **Gate failure is a blocker.** If the gate command exits non-zero, do not start the next wave. Record the failure, diagnose the root cause, fix it, and re-run the gate before proceeding.
 2. **Evidence required before wave advance.** Record `execution-ledger.mjs record-check` with status `passed` before marking any task `completed`. A task without a recorded check is incomplete regardless of local observation.
 3. **No self-certification.** Do not mark a gate `passed` based on reading output without running the command. Run the exact command from the plan's Verification gates table.
-4. **Cached gates at unchanged tree hash; partial suites are not gates.** A green full-suite `record-check` at the current worktree hash is valid — do not re-run unchanged trees. `bash scripts/doctor.sh --changed` green covers execution health on touched paths; full doctor stays required for release/install. Subset runs are not gate evidence when the plan names a full suite.
+4. **Cached gates at unchanged tree hash; partial suites are not gates.** A green full-suite `record-check` at the current worktree hash is valid — do not re-run unchanged trees. Subset runs are not gate evidence when the plan names a full suite.
 
 ### React-doctor gate (React/Next UI scope)
 
-When the TASK-changed file set from the execution ledger (not `git status`) includes React/Next UI files (`.tsx`/`.jsx`, or `app/`/`src/` under Next) and react-doctor is available, run `npx --no-install react-doctor --diff <ledger-base-commit>` — pass the task's base commit recorded in the ledger explicitly; bare `--diff` auto-detects a branch base that can differ from it. Findings on task-changed files must be triaged in the ledger before completion (fail-closed). Findings on files the task did not change are recorded but never block. When react-doctor is not installed, record an unavailable check and continue (fail-open availability). Escape hatch: a ledger `not-applicable` entry with rationale.
+When the TASK-changed file set from the execution ledger (not `git status`) includes React/Next UI files (`.tsx`/`.jsx`, or `app/`/`src/` under Next) and react-doctor is available, run `npx --no-install react-doctor --diff <ledger-base-commit>` — pass the task's ledger base commit explicitly; bare `--diff` auto-detects a branch base that can differ from it. Findings on task-changed files must be triaged in the ledger before completion (fail-closed); findings on files the task did not change are recorded but never block. When react-doctor is not installed, record an unavailable check and continue (fail-open). Escape hatch: a ledger `not-applicable` entry with rationale.
 
 ## Completion
 

@@ -1,12 +1,20 @@
 #!/usr/bin/env node
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync } from "node:fs";
-import { homedir } from "node:os";
 import path from "node:path";
 import { argValue as readArgValue } from "./lib/cli-args.mjs";
 import { updateJsonUnderLock, withFileLock, writeJsonAtomic } from "./lib/json-file-store.mjs";
 import { nowIso, safeId } from "./lib/evidence-trace.mjs";
 import { worktreeHash } from "./lib/etrnl-state-core.mjs";
+import {
+  currentLedgerPath as resolveLedgerPath,
+  ledgerOwnedByWorktree,
+  legacyPointerPath,
+  pointerPath,
+  runsDir,
+  sessionBucket,
+  worktreeKey,
+} from "./lib/ledger-pointer.mjs";
 import { parseRiskTier } from "./lib/plan-risk-tier.mjs";
 import { readStdinJson, readStdinRaw } from "./lib/read-stdin.mjs";
 
@@ -39,15 +47,6 @@ const command = args[0] ?? "help";
 
 const argValue = (flag, fallback = "") => readArgValue(args, flag, fallback);
 
-function runsDir() {
-  return process.env.ETRNL_RUNS_DIR
-    || path.join(process.env.CLAUDE_HOME || path.join(homedir(), ".claude"), "etrnl", "runs");
-}
-
-function pointerPath(sessionId) {
-  return path.join(runsDir(), `current-${safeId(sessionId)}.json`);
-}
-
 function readJson(file) {
   try {
     return JSON.parse(readFileSync(file, "utf8"));
@@ -70,10 +69,7 @@ function updateJson(file, updater) {
 }
 
 function currentLedgerPath(sessionId) {
-  const pointer = pointerPath(sessionId);
-  if (!existsSync(pointer)) return "";
-  const data = readJson(pointer);
-  return data.path || "";
+  return resolveLedgerPath(sessionId);
 }
 
 function validateLedger(ledger) {
@@ -321,15 +317,18 @@ function completionErrors(ledger, options = {}) {
 }
 
 function initLedger() {
-  const sessionId = argValue("--session", process.env.CLAUDE_SESSION_ID || "default");
-  const runId = `run-${resolvedSessionLabel()}-${Date.now()}`;
-  const file = path.join(runsDir(), `${runId}.json`);
   const cwd = path.resolve(argValue("--cwd", process.cwd()));
+  // The bucket is derived from the ledger's own cwd, not the caller's: `init --cwd`
+  // declares which worktree the run belongs to, and later commands run from inside
+  // that worktree must resolve the pointer this init writes.
+  const bucket = sessionBucket(argValue("--session", process.env.CLAUDE_SESSION_ID || "default"), cwd);
+  const runId = `run-${bucket}-${Date.now()}`;
+  const file = path.join(runsDir(), `${runId}.json`);
   const at = nowIso();
   const ledger = {
     schemaVersion: 2,
     runId,
-    sessionId,
+    sessionId: bucket,
     cwd,
     projectId: safeId(argValue("--project", path.basename(cwd) || "default")),
     planPath: argValue("--plan"),
@@ -350,11 +349,11 @@ function initLedger() {
     phases: [],
     waves: [],
     decisions: [],
-    events: [{ type: "ledger.init", at, actor: eventActor() }],
+    events: [{ type: "ledger.init", at, actor: eventActor(bucket) }],
     continuations: { count: 0, max: 3, lastReason: "" },
   };
   writeJson(file, ledger);
-  writeJson(pointerPath(sessionId), { path: file, updatedAt: ledger.updatedAt });
+  writeJson(pointerPath(bucket), { path: file, updatedAt: ledger.updatedAt });
   console.log(file);
 }
 
@@ -377,7 +376,8 @@ function checkStop() {
   const file = currentLedgerPath(sessionId);
   if (!file) {
     if (args.includes("--require-ledger")) {
-      console.error(`No active execution ledger for session ${safeId(sessionId)}.`);
+      console.error(`No active execution ledger for session ${resolvedSessionLabel()}.`);
+      console.error(missingLedgerHint());
       process.exit(1);
     }
     return;
@@ -422,31 +422,48 @@ function checkBoundExecute() {
 }
 
 function currentLedgerOrFail() {
-  const sessionId = argValue("--session", process.env.CLAUDE_SESSION_ID || "default");
-  const file = currentLedgerPath(sessionId);
+  const file = currentLedgerPath(argValue("--session", process.env.CLAUDE_SESSION_ID || "default"));
   if (!file) {
-    console.error(`No active execution ledger for session ${safeId(sessionId)}.`);
+    console.error(`No active execution ledger for session ${resolvedSessionLabel()}.`);
+    console.error(missingLedgerHint());
     process.exit(1);
   }
   return file;
 }
 
+// A run ledger from another worktree is unreachable by design, so the operator needs
+// to be told which of the two situations they are in: no run started here yet, or a
+// run started elsewhere that this worktree may not append to.
+function missingLedgerHint() {
+  let foreign = "";
+  try {
+    const target = readJson(legacyPointerPath()).path || "";
+    if (target && existsSync(target) && !ledgerOwnedByWorktree(target)) foreign = target;
+  } catch {
+    foreign = "";
+  }
+  return foreign
+    ? `The shared 'default' pointer names ${path.basename(foreign)}, which belongs to another worktree. Run \`init\` here or set CLAUDE_SESSION_ID.`
+    : "Run `execution-ledger.mjs init` in this worktree first.";
+}
+
 // The session label a command resolves to, computed exactly like pointerPath so an
 // event records the bucket that was actually written, not the one the caller meant.
 // An empty --session (an unset CLAUDE_SESSION_ID expanded by the shell) collapses to
-// the shared "default" bucket; recording it is what makes that collapse visible.
+// the shared "default" label; qualifying it by worktree is what keeps two concurrent
+// sessions in different repositories from resolving one another's ledger.
 function resolvedSessionLabel() {
-  return safeId(argValue("--session", process.env.CLAUDE_SESSION_ID || "default"));
+  return sessionBucket(argValue("--session", process.env.CLAUDE_SESSION_ID || "default"));
 }
 
 // Ledger events are the only record of which process mutated a run. session/pid/ppid/cwd
 // come from the OS and from pointer resolution, so they hold even when the caller lies;
 // --actor and ETRNL_AGENT are self-reported, so they land under `claims` and carry the
 // same trust caveat agent-output-contract.mjs applies to a self-declared ETRNL_AGENT.
-function eventActor() {
+function eventActor(bucket = resolvedSessionLabel()) {
   const claimed = argValue("--actor", process.env.ETRNL_AGENT || "").trim();
   return {
-    session: resolvedSessionLabel(),
+    session: bucket,
     pid: process.pid,
     ppid: process.ppid,
     cwd: process.cwd(),
@@ -1528,6 +1545,19 @@ function reconcilePointers() {
         action: "record",
       });
     }
+    // Worktree scoping keeps the unnamed default bucket from being shared, but a
+    // session id named identically in two repositories still resolves one ledger.
+    // Actor cwds are the evidence for that, so report it rather than guess intent.
+    const foreign = foreignWriterEvents(ledger);
+    if (foreign.events > 0) {
+      findings.push({
+        kind: "foreign-writer",
+        ledger: path.basename(target),
+        foreignWorktrees: foreign.worktrees,
+        foreignEvents: foreign.events,
+        action: "record",
+      });
+    }
     if (pointers.length < 2) continue;
     // Keep the pointer naming the owning session when one exists; otherwise the newest,
     // since that is the pointer an active session most recently resolved through.
@@ -1558,6 +1588,9 @@ function reconcilePointers() {
           finding: finding.kind,
           ...(finding.pointer ? { retiredPointer: finding.pointer, keptPointer: finding.keeping } : {}),
           ...(finding.pointerBucket ? { sessionId: finding.sessionId, pointerBucket: finding.pointerBucket } : {}),
+          ...(finding.kind === "foreign-writer"
+            ? { foreignWorktrees: finding.foreignWorktrees, foreignEvents: finding.foreignEvents }
+            : {}),
         };
         updateJson(target, (ledger) => {
           // A divergence is a standing property, so re-running must not restamp it.
@@ -1579,11 +1612,42 @@ function reconcilePointers() {
   const verb = apply ? "reconciled" : "found (dry run; pass --apply)";
   console.log(`${findings.length} finding(s) ${verb} across ${pointerNames.length} pointer(s)`);
   for (const finding of findings) {
-    const detail = finding.kind === "session-divergence"
-      ? `${finding.ledger}: sessionId=${finding.sessionId} pointerBucket=${finding.pointerBucket}`
-      : `${finding.pointer} -> ${finding.ledger || finding.target || "missing"}${finding.keeping ? ` (keeping ${finding.keeping})` : ""}`;
-    console.log(`  ${finding.kind}: ${detail}`);
+    console.log(`  ${finding.kind}: ${reconcileDetail(finding)}`);
   }
+}
+
+function reconcileDetail(finding) {
+  if (finding.kind === "session-divergence") {
+    return `${finding.ledger}: sessionId=${finding.sessionId} pointerBucket=${finding.pointerBucket}`;
+  }
+  if (finding.kind === "foreign-writer") {
+    return `${finding.ledger}: ${finding.foreignEvents} event(s) from ${finding.foreignWorktrees} other worktree(s)`;
+  }
+  return `${finding.pointer} -> ${finding.ledger || finding.target || "missing"}${finding.keeping ? ` (keeping ${finding.keeping})` : ""}`;
+}
+
+// Maintenance runs legitimately act on a ledger from outside its worktree: `init --cwd`
+// is often launched from a wrapper's directory, and `reconcile` sweeps every ledger from
+// wherever the operator stands. Counting those would make the finding self-sustaining,
+// since reconcile's own record would be the next run's evidence.
+const LEDGER_MAINTENANCE_EVENTS = new Set(["ledger.init", "ledger.reconciled"]);
+
+// Count events written from outside the worktree the ledger was opened in. Events
+// predating actor provenance carry no cwd and are not counted as foreign.
+function foreignWriterEvents(ledger) {
+  if (!ledger.cwd) return { worktrees: 0, events: 0 };
+  const owner = worktreeKey(ledger.cwd);
+  const worktrees = new Set();
+  let events = 0;
+  for (const event of Array.isArray(ledger.events) ? ledger.events : []) {
+    const cwd = event?.actor?.cwd;
+    if (!cwd || LEDGER_MAINTENANCE_EVENTS.has(event.type)) continue;
+    const key = worktreeKey(cwd);
+    if (key === owner) continue;
+    worktrees.add(key);
+    events += 1;
+  }
+  return { worktrees: worktrees.size, events };
 }
 
 function pointerUpdatedAt(dir, name) {
