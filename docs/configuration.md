@@ -180,6 +180,7 @@ Rate limiter:
 Workflow state:
 
 - `ETRNL_RUNS_DIR` overrides local execution-ledger storage.
+- `CLAUDE_SESSION_ID` names the run-ledger bucket. When the host leaves it unset, the bucket is the worktree the command ran in, so concurrent sessions in different repositories keep separate ledgers. Set it explicitly only to share one ledger across worktrees on purpose.
 - `ETRNL_ARTIFACTS_DIR` overrides local review, browser-QA, context, and buglog artifact storage.
 - `ETRNL_STATE_DIR` overrides canonical ETRNL JSONL state storage for tests, staged installs, or local experiments.
 - Default ETRNL state lives under `~/.claude/etrnl/state`; `events.jsonl` is canonical and `views/` are rebuildable materialized projections.

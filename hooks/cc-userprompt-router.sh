@@ -53,14 +53,27 @@ record_execute_skill() {
 }
 
 record_active_plan_path() {
-  local plan_path=""
+  local plan_path="" candidate=""
   local now
-  if [[ "$prompt" =~ (/[^[:space:]]+\.md) ]]; then
-    plan_path="${BASH_REMATCH[1]}"
-  elif [[ "$prompt" =~ ([A-Za-z0-9_./-]*(\.claude/plans|\.planning)/[A-Za-z0-9_.-]+\.md) ]]; then
-    plan_path="${BASH_REMATCH[1]}"
+  # Only a path that lives in a plans directory counts as "the active plan". An
+  # earlier version matched any slash-bearing .md token anywhere in the prompt,
+  # which captured fragments of paths to findings documents. activePlanPath is
+  # sticky with no expiry, so one bad match armed the bare-phrase execution
+  # branch below for the rest of the session.
+  if [[ "$prompt" =~ ([A-Za-z0-9_./-]*(\.claude/plans|\.planning)/[A-Za-z0-9_.-]+\.md) ]]; then
+    candidate="${BASH_REMATCH[1]}"
   fi
-  [[ -n "$plan_path" ]] || return 0
+  [[ -n "$candidate" ]] || return 0
+
+  # ...and it must actually exist. A plan that is only mentioned, or whose path
+  # was mis-captured, must not become state that other branches key off.
+  if [[ -f "$candidate" ]]; then
+    plan_path="$candidate"
+  elif [[ -n "$cwd" && -f "$cwd/$candidate" ]]; then
+    plan_path="$cwd/$candidate"
+  else
+    return 0
+  fi
 
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   cc_state_update --arg plan "$plan_path" --arg now "$now" \
@@ -435,7 +448,13 @@ if [[ "$prompt_lower" =~ execute[[:space:]]+.*plan|implement[[:space:]]+.*plan|c
   record_execute_skill
   notes+=("Use etrnl-dev-execute only for user-requested plan execution; preserve checkpoints and verification evidence.")
 fi
-if [[ -n "$active_plan_path" ]] && [[ "$prompt_lower" =~ (^|[[:space:]])(implement now|do it|execute now|continue the plan|continue plan|finish the plan|finish it|carry on)([[:space:]]|$) ]]; then
+# The phrase list here must NAME the plan. Ordinary conversational replies such
+# as "do it", "finish it", and "carry on" were removed: this branch records a
+# skill request that the stop verifier then demands be served, so "push the
+# changes and test? do it" armed the gate for every later turn. "implement now"
+# and "execute now" went too, for the same reason — neither refers to a plan on
+# its own.
+if [[ -n "$active_plan_path" ]] && [[ "$prompt_lower" =~ (^|[[:space:]])(execute the plan|implement the plan|continue the plan|continue plan|finish the plan|resume the plan|run the plan)([[:space:]]|$) ]]; then
   record_execute_skill
   notes+=("Use etrnl-dev-execute for the active plan: $active_plan_path. Complete every in-scope phase or stop with a blocker.")
 fi

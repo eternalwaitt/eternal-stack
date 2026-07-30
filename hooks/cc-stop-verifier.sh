@@ -203,6 +203,28 @@ def norm:
     else . end;
 '
 
+# The requested-skill block tells the agent it may state why a skill does not
+# apply instead of invoking it. That promise was unbacked: the gate compared
+# requestedSkills against skillCalls and nothing else, so no wording could
+# satisfy it and the block repeated on every turn for as long as the request
+# stayed fresh. A waiver must NAME the skill and give a reason, so an unrelated
+# sentence cannot clear the gate. Callers record accepted waivers with a
+# timestamp so the rationale is needed once instead of in every later message; a
+# request newer than the waiver blocks again, because that is a new ask.
+cc_skill_request_waived() {
+  local name="$1" raw="$2" named=1
+  local reason_re='(unavailable|not[[:space:]]+(installed|available|applicable|relevant|invoking|running|needed)|nothing[[:space:]]+to|no[[:space:]]+need|not[[:space:]]+apply|does[[:space:]]+not[[:space:]]+apply|already[[:space:]]+(ran|run|done|covered|passing|green)|instead|skipping|skipped)'
+  [[ -n "$name" ]] || return 1
+  # The recorded id ("etrnl-dev-test") always counts. The normalized alias counts
+  # only when it is a compound identifier ("dev-test", "code-health"): norm
+  # reduces some skills to a bare English word — "execute", "plan", "review" —
+  # and accepting those would let an unrelated sentence waive the request.
+  [[ -n "$raw" && "$message_lower" == *"$raw"* ]] && named=0
+  [[ "$name" == *-* && "$message_lower" == *"$name"* ]] && named=0
+  (( named == 0 )) || return 1
+  [[ "$message_lower" =~ $reason_re ]]
+}
+
 cc_email_triage_requested() {
   jq -e "$NORM_JQ"'
     ([.requestedSkills[]?.value // empty | norm] | any(. == "email-triage"))
@@ -807,11 +829,54 @@ else:
     cc_json_block "You are trying to claim completion without a real test run after source or test edits. Run the relevant test command, or state the exact technical blocker."
     exit 0
   fi
-  if jq -e "$NORM_JQ"'
-    ([.requestedSkills[]?.value // empty | norm | select(. != "email-triage")] - [.skillCalls[]?.value // empty | norm]) | length > 0
-  ' <<<"$state" >/dev/null; then
-    cc_json_block "A requested skill was not recorded. Invoke it or explicitly state why it is unavailable before claiming completion."
-    exit 0
+  # Only RECENT skill requests can block. requestedSkills is append-only and is
+  # never cleared, so without a cutoff one match blocked every later stop for the
+  # rest of the session no matter what the user asked next. The request is a fact
+  # about one turn; a stale one is not evidence that the current answer ignored
+  # anything. Entries without a parseable timestamp count as stale rather than as
+  # permanently blocking.
+  skill_request_cutoff="$(( $(date -u +%s) - 3600 ))"
+  unserved_skills="$(jq -r --argjson cutoff "$skill_request_cutoff" "$NORM_JQ"'
+    def stamp: ((. // "") | try fromdateiso8601 catch 0);
+    [.requestedSkills[]?
+      | {name: ((.value // "") | norm), raw: ((.value // "") | ascii_downcase), at: (.at | stamp)}
+      | select(.name != "" and .name != "email-triage")
+      | select(.at >= $cutoff)] as $requested
+    | [.skillCalls[]?.value // empty | norm] as $served
+    | [.skillRequestWaivers[]?
+      | {name: ((.value // "") | norm), at: (.at | stamp)}] as $waived
+    | [$requested[] as $r
+      | select(($served | index($r.name)) == null)
+      | select(([$waived[] | select(.name == $r.name and .at >= $r.at)] | length) == 0)
+      | "\($r.name)\t\($r.raw)"]
+    | unique | .[]
+  ' <<<"$state" 2>/dev/null || true)"
+  if [[ -n "${unserved_skills//[[:space:]]/}" ]]; then
+    outstanding=()
+    waived=()
+    while IFS=$'\t' read -r skill_name skill_raw; do
+      [[ -n "$skill_name" ]] || continue
+      if cc_skill_request_waived "$skill_name" "$skill_raw"; then
+        waived+=("$skill_name")
+      else
+        outstanding+=("${skill_raw:-$skill_name}")
+      fi
+    done <<<"$unserved_skills"
+    # Record waivers before any block below can exit: the rationale was given in
+    # THIS message, so it must not have to be repeated in the next one.
+    if (( ${#waived[@]} > 0 )); then
+      for skill_name in "${waived[@]}"; do
+        cc_state_append_value skillRequestWaivers "$skill_name" >/dev/null || true
+      done
+    fi
+    if (( ${#outstanding[@]} > 0 )); then
+      outstanding_list=""
+      for skill_raw in "${outstanding[@]}"; do
+        [[ -z "$outstanding_list" ]] && outstanding_list="$skill_raw" || outstanding_list="$outstanding_list, $skill_raw"
+      done
+      cc_json_block "A requested skill was not recorded: ${outstanding_list}. Invoke it, or name it and state why it does not apply, before claiming completion."
+      exit 0
+    fi
   fi
   if ! execute_gate_status="$(node "$SCRIPT_DIR/../scripts/execute-evidence-check.mjs" 2>/dev/null <<<"$state")"; then
     cc_json_block "etrnl-dev-execute evidence checker failed. Re-run source gates or inspect scripts/execute-evidence-check.mjs before claiming completion."

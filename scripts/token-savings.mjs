@@ -6,35 +6,18 @@
 // wall-clock and no randomness in the math or the holdout selection, so a given
 // set of ledgers always produces the same report.
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { homedir } from "node:os";
 import path from "node:path";
 import { argValue as readArgValue } from "./lib/cli-args.mjs";
-import { safeId } from "./lib/evidence-trace.mjs";
+// Shared with execution-ledger.mjs so a bare `report` with no path resolves the
+// same worktree-scoped ledger the ledger commands write.
+import { currentLedgerPath } from "./lib/ledger-pointer.mjs";
 
 const SCHEMA_VERSION = 1;
 const DEFAULT_HOLDOUT_PERCENT = 10;
 const DEFAULT_NET_NEGATIVE_THRESHOLD = 1500;
 
-// Mirror execution-ledger.mjs runsDir()/pointerPath()/currentLedgerPath() so a
-// bare `report` with no path resolves the same session ledger the ledger writes.
-function runsDir() {
-  return process.env.ETRNL_RUNS_DIR
-    || path.join(process.env.CLAUDE_HOME || path.join(homedir(), ".claude"), "etrnl", "runs");
-}
-
-function pointerPath(sessionId) {
-  return path.join(runsDir(), `current-${safeId(sessionId)}.json`);
-}
-
 function readJson(file) {
   return JSON.parse(readFileSync(file, "utf8"));
-}
-
-function currentLedgerPath(sessionId) {
-  const pointer = pointerPath(sessionId);
-  if (!existsSync(pointer)) return "";
-  const data = readJson(pointer);
-  return data.path || "";
 }
 
 /**

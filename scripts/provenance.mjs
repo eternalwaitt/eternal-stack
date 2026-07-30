@@ -14,6 +14,9 @@ import { fileURLToPath } from "node:url";
 import { argValue as readArgValue } from "./lib/cli-args.mjs";
 import { canonicalJson, fileSha256 } from "./lib/evidence-trace.mjs";
 import { gitSubprocessLimits } from "./lib/env-utils.mjs";
+// Shared with execution-ledger.mjs so `anchor` without --ledger resolves the same
+// worktree-scoped ledger the run wrote, never another project's.
+import { currentLedgerPath as resolveCurrentLedger } from "./lib/ledger-pointer.mjs";
 
 export const PROVENANCE_REF = "refs/notes/etrnl-provenance";
 
@@ -239,7 +242,7 @@ export function anchor(args) {
   const ledgerArg = readArgValue(args, "--ledger");
   const ledgerPath = ledgerArg
     ? path.resolve(cwd, ledgerArg)
-    : resolveCurrentLedger(readArgValue(args, "--session", process.env.CLAUDE_SESSION_ID || "default"));
+    : resolveCurrentLedger(readArgValue(args, "--session", process.env.CLAUDE_SESSION_ID || "default"), { cwd });
   if (!ledgerPath) {
     throw new Error("no ledger to anchor; pass --ledger <path> or run within an active session ledger");
   }
@@ -248,27 +251,6 @@ export function anchor(args) {
   const body = canonicalJson(note);
   const { commit } = writeNote({ repoRoot, ref, body });
   return { commit, ref, files: note.files.length, ledger: ledgerPath };
-}
-
-/**
- * Resolves the current run ledger path from the execution-ledger pointer file for
- * a session, mirroring execution-ledger.mjs's runs directory resolution. Returns
- * an empty string when no pointer exists (the caller fails closed with guidance).
- *
- * @param {string} sessionId Session id whose pointer file to read.
- * @returns {string} Ledger path or "".
- */
-function resolveCurrentLedger(sessionId) {
-  const runsDir = process.env.ETRNL_RUNS_DIR
-    || path.join(process.env.CLAUDE_HOME || path.join(process.env.HOME || process.env.USERPROFILE || "", ".claude"), "etrnl", "runs");
-  const safe = String(sessionId || "default").replace(/[^A-Za-z0-9_.-]/g, "_");
-  const pointer = path.join(runsDir, `current-${safe}.json`);
-  if (!existsSync(pointer)) return "";
-  try {
-    return JSON.parse(readFileSync(pointer, "utf8")).path || "";
-  } catch {
-    return "";
-  }
 }
 
 function main() {

@@ -125,16 +125,34 @@ the `actor` on the offending event to find the writer before deciding what it me
 ~/.claude/scripts/execution-ledger.mjs reconcile
 ```
 
-Two causes are common. A write from an unrelated repo shows up as an `actor.cwd` that does
-not match the ledger's own `cwd`. A write that landed in the wrong run shows up as
-`actor.session` of `default`: `init --session "$CLAUDE_SESSION_ID"` resolves an unset
-variable to the shared `default` bucket, which every session and project on the machine
-resolves to as well. Export a real `CLAUDE_SESSION_ID`, or pass an explicit `--session`,
-to keep a run in its own bucket.
+A write from an unrelated repo shows up as an `actor.cwd` that does not match the ledger's
+own `cwd`. `init --session "$CLAUDE_SESSION_ID"` resolves an unset variable to the shared
+`default` label, so that label is qualified by the worktree it was resolved from:
+`actor.session` reads `default-<worktree>` and the pointer is `current-default-<worktree>.json`.
+Two projects can no longer address one another's run through the unnamed bucket. Naming the
+*same* `CLAUDE_SESSION_ID` in two worktrees still shares one ledger, which `reconcile`
+reports as `foreign-writer`.
 
 `reconcile` reports duplicate pointers aimed at one ledger, pointers whose ledger is gone,
-and ledgers whose `sessionId` differs from the bucket in their `runId`. Add `--apply` to
-retire the stale pointers — they move to `runs/retired-pointers/` rather than being
-deleted, and each change is recorded as a `ledger.reconciled` event. A session divergence
-is only ever recorded, never rewritten: `workflow-health.mjs` resolves a ledger by
-`sessionId` while pointers resolve by bucket, so both values have to stay as they are.
+ledgers whose `sessionId` differs from the bucket in their `runId`, and ledgers carrying
+events written from a worktree other than their own. Add `--apply` to retire the stale
+pointers — they move to `runs/retired-pointers/` rather than being deleted, and each change
+is recorded as a `ledger.reconciled` event. A session divergence is only ever recorded,
+never rewritten: `workflow-health.mjs` resolves a ledger by `sessionId` while pointers
+resolve by bucket, so both values have to stay as they are.
+
+## "No active execution ledger" in a worktree that has a run
+
+Run ledgers are scoped to the worktree they were opened in, so a ledger started elsewhere is
+unreachable on purpose. The error names which case you are in: no run has been started here,
+or the pre-scoping `current-default.json` pointer names another worktree's ledger. Start a
+run for this worktree, or export a `CLAUDE_SESSION_ID` shared with the session that owns the
+ledger:
+
+```bash
+~/.claude/scripts/execution-ledger.mjs init --plan <plan-path>
+```
+
+A worktree is whatever `git rev-parse --show-toplevel` reports, so subdirectories of a repo
+share one bucket and a linked worktree gets its own. A directory outside any repository keys
+on itself.
