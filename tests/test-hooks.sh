@@ -922,6 +922,11 @@ jq -nc --arg cwd "$zero_verify_repo" "$zero_verify_empty_state | .cwd = \$cwd" >
 zero_verify_mixed_stop="$(jq -cn --arg cwd "$zero_verify_repo" '{session_id:"fixture-zero-verify-mixed",cwd:$cwd,last_assistant_message:"Done. Tests passed. I could not verify the deployment.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$zero_verify_mixed_stop")"
 assert_contains "stop verifier blocks mixed message with verification claim in separate clause" "$out" "claim completion without verification evidence"
+zero_verify_questioned_multi_state="$TMPROOT/claude-guard-fixture-zero-verify-questioned-multi.json"
+jq -nc --arg cwd "$zero_verify_repo" "$zero_verify_empty_state | .cwd = \$cwd" >"$zero_verify_questioned_multi_state"
+zero_verify_questioned_multi_stop="$(jq -cn --arg cwd "$zero_verify_repo" '{session_id:"fixture-zero-verify-questioned-multi",cwd:$cwd,last_assistant_message:"Done. Do tests pass? Lint passed.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$zero_verify_questioned_multi_stop")"
+assert_contains "stop verifier blocks later positive claim after questioned clause" "$out" "claim completion without verification evidence"
 
 # --- Regression fixtures: guard false-positive fixes (stack-holes-remediation TG2/TG3/TG4) ---
 holes_guard() {

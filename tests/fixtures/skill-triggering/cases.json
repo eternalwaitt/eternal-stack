@@ -48,6 +48,26 @@
     ]
   },
   {
+    "name": "punctuated agents.md prompt routes etrnl-ops-agent-files",
+    "prompt": "Review AGENTS.md.",
+    "expectedSkills": [
+      "etrnl-ops-agent-files"
+    ],
+    "unexpectedSkills": [
+      "etrnl-dev-execute"
+    ]
+  },
+  {
+    "name": "questioned agent.md prompt routes etrnl-ops-agent-files",
+    "prompt": "Should I update agent.md?",
+    "expectedSkills": [
+      "etrnl-ops-agent-files"
+    ],
+    "unexpectedSkills": [
+      "etrnl-dev-execute"
+    ]
+  },
+  {
     "name": "my_agents.md_backup does not route etrnl-ops-agent-files",
     "prompt": "compare my_agents.md_backup with current",
     "expectedSkills": [],

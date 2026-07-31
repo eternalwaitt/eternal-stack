@@ -412,7 +412,7 @@ restore_eternal_saas_pack() {
     printf 'rollback error: failed to stage %s\n' "$label" >&2
     return 1
   fi
-  if [[ -d "$dest" ]]; then
+  if [[ -e "$dest" || -L "$dest" ]]; then
     if ! mv -- "$dest" "$old"; then
       rm -rf -- "$tmp"
       printf 'rollback error: failed to preserve current %s\n' "$label" >&2

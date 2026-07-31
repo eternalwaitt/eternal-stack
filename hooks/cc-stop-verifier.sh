@@ -64,18 +64,22 @@ _sv_positive_verification_claim() {
 _sv_unsupported_verification_clause() {
   local clause="$1"
   [[ "$clause" =~ (^|[^[:alnum:]_])(cannot|can[[:space:]]+not|could[[:space:]]+not)[[:space:]]+(verify|confirm|claim)([^[:alnum:]_]|$) ]] \
-    || [[ "$clause" =~ (^|[^[:alnum:]_])(assuming|if[[:space:]]+(all[[:space:]]+)?(the[[:space:]]+)?(build|tests?)[[:space:]]+pass(ed|es|ing)?|when[[:space:]]+(all[[:space:]]+)?(the[[:space:]]+)?(build|tests?)[[:space:]]+pass(ed|es|ing)?)([^[:alnum:]_]|$) ]] \
+    || [[ "$clause" =~ (^|[^[:alnum:]_])(i[[:space:]]+)?(have|has)[[:space:]]+not[[:space:]]+(yet[[:space:]]+)?verified([^[:alnum:]_]|$) ]] \
+    || [[ "$clause" =~ (^|[^[:alnum:]_])(assuming|if[[:space:]]+(all[[:space:]]+)?(the[[:space:]]+)?(build|tests?)[[:space:]]+pass(ed|es|ing)?|when[[:space:]]+(all[[:space:]]+)?(the[[:space:]]+)?(build|tests?)[[:space:]]+pass(ed|es|ing)?|if[[:space:]]+verified)([^[:alnum:]_]|$) ]] \
     || [[ "$clause" =~ (tests?[[:space:]]+pass(ed|ing)?|build[[:space:]]+pass(es|ed)?)[[:space:]]*\? ]]
+}
+_sv_questioned_verification_claim() {
+  local clause="$1"
+  [[ "$clause" =~ (tests?[[:space:]]+pass(ed|ing)?|build[[:space:]]+pass(es|ed)?) ]] || return 1
+  local stem="${BASH_REMATCH[1]}"
+  [[ "$message_lower" =~ ${stem}[[:space:]]*\? ]]
 }
 _sv_clause=""
 while IFS= read -r _sv_clause || [[ -n "$_sv_clause" ]]; do
   _sv_clause="${_sv_clause#"${_sv_clause%%[![:space:]]*}"}"
   _sv_clause="${_sv_clause%"${_sv_clause##*[![:space:]]}"}"
   [[ -n "$_sv_clause" ]] || continue
-  if _sv_positive_verification_claim "$_sv_clause" && ! _sv_unsupported_verification_clause "$_sv_clause"; then
-    if [[ "$message_lower" =~ (tests?[[:space:]]+pass(ed|ing)?|build[[:space:]]+pass(es|ed)?)[[:space:]]*\? ]]; then
-      continue
-    fi
+  if _sv_positive_verification_claim "$_sv_clause" && ! _sv_unsupported_verification_clause "$_sv_clause" && ! _sv_questioned_verification_claim "$_sv_clause"; then
     claims_verification=true
     break
   fi

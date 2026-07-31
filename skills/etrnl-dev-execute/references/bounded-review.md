@@ -31,7 +31,7 @@ if [[ -n "${ETRNL_STACK:-}" ]]; then
     REPO_ROOT_CANON="$(cd -- "${REPO_ROOT}" && pwd -P 2>/dev/null || printf '%s' "$REPO_ROOT")"
     if [[ "$REPO_ROOT_CANON" == "$ETRNL_STACK_CANON" ]]; then
       ETRNL_NODE=(node)
-      ETRNL_SCRIPT_ROOT="${ETRNL_STACK}/scripts"
+      ETRNL_SCRIPT_ROOT="${ETRNL_STACK_CANON}/scripts"
     else
       ETRNL_NODE=(node)
       ETRNL_SCRIPT_ROOT="${HOME}/.claude/scripts"
