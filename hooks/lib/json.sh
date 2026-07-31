@@ -61,6 +61,51 @@ exit 0;
 PERL
 }
 
+_cc_json_stdin_byte_len() {
+  LC_ALL=C printf '%s' "${1:-}" | wc -c | tr -d '[:space:]'
+}
+
+_cc_json_stdin_idle_read() {
+  local _reader_fn="$1" _reader_bin="$2" _cap="$3" _idle="$4" _first="$5" _err_file="$6"
+  if ! command -v "$_reader_bin" >/dev/null 2>&1; then
+    rm -f -- "$_err_file"
+    printf 'claude-guard error: %s reader requested but %s is unavailable\n' "$_reader_bin" "$_reader_bin" >&2
+    return 1
+  fi
+  local _attempt_label="" _partial="" _more="" _held_bytes=0 _remaining_cap=""
+  HOOK_INPUT="$("$_reader_fn" "$_cap" "$_idle" "$_first" "$_err_file")" || {
+    if [[ -s "$_err_file" ]]; then
+      printf 'claude-guard error: failed to read hook input%s: %s\n' "$_attempt_label" "$(tr '\n' ' ' <"$_err_file")" >&2
+    else
+      printf 'claude-guard error: failed to read hook input%s\n' "$_attempt_label" >&2
+    fi
+    rm -f -- "$_err_file"
+    return 1
+  }
+  if [[ -n "$HOOK_INPUT" ]] && ! jq -e . >/dev/null 2>&1 <<<"${HOOK_INPUT}"; then
+    printf 'claude-guard warning: hook input read stopped on idle timeout with partial payload; retrying with extended wait\n' >&2
+    _partial="$HOOK_INPUT"
+    _held_bytes="$(_cc_json_stdin_byte_len "$_partial")"
+    _remaining_cap=$(( _cap - _held_bytes ))
+    (( _remaining_cap > 0 )) || _remaining_cap=0
+    _attempt_label=" on retry"
+    _more="$("$_reader_fn" "$_remaining_cap" $(( _idle * 5 )) "$_first" "$_err_file")" || {
+      if [[ -s "$_err_file" ]]; then
+        printf 'claude-guard error: failed to read hook input%s: %s\n' "$_attempt_label" "$(tr '\n' ' ' <"$_err_file")" >&2
+      else
+        printf 'claude-guard error: failed to read hook input%s\n' "$_attempt_label" >&2
+      fi
+      rm -f -- "$_err_file"
+      return 1
+    }
+    HOOK_INPUT="${_partial}${_more}"
+    if [[ -n "$HOOK_INPUT" ]] && ! jq -e . >/dev/null 2>&1 <<<"${HOOK_INPUT}"; then
+      printf 'claude-guard warning: hook input still incomplete after idle-timeout retry; hooks may fail open on invalid JSON\n' >&2
+    fi
+  fi
+  return 0
+}
+
 cc_json_read_stdin() {
   # Claude Code closes stdin on the first hook call of a session but keeps it
   # open afterward; read-to-EOF (head -c) then blocks until the hook timeout.
@@ -103,55 +148,10 @@ cc_json_read_stdin() {
 
   _reader_err="$(mktemp "${TMPDIR:-/tmp}/etrnl-json-stdin-err.XXXXXX")" || return 1
 
-  _cc_json_stdin_byte_len() {
-    LC_ALL=C printf '%s' "${1:-}" | wc -c | tr -d '[:space:]'
-  }
-
-  _cc_json_stdin_idle_read() {
-    local _reader_fn="$1" _reader_bin="$2"
-    if ! command -v "$_reader_bin" >/dev/null 2>&1; then
-      rm -f -- "$_reader_err"
-      printf 'claude-guard error: %s reader requested but %s is unavailable\n' "$_reader_bin" "$_reader_bin" >&2
-      return 1
-    fi
-    local _attempt_label="" _partial="" _more="" _held_bytes=0 _remaining_cap=""
-    HOOK_INPUT="$("$_reader_fn" "$_stdin_cap" "$_idle_ms" "$_first_byte_wait_ms" "$_reader_err")" || {
-      if [[ -s "$_reader_err" ]]; then
-        printf 'claude-guard error: failed to read hook input%s: %s\n' "$_attempt_label" "$(tr '\n' ' ' <"$_reader_err")" >&2
-      else
-        printf 'claude-guard error: failed to read hook input%s\n' "$_attempt_label" >&2
-      fi
-      rm -f -- "$_reader_err"
-      return 1
-    }
-    if [[ -n "$HOOK_INPUT" ]] && ! jq -e . >/dev/null 2>&1 <<<"${HOOK_INPUT}"; then
-      printf 'claude-guard warning: hook input read stopped on idle timeout with partial payload; retrying with extended wait\n' >&2
-      _partial="$HOOK_INPUT"
-      _held_bytes="$(_cc_json_stdin_byte_len "$_partial")"
-      _remaining_cap=$(( _stdin_cap - _held_bytes ))
-      (( _remaining_cap > 0 )) || _remaining_cap=0
-      _attempt_label=" on retry"
-      _more="$("$_reader_fn" "$_remaining_cap" $(( _idle_ms * 5 )) "$_first_byte_wait_ms" "$_reader_err")" || {
-        if [[ -s "$_reader_err" ]]; then
-          printf 'claude-guard error: failed to read hook input%s: %s\n' "$_attempt_label" "$(tr '\n' ' ' <"$_reader_err")" >&2
-        else
-          printf 'claude-guard error: failed to read hook input%s\n' "$_attempt_label" >&2
-        fi
-        rm -f -- "$_reader_err"
-        return 1
-      }
-      HOOK_INPUT="${_partial}${_more}"
-      if [[ -n "$HOOK_INPUT" ]] && ! jq -e . >/dev/null 2>&1 <<<"${HOOK_INPUT}"; then
-        printf 'claude-guard warning: hook input still incomplete after idle-timeout retry; hooks may fail open on invalid JSON\n' >&2
-      fi
-    fi
-    return 0
-  }
-
   if [[ "$_use_python" == true ]]; then
-    _cc_json_stdin_idle_read _cc_json_read_stdin_python python3 || return 1
+    _cc_json_stdin_idle_read _cc_json_read_stdin_python python3 "$_stdin_cap" "$_idle_ms" "$_first_byte_wait_ms" "$_reader_err" || return 1
   elif [[ "$_use_perl" == true ]]; then
-    _cc_json_stdin_idle_read _cc_json_read_stdin_perl perl || return 1
+    _cc_json_stdin_idle_read _cc_json_read_stdin_perl perl "$_stdin_cap" "$_idle_ms" "$_first_byte_wait_ms" "$_reader_err" || return 1
   else
     # Fallback when no idle-timeout reader is available, or blocking was explicitly requested.
     if [[ "$_reader" == "head" || "$_reader" == "blocking" || "$_reader" == "block" ]]; then

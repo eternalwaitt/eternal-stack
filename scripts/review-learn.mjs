@@ -161,10 +161,37 @@ const EXCLUDED_DISPOSITIONS = new Set([
   "owner-deferred", "owner_deferred", "deferred", "wont-fix", "wontfix", "invalid",
 ]);
 
+const SENSITIVE_FINDING_PATTERNS = [
+  /-----BEGIN[A-Z ]*PRIVATE KEY-----/,
+  /\bsk_(?:live|test)_[A-Za-z0-9_=-]{8,}\b/,
+  /\bsk-[A-Za-z0-9_-]{20,}\b/,
+  /\b(AKIA|ASIA)[A-Z0-9]{16}\b/,
+  /\b(aws_secret_access_key|aws_session_token|password|passwd|token|api[_-]?key)\s*=\s*\S+/i,
+  /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/,
+  /\bBearer\s+[A-Za-z0-9._~+/=-]{16,}\b/i,
+];
+
+function findingText(finding) {
+  return `${finding?.summary || ""}\n${finding?.body || ""}`;
+}
+
+function hasSensitiveFindingText(text) {
+  return SENSITIVE_FINDING_PATTERNS.some((pattern) => pattern.test(text));
+}
+
+function assertFindingsSanitized(findings) {
+  for (const finding of findings) {
+    if (hasSensitiveFindingText(findingText(finding))) {
+      throw new Error("findings contain sensitive-looking content; redact before ingestion");
+    }
+  }
+}
+
 function main() {
   const args = parseArgs(process.argv.slice(2));
   const findings = readJson(path.resolve(args.findings), null);
   if (!Array.isArray(findings)) throw new Error("findings must be a JSON array");
+  assertFindingsSanitized(findings);
 
   // Only confirmed-valid findings train the loop. A finding may carry an optional
   // `disposition` from the PR triage step (etrnl-dev-pr): items explicitly marked

@@ -37,16 +37,20 @@ prompt_lower="$(printf '%s' "$prompt" | tr '[:upper:]' '[:lower:]')"
 
 read_only_prompt_pattern='(^|[[:space:][:punct:]])(audit|review|check|assess|compare|explain|investigate|analy[sz]e|summari[sz]e|inspect|evaluate|look[[:space:]]+(at|over|through)|read[[:space:]-]+only)([[:space:][:punct:]]|$)|(^|[[:space:][:punct:]])(what|which|why|how)[[:space:]]'
 read_only_question_pattern='(^|[[:space:][:punct:]])(how[[:space:]]+(do|can|should|would|to)|explain[[:space:]]+(why|how|the)|why[[:space:]]+(does|did|is|are|was|were|do|did)|what[[:space:]]+(is|are|was|were|does|did|would))[[:space:][:punct:]]'
-strong_execution_suffix_pattern='(implement[[:space:]]+(it|now|the[[:space:]]+plan)|do[[:space:]]+it|go[[:space:]]+ahead|execute[[:space:]]+(it|now|the[[:space:]]+plan)|run[[:space:]]+the[[:space:]]+plan)'
 execution_intent_pattern='(^|[[:space:][:punct:]])(implement|execute|edit|write|commit|ship|refactor|migrat(e|ion)|apply|patch|deploy|carry[[:space:]]+out|run[[:space:]]+(the[[:space:]]+)?(tests|checks|test[[:space:]]+suite)|run[[:space:]]+the[[:space:]]+plan|implement[[:space:]]+the[[:space:]]+plan|execute[[:space:]]+the[[:space:]]+plan|continue[[:space:]]+the[[:space:]]+plan|finish[[:space:]]+the[[:space:]]+plan|resume[[:space:]]+the[[:space:]]+plan|make[[:space:]]+(the[[:space:]]+)?changes)([[:space:][:punct:]]|$)|(^|[[:space:][:punct:]])(build|update|change|modify|create|add|remove|delete|fix)[[:space:]]+(the|this|my|our|a|an|it|that|code|file|files|config|setting|settings|project|app|service|api|test|tests|plan|task|tasks|branch|pr|repo|repository|module|component|function|class|method|schema|migration|package|hook|hooks|skill|skills|rule|rules|doc|docs|readme|changelog|version|release|deployment|feature|bug|issue|ticket)([[:space:][:punct:]]|$)|(^|[[:space:]])(do[[:space:]]+it|go[[:space:]]+ahead)([[:space:][:punct:]]|$)'
 if [[ "$prompt_lower" =~ $read_only_prompt_pattern ]] && [[ ! "$prompt_lower" =~ $execution_intent_pattern ]]; then
   cc_state_update '.planExecutionRequested = false | .planExecutionRequestedAt = ""' >/dev/null || true
 fi
+plan_exec_suppress_execute=false
 if [[ "$prompt_lower" =~ $read_only_question_pattern ]]; then
-  if [[ "$prompt_lower" =~ [.!?][[:space:]]+ ]] && [[ "$prompt_lower" =~ $execution_intent_pattern ]]; then
+  post_question_prompt="$(printf '%s' "$prompt_lower" | sed -E 's/^[^.!?]*[.!?][[:space:]]+//')"
+  if [[ -n "$post_question_prompt" ]] \
+      && [[ "$post_question_prompt" =~ $execution_intent_pattern ]] \
+      && [[ ! "$post_question_prompt" =~ $read_only_prompt_pattern ]]; then
     : # question plus trailing execution command — keep plan execution armed
   else
     cc_state_update '.planExecutionRequested = false | .planExecutionRequestedAt = ""' >/dev/null || true
+    plan_exec_suppress_execute=true
   fi
 fi
 
@@ -459,7 +463,7 @@ if [[ "$prompt_lower" =~ write[[:space:]]+a[[:space:]]+plan|implementation[[:spa
   record_skill "etrnl-dev-plan"
   notes+=("Use etrnl-dev-plan: write the plan to disk, review it, improve it, mark it Final, and keep chat short.")
 fi
-if [[ "$prompt_lower" =~ execute[[:space:]]+.*plan|implement[[:space:]]+.*plan|carry[[:space:]]+out[[:space:]]+.*plan ]]; then
+if [[ "$plan_exec_suppress_execute" != true ]] && [[ "$prompt_lower" =~ execute[[:space:]]+.*plan|implement[[:space:]]+.*plan|carry[[:space:]]+out[[:space:]]+.*plan ]]; then
   record_execute_skill
   notes+=("Use etrnl-dev-execute only for user-requested plan execution; preserve checkpoints and verification evidence.")
 fi
@@ -469,7 +473,7 @@ fi
 # changes and test? do it" armed the gate for every later turn. "implement now"
 # and "execute now" went too, for the same reason — neither refers to a plan on
 # its own.
-if [[ -n "$active_plan_path" ]] && [[ "$prompt_lower" =~ (^|[[:space:]])(execute the plan|implement the plan|continue the plan|continue plan|finish the plan|resume the plan|run the plan)([[:space:]]|$) ]]; then
+if [[ "$plan_exec_suppress_execute" != true ]] && [[ -n "$active_plan_path" ]] && [[ "$prompt_lower" =~ (^|[[:space:]])(execute the plan|implement the plan|continue the plan|continue plan|finish the plan|resume the plan|run the plan)([[:space:]]|$) ]]; then
   record_execute_skill
   notes+=("Use etrnl-dev-execute for the active plan: $active_plan_path. Complete every in-scope phase or stop with a blocker.")
 fi

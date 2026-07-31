@@ -20,6 +20,7 @@ if [[ -n "${ETRNL_STACK:-}" ]]; then
     review-rules.mjs \
     review-merge.mjs \
     review-learn.mjs \
+    execution-ledger.mjs \
     lib/deep-audit-categories.mjs; do
     if [[ ! -f "${ETRNL_STACK}/scripts/${_etrnl_required_helper}" ]]; then
       _etrnl_stack_ready=false
@@ -41,9 +42,31 @@ if [[ -n "${ETRNL_STACK:-}" ]]; then
     ETRNL_NODE=(node)
     ETRNL_SCRIPT_ROOT="${HOME}/.claude/scripts"
   fi
+  for _etrnl_required_helper in \
+    review-rules.mjs \
+    review-merge.mjs \
+    review-learn.mjs \
+    execution-ledger.mjs \
+    lib/deep-audit-categories.mjs; do
+    if [[ ! -f "${ETRNL_SCRIPT_ROOT}/${_etrnl_required_helper}" ]]; then
+      printf 'bounded-review error: missing required helper %s under %s\n' "$_etrnl_required_helper" "$ETRNL_SCRIPT_ROOT" >&2
+      exit 1
+    fi
+  done
 else
   ETRNL_NODE=(node)
   ETRNL_SCRIPT_ROOT="${HOME}/.claude/scripts"
+  for _etrnl_required_helper in \
+    review-rules.mjs \
+    review-merge.mjs \
+    review-learn.mjs \
+    execution-ledger.mjs \
+    lib/deep-audit-categories.mjs; do
+    if [[ ! -f "${ETRNL_SCRIPT_ROOT}/${_etrnl_required_helper}" ]]; then
+      printf 'bounded-review error: missing required helper %s under %s\n' "$_etrnl_required_helper" "$ETRNL_SCRIPT_ROOT" >&2
+      exit 1
+    fi
+  done
 fi
 REVIEW_LEARNINGS="${HOME}/.claude/review-learnings/${REPO_KEY}/review-learnings.json"
 DEEP_AUDIT_REGISTRY="$ETRNL_SCRIPT_ROOT/lib/deep-audit-categories.mjs"

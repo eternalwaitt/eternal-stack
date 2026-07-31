@@ -70,9 +70,7 @@ _sv_unsupported_verification_clause() {
 }
 _sv_questioned_verification_claim() {
   local clause="$1"
-  [[ "$clause" =~ (tests?[[:space:]]+pass(ed|ing)?|build[[:space:]]+pass(es|ed)?) ]] || return 1
-  local stem="${BASH_REMATCH[1]}"
-  [[ "$message_lower" =~ ${stem}[[:space:]]*\? ]]
+  [[ "$clause" =~ (tests?[[:space:]]+pass(ed|ing)?|build[[:space:]]+pass(es|ed)?)[[:space:]]*\? ]]
 }
 _sv_clause=""
 while IFS= read -r _sv_clause || [[ -n "$_sv_clause" ]]; do
@@ -83,7 +81,7 @@ while IFS= read -r _sv_clause || [[ -n "$_sv_clause" ]]; do
     claims_verification=true
     break
   fi
-done < <(printf '%s' "$message_lower" | tr '.!?;' '\n')
+done < <(printf '%s\n' "$message_lower" | sed -E 's/([.!?;])/\1\n/g')
 
 browser_qa_outstanding=false
 if [[ "$message_lower" =~ (outstanding|still[[:space:]]+pending|still[[:space:]]+outstanding|remaining|left) ]] \

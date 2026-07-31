@@ -569,6 +569,10 @@ plan_exec_question_run_prompt="$(jq -cn '{session_id:"fixture-plan-exec-clear",p
 run_hook cc-userprompt-router.sh "$plan_exec_clear_prompt" >/dev/null || true
 run_hook cc-userprompt-router.sh "$plan_exec_question_run_prompt" >/dev/null || true
 assert_json_expr "router keeps plan execution when question includes run-the-tests intent" "$(jq -c . "$plan_exec_clear_state")" '.planExecutionRequested == true'
+plan_exec_question_readonly_tail_prompt="$(jq -cn '{session_id:"fixture-plan-exec-clear",prompt:"How do I implement the plan? Review the diff., implement"}')"
+run_hook cc-userprompt-router.sh "$plan_exec_clear_prompt" >/dev/null || true
+run_hook cc-userprompt-router.sh "$plan_exec_question_readonly_tail_prompt" >/dev/null || true
+assert_json_expr "router clears plan execution when trailing clause is read-only after question" "$(jq -c . "$plan_exec_clear_state")" '.planExecutionRequested == false'
 
 skill_trigger_cases="$ROOT/tests/fixtures/skill-triggering/cases.json"
 skill_trigger_count="$(jq 'length' "$skill_trigger_cases")"
@@ -927,6 +931,11 @@ jq -nc --arg cwd "$zero_verify_repo" "$zero_verify_empty_state | .cwd = \$cwd" >
 zero_verify_questioned_multi_stop="$(jq -cn --arg cwd "$zero_verify_repo" '{session_id:"fixture-zero-verify-questioned-multi",cwd:$cwd,last_assistant_message:"Done. Do tests pass? Lint passed.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$zero_verify_questioned_multi_stop")"
 assert_contains "stop verifier blocks later positive claim after questioned clause" "$out" "claim completion without verification evidence"
+zero_verify_unrelated_question_state="$TMPROOT/claude-guard-fixture-zero-verify-unrelated-question.json"
+jq -nc --arg cwd "$zero_verify_repo" "$zero_verify_empty_state | .cwd = \$cwd" >"$zero_verify_unrelated_question_state"
+zero_verify_unrelated_question_stop="$(jq -cn --arg cwd "$zero_verify_repo" '{session_id:"fixture-zero-verify-unrelated-question",cwd:$cwd,last_assistant_message:"Done. Tests pass. Why did it fail earlier?",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$zero_verify_unrelated_question_stop")"
+assert_contains "stop verifier blocks positive claim when unrelated later sentence is a question" "$out" "claim completion without verification evidence"
 
 # --- Regression fixtures: guard false-positive fixes (stack-holes-remediation TG2/TG3/TG4) ---
 holes_guard() {

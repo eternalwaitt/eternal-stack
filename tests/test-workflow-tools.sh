@@ -3925,6 +3925,11 @@ assert_contains "bounded-review reuses the review-learnings store" "$tg12_bounde
 assert_contains "bounded-review requires private overlay learnings path" "$tg12_bounded_review" 'REVIEW_LEARNINGS="${HOME}/.claude/review-learnings/'
 assert_contains "bounded-review derives collision-resistant repo key" "$tg12_bounded_review" "hashlib.sha256"
 assert_contains "bounded-review validates full helper set before ETRNL_STACK" "$tg12_bounded_review" "review-learn.mjs"
+assert_contains "bounded-review validates review-rules helper" "$tg12_bounded_review" "review-rules.mjs"
+assert_contains "bounded-review validates review-merge helper" "$tg12_bounded_review" "review-merge.mjs"
+assert_contains "bounded-review validates execution-ledger helper" "$tg12_bounded_review" "execution-ledger.mjs"
+assert_contains "bounded-review validates deep-audit registry helper" "$tg12_bounded_review" "lib/deep-audit-categories.mjs"
+assert_contains "bounded-review fails closed on missing installed helper" "$tg12_bounded_review" "bounded-review error: missing required helper"
 assert_contains "bounded-review passes explicit repo root to helpers" "$tg12_bounded_review" '--root "$REPO_ROOT"'
 tg12_dev_pr="$(cat "$ROOT/skills/etrnl-dev-pr/SKILL.md")"
 assert_contains "etrnl-dev-pr routes review-learn through the installed helper" "$tg12_dev_pr" "node ~/.claude/scripts/review-learn.mjs learn"
@@ -3934,6 +3939,10 @@ assert_contains "etrnl-dev-pr warns against probing repo-local review-learn" "$t
 assert_contains "etrnl-dev-pr requires owner confirmation before promoting review rules" "$tg12_dev_pr" "never write or enable \`review-rules.json\` entries without explicit repository-owner confirmation"
 assert_contains "etrnl-dev-pr requires owner confirmation before committing review-rules.json" "$tg12_dev_pr" "explicit repository-owner confirmation"
 assert_contains "etrnl-dev-pr requires redaction before ingestion" "$tg12_dev_pr" "before writing \`findings.json\`"
+assert_contains "etrnl-dev-pr validates FINDINGS_FILE is a JSON array" "$tg12_dev_pr" 'type == "array"'
+assert_contains "etrnl-dev-pr rejects sensitive FINDINGS_FILE content" "$tg12_dev_pr" "sensitive-looking content"
+assert_contains "etrnl-dev-pr compares before copying pr-preflight helper" "$tg12_dev_pr" "cmp -s"
+assert_contains "etrnl-dev-pr requires confirmation before full install refresh" "$tg12_dev_pr" "explicit repository-owner confirmation because it rewrites hooks"
 tg12_review_learn_repo="$TMPROOT/review-learn-repo"
 mkdir -p "$tg12_review_learn_repo"
 git -C "$tg12_review_learn_repo" init -q
@@ -3955,6 +3964,32 @@ tg12_review_learn_out="$(node "$ROOT/scripts/review-learn.mjs" learn \
   --json 2>/dev/null || true)"
 assert_json_expr "review-learn drops false-positive disposition items" "$tg12_review_learn_out" '.droppedByDisposition == 1'
 assert_no_file "review-learn keeps ledger out of target repo by default override" "$tg12_review_learn_repo/review-learnings.json"
+tg12_review_learn_home="$TMPROOT/review-learn-home"
+mkdir -p "$tg12_review_learn_home/.claude/review-learnings"
+tg12_review_learn_repo_key="$(python3 -c 'import hashlib,sys; print(hashlib.sha256(sys.argv[1].encode()).hexdigest()[:16])' "$tg12_review_learn_repo")"
+tg12_review_learn_home_ledger="$tg12_review_learn_home/.claude/review-learnings/${tg12_review_learn_repo_key}/review-learnings.json"
+tg12_review_learn_home_out="$(HOME="$tg12_review_learn_home" node "$ROOT/scripts/review-learn.mjs" learn \
+  --findings "$tg12_review_learn_findings" \
+  --root "$tg12_review_learn_repo" \
+  --rules "$tg12_review_learn_rules" \
+  --ledger "$tg12_review_learn_home_ledger" \
+  --json 2>/dev/null || true)"
+assert_json_expr "review-learn writes ledger under isolated HOME overlay path" "$tg12_review_learn_home_out" '.droppedByDisposition == 1'
+assert_file "review-learn persists ledger only under private overlay" "$tg12_review_learn_home_ledger"
+tg12_review_learn_sensitive_findings="$TMPROOT/review-learn-sensitive-findings.json"
+printf '[{"summary":"leaked sk_live_example_should_reject","body":"x","severity":"minor","category":"test","lensId":"test"}]\n' >"$tg12_review_learn_sensitive_findings"
+tg12_review_learn_sensitive_rc=0
+tg12_review_learn_sensitive_out="$(node "$ROOT/scripts/review-learn.mjs" learn \
+  --findings "$tg12_review_learn_sensitive_findings" \
+  --root "$tg12_review_learn_repo" \
+  --rules "$tg12_review_learn_rules" \
+  --ledger "$tg12_review_learn_ledger" \
+  --json 2>&1)" || tg12_review_learn_sensitive_rc=$?
+if [[ "$tg12_review_learn_sensitive_rc" -ne 0 ]] && [[ "$tg12_review_learn_sensitive_out" == *"sensitive-looking content"* ]]; then
+  ok "review-learn rejects sensitive findings before persistence"
+else
+  not_ok "review-learn should reject sensitive findings before persistence: rc=$tg12_review_learn_sensitive_rc out=$tg12_review_learn_sensitive_out"
+fi
 tg12_batch_execution="$(cat "$ROOT/skills/etrnl-dev-execute/references/batch-execution.md")"
 assert_contains "batch-execution defers tier 0-2 human-verify pauses" "$tg12_batch_execution" "## Human-verify batching (tier ≤ 2 default)"
 assert_contains "batch-execution keeps tier 3 UAT gates in place" "$tg12_batch_execution" "Tier 3 keeps explicit UAT gates where the plan places them"

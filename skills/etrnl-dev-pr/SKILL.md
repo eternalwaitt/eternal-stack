@@ -30,6 +30,10 @@ ETRNL_STACK_SRC="${ETRNL_STACK:-$HOME/Github/eternal-stack}"
   exit 1
 }
 mkdir -p "$HOME/.claude/scripts"
+if [[ -f "$HOME/.claude/scripts/pr-preflight.mjs" ]] && ! cmp -s "$ETRNL_STACK_SRC/scripts/pr-preflight.mjs" "$HOME/.claude/scripts/pr-preflight.mjs"; then
+  echo "pr-preflight.mjs differs from Eternal Stack source; preserve local edits or copy explicitly after review" >&2
+  exit 1
+fi
 cp "$ETRNL_STACK_SRC/scripts/pr-preflight.mjs" "$HOME/.claude/scripts/pr-preflight.mjs"
 chmod +x "$HOME/.claude/scripts/pr-preflight.mjs"
 cd "<target-repo-root>"
@@ -37,7 +41,7 @@ node ~/.claude/scripts/pr-preflight.mjs status --json
 node ~/.claude/scripts/pr-preflight.mjs validate --json
 ```
 
-Re-run the copy step after source updates unless `scripts/install.sh` already refreshed the installed helper.
+Re-run the copy step after source updates unless `scripts/install.sh` already refreshed the installed helper. Do not run the full installer to recover one helper unless the repository owner explicitly confirms rewriting hooks, rules, and settings.
 
 ## PR drafting workflow
 
@@ -104,6 +108,14 @@ if [[ -z "$REPO_KEY" ]]; then
   exit 1
 fi
 FINDINGS_FILE="${FINDINGS_FILE:?set FINDINGS_FILE to a sanitized JSON file}"
+if ! jq -e 'type == "array"' "$FINDINGS_FILE" >/dev/null 2>&1; then
+  echo "review-learn error: FINDINGS_FILE must be a JSON array" >&2
+  exit 1
+fi
+if jq -e '.[] | select((.summary // "" | test("(?i)(sk_live_|sk_test_|sk-[A-Za-z0-9_-]{20,}|-----BEGIN[A-Z ]*PRIVATE KEY-----|Bearer [A-Za-z0-9._~+/=-]{16,}|password\\s*=\\s*\\S+)")) or (.body // "" | test("(?i)(sk_live_|sk_test_|sk-[A-Za-z0-9_-]{20,}|-----BEGIN[A-Z ]*PRIVATE KEY-----|Bearer [A-Za-z0-9._~+/=-]{16,}|password\\s*=\\s*\\S+)")))' "$FINDINGS_FILE" >/dev/null 2>&1; then
+  echo "review-learn error: FINDINGS_FILE contains sensitive-looking content; redact before ingestion" >&2
+  exit 1
+fi
 REVIEW_ARGS=()
 if [[ -n "${GITHUB_REVIEW_ID:-}" ]]; then
   REVIEW_ARGS+=(--review-id "$GITHUB_REVIEW_ID")
@@ -115,7 +127,7 @@ node ~/.claude/scripts/review-learn.mjs learn \
   "${REVIEW_ARGS[@]}"
 ```
 
-The helper is installed by Eternal Stack (`~/.claude/scripts/review-learn.mjs`), not vendored into application repositories — do not probe for `scripts/review-learn.mjs` in the target repo. If the helper is missing, refresh with `bash "$ETRNL_STACK_SRC/scripts/install.sh"` after setting `ETRNL_STACK_SRC` to the Eternal Stack source checkout (for example `ETRNL_STACK_SRC="${ETRNL_STACK:-$HOME/Github/eternal-stack}"`) before treating the recorder as unavailable. As a backstop, `review-learn` drops any item whose `disposition` field is `false-positive`, `source-limited`, `owner-deferred`, or `deferred`, so a mis-tagged file still cannot promote an excluded item. It tracks recurrence in the private overlay ledger above and at three recurrences proposes auto-promotion: a template-matching class becomes a warn-mode guard candidate in `review-rules.json`, and everything else becomes a tracked checklist candidate for `etrnl-dev-autoplan`. Record the proposal in the private overlay only; never write or enable `review-rules.json` entries without explicit repository-owner confirmation, including warn-to-block escalation proposals from `review-learn`. Keep the ledger under `~/.claude/review-learnings/` — never write `review-learnings.json` into the target repository or commit it. Commit promoted changes to `review-rules.json` only after explicit repository-owner confirmation.
+The helper is installed by Eternal Stack (`~/.claude/scripts/review-learn.mjs`), not vendored into application repositories — do not probe for `scripts/review-learn.mjs` in the target repo. If the helper is missing, copy only `review-learn.mjs` from the Eternal Stack source checkout (compare with `cmp -s` first and stop when the installed copy differs) before treating the recorder as unavailable. Run `bash "$ETRNL_STACK_SRC/scripts/install.sh"` only after explicit repository-owner confirmation because it rewrites hooks, rules, and settings. As a backstop, `review-learn` drops any item whose `disposition` field is `false-positive`, `source-limited`, `owner-deferred`, or `deferred`, and rejects findings whose summary or body still contain secret- or credential-shaped strings, so a mis-tagged or unsanitized file still cannot promote an excluded item. It tracks recurrence in the private overlay ledger above and at three recurrences proposes auto-promotion: a template-matching class becomes a warn-mode guard candidate in `review-rules.json`, and everything else becomes a tracked checklist candidate for `etrnl-dev-autoplan`. Record the proposal in the private overlay only; never write or enable `review-rules.json` entries without explicit repository-owner confirmation, including warn-to-block escalation proposals from `review-learn`. Keep the ledger under `~/.claude/review-learnings/` — never write `review-learnings.json` into the target repository or commit it. Commit promoted changes to `review-rules.json` only after explicit repository-owner confirmation.
 6. If the diff is too large to review coherently, split by ownership boundary or file set before creating more review churn.
 7. Final readiness requires a clean local gate, no failing required checks, no unresolved must-fix review items, and a PR body that matches the final diff.
 

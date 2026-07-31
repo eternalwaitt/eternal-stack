@@ -903,11 +903,12 @@ fi
 eternal_saas_pack_dest="$TARGET/docs/templates/rules/eternal-saas"
 mkdir -p "$(dirname -- "$eternal_saas_pack_dest")"
 eternal_saas_pack_tmp="$(mktemp -d "$(dirname -- "$eternal_saas_pack_dest")/.eternal-saas.install.XXXXXX")" || exit 1
-eternal_saas_pack_old="$(mktemp -d "$(dirname -- "$eternal_saas_pack_dest")/.eternal-saas.previous.XXXXXX")" || {
+eternal_saas_pack_old="$(dirname -- "$eternal_saas_pack_dest")/.eternal-saas.previous.$$.${RANDOM}"
+if [[ -e "$eternal_saas_pack_old" ]]; then
   rm -rf -- "$eternal_saas_pack_tmp"
+  printf 'install error: reserved eternal-saas backup path already exists: %s\n' "$eternal_saas_pack_old" >&2
   exit 1
-}
-rmdir -- "$eternal_saas_pack_old"
+fi
 for eternal_saas_scope in global project; do
   if ! cp -R -- "$ROOT/rules/eternal-saas/$eternal_saas_scope" "$eternal_saas_pack_tmp/"; then
     rm -rf -- "$eternal_saas_pack_tmp" "$eternal_saas_pack_old"
