@@ -473,7 +473,7 @@ if [[ -f "$BACKUP/new-source-paths.txt" ]]; then
     # Defense-in-depth: only ever delete under the known stack-owned subtrees, and
     # reject any path that could traverse out of the install home.
     case "$new_rel" in
-      hooks/* | tests/fixtures | tests/test-hooks.sh | tests/test-workflow-tools.sh | rules-manifest.json | docs/templates/rules/eternal-saas) : ;;
+      hooks/* | tests/fixtures | tests/test-hooks.sh | tests/test-workflow-tools.sh | tests/lib/* | rules-manifest.json | docs/templates/rules/eternal-saas | docs/templates/rules/eternal-saas/*) : ;;
       *) continue ;;
     esac
     case "$new_rel" in

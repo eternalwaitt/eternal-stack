@@ -899,23 +899,37 @@ for eternal_saas_scope in global project; do
     printf 'install error: missing eternal-saas rule scope: %s\n' "$eternal_saas_src" >&2
     exit 1
   fi
-  eternal_saas_dest="$TARGET/docs/templates/rules/eternal-saas/$eternal_saas_scope"
-  eternal_saas_tmp="$eternal_saas_dest.tmp"
-  eternal_saas_old="$eternal_saas_dest.old"
-  mkdir -p "$TARGET/docs/templates/rules/eternal-saas"
-  rm -rf -- "$eternal_saas_tmp" "$eternal_saas_old"
-  cp -R -- "$eternal_saas_src" "$eternal_saas_tmp"
-  if [[ -d "$eternal_saas_dest" ]]; then
-    mv -- "$eternal_saas_dest" "$eternal_saas_old"
-  fi
-  if mv -- "$eternal_saas_tmp" "$eternal_saas_dest"; then
-    rm -rf -- "$eternal_saas_old"
-  else
-    [[ ! -d "$eternal_saas_old" ]] || mv -- "$eternal_saas_old" "$eternal_saas_dest"
-    rm -rf -- "$eternal_saas_tmp"
+done
+eternal_saas_pack_dest="$TARGET/docs/templates/rules/eternal-saas"
+mkdir -p "$(dirname -- "$eternal_saas_pack_dest")"
+eternal_saas_pack_tmp="$(mktemp -d "$(dirname -- "$eternal_saas_pack_dest")/.eternal-saas.install.XXXXXX")" || exit 1
+eternal_saas_pack_old="$(mktemp -d "$(dirname -- "$eternal_saas_pack_dest")/.eternal-saas.previous.XXXXXX")" || {
+  rm -rf -- "$eternal_saas_pack_tmp"
+  exit 1
+}
+rmdir -- "$eternal_saas_pack_old"
+for eternal_saas_scope in global project; do
+  if ! cp -R -- "$ROOT/rules/eternal-saas/$eternal_saas_scope" "$eternal_saas_pack_tmp/"; then
+    rm -rf -- "$eternal_saas_pack_tmp" "$eternal_saas_pack_old"
+    printf 'install error: failed to stage eternal-saas scope %s\n' "$eternal_saas_scope" >&2
     exit 1
   fi
 done
+if [[ -d "$eternal_saas_pack_dest" ]]; then
+  if ! mv -- "$eternal_saas_pack_dest" "$eternal_saas_pack_old"; then
+    rm -rf -- "$eternal_saas_pack_tmp"
+    printf 'install error: failed to preserve current eternal-saas pack\n' >&2
+    exit 1
+  fi
+fi
+if mv -- "$eternal_saas_pack_tmp" "$eternal_saas_pack_dest"; then
+  rm -rf -- "$eternal_saas_pack_old"
+else
+  [[ ! -d "$eternal_saas_pack_old" ]] || mv -- "$eternal_saas_pack_old" "$eternal_saas_pack_dest"
+  rm -rf -- "$eternal_saas_pack_tmp"
+  printf 'install error: failed to install eternal-saas pack\n' >&2
+  exit 1
+fi
 cp -- "$ROOT/tests/test-hooks.sh" "$TARGET/tests/test-hooks.sh"
 cp -- "$ROOT/tests/test-workflow-tools.sh" "$TARGET/tests/test-workflow-tools.sh"
 cp -- "$ROOT/tests/lib/harness.sh" "$TARGET/tests/lib/harness.sh"

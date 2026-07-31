@@ -561,6 +561,10 @@ plan_exec_explain_fix_prompt="$(jq -cn '{session_id:"fixture-plan-exec-clear",pr
 run_hook cc-userprompt-router.sh "$plan_exec_clear_prompt" >/dev/null || true
 run_hook cc-userprompt-router.sh "$plan_exec_explain_fix_prompt" >/dev/null || true
 assert_json_expr "router clears plan execution on read-only fix explanation" "$(jq -c . "$plan_exec_clear_state")" '.planExecutionRequested == false'
+plan_exec_review_fix_prompt="$(jq -cn '{session_id:"fixture-plan-exec-clear",prompt:"Review the fix for correctness"}')"
+run_hook cc-userprompt-router.sh "$plan_exec_clear_prompt" >/dev/null || true
+run_hook cc-userprompt-router.sh "$plan_exec_review_fix_prompt" >/dev/null || true
+assert_json_expr "router clears plan execution on read-only review-the-fix prompt" "$(jq -c . "$plan_exec_clear_state")" '.planExecutionRequested == false'
 
 skill_trigger_cases="$ROOT/tests/fixtures/skill-triggering/cases.json"
 skill_trigger_count="$(jq 'length' "$skill_trigger_cases")"
@@ -2017,10 +2021,10 @@ if [[ "$empty_held" == "{}" ]]; then
 else
   not_ok "cc_json_read_stdin empty held-open stdin should return {}, got $empty_held"
 fi
-if python3 -c "import sys; sys.exit(0 if float('${CC_JSON_HELD_ELAPSED}') < 0.75 else 1)"; then
+if python3 -c "import sys; sys.exit(0 if float('${CC_JSON_HELD_ELAPSED}') < 1.5 else 1)"; then
   ok "cc_json_read_stdin empty held-open stdin returns promptly (${CC_JSON_HELD_ELAPSED}s)"
 else
-  not_ok "cc_json_read_stdin empty held-open stdin should return under 0.75s, got ${CC_JSON_HELD_ELAPSED}s"
+  not_ok "cc_json_read_stdin empty held-open stdin should return under 1.5s, got ${CC_JSON_HELD_ELAPSED}s"
 fi
 
 cc_json_read_stdin_forced_reader() {

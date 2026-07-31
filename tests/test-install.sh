@@ -66,6 +66,11 @@ cat >"$reset_user_settings_home/settings.json" <<'JSON'
             "type": "command",
             "command": "bash ~/.claude/hooks/foreign-session-start.sh",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/cc-stale-stack-hook.sh",
+            "timeout": 5
           }
         ]
       }
@@ -78,7 +83,7 @@ node "$ROOT/scripts/merge-settings.mjs" "$reset_user_settings_home/settings.json
 assert_json_expr "reset preserves permissions" "$(jq -c . "$reset_user_settings_home/settings.json")" '.permissions.defaultMode == "acceptEdits" and (.permissions.allow | index("Bash(npm test)")) != null'
 assert_json_expr "reset preserves skillOverrides" "$(jq -c . "$reset_user_settings_home/settings.json")" '.skillOverrides["foreign-skill@example"] == false'
 assert_json_expr "reset preserves skillListingBudgetFraction" "$(jq -c . "$reset_user_settings_home/settings.json")" '.skillListingBudgetFraction == 0.05'
-assert_json_expr "reset preserves foreign hooks while merging stack hooks" "$(jq -c . "$reset_user_settings_home/settings.json")" '([.hooks.SessionStart[]?.hooks[]?.command // empty | select(test("foreign-session-start"))] | length) == 1 and ([.hooks.SessionStart[]?.hooks[]?.command // empty | select(test("cc-sessionstart-restore"))] | length) == 1'
+assert_json_expr "reset preserves foreign hooks while merging stack hooks" "$(jq -c . "$reset_user_settings_home/settings.json")" '([.hooks.SessionStart[]?.hooks[]?.command // empty | select(test("foreign-session-start"))] | length) == 1 and ([.hooks.SessionStart[]?.hooks[]?.command // empty | select(test("cc-sessionstart-restore"))] | length) == 1 and ([.hooks.SessionStart[]?.hooks[]?.command // empty | select(test("cc-stale-stack-hook"))] | length) == 0'
 
 mkdir -p "$CLAUDE_HOME/skills/etrnl-fix-issue" "$CODEX_HOME/skills/etrnl-fix-issue" "$CLAUDE_HOME/commands"
 printf 'legacy claude skill\n' >"$CLAUDE_HOME/skills/etrnl-fix-issue/SKILL.md"

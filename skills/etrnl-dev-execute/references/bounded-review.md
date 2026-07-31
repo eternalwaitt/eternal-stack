@@ -5,7 +5,10 @@ Run parallel reviewers after the final edit of a task or wave, merge findings on
 Helper paths: resolve once from the **target repository root**, then use that prefix for every command below.
 
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+if ! REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"; then
+  printf 'bounded-review error: not inside a Git repository\n' >&2
+  exit 1
+fi
 REPO_KEY="$(python3 -c 'import hashlib,sys; print(hashlib.sha256(sys.argv[1].encode()).hexdigest()[:16])' "$REPO_ROOT" 2>/dev/null || true)"
 if [[ -z "$REPO_KEY" ]]; then
   printf 'bounded-review error: failed to derive repository key for %s\n' "$REPO_ROOT" >&2

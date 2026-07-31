@@ -89,7 +89,10 @@ Write for two readers: a business or product stakeholder who needs the story in 
 5. Feed **only the confirmed-valid findings** to the learning loop so recurring classes preempt the next PR — the items you classified as real in step 3 (fixed or already-covered). Never pass false-positive, source-limited, or owner-deferred items: promoting them would turn a review mistake into a recurring guard or checklist candidate. **Redact or generalize tenant-specific, account-specific, transcript, credential, and permission content while building the findings payload** — before writing `findings.json` or invoking the helper — so sensitive text never lands in the target worktree. Capture just those sanitized items as a JSON array (`[{"summary":"...", "body":"...", "severity":"...", "category":"...", "lensId":"...", "disposition":"..."}]`) and run from the target repo root:
 
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+if ! REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"; then
+  echo "review-learn error: not inside a Git repository" >&2
+  exit 1
+fi
 REPO_KEY="$(python3 -c 'import hashlib,sys; print(hashlib.sha256(sys.argv[1].encode()).hexdigest()[:16])' "$REPO_ROOT" 2>/dev/null || true)"
 if [[ -z "$REPO_KEY" ]]; then
   echo "review-learn error: failed to derive repository key for $REPO_ROOT" >&2
