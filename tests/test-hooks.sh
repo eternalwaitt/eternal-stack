@@ -592,6 +592,7 @@ else
 fi
 chmod u+w "$plan_exec_failclear_state"
 plan_exec_failclear_json="$(jq -c . "$plan_exec_failclear_state")"
+assert_json_expr "router keeps plan execution requested when state clear cannot persist" "$plan_exec_failclear_json" '.planExecutionRequested == true'
 assert_json_expr "router suppresses execute skill when plan-execution clear cannot persist" "$plan_exec_failclear_json" '([.requestedSkills[]?.value] | index("etrnl-dev-execute") | not)'
 
 skill_trigger_cases="$ROOT/tests/fixtures/skill-triggering/cases.json"
