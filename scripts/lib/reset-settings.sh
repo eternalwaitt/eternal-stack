@@ -12,7 +12,7 @@ readonly ETRNL_RESET_SETTINGS_JQ='
             map(
               .hooks |= (
                 map(select(
-                  (.command // "") | test("\\.claude/hooks/cc-") | not
+                  (.command // "") | test("(^|[[:space:]])bash[[:space:]]+(~/.claude/|[^[:space:]]*/\\.claude/)hooks/cc-") | not
                 ))
               )
             )

@@ -18,7 +18,7 @@
 // recorded as a checklist_candidate instead of installing a false-positive guard.
 // Without --corpus the loop behaves exactly as before (frequency-only gate).
 
-import { readFileSync, writeFileSync, existsSync, mkdtempSync, rmSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdtempSync, rmSync, readdirSync, realpathSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
@@ -68,9 +68,11 @@ function parseArgs(argv) {
   if (!out.ledger) {
     const home = process.env.HOME;
     if (!home) throw new Error("learn requires --ledger <path> or a set HOME for the default private overlay");
+    assertPrivateOverlayPath(home, out.root, "HOME");
     const repoKey = createHash("sha256").update(path.resolve(out.root)).digest("hex").slice(0, 16);
     out.ledger = path.join(home, ".claude/review-learnings", repoKey, "review-learnings.json");
   }
+  assertPrivateOverlayPath(path.dirname(out.ledger), out.root, "ledger");
   out.templates ||= path.join(out.root, "templates", "review-rules.example.json");
   if (out.corpus && !existsSync(out.corpus)) {
     throw new Error(`--corpus directory not found: ${out.corpus}`);
@@ -169,7 +171,7 @@ const EXCLUDED_DISPOSITIONS = new Set([
 
 const SENSITIVE_FINDING_PATTERNS = [
   /-----BEGIN[A-Z ]*PRIVATE KEY-----/,
-  /\bsk_(?:live|test)_[A-Za-z0-9_=-]{8,}\b/,
+  /sk_(?:live|test)_[A-Za-z0-9_=-]+/i,
   /\bsk-[A-Za-z0-9_-]{20,}\b/,
   /\bgithub_pat_[A-Za-z0-9_]{20,}\b/,
   /\bglpat-[A-Za-z0-9_-]{20,}\b/,
@@ -180,8 +182,47 @@ const SENSITIVE_FINDING_PATTERNS = [
   /\bBearer\s+[A-Za-z0-9._~+/=-]{16,}\b/i,
 ];
 
-function findingText(finding) {
-  return JSON.stringify(finding ?? "");
+function pathInsideRoot(candidate, root) {
+  const rel = path.relative(root, candidate);
+  return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+}
+
+function resolveOverlayPath(targetPath) {
+  const resolved = path.resolve(targetPath);
+  try {
+    return realpathSync(resolved);
+  } catch {
+    let cursor = resolved;
+    while (true) {
+      try {
+        const base = realpathSync(cursor);
+        const suffix = path.relative(cursor, resolved);
+        return suffix ? path.join(base, suffix) : base;
+      } catch {
+        const parent = path.dirname(cursor);
+        if (parent === cursor) return resolved;
+        cursor = parent;
+      }
+    }
+  }
+}
+
+function assertPrivateOverlayPath(targetPath, rootPath, label) {
+  const rootReal = resolveOverlayPath(rootPath);
+  const targetReal = resolveOverlayPath(targetPath);
+  if (pathInsideRoot(targetReal, rootReal)) {
+    throw new Error(`${label} must remain outside the target repository`);
+  }
+}
+
+function collectStringLeaves(value, out = []) {
+  if (typeof value === "string") out.push(value);
+  else if (Array.isArray(value)) {
+    for (const entry of value) collectStringLeaves(entry, out);
+  } else if (value && typeof value === "object") {
+    for (const entry of Object.values(value)) collectStringLeaves(entry, out);
+  }
+  return out;
 }
 
 function hasSensitiveFindingText(text) {
@@ -190,7 +231,12 @@ function hasSensitiveFindingText(text) {
 
 function assertFindingsSanitized(findings) {
   for (const finding of findings) {
-    if (hasSensitiveFindingText(findingText(finding))) {
+    for (const leaf of collectStringLeaves(finding)) {
+      if (hasSensitiveFindingText(leaf)) {
+        throw new Error("findings contain sensitive-looking content; redact before ingestion");
+      }
+    }
+    if (hasSensitiveFindingText(JSON.stringify(finding ?? ""))) {
       throw new Error("findings contain sensitive-looking content; redact before ingestion");
     }
   }

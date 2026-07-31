@@ -577,6 +577,10 @@ plan_exec_context_execute_prompt="$(jq -cn '{session_id:"fixture-plan-exec-clear
 run_hook cc-userprompt-router.sh "$plan_exec_clear_prompt" >/dev/null || true
 run_hook cc-userprompt-router.sh "$plan_exec_context_execute_prompt" >/dev/null || true
 assert_json_expr "router keeps plan execution when informational question is followed by execute the plan" "$(jq -c . "$plan_exec_clear_state")" '.planExecutionRequested == true'
+plan_exec_should_question_prompt="$(jq -cn '{session_id:"fixture-plan-exec-clear",prompt:"Should I execute the plan?"}')"
+run_hook cc-userprompt-router.sh "$plan_exec_clear_prompt" >/dev/null || true
+run_hook cc-userprompt-router.sh "$plan_exec_should_question_prompt" >/dev/null || true
+assert_json_expr "router clears plan execution on question-only execute-the-plan prompt" "$(jq -c . "$plan_exec_clear_state")" '.planExecutionRequested == false'
 
 skill_trigger_cases="$ROOT/tests/fixtures/skill-triggering/cases.json"
 skill_trigger_count="$(jq 'length' "$skill_trigger_cases")"
@@ -950,6 +954,16 @@ jq -nc --arg cwd "$zero_verify_repo" "$zero_verify_empty_state | .cwd = \$cwd" >
 zero_verify_checks_question_stop="$(jq -cn --arg cwd "$zero_verify_repo" '{session_id:"fixture-zero-verify-checks-question",cwd:$cwd,last_assistant_message:"Done. Checks pass?",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$zero_verify_checks_question_stop")"
 if [[ -z "$out" ]]; then ok "stop verifier allows questioned checks claim without runs"; else not_ok "questioned checks claim should pass: $out"; fi
+zero_verify_url_question_state="$TMPROOT/claude-guard-fixture-zero-verify-url-question.json"
+jq -nc --arg cwd "$zero_verify_repo" "$zero_verify_empty_state | .cwd = \$cwd" >"$zero_verify_url_question_state"
+zero_verify_url_question_stop="$(jq -cn --arg cwd "$zero_verify_repo" '{session_id:"fixture-zero-verify-url-question",cwd:$cwd,last_assistant_message:"Done. Tests pass at https://example.com/run?id=1?debug=1.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$zero_verify_url_question_stop")"
+assert_contains "stop verifier blocks positive claim even when unrelated URL contains question mark" "$out" "claim completion without verification evidence"
+zero_verify_when_passing_state="$TMPROOT/claude-guard-fixture-zero-verify-when-passing.json"
+jq -nc --arg cwd "$zero_verify_repo" "$zero_verify_empty_state | .cwd = \$cwd" >"$zero_verify_when_passing_state"
+zero_verify_when_passing_stop="$(jq -cn --arg cwd "$zero_verify_repo" '{session_id:"fixture-zero-verify-when-passing",cwd:$cwd,last_assistant_message:"Done. When the tests are passing we can ship.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$zero_verify_when_passing_stop")"
+if [[ -z "$out" ]]; then ok "stop verifier allows when-the-tests-are-passing hypothetical without runs"; else not_ok "when-the-tests-are-passing should pass without runs: $out"; fi
 
 # --- Regression fixtures: guard false-positive fixes (stack-holes-remediation TG2/TG3/TG4) ---
 holes_guard() {

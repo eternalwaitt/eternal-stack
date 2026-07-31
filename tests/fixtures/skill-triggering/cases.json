@@ -84,6 +84,14 @@
     ]
   },
   {
+    "name": "question-only execute-the-plan prompt suppresses execution",
+    "prompt": "Should I execute the plan?",
+    "expectedSkills": [],
+    "unexpectedSkills": [
+      "etrnl-dev-execute"
+    ]
+  },
+  {
     "name": "my_agents.md_backup does not route etrnl-ops-agent-files",
     "prompt": "compare my_agents.md_backup with current",
     "expectedSkills": [],

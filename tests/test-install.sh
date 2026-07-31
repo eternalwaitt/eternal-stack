@@ -57,7 +57,29 @@ cat >"$reset_no_hooks_home/settings.json" <<'JSON'
 }
 JSON
 reset_settings_preserving_enabled_plugins "$reset_no_hooks_home/settings.json" ""
-assert_json_expr "reset settings preserves settings without a hooks key" "$(jq -c . "$reset_no_hooks_home/settings.json")" '.permissions.defaultMode == "acceptEdits" and (.hooks? | not)'
+assert_json_expr "reset settings preserves settings without a hooks key" "$(jq -c . "$reset_no_hooks_home/settings.json")" '.permissions.defaultMode == "acceptEdits" and (.hooks? | not) and .enabledPlugins["keep-me@example"] == true'
+
+reset_wrapper_home="$TMPROOT/reset-wrapper-hook"
+mkdir -p "$reset_wrapper_home"
+cat >"$reset_wrapper_home/settings.json" <<'JSON'
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /opt/wrapper.sh --config ~/.claude/hooks/cc-backup.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
+JSON
+reset_settings_preserving_enabled_plugins "$reset_wrapper_home/settings.json" ""
+assert_json_expr "reset settings preserves foreign wrapper mentioning cc hook path" "$(jq -c . "$reset_wrapper_home/settings.json")" '([.hooks.SessionStart[]?.hooks[]?.command // empty | select(test("/opt/wrapper.sh"))] | length) == 1'
 
 reset_user_settings_home="$TMPROOT/reset-user-settings"
 mkdir -p "$reset_user_settings_home"
