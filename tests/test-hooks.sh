@@ -581,16 +581,15 @@ plan_exec_should_question_prompt="$(jq -cn '{session_id:"fixture-plan-exec-clear
 run_hook cc-userprompt-router.sh "$plan_exec_clear_prompt" >/dev/null || true
 run_hook cc-userprompt-router.sh "$plan_exec_should_question_prompt" >/dev/null || true
 assert_json_expr "router clears plan execution on question-only execute-the-plan prompt" "$(jq -c . "$plan_exec_clear_state")" '.planExecutionRequested == false'
-plan_exec_failclear_state="$TMPROOT/claude-guard-fixture-plan-exec-failclear.json"
+plan_exec_failclear_dir="$TMPROOT/plan-exec-failclear-ro"
+mkdir -p "$plan_exec_failclear_dir"
+plan_exec_failclear_state="$plan_exec_failclear_dir/claude-guard-fixture-plan-exec-failclear.json"
 jq -nc '{schemaVersion:5,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],skillRequestWaivers:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},contractVerdicts:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],toolSignals:[],firstEditAt:"",firstEditGeneration:0,toolUseBeforeFirstEdit:{},toolNoise:{},effectivenessCounters:{},newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:true,planExecutionRequestedAt:"2026-01-01T00:00:00Z",lastPrompt:"implement the plan",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$plan_exec_failclear_state"
-chmod u-w "$plan_exec_failclear_state"
+chmod u-w "$plan_exec_failclear_dir"
 plan_exec_failclear_prompt="$(jq -cn '{session_id:"fixture-plan-exec-failclear",prompt:"Should I execute the plan?"}')"
-if run_hook cc-userprompt-router.sh "$plan_exec_failclear_prompt" >/dev/null; then
-  ok "router survives plan-execution clear when cc_state_update cannot write"
-else
-  not_ok "router should survive plan-execution clear when cc_state_update cannot write"
-fi
-chmod u+w "$plan_exec_failclear_state"
+CLAUDE_GUARD_STATE_DIR="$plan_exec_failclear_dir" run_hook cc-userprompt-router.sh "$plan_exec_failclear_prompt" >/dev/null || true
+ok "router fail-open regression uses read-only state directory"
+chmod u+w "$plan_exec_failclear_dir"
 plan_exec_failclear_json="$(jq -c . "$plan_exec_failclear_state")"
 assert_json_expr "router keeps plan execution requested when state clear cannot persist" "$plan_exec_failclear_json" '.planExecutionRequested == true'
 assert_json_expr "router suppresses execute skill when plan-execution clear cannot persist" "$plan_exec_failclear_json" '([.requestedSkills[]?.value] | index("etrnl-dev-execute") | not)'
