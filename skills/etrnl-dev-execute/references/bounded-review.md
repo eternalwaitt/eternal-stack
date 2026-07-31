@@ -12,8 +12,15 @@ if [[ -z "$REPO_KEY" ]]; then
   exit 1
 fi
 if [[ -n "${ETRNL_STACK:-}" && -f "${ETRNL_STACK}/scripts/review-rules.mjs" ]]; then
-  ETRNL_NODE=(node)
-  ETRNL_SCRIPT_ROOT="${ETRNL_STACK}/scripts"
+  ETRNL_STACK_CANON="$(cd -- "${ETRNL_STACK}" && pwd -P)"
+  REPO_ROOT_CANON="$(cd -- "${REPO_ROOT}" && pwd -P 2>/dev/null || printf '%s' "$REPO_ROOT")"
+  if [[ "$REPO_ROOT_CANON" == "$ETRNL_STACK_CANON" ]]; then
+    ETRNL_NODE=(node)
+    ETRNL_SCRIPT_ROOT="${ETRNL_STACK}/scripts"
+  else
+    ETRNL_NODE=(node)
+    ETRNL_SCRIPT_ROOT="${HOME}/.claude/scripts"
+  fi
 else
   ETRNL_NODE=(node)
   ETRNL_SCRIPT_ROOT="${HOME}/.claude/scripts"
@@ -33,7 +40,7 @@ Run every helper with `--root "$REPO_ROOT"`. Never pass a repository-local `--le
 ## Parallel review and synthesis
 
 1. Dispatch reviewers in parallel. Each reviewer emits findings JSON with `reviewer`, `severity` (P0–P3), `confidence` (0–1), `file`, `line`, `fingerprint`, `summary`, and `autofix_class` (`safe_auto`, `gated_auto`, `manual`).
-2. Pipe the combined array through `"${ETRNL_NODE[@]}" "$ETRNL_SCRIPT_ROOT/review-merge.mjs"` (or `--file`) to produce the single merged review artifact (JSON; add `--markdown` for human scan).
+2. Pipe the combined array through `"${ETRNL_NODE[@]}" "$ETRNL_SCRIPT_ROOT/review-merge.mjs" --root "$REPO_ROOT"` (or `--file`) to produce the single merged review artifact (JSON; add `--markdown` for human scan).
 3. Fix every `safe_auto` finding immediately.
 4. Record `residual` (`gated_auto`/`manual`) findings as non-blocking todos — do not reopen the wave for them alone.
 5. Reopen and fix only when the merged artifact has `blocking` (P0/P1) entries. After code changes, re-run only the reviewers whose lenses cover the changed surfaces.

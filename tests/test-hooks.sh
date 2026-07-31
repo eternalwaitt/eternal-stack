@@ -546,15 +546,19 @@ plan_exec_audit_prompt="$(jq -cn '{session_id:"fixture-plan-exec-clear",prompt:"
 run_hook cc-userprompt-router.sh "$plan_exec_audit_prompt" >/dev/null || true
 assert_json_expr "router clears plan execution on read-only audit prompt" "$(jq -c . "$plan_exec_clear_state")" '.planExecutionRequested == false'
 plan_exec_build_prompt="$(jq -cn '{session_id:"fixture-plan-exec-clear",prompt:"How is the build configured?"}')"
+run_hook cc-userprompt-router.sh "$plan_exec_clear_prompt" >/dev/null || true
 run_hook cc-userprompt-router.sh "$plan_exec_build_prompt" >/dev/null || true
 assert_json_expr "router clears plan execution on read-only build noun prompt" "$(jq -c . "$plan_exec_clear_state")" '.planExecutionRequested == false'
 plan_exec_update_prompt="$(jq -cn '{session_id:"fixture-plan-exec-clear",prompt:"Explain the update process"}')"
+run_hook cc-userprompt-router.sh "$plan_exec_clear_prompt" >/dev/null || true
 run_hook cc-userprompt-router.sh "$plan_exec_update_prompt" >/dev/null || true
 assert_json_expr "router clears plan execution on read-only update noun prompt" "$(jq -c . "$plan_exec_clear_state")" '.planExecutionRequested == false'
 plan_exec_question_prompt="$(jq -cn '{session_id:"fixture-plan-exec-clear",prompt:"How do I run the tests?"}')"
+run_hook cc-userprompt-router.sh "$plan_exec_clear_prompt" >/dev/null || true
 run_hook cc-userprompt-router.sh "$plan_exec_question_prompt" >/dev/null || true
 assert_json_expr "router clears plan execution on read-only run-tests question" "$(jq -c . "$plan_exec_clear_state")" '.planExecutionRequested == false'
 plan_exec_explain_fix_prompt="$(jq -cn '{session_id:"fixture-plan-exec-clear",prompt:"Explain why the fix works"}')"
+run_hook cc-userprompt-router.sh "$plan_exec_clear_prompt" >/dev/null || true
 run_hook cc-userprompt-router.sh "$plan_exec_explain_fix_prompt" >/dev/null || true
 assert_json_expr "router clears plan execution on read-only fix explanation" "$(jq -c . "$plan_exec_clear_state")" '.planExecutionRequested == false'
 
