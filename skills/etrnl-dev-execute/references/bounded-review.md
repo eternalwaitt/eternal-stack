@@ -11,9 +11,9 @@ if [[ -z "$REPO_KEY" ]]; then
   printf 'bounded-review error: failed to derive repository key for %s\n' "$REPO_ROOT" >&2
   exit 1
 fi
-if [[ -f "$REPO_ROOT/scripts/review-rules.mjs" && -f "$REPO_ROOT/VERSION" && -d "$REPO_ROOT/skills/etrnl-dev-execute" ]]; then
+if [[ -n "${ETRNL_STACK:-}" && -f "${ETRNL_STACK}/scripts/review-rules.mjs" ]]; then
   ETRNL_NODE=(node)
-  ETRNL_SCRIPT_ROOT="$REPO_ROOT/scripts"
+  ETRNL_SCRIPT_ROOT="${ETRNL_STACK}/scripts"
 else
   ETRNL_NODE=(node)
   ETRNL_SCRIPT_ROOT="${HOME}/.claude/scripts"
@@ -84,7 +84,7 @@ Reopen caps bound the worst case. Trajectory counters end a loop that stopped co
    | `roundsSinceProgress` | 2 | `ETRNL_REVIEW_ROUNDS_SINCE_PROGRESS_LIMIT` | `rounds-since-progress-limit` |
 
 5. Any single tripped counter parks the stream while reopen rounds remain: `park.reopenCapExhausted` reports `false` in that case and the loop stops anyway.
-6. On a park, record a blocker naming every `park.reasons[].reasonCode`, keep the open findings as non-blocking notes, and continue other work. `capDecision` decides what follows: `proceed-with-residuals` closes that stream with the residuals recorded, and only `owner-decision` requires a decision logged with `"${ETRNL_NODE[@]}" "$ETRNL_SCRIPT_ROOT/execution-ledger.mjs" record-decision --root "$REPO_ROOT"`.
+6. On a park, record a blocker naming every `park.reasons[].reasonCode`. Downgrade only non-P0/P1 residuals to non-blocking notes; unresolved P0/P1 findings stay blocking and follow the investigator/owner-decision path. `capDecision` decides what follows: `proceed-with-residuals` closes that stream with the residuals recorded, and only `owner-decision` requires a decision logged with `"${ETRNL_NODE[@]}" "$ETRNL_SCRIPT_ROOT/execution-ledger.mjs" record-decision --root "$REPO_ROOT"`.
 
 ## Adaptive reviewer skip
 

@@ -111,8 +111,12 @@ PERL
       return 1
     fi
   else
-    # Fallback when no idle-timeout reader is available (blocks on held-open stdin).
-    printf 'claude-guard warning: no python3 or perl found; falling back to blocking stdin read (may hang on held-open stdin)\n' >&2
+    # Fallback when no idle-timeout reader is available, or blocking was explicitly requested.
+    if [[ "$_reader" == "head" || "$_reader" == "blocking" || "$_reader" == "block" ]]; then
+      printf 'claude-guard warning: blocking stdin reader requested; falling back to blocking stdin read (may hang on held-open stdin)\n' >&2
+    else
+      printf 'claude-guard warning: no python3 or perl found; falling back to blocking stdin read (may hang on held-open stdin)\n' >&2
+    fi
     if ! HOOK_INPUT="$(head -c "$_stdin_cap")"; then
       printf 'claude-guard error: failed to read hook input\n' >&2
       return 1

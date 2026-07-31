@@ -3924,14 +3924,14 @@ assert_contains "bounded-review exempts deep-audit lanes from adaptive skip" "$t
 assert_contains "bounded-review reuses the review-learnings store" "$tg12_bounded_review" "reviewerDispatches"
 assert_contains "bounded-review requires private overlay learnings path" "$tg12_bounded_review" 'REVIEW_LEARNINGS="${HOME}/.claude/review-learnings/'
 assert_contains "bounded-review derives collision-resistant repo key" "$tg12_bounded_review" "hashlib.sha256"
-assert_contains "bounded-review resolves helper root for source checkout" "$tg12_bounded_review" "ETRNL_SCRIPT_ROOT=\"\$REPO_ROOT/scripts\""
+assert_contains "bounded-review resolves helper root from trusted ETRNL_STACK" "$tg12_bounded_review" 'ETRNL_STACK}/scripts'
 assert_contains "bounded-review passes explicit repo root to helpers" "$tg12_bounded_review" '--root "$REPO_ROOT"'
 tg12_dev_pr="$(cat "$ROOT/skills/etrnl-dev-pr/SKILL.md")"
 assert_contains "etrnl-dev-pr routes review-learn through the installed helper" "$tg12_dev_pr" "node ~/.claude/scripts/review-learn.mjs learn"
 assert_contains "etrnl-dev-pr warns against probing repo-local review-learn" "$tg12_dev_pr" "do not probe for \`scripts/review-learn.mjs\` in the target repo"
 assert_contains "etrnl-dev-pr keeps review-learnings.json out of the PR" "$tg12_dev_pr" "never write \`review-learnings.json\` into the target repository"
 assert_contains "etrnl-dev-pr stores review memory in the private overlay" "$tg12_dev_pr" "~/.claude/review-learnings/"
-assert_contains "etrnl-dev-pr requires owner confirmation before block escalation" "$tg12_dev_pr" "never commit or enable block mode"
+assert_contains "etrnl-dev-pr requires owner confirmation before promoting review rules" "$tg12_dev_pr" "never write or enable \`review-rules.json\` entries without explicit repository-owner confirmation"
 assert_contains "etrnl-dev-pr requires owner confirmation before committing review-rules.json" "$tg12_dev_pr" "explicit repository-owner confirmation"
 assert_contains "etrnl-dev-pr requires redaction before ingestion" "$tg12_dev_pr" "before writing \`findings.json\`"
 tg12_batch_execution="$(cat "$ROOT/skills/etrnl-dev-execute/references/batch-execution.md")"

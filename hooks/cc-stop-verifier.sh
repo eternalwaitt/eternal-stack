@@ -54,12 +54,12 @@ if [[ "$message_lower" =~ (^|[^[:alnum:]_])(done|complete|completed|implemented|
 fi
 # Asserted verification without recorded runs — tighter than claims_done; excludes
 # casual "check"/"done" alone and identifier-embedded words (unverified, typecheck_pass_state).
-if [[ "$message_lower" =~ (^|[^[:alnum:]_])((not[[:space:]]+(yet[[:space:]]+)?)?(tests[[:space:]]+pass(ed|ing)?|verified|build[[:space:]]+(succeeds|pass(es|ed)?)|lint[[:space:]]+pass(es|ed)?|typecheck[[:space:]]+pass(es|ed)?|checks[[:space:]]+pass(ed|ing)?|ran[[:space:]]+(the[[:space:]]+)?tests|confirmed[[:space:]]+working))([^[:alnum:]_]|$) ]]; then
+if [[ "$message_lower" =~ (^|[^[:alnum:]_])((not[[:space:]]+(yet[[:space:]]+)?)?(tests[[:space:]]+pass(ed|ing)?|the[[:space:]]+tests[[:space:]]+(are[[:space:]]+)?passing|the[[:space:]]+test[[:space:]]+passed|verified|build[[:space:]]+(succeeds|pass(es|ed)?)|lint[[:space:]]+pass(es|ed)?|typecheck[[:space:]]+pass(es|ed)?|checks[[:space:]]+pass(ed|ing)?|ran[[:space:]]+(the[[:space:]]+)?tests|confirmed[[:space:]]+working))([^[:alnum:]_]|$) ]]; then
   claims_verification=true
   if [[ "${BASH_REMATCH[2]}" =~ ^not[[:space:]] ]] \
-    || [[ "$message_lower" =~ (^|[^[:alnum:]_])(assuming|if[[:space:]]+(all[[:space:]]+)?(the[[:space:]]+)?tests[[:space:]]+pass(ed|es|ing)?|when[[:space:]]+(all[[:space:]]+)?(the[[:space:]]+)?tests[[:space:]]+pass(ed|es|ing)?)([^[:alnum:]_]|$) ]] \
-    || [[ "$message_lower" =~ (^|[^[:alnum:]_])(cannot|can[[:space:]]+not|could[[:space:]]+not)[[:space:]]+(verify|confirm)([^[:alnum:]_]|$) ]] \
-    || [[ "$message_lower" =~ tests[[:space:]]+pass(ed|ing)?[[:space:]]*\? ]]; then
+    || [[ "$message_lower" =~ (^|[^[:alnum:]_])(cannot|can[[:space:]]+not|could[[:space:]]+not)[[:space:]]+(verify|confirm|claim)([^[:alnum:]_]|$) ]] \
+    || [[ "$message_lower" =~ (^|[^[:alnum:]_])(assuming|if[[:space:]]+(all[[:space:]]+)?(the[[:space:]]+)?(build|tests?)[[:space:]]+pass(ed|es|ing)?|when[[:space:]]+(all[[:space:]]+)?(the[[:space:]]+)?(build|tests?)[[:space:]]+pass(ed|es|ing)?)([^[:alnum:]_]|$) ]] \
+    || [[ "$message_lower" =~ (tests?[[:space:]]+pass(ed|ing)?|build[[:space:]]+pass(es|ed)?)[[:space:]]*\? ]]; then
     claims_verification=false
   fi
 fi

@@ -2068,6 +2068,14 @@ if [[ "$(cat "$blocking_out")" == "$blocking_payload" ]]; then
 else
   not_ok "cc_json_read_stdin blocking reader should capture payload, got $(cat "$blocking_out")"
 fi
-assert_contains "cc_json_read_stdin blocking reader emits diagnostic warning" "$(cat "$blocking_err")" "falling back to blocking stdin read"
+assert_contains "cc_json_read_stdin blocking reader emits diagnostic warning" "$(cat "$blocking_err")" "blocking stdin reader requested"
+
+stdin_bad_reader_err="$TMPROOT/stdin-bad-reader-err-$$-$RANDOM.txt"
+if ! ETRNL_JSON_STDIN_READER=bogus bash -c 'source "$1"; cc_json_read_stdin' _ "$ROOT/hooks/lib/json.sh" <<<"{}" 2>"$stdin_bad_reader_err"; then
+  ok "cc_json_read_stdin rejects unknown reader"
+else
+  not_ok "cc_json_read_stdin should reject unknown reader"
+fi
+assert_contains "cc_json_read_stdin unknown reader error names the bad value" "$(cat "$stdin_bad_reader_err")" "unknown ETRNL_JSON_STDIN_READER=bogus"
 
 finish_tests

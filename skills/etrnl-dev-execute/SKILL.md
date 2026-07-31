@@ -106,7 +106,7 @@ Trivial shape rules:
 
 ## Bounded CodeRabbit-lens review (risk-tiered)
 
-After the final edit of a task or wave, resolve `REPO_ROOT` once (`git rev-parse --show-toplevel`), then run the review helper from the installed Eternal Stack home in application repos (`node ~/.claude/scripts/review-rules.mjs check --changed-only --root "$REPO_ROOT"`) or from `scripts/review-rules.mjs` in an eternal-stack source checkout whenever the tree has source changes, then run parallel reviewers, merge with the matching `review-merge.mjs` path, fix `safe_auto` immediately, and reopen only on P0/P1 blockers. Load `references/bounded-review.md` for helper-path resolution, synthesis, reopen caps (ledger-enforced), and per-tier depth.
+After the final edit of a task or wave, resolve `REPO_ROOT` once (`git rev-parse --show-toplevel`), then run the review helper from the installed Eternal Stack home in application repos (`node ~/.claude/scripts/review-rules.mjs check --changed-only --root "$REPO_ROOT"`) or from `"$ETRNL_STACK/scripts/review-rules.mjs"` when `ETRNL_STACK` points at a trusted Eternal Stack checkout, then run parallel reviewers, merge with the matching `review-merge.mjs` path, apply only validated deterministic `safe_auto` fixes, and require confirmation for other changes before reopening on P0/P1 blockers. Load `references/bounded-review.md` for helper-path resolution, synthesis, reopen caps (ledger-enforced), and per-tier depth.
 
 ### Wave and task exit check
 

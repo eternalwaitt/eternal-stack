@@ -387,7 +387,7 @@ chmod_control_scripts() {
 }
 
 validate_source_install_inputs() {
-  local missing=() preflight=() file agent command_name skill dir probe dangling stack_dir
+  local missing=() preflight=() file agent command_name skill dir probe dangling stack_dir eternal_saas_scope_dir
   for file in \
     "$SETTINGS_TEMPLATE" \
     "$ROOT/templates/settings.local.example.json" \
