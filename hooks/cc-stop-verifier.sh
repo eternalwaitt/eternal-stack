@@ -54,15 +54,32 @@ if [[ "$message_lower" =~ (^|[^[:alnum:]_])(done|complete|completed|implemented|
 fi
 # Asserted verification without recorded runs — tighter than claims_done; excludes
 # casual "check"/"done" alone and identifier-embedded words (unverified, typecheck_pass_state).
-if [[ "$message_lower" =~ (^|[^[:alnum:]_])((not[[:space:]]+(yet[[:space:]]+)?)?(tests[[:space:]]+pass(ed|ing)?|the[[:space:]]+tests[[:space:]]+(are[[:space:]]+)?passing|the[[:space:]]+test[[:space:]]+passed|verified|build[[:space:]]+(succeeds|pass(es|ed)?)|lint[[:space:]]+pass(es|ed)?|typecheck[[:space:]]+pass(es|ed)?|checks[[:space:]]+pass(ed|ing)?|ran[[:space:]]+(the[[:space:]]+)?tests|confirmed[[:space:]]+working))([^[:alnum:]_]|$) ]]; then
-  claims_verification=true
-  if [[ "${BASH_REMATCH[2]}" =~ ^not[[:space:]] ]] \
-    || [[ "$message_lower" =~ (^|[^[:alnum:]_])(cannot|can[[:space:]]+not|could[[:space:]]+not)[[:space:]]+(verify|confirm|claim)([^[:alnum:]_]|$) ]] \
-    || [[ "$message_lower" =~ (^|[^[:alnum:]_])(assuming|if[[:space:]]+(all[[:space:]]+)?(the[[:space:]]+)?(build|tests?)[[:space:]]+pass(ed|es|ing)?|when[[:space:]]+(all[[:space:]]+)?(the[[:space:]]+)?(build|tests?)[[:space:]]+pass(ed|es|ing)?)([^[:alnum:]_]|$) ]] \
-    || [[ "$message_lower" =~ (tests?[[:space:]]+pass(ed|ing)?|build[[:space:]]+pass(es|ed)?)[[:space:]]*\? ]]; then
-    claims_verification=false
+# Evaluate each sentence/clause independently so negation or hypotheticals in one
+# clause do not suppress a positive verification claim in another.
+_sv_positive_verification_claim() {
+  local clause="$1"
+  [[ "$clause" =~ (^|[^[:alnum:]_])((not[[:space:]]+(yet[[:space:]]+)?)?(tests[[:space:]]+pass(ed|ing)?|the[[:space:]]+tests[[:space:]]+(are[[:space:]]+)?passing|the[[:space:]]+test[[:space:]]+passed|verified|build[[:space:]]+(succeeds|pass(es|ed)?)|lint[[:space:]]+pass(es|ed)?|typecheck[[:space:]]+pass(es|ed)?|checks[[:space:]]+pass(ed|ing)?|ran[[:space:]]+(the[[:space:]]+)?tests|confirmed[[:space:]]+working))([^[:alnum:]_]|$) ]] \
+    && [[ ! "${BASH_REMATCH[2]}" =~ ^not[[:space:]] ]]
+}
+_sv_unsupported_verification_clause() {
+  local clause="$1"
+  [[ "$clause" =~ (^|[^[:alnum:]_])(cannot|can[[:space:]]+not|could[[:space:]]+not)[[:space:]]+(verify|confirm|claim)([^[:alnum:]_]|$) ]] \
+    || [[ "$clause" =~ (^|[^[:alnum:]_])(assuming|if[[:space:]]+(all[[:space:]]+)?(the[[:space:]]+)?(build|tests?)[[:space:]]+pass(ed|es|ing)?|when[[:space:]]+(all[[:space:]]+)?(the[[:space:]]+)?(build|tests?)[[:space:]]+pass(ed|es|ing)?)([^[:alnum:]_]|$) ]] \
+    || [[ "$clause" =~ (tests?[[:space:]]+pass(ed|ing)?|build[[:space:]]+pass(es|ed)?)[[:space:]]*\? ]]
+}
+_sv_clause=""
+while IFS= read -r _sv_clause || [[ -n "$_sv_clause" ]]; do
+  _sv_clause="${_sv_clause#"${_sv_clause%%[![:space:]]*}"}"
+  _sv_clause="${_sv_clause%"${_sv_clause##*[![:space:]]}"}"
+  [[ -n "$_sv_clause" ]] || continue
+  if _sv_positive_verification_claim "$_sv_clause" && ! _sv_unsupported_verification_clause "$_sv_clause"; then
+    if [[ "$message_lower" =~ (tests?[[:space:]]+pass(ed|ing)?|build[[:space:]]+pass(es|ed)?)[[:space:]]*\? ]]; then
+      continue
+    fi
+    claims_verification=true
+    break
   fi
-fi
+done < <(printf '%s' "$message_lower" | tr '.!?;' '\n')
 
 browser_qa_outstanding=false
 if [[ "$message_lower" =~ (outstanding|still[[:space:]]+pending|still[[:space:]]+outstanding|remaining|left) ]] \

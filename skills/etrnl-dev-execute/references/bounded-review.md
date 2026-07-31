@@ -14,13 +14,30 @@ if [[ -z "$REPO_KEY" ]]; then
   printf 'bounded-review error: failed to derive repository key for %s\n' "$REPO_ROOT" >&2
   exit 1
 fi
-if [[ -n "${ETRNL_STACK:-}" && -f "${ETRNL_STACK}/scripts/review-rules.mjs" ]]; then
-  ETRNL_STACK_CANON="$(cd -- "${ETRNL_STACK}" && pwd -P)"
-  REPO_ROOT_CANON="$(cd -- "${REPO_ROOT}" && pwd -P 2>/dev/null || printf '%s' "$REPO_ROOT")"
-  if [[ "$REPO_ROOT_CANON" == "$ETRNL_STACK_CANON" ]]; then
-    ETRNL_NODE=(node)
-    ETRNL_SCRIPT_ROOT="${ETRNL_STACK}/scripts"
+if [[ -n "${ETRNL_STACK:-}" ]]; then
+  _etrnl_stack_ready=true
+  for _etrnl_required_helper in \
+    review-rules.mjs \
+    review-merge.mjs \
+    review-learn.mjs \
+    lib/deep-audit-categories.mjs; do
+    if [[ ! -f "${ETRNL_STACK}/scripts/${_etrnl_required_helper}" ]]; then
+      _etrnl_stack_ready=false
+      break
+    fi
+  done
+  if [[ "$_etrnl_stack_ready" == true ]]; then
+    ETRNL_STACK_CANON="$(cd -- "${ETRNL_STACK}" && pwd -P)"
+    REPO_ROOT_CANON="$(cd -- "${REPO_ROOT}" && pwd -P 2>/dev/null || printf '%s' "$REPO_ROOT")"
+    if [[ "$REPO_ROOT_CANON" == "$ETRNL_STACK_CANON" ]]; then
+      ETRNL_NODE=(node)
+      ETRNL_SCRIPT_ROOT="${ETRNL_STACK}/scripts"
+    else
+      ETRNL_NODE=(node)
+      ETRNL_SCRIPT_ROOT="${HOME}/.claude/scripts"
+    fi
   else
+    printf 'bounded-review warning: ETRNL_STACK is missing required review helpers; using installed script root\n' >&2
     ETRNL_NODE=(node)
     ETRNL_SCRIPT_ROOT="${HOME}/.claude/scripts"
   fi

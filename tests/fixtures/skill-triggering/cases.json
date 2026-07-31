@@ -40,6 +40,22 @@
     ]
   },
   {
+    "name": "agents.md.bak does not route etrnl-ops-agent-files",
+    "prompt": "restore agents.md.bak from yesterday",
+    "expectedSkills": [],
+    "unexpectedSkills": [
+      "etrnl-ops-agent-files"
+    ]
+  },
+  {
+    "name": "my_agents.md_backup does not route etrnl-ops-agent-files",
+    "prompt": "compare my_agents.md_backup with current",
+    "expectedSkills": [],
+    "unexpectedSkills": [
+      "etrnl-ops-agent-files"
+    ]
+  },
+  {
     "name": "autoplan prompt routes etrnl-dev-autoplan",
     "prompt": "autoplan .claude/plans/example.md and run all reviews automatically",
     "expectedSkills": [

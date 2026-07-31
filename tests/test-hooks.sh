@@ -565,6 +565,10 @@ plan_exec_review_fix_prompt="$(jq -cn '{session_id:"fixture-plan-exec-clear",pro
 run_hook cc-userprompt-router.sh "$plan_exec_clear_prompt" >/dev/null || true
 run_hook cc-userprompt-router.sh "$plan_exec_review_fix_prompt" >/dev/null || true
 assert_json_expr "router clears plan execution on read-only review-the-fix prompt" "$(jq -c . "$plan_exec_clear_state")" '.planExecutionRequested == false'
+plan_exec_question_run_prompt="$(jq -cn '{session_id:"fixture-plan-exec-clear",prompt:"What is the status? Run the tests"}')"
+run_hook cc-userprompt-router.sh "$plan_exec_clear_prompt" >/dev/null || true
+run_hook cc-userprompt-router.sh "$plan_exec_question_run_prompt" >/dev/null || true
+assert_json_expr "router keeps plan execution when question includes run-the-tests intent" "$(jq -c . "$plan_exec_clear_state")" '.planExecutionRequested == true'
 
 skill_trigger_cases="$ROOT/tests/fixtures/skill-triggering/cases.json"
 skill_trigger_count="$(jq 'length' "$skill_trigger_cases")"
@@ -913,6 +917,11 @@ jq -nc --arg cwd "$zero_verify_repo" "$zero_verify_empty_state | .cwd = \$cwd" >
 zero_verify_assuming_stop="$(jq -cn --arg cwd "$zero_verify_repo" '{session_id:"fixture-zero-verify-assuming",cwd:$cwd,last_assistant_message:"Done. Assuming the tests passed.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$zero_verify_assuming_stop")"
 if [[ -z "$out" ]]; then ok "stop verifier allows assuming verification claim without runs"; else not_ok "assuming verification claim should pass: $out"; fi
+zero_verify_mixed_state="$TMPROOT/claude-guard-fixture-zero-verify-mixed.json"
+jq -nc --arg cwd "$zero_verify_repo" "$zero_verify_empty_state | .cwd = \$cwd" >"$zero_verify_mixed_state"
+zero_verify_mixed_stop="$(jq -cn --arg cwd "$zero_verify_repo" '{session_id:"fixture-zero-verify-mixed",cwd:$cwd,last_assistant_message:"Done. Tests passed. I could not verify the deployment.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$zero_verify_mixed_stop")"
+assert_contains "stop verifier blocks mixed message with verification claim in separate clause" "$out" "claim completion without verification evidence"
 
 # --- Regression fixtures: guard false-positive fixes (stack-holes-remediation TG2/TG3/TG4) ---
 holes_guard() {
@@ -1944,6 +1953,25 @@ run_parallel_packet_fixture_matrix deny "${invalid_packet_fixtures[@]}"
 run_parallel_packet_fixture_matrix allow "${valid_packet_fixtures[@]}"
 
 # cc_json_read_stdin: held-open stdin must return promptly (not block until EOF).
+_cc_json_monotonic_now() {
+  if command -v python3 >/dev/null 2>&1; then
+    python3 -c 'import time; print(time.monotonic())'
+  elif command -v perl >/dev/null 2>&1; then
+    perl -MTime::HiRes=time -e 'print time'
+  else
+    date +%s
+  fi
+}
+_cc_json_elapsed_under() {
+  local elapsed="$1" limit="$2"
+  if command -v python3 >/dev/null 2>&1; then
+    python3 -c "import sys; sys.exit(0 if float('${elapsed}') < ${limit} else 1)"
+  elif command -v perl >/dev/null 2>&1; then
+    perl -e 'exit(($ARGV[0] < $ARGV[1]) ? 0 : 1)' "$elapsed" "$limit"
+  else
+    return 0
+  fi
+}
 cc_json_read_stdin_held_open() {
   local payload="$1"
   local fifo="$TMPROOT/stdin-held-$$-$RANDOM.fifo"
@@ -1952,10 +1980,16 @@ cc_json_read_stdin_held_open() {
   ( printf '%s' "$payload"; sleep 15 ) >"$fifo" &
   local writer_pid=$!
   local start end elapsed
-  start="$(python3 -c 'import time; print(time.monotonic())')"
+  start="$(_cc_json_monotonic_now)"
   bash -c 'source "$1"; cc_json_read_stdin; printf "%s" "$HOOK_INPUT"' _ "$ROOT/hooks/lib/json.sh" <"$fifo" >"$result_file"
-  end="$(python3 -c 'import time; print(time.monotonic())')"
-  elapsed="$(python3 -c "print(f'{$end - $start:.3f}')")"
+  end="$(_cc_json_monotonic_now)"
+  if command -v python3 >/dev/null 2>&1; then
+    elapsed="$(python3 -c "print(f'{${end} - ${start}:.3f}')")"
+  elif command -v perl >/dev/null 2>&1; then
+    elapsed="$(perl -e 'printf "%.3f\n", $ARGV[1]-$ARGV[0]' "$start" "$end")"
+  else
+    elapsed="0"
+  fi
   kill "$writer_pid" 2>/dev/null || true
   wait "$writer_pid" 2>/dev/null || true
   rm -f "$fifo"
@@ -1994,7 +2028,7 @@ stdin_large_batch="$(node -e 'const tc=Array.from({length:200},(_,i)=>({tool_nam
 stdin_large_count="$(jq '.tool_calls | length' <<<"$stdin_large_batch")"
 
 cc_json_read_stdin_held_open "$stdin_large_batch"
-if python3 -c "import sys; sys.exit(0 if float('${CC_JSON_HELD_ELAPSED}') < 1.0 else 1)"; then
+if _cc_json_elapsed_under "$CC_JSON_HELD_ELAPSED" 1.0; then
   ok "cc_json_read_stdin held-open stdin returns under 1s (${CC_JSON_HELD_ELAPSED}s)"
 else
   not_ok "cc_json_read_stdin held-open stdin should return under 1s, got ${CC_JSON_HELD_ELAPSED}s"
@@ -2021,7 +2055,7 @@ if [[ "$empty_held" == "{}" ]]; then
 else
   not_ok "cc_json_read_stdin empty held-open stdin should return {}, got $empty_held"
 fi
-if python3 -c "import sys; sys.exit(0 if float('${CC_JSON_HELD_ELAPSED}') < 1.5 else 1)"; then
+if _cc_json_elapsed_under "$CC_JSON_HELD_ELAPSED" 1.5; then
   ok "cc_json_read_stdin empty held-open stdin returns promptly (${CC_JSON_HELD_ELAPSED}s)"
 else
   not_ok "cc_json_read_stdin empty held-open stdin should return under 1.5s, got ${CC_JSON_HELD_ELAPSED}s"
@@ -2037,10 +2071,16 @@ cc_json_read_stdin_forced_reader() {
   ( printf '%s' "$payload"; sleep 15 ) >"$fifo" &
   local writer_pid=$!
   local start end elapsed
-  start="$(python3 -c 'import time; print(time.monotonic())')"
+  start="$(_cc_json_monotonic_now)"
   ETRNL_JSON_STDIN_READER="$reader" bash -c 'source "$1"; cc_json_read_stdin; printf "%s" "$HOOK_INPUT"' _ "$ROOT/hooks/lib/json.sh" <"$fifo" >"$result_file" 2>"$err_file"
-  end="$(python3 -c 'import time; print(time.monotonic())')"
-  elapsed="$(python3 -c "print(f'{$end - $start:.3f}')")"
+  end="$(_cc_json_monotonic_now)"
+  if command -v python3 >/dev/null 2>&1; then
+    elapsed="$(python3 -c "print(f'{${end} - ${start}:.3f}')")"
+  elif command -v perl >/dev/null 2>&1; then
+    elapsed="$(perl -e 'printf "%.3f\n", $ARGV[1]-$ARGV[0]' "$start" "$end")"
+  else
+    elapsed="0"
+  fi
   kill "$writer_pid" 2>/dev/null || true
   wait "$writer_pid" 2>/dev/null || true
   rm -f "$fifo"
@@ -2051,7 +2091,7 @@ cc_json_read_stdin_forced_reader() {
 
 if command -v perl >/dev/null 2>&1; then
 cc_json_read_stdin_forced_reader perl "$stdin_large_batch"
-if python3 -c "import sys; sys.exit(0 if float('${CC_JSON_FORCED_ELAPSED}') < 1.0 else 1)"; then
+if _cc_json_elapsed_under "$CC_JSON_FORCED_ELAPSED" 1.0; then
   ok "cc_json_read_stdin perl reader held-open returns under 1s (${CC_JSON_FORCED_ELAPSED}s)"
 else
   not_ok "cc_json_read_stdin perl reader held-open should return under 1s, got ${CC_JSON_FORCED_ELAPSED}s"
@@ -2085,5 +2125,25 @@ else
   not_ok "cc_json_read_stdin should reject unknown reader"
 fi
 assert_contains "cc_json_read_stdin unknown reader error names the bad value" "$(cat "$stdin_bad_reader_err")" "unknown ETRNL_JSON_STDIN_READER=bogus"
+
+stdin_no_interp_dir="$TMPROOT/stdin-no-interp-$$"
+mkdir -p "$stdin_no_interp_dir"
+for _stdin_stub_bin in bash cat head jq mktemp printf sed tr wc; do
+  command -v "$_stdin_stub_bin" >/dev/null && ln -sf "$(command -v "$_stdin_stub_bin")" "$stdin_no_interp_dir/$_stdin_stub_bin"
+done
+stdin_no_interp_err="$TMPROOT/stdin-no-interp-err-$$.txt"
+if PATH="$stdin_no_interp_dir" ETRNL_JSON_STDIN_READER=python bash -c 'source "$1"; cc_json_read_stdin' _ "$ROOT/hooks/lib/json.sh" <<<"{}" 2>"$stdin_no_interp_err"; then
+  not_ok "cc_json_read_stdin should fail when requested python3 is unavailable"
+else
+  ok "cc_json_read_stdin fails when requested python3 is unavailable"
+fi
+assert_contains "cc_json_read_stdin names the unavailable requested reader" "$(cat "$stdin_no_interp_err")" "python3 reader requested but python3 is unavailable"
+
+stdin_no_auto_err="$TMPROOT/stdin-no-auto-err-$$.txt"
+if PATH="$stdin_no_interp_dir" ETRNL_JSON_STDIN_READER=auto bash -c 'source "$1"; cc_json_read_stdin; printf "%s" "$HOOK_INPUT"' _ "$ROOT/hooks/lib/json.sh" <<<"{}" >"$TMPROOT/stdin-no-auto-out-$$.txt" 2>"$stdin_no_auto_err"; then
+  assert_contains "cc_json_read_stdin auto path warns when no idle reader is available" "$(cat "$stdin_no_auto_err")" "no python3 or perl found"
+else
+  not_ok "cc_json_read_stdin auto path should fall back to blocking read"
+fi
 
 finish_tests

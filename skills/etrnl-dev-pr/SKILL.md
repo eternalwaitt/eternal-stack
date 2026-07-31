@@ -23,10 +23,15 @@ Helper paths: `node ~/.claude/scripts/<name>` after Eternal Stack install (appli
 Install or refresh the helper from the Eternal Stack source checkout (not the target application repo) when it is missing or stale:
 
 ```bash
+set -euo pipefail
 ETRNL_STACK_SRC="${ETRNL_STACK:-$HOME/Github/eternal-stack}"
-mkdir -p ~/.claude/scripts
-cp "$ETRNL_STACK_SRC/scripts/pr-preflight.mjs" ~/.claude/scripts/pr-preflight.mjs
-chmod +x ~/.claude/scripts/pr-preflight.mjs
+[[ -f "$ETRNL_STACK_SRC/scripts/pr-preflight.mjs" ]] || {
+  echo "missing pr-preflight.mjs in $ETRNL_STACK_SRC" >&2
+  exit 1
+}
+mkdir -p "$HOME/.claude/scripts"
+cp "$ETRNL_STACK_SRC/scripts/pr-preflight.mjs" "$HOME/.claude/scripts/pr-preflight.mjs"
+chmod +x "$HOME/.claude/scripts/pr-preflight.mjs"
 cd "<target-repo-root>"
 node ~/.claude/scripts/pr-preflight.mjs status --json
 node ~/.claude/scripts/pr-preflight.mjs validate --json
@@ -98,11 +103,16 @@ if [[ -z "$REPO_KEY" ]]; then
   echo "review-learn error: failed to derive repository key for $REPO_ROOT" >&2
   exit 1
 fi
+FINDINGS_FILE="${FINDINGS_FILE:?set FINDINGS_FILE to a sanitized JSON file}"
+REVIEW_ARGS=()
+if [[ -n "${GITHUB_REVIEW_ID:-}" ]]; then
+  REVIEW_ARGS+=(--review-id "$GITHUB_REVIEW_ID")
+fi
 node ~/.claude/scripts/review-learn.mjs learn \
-  --findings <findings.json> \
+  --findings "$FINDINGS_FILE" \
   --root "$REPO_ROOT" \
-  --ledger ~/.claude/review-learnings/${REPO_KEY}/review-learnings.json \
-  [--review-id <github-review-id>]
+  --ledger "$HOME/.claude/review-learnings/${REPO_KEY}/review-learnings.json" \
+  "${REVIEW_ARGS[@]}"
 ```
 
 The helper is installed by Eternal Stack (`~/.claude/scripts/review-learn.mjs`), not vendored into application repositories — do not probe for `scripts/review-learn.mjs` in the target repo. If the helper is missing, refresh with `bash "$ETRNL_STACK_SRC/scripts/install.sh"` after setting `ETRNL_STACK_SRC` to the Eternal Stack source checkout (for example `ETRNL_STACK_SRC="${ETRNL_STACK:-$HOME/Github/eternal-stack}"`) before treating the recorder as unavailable. As a backstop, `review-learn` drops any item whose `disposition` field is `false-positive`, `source-limited`, `owner-deferred`, or `deferred`, so a mis-tagged file still cannot promote an excluded item. It tracks recurrence in the private overlay ledger above and at three recurrences proposes auto-promotion: a template-matching class becomes a warn-mode guard candidate in `review-rules.json`, and everything else becomes a tracked checklist candidate for `etrnl-dev-autoplan`. Record the proposal in the private overlay only; never write or enable `review-rules.json` entries without explicit repository-owner confirmation, including warn-to-block escalation proposals from `review-learn`. Keep the ledger under `~/.claude/review-learnings/` — never write `review-learnings.json` into the target repository or commit it. Commit promoted changes to `review-rules.json` only after explicit repository-owner confirmation.

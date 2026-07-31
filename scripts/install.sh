@@ -890,9 +890,6 @@ fi
 # auto-loads every .md under ~/.claude/rules/ as user-scope memory: files without `paths:`
 # frontmatter load in every session, and the pack's `paths: ["**"]` entries match every repo.
 # Staging it there put stack-specific tenant guidance into unrelated projects.
-if [[ ! -e "$TARGET/docs/templates/rules/eternal-saas" && ! -L "$TARGET/docs/templates/rules/eternal-saas" ]]; then
-  printf 'docs/templates/rules/eternal-saas\n' >> "$BACKUP/new-source-paths.txt"
-fi
 for eternal_saas_scope in global project; do
   eternal_saas_src="$ROOT/rules/eternal-saas/$eternal_saas_scope"
   if [[ ! -d "$eternal_saas_src" ]]; then
@@ -900,6 +897,9 @@ for eternal_saas_scope in global project; do
     exit 1
   fi
 done
+if [[ ! -e "$TARGET/docs/templates/rules/eternal-saas" && ! -L "$TARGET/docs/templates/rules/eternal-saas" ]]; then
+  printf 'docs/templates/rules/eternal-saas\n' >> "$BACKUP/new-source-paths.txt"
+fi
 eternal_saas_pack_dest="$TARGET/docs/templates/rules/eternal-saas"
 mkdir -p "$(dirname -- "$eternal_saas_pack_dest")"
 eternal_saas_pack_tmp="$(mktemp -d "$(dirname -- "$eternal_saas_pack_dest")/.eternal-saas.install.XXXXXX")" || exit 1

@@ -4,6 +4,68 @@ _JSON_LIB_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 # shellcheck source=hooks/lib/event-extract.sh
 source "$_JSON_LIB_DIR/event-extract.sh"
 
+_cc_json_read_stdin_python() {
+  local cap="$1" idle_ms="$2" first_ms="$3" err_file="$4"
+  python3 - "$cap" "$idle_ms" "$first_ms" 3<&0 2>"$err_file" <<'PY'
+import os
+import select
+import sys
+
+max_bytes = int(sys.argv[1])
+idle_sec = int(sys.argv[2]) / 1000.0
+first_byte_sec = int(sys.argv[3]) / 1000.0
+data = bytearray()
+fd = 3  # caller stdin duplicated before the script heredoc
+stopped_on_idle = False
+while len(data) < max_bytes:
+    timeout = first_byte_sec if not data else idle_sec
+    ready, _, _ = select.select([fd], [], [], timeout)
+    if ready:
+        chunk = os.read(fd, min(65536, max_bytes - len(data)))
+        if not chunk:
+            break
+        data.extend(chunk)
+    else:
+        if data:
+            stopped_on_idle = True
+        break
+sys.stdout.buffer.write(data)
+sys.exit(0)
+PY
+}
+
+_cc_json_read_stdin_perl() {
+  local cap="$1" idle_ms="$2" first_ms="$3" err_file="$4"
+  perl - "$cap" "$idle_ms" "$first_ms" 3<&0 2>"$err_file" <<'PERL'
+use strict;
+use warnings;
+use IO::Select;
+
+my $max_bytes = int($ARGV[0]);
+my $idle_sec  = int($ARGV[1]) / 1000.0;
+my $first_byte_sec = int($ARGV[2]) / 1000.0;
+open(my $in, '<&=', 3) or exit 1;
+my $data = "";
+my $sel  = IO::Select->new($in);
+my $stopped_on_idle = 0;
+while (length($data) < $max_bytes) {
+    my $timeout = length($data) ? $idle_sec : $first_byte_sec;
+    my @ready = $sel->can_read($timeout);
+    if (@ready) {
+        my $chunk = "";
+        my $n = sysread($in, $chunk, 65536 > ($max_bytes - length($data)) ? ($max_bytes - length($data)) : 65536);
+        last if !defined($n) || $n == 0;
+        $data .= $chunk;
+    } else {
+        $stopped_on_idle = 1 if length($data);
+        last;
+    }
+}
+print $data;
+exit 0;
+PERL
+}
+
 cc_json_read_stdin() {
   # Claude Code closes stdin on the first hook call of a session but keeps it
   # open afterward; read-to-EOF (head -c) then blocks until the hook timeout.
@@ -17,6 +79,7 @@ cc_json_read_stdin() {
   local _first_byte_wait_ms=500
   local _reader="${ETRNL_JSON_STDIN_READER:-auto}"
   local _use_python=false _use_perl=false _use_head=false
+  local _reader_err _reader_rc=0 _retry_idle_ms _stdin_byte_len
 
   case "$_reader" in
     python|python3)
@@ -43,72 +106,73 @@ cc_json_read_stdin() {
       ;;
   esac
 
+  _reader_err="$(mktemp "${TMPDIR:-/tmp}/etrnl-json-stdin-err.XXXXXX")" || return 1
+
   if [[ "$_use_python" == true ]]; then
     if ! command -v python3 >/dev/null 2>&1; then
+      rm -f -- "$_reader_err"
       printf 'claude-guard error: python3 reader requested but python3 is unavailable\n' >&2
       return 1
     fi
-    if ! HOOK_INPUT="$(
-      python3 - "$_stdin_cap" "$_idle_ms" "$_first_byte_wait_ms" 3<&0 2>/dev/null <<'PY'
-import os
-import select
-import sys
-
-max_bytes = int(sys.argv[1])
-idle_sec = int(sys.argv[2]) / 1000.0
-first_byte_sec = int(sys.argv[3]) / 1000.0
-data = bytearray()
-fd = 3  # caller stdin duplicated before the script heredoc
-while len(data) < max_bytes:
-    timeout = first_byte_sec if not data else idle_sec
-    ready, _, _ = select.select([fd], [], [], timeout)
-    if ready:
-        chunk = os.read(fd, min(65536, max_bytes - len(data)))
-        if not chunk:
-            break
-        data.extend(chunk)
-    else:
-        break
-sys.stdout.buffer.write(data)
-PY
-    )"; then
-      printf 'claude-guard error: failed to read hook input\n' >&2
+    HOOK_INPUT="$(_cc_json_read_stdin_python "$_stdin_cap" "$_idle_ms" "$_first_byte_wait_ms" "$_reader_err")" || _reader_rc=$?
+    if (( _reader_rc != 0 )); then
+      if [[ -s "$_reader_err" ]]; then
+        printf 'claude-guard error: failed to read hook input: %s\n' "$(tr '\n' ' ' <"$_reader_err")" >&2
+      else
+        printf 'claude-guard error: failed to read hook input\n' >&2
+      fi
+      rm -f -- "$_reader_err"
       return 1
+    fi
+    if [[ -n "$HOOK_INPUT" ]] && ! jq -e . >/dev/null 2>&1 <<<"${HOOK_INPUT}"; then
+      printf 'claude-guard warning: hook input read stopped on idle timeout with partial payload; retrying with extended wait\n' >&2
+      _retry_idle_ms=$(( _idle_ms * 5 ))
+      HOOK_INPUT="$(_cc_json_read_stdin_python "$_stdin_cap" "$_retry_idle_ms" "$_first_byte_wait_ms" "$_reader_err")" || _reader_rc=$?
+      if (( _reader_rc != 0 )); then
+        if [[ -s "$_reader_err" ]]; then
+          printf 'claude-guard error: failed to read hook input on retry: %s\n' "$(tr '\n' ' ' <"$_reader_err")" >&2
+        else
+          printf 'claude-guard error: failed to read hook input on retry\n' >&2
+        fi
+        rm -f -- "$_reader_err"
+        return 1
+      fi
+      if [[ -n "$HOOK_INPUT" ]] && ! jq -e . >/dev/null 2>&1 <<<"${HOOK_INPUT}"; then
+        printf 'claude-guard warning: hook input still incomplete after idle-timeout retry; hooks may fail open on invalid JSON\n' >&2
+      fi
     fi
   elif [[ "$_use_perl" == true ]]; then
     if ! command -v perl >/dev/null 2>&1; then
+      rm -f -- "$_reader_err"
       printf 'claude-guard error: perl reader requested but perl is unavailable\n' >&2
       return 1
     fi
-    if ! HOOK_INPUT="$(
-      perl - "$_stdin_cap" "$_idle_ms" "$_first_byte_wait_ms" 3<&0 2>/dev/null <<'PERL'
-use strict;
-use warnings;
-use IO::Select;
-
-my $max_bytes = int($ARGV[0]);
-my $idle_sec  = int($ARGV[1]) / 1000.0;
-my $first_byte_sec = int($ARGV[2]) / 1000.0;
-open(my $in, '<&=', 3) or exit 1;
-my $data = "";
-my $sel  = IO::Select->new($in);
-while (length($data) < $max_bytes) {
-    my $timeout = length($data) ? $idle_sec : $first_byte_sec;
-    my @ready = $sel->can_read($timeout);
-    if (@ready) {
-        my $chunk = "";
-        my $n = sysread($in, $chunk, 65536 > ($max_bytes - length($data)) ? ($max_bytes - length($data)) : 65536);
-        last if !defined($n) || $n == 0;
-        $data .= $chunk;
-    } else {
-        last;
-    }
-}
-print $data;
-PERL
-    )"; then
-      printf 'claude-guard error: failed to read hook input\n' >&2
+    HOOK_INPUT="$(_cc_json_read_stdin_perl "$_stdin_cap" "$_idle_ms" "$_first_byte_wait_ms" "$_reader_err")" || _reader_rc=$?
+    if (( _reader_rc != 0 )); then
+      if [[ -s "$_reader_err" ]]; then
+        printf 'claude-guard error: failed to read hook input: %s\n' "$(tr '\n' ' ' <"$_reader_err")" >&2
+      else
+        printf 'claude-guard error: failed to read hook input\n' >&2
+      fi
+      rm -f -- "$_reader_err"
       return 1
+    fi
+    if [[ -n "$HOOK_INPUT" ]] && ! jq -e . >/dev/null 2>&1 <<<"${HOOK_INPUT}"; then
+      printf 'claude-guard warning: hook input read stopped on idle timeout with partial payload; retrying with extended wait\n' >&2
+      _retry_idle_ms=$(( _idle_ms * 5 ))
+      HOOK_INPUT="$(_cc_json_read_stdin_perl "$_stdin_cap" "$_retry_idle_ms" "$_first_byte_wait_ms" "$_reader_err")" || _reader_rc=$?
+      if (( _reader_rc != 0 )); then
+        if [[ -s "$_reader_err" ]]; then
+          printf 'claude-guard error: failed to read hook input on retry: %s\n' "$(tr '\n' ' ' <"$_reader_err")" >&2
+        else
+          printf 'claude-guard error: failed to read hook input on retry\n' >&2
+        fi
+        rm -f -- "$_reader_err"
+        return 1
+      fi
+      if [[ -n "$HOOK_INPUT" ]] && ! jq -e . >/dev/null 2>&1 <<<"${HOOK_INPUT}"; then
+        printf 'claude-guard warning: hook input still incomplete after idle-timeout retry; hooks may fail open on invalid JSON\n' >&2
+      fi
     fi
   else
     # Fallback when no idle-timeout reader is available, or blocking was explicitly requested.
@@ -118,21 +182,26 @@ PERL
       printf 'claude-guard warning: no python3 or perl found; falling back to blocking stdin read (may hang on held-open stdin)\n' >&2
     fi
     if ! HOOK_INPUT="$(head -c "$_stdin_cap")"; then
+      rm -f -- "$_reader_err"
       printf 'claude-guard error: failed to read hook input\n' >&2
       return 1
     fi
   fi
+  rm -f -- "$_reader_err"
+
   # A read that fills the 4MiB cap exactly is almost certainly truncated;
   # downstream jq will fail on the cut JSON and every hook fails open with
-  # no explanation, so name the cause here.
-  if ((${#HOOK_INPUT} >= _stdin_cap)); then
+  # no explanation, so name the cause here. Compare byte length, not characters.
+  _stdin_byte_len="$(LC_ALL=C printf '%s' "$HOOK_INPUT" | wc -c | tr -d '[:space:]')"
+  if (( _stdin_byte_len >= _stdin_cap )); then
     printf 'claude-guard warning: hook input reached the 4MiB stdin cap and may be truncated; hooks may fail open on invalid JSON\n' >&2
   fi
   if [[ -z "${HOOK_INPUT}" ]]; then
     HOOK_INPUT="{}"
   fi
   # Keep exported hook input below 128 KiB so child tools do not hit ARG_MAX.
-  if ((${#HOOK_INPUT} < 131072)); then
+  _stdin_byte_len="$(LC_ALL=C printf '%s' "$HOOK_INPUT" | wc -c | tr -d '[:space:]')"
+  if (( _stdin_byte_len < 131072 )); then
     export HOOK_INPUT
   elif ! export -n HOOK_INPUT 2>/dev/null; then
     printf 'claude-guard error: failed to unexport oversized HOOK_INPUT\n' >&2

@@ -21,6 +21,12 @@ Per-hook skip (`ETRNL_SKIP_HOOKS`):
 - Names match the hook file basename with or without the `.sh` suffix, and surrounding whitespace is ignored.
 - This is the narrow tool for turning off one noisy hook; `ETRNL_HOOK_PROFILE=minimal` remains the blunt instrument for turning off the whole advisory surface.
 
+Hook stdin reader (`ETRNL_JSON_STDIN_READER`):
+
+- Controls how hooks read JSON payloads from stdin. Default is `auto` (prefer `python3`, then `perl`, then blocking `head -c`).
+- Set to `python` or `python3` to force the idle-timeout Python reader; `perl` for the Perl reader; `head`, `blocking`, or `block` for the legacy read-to-EOF path (may hang when Claude Code keeps stdin open after the first hook call).
+- Unknown values fail closed with an error. Use the blocking mode as a field workaround when the idle reader misbehaves on a specific host.
+
 RTK token savings:
 
 - Default recommendation: install Claude hooks with `rtk hook` (alias `rtk hook claude`) and sync Codex with `scripts/codex-rtk-pre-tool-use.sh` → `~/.codex/hooks/rtk-pre-tool-use.sh`.

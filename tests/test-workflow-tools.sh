@@ -3924,16 +3924,37 @@ assert_contains "bounded-review exempts deep-audit lanes from adaptive skip" "$t
 assert_contains "bounded-review reuses the review-learnings store" "$tg12_bounded_review" "reviewerDispatches"
 assert_contains "bounded-review requires private overlay learnings path" "$tg12_bounded_review" 'REVIEW_LEARNINGS="${HOME}/.claude/review-learnings/'
 assert_contains "bounded-review derives collision-resistant repo key" "$tg12_bounded_review" "hashlib.sha256"
-assert_contains "bounded-review resolves helper root from trusted ETRNL_STACK" "$tg12_bounded_review" 'ETRNL_STACK}/scripts'
+assert_contains "bounded-review validates full helper set before ETRNL_STACK" "$tg12_bounded_review" "review-learn.mjs"
 assert_contains "bounded-review passes explicit repo root to helpers" "$tg12_bounded_review" '--root "$REPO_ROOT"'
 tg12_dev_pr="$(cat "$ROOT/skills/etrnl-dev-pr/SKILL.md")"
 assert_contains "etrnl-dev-pr routes review-learn through the installed helper" "$tg12_dev_pr" "node ~/.claude/scripts/review-learn.mjs learn"
+assert_contains "etrnl-dev-pr uses FINDINGS_FILE for review-learn ingestion" "$tg12_dev_pr" 'FINDINGS_FILE="${FINDINGS_FILE:?set FINDINGS_FILE to a sanitized JSON file}"'
+assert_contains "etrnl-dev-pr uses private overlay ledger path for review-learn" "$tg12_dev_pr" '"$HOME/.claude/review-learnings/${REPO_KEY}/review-learnings.json"'
 assert_contains "etrnl-dev-pr warns against probing repo-local review-learn" "$tg12_dev_pr" "do not probe for \`scripts/review-learn.mjs\` in the target repo"
-assert_contains "etrnl-dev-pr keeps review-learnings.json out of the PR" "$tg12_dev_pr" "never write \`review-learnings.json\` into the target repository"
-assert_contains "etrnl-dev-pr stores review memory in the private overlay" "$tg12_dev_pr" "~/.claude/review-learnings/"
 assert_contains "etrnl-dev-pr requires owner confirmation before promoting review rules" "$tg12_dev_pr" "never write or enable \`review-rules.json\` entries without explicit repository-owner confirmation"
 assert_contains "etrnl-dev-pr requires owner confirmation before committing review-rules.json" "$tg12_dev_pr" "explicit repository-owner confirmation"
 assert_contains "etrnl-dev-pr requires redaction before ingestion" "$tg12_dev_pr" "before writing \`findings.json\`"
+tg12_review_learn_repo="$TMPROOT/review-learn-repo"
+mkdir -p "$tg12_review_learn_repo"
+git -C "$tg12_review_learn_repo" init -q
+git -C "$tg12_review_learn_repo" config user.email "test@example.com"
+git -C "$tg12_review_learn_repo" config user.name "Test"
+printf 'seed\n' >"$tg12_review_learn_repo/README.md"
+git -C "$tg12_review_learn_repo" add README.md
+git -C "$tg12_review_learn_repo" commit -q -m "init"
+tg12_review_learn_findings="$TMPROOT/review-learn-findings.json"
+printf '[{"summary":"test","body":"x","severity":"minor","category":"test","lensId":"test","disposition":"false-positive"}]\n' >"$tg12_review_learn_findings"
+tg12_review_learn_rules="$TMPROOT/review-learn-rules.json"
+printf '{"schemaVersion":1,"rulesetId":"test","version":1,"enabledRuleIds":[],"rules":[]}\n' >"$tg12_review_learn_rules"
+tg12_review_learn_ledger="$TMPROOT/review-learn-ledger.json"
+tg12_review_learn_out="$(node "$ROOT/scripts/review-learn.mjs" learn \
+  --findings "$tg12_review_learn_findings" \
+  --root "$tg12_review_learn_repo" \
+  --rules "$tg12_review_learn_rules" \
+  --ledger "$tg12_review_learn_ledger" \
+  --json 2>/dev/null || true)"
+assert_json_expr "review-learn drops false-positive disposition items" "$tg12_review_learn_out" '.droppedByDisposition == 1'
+assert_no_file "review-learn keeps ledger out of target repo by default override" "$tg12_review_learn_repo/review-learnings.json"
 tg12_batch_execution="$(cat "$ROOT/skills/etrnl-dev-execute/references/batch-execution.md")"
 assert_contains "batch-execution defers tier 0-2 human-verify pauses" "$tg12_batch_execution" "## Human-verify batching (tier ≤ 2 default)"
 assert_contains "batch-execution keeps tier 3 UAT gates in place" "$tg12_batch_execution" "Tier 3 keeps explicit UAT gates where the plan places them"
