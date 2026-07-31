@@ -44,6 +44,21 @@ assert_contains "reset settings preserves enabledPlugins from backup" "$reset_se
 assert_json_expr "reset settings backup fallback keeps plugins" "$(jq -c . "$reset_settings_live/settings.json")" '.enabledPlugins["backup-plugin@example"] == true'
 assert_json_expr "reset settings backup fallback keeps statusLine" "$(jq -c . "$reset_settings_live/settings.json")" '.statusLine.command == "bash ~/.claude/statusline.sh"'
 
+reset_no_hooks_home="$TMPROOT/reset-no-hooks"
+mkdir -p "$reset_no_hooks_home"
+cat >"$reset_no_hooks_home/settings.json" <<'JSON'
+{
+  "permissions": {
+    "defaultMode": "acceptEdits"
+  },
+  "enabledPlugins": {
+    "keep-me@example": true
+  }
+}
+JSON
+reset_settings_preserving_enabled_plugins "$reset_no_hooks_home/settings.json" ""
+assert_json_expr "reset settings preserves settings without a hooks key" "$(jq -c . "$reset_no_hooks_home/settings.json")" '.permissions.defaultMode == "acceptEdits" and (.hooks? | not)'
+
 reset_user_settings_home="$TMPROOT/reset-user-settings"
 mkdir -p "$reset_user_settings_home"
 cat >"$reset_user_settings_home/settings.json" <<'JSON'
@@ -393,7 +408,9 @@ if (( ${#rb_backup_dirs[@]} >= 1 )); then
   fi
 fi
 
+assert_file "post-install: eternal-saas pack staged for rollback removal" "$CLAUDE_HOME/docs/templates/rules/eternal-saas/global/00-stack.md"
 "$CLAUDE_HOME/scripts/rollback-local.sh" >/dev/null
+assert_no_directory "rollback removed freshly staged eternal-saas pack" "$CLAUDE_HOME/docs/templates/rules/eternal-saas"
 for agent in etrnl-adversary etrnl-browser-qa etrnl-design-reviewer etrnl-dx-reviewer etrnl-executor etrnl-investigator etrnl-quality-reviewer etrnl-scout etrnl-spec-reviewer; do
   assert_no_file "rollback removed $agent" "$CLAUDE_HOME/agents/$agent.md"
 done

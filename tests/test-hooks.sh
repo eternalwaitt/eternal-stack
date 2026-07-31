@@ -573,6 +573,10 @@ plan_exec_question_readonly_tail_prompt="$(jq -cn '{session_id:"fixture-plan-exe
 run_hook cc-userprompt-router.sh "$plan_exec_clear_prompt" >/dev/null || true
 run_hook cc-userprompt-router.sh "$plan_exec_question_readonly_tail_prompt" >/dev/null || true
 assert_json_expr "router clears plan execution when trailing clause is read-only after question" "$(jq -c . "$plan_exec_clear_state")" '.planExecutionRequested == false'
+plan_exec_context_execute_prompt="$(jq -cn '{session_id:"fixture-plan-exec-clear",prompt:"For context. How does this work? Execute the plan"}')"
+run_hook cc-userprompt-router.sh "$plan_exec_clear_prompt" >/dev/null || true
+run_hook cc-userprompt-router.sh "$plan_exec_context_execute_prompt" >/dev/null || true
+assert_json_expr "router keeps plan execution when informational question is followed by execute the plan" "$(jq -c . "$plan_exec_clear_state")" '.planExecutionRequested == true'
 
 skill_trigger_cases="$ROOT/tests/fixtures/skill-triggering/cases.json"
 skill_trigger_count="$(jq 'length' "$skill_trigger_cases")"
@@ -936,6 +940,16 @@ jq -nc --arg cwd "$zero_verify_repo" "$zero_verify_empty_state | .cwd = \$cwd" >
 zero_verify_unrelated_question_stop="$(jq -cn --arg cwd "$zero_verify_repo" '{session_id:"fixture-zero-verify-unrelated-question",cwd:$cwd,last_assistant_message:"Done. Tests pass. Why did it fail earlier?",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$zero_verify_unrelated_question_stop")"
 assert_contains "stop verifier blocks positive claim when unrelated later sentence is a question" "$out" "claim completion without verification evidence"
+zero_verify_lint_question_state="$TMPROOT/claude-guard-fixture-zero-verify-lint-question.json"
+jq -nc --arg cwd "$zero_verify_repo" "$zero_verify_empty_state | .cwd = \$cwd" >"$zero_verify_lint_question_state"
+zero_verify_lint_question_stop="$(jq -cn --arg cwd "$zero_verify_repo" '{session_id:"fixture-zero-verify-lint-question",cwd:$cwd,last_assistant_message:"Done. Lint passes?",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$zero_verify_lint_question_stop")"
+if [[ -z "$out" ]]; then ok "stop verifier allows questioned lint claim without runs"; else not_ok "questioned lint claim should pass: $out"; fi
+zero_verify_checks_question_state="$TMPROOT/claude-guard-fixture-zero-verify-checks-question.json"
+jq -nc --arg cwd "$zero_verify_repo" "$zero_verify_empty_state | .cwd = \$cwd" >"$zero_verify_checks_question_state"
+zero_verify_checks_question_stop="$(jq -cn --arg cwd "$zero_verify_repo" '{session_id:"fixture-zero-verify-checks-question",cwd:$cwd,last_assistant_message:"Done. Checks pass?",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$zero_verify_checks_question_stop")"
+if [[ -z "$out" ]]; then ok "stop verifier allows questioned checks claim without runs"; else not_ok "questioned checks claim should pass: $out"; fi
 
 # --- Regression fixtures: guard false-positive fixes (stack-holes-remediation TG2/TG3/TG4) ---
 holes_guard() {
@@ -2154,6 +2168,7 @@ fi
 assert_contains "cc_json_read_stdin names the unavailable requested reader" "$(cat "$stdin_no_interp_err")" "python3 reader requested but python3 is unavailable"
 
 stdin_no_auto_err="$TMPROOT/stdin-no-auto-err-$$.txt"
+rm -f "${TMPDIR:-/tmp}/etrnl-json-stdin-auto-warn.${PPID:-$$}"
 if PATH="$stdin_no_interp_dir" ETRNL_JSON_STDIN_READER=auto bash -c 'source "$1"; cc_json_read_stdin; printf "%s" "$HOOK_INPUT"' _ "$ROOT/hooks/lib/json.sh" <<<"{}" >"$TMPROOT/stdin-no-auto-out-$$.txt" 2>"$stdin_no_auto_err"; then
   assert_contains "cc_json_read_stdin auto path warns when no idle reader is available" "$(cat "$stdin_no_auto_err")" "no python3 or perl found"
 else

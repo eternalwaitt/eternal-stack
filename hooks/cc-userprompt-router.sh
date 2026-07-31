@@ -42,8 +42,9 @@ if [[ "$prompt_lower" =~ $read_only_prompt_pattern ]] && [[ ! "$prompt_lower" =~
   cc_state_update '.planExecutionRequested = false | .planExecutionRequestedAt = ""' >/dev/null || true
 fi
 plan_exec_suppress_execute=false
-if [[ "$prompt_lower" =~ $read_only_question_pattern ]]; then
-  post_question_prompt="$(printf '%s' "$prompt_lower" | sed -E 's/^[^.!?]*[.!?][[:space:]]+//')"
+if [[ "$prompt_lower" =~ $read_only_question_pattern ]] \
+    || { [[ "$prompt_lower" =~ $read_only_prompt_pattern ]] && [[ "$prompt_lower" == *\?* ]]; }; then
+  post_question_prompt="$(printf '%s' "$prompt_lower" | sed -E 's/^.*\?[[:space:]]+//')"
   if [[ -n "$post_question_prompt" ]] \
       && [[ "$post_question_prompt" =~ $execution_intent_pattern ]] \
       && [[ ! "$post_question_prompt" =~ $read_only_prompt_pattern ]]; then

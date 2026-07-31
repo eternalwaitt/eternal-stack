@@ -3,23 +3,26 @@
 # Drop stack-owned hook wiring so merge-settings.mjs can re-apply the template cleanly.
 # Foreign hooks whose commands do not live under ~/.claude/hooks/cc-* are preserved.
 readonly ETRNL_RESET_SETTINGS_JQ='
-  .hooks |= (
-    if . == null then .
-    else
-      with_entries(
-        .value |= (
-          map(
-            .hooks |= (
-              map(select(
-                (.command // "") | test("\\.claude/hooks/cc-") | not
-              ))
+  if has("hooks") then
+    .hooks |= (
+      if . == null then .
+      else
+        with_entries(
+          .value |= (
+            map(
+              .hooks |= (
+                map(select(
+                  (.command // "") | test("\\.claude/hooks/cc-") | not
+                ))
+              )
             )
+            | map(select((.hooks // []) | length > 0))
           )
-          | map(select((.hooks // []) | length > 0))
         )
-      )
-    end
-  )
+      end
+    )
+  else .
+  end
 '
 
 reset_settings_preserving_user_settings() {

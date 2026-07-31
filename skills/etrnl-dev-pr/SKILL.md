@@ -108,11 +108,24 @@ if [[ -z "$REPO_KEY" ]]; then
   exit 1
 fi
 FINDINGS_FILE="${FINDINGS_FILE:?set FINDINGS_FILE to a sanitized JSON file}"
+FINDINGS_DIR="$(cd -- "$(dirname -- "$FINDINGS_FILE")" && pwd -P)"
+FINDINGS_CANON="$FINDINGS_DIR/$(basename -- "$FINDINGS_FILE")"
+REPO_ROOT_CANON="$(cd -- "$REPO_ROOT" && pwd -P)"
+case "$FINDINGS_CANON" in
+  "$REPO_ROOT_CANON"/*)
+    echo "review-learn error: FINDINGS_FILE must live outside the target repository" >&2
+    exit 1
+    ;;
+esac
 if ! jq -e 'type == "array"' "$FINDINGS_FILE" >/dev/null 2>&1; then
   echo "review-learn error: FINDINGS_FILE must be a JSON array" >&2
   exit 1
 fi
-if jq -e '.[] | select((.summary // "" | test("(?i)(sk_live_|sk_test_|sk-[A-Za-z0-9_-]{20,}|-----BEGIN[A-Z ]*PRIVATE KEY-----|Bearer [A-Za-z0-9._~+/=-]{16,}|password\\s*=\\s*\\S+)")) or (.body // "" | test("(?i)(sk_live_|sk_test_|sk-[A-Za-z0-9_-]{20,}|-----BEGIN[A-Z ]*PRIVATE KEY-----|Bearer [A-Za-z0-9._~+/=-]{16,}|password\\s*=\\s*\\S+)")))' "$FINDINGS_FILE" >/dev/null 2>&1; then
+if ! jq -e '.[] | objects | (.summary? | strings) and (.body? | strings // true) and (.severity? | strings // true) and (.category? | strings // true) and (.lensId? | strings // true) and (.disposition? | strings // true)' "$FINDINGS_FILE" >/dev/null 2>&1; then
+  echo "review-learn error: FINDINGS_FILE entries must use the allowlisted string fields only" >&2
+  exit 1
+fi
+if jq -e '[.. | strings] | any(test("(?i)(sk_live_|sk_test_|sk-[A-Za-z0-9_-]{20,}|github_pat_|glpat-|-----BEGIN[A-Z ]*PRIVATE KEY-----|Bearer [A-Za-z0-9._~+/=-]{16,}|(?:password|api[_-]?key|token)\\s*[=:]\\s*\\S+)"))' "$FINDINGS_FILE" >/dev/null 2>&1; then
   echo "review-learn error: FINDINGS_FILE contains sensitive-looking content; redact before ingestion" >&2
   exit 1
 fi

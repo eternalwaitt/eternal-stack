@@ -68,6 +68,22 @@
     ]
   },
   {
+    "name": "informational question followed by execute the plan keeps execution armed",
+    "prompt": "For context. How does this work? Execute the plan",
+    "expectedSkills": [
+      "etrnl-dev-execute"
+    ],
+    "unexpectedSkills": []
+  },
+  {
+    "name": "read-only how question suppresses plan execution",
+    "prompt": "How do I run the tests?",
+    "expectedSkills": [],
+    "unexpectedSkills": [
+      "etrnl-dev-execute"
+    ]
+  },
+  {
     "name": "my_agents.md_backup does not route etrnl-ops-agent-files",
     "prompt": "compare my_agents.md_backup with current",
     "expectedSkills": [],

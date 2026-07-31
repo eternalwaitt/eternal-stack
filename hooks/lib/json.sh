@@ -157,6 +157,7 @@ cc_json_read_stdin() {
     if [[ "$_reader" == "head" || "$_reader" == "blocking" || "$_reader" == "block" ]]; then
       printf 'claude-guard warning: blocking stdin reader requested; falling back to blocking stdin read (may hang on held-open stdin)\n' >&2
     elif [[ ! -f "${TMPDIR:-/tmp}/etrnl-json-stdin-auto-warn.${PPID:-$$}" ]]; then
+      find "${TMPDIR:-/tmp}" -maxdepth 1 -name 'etrnl-json-stdin-auto-warn.*' -mmin +60 -delete 2>/dev/null || true
       : >"${TMPDIR:-/tmp}/etrnl-json-stdin-auto-warn.${PPID:-$$}"
       printf 'claude-guard warning: no python3 or perl found; falling back to blocking stdin read (may hang on held-open stdin)\n' >&2
     fi

@@ -19,6 +19,7 @@
 // Without --corpus the loop behaves exactly as before (frequency-only gate).
 
 import { readFileSync, writeFileSync, existsSync, mkdtempSync, rmSync, readdirSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -64,7 +65,12 @@ function parseArgs(argv) {
   }
   if (!out.findings) throw new Error("learn requires --findings <path>");
   out.rules ||= path.join(out.root, "review-rules.json");
-  out.ledger ||= path.join(out.root, "review-learnings.json");
+  if (!out.ledger) {
+    const home = process.env.HOME;
+    if (!home) throw new Error("learn requires --ledger <path> or a set HOME for the default private overlay");
+    const repoKey = createHash("sha256").update(path.resolve(out.root)).digest("hex").slice(0, 16);
+    out.ledger = path.join(home, ".claude/review-learnings", repoKey, "review-learnings.json");
+  }
   out.templates ||= path.join(out.root, "templates", "review-rules.example.json");
   if (out.corpus && !existsSync(out.corpus)) {
     throw new Error(`--corpus directory not found: ${out.corpus}`);
@@ -165,14 +171,17 @@ const SENSITIVE_FINDING_PATTERNS = [
   /-----BEGIN[A-Z ]*PRIVATE KEY-----/,
   /\bsk_(?:live|test)_[A-Za-z0-9_=-]{8,}\b/,
   /\bsk-[A-Za-z0-9_-]{20,}\b/,
+  /\bgithub_pat_[A-Za-z0-9_]{20,}\b/,
+  /\bglpat-[A-Za-z0-9_-]{20,}\b/,
   /\b(AKIA|ASIA)[A-Z0-9]{16}\b/,
-  /\b(aws_secret_access_key|aws_session_token|password|passwd|token|api[_-]?key)\s*=\s*\S+/i,
+  /\b(aws_secret_access_key|aws_session_token|password|passwd|token|api[_-]?key)\s*[=:]\s*\S+/i,
+  /"(?:api[_-]?key|password|token|secret)"\s*:\s*"[^"]+"/i,
   /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/,
   /\bBearer\s+[A-Za-z0-9._~+/=-]{16,}\b/i,
 ];
 
 function findingText(finding) {
-  return `${finding?.summary || ""}\n${finding?.body || ""}`;
+  return JSON.stringify(finding ?? "");
 }
 
 function hasSensitiveFindingText(text) {

@@ -3695,9 +3695,14 @@ printf '[{"summary":"Avoid `as any` cast","body":"unsafe type escape","severity"
 # review-rules.json is a hand-formatted tracked config: a run that promotes nothing must not reflow it.
 printf '{\n    "schemaVersion": 1,\n    "rulesetId": "handformatted",\n    "version": 1,\n    "enabledRuleIds": [],\n    "rules": []\n}\n' >"$tg12_learn_root/review-rules.json"
 tg12_rules_hash_before="$(shasum "$tg12_learn_root/review-rules.json" | awk '{print $1}')"
-node "$ROOT/scripts/review-learn.mjs" learn --findings "$tg12_learn_root/as-any.json" --root "$tg12_learn_root" --json >/dev/null
+tg12_learn_no_promo_home="$TMPROOT/review-learn-no-promo-home"
+mkdir -p "$tg12_learn_no_promo_home/.claude/review-learnings"
+tg12_learn_no_promo_key="$(python3 -c 'import hashlib,sys; print(hashlib.sha256(sys.argv[1].encode()).hexdigest()[:16])' "$tg12_learn_root")"
+tg12_learn_no_promo_ledger="$tg12_learn_no_promo_home/.claude/review-learnings/${tg12_learn_no_promo_key}/review-learnings.json"
+HOME="$tg12_learn_no_promo_home" node "$ROOT/scripts/review-learn.mjs" learn --findings "$tg12_learn_root/as-any.json" --root "$tg12_learn_root" --json >/dev/null
 assert_contains "review-learn leaves the hand-formatted ruleset untouched on a no-promotion run" "$(shasum "$tg12_learn_root/review-rules.json" | awk '{print $1}')" "$tg12_rules_hash_before"
-assert_file "review-learn still persists the ledger on a no-promotion run" "$tg12_learn_root/review-learnings.json"
+assert_file "review-learn still persists the ledger on a no-promotion run" "$tg12_learn_no_promo_ledger"
+assert_no_file "review-learn no-promotion run keeps ledger out of target repo" "$tg12_learn_root/review-learnings.json"
 # Crash consistency: the ledger's promoted/cleanRuns entries are what stop a retry from
 # reinstalling a guard, so a failed review-rules.json write must never persist the ledger.
 printf 'not a directory\n' >"$tg12_dir/learn-blocked"
@@ -3941,6 +3946,8 @@ assert_contains "etrnl-dev-pr requires owner confirmation before committing revi
 assert_contains "etrnl-dev-pr requires redaction before ingestion" "$tg12_dev_pr" "before writing \`findings.json\`"
 assert_contains "etrnl-dev-pr validates FINDINGS_FILE is a JSON array" "$tg12_dev_pr" 'type == "array"'
 assert_contains "etrnl-dev-pr rejects sensitive FINDINGS_FILE content" "$tg12_dev_pr" "sensitive-looking content"
+assert_contains "etrnl-dev-pr rejects in-repo FINDINGS_FILE paths" "$tg12_dev_pr" "must live outside the target repository"
+assert_contains "etrnl-dev-pr allowlists persisted finding fields" "$tg12_dev_pr" "allowlisted string fields only"
 assert_contains "etrnl-dev-pr compares before copying pr-preflight helper" "$tg12_dev_pr" "cmp -s"
 assert_contains "etrnl-dev-pr requires confirmation before full install refresh" "$tg12_dev_pr" "explicit repository-owner confirmation because it rewrites hooks"
 tg12_review_learn_repo="$TMPROOT/review-learn-repo"
@@ -3976,8 +3983,21 @@ tg12_review_learn_home_out="$(HOME="$tg12_review_learn_home" node "$ROOT/scripts
   --json 2>/dev/null || true)"
 assert_json_expr "review-learn writes ledger under isolated HOME overlay path" "$tg12_review_learn_home_out" '.droppedByDisposition == 1'
 assert_file "review-learn persists ledger only under private overlay" "$tg12_review_learn_home_ledger"
+tg12_review_learn_default_home="$TMPROOT/review-learn-default-home"
+mkdir -p "$tg12_review_learn_default_home/.claude/review-learnings"
+tg12_review_learn_default_ledger="$tg12_review_learn_default_home/.claude/review-learnings/${tg12_review_learn_repo_key}/review-learnings.json"
+tg12_review_learn_default_out="$(HOME="$tg12_review_learn_default_home" node "$ROOT/scripts/review-learn.mjs" learn \
+  --findings "$tg12_review_learn_findings" \
+  --root "$tg12_review_learn_repo" \
+  --rules "$tg12_review_learn_rules" \
+  --json 2>/dev/null || true)"
+assert_json_expr "review-learn defaults ledger to private overlay when --ledger is omitted" "$tg12_review_learn_default_out" '.droppedByDisposition == 1'
+assert_file "review-learn default ledger path stays under HOME overlay" "$tg12_review_learn_default_ledger"
+assert_no_file "review-learn default ledger path never lands in target repo" "$tg12_review_learn_repo/review-learnings.json"
 tg12_review_learn_sensitive_findings="$TMPROOT/review-learn-sensitive-findings.json"
 printf '[{"summary":"leaked sk_live_example_should_reject","body":"x","severity":"minor","category":"test","lensId":"test"}]\n' >"$tg12_review_learn_sensitive_findings"
+tg12_review_learn_nested_sensitive_findings="$TMPROOT/review-learn-nested-sensitive-findings.json"
+printf '[{"summary":{"text":"sk_live_nested_example_should_reject"},"body":"x","severity":"minor","category":"test","lensId":"test"}]\n' >"$tg12_review_learn_nested_sensitive_findings"
 tg12_review_learn_sensitive_rc=0
 tg12_review_learn_sensitive_out="$(node "$ROOT/scripts/review-learn.mjs" learn \
   --findings "$tg12_review_learn_sensitive_findings" \
@@ -3988,7 +4008,19 @@ tg12_review_learn_sensitive_out="$(node "$ROOT/scripts/review-learn.mjs" learn \
 if [[ "$tg12_review_learn_sensitive_rc" -ne 0 ]] && [[ "$tg12_review_learn_sensitive_out" == *"sensitive-looking content"* ]]; then
   ok "review-learn rejects sensitive findings before persistence"
 else
-  not_ok "review-learn should reject sensitive findings before persistence: rc=$tg12_review_learn_sensitive_rc out=$tg12_review_learn_sensitive_out"
+  not_ok "review-learn should reject sensitive findings before persistence: rc=$tg12_review_learn_sensitive_rc"
+fi
+tg12_review_learn_nested_rc=0
+tg12_review_learn_nested_out="$(node "$ROOT/scripts/review-learn.mjs" learn \
+  --findings "$tg12_review_learn_nested_sensitive_findings" \
+  --root "$tg12_review_learn_repo" \
+  --rules "$tg12_review_learn_rules" \
+  --ledger "$tg12_review_learn_ledger" \
+  --json 2>&1)" || tg12_review_learn_nested_rc=$?
+if [[ "$tg12_review_learn_nested_rc" -ne 0 ]] && [[ "$tg12_review_learn_nested_out" == *"sensitive-looking content"* ]]; then
+  ok "review-learn rejects nested sensitive findings before persistence"
+else
+  not_ok "review-learn should reject nested sensitive findings before persistence: rc=$tg12_review_learn_nested_rc"
 fi
 tg12_batch_execution="$(cat "$ROOT/skills/etrnl-dev-execute/references/batch-execution.md")"
 assert_contains "batch-execution defers tier 0-2 human-verify pauses" "$tg12_batch_execution" "## Human-verify batching (tier ≤ 2 default)"
