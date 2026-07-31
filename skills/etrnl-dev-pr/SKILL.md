@@ -125,15 +125,16 @@ if ! jq -e 'type == "array"' "$FINDINGS_CANON" >/dev/null 2>&1; then
 fi
 if ! jq -e '
   def allowed: ["summary","body","severity","category","lensId","disposition"];
+  def optional_string($k): (has($k) | not) or (.[$k] | type) == "string";
   all(.[]?;
     type == "object"
     and ((keys_unsorted - allowed) | length) == 0
     and (.summary | type) == "string"
-    and ((.body? | type) == "string" or (.body? | not))
-    and ((.severity? | type) == "string" or (.severity? | not))
-    and ((.category? | type) == "string" or (.category? | not))
-    and ((.lensId? | type) == "string" or (.lensId? | not))
-    and ((.disposition? | type) == "string" or (.disposition? | not))
+    and optional_string("body")
+    and optional_string("severity")
+    and optional_string("category")
+    and optional_string("lensId")
+    and optional_string("disposition")
   )
 ' "$FINDINGS_CANON" >/dev/null 2>&1; then
   echo "review-learn error: FINDINGS_FILE entries must use the allowlisted string fields only" >&2

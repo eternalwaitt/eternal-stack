@@ -21,7 +21,14 @@ assert_exit_status() {
 
 assert_no_review_learn_ledgers_in_repo() {
   local repo="$1" label="$2"
-  if find -L "$repo" -name 'review-learnings.json' -print -quit 2>/dev/null | grep -q .; then
+  local ledgers=""
+  if [[ ! -d "$repo" ]]; then
+    not_ok "$label"
+    return
+  fi
+  if ! ledgers="$(find -L "$repo" -name 'review-learnings.json' -print -quit 2>/dev/null)"; then
+    not_ok "$label"
+  elif [[ -n "$ledgers" ]]; then
     not_ok "$label"
   else
     ok "$label"
@@ -4004,6 +4011,7 @@ tg12_review_learn_default_out="$(HOME="$tg12_review_learn_default_home" node "$R
 assert_json_expr "review-learn defaults ledger to private overlay when --ledger is omitted" "$tg12_review_learn_default_out" '.droppedByDisposition == 1'
 assert_file "review-learn default ledger path stays under HOME overlay" "$tg12_review_learn_default_ledger"
 assert_no_review_learn_ledgers_in_repo "$tg12_review_learn_repo" "review-learn default ledger path never lands in target repo tree"
+tg12_review_learn_sensitive_rules_hash="$(shasum "$tg12_review_learn_rules" | awk '{print $1}')"
 tg12_review_learn_repo_home="$tg12_review_learn_repo/.home-overlay"
 mkdir -p "$tg12_review_learn_repo_home"
 tg12_review_learn_repo_home_rc=0
@@ -4017,6 +4025,8 @@ if [[ "$tg12_review_learn_repo_home_rc" -ne 0 ]] && [[ "$tg12_review_learn_repo_
 else
   not_ok "review-learn should reject HOME overlay paths inside the target repository: rc=$tg12_review_learn_repo_home_rc"
 fi
+assert_no_review_learn_ledgers_in_repo "$tg12_review_learn_repo" "HOME overlay rejection leaves no review-learning ledger in the target repository"
+assert_contains "HOME overlay rejection leaves rules unchanged" "$(shasum "$tg12_review_learn_rules" | awk '{print $1}')" "$tg12_review_learn_sensitive_rules_hash"
 tg12_review_learn_sensitive_findings="$TMPROOT/review-learn-sensitive-findings.json"
 printf '[{"summary":"leaked sk_live_example_should_reject","body":"x","severity":"minor","category":"test","lensId":"test"}]\n' >"$tg12_review_learn_sensitive_findings"
 tg12_review_learn_nested_sensitive_findings="$TMPROOT/review-learn-nested-sensitive-findings.json"
@@ -4024,7 +4034,6 @@ printf '[{"summary":{"text":"sk_live_nested_example_should_reject"},"body":"x","
 tg12_review_learn_json_secret_findings="$TMPROOT/review-learn-json-secret-findings.json"
 jq -n '[{summary:"safe",body:"{\"token\":\"secret-value\"}",severity:"minor",category:"test",lensId:"test"}]' >"$tg12_review_learn_json_secret_findings"
 tg12_review_learn_sensitive_ledger="$TMPROOT/review-learn-sensitive-ledger.json"
-tg12_review_learn_sensitive_rules_hash="$(shasum "$tg12_review_learn_rules" | awk '{print $1}')"
 tg12_review_learn_sensitive_rc=0
 tg12_review_learn_sensitive_out="$(node "$ROOT/scripts/review-learn.mjs" learn \
   --findings "$tg12_review_learn_sensitive_findings" \
@@ -4052,6 +4061,7 @@ else
   not_ok "review-learn should reject nested sensitive findings before persistence: rc=$tg12_review_learn_nested_rc"
 fi
 assert_no_file "review-learn nested sensitive rejection leaves no ledger behind" "$tg12_review_learn_sensitive_ledger"
+assert_contains "review-learn nested sensitive rejection leaves rules unchanged" "$(shasum "$tg12_review_learn_rules" | awk '{print $1}')" "$tg12_review_learn_sensitive_rules_hash"
 tg12_review_learn_json_secret_rc=0
 tg12_review_learn_json_secret_out="$(node "$ROOT/scripts/review-learn.mjs" learn \
   --findings "$tg12_review_learn_json_secret_findings" \
@@ -4064,6 +4074,8 @@ if [[ "$tg12_review_learn_json_secret_rc" -ne 0 ]] && [[ "$tg12_review_learn_jso
 else
   not_ok "review-learn should reject JSON-shaped secret strings in finding bodies: rc=$tg12_review_learn_json_secret_rc"
 fi
+assert_no_file "review-learn JSON-shaped secret rejection leaves no ledger behind" "$tg12_review_learn_sensitive_ledger"
+assert_contains "review-learn JSON-shaped secret rejection leaves rules unchanged" "$(shasum "$tg12_review_learn_rules" | awk '{print $1}')" "$tg12_review_learn_sensitive_rules_hash"
 tg12_batch_execution="$(cat "$ROOT/skills/etrnl-dev-execute/references/batch-execution.md")"
 assert_contains "batch-execution defers tier 0-2 human-verify pauses" "$tg12_batch_execution" "## Human-verify batching (tier ≤ 2 default)"
 assert_contains "batch-execution keeps tier 3 UAT gates in place" "$tg12_batch_execution" "Tier 3 keeps explicit UAT gates where the plan places them"

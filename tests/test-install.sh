@@ -57,7 +57,7 @@ cat >"$reset_no_hooks_home/settings.json" <<'JSON'
 }
 JSON
 reset_settings_preserving_enabled_plugins "$reset_no_hooks_home/settings.json" ""
-assert_json_expr "reset settings preserves settings without a hooks key" "$(jq -c . "$reset_no_hooks_home/settings.json")" '.permissions.defaultMode == "acceptEdits" and (.hooks? | not) and .enabledPlugins["keep-me@example"] == true'
+assert_json_expr "reset settings preserves settings without a hooks key" "$(jq -c . "$reset_no_hooks_home/settings.json")" '.permissions.defaultMode == "acceptEdits" and (has("hooks") | not) and .enabledPlugins["keep-me@example"] == true'
 
 reset_wrapper_home="$TMPROOT/reset-wrapper-hook"
 mkdir -p "$reset_wrapper_home"
