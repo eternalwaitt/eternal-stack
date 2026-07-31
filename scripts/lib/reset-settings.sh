@@ -1,7 +1,26 @@
 #!/usr/bin/env bash
 
 # Drop stack-owned hook wiring so merge-settings.mjs can re-apply the template cleanly.
-readonly ETRNL_RESET_SETTINGS_JQ='del(.hooks)'
+# Foreign hooks whose commands do not live under ~/.claude/hooks/cc-* are preserved.
+readonly ETRNL_RESET_SETTINGS_JQ='
+  .hooks |= (
+    if . == null then .
+    else
+      with_entries(
+        .value |= (
+          map(
+            .hooks |= (
+              map(select(
+                (.command // "") | test("\\.claude/hooks/cc-") | not
+              ))
+            )
+          )
+          | map(select((.hooks // []) | length > 0))
+        )
+      )
+    end
+  )
+'
 
 reset_settings_preserving_user_settings() {
   local settings_file="$1"
@@ -13,7 +32,7 @@ reset_settings_preserving_user_settings() {
       :
     elif [[ -n "$backup_file" && -f "$backup_file" ]] \
       && jq "$ETRNL_RESET_SETTINGS_JQ" "$backup_file" >"$tmp" 2>/dev/null; then
-      printf 'install warning: invalid JSON in %s; restored user settings from install backup (dropped hooks)\n' "$settings_file" >&2
+      printf 'install warning: invalid JSON in %s; restored user settings from install backup (dropped stack hooks)\n' "$settings_file" >&2
     else
       printf 'install warning: invalid JSON in %s; resetting to empty settings shell\n' "$settings_file" >&2
       printf '{}\n' >"$tmp"

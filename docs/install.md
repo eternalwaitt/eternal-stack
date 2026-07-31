@@ -9,7 +9,7 @@ Public home: [github.com/eternalwaitt/eternal-stack](https://github.com/eternalw
 
 Default install is intentionally usable but conservative: `--profile core` installs observer hooks, prompt routing, prompt expansion, once-per-session `CLAUDE.md` reinjection, the locked advisory rate limiter, post-tool observation, session cleanup, scripts, docs, rules, skills, and agents. Hard blockers and global memory/backlog/codegraph services stay opt-in.
 
-Breaking install behavior: managed `~/.claude/settings.json` is backed up before install. Unless `--preserve-settings` is supplied, stack-owned `hooks` are dropped so the template can be re-merged cleanly; all other top-level user settings (`permissions`, `skillOverrides`, `enabledPlugins`, `statusLine`, model/env tuning, and similar native Claude Code keys) are preserved. Live migration of memory systems, plugins, MCPs, broad permissions, and private overlays is a separate local rollout step, not an automatic install-time side effect.
+Breaking install behavior: managed `~/.claude/settings.json` is backed up before install. Unless `--preserve-settings` is supplied, stack-owned hooks under `~/.claude/hooks/cc-*` are dropped so the template can be re-merged cleanly; foreign hook entries are preserved. All other top-level user settings (`permissions`, `skillOverrides`, `enabledPlugins`, `statusLine`, model/env tuning, and similar native Claude Code keys) are preserved. Live migration of memory systems, plugins, MCPs, broad permissions, and private overlays is a separate local rollout step, not an automatic install-time side effect.
 
 Full stack install:
 
@@ -32,7 +32,7 @@ ETRNL_ENABLE_STRICT=1 ./scripts/install.sh
 The installer:
 
 - backs up existing Claude settings and `CLAUDE.md`
-- resets managed `~/.claude/settings.json` by dropping the existing `hooks` object (including user hooks) before applying the selected etrnl stack while preserving all other user top-level settings; `--preserve-settings` additionally keeps existing user hooks instead of dropping them before merge
+- resets managed `~/.claude/settings.json` by dropping stack-owned hooks whose commands live under `~/.claude/hooks/cc-*` before applying the selected etrnl stack while preserving foreign hook entries and all other user top-level settings; `--preserve-settings` skips the reset entirely and merges into the existing file
 - backs up pre-existing repo-owned hooks, skills, and agent files so rollback can restore them or remove newly installed copies
 - copies reusable hooks, hook libraries, fixtures, docs, skills, generated `etrnl-*` slash command shims, and ETRNL agent templates
 - copies etrnl assets:

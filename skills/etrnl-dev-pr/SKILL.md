@@ -90,7 +90,11 @@ Write for two readers: a business or product stakeholder who needs the story in 
 
 ```bash
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-REPO_KEY="$(printf '%s' "$REPO_ROOT" | shasum -a 256 | awk '{print $1}' | cut -c1-16)"
+REPO_KEY="$(python3 -c 'import hashlib,sys; print(hashlib.sha256(sys.argv[1].encode()).hexdigest()[:16])' "$REPO_ROOT" 2>/dev/null || true)"
+if [[ -z "$REPO_KEY" ]]; then
+  echo "review-learn error: failed to derive repository key for $REPO_ROOT" >&2
+  exit 1
+fi
 node ~/.claude/scripts/review-learn.mjs learn \
   --findings <findings.json> \
   --root "$REPO_ROOT" \

@@ -40,7 +40,7 @@ JSON
 # shellcheck source=scripts/lib/reset-settings.sh
 source "$ROOT/scripts/lib/reset-settings.sh"
 reset_settings_out="$(reset_settings_preserving_enabled_plugins "$reset_settings_live/settings.json" "$reset_settings_backup/settings.json" 2>&1)"
-assert_contains "reset settings preserves enabledPlugins from backup" "$reset_settings_out" "restored user settings from install backup (dropped hooks)"
+assert_contains "reset settings preserves enabledPlugins from backup" "$reset_settings_out" "restored user settings from install backup (dropped stack hooks)"
 assert_json_expr "reset settings backup fallback keeps plugins" "$(jq -c . "$reset_settings_live/settings.json")" '.enabledPlugins["backup-plugin@example"] == true'
 assert_json_expr "reset settings backup fallback keeps statusLine" "$(jq -c . "$reset_settings_live/settings.json")" '.statusLine.command == "bash ~/.claude/statusline.sh"'
 
@@ -78,7 +78,7 @@ node "$ROOT/scripts/merge-settings.mjs" "$reset_user_settings_home/settings.json
 assert_json_expr "reset preserves permissions" "$(jq -c . "$reset_user_settings_home/settings.json")" '.permissions.defaultMode == "acceptEdits" and (.permissions.allow | index("Bash(npm test)")) != null'
 assert_json_expr "reset preserves skillOverrides" "$(jq -c . "$reset_user_settings_home/settings.json")" '.skillOverrides["foreign-skill@example"] == false'
 assert_json_expr "reset preserves skillListingBudgetFraction" "$(jq -c . "$reset_user_settings_home/settings.json")" '.skillListingBudgetFraction == 0.05'
-assert_json_expr "reset replaces stale hooks from template" "$(jq -c . "$reset_user_settings_home/settings.json")" '([.hooks.SessionStart[]?.hooks[]?.command // empty | select(test("foreign-session-start"))] | length) == 0 and ([.hooks.SessionStart[]?.hooks[]?.command // empty | select(test("cc-sessionstart-restore"))] | length) == 1'
+assert_json_expr "reset preserves foreign hooks while merging stack hooks" "$(jq -c . "$reset_user_settings_home/settings.json")" '([.hooks.SessionStart[]?.hooks[]?.command // empty | select(test("foreign-session-start"))] | length) == 1 and ([.hooks.SessionStart[]?.hooks[]?.command // empty | select(test("cc-sessionstart-restore"))] | length) == 1'
 
 mkdir -p "$CLAUDE_HOME/skills/etrnl-fix-issue" "$CODEX_HOME/skills/etrnl-fix-issue" "$CLAUDE_HOME/commands"
 printf 'legacy claude skill\n' >"$CLAUDE_HOME/skills/etrnl-fix-issue/SKILL.md"
@@ -251,7 +251,7 @@ assert_file "post-install: settings.json present" "$CLAUDE_HOME/settings.json"
 assert_json_expr "post-install: reset preserved user top-level settings" "$(jq -c . "$CLAUDE_HOME/settings.json")" '.autoCompactWindow == 400000 and .skipAutoPermissionPrompt == true and .skillListingBudgetFraction == 0.05 and .permissions.defaultMode == "acceptEdits" and .skillOverrides["foreign-skill@example"] == false'
 assert_json_expr "post-install: reset preserved enabled plugin settings" "$(jq -c . "$CLAUDE_HOME/settings.json")" '.enabledPlugins["foreign-plugin@example"] == true'
 assert_json_expr "post-install: reset preserved statusLine" "$(jq -c . "$CLAUDE_HOME/settings.json")" '.statusLine.command == "bash ~/.claude/statusline.sh"'
-assert_json_expr "post-install: reset removed foreign hooks before stack merge" "$(jq -c . "$CLAUDE_HOME/settings.json")" '([.hooks.SessionStart[]?.hooks[]?.command // empty | select(test("foreign-session-start"))] | length) == 0'
+assert_json_expr "post-install: reset preserved foreign hooks after stack merge" "$(jq -c . "$CLAUDE_HOME/settings.json")" '([.hooks.SessionStart[]?.hooks[]?.command // empty | select(test("foreign-session-start"))] | length) == 1'
 
 # TG-13: the two context-cost hooks ship and register in both templates. Registration is
 # checked on the merged settings (the template groups must survive the merge) and on the

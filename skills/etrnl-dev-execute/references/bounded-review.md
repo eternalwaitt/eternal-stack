@@ -6,7 +6,11 @@ Helper paths: resolve once from the **target repository root**, then use that pr
 
 ```bash
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-REPO_KEY="$(printf '%s' "$REPO_ROOT" | shasum -a 256 | awk '{print $1}' | cut -c1-16)"
+REPO_KEY="$(python3 -c 'import hashlib,sys; print(hashlib.sha256(sys.argv[1].encode()).hexdigest()[:16])' "$REPO_ROOT" 2>/dev/null || true)"
+if [[ -z "$REPO_KEY" ]]; then
+  printf 'bounded-review error: failed to derive repository key for %s\n' "$REPO_ROOT" >&2
+  exit 1
+fi
 if [[ -f "$REPO_ROOT/scripts/review-rules.mjs" && -f "$REPO_ROOT/VERSION" && -d "$REPO_ROOT/skills/etrnl-dev-execute" ]]; then
   ETRNL_NODE=(node)
   ETRNL_SCRIPT_ROOT="$REPO_ROOT/scripts"

@@ -3923,6 +3923,7 @@ assert_contains "bounded-review keeps tier 3 gates at full strength" "$tg12_boun
 assert_contains "bounded-review exempts deep-audit lanes from adaptive skip" "$tg12_bounded_review" "DEEP_AUDIT_REGISTRY=\"\$ETRNL_SCRIPT_ROOT/lib/deep-audit-categories.mjs\""
 assert_contains "bounded-review reuses the review-learnings store" "$tg12_bounded_review" "reviewerDispatches"
 assert_contains "bounded-review requires private overlay learnings path" "$tg12_bounded_review" 'REVIEW_LEARNINGS="${HOME}/.claude/review-learnings/'
+assert_contains "bounded-review derives collision-resistant repo key" "$tg12_bounded_review" "hashlib.sha256"
 assert_contains "bounded-review resolves helper root for source checkout" "$tg12_bounded_review" "ETRNL_SCRIPT_ROOT=\"\$REPO_ROOT/scripts\""
 assert_contains "bounded-review passes explicit repo root to helpers" "$tg12_bounded_review" '--root "$REPO_ROOT"'
 tg12_dev_pr="$(cat "$ROOT/skills/etrnl-dev-pr/SKILL.md")"

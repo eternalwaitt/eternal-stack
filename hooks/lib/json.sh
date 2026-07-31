@@ -67,8 +67,6 @@ while len(data) < max_bytes:
         if not chunk:
             break
         data.extend(chunk)
-    elif data:
-        break
     else:
         break
 sys.stdout.buffer.write(data)
@@ -102,8 +100,6 @@ while (length($data) < $max_bytes) {
         my $n = sysread($in, $chunk, 65536 > ($max_bytes - length($data)) ? ($max_bytes - length($data)) : 65536);
         last if !defined($n) || $n == 0;
         $data .= $chunk;
-    } elsif (length($data)) {
-        last;
     } else {
         last;
     }

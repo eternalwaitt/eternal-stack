@@ -551,6 +551,12 @@ assert_json_expr "router clears plan execution on read-only build noun prompt" "
 plan_exec_update_prompt="$(jq -cn '{session_id:"fixture-plan-exec-clear",prompt:"Explain the update process"}')"
 run_hook cc-userprompt-router.sh "$plan_exec_update_prompt" >/dev/null || true
 assert_json_expr "router clears plan execution on read-only update noun prompt" "$(jq -c . "$plan_exec_clear_state")" '.planExecutionRequested == false'
+plan_exec_question_prompt="$(jq -cn '{session_id:"fixture-plan-exec-clear",prompt:"How do I run the tests?"}')"
+run_hook cc-userprompt-router.sh "$plan_exec_question_prompt" >/dev/null || true
+assert_json_expr "router clears plan execution on read-only run-tests question" "$(jq -c . "$plan_exec_clear_state")" '.planExecutionRequested == false'
+plan_exec_explain_fix_prompt="$(jq -cn '{session_id:"fixture-plan-exec-clear",prompt:"Explain why the fix works"}')"
+run_hook cc-userprompt-router.sh "$plan_exec_explain_fix_prompt" >/dev/null || true
+assert_json_expr "router clears plan execution on read-only fix explanation" "$(jq -c . "$plan_exec_clear_state")" '.planExecutionRequested == false'
 
 skill_trigger_cases="$ROOT/tests/fixtures/skill-triggering/cases.json"
 skill_trigger_count="$(jq 'length' "$skill_trigger_cases")"
@@ -889,6 +895,16 @@ jq -nc --arg cwd "$zero_verify_repo" "$zero_verify_empty_state | .cwd = \$cwd" >
 zero_verify_hypothetical_stop="$(jq -cn --arg cwd "$zero_verify_repo" '{session_id:"fixture-zero-verify-hypothetical",cwd:$cwd,last_assistant_message:"Done. If the tests passed we would ship.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$zero_verify_hypothetical_stop")"
 if [[ -z "$out" ]]; then ok "stop verifier allows hypothetical verification claim without runs"; else not_ok "hypothetical verification claim should pass: $out"; fi
+zero_verify_question_state="$TMPROOT/claude-guard-fixture-zero-verify-question.json"
+jq -nc --arg cwd "$zero_verify_repo" "$zero_verify_empty_state | .cwd = \$cwd" >"$zero_verify_question_state"
+zero_verify_question_stop="$(jq -cn --arg cwd "$zero_verify_repo" '{session_id:"fixture-zero-verify-question",cwd:$cwd,last_assistant_message:"Done. Tests passed? I cannot verify that.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$zero_verify_question_stop")"
+if [[ -z "$out" ]]; then ok "stop verifier allows questioned verification claim without runs"; else not_ok "questioned verification claim should pass: $out"; fi
+zero_verify_assuming_state="$TMPROOT/claude-guard-fixture-zero-verify-assuming.json"
+jq -nc --arg cwd "$zero_verify_repo" "$zero_verify_empty_state | .cwd = \$cwd" >"$zero_verify_assuming_state"
+zero_verify_assuming_stop="$(jq -cn --arg cwd "$zero_verify_repo" '{session_id:"fixture-zero-verify-assuming",cwd:$cwd,last_assistant_message:"Done. Assuming the tests passed.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$zero_verify_assuming_stop")"
+if [[ -z "$out" ]]; then ok "stop verifier allows assuming verification claim without runs"; else not_ok "assuming verification claim should pass: $out"; fi
 
 # --- Regression fixtures: guard false-positive fixes (stack-holes-remediation TG2/TG3/TG4) ---
 holes_guard() {
