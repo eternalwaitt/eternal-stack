@@ -81,6 +81,28 @@ JSON
 reset_settings_preserving_enabled_plugins "$reset_wrapper_home/settings.json" ""
 assert_json_expr "reset settings preserves foreign wrapper mentioning cc hook path" "$(jq -c . "$reset_wrapper_home/settings.json")" '([.hooks.SessionStart[]?.hooks[]?.command // empty | select(test("/opt/wrapper.sh"))] | length) == 1'
 
+reset_foreign_abs_home="$TMPROOT/reset-foreign-abs-hook"
+mkdir -p "$reset_foreign_abs_home"
+cat >"$reset_foreign_abs_home/settings.json" <<'JSON'
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /tmp/foreign/.claude/hooks/cc-foreign.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
+JSON
+reset_settings_preserving_enabled_plugins "$reset_foreign_abs_home/settings.json" ""
+assert_json_expr "reset settings preserves foreign absolute .claude/hooks/cc command" "$(jq -c . "$reset_foreign_abs_home/settings.json")" '([.hooks.SessionStart[]?.hooks[]?.command // empty | select(test("/tmp/foreign/.claude/hooks/cc-foreign.sh"))] | length) == 1'
+
 reset_user_settings_home="$TMPROOT/reset-user-settings"
 mkdir -p "$reset_user_settings_home"
 cat >"$reset_user_settings_home/settings.json" <<'JSON'

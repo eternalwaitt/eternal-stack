@@ -51,7 +51,7 @@ if [[ "$prompt_lower" =~ $read_only_question_pattern ]] \
     : # question plus trailing execution command — keep plan execution armed
   else
     plan_exec_suppress_execute=true
-    cc_state_update '.planExecutionRequested = false | .planExecutionRequestedAt = ""' >/dev/null
+    cc_state_update '.planExecutionRequested = false | .planExecutionRequestedAt = ""' >/dev/null || true
   fi
 fi
 plan_execution_question_pattern='(^|[[:space:][:punct:]])(should|can|could|would|may|might)[[:space:]]+(i|we|you)[[:space:]]+(execute|implement|run)[[:space:]]+(the[[:space:]]+)?plan([[:space:][:punct:]]|$|[?])'
@@ -59,7 +59,7 @@ if [[ "$plan_exec_suppress_execute" != true ]] && [[ "$prompt_lower" =~ $plan_ex
   post_question_prompt="$(printf '%s' "$prompt_lower" | sed -E 's/^.*\?[[:space:]]*//')"
   if [[ -z "$post_question_prompt" ]] || [[ ! "$post_question_prompt" =~ $execution_intent_pattern ]]; then
     plan_exec_suppress_execute=true
-    cc_state_update '.planExecutionRequested = false | .planExecutionRequestedAt = ""' >/dev/null
+    cc_state_update '.planExecutionRequested = false | .planExecutionRequestedAt = ""' >/dev/null || true
   fi
 fi
 
