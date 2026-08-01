@@ -4238,13 +4238,16 @@ maxConcurrentLanes=5
 
 Approved.
 PLAN
-node --input-type=module -e "
+if node --input-type=module -e "
 import { extractMaxConcurrentLanes } from '$ROOT/scripts/lib/spawn-registry.mjs';
 import { readFileSync } from 'node:fs';
 const cap = extractMaxConcurrentLanes(readFileSync('$lane_scope_plan', 'utf8'));
 if (cap !== 5) { console.error('expected 5 from Parallelization strategy, got', cap); process.exit(1); }
-"
-ok "extractMaxConcurrentLanes prefers Parallelization strategy over Tier assessment"
+"; then
+  ok "extractMaxConcurrentLanes prefers Parallelization strategy over Tier assessment"
+else
+  not_ok "extractMaxConcurrentLanes should prefer Parallelization strategy over Tier assessment"
+fi
 spawn_double_ledger="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-spawn-double --plan "$ROOT/hooks/fixtures/plans/good-plan.md" --cwd "$ROOT")"
 spawn_before="$(jq '.spawns | length' "$spawn_double_ledger")"
 assert_command "spawn guard dry-run does not record spawn" node "$ROOT/scripts/execution-ledger.mjs" check-spawn --session fixture-spawn-double --task-name "p01a_writer" --wave "wave-1" --dry-run --json
