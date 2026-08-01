@@ -751,6 +751,32 @@ stop_json="$(fixture stop.json)"
 out="$(run_hook cc-stop-verifier.sh "$stop_json")"
 assert_json_expr "stop verifier blocks unverified completion" "$out" '.decision == "block"'
 
+# email-triage stop gate: bidirectional matcher fixtures for cc_email_triage_gate_active.
+# Paraphrases come from the email-triage SKILL.md description (not from the matcher
+# regex) so this cannot pass circularly. The gate must stay armed for real triage
+# requests and skip investigation-only sessions (zero vivaz-email executions).
+email_triage_stop_state_template='{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:$cmds,failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:$skills,evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:$prompt,lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}'
+
+jq -nc --arg prompt "/email-triage agencia" --argjson cmds '[]' --argjson skills '[{"value":"email-triage","at":"2026-01-01T00:00:00Z"}]' "$email_triage_stop_state_template" >"$TMPROOT/claude-guard-fixture-stop-triage-slash.json"
+out="$(run_hook cc-stop-verifier.sh "$(jq -cn '{session_id:"fixture-stop-triage-slash",last_assistant_message:"Done, email triage complete.",stop_hook_active:false}')")"
+assert_contains "stop email-triage gate armed by slash command" "$out" "email-triage"
+
+jq -nc --arg prompt "let's do email triage and reach Inbox Zero on agencia" --argjson cmds '[]' --argjson skills '[]' "$email_triage_stop_state_template" >"$TMPROOT/claude-guard-fixture-stop-triage-paraphrase.json"
+out="$(run_hook cc-stop-verifier.sh "$(jq -cn '{session_id:"fixture-stop-triage-paraphrase",last_assistant_message:"Done, email triage complete.",stop_hook_active:false}')")"
+assert_contains "stop email-triage gate armed by SKILL.md paraphrase" "$out" "email-triage"
+
+jq -nc --arg prompt "can we investigate our email-triage skill?" --argjson cmds '[{"command":"vivaz-email triage guarded-run --account agencia --max-inbox 500 --apply --allow-apply-before-enrichment --progress","at":"2026-01-01T00:00:01Z"}]' --argjson skills '[]' "$email_triage_stop_state_template" >"$TMPROOT/claude-guard-fixture-stop-triage-ran-cli.json"
+out="$(run_hook cc-stop-verifier.sh "$(jq -cn '{session_id:"fixture-stop-triage-ran-cli",last_assistant_message:"Done, email triage complete.",stop_hook_active:false}')")"
+assert_contains "stop email-triage gate armed by vivaz-email execution evidence" "$out" "email-triage"
+
+jq -nc --arg prompt "can we investigate our email-triage skill?" --argjson cmds '[]' --argjson skills '[]' "$email_triage_stop_state_template" >"$TMPROOT/claude-guard-fixture-stop-triage-investigation.json"
+out="$(run_hook cc-stop-verifier.sh "$(jq -cn '{session_id:"fixture-stop-triage-investigation",last_assistant_message:"Investigation findings: the skill wastes tokens in three places.",stop_hook_active:false}')")"
+if [[ "$out" != *"email-triage phase 1"* && "$out" != *"Inbox Zero"* ]]; then
+  ok "stop email-triage gate skipped for investigation-only session"
+else
+  not_ok "stop email-triage gate should skip investigation-only session: $out"
+fi
+
 evidence_advisory_stop="$(jq -cn '{session_id:"fixture-stop-evidence-advisory",last_assistant_message:"You are right. I will check the log next.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$evidence_advisory_stop")"
 assert_json_expr "stop verifier downgrades non-final evidence wording to advisory" "$out" '.continue == true and (.hookSpecificOutput.additionalContext | test("Evidence-before-agreement"))'
@@ -1123,7 +1149,7 @@ email_triage_missing_state="$TMPROOT/claude-guard-fixture-email-triage-missing.j
 jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[{value:"email-triage",at:"2026-01-01T00:00:00Z"}],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"/email-triage agencia",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$email_triage_missing_state"
 email_triage_missing_stop="$(jq -cn '{session_id:"fixture-email-triage-missing",last_assistant_message:"Done, email triage complete.",stop_hook_active:false}')"
 out="$(PATH="$TMPROOT/bin:$PATH" run_hook cc-stop-verifier.sh "$email_triage_missing_stop")"
-assert_contains "email triage stop requires runtime apply command" "$out" "vivaz-email triage guarded-run --account <id> --max-inbox 500 --apply --require-insights"
+assert_contains "email triage stop requires runtime apply command" "$out" "vivaz-email triage guarded-run --account <id> --max-inbox 500 --apply --allow-apply-before-enrichment --progress"
 
 email_triage_ok_state="$TMPROOT/claude-guard-fixture-email-triage-ok.json"
 jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[{command:"vivaz-email triage guarded-run --account agencia --max-inbox 50 --apply --require-insights",at:"2026-01-01T00:00:01Z"}],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[{value:"email-triage",at:"2026-01-01T00:00:00Z"}],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"/email-triage agencia",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$email_triage_ok_state"
