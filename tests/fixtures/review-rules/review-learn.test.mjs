@@ -19,10 +19,17 @@ function freshRoot() {
   return root;
 }
 
+function ledgerFor(root) {
+  const overlay = path.join(path.dirname(root), `${path.basename(root)}-overlay`);
+  mkdirSync(overlay, { recursive: true });
+  return path.join(overlay, "review-learnings.json");
+}
+
 function runLearn(root, findings, { reviewId = null, corpus = null, minPrecision = null } = {}) {
   const fp = path.join(root, "findings.json");
+  const ledger = ledgerFor(root);
   writeFileSync(fp, JSON.stringify(findings));
-  const args = [learn, "learn", "--findings", fp, "--root", root, "--json"];
+  const args = [learn, "learn", "--findings", fp, "--root", root, "--ledger", ledger, "--json"];
   if (reviewId) args.push("--review-id", reviewId);
   if (corpus) args.push("--corpus", corpus);
   if (minPrecision !== null) args.push("--min-precision", String(minPrecision));
@@ -31,7 +38,7 @@ function runLearn(root, findings, { reviewId = null, corpus = null, minPrecision
   return {
     metric: JSON.parse(res.stdout),
     rules: JSON.parse(readFileSync(path.join(root, "review-rules.json"), "utf8")),
-    ledger: JSON.parse(readFileSync(path.join(root, "review-learnings.json"), "utf8")),
+    ledger: JSON.parse(readFileSync(ledger, "utf8")),
   };
 }
 
@@ -129,7 +136,7 @@ test("clean-run escalation is counted per guard ruleId, not per recurrence key",
     enabledRuleIds: ["no-expect-any"],
     rules: [{ ruleId: "no-expect-any", mode: "warn", version: 1 }],
   }));
-  writeFileSync(path.join(root, "review-learnings.json"), JSON.stringify({
+  writeFileSync(ledgerFor(root), JSON.stringify({
     schemaVersion: 1,
     recurrences: { "deterministic_guard:types_schema_contracts:other-escape": 3, [keyA]: 3 },
     promoted: {

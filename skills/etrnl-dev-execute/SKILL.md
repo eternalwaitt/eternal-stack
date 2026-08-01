@@ -110,17 +110,7 @@ After the final edit of a task or wave, resolve `REPO_ROOT` once (`git rev-parse
 
 ### Wave and task exit check
 
-Close a task or wave only when acceptance criteria are met AND the merged review artifact has no `blocking` entries. A review loop whose merged finding count did not decrease between rounds is stalled: park it, record a blocker, and continue. When the loop ends on a spent cap or a park counter, act on the merged `capDecision` — `proceed-with-residuals` closes the stream autonomously at every tier.
-
-### Anti-rationalization
-
-| Excuse | Rule |
-| --- | --- |
-| "One more review round" | Capped at 2 fix rounds; record residual non-P0/P1 as todos and proceed. |
-| "Ask the owner to approve another cycle" | Only when `capDecision.ownerDecisionRequired` is `true`. A non-P0/P1 finding at the cap is a residual: record it and continue. |
-| "The cap is spent, so the run stops" | An `owner-decision` stops that stream only. Independent task groups keep executing. |
-| "Full doctor after a nit fix" | Run `bash scripts/doctor.sh --changed` only; full doctor stays for release/install. |
-| "Rebuild the canary to be safe" | Reuse the warm environment at unchanged tree hash; rebuild only when harness, migration, or shared surface changed. |
+Close a task or wave only when acceptance criteria are met AND the merged review artifact has no `blocking` entries. A review loop whose merged finding count did not decrease between rounds is stalled: park it, record a blocker, and continue. When the loop ends on a spent cap or a park counter, act on the merged `capDecision` — `proceed-with-residuals` closes the stream autonomously at every tier. Anti-rationalization excuses live in `references/bounded-review.md`.
 
 ## Verification
 
@@ -135,7 +125,7 @@ After each phase:
 
 ### Browser-QA v2 Matrix Artifact
 
-Use `browser-qa-report.mjs create --schema-version 2`; validate with `browser-qa-report.mjs validate <report-path> --artifact-root <root>`. When `status` is `complete`, every route×viewport row needs fresh `capturedAt`, `screenshot` + `screenshotSha256`, and full `provenance`.
+Create with `browser-qa-report.mjs create --schema-version 2`; validate before completion. Complete reports need fresh capture metadata, screenshot + hash, and provenance on every route×viewport row.
 
 ## Verification Gates (hardened)
 
@@ -148,7 +138,7 @@ Each wave gate is a hard stop:
 
 ### React-doctor gate (React/Next UI scope)
 
-When the TASK-changed file set from the execution ledger (not `git status`) includes React/Next UI files (`.tsx`/`.jsx`, or `app/`/`src/` under Next) and react-doctor is available, run `npx --no-install react-doctor --diff <ledger-base-commit>` — pass the task's ledger base commit explicitly; bare `--diff` auto-detects a branch base that can differ from it. Findings on task-changed files must be triaged in the ledger before completion (fail-closed); findings on files the task did not change are recorded but never block. When react-doctor is not installed, record an unavailable check and continue (fail-open). Escape hatch: a ledger `not-applicable` entry with rationale.
+When ledger task-changed files include React/Next UI (`.tsx`/`.jsx`, or `app/`/`src/` under Next) and react-doctor is available, run `npx --no-install react-doctor --diff <ledger-base-commit>`. Triage findings on task-changed files in the ledger before completion; out-of-scope findings are recorded only. Missing react-doctor: record unavailable and continue. Escape hatch: ledger `not-applicable` with rationale.
 
 ## Completion
 

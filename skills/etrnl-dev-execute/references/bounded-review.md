@@ -159,3 +159,13 @@ When the diff changes a shared contract — a field made nullable, a soft-delete
 ## Wave closure
 
 Close a task or wave only when acceptance criteria are met AND the merged review artifact has no `blocking` entries.
+
+## Anti-rationalization
+
+| Excuse | Rule |
+| --- | --- |
+| "One more review round" | Capped at 2 fix rounds; record residual non-P0/P1 as todos and proceed. |
+| "Ask the owner to approve another cycle" | Only when `capDecision.ownerDecisionRequired` is `true`. A non-P0/P1 finding at the cap is a residual: record it and continue. |
+| "The cap is spent, so the run stops" | An `owner-decision` stops that stream only. Independent task groups keep executing. |
+| "Full doctor after a nit fix" | Run `bash scripts/doctor.sh --changed` only; full doctor stays for release/install. |
+| "Rebuild the canary to be safe" | Reuse the warm environment at unchanged tree hash; rebuild only when harness, migration, or shared surface changed. |
