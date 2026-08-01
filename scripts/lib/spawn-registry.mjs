@@ -21,10 +21,16 @@ const MAX_CONCURRENT_LANES_PATTERNS = [
 const REVIEW_SUFFIXES = ["spec_review", "quality_review", "simplifier_review", "simplifier"];
 const IMPLEMENTER_SUFFIXES = ["writer", "executor", "specialist", "server", "migration"];
 
-export function extractMaxConcurrentLanes(planText) {
-  const text = String(planText || "");
+function parallelizationSection(planText) {
+  const match = String(planText || "").match(
+    /^##\s+Parallelization strategy\b[^\n]*\n([\s\S]*?)(?=^##\s+|(?![\s\S]))/im,
+  );
+  return match ? match[1] : "";
+}
+
+function parseMaxConcurrentLanesFromText(text) {
   for (const pattern of MAX_CONCURRENT_LANES_PATTERNS) {
-    const match = text.match(pattern);
+    const match = String(text || "").match(pattern);
     if (!match) continue;
     const parsed = Number.parseInt(match[1], 10);
     if (Number.isInteger(parsed) && parsed > 0 && parsed <= MAX_CONCURRENT_LANES_CAP) {
@@ -32,6 +38,16 @@ export function extractMaxConcurrentLanes(planText) {
     }
   }
   return null;
+}
+
+export function extractMaxConcurrentLanes(planText) {
+  const text = String(planText || "");
+  const scoped = parallelizationSection(text);
+  if (scoped) {
+    const fromSection = parseMaxConcurrentLanesFromText(scoped);
+    if (fromSection !== null) return fromSection;
+  }
+  return parseMaxConcurrentLanesFromText(text);
 }
 
 export function countTaskGroups(planText) {

@@ -278,6 +278,15 @@ export function evaluateSpawnGuard(ledger, input, options = {}) {
   const fixRoundCap = tier >= 3 ? 4 : 2;
   const reviewScopeMode = String(input.reviewScopeMode || "").trim();
 
+  if (overrideReason && !hasDecision(ledger, "spawn-cap-override")) {
+    return {
+      allowed: false,
+      reasonCode: "spawn-cap-override-required",
+      reason: "Spawn cap override requires a prior record-decision --topic spawn-cap-override tied to an investigator-reviewed P0/P1 blocker. --override-reason text alone is not sufficient.",
+      classified,
+    };
+  }
+
   if (recent.length >= maxLanes) {
     return {
       allowed: false,

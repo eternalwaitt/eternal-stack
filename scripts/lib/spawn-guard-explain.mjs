@@ -45,6 +45,10 @@ const EXPLAIN = {
     exactFix: "Stop spawning reviewers; close open streams with proceed-with-residuals or park blockers.",
     exampleCommand: 'node scripts/execution-ledger.mjs record-review --task <id> --cap-decision proceed-with-residuals',
   },
+  "spawn-cap-override-required": {
+    exactFix: "Record owner-approved spawn-cap override before passing --override-spawn-cap.",
+    exampleCommand: 'node scripts/execution-ledger.mjs record-decision --topic spawn-cap-override --decision "approved" --reason "investigator-reviewed P0/P1 blocker"',
+  },
   "spawn-name-not-registered": {
     exactFix: "Use a task id from the plan execution scope or a merged wave reviewer name (wave-N_spec_review).",
     exampleCommand: 'node scripts/execution-ledger.mjs record-spawn-registry --plan <plan-path>',

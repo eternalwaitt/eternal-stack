@@ -460,7 +460,7 @@ function checkSpawn() {
   const waveId = argValue("--wave");
   const subagentType = argValue("--subagent-type");
   const packetMode = argValue("--packet-mode");
-  const overrideReason = argValue("--override-spawn-cap", argValue("--override-reason"));
+  const overrideReason = argValue("--override-spawn-cap");
   const jsonOutput = args.includes("--json");
   const explainOutput = args.includes("--explain");
 

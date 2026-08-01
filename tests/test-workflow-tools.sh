@@ -4218,6 +4218,33 @@ else
 fi
 plan_lane_dry="$(env ETRNL_EXECUTE_HOST=codex node "$ROOT/scripts/execution-ledger.mjs" check-spawn --session fixture-spawn-plan-lanes --task-name "p01a_writer" --wave "wave-1" --dry-run --json)"
 assert_json_expr "check-spawn dry-run reports plan maxConcurrentLanes=4" "$plan_lane_dry" '.maxConcurrentLanes == 4'
+lane_scope_plan="$TMPROOT/lane-scope-plan.md"
+cat >"$lane_scope_plan" <<'PLAN'
+# Lane scope fixture
+
+Status: Final
+Execution scope: all_phases
+Risk tier: 2 — lane scope precedence fixture.
+
+## Tier assessment
+
+Execution cost shape: maxConcurrentLanes=2 in prose only.
+
+## Parallelization strategy
+
+maxConcurrentLanes=5
+
+## Verdict
+
+Approved.
+PLAN
+node --input-type=module -e "
+import { extractMaxConcurrentLanes } from '$ROOT/scripts/lib/spawn-registry.mjs';
+import { readFileSync } from 'node:fs';
+const cap = extractMaxConcurrentLanes(readFileSync('$lane_scope_plan', 'utf8'));
+if (cap !== 5) { console.error('expected 5 from Parallelization strategy, got', cap); process.exit(1); }
+"
+ok "extractMaxConcurrentLanes prefers Parallelization strategy over Tier assessment"
 spawn_double_ledger="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-spawn-double --plan "$ROOT/hooks/fixtures/plans/good-plan.md" --cwd "$ROOT")"
 spawn_before="$(jq '.spawns | length' "$spawn_double_ledger")"
 assert_command "spawn guard dry-run does not record spawn" node "$ROOT/scripts/execution-ledger.mjs" check-spawn --session fixture-spawn-double --task-name "p01a_writer" --wave "wave-1" --dry-run --json
