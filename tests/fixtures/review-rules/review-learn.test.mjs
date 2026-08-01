@@ -1,7 +1,7 @@
-import { test } from "node:test";
+import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, copyFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, copyFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,9 +10,20 @@ import { classify } from "../../../scripts/lib/coderabbit-classifier.mjs";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..", "..");
 const learn = path.join(repoRoot, "scripts", "review-learn.mjs");
+const fixtureRoots = [];
+
+function cleanupRoot(root) {
+  rmSync(root, { recursive: true, force: true });
+  rmSync(path.join(path.dirname(root), `${path.basename(root)}-overlay`), { recursive: true, force: true });
+}
+
+after(() => {
+  for (const root of fixtureRoots) cleanupRoot(root);
+});
 
 function freshRoot() {
   const root = mkdtempSync(path.join(tmpdir(), "rl-"));
+  fixtureRoots.push(root);
   mkdirSync(path.join(root, "templates"));
   copyFileSync(path.join(repoRoot, "templates", "review-rules.example.json"), path.join(root, "templates", "review-rules.example.json"));
   writeFileSync(path.join(root, "review-rules.json"), JSON.stringify({ schemaVersion: 1, rulesetId: "t", version: 1, enabledRuleIds: [], rules: [] }));
