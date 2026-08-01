@@ -110,7 +110,7 @@ After the final edit of a task or wave, resolve `REPO_ROOT` once (`git rev-parse
 
 ### Wave and task exit check
 
-Close a task or wave only when acceptance criteria are met AND the merged review artifact has no `blocking` entries. A review loop whose merged finding count did not decrease between rounds is stalled: park it, record a blocker, and continue. When the loop ends on a spent cap or a park counter, act on the merged `capDecision` — `proceed-with-residuals` closes the stream autonomously at every tier. Anti-rationalization excuses live in `references/bounded-review.md`.
+Close a task or wave only when acceptance criteria are met AND the merged review artifact has no `blocking` entries. A review loop whose merged finding count did not decrease between rounds is stalled: park it, record a blocker, and continue. When the loop ends on a spent cap or a park counter, act on the merged `capDecision`. Anti-rationalization excuses and tier-scoped residual closure live in `references/bounded-review.md`.
 
 ## Verification
 
@@ -123,9 +123,9 @@ After each phase:
 - Tier 3 install proof: `record-install-proof`; specialists: `record-specialist`; artifacts: `record-artifact` (`deep-stack-artifacts`, `completion-audit`, `review-log`, `browser-qa-report`, `context-save`).
 - On repeated failures, dispatch `etrnl-investigator`. Fix env failures once, log with `record-decision`, reuse on later runs.
 
-### Browser-QA v2 Matrix Artifact
+### Browser-QA and react-doctor gates
 
-Create with `browser-qa-report.mjs create --schema-version 2`; run `browser-qa-report.mjs validate <report-path> --artifact-root <root>` and require exit 0 before completion. Complete reports need fresh capture metadata, screenshot + hash, and provenance on every route×viewport row.
+Load `references/verification-gates.md` when either gate applies.
 
 ## Verification Gates (hardened)
 
@@ -135,10 +135,6 @@ Each wave gate is a hard stop:
 2. **Evidence required before wave advance.** Record `execution-ledger.mjs record-check` with status `passed` before marking any task `completed`. A task without a recorded check is incomplete regardless of local observation.
 3. **No self-certification.** Do not mark a gate `passed` based on reading output without running the command. Run the exact command from the plan's Verification gates table.
 4. **Cached gates at unchanged tree hash; partial suites are not gates.** A green full-suite `record-check` at the current worktree hash is valid — do not re-run unchanged trees. Subset runs are not gate evidence when the plan names a full suite.
-
-### React-doctor gate (React/Next UI scope)
-
-When ledger task-changed files include React/Next UI (`.tsx`/`.jsx`, or `app/`/`src/` under Next), run `npx --no-install react-doctor --diff <ledger-base-commit>` when installed. Non-zero exit or untriaged findings on task-changed files require `record-check --status failed` before completion; out-of-scope findings are notes only. Missing react-doctor or genuinely N/A scope: `record-decision` with rationale — never `record-check` for those paths.
 
 ## Completion
 

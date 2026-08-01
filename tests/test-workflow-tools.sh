@@ -1759,14 +1759,14 @@ qa_v2_matrix="$(jq -cn \
   --arg capturedAt "$qa_captured_at" \
   --arg desktopHash "$desktop_hash" \
   --arg mobileHash "$mobile_hash" \
-  '[{"route":"/","viewport":"desktop","status":"passed","screenshot":"desktop-home.png","screenshotSha256":$desktopHash,"capturedAt":$capturedAt,"consoleErrors":0,"failedRequests":0},{"route":"/","viewport":"mobile","status":"passed","screenshot":"mobile-home.png","screenshotSha256":$mobileHash,"capturedAt":$capturedAt,"consoleErrors":0,"failedRequests":0}]')"
+  '[{"route":"/","viewport":"desktop","status":"passed","screenshot":"desktop-home.png","screenshotSha256":$desktopHash,"capturedAt":$capturedAt,"provenance":{"tool":"playwright-cli","capturedAt":$capturedAt},"consoleErrors":0,"failedRequests":0},{"route":"/","viewport":"mobile","status":"passed","screenshot":"mobile-home.png","screenshotSha256":$mobileHash,"capturedAt":$capturedAt,"provenance":{"tool":"playwright-cli","capturedAt":$capturedAt},"consoleErrors":0,"failedRequests":0}]')"
 qa_provenance="$(jq -cn --arg capturedAt "$qa_captured_at" '{"tool":"playwright-cli","targetUrl":"http://127.0.0.1:4173","command":"playwright-cli screenshot","capturedAt":$capturedAt}')"
 qa_report_explicit_v1="$(node "$ROOT/scripts/browser-qa-report.mjs" create --path "$TMPROOT/browser-qa-explicit-v1.json" --schema-version 1 --matrix "$qa_v2_matrix" --console "checked console logs" --network "checked network panel" --status complete)"
 assert_json_expr "browser QA explicit schema version 1 stays v1" "$(jq -c . "$qa_report_explicit_v1")" '.schemaVersion == 1 and (.matrix | not)'
 qa_duplicate_matrix="$(jq -cn \
   --arg capturedAt "$qa_captured_at" \
   --arg desktopHash "$desktop_hash" \
-  '[{"route":"/","viewport":"desktop","status":"passed","screenshot":"desktop-home.png","screenshotSha256":$desktopHash,"capturedAt":$capturedAt,"consoleErrors":0,"failedRequests":0},{"route":"/","viewport":"desktop","status":"passed","screenshot":"desktop-home.png","screenshotSha256":$desktopHash,"capturedAt":$capturedAt,"consoleErrors":0,"failedRequests":0}]')"
+  '[{"route":"/","viewport":"desktop","status":"passed","screenshot":"desktop-home.png","screenshotSha256":$desktopHash,"capturedAt":$capturedAt,"provenance":{"tool":"playwright-cli","capturedAt":$capturedAt},"consoleErrors":0,"failedRequests":0},{"route":"/","viewport":"desktop","status":"passed","screenshot":"desktop-home.png","screenshotSha256":$desktopHash,"capturedAt":$capturedAt,"provenance":{"tool":"playwright-cli","capturedAt":$capturedAt},"consoleErrors":0,"failedRequests":0}]')"
 if matrix_out="$(node "$ROOT/scripts/browser-qa-report.mjs" create --path "$TMPROOT/browser-qa-v2-duplicate.json" --artifact-root "$TMPROOT" --schema-version 2 --routes "/" --viewports "desktop,mobile" --target-url "http://127.0.0.1:4173" --tool "playwright-cli" --provenance "$qa_provenance" --matrix "$qa_duplicate_matrix" --console "checked console logs" --network "checked network panel" --status complete 2>&1)"; then
   not_ok "browser QA v2 rejects incomplete route viewport matrix"
 else
@@ -1774,7 +1774,14 @@ else
   assert_contains "browser QA v2 reports duplicate matrix combination" "$matrix_out" "matrix contains duplicate route / viewport desktop"
 fi
 qa_report_v2="$(node "$ROOT/scripts/browser-qa-report.mjs" create --path "$TMPROOT/browser-qa-v2.json" --artifact-root "$TMPROOT" --schema-version 2 --routes "/" --viewports "desktop,mobile" --target-url "http://127.0.0.1:4173" --tool "playwright-cli" --provenance "$qa_provenance" --matrix "$qa_v2_matrix" --console "checked console logs" --network "checked network panel" --status complete)"
+qa_v2_tree_hash="$(jq -r '.provenance.treeHash' "$qa_report_v2")"
 assert_command "browser QA v2 report validates" node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_report_v2" --artifact-root "$TMPROOT"
+assert_command "browser QA v2 completion gate validates complete report at tree hash" node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_report_v2" --artifact-root "$TMPROOT" --require-complete --tree-hash "$qa_v2_tree_hash"
+if qa_tree_gate="$(node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_report_v2" --artifact-root "$TMPROOT" --require-complete --tree-hash "wrong-tree-hash" 2>&1)"; then
+  not_ok "browser QA validate rejects mismatched tree hash"
+else
+  assert_contains "browser QA validate rejects tree hash mismatch" "$qa_tree_gate" "provenance.treeHash does not match expected worktree hash"
+fi
 printf '%s\n' "trace bytes" >"$TMPROOT/home.trace.zip"
 printf '%s\n' "video bytes" >"$TMPROOT/home.webm"
 trace_hash="$(node "$ROOT/scripts/browser-qa-report.mjs" hash "$TMPROOT/home.trace.zip")"
@@ -1784,11 +1791,16 @@ qa_trace_matrix="$(jq -cn \
   --arg desktopHash "$desktop_hash" \
   --arg traceHash "$trace_hash" \
   --arg videoHash "$video_hash" \
-  '[{"route":"/","viewport":"desktop","status":"passed","screenshot":"desktop-home.png","screenshotSha256":$desktopHash,"trace":"home.trace.zip","traceSha256":$traceHash,"video":"home.webm","videoSha256":$videoHash,"pageErrors":[],"capturedAt":$capturedAt,"consoleErrors":0,"failedRequests":0}]')"
+  '[{"route":"/","viewport":"desktop","status":"passed","screenshot":"desktop-home.png","screenshotSha256":$desktopHash,"trace":"home.trace.zip","traceSha256":$traceHash,"video":"home.webm","videoSha256":$videoHash,"pageErrors":[],"capturedAt":$capturedAt,"provenance":{"tool":"playwright-cli","capturedAt":$capturedAt},"consoleErrors":0,"failedRequests":0}]')"
 qa_report_trace="$(node "$ROOT/scripts/browser-qa-report.mjs" create --path "$TMPROOT/browser-qa-trace.json" --artifact-root "$TMPROOT" --schema-version 2 --routes "/" --viewports "desktop" --target-url "http://127.0.0.1:4173" --tool "playwright-cli" --provenance "$qa_provenance" --matrix "$qa_trace_matrix" --console "checked console logs" --network "checked network panel" --status complete)"
 assert_command "browser QA v2 trace video pageErrors validate" node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_report_trace" --artifact-root "$TMPROOT"
 qa_migrated="$(node "$ROOT/scripts/browser-qa-report.mjs" migrate "$qa_report" --path "$TMPROOT/browser-qa-migrated.json")"
 assert_command "browser QA migrate emits valid v2 draft" node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_migrated"
+if qa_draft_gate="$(node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_migrated" --artifact-root "$TMPROOT" --require-complete 2>&1)"; then
+  not_ok "browser QA validate rejects draft report under completion gate"
+else
+  assert_contains "browser QA validate rejects draft under --require-complete" "$qa_draft_gate" "report status must be complete"
+fi
 assert_json_expr "browser QA migrated report is v2" "$(jq -c . "$qa_migrated")" '.schemaVersion == 2 and (.matrix | length) == 2'
 qa_artifacts="$TMPROOT/browser-qa-artifacts"
 mkdir -p "$qa_artifacts/browser-qa"
