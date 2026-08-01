@@ -12,10 +12,10 @@ State the resolved profile and the signal that selected it in the first status l
 
 ## Claude profile defaults
 
-1. Default `maxConcurrentLanes` to `3`. Raise it only when the plan's `## Parallelization strategy` justifies a higher cap in one explicit line.
+1. When the plan omits `maxConcurrentLanes`, default to `3`. An explicit `maxConcurrentLanes=N` in `## Parallelization strategy` overrides this floor for every N from 1 through 6.
 2. Tier 0–2 waves: one merged quality review per wave over the combined wave diff, plus one whole-branch adversarial pass at plan end.
 3. Tier 3 waves keep the full spec → quality → simplifier chain per write task on wave 1. Wave 2 onward runs those three roles as one merged review per wave over the wave diff, except on a wave recorded with `full-fan-out-wave`.
-4. Run `node scripts/review-rules.mjs check --changed-only` before spawning any LLM reviewer whenever the tree has source changes.
+4. Run `node ~/.claude/scripts/review-rules.mjs check --changed-only --root "$REPO_ROOT"` in application repos (after install), or `"$ETRNL_STACK/scripts/review-rules.mjs"` only when `ETRNL_STACK` points at the trusted Eternal Stack checkout that owns the active install, before spawning any LLM reviewer whenever the tree has source changes.
 
 ## Spawn guard (hook authoritative)
 
@@ -31,7 +31,7 @@ node scripts/execution-ledger.mjs check-spawn \
   --dry-run
 ```
 
-When the hook is bypassed (`ETRNL_SKIP_HOOKS=cc-spawn-guard`) or spawn guard mode is `off`, run `check-spawn` without `--dry-run` before every dispatch so economics stay enforced.
+When the hook is bypassed (`ETRNL_SKIP_HOOKS=cc-spawn-guard`) or spawn guard mode is `off`, run `check-spawn --allow-record` before every dispatch so the skill layer can record spawns.
 
 Recovery diagnostics:
 
@@ -79,8 +79,7 @@ When a Task/Agent subagent completes:
 2. Record closure in the ledger so lane caps stay accurate:
 
 ```bash
-printf '{"session_id":"%s","task_id":"<task>","agent_id":"<id>","last_assistant_message":"<subagent output with ETRNL_CONTRACT>"}\n' \
-  "$CLAUDE_SESSION_ID" \
+node -e 'const payload={session_id:process.env.CLAUDE_SESSION_ID,task_id:"<task>",agent_id:"<id>",last_assistant_message:"<subagent output with ETRNL_CONTRACT>"}; process.stdout.write(JSON.stringify(payload))' \
   | node scripts/execution-ledger.mjs record-subagent
 ```
 

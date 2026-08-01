@@ -7,7 +7,7 @@ Public home: [github.com/eternalwaitt/eternal-stack](https://github.com/eternalw
 ./scripts/doctor.sh
 ```
 
-Default install registers strict blockers: pretool guard, post-write quality and sycophancy checks, repeated-failure diagnosis, subagent recording, compact recovery, RTK `rg` compat, and the `Stop` verifier. `--profile core` also installs prompt routing, prompt expansion, once-per-session `CLAUDE.md` reinjection, the advisory rate limiter, post-tool observation, session cleanup, scripts, docs, rules, skills, and agents. Global memory/backlog/codegraph services stay opt-in via `--profile full`.
+Default install registers strict blockers: pretool guard, spawn guard (enforce), post-write quality and sycophancy checks, repeated-failure diagnosis, subagent recording, compact recovery, RTK `rg` compat, and the `Stop` verifier. `--profile core` also installs prompt routing, prompt expansion, once-per-session `CLAUDE.md` reinjection, the advisory rate limiter, post-tool observation, session cleanup, scripts, docs, rules, skills, and agents. Global memory/backlog/codegraph services stay opt-in via `--profile full`.
 
 Breaking install behavior: managed `~/.claude/settings.json` is backed up before install. Unless `--preserve-settings` is supplied, stack-owned hooks under `~/.claude/hooks/cc-*` are dropped so the template can be re-merged cleanly; foreign hook entries are preserved. All other top-level user settings (`permissions`, `skillOverrides`, `enabledPlugins`, `statusLine`, model/env tuning, and similar native Claude Code keys) are preserved. Live migration of memory systems, plugins, MCPs, broad permissions, and private overlays is a separate local rollout step, not an automatic install-time side effect.
 
@@ -21,7 +21,7 @@ Full stack install:
 
 The full profile runs the core install plus CodeGraph, Beads, and Hindsight provisioning. It fails closed in non-interactive mode unless `--yes` is supplied. Use `--skip-codegraph`, `--skip-beads`, or `--skip-hindsight` only when the skip is intentional and recorded in the rollout evidence.
 
-Observer-only install (advisory hooks without pretool/post-write blockers):
+Observer-only install (advisory hooks without pretool/post-write blockers; spawn guard stays on enforce):
 
 ```bash
 ETRNL_ENABLE_STRICT=0 ./scripts/install.sh
@@ -124,7 +124,7 @@ Startup update checks are cached and local-first.
 - `ETRNL_REMOTE_UPDATE_CHECK=1`: also check the git upstream.
 - `ETRNL_AUTO_UPDATE=0`: disable automatic local etrnl repair from the recorded source checkout. Local auto-update is enabled by default when the installed fingerprint is stale.
 - `ETRNL_TOOL_UPDATE_CHECK=0`: disable CodeGraph/Beads checks inside update-check.
-- `ETRNL_SKILL_UPDATE_CHECK=0`: disable the per-skill update check entirely. When enabled (default), stale repo-owned skills or tool stack trigger an update directive — run the reported update command before continuing unless the user explicitly declines.
+- `ETRNL_SKILL_UPDATE_CHECK=0`: disable the per-skill update check entirely. When enabled (default), stale repo-owned skills or tool stack trigger an advisory update note — run the reported update command when practical unless the user explicitly declines.
 
 Tool bootstrap:
 
@@ -147,4 +147,4 @@ Every requested Claude `etrnl-*` skill invocation runs the installed update chec
 
 Codex does not expose the same prompt-submit hook in the current CLI, so every repo-owned Codex skill starts with `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill <skill>`.
 
-If the local Eternal Stack is stale, the helper auto-updates from the recorded source checkout when safe, then surfaces any remaining remote or tool-stack items with a directive to run the reported update command before continuing the skill — only skip when the user explicitly declines.
+If the local Eternal Stack is stale, the helper auto-updates from the recorded source checkout when safe, then surfaces any remaining remote or tool-stack items as an advisory note — run the reported update command when practical; only skip when the user explicitly declines.

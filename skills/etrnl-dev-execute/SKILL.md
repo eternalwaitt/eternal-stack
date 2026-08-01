@@ -57,7 +57,7 @@ Completion means every item inside the plan's `Execution scope` is verified or e
    - Use worktree isolation only when the task is write-capable, disjoint, not touching submodule paths, and the runtime supports it.
    - Emit heartbeat text at wave and task boundaries: `[checkpoint] wave <n> task <id> starting`.
    - If a subagent completion signal is missing, spot-check expected output, git state, and ledger artifacts before deciding whether to retry or continue.
-   - Default `maxConcurrentLanes` to 3 unless the plan's `## Parallelization strategy` justifies more in one explicit line. The Codex execute profile drops that default to 2.
+   - When the plan omits `maxConcurrentLanes`, default to 3 on Claude and 2 on Codex. An explicit `maxConcurrentLanes=N` in `## Parallelization strategy` overrides the host default for every N from 1 through 6.
    - Progress reported to the user is ledger position plus named gates only, per the execute profile (`references/claude-execute-profile.md` or `references/codex-execute-profile.md`). Rolling hour ETAs are prohibited on every host; report a field the ledger cannot supply as unavailable rather than guessing.
    - When `history --progress --renegotiation-check` shows `renegotiationRequired=true`, pause once: present a consolidation proposal (bundle remaining waves per screen/domain for all tiers; one merged review per wave; tier-3 surfaces keep tier-3 lenses and gates per wave — no batching exemption), take ONE user decision, log it via `record-decision`, and never re-ask.
    - Model tier defaults for Claude Task/Agent packets: read-only scout/review/consumer-trace lanes → `fast`; write implementation → `standard`; tier-3 money/migration/security review → `top`; packet override needs one `modelTierJustification` line. See `references/claude-execute-profile.md` for the Claude model contract. Codex hosts resolve slugs through `scripts/lib/codex-model-routing.mjs` per `references/codex-execute-profile.md`; never hand-write model strings on Codex spawns.
@@ -94,7 +94,7 @@ Load the matching execute profile before the first spawn:
 Before **every** subagent dispatch (`Task`, `Agent`, `TaskCreate`, `spawn_agent`, or native child agent):
 
 1. When the host spawn hook is registered and active (`cc-spawn-guard.sh` on Claude; `spawn-guard-pre-tool-use.sh` in Codex `config.toml`), the hook is the **sole spawn recorder** — use `check-spawn --dry-run` from the skill layer only while debugging packet shape.
-2. When the hook is absent or spawn guard mode is `off`, run `node scripts/execution-ledger.mjs check-spawn` without `--dry-run` before dispatch so economics stay enforced.
+2. When the hook is absent or spawn guard mode is `off`, run `node scripts/execution-ledger.mjs check-spawn --allow-record` before dispatch so the skill layer can record spawns.
 3. Exit 1 is a hard stop — read recovery with `check-spawn --explain --task-name "<name>" --wave "<wave>"`; do not rename the task to bypass the guard.
 
 The guard enforces wave 2+ merged review, batch adoption on Large/multi-group plans, lane caps, review-scope gating, and spawn-name allowlists derived from the plan.

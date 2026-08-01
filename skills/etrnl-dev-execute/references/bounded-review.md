@@ -1,6 +1,6 @@
 # Bounded CodeRabbit-lens review (risk-tiered)
 
-Run parallel reviewers after the final edit of a task or wave, merge findings once, fix in at most two rounds on tier 0–2 (tier 3 P0/P1 blockers continue through four reopen rounds), and reopen only on P0/P1 blockers.
+Run parallel LLM reviewers after the final edit of a task or wave when review scope permits (`merged_quality` or `full_lenses`); on `deterministic_only` scopes run `review-rules.mjs` only with no LLM reviewer spawns. Merge findings once, fix in at most two rounds on tier 0–2 (tier 3 P0/P1 blockers continue through four reopen rounds), and reopen only on P0/P1 blockers.
 
 Helper paths: resolve once from the **target repository root**, then use that prefix for every command below.
 

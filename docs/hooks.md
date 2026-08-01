@@ -17,9 +17,10 @@ Skills describe repeatable workflows. Hooks enforce what must not be skipped at 
 
 **Observer hooks** watch tool and session activity, append structured events to session state, and inject context. They do not deny tool calls except where noted below.
 
-**Enforcement hooks** return a block decision to Claude Code. Default install registers pretool guard, post-write quality and sycophancy checks, repeated-failure diagnosis, and subagent recording. Two hooks run in every template (including observer-only opt-out):
+**Enforcement hooks** return a block decision to Claude Code. Default install registers pretool guard, post-write quality and sycophancy checks, repeated-failure diagnosis, and subagent recording. Three hooks run in every template (including observer-only opt-out):
 
 - **`cc-stop-verifier.sh`** blocks completion claims that lack evidence (registered on `Stop` in both templates).
+- **`cc-spawn-guard.sh`** enforces execute spawn economics on `Task / Agent / TaskCreate` (registered on `PreToolUse` in both templates; default enforce mode).
 - **`cc-rtk-rg-compat.sh`** rewrites selected `rg` Bash commands before RTK hooks run (registered on `PreToolUse` for `Bash` in both templates).
 
 **Session state** lives in a per-session JSON file under the system temp directory (`CLAUDE_GUARD_STATE_DIR` overrides the root). Durable cross-compact history is appended to canonical ETRNL JSONL state via `scripts/etrnl-state.mjs` (`ETRNL_STATE_DIR` overrides storage for tests).
@@ -54,6 +55,7 @@ flowchart TB
   UP --> cc-userprompt-router
   UPE --> cc-userprompt-expansion
   PT --> cc-rtk-rg-compat
+  PT --> cc-spawn-guard
   PT --> cc-pretooluse-guard
   PT --> cc-compact-suggest
   PT --> cc-question-preference
@@ -75,12 +77,12 @@ Solid boxes are Claude Code events. Hook names are the `cc-*` entrypoints wired 
 
 Install selects the settings template:
 
-| Template | Command | Pretool guard | Post-write blockers | Stop verifier |
-| --- | --- | --- | --- | --- |
-| Default | `./scripts/install.sh` | Full pretool guard | Sycophancy + quality + failure diagnose | Yes |
-| Observer-only | `ETRNL_ENABLE_STRICT=0 ./scripts/install.sh` | RTK `rg` compat only | Rate limiter (advisory) | Yes |
+| Template | Command | Pretool guard | Spawn guard | Post-write blockers | Stop verifier |
+| --- | --- | --- | --- | --- | --- |
+| Default | `./scripts/install.sh` | Full pretool guard | Yes (enforce) | Sycophancy + quality + failure diagnose | Yes |
+| Observer-only | `ETRNL_ENABLE_STRICT=0 ./scripts/install.sh` | RTK `rg` compat only | Yes (enforce) | Rate limiter (advisory) | Yes |
 
-Default install adds `cc-pretooluse-guard.sh` on `PreToolUse`, post-write quality and sycophancy checks on `PostToolUse`, `cc-posttoolusefailure-diagnose.sh` on `PostToolUseFailure`, and `cc-subagentstop-record.sh` on `SubagentStop`. Compact and session hooks are identical between templates.
+Default install adds `cc-pretooluse-guard.sh` on `PreToolUse`, post-write quality and sycophancy checks on `PostToolUse`, `cc-posttoolusefailure-diagnose.sh` on `PostToolUseFailure`, and `cc-subagentstop-record.sh` on `SubagentStop`. Both templates register `cc-spawn-guard.sh` on `Task / Agent / TaskCreate`. Compact and session hooks are identical between templates.
 
 Run `./scripts/doctor.sh` and `tests/test-hooks.sh` before switching to observer-only. Use [install.md](install.md) for rollback and `--preserve-settings`.
 

@@ -53,7 +53,7 @@ User-facing status is ledger position plus named gates, read from one command:
 Before **every** `spawn_agent` / native child-agent call on the Codex host:
 
 - When `~/.codex/hooks/spawn-guard-pre-tool-use.sh` is registered in `config.toml`, the hook is the **sole spawn recorder** — do not call `check-spawn` without `--dry-run` from the skill layer.
-- When the hook is absent or spawn guard mode is `off`, run `check-spawn` without `--dry-run` before dispatch.
+- When the hook is absent or spawn guard mode is `off`, run `check-spawn --allow-record` before dispatch.
 
 ```bash
 # When spawn-guard-pre-tool-use.sh is registered and active (hook is the sole recorder):
@@ -63,7 +63,7 @@ node scripts/execution-ledger.mjs check-spawn --dry-run \
   --wave "<current wave or phase id>"
 
 # When the hook is absent or spawn guard mode is off (skill layer records):
-node scripts/execution-ledger.mjs check-spawn \
+node scripts/execution-ledger.mjs check-spawn --allow-record \
   --session "${CODEX_SESSION_ID:-${CLAUDE_SESSION_ID:-default}}" \
   --task-name "<spawn task_name>" \
   --wave "<current wave or phase id>"
@@ -118,8 +118,7 @@ When a native child agent or `spawn_agent` lane completes:
 2. Record closure in the ledger so lane caps stay accurate:
 
 ```bash
-printf '{"session_id":"%s","task_id":"<task>","agent_id":"<id>","last_assistant_message":"<subagent output with ETRNL_CONTRACT>"}\n' \
-  "${CODEX_SESSION_ID:-${CLAUDE_SESSION_ID:-default}}" \
+node -e 'const payload={session_id:process.env.CODEX_SESSION_ID||process.env.CLAUDE_SESSION_ID||"default",task_id:"<task>",agent_id:"<id>",last_assistant_message:"<subagent output with ETRNL_CONTRACT>"}; process.stdout.write(JSON.stringify(payload))' \
   | node scripts/execution-ledger.mjs record-subagent
 ```
 
