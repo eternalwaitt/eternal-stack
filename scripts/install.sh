@@ -113,8 +113,9 @@ profile_manifest_path() {
 
 PROFILE_MANIFEST="$(profile_manifest_path)"
 
-if [[ "${ETRNL_ENABLE_STRICT:-0}" == "1" ]]; then
-  SETTINGS_TEMPLATE="$ROOT/templates/settings.strict.json"
+SETTINGS_TEMPLATE="$ROOT/templates/settings.strict.json"
+if [[ "${ETRNL_ENABLE_STRICT:-1}" == "0" ]]; then
+  SETTINGS_TEMPLATE="$ROOT/templates/settings.json"
 fi
 
 settings_mode_for_template() {

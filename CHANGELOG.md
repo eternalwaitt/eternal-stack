@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Changed
 
+- Default install now merges strict blocker hooks (`templates/settings.strict.json`). Set `ETRNL_ENABLE_STRICT=0` for the previous observer-only template.
 - `etrnl-ops-ship` is a class-aware verifier: it reads plan/PR evidence and the release manifest, confirms PR gate green, and promotes by signal. It no longer originates release-control requirements or blocks deploy with "write a follow-up release-controls PR."
 - UserPromptSubmit routing for `etrnl-ops-ship` no longer matches routine phrasing such as "ship this feature change"; explicit rollout/cutover/go-no-go prompts still route ship.
 - `pr-preflight` and `plan-readiness-check` auto-bootstrap release controls; users no longer run setup scripts manually.

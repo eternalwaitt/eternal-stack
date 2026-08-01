@@ -4,15 +4,15 @@ Pretool deny rules, stop-verifier completion gates, fail-open behavior, and shar
 
 ## What runs when
 
-| Layer | Registered in default install | Added in strict install |
+| Layer | Default install | Observer-only opt-out (`ETRNL_ENABLE_STRICT=0`) |
 | --- | --- | --- |
-| Session / prompt | `cc-sessionstart-restore.sh`, `cc-userprompt-router.sh`, `cc-userprompt-expansion.sh` | — |
-| Pretool | `cc-spawn-guard.sh` (`Task / Agent / TaskCreate`), `cc-rtk-rg-compat.sh` (`Bash` only) | `cc-pretooluse-guard.sh` (expanded matchers; packet check only — spawn economics stay in spawn guard) |
-| Post-tool | `cc-rate-limiter.sh`, `cc-posttoolbatch-observer.sh` | `cc-posttooluse-sycophancy.sh`, `cc-posttooluse-quality.sh`, `cc-posttoolusefailure-diagnose.sh` |
-| Completion | `cc-stop-verifier.sh` | `cc-subagentstop-record.sh` |
-| Compact / end | `cc-precompact-save.sh`, `cc-postcompact-record.sh`, `cc-sessionend-save.sh` | — |
+| Session / prompt | `cc-sessionstart-restore.sh`, `cc-userprompt-router.sh`, `cc-userprompt-expansion.sh` | same |
+| Pretool | `cc-spawn-guard.sh` (`Task / Agent / TaskCreate`), `cc-rtk-rg-compat.sh` (`Bash`), `cc-pretooluse-guard.sh` | `cc-spawn-guard.sh`, `cc-rtk-rg-compat.sh` only |
+| Post-tool | `cc-rate-limiter.sh`, `cc-posttoolbatch-observer.sh`, `cc-posttooluse-sycophancy.sh`, `cc-posttooluse-quality.sh`, `cc-posttoolusefailure-diagnose.sh` | `cc-rate-limiter.sh`, `cc-posttoolbatch-observer.sh` only |
+| Completion | `cc-stop-verifier.sh`, `cc-subagentstop-record.sh` | `cc-stop-verifier.sh` only |
+| Compact / end | `cc-precompact-save.sh`, `cc-postcompact-record.sh`, `cc-sessionend-save.sh` | same |
 
-`cc-stop-verifier.sh` is not strict-only: both templates register it on `Stop`. Strict mode adds pretool and post-write blockers plus subagent recording.
+`cc-stop-verifier.sh` runs in both templates on `Stop`. Default install adds pretool and post-write blockers plus subagent recording.
 
 ### Install ordering and overrides
 
@@ -23,7 +23,7 @@ Pretool deny rules, stop-verifier completion gates, fail-open behavior, and shar
 
 ## `cc-pretooluse-guard.sh`
 
-Blocks unsafe or unscoped tool use before Claude executes the tool. Matcher (strict template): `Bash|Read|Edit|Write|MultiEdit|WebSearch|Task|TaskCreate|Agent|mcp__serena__search_for_pattern`.
+Blocks unsafe or unscoped tool use before Claude executes the tool. Matcher (default template): `Bash|Read|Edit|Write|MultiEdit|WebSearch|Task|TaskCreate|Agent|mcp__serena__search_for_pattern`.
 
 Rule families (aggregated where possible so the agent can fix multiple issues in one pass):
 
@@ -50,7 +50,7 @@ Override approved safety-critical commands with `CLAUDE_GUARD_OVERRIDE_TOKEN` wh
 
 ## `cc-stop-verifier.sh`
 
-Blocks completion claims on `Stop` when evidence is missing or stale. Runs in default and strict installs.
+Blocks completion claims on `Stop` when evidence is missing or stale. Runs in both install templates.
 
 Checks include:
 
@@ -114,7 +114,7 @@ port=$(node ~/.claude/scripts/port-guard.mjs pick --start 3100)
 pnpm dev -- --port "$port"
 ```
 
-Port checking is active for dev-server commands in strict mode. If `node` or `~/.claude/scripts/port-guard.mjs` is missing, the guard denies the dev-server command until the helper/runtime is restored. Install Node and rerun `scripts/install.sh` to restore strict checking.
+Port checking is active for dev-server commands when the pretool guard is installed (default). If `node` or `~/.claude/scripts/port-guard.mjs` is missing, the guard denies the dev-server command until the helper/runtime is restored. Install Node and rerun `scripts/install.sh` to restore checking.
 
 Tune scanning with `CLAUDE_GUARD_PORT_START`, `CLAUDE_GUARD_PORT_END`, `CLAUDE_GUARD_MAX_PORT_SCAN`, and `CLAUDE_GUARD_FORCE_LARGE_SCAN=1`.
 

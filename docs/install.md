@@ -7,7 +7,7 @@ Public home: [github.com/eternalwaitt/eternal-stack](https://github.com/eternalw
 ./scripts/doctor.sh
 ```
 
-Default install is intentionally usable but conservative: `--profile core` installs observer hooks, prompt routing, prompt expansion, once-per-session `CLAUDE.md` reinjection, the locked advisory rate limiter, post-tool observation, session cleanup, scripts, docs, rules, skills, and agents. Hard blockers and global memory/backlog/codegraph services stay opt-in.
+Default install registers strict blockers: pretool guard, post-write quality and sycophancy checks, repeated-failure diagnosis, subagent recording, compact recovery, RTK `rg` compat, and the `Stop` verifier. `--profile core` also installs prompt routing, prompt expansion, once-per-session `CLAUDE.md` reinjection, the advisory rate limiter, post-tool observation, session cleanup, scripts, docs, rules, skills, and agents. Global memory/backlog/codegraph services stay opt-in via `--profile full`.
 
 Breaking install behavior: managed `~/.claude/settings.json` is backed up before install. Unless `--preserve-settings` is supplied, stack-owned hooks under `~/.claude/hooks/cc-*` are dropped so the template can be re-merged cleanly; foreign hook entries are preserved. All other top-level user settings (`permissions`, `skillOverrides`, `enabledPlugins`, `statusLine`, model/env tuning, and similar native Claude Code keys) are preserved. Live migration of memory systems, plugins, MCPs, broad permissions, and private overlays is a separate local rollout step, not an automatic install-time side effect.
 
@@ -21,10 +21,10 @@ Full stack install:
 
 The full profile runs the core install plus CodeGraph, Beads, and Hindsight provisioning. It fails closed in non-interactive mode unless `--yes` is supplied. Use `--skip-codegraph`, `--skip-beads`, or `--skip-hindsight` only when the skip is intentional and recorded in the rollout evidence.
 
-Strict local install:
+Observer-only install (advisory hooks without pretool/post-write blockers):
 
 ```bash
-ETRNL_ENABLE_STRICT=1 ./scripts/install.sh
+ETRNL_ENABLE_STRICT=0 ./scripts/install.sh
 ./scripts/doctor.sh
 ~/.claude/scripts/doctor-etrnl.sh
 ```
@@ -60,8 +60,7 @@ The installer:
 - installs scripts, script libraries, and `~/.codex/etrnl/install.json` into `~/.codex` so Codex sessions can run the same skill helpers without depending on `~/.claude`
 - runs `settings-audit.mjs --fix` so duplicate hook commands are compacted and the legacy race-prone rate limiter is replaced with `cc-rate-limiter.sh`
 - runs the hook and workflow-tool test harnesses plus the post-upgrade canary
-- applies safe observer hooks after the hooks reset, including once-per-session `UserPromptSubmit` `CLAUDE.md` reinjection and the advisory rate limiter
-- merges strict-only blocker hooks (`PreToolUse` guard, post-write quality/sycophancy, `PostToolUseFailure`, `SubagentStop`) only when `ETRNL_ENABLE_STRICT=1`; default install already registers observer hooks, compact recovery, RTK `rg` compat, and the `Stop` verifier
+- merges strict blocker hooks by default (`PreToolUse` guard, post-write quality/sycophancy, `PostToolUseFailure`, `SubagentStop`); set `ETRNL_ENABLE_STRICT=0` to install the observer-only template instead
 - records the evidence-before-agreement lesson to ETRNL state first, then exports it to Hindsight only when the Hindsight canary is green
 
 ## Hindsight Marketplace Access

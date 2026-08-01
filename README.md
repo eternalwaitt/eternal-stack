@@ -6,7 +6,7 @@ I kept hitting the same failure modes: the agent marking work complete without r
 
 Eternal Stack is hooks, skills, and install profiles for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that encode the habits I actually want — read before editing, verify before claiming done, finish the approved plan — in places the model cannot quietly skip.
 
-I run this daily on real projects. The defaults are conservative; strict blockers are opt-in.
+I run this daily on real projects. Default install registers strict blockers — pretool guard, post-edit quality checks, and completion gates — so complexity and policy regressions fail at edit time instead of in CI.
 
 **Current release:** [VERSION](VERSION) — [CHANGELOG](CHANGELOG.md)
 
@@ -36,9 +36,9 @@ cd eternal-stack
 ./scripts/doctor.sh
 ```
 
-That's it. The `core` profile is the right default for almost everyone — it installs the observer stack, repo-owned `etrnl-*` agents, and verification tests. The `full` profile adds optional CodeGraph, Beads, and Hindsight companions for heavier setups.
+That's it. The `core` profile is the right default for almost everyone — it installs the strict hook stack, repo-owned `etrnl-*` agents, and verification tests. The `full` profile adds optional CodeGraph, Beads, and Hindsight companions for heavier setups.
 
-See [docs/install.md](docs/install.md) for profiles, strict mode, rollback, and migration.
+See [docs/install.md](docs/install.md) for profiles, observer-only opt-out, rollback, and migration.
 
 Install writes `~/.claude/etrnl/install.json` and `~/.codex/etrnl/install.json` so each host can detect source drift. Local auto-update from your checkout is on by default; set `ETRNL_AUTO_UPDATE=0` to opt out.
 
@@ -69,13 +69,13 @@ tests/test-hooks.sh
 | `core` | Hooks, skills, agents, doctor, rollback, and ETRNL state. Start here. |
 | `full` | Everything in `core`, plus CodeGraph/Beads bootstrap paths and Hindsight canaries |
 
-Want the hard blockers — the ones that refuse to let an agent proceed at all? Enable strict mode after you've run doctor, passed hook tests, rehearsed rollback, and done a smoke pass:
+Default install registers strict blockers: pretool guard, post-write quality and sycophancy checks, repeated-failure diagnosis, subagent recording, compact recovery, RTK `rg` compat, and the `Stop` verifier. Observer-only install (advisory hooks without pretool/post-write blockers) is opt-out:
 
 ```bash
-ETRNL_ENABLE_STRICT=1 ./scripts/install.sh
+ETRNL_ENABLE_STRICT=0 ./scripts/install.sh
 ```
 
-Don't skip those steps. Strict mode with untested hooks will interrupt things you didn't want interrupted.
+Run `./scripts/doctor.sh` and `tests/test-hooks.sh` before switching to observer-only if you rely on local enforcement during development.
 
 ---
 
@@ -88,9 +88,9 @@ Don't skip those steps. Strict mode with untested hooks will interrupt things yo
 | [docs/hooks.md](docs/hooks.md) | Hook reference: every `cc-*` entrypoint, events, default vs strict |
 | [docs/guards.md](docs/guards.md) | Pretool deny catalog, stop-verifier gates, fail-open matrix |
 | [docs/rules.md](docs/rules.md) | Cross-host rule pack: module catalog, host activation, `init-project-rules.sh` |
-| [docs/install.md](docs/install.md) | Install, update, uninstall, profiles, strict mode |
+| [docs/install.md](docs/install.md) | Install, update, uninstall, profiles, observer-only opt-out |
 | [docs/migration.md](docs/migration.md) | Rollout sequencing — safe migration order |
-| [docs/configuration.md](docs/configuration.md) | Profiles, strict mode, env var tuning, Codex-first efficiency profile |
+| [docs/configuration.md](docs/configuration.md) | Profiles, env var tuning, Codex-first efficiency profile |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | Common issues, repo vs installed paths, bypass |
 | [docs/compact-recovery.md](docs/compact-recovery.md) | Compact recovery: state capture and safe continuation after auto-compaction |
 | [docs/skills.md](docs/skills.md) | `etrnl-*` skills by namespace and bundled inventory |

@@ -2,16 +2,16 @@
 
 Profiles:
 
-- Core install: observer hooks, prompt router, prompt expansion, `CLAUDE.md` reinjection, skill recorder, locked advisory rate limiter, session cleanup, scripts, docs, rules, skills, agents, settings audit, and Codex skill/runtime sync.
+- Core install: strict blocker hooks (pretool guard, post-write quality/sycophancy, repeated-failure diagnosis, subagent recording), prompt router, prompt expansion, `CLAUDE.md` reinjection, skill recorder, advisory rate limiter, session cleanup, scripts, docs, rules, skills, agents, settings audit, and Codex skill/runtime sync.
 - Full install: core plus CodeGraph, Beads, Hindsight plugin/config, stack profile metadata, memory posture checks, and canaries.
-- Strict mode: adds `PreToolUse` guard, post-write sycophancy and quality checks, `PostToolUseFailure` repeated-failure blocker, and `SubagentStop` recorder on top of the default template. Default install already registers `Stop` verifier, compact recovery, RTK `rg` compat, and observer hooks.
+- Observer-only install: set `ETRNL_ENABLE_STRICT=0` to merge `templates/settings.json` instead of the strict template. That drops pretool guard and post-write blockers while keeping compact recovery, RTK `rg` compat, observer hooks, and the `Stop` verifier.
 - Private overlay: identity, accounts, local permissions, and project-specific preferences.
 
 Hook profiles (`ETRNL_HOOK_PROFILE`):
 
 - `standard` (default when unset): all advisory hooks run; guards, compact recovery, session lifecycle, and stop verification are unchanged.
 - `minimal`: early-exits advisory hooks only — `cc-posttooluse-sycophancy.sh`, `cc-posttoolbatch-observer.sh`, `cc-userprompt-expansion.sh`, `cc-rate-limiter.sh`, and `cc-compact-suggest.sh` — and skips the prompt router's advisory context (CLAUDE.md reinjection and the skill update check; deterministic skill-routing state still records). Guards (`cc-pretooluse-guard.sh`, `cc-stop-verifier.sh`), compact hooks, and session lifecycle hooks are never gated by profile.
-- `strict`: same advisory surface as `standard`. Strict blocker hooks come from install strict mode (`ETRNL_ENABLE_STRICT=1` / `settings.strict.json`), not from this variable.
+- `strict`: same advisory surface as `standard`. Blocker hook registration comes from the install template (`settings.strict.json` by default, `settings.json` when `ETRNL_ENABLE_STRICT=0`), not from this variable.
 
 Invalid values fall back to `standard`. Missing `hooks/lib/profile.sh` is fail-open (standard behavior).
 
@@ -107,7 +107,8 @@ Repo-owned ETRNL agents install into `~/.claude/agents/` by default. Local run l
 Install:
 
 - `ETRNL_STACK_PROFILE=core|full` sets the default install profile when `--profile` is omitted.
-- `ETRNL_ENABLE_STRICT=1` merges strict blocker hooks during install.
+- Default install merges strict blocker hooks from `templates/settings.strict.json`.
+- `ETRNL_ENABLE_STRICT=0` merges the observer-only template (`templates/settings.json`) instead.
 - `./scripts/install.sh` backs up managed `~/.claude/settings.json`, drops stack-owned `hooks`, and re-merges the selected stack while preserving all other user top-level settings (for example `permissions`, `skillOverrides`, `enabledPlugins`, and `statusLine`). Use `--preserve-settings` only for a deliberate merge into existing hook wiring without dropping hooks first.
 - `ETRNL_INSTALL_STARTUP=1` overwrites installed `AGENTS.md` and `CLAUDE.md` startup files instead of preserving existing local copies.
 - `ETRNL_INSTALL_SOURCE_TESTS=0` skips the pre-install source test suites (`tests/test-hooks.sh`, `tests/test-workflow-tools.sh`). Only for callers that already ran both suites as separate gates in the same pipeline (doctor heavy checks, `tests/test-install.sh`); a direct user install keeps them on, running in parallel with logs captured and the failing suite's log tail printed.

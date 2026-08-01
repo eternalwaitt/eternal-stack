@@ -366,8 +366,9 @@ fi
 assert_json_expr "post-install: update check is clean" "$update_json" '.ok == true and .localUpdateAvailable == false'
 assert_json_expr "post-install: drift reports installed skills" "$update_json" ".drift.installedSkillCount >= ${#OWNED_SKILLS[@]}"
 assert_json_expr "post-install: drift reports installed agents" "$update_json" ".drift.installedAgentCount >= ${#OWNED_AGENTS[@]}"
-assert_json_expr "post-install: drift reports settings mode" "$update_json" '.drift.settingsMode == "default"'
-assert_json_expr "post-install: drift separates recorded and observed settings mode" "$update_json" '.drift.recordedSettingsMode == "default" and .drift.observedSettingsMode == "default" and .drift.settingsModeMismatch == false'
+assert_json_expr "post-install: drift reports settings mode" "$update_json" '.drift.settingsMode == "strict"'
+assert_json_expr "post-install: drift separates recorded and observed settings mode" "$update_json" '.drift.recordedSettingsMode == "strict" and .drift.observedSettingsMode == "strict" and .drift.settingsModeMismatch == false'
+assert_json_expr "post-install: strict quality hook registered on PostToolUse" "$(jq -c . "$CLAUDE_HOME/settings.json")" '([.hooks.PostToolUse[]?.hooks[]?.command // empty | select(test("cc-posttooluse-quality\\.sh"))] | length) == 1'
 assert_json_expr "post-install: drift reports fresh scripts" "$update_json" '.drift.staleInstalledScripts.count == 0'
 if ! codex_update_json="$(ETRNL_TOOL_UPDATE_CHECK=0 node "$CODEX_HOME/scripts/update-check.mjs" --json 2>&1)"; then
   not_ok "post-install: Codex update-check.mjs failed: $codex_update_json"
