@@ -483,6 +483,12 @@ function checkSpawn() {
     process.exit(1);
   }
   if (!dryRun) {
+    const allowRecord = args.includes("--allow-record")
+      || process.env.ETRNL_SPAWN_GUARD_RECORDER === "hook";
+    if (!allowRecord) {
+      console.error("check-spawn: recording requires hook authority; pass --dry-run for skill-side probes or --allow-record for tests.");
+      process.exit(2);
+    }
     updateJson(file, (current) => {
       const enriched = enrichLedgerPlanMetadata(current);
       enriched.spawns = enriched.spawns ?? [];
@@ -1903,7 +1909,7 @@ else if (command === "record-decision") recordDecision();
 else if (command === "reconcile") reconcilePointers();
 else if (command === "history") history();
 else {
-  console.error(`usage: execution-ledger.mjs init|validate|check-stop [--require-ledger] [--require-tasks] [--require-plan-phases]|check-bound-execute|check-spawn [--task-name <name>] [--wave <id>] [--subagent-type <type>] [--packet-mode <mode>] [--dry-run] [--explain] [--json]|record-spawn-registry [--plan <path>]|set-task|set-phase|record-uat|record-check|require-artifact|record-artifact|record-agent|record-review|record-tdd|record-simplifier|record-specialist|record-completion-audit|record-install-proof|record-task-bundle [--file <path>]|<json-stdin>|record-trajectory --wave <id> [--recurring-finding-count <n>] [--stream-alternation-count <n>] [--rounds-since-progress <n>]|record-decision|record-subagent|reconcile [--apply] [--json]|history [--progress] [--renegotiation-check] [--gates] [--plan <path>] [--json]`);
+  console.error(`usage: execution-ledger.mjs init|validate|check-stop [--require-ledger] [--require-tasks] [--require-plan-phases]|check-bound-execute|check-spawn [--task-name <name>] [--wave <id>] [--subagent-type <type>] [--packet-mode <mode>] [--dry-run] [--allow-record] [--explain] [--json]|record-spawn-registry [--plan <path>]|set-task|set-phase|record-uat|record-check|require-artifact|record-artifact|record-agent|record-review|record-tdd|record-simplifier|record-specialist|record-completion-audit|record-install-proof|record-task-bundle [--file <path>]|<json-stdin>|record-trajectory --wave <id> [--recurring-finding-count <n>] [--stream-alternation-count <n>] [--rounds-since-progress <n>]|record-decision|record-subagent|reconcile [--apply] [--json]|history [--progress] [--renegotiation-check] [--gates] [--plan <path>] [--json]`);
   console.error(reopenCapUsageText());
   process.exit(2);
 }

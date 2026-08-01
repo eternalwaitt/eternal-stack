@@ -4013,6 +4013,11 @@ if tg12_scope_repo_out="$(node "$ROOT/scripts/review-merge.mjs" skip-plan --revi
 else
   assert_contains "skip-plan requires --learnings for repo-local scope" "$tg12_scope_repo_out" "--scope repo requires --learnings"
 fi
+if tg12_scope_typo_out="$(node "$ROOT/scripts/review-merge.mjs" skip-plan --reviewers etrnl-quality-reviewer --scope rep --json 2>&1)"; then
+  not_ok "skip-plan rejects invalid --scope values"
+else
+  assert_contains "skip-plan rejects invalid scope values" "$tg12_scope_typo_out" "--scope must be wave or repo"
+fi
 
 tg12_bounded_review="$(cat "$ROOT/skills/etrnl-dev-execute/references/bounded-review.md")"
 assert_contains "bounded-review documents the recurring-finding park limit" "$tg12_bounded_review" "ETRNL_REVIEW_RECURRING_FINDING_LIMIT"

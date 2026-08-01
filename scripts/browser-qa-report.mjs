@@ -237,6 +237,9 @@ function reportErrors(report, options = {}) {
     if (report.status === "complete") {
       if (!existsSync(root)) errors.push(`artifactRoot does not exist: ${root}`);
       const provenance = report.provenance;
+      if (!provenance?.treeHash || typeof provenance.treeHash !== "string" || provenance.treeHash.trim() === "") {
+        errors.push("complete v2 reports require provenance.treeHash");
+      }
       for (const key of ["tool", "targetUrl", "command", "capturedAt"]) {
         if (!provenance || typeof provenance[key] !== "string" || provenance[key].trim() === "") {
           errors.push(`complete v2 reports require provenance.${key}`);

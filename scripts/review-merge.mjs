@@ -47,6 +47,7 @@ const HELP = `usage: review-merge.mjs [--file <path>] [--markdown]
                         [--reopen-round <n>] [--reopen-cap <n>]
                         [--dispatched <a,b,c>] [--learnings <path>]
        review-merge.mjs skip-plan --reviewers <a,b,c> [--scope wave|repo] [--learnings <path>] [--json]
+       review-merge.mjs merge [--scoped] [--fix-base-sha <sha>] [--fix-head-sha <sha>] [--finding-ids <id,id>] [--file <path>] [--json]
 
 Merge parallel reviewer findings into one artifact.
 
@@ -129,6 +130,9 @@ function learningsPath() {
   const override = argValue(args, "--learnings", "");
   if (override) return path.resolve(override);
   const scope = argValue(args, "--scope", "wave");
+  if (scope !== "wave" && scope !== "repo") {
+    abort("--scope must be wave or repo");
+  }
   if (scope === "repo") {
     abort("--scope repo requires --learnings <path>; use .etrnl/review-learnings.json in the target repo only when repo-local streaks must survive across machines");
   }
@@ -608,10 +612,36 @@ async function skipPlan() {
 
 function mergeMain() {
   const findings = loadFindings();
-  const report = mergeFindings(findings);
+  const scoped = args.includes("--scoped");
+  const findingIds = listArg("--finding-ids");
+  const fixBaseSha = argValue(args, "--fix-base-sha", "").trim();
+  const fixHeadSha = argValue(args, "--fix-head-sha", "").trim();
+  let scopedFindings = findings;
+  if (scoped) {
+    if (!fixBaseSha || !fixHeadSha) {
+      abort("--scoped requires --fix-base-sha and --fix-head-sha");
+    }
+    if (findingIds.length === 0) {
+      abort("--scoped requires --finding-ids with at least one fingerprint");
+    }
+    const allowed = new Set(findingIds);
+    scopedFindings = findings.filter((finding) => allowed.has(String(finding.fingerprint || "")));
+    if (scopedFindings.length === 0) {
+      abort("--scoped found no findings matching --finding-ids");
+    }
+  }
+  const report = mergeFindings(scopedFindings);
   report.park = evaluatePark();
   report.capDecision = evaluateCapDecision(report, report.park);
   report.dispatchAccounting = recordDispatchOutcome(findings);
+  if (scoped) {
+    report.scopedFixRound = {
+      fixBaseSha,
+      fixHeadSha,
+      findingIds,
+      findingCount: scopedFindings.length,
+    };
+  }
 
   if (markdownMode) {
     process.stdout.write(renderMarkdown(report));

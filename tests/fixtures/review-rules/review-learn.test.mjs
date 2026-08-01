@@ -1,7 +1,8 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, copyFileSync, rmSync } from "node:fs";
+import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, copyFileSync, rmSync, existsSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,9 +13,13 @@ const repoRoot = path.resolve(here, "..", "..", "..");
 const learn = path.join(repoRoot, "scripts", "review-learn.mjs");
 const fixtureRoots = [];
 
+function overlayDir(root) {
+  return path.join(path.dirname(root), `${path.basename(root)}-overlay`);
+}
+
 function cleanupRoot(root) {
   rmSync(root, { recursive: true, force: true });
-  rmSync(path.join(path.dirname(root), `${path.basename(root)}-overlay`), { recursive: true, force: true });
+  rmSync(overlayDir(root), { recursive: true, force: true });
 }
 
 after(() => {
@@ -31,9 +36,27 @@ function freshRoot() {
 }
 
 function ledgerFor(root) {
-  const overlay = path.join(path.dirname(root), `${path.basename(root)}-overlay`);
+  const overlay = overlayDir(root);
   mkdirSync(overlay, { recursive: true });
   return path.join(overlay, "review-learnings.json");
+}
+
+function runLearnDefault(root, findings) {
+  const fp = path.join(root, "findings-default.json");
+  writeFileSync(fp, JSON.stringify(findings));
+  const home = path.join(path.dirname(root), `${path.basename(root)}-home`);
+  mkdirSync(path.join(home, ".claude", "review-learnings"), { recursive: true });
+  const res = spawnSync("node", [learn, "learn", "--findings", fp, "--root", root, "--json"], {
+    encoding: "utf8",
+    env: { ...process.env, HOME: home },
+  });
+  assert.equal(res.status, 0, res.stderr);
+  const metric = JSON.parse(res.stdout);
+  const repoKey = createHash("sha256").update(path.resolve(root)).digest("hex").slice(0, 16);
+  const defaultLedger = path.join(home, ".claude", "review-learnings", repoKey, "review-learnings.json");
+  assert.equal(existsSync(defaultLedger), true);
+  assert.equal(existsSync(path.join(root, "review-learnings.json")), false);
+  return { metric, defaultLedger };
 }
 
 function runLearn(root, findings, { reviewId = null, corpus = null, minPrecision = null } = {}) {
@@ -55,6 +78,11 @@ function runLearn(root, findings, { reviewId = null, corpus = null, minPrecision
 
 const asAny = [{ summary: "Avoid `as any` cast", body: "unsafe type escape", severity: "minor", lensId: "types_schema_contracts", category: "unsafe-type-escape" }];
 const tenant = [{ summary: "Missing tenantId filter", body: "query not scoped to tenant", severity: "major", lensId: "security_privacy_tenancy", category: "tenant-scope" }];
+
+test("default ledger path resolves to private overlay outside the fixture repo", () => {
+  const root = freshRoot();
+  runLearnDefault(root, tenant);
+});
 
 test("3 recurrences of a template-matching finding auto-promote a WARN guard", () => {
   const root = freshRoot();
