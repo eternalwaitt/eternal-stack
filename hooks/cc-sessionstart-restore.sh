@@ -283,7 +283,7 @@ if [[ -n "$workflow_status_hint" ]]; then
   msg="$msg $workflow_status_hint"
 fi
 if [[ -n "$update_hint" ]]; then
-  msg="$msg Update: $update_hint (run the update command when practical before continuing; only skip if the user explicitly declines)"
+  msg="$msg Update: $update_hint (advisory — run the update command when practical; only skip if the user explicitly declines)"
 fi
 if [[ -n "$learning_hint" ]]; then
   msg="$msg $learning_hint"

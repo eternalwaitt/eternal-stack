@@ -38,7 +38,7 @@ const emit = (result) => {
   );
   if (result.summary) console.log(result.summary);
   if (result.rawUpdateOutput) console.log(result.rawUpdateOutput);
-  console.log("Eternal Stack update available — run the update command(s) above before continuing the requested work when practical; only skip if the user explicitly declines.");
+  console.log("Eternal Stack update available — run the update command(s) above when practical; only skip if the user explicitly declines.");
 };
 
 if (!fs.existsSync(updateScript)) {

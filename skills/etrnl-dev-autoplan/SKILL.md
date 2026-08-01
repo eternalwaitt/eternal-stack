@@ -89,6 +89,8 @@ Emit `## Tier assessment` before `## What already exists` with five lines: decla
 
 Load `references/tier-assessment-and-model-routing.md` before writing that section, the `Scope triage:` line, or any packet model. It carries the five-line field contract, the scope triage table, the Codex model map resolved through `scripts/lib/codex-model-routing.mjs`, the rule that an omitted or inherited `model` is a packet defect rather than a fallback, the `## Parallelization strategy` row format, and the tier-3 install-proof status rules.
 
+For tier ≥ 2 plans with two or more task groups, load `references/parallel-lane-maximization.md` before `## Parallelization strategy`. Maximize safe concurrent lanes (up to 6); do not copy the execute host default (Codex 2 / Claude 3) without a wave analysis.
+
 ## Full Deep Stack Review
 
 Before spawning plan reviewer subagents, run inline self-review when eligible:
@@ -220,7 +222,7 @@ Return or save a single implementation plan with this readiness-compatible shape
 - `## Test plan`
 - `## Test-first execution plan`
 - `## Failure modes`
-- `## Parallelization strategy` — with the required `Agent/model/effort` column on every packet row
+- `## Parallelization strategy` — with the required `Agent/model/effort` column on every packet row, wave/disjoint-scope notes, serialized chokepoints, and an explicit `maxConcurrentLanes=N` line (1–6, maximized for safe parallelism per `references/parallel-lane-maximization.md`)
 - `## Verification gates`
 - `## Rollback`
 - `## Execution handoff`

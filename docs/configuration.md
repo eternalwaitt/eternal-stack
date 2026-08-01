@@ -231,7 +231,7 @@ Guard state and break-glass:
 - `ETRNL_BATCH_REVIEWER_HEAVY_MIN_SPAWNS` (default `20`) and `ETRNL_BATCH_REVIEWER_HEAVY_RATIO` (default `0.55`) — backstop trigger when reviewer spawns dominate a long run.
 - `ETRNL_HARD_SPAWN_CAP` (default `80`) — hard stop on total spawn count for a run unless `check-spawn --override-spawn-cap` is paired with a prior `record-decision` owner approval tied to a surviving P0/P1 blocker (investigator-reviewed); `--override-reason` text alone is not sufficient.
 - `ETRNL_SPAWN_BURST_WINDOW_MS` (default `60000`) — rolling window for concurrent lane burst accounting in `spawn-guard.mjs`.
-- `ETRNL_MAX_CONCURRENT_LANES` overrides the profile default lane cap when the plan's `## Parallelization strategy` justifies it.
+- `ETRNL_MAX_CONCURRENT_LANES` overrides the profile default lane cap when the plan's `## Parallelization strategy` justifies it. When unset, spawn guard parses `maxConcurrentLanes=N` from the active plan (1–6) before falling back to Codex 2 / Claude 3.
 - `ETRNL_REVIEW_SCOPE_SMALL_MAX` (default `50`) and `ETRNL_REVIEW_SCOPE_MEDIUM_MAX` (default `200`) tune tier 0–2 diff-size review gating in `review-scope.mjs`. Tier ≥3 always uses `full_lenses`.
 - `ETRNL_PACKET_MAX_BYTES` (default `12000`) caps subagent packet JSON size in `agent-task-packet-check.mjs`.
 - `ETRNL_REVIEW_ADAPTIVE_SKIP_STREAK` (default `5`) controls adaptive reviewer skip in `review-merge.mjs skip-plan`; use `--scope repo` to persist counters under `.etrnl/review-learnings.json`.

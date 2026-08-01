@@ -141,6 +141,8 @@ export function resolveMaxConcurrentLanes(ledger = {}, env = process.env) {
   if (Number.isInteger(fromLedger) && fromLedger > 0) return fromLedger;
   const explicit = Number(env.ETRNL_MAX_CONCURRENT_LANES);
   if (Number.isInteger(explicit) && explicit > 0) return explicit;
+  const fromPlan = ledger.planMaxConcurrentLanes;
+  if (Number.isInteger(fromPlan) && fromPlan > 0) return fromPlan;
   const host = String(env.ETRNL_EXECUTE_HOST || "").toLowerCase();
   if (host === "codex") return 2;
   if (host === "claude") return 3;

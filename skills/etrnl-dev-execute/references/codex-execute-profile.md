@@ -15,7 +15,7 @@ State the resolved profile and the signal that selected it in the first status l
 
 ## Codex profile defaults
 
-1. Default `maxConcurrentLanes` to `2`. Raise it only when the plan's `## Parallelization strategy` justifies a higher cap in one explicit line.
+1. Default `maxConcurrentLanes` to `2` when the plan omits an explicit cap. When the plan's `## Parallelization strategy` declares `maxConcurrentLanes=N`, honor **N** (1–6) via spawn guard — the plan cap overrides this profile floor.
 2. Tier 0–2 waves: one merged quality review per wave over the combined wave diff, plus the whole-branch adversarial pass at plan end. No per-task spec → quality chain.
 3. Tier 3 waves keep all three reviewer roles — `etrnl-spec-reviewer`, `etrnl-quality-reviewer`, and the simplifier lens. Wave 1 runs the per-write-task chain in `references/bounded-review.md`. Wave 2 onward runs those three roles as one merged review per wave over the wave diff, except on a wave the plan names for full fan-out, which runs the per-task chain.
 4. Tier 3 gates hold at full strength on every wave: staged install proof, rollback proof, reopen-until-clean caps, consumer-trace on shared contracts, and the auth/money/tenancy/migration lenses. The lighter profile changes review cadence only; it never downgrades a plan's declared risk tier.
@@ -69,7 +69,7 @@ node scripts/execution-ledger.mjs check-spawn \
 
 The guard enforces:
 
-1. **`maxConcurrentLanes`** — default 2 on Codex; no more than that many spawns in any rolling 60s window unless the plan raises the cap explicitly.
+1. **`maxConcurrentLanes`** — default 2 on Codex when the plan omits a cap; plan-declared `maxConcurrentLanes=N` (1–6) overrides the floor. No more than that many spawns in any rolling 60s window.
 2. **Wave 2+ merged review only** — blocks per-patch reviewers (`p108c2_spec_review`, `p108c2_r9_quality_review`, …) on wave/phase ≥ 2. Use `wave-N_spec_review` / `wave-N_quality_review` / `wave-N_simplifier_review` on the combined diff instead.
 3. **Review round cap** — blocks `_r3_` and higher spawn names; tier 0–2 fix rounds cap at 2, tier 3 reopen cap at 4. Further work uses `record-review` + `capDecision`, not new spawn aliases.
 4. **Per-patch reviewer budget** — at most one spec + quality + simplifier trio per patch on wave 1.

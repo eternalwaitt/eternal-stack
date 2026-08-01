@@ -15,8 +15,12 @@ source "$SCRIPT_DIR/lib/json.sh"
 
 cc_json_deny_pretool_no_jq() {
   local reason="$1"
-  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":%s}}\n' \
-    "$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$reason")"
+  local escaped="${reason//\\/\\\\}"
+  escaped="${escaped//\"/\\\"}"
+  escaped="${escaped//$'\n'/\\n}"
+  escaped="${escaped//$'\r'/\\r}"
+  escaped="${escaped//$'\t'/\\t}"
+  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s"}}\n' "$escaped"
 }
 
 cc_json_read_stdin

@@ -396,11 +396,15 @@ function enrichLedgerPlanMetadata(ledger) {
   const scopeInfo = resolvePlanScopeFromFile(planPath);
   const registry = loadPlanRegistry(planPath);
   const hasTaskIds = registry.taskIds.length > 0;
+  const planMaxConcurrentLanes = Number.isInteger(registry.maxConcurrentLanes)
+    ? registry.maxConcurrentLanes
+    : ledger.planMaxConcurrentLanes;
   return {
     ...ledger,
     planScope: scopeInfo.scope || ledger.planScope,
     planScopeReason: scopeInfo.reason || ledger.planScopeReason,
     taskGroupCount: hasTaskIds ? registry.taskGroupCount : ledger.taskGroupCount,
+    planMaxConcurrentLanes,
     allowedSpawnNames: hasTaskIds ? registry.allowedSpawnNames : (ledger.allowedSpawnNames ?? []),
     spawns: ledger.spawns ?? [],
   };
@@ -434,12 +438,14 @@ function recordSpawnRegistry() {
     ledger.planScope = scopeInfo.scope;
     ledger.planScopeReason = scopeInfo.reason;
     ledger.taskGroupCount = registry.taskGroupCount;
+    ledger.planMaxConcurrentLanes = registry.maxConcurrentLanes ?? null;
     ledger.allowedSpawnNames = registry.allowedSpawnNames;
     ledger.updatedAt = nowIso();
     appendEvent(ledger, "spawn.registry.updated", {
       planPath,
       planScope: scopeInfo.scope,
       taskGroupCount: registry.taskGroupCount,
+      planMaxConcurrentLanes: registry.maxConcurrentLanes ?? null,
       allowedCount: registry.allowedSpawnNames.length,
     });
     return ledger;
@@ -450,7 +456,6 @@ function recordSpawnRegistry() {
 function checkSpawn() {
   const file = currentLedgerOrFail();
   const dryRun = args.includes("--dry-run");
-  const ledger = enrichLedgerPlanMetadata(readJson(file));
   const taskName = argValue("--task-name");
   const waveId = argValue("--wave");
   const subagentType = argValue("--subagent-type");
@@ -458,54 +463,89 @@ function checkSpawn() {
   const overrideReason = argValue("--override-spawn-cap", argValue("--override-reason"));
   const jsonOutput = args.includes("--json");
   const explainOutput = args.includes("--explain");
-  const tier = resolvePlanRiskTier(ledger);
-  const reviewScopeMode = resolveReviewScopeMode(ledger, tier, waveId);
-  const verdict = evaluateSpawnGuard(ledger, {
-    taskName,
-    waveId,
-    riskTier: tier,
-    overrideReason,
-    reviewScopeMode,
-    subagentType,
-    packetMode,
-  });
-  const explained = explainSpawnVerdict(verdict);
-  if (!verdict.allowed) {
+
+  const evaluateLocked = (ledger) => {
+    const enriched = enrichLedgerPlanMetadata(ledger);
+    const tier = resolvePlanRiskTier(enriched);
+    const reviewScopeMode = resolveReviewScopeMode(enriched, tier, waveId);
+    const verdict = evaluateSpawnGuard(enriched, {
+      taskName,
+      waveId,
+      riskTier: tier,
+      overrideReason,
+      reviewScopeMode,
+      subagentType,
+      packetMode,
+    });
+    return { enriched, tier, reviewScopeMode, verdict };
+  };
+
+  const emitDenied = (explained) => {
     if (jsonOutput || explainOutput) {
       console.log(JSON.stringify(explained, null, 2));
     } else {
-      console.error(`Spawn guard blocked ${taskName}: ${verdict.reason}`);
+      console.error(`Spawn guard blocked ${taskName}: ${explained.reason}`);
       if (explained.exampleCommand) {
         console.error(`Recovery: ${explained.exactFix}`);
         console.error(`Example: ${explained.exampleCommand}`);
       }
     }
     process.exit(1);
-  }
-  if (!dryRun) {
-    const allowRecord = args.includes("--allow-record")
-      || process.env.ETRNL_SPAWN_GUARD_RECORDER === "hook";
-    if (!allowRecord) {
-      console.error("check-spawn: recording requires hook authority; pass --dry-run for skill-side probes or --allow-record for tests.");
-      process.exit(2);
+  };
+
+  if (dryRun) {
+    const { enriched, reviewScopeMode, verdict } = evaluateLocked(readJson(file));
+    const explained = explainSpawnVerdict(verdict);
+    if (!verdict.allowed) emitDenied(explained);
+    const payload = {
+      allowed: true,
+      dryRun: true,
+      maxConcurrentLanes: resolveMaxConcurrentLanes(enriched, process.env),
+      spawnCount: (enriched.spawns ?? []).length,
+      reviewScopeMode,
+      ...explained,
+    };
+    if (jsonOutput || explainOutput) {
+      console.log(JSON.stringify(payload, null, 2));
+    } else {
+      console.log(`Spawn guard allowed ${taskName} on ${waveId}`);
     }
-    updateJson(file, (current) => {
-      const enriched = enrichLedgerPlanMetadata(current);
-      enriched.spawns = enriched.spawns ?? [];
-      enriched.spawns.push(verdict.record);
-      enriched.updatedAt = nowIso();
-      appendEvent(enriched, "spawn.recorded", verdict.record);
-      Object.assign(current, enriched);
-      return current;
-    });
+    return;
   }
+
+  const allowRecord = args.includes("--allow-record")
+    || process.env.ETRNL_SPAWN_GUARD_RECORDER === "hook";
+  if (!allowRecord) {
+    console.error("check-spawn: recording requires hook authority; pass --dry-run for skill-side probes or --allow-record for tests.");
+    process.exit(2);
+  }
+
+  let denied = null;
+  let recorded = null;
+  updateJson(file, (current) => {
+    const { enriched, reviewScopeMode, verdict } = evaluateLocked(current);
+    const explained = explainSpawnVerdict(verdict);
+    if (!verdict.allowed) {
+      denied = explained;
+      return current;
+    }
+    enriched.spawns = enriched.spawns ?? [];
+    enriched.spawns.push(verdict.record);
+    enriched.updatedAt = nowIso();
+    appendEvent(enriched, "spawn.recorded", verdict.record);
+    Object.assign(current, enriched);
+    recorded = { enriched, reviewScopeMode, explained };
+    return current;
+  });
+  if (denied) emitDenied(denied);
+
   const payload = {
     allowed: true,
-    dryRun,
-    maxConcurrentLanes: resolveMaxConcurrentLanes(ledger, process.env),
-    spawnCount: (ledger.spawns ?? []).length + (dryRun ? 0 : 1),
-    reviewScopeMode,
-    ...explained,
+    dryRun: false,
+    maxConcurrentLanes: resolveMaxConcurrentLanes(recorded.enriched, process.env),
+    spawnCount: (recorded.enriched.spawns ?? []).length,
+    reviewScopeMode: recorded.reviewScopeMode,
+    ...recorded.explained,
   };
   if (jsonOutput || explainOutput) {
     console.log(JSON.stringify(payload, null, 2));

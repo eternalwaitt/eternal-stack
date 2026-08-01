@@ -73,4 +73,6 @@ The `## Parallelization strategy` section carries one row per planned packet wit
 
 Fill `Agent/model/effort` with the resolver output rendered as `<Sol|Terra|Luna> / <low|medium|high>`. Every row states both halves. A row whose cell reads `inherit`, is blank, or names a model the resolver rejects is a plan defect: fix the row before `Status: Final`.
 
-Close the section with the spawn contract in prose — parent orchestrator on the Sol-equivalent thread, `gpt-5.6-terra` as the default implementer, `gpt-5.6-luna` for read-only and test lanes, every spawn setting explicit `model` and reasoning effort — plus the `maxConcurrentLanes` cap for Codex execute.
+Close the section with the spawn contract in prose — parent orchestrator on the Sol-equivalent thread, `gpt-5.6-terra` as the default implementer, `gpt-5.6-luna` for read-only and test lanes, every spawn setting explicit `model` and reasoning effort — plus an explicit `maxConcurrentLanes=N` cap (1–6).
+
+Before finalizing the cap, load `references/parallel-lane-maximization.md`: build dependency-aware waves from disjoint write scopes, list serialized chokepoints, and set **N to the maximum safe parallel width** (largest wave size, capped at 6). Do not default to Codex 2 or Claude 3 without analysis. Execute reads this integer from the plan via spawn guard; omitting it forces the conservative host floor.

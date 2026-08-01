@@ -410,7 +410,7 @@ cc_prompt_skill_update_note() {
 
   max_chars="$(cc_prompt_context_cap "${ETRNL_SKILL_UPDATE_MAX_CHARS:-1200}")"
   update_output="${update_output:0:max_chars}"
-  notes+=("Skill update check before requested skill: $update_output"$'\n'"Eternal Stack update available — run the update command(s) above before continuing the requested work when practical; only skip if the user explicitly declines.")
+  notes+=("Skill update check before requested skill: $update_output"$'\n'"Eternal Stack update available — run the update command(s) above when practical; only skip if the user explicitly declines.")
 }
 
 documentation_health_pattern='documentation[[:space:]-]+health|docs[[:space:]-]+health|documentation[[:space:]-]+audit|docs[[:space:]-]+audit|documentation[[:space:]-]+drift|docs[[:space:]-]+drift|stale[[:space:]]+docs|readme[[:space:]-]+audit|adr[[:space:]-]+health|runbook[[:space:]-]+audit|api[[:space:]-]+docs[[:space:]-]+audit|tsdoc|jsdoc|code[[:space:]-]+documentation[[:space:]-]+health|onboarding[[:space:]-]+docs|documentation[[:space:]-]+pass'

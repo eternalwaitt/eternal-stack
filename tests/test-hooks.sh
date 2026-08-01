@@ -504,7 +504,7 @@ skill_update_prompt="$(jq -cn '{session_id:"fixture-skill-update-prompt",prompt:
 out="$(ETRNL_SKILL_UPDATE_CHECK=1 ETRNL_UPDATE_CHECK_SCRIPT="$fake_skill_update" run_hook cc-userprompt-router.sh "$skill_update_prompt")"
 assert_contains "skill prompt checks etrnl updates" "$out" "Skill update check before requested skill"
 assert_contains "skill prompt includes tool-stack update" "$out" "TOOL_STACK_UPDATE_AVAILABLE codegraph"
-assert_contains "skill prompt requires update before continuing" "$out" "run the update command(s) above before continuing"
+assert_contains "skill prompt requires update when practical" "$out" "run the update command(s) above when practical"
 assert_contains "skill prompt allows skip only on explicit decline" "$out" "user explicitly declines"
 assert_not_contains "skill prompt never instructs telling the user about updates" "$out" "tell the user"
 health_prompt="$(jq -cn '{session_id:"fixture-health-prompt",prompt:"audit the entire codebase with no skips or loose ends"}')"
@@ -1669,11 +1669,11 @@ spawn_deny="$(fixture spawn-guard-deny-wave3-perpatch.json)"
 out="$(run_hook cc-spawn-guard.sh "$spawn_deny")"
 assert_json_expr "spawn guard denies per-patch review on wave 3" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
 assert_contains "spawn guard deny includes reasonCode context" "$out" "per-patch-review-on-wave-2-plus"
-spawn_explain_out="$(node "$ROOT/scripts/execution-ledger.mjs" check-spawn --session fixture-spawn-guard-hook --task-name "p108c2_spec_review" --wave "wave-3" --explain --json 2>&1 || true)"
+spawn_explain_out="$(node "$ROOT/scripts/execution-ledger.mjs" check-spawn --dry-run --session fixture-spawn-guard-hook --task-name "p108c2_spec_review" --wave "wave-3" --explain --json 2>&1 || true)"
 assert_json_expr "check-spawn explain returns structured reasonCode" "$spawn_explain_out" '.reasonCode == "per-patch-review-on-wave-2-plus"'
 assert_json_expr "check-spawn explain returns exactFix" "$spawn_explain_out" '.exactFix | length > 0'
 assert_json_expr "check-spawn explain returns exampleCommand" "$spawn_explain_out" '.exampleCommand | length > 0'
-if misclass_out="$(node "$ROOT/scripts/execution-ledger.mjs" check-spawn --session fixture-spawn-guard-hook --task-name "p108c2_writer" --wave "wave-3" --subagent-type "etrnl-spec-reviewer" --json 2>&1)"; then
+if misclass_out="$(node "$ROOT/scripts/execution-ledger.mjs" check-spawn --dry-run --session fixture-spawn-guard-hook --task-name "p108c2_writer" --wave "wave-3" --subagent-type "etrnl-spec-reviewer" --json 2>&1)"; then
   not_ok "spawn guard blocks reviewer subagent disguised as writer on wave 3"
 else
   assert_json_expr "spawn guard blocks reviewer subagent disguised as writer on wave 3" "$misclass_out" '.reasonCode == "per-patch-review-on-wave-2-plus"'

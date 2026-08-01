@@ -1,6 +1,6 @@
 # Bounded CodeRabbit-lens review (risk-tiered)
 
-Run parallel reviewers after the final edit of a task or wave, merge findings once, fix in at most two rounds, and reopen only on P0/P1 blockers.
+Run parallel reviewers after the final edit of a task or wave, merge findings once, fix in at most two rounds on tier 0–2 (tier 3 P0/P1 blockers continue through four reopen rounds), and reopen only on P0/P1 blockers.
 
 Helper paths: resolve once from the **target repository root**, then use that prefix for every command below.
 
@@ -102,7 +102,7 @@ When `check-spawn` returns `review-scope-exceeded`, read recovery with `check-sp
 
 ## Fix rounds and reopen caps
 
-1. Maximum two fix rounds per wave. After round two, record remaining non-P0/P1 findings as non-blocking and proceed.
+1. Maximum two fix rounds per wave on tier 0–2. Tier 3 P0/P1 blockers continue through four reopen rounds before `capDecision` resolves residuals. After the applicable cap, record remaining non-P0/P1 findings as non-blocking and proceed.
 2. A review loop whose merged finding count did not decrease between rounds is stalled: park it, record a blocker, and continue other work.
 3. Reopen caps are enforced by `execution-ledger.mjs record-review`:
    - Tier 0–2: at most 2 reopen rounds per task+reviewer+lineageId, then record remaining findings as non-blocking notes and proceed.

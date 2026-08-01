@@ -39,6 +39,18 @@ Recovery diagnostics:
 node scripts/execution-ledger.mjs check-spawn --explain --task-name "<name>" --wave "<wave>"
 ```
 
+## Model contract (Claude packets)
+
+Claude Task/Agent packets carry `modelTier` (`fast`, `standard`, `top`) on read-only and write lanes. The host maps tiers to Claude model selection through the packet — do not paste raw model slugs into spawn calls.
+
+| Lane role | Packet `modelTier` | Notes |
+| --- | --- | --- |
+| Scout / read-only review / consumer trace | `fast` | Default for read-only lanes |
+| Write implementation | `standard` | Default for write lanes |
+| Tier-3 money/migration/security review | `top` | Requires justification on read-only overrides |
+
+Codex model resolution lives in `references/codex-execute-profile.md` via `codex-model-routing.mjs`.
+
 ## Progress reporting
 
 Rolling hour ETAs are prohibited. User-facing status is ledger position plus named gates from:
