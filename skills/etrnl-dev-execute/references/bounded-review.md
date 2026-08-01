@@ -161,7 +161,10 @@ A reviewer that returns nothing on five consecutive dispatches stops earning its
 
 ## Review depth by tier
 
-- **Tier ≤ 2:** one merged reviewer pass per wave over the combined diff, plus one whole-branch adversarial pass at plan end. This replaces the spec→quality chain for tier ≤ 2 waves.
+Apply `review-scope.mjs` mode before tier cadence on tier 0–2:
+
+- **`deterministic_only` (Trivial / small diff):** no LLM reviewer fan-out — run `review-rules.mjs check --changed-only` and the plan's verification gates only.
+- **Eligible tier ≤ 2 scopes (`merged_quality` or `full_lenses`):** one merged reviewer pass per wave over the combined diff, plus one whole-branch adversarial pass at plan end. This replaces the spec→quality chain for tier ≤ 2 waves.
 - **Tier 3:** keep the full spec → quality → simplifier chain per write task, review the wave diff, and re-verify only changed lenses after each fix round. **Dual-host wave cadence (Claude and Codex execute profiles):** wave 1 runs the per-write-task chain; wave 2 onward runs those three roles as one merged review per wave over the wave diff, except on a wave recorded with `full-fan-out-wave`, which keeps the per-task chain. This moves review cadence only. Tier 3 gates hold at full strength on every wave — staged install proof, rollback proof, reopen-until-clean caps, consumer-trace on shared contracts, and the auth/money/tenancy/migration lenses — and no profile downgrades a plan's declared risk tier.
 
 ## Shared contracts

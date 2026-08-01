@@ -56,6 +56,13 @@ Before **every** `spawn_agent` / native child-agent call on the Codex host:
 - When the hook is absent or spawn guard mode is `off`, run `check-spawn` without `--dry-run` before dispatch.
 
 ```bash
+# When spawn-guard-pre-tool-use.sh is registered and active (hook is the sole recorder):
+node scripts/execution-ledger.mjs check-spawn --dry-run \
+  --session "${CODEX_SESSION_ID:-${CLAUDE_SESSION_ID:-default}}" \
+  --task-name "<spawn task_name>" \
+  --wave "<current wave or phase id>"
+
+# When the hook is absent or spawn guard mode is off (skill layer records):
 node scripts/execution-ledger.mjs check-spawn \
   --session "${CODEX_SESSION_ID:-${CLAUDE_SESSION_ID:-default}}" \
   --task-name "<spawn task_name>" \

@@ -111,7 +111,7 @@ The plan's `## Tier assessment` section carries a `Scope triage:` line reading `
 
 Trivial shape rules:
 
-1. Dispatch every task with the mini packet from `node scripts/agent-task-packet-check.mjs --template mini`. Fill `taskId`, `goal`, `scope`, `verificationCommand`, and `writeScope`, and carry the `codexModel` and `codexReasoningEffort` the template resolves. Generate no full packet, no `lineageId`, no `waveId`, and no `completionReceipt`.
+1. Dispatch every task with the mini packet from `node scripts/agent-task-packet-check.mjs --template mini`. Fill `taskId`, `goal`, `scope`, `verificationCommand`, and `writeScope`. On Claude hosts carry `modelTier` from the template; on Codex hosts carry `codexModel` and `codexReasoningEffort`. Generate no full packet, no `lineageId`, no `waveId`, and no `completionReceipt`.
 2. Spawn no `etrnl-spec-reviewer`, `etrnl-quality-reviewer`, simplifier lens, or adversarial pass. This replaces the per-wave merged quality review that `references/codex-execute-profile.md` runs at tier 0–2; that review holds at `Small` and `Large`.
 3. Skip wave tables, `execution-wave-check.mjs` overlap checks, and phase scaffolding. Ledger `set-task`, `record-check`, and the completion gates still run on every task.
 4. Tier 3 is never Trivial. A `Scope triage: Trivial` line on a tier 3 plan is a plan defect: run the Large shape and report the defect in the first status line.
@@ -136,9 +136,9 @@ After each phase:
 - Tier 3 install proof: `record-install-proof`; specialists: `record-specialist`; artifacts: `record-artifact` (`deep-stack-artifacts`, `completion-audit`, `review-log`, `browser-qa-report`, `context-save`).
 - On repeated failures, dispatch `etrnl-investigator`. Fix env failures once, log with `record-decision`, reuse on later runs.
 
-### Browser-QA and react-doctor gates
+### Browser-QA gates
 
-Load `references/verification-gates.md` when either gate applies.
+Load `references/verification-gates.md` when browser QA completion evidence is required.
 
 ## Verification Gates (hardened)
 

@@ -79,8 +79,9 @@ When a Task/Agent subagent completes:
 2. Record closure in the ledger so lane caps stay accurate:
 
 ```bash
-printf '{"agentId":"<id>","taskId":"<task>","agentType":"<role>","status":"completed","outputTokens":0,"findingsCount":0}\n' \
-  | node scripts/execution-ledger.mjs record-subagent --session "$CLAUDE_SESSION_ID"
+printf '{"session_id":"%s","task_id":"<task>","agent_id":"<id>","last_assistant_message":"<subagent output with ETRNL_CONTRACT>"}\n' \
+  "$CLAUDE_SESSION_ID" \
+  | node scripts/execution-ledger.mjs record-subagent
 ```
 
 `record-subagent` writes `endedAt` / `completedAt` on the agent row when the lane closes. Burst accounting uses spawn rows in the ledger — close every lane explicitly after the harness reports completion.

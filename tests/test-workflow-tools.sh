@@ -4335,6 +4335,11 @@ assert_json_expr "spawn guard blocks reviewer when review scope is deterministic
 registry_plan="$ROOT/hooks/fixtures/plans/good-plan.md"
 node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-spawn-registry --plan "$registry_plan" --cwd "$ROOT" >/dev/null
 assert_command "record-spawn-registry refreshes plan allowlist" node "$ROOT/scripts/execution-ledger.mjs" record-spawn-registry --session fixture-spawn-registry --plan "$registry_plan"
+if registry_unreadable_out="$(node "$ROOT/scripts/execution-ledger.mjs" record-spawn-registry --session fixture-spawn-registry --plan "$TMPROOT/missing-plan.md" 2>&1)"; then
+  not_ok "record-spawn-registry should fail on unreadable plan"
+else
+  assert_contains "record-spawn-registry rejects unreadable plan" "$registry_unreadable_out" "cannot read plan"
+fi
 if registry_deny_out="$(node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-registry --task-name "not_in_plan_writer" --wave "wave-1" --json 2>&1)"; then
   not_ok "spawn guard denies unknown spawn name when allowlist populated"
 else

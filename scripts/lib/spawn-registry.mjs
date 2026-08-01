@@ -118,6 +118,7 @@ export function loadPlanRegistry(planPath) {
     const taskGroupCount = countTaskGroups(text);
     return {
       planPath,
+      readable: true,
       taskIds,
       taskGroupCount,
       maxConcurrentLanes: extractMaxConcurrentLanes(text),
@@ -126,6 +127,7 @@ export function loadPlanRegistry(planPath) {
   } catch {
     return {
       planPath,
+      readable: false,
       taskIds: [],
       taskGroupCount: 0,
       maxConcurrentLanes: null,

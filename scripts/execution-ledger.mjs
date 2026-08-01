@@ -432,6 +432,16 @@ function recordSpawnRegistry() {
     process.exit(1);
   }
   const registry = loadPlanRegistry(planPath);
+  if (!registry.readable) {
+    console.error(`record-spawn-registry: cannot read plan at ${planPath}.`);
+    process.exit(1);
+  }
+  const existing = readJson(file);
+  const priorNames = existing.allowedSpawnNames ?? [];
+  if (registry.allowedSpawnNames.length === 0 && priorNames.length > 0) {
+    console.error("record-spawn-registry: plan produced an empty allowlist; refusing to wipe the existing registry.");
+    process.exit(1);
+  }
   const scopeInfo = resolvePlanScopeFromFile(planPath);
   updateJson(file, (ledger) => {
     ledger.planPath = planPath;
