@@ -136,28 +136,6 @@ Reopen caps bound the worst case. Trajectory counters end a loop that stopped co
 5. Any single tripped counter parks the stream while reopen rounds remain: `park.reopenCapExhausted` reports `false` in that case and the loop stops anyway.
 6. On a park, record a blocker naming every `park.reasons[].reasonCode`. Unresolved P0/P1 findings stay blocking and follow the investigator/owner-decision path. `capDecision` decides what follows: at tier 0-2, `proceed-with-residuals` downgrades non-P0/P1 findings to non-blocking notes and closes autonomously; at tier 3 on auth/money/migration/tenancy/security streams, `proceed-with-residuals` keeps P2/P3 findings as recorded residuals and requires `etrnl-investigator` review plus `record-decision` owner confirmation before closure; `owner-decision` always requires `record-decision`.
 
-## Fix-round re-review (scoped)
-
-When fixing review findings without widening scope, use a fix-round packet with:
-
-- `fixBaseSha` — tree before the fix
-- `fixHeadSha` — tree after the fix
-- `findingIds[]` — ids from the prior merged review artifact being addressed
-
-Merge only those findings in scoped mode:
-
-```bash
-node scripts/review-merge.mjs merge --scoped \
-  --fix-base-sha <base> --fix-head-sha <head> \
-  --finding-ids <id,id> --file <findings.json> --json
-```
-
-Re-verify with targeted gates for the touched lens only; do not replay the full harness for nits.
-
-## Plan-end one-fixer
-
-At plan end, dispatch **one** fixer subagent for all remaining non-blocking residuals across independent streams, then one merged adversarial pass over the whole branch. Do not spawn per-stream fixer chains when residuals are source-only and disjoint.
-
 ## Adaptive reviewer skip
 
 A reviewer that returns nothing on five consecutive dispatches stops earning its turn cost.
@@ -186,7 +164,7 @@ Close a task or wave only when acceptance criteria are met AND the merged review
 
 | Excuse | Rule |
 | --- | --- |
-| "One more review round" | Tier 0-2: cap at 2 reopen rounds. Tier 3: reopen P0/P1 blockers until clean, capped at 4; follow `capDecision` for residuals. Never spawn `_r3_`+ reviewer aliases — use merged wave review on wave 2+. |
+| "One more review round" | Tier 0-2: cap at 2 reopen rounds. Tier 3: reopen P0/P1 blockers until clean, capped at 4; follow `capDecision` for residuals. On Codex profile only, use merged wave review on wave 2+ — never spawn `_r3_`+ reviewer aliases. |
 | "Per-patch reviewers on wave 2+" | Forbidden on Codex profile. One merged spec+quality+simplifier set per wave over the combined diff. `check-spawn` blocks per-patch names. |
 | "Ask the owner to approve another cycle" | Tier 0-2: only when `capDecision.ownerDecisionRequired` is `true`. Tier 3 auth/money/migration/tenancy/security streams at residual closure: always confirm after investigator review via `record-decision`. |
 | "The cap is spent, so the run stops" | An `owner-decision` stops that stream only. Independent task groups keep executing. |
