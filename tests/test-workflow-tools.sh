@@ -3968,6 +3968,8 @@ assert_contains "bounded-review validates execution-ledger helper" "$tg12_bounde
 assert_contains "bounded-review validates deep-audit registry helper" "$tg12_bounded_review" "lib/deep-audit-categories.mjs"
 assert_contains "bounded-review fails closed on missing installed helper" "$tg12_bounded_review" "bounded-review error: missing required helper"
 assert_contains "bounded-review passes explicit repo root to helpers" "$tg12_bounded_review" '--root "$REPO_ROOT"'
+assert_contains "bounded-review tier-3 residual closure requires investigator on all high-risk streams" "$tg12_bounded_review" "auth/money/migration/tenancy/security streams require"
+assert_contains "bounded-review park path keeps tier-3 residual confirmation" "$tg12_bounded_review" 'still requires `etrnl-investigator` review and `record-decision` owner confirmation before closure'
 tg12_dev_pr="$(cat "$ROOT/skills/etrnl-dev-pr/SKILL.md")"
 assert_contains "etrnl-dev-pr routes review-learn through the installed helper" "$tg12_dev_pr" "node ~/.claude/scripts/review-learn.mjs learn"
 assert_contains "etrnl-dev-pr uses FINDINGS_FILE for review-learn ingestion" "$tg12_dev_pr" 'FINDINGS_FILE="${FINDINGS_FILE:?set FINDINGS_FILE to a sanitized JSON file}"'
@@ -4107,9 +4109,12 @@ if node "$ROOT/scripts/execution-ledger.mjs" check-spawn --session fixture-spawn
 else
   ok "spawn guard blocks high review round aliases"
 fi
-if node "$ROOT/scripts/execution-ledger.mjs" check-spawn --session fixture-spawn-guard --task-name burst_lane_1 --wave wave-1 >/dev/null 2>&1 \
-  && node "$ROOT/scripts/execution-ledger.mjs" check-spawn --session fixture-spawn-guard --task-name burst_lane_2 --wave wave-1 >/dev/null 2>&1 \
-  && node "$ROOT/scripts/execution-ledger.mjs" check-spawn --session fixture-spawn-guard --task-name burst_lane_3 --wave wave-1 >/dev/null 2>&1; then
+lane_cap_ledger_path="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-lane-cap --plan "$ROOT/hooks/fixtures/plans/good-plan.md" --cwd "$ROOT")"
+assert_file "lane cap ledger init creates file" "$lane_cap_ledger_path"
+assert_command "spawn guard allows lane one" node "$ROOT/scripts/execution-ledger.mjs" check-spawn --session fixture-lane-cap --task-name burst_lane_1 --wave wave-1
+assert_command "spawn guard allows lane two" node "$ROOT/scripts/execution-ledger.mjs" check-spawn --session fixture-lane-cap --task-name burst_lane_2 --wave wave-1
+assert_command "spawn guard allows lane three" node "$ROOT/scripts/execution-ledger.mjs" check-spawn --session fixture-lane-cap --task-name burst_lane_3 --wave wave-1
+if node "$ROOT/scripts/execution-ledger.mjs" check-spawn --session fixture-lane-cap --task-name burst_lane_4 --wave wave-1 >/dev/null 2>&1; then
   not_ok "spawn guard enforces concurrent lane cap"
 else
   ok "spawn guard enforces concurrent lane cap"

@@ -134,7 +134,7 @@ Reopen caps bound the worst case. Trajectory counters end a loop that stopped co
    | `roundsSinceProgress` | 2 | `ETRNL_REVIEW_ROUNDS_SINCE_PROGRESS_LIMIT` | `rounds-since-progress-limit` |
 
 5. Any single tripped counter parks the stream while reopen rounds remain: `park.reopenCapExhausted` reports `false` in that case and the loop stops anyway.
-6. On a park, record a blocker naming every `park.reasons[].reasonCode`. Downgrade only non-P0/P1 residuals to non-blocking notes; unresolved P0/P1 findings stay blocking and follow the investigator/owner-decision path. `capDecision` decides what follows: `proceed-with-residuals` closes that stream with the residuals recorded, and only `owner-decision` requires a decision logged with `"${ETRNL_NODE[@]}" "$ETRNL_SCRIPT_ROOT/execution-ledger.mjs" record-decision --root "$REPO_ROOT"`.
+6. On a park, record a blocker naming every `park.reasons[].reasonCode`. Downgrade only non-P0/P1 residuals to non-blocking notes; unresolved P0/P1 findings stay blocking and follow the investigator/owner-decision path. `capDecision` decides what follows: at tier 0-2, `proceed-with-residuals` closes autonomously; at tier 3 on auth/money/migration/tenancy/security streams, `proceed-with-residuals` still requires `etrnl-investigator` review and `record-decision` owner confirmation before closure; `owner-decision` always requires `record-decision`.
 
 ## Adaptive reviewer skip
 
@@ -166,7 +166,7 @@ Close a task or wave only when acceptance criteria are met AND the merged review
 | --- | --- |
 | "One more review round" | Tier 0-2: cap at 2 reopen rounds. Tier 3: reopen P0/P1 blockers until clean, capped at 4; follow `capDecision` for residuals. Never spawn `_r3_`+ reviewer aliases — use merged wave review on wave 2+. |
 | "Per-patch reviewers on wave 2+" | Forbidden on Codex profile. One merged spec+quality+simplifier set per wave over the combined diff. `check-spawn` blocks per-patch names. |
-| "Ask the owner to approve another cycle" | Tier 0-2: only when `capDecision.ownerDecisionRequired` is `true`. Tier 3 security streams at residual closure: always confirm after investigator review. |
+| "Ask the owner to approve another cycle" | Tier 0-2: only when `capDecision.ownerDecisionRequired` is `true`. Tier 3 auth/money/migration/tenancy/security streams at residual closure: always confirm after investigator review via `record-decision`. |
 | "The cap is spent, so the run stops" | An `owner-decision` stops that stream only. Independent task groups keep executing. |
 | "Full doctor after a nit fix" | Run `bash scripts/doctor.sh --changed` only; full doctor stays for release/install. |
 | "Rebuild the canary to be safe" | Reuse the warm environment at unchanged tree hash; rebuild only when harness, migration, or shared surface changed. |

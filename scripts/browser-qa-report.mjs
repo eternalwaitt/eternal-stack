@@ -353,10 +353,12 @@ function writeReport(report) {
 
 function create() {
   const input = readCreateInput();
-  const captureTreeHash = input.provenance?.treeHash || argValue(args, "--tree-hash") || worktreeHash(process.cwd());
   const routes = input.routes || splitList(argValue(args, "--routes", argValue(args, "--route", "/")));
   const viewports = input.viewports || splitList(argValue(args, "--viewports", argValue(args, "--viewport", "desktop")));
   const schemaVersion = hasV2Input(input) ? 2 : 1;
+  const captureTreeHash = schemaVersion === 2
+    ? input.provenance?.treeHash || argValue(args, "--tree-hash") || worktreeHash(process.cwd())
+    : "";
   const report = {
     schemaVersion,
     reportId: input.reportId || argValue(args, "--id", `browser-qa-${Date.now()}`),
