@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { readFileSync, existsSync } from "node:fs";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { argValue } from "./lib/cli-args.mjs";
 import { updateJsonUnderLock } from "./lib/json-file-store.mjs";
@@ -45,7 +46,8 @@ const HELP = `usage: review-merge.mjs [--file <path>] [--markdown]
                         [--trajectory <path>] [--wave <id>]
                         [--reopen-round <n>] [--reopen-cap <n>]
                         [--dispatched <a,b,c>] [--learnings <path>]
-       review-merge.mjs skip-plan --reviewers <a,b,c> [--learnings <path>] [--json]
+       review-merge.mjs skip-plan --reviewers <a,b,c> [--scope wave|repo] [--learnings <path>] [--json]
+       review-merge.mjs merge [--scoped] [--fix-base-sha <sha>] [--fix-head-sha <sha>] [--finding-ids <id,id>] [--file <path>] [--markdown]
 
 Merge parallel reviewer findings into one artifact.
 
@@ -127,8 +129,17 @@ function parkLimits() {
 function learningsPath() {
   const override = argValue(args, "--learnings", "");
   if (override) return path.resolve(override);
-  const root = argValue(args, "--root", "");
-  return path.join(root ? path.resolve(root) : process.cwd(), "review-learnings.json");
+  const scope = argValue(args, "--scope", "wave");
+  if (scope === "repo") {
+    abort("--scope repo requires --learnings <path>; use .etrnl/review-learnings.json in the target repo only when repo-local streaks must survive across machines");
+  }
+  const root = path.resolve(argValue(args, "--root", "") || process.cwd());
+  const home = process.env.HOME;
+  if (!home) {
+    abort("review-merge requires --learnings <path> or a set HOME for the default private overlay");
+  }
+  const repoKey = createHash("sha256").update(root).digest("hex").slice(0, 16);
+  return path.join(home, ".claude/review-learnings", repoKey, "review-learnings.json");
 }
 
 // Throws rather than exits: this runs inside the store lock, and process.exit()
@@ -238,9 +249,18 @@ function confidenceThreshold(severity) {
   return severity === "P0" ? 0.50 : 0.60;
 }
 
-function mergeFindings(findings) {
+function mergeFindings(findings, options = {}) {
+  const scoped = Boolean(options.scoped);
+  const findingIdSet = options.findingIds ? new Set(options.findingIds) : null;
+  let scopedFindings = findings;
+  if (scoped && findingIdSet) {
+    scopedFindings = findings.filter((finding) => {
+      const id = finding.id || finding.findingId || finding.fingerprint;
+      return id && findingIdSet.has(String(id));
+    });
+  }
   const groups = new Map();
-  for (const finding of findings) {
+  for (const finding of scopedFindings) {
     const key = dedupeKey(finding);
     const bucket = groups.get(key) ?? [];
     bucket.push(finding);
@@ -598,7 +618,18 @@ async function skipPlan() {
 
 function mergeMain() {
   const findings = loadFindings();
-  const report = mergeFindings(findings);
+  const scoped = args.includes("--scoped");
+  const fixBaseSha = argValue(args, "--fix-base-sha", "");
+  const fixHeadSha = argValue(args, "--fix-head-sha", "");
+  const findingIds = listArg("--finding-ids");
+  if (scoped) {
+    if (!fixBaseSha || !fixHeadSha) abort("--scoped requires --fix-base-sha and --fix-head-sha");
+    if (findingIds.length === 0) abort("--scoped requires --finding-ids <id,id>");
+  }
+  const report = mergeFindings(findings, { scoped, findingIds });
+  if (scoped) {
+    report.scopedFixRound = { fixBaseSha, fixHeadSha, findingIds };
+  }
   report.park = evaluatePark();
   report.capDecision = evaluateCapDecision(report, report.park);
   report.dispatchAccounting = recordDispatchOutcome(findings);

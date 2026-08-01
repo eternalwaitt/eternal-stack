@@ -48,6 +48,7 @@ Completion means every item inside the plan's `Execution scope` is verified or e
    - Still ask for conflicting user edits, repeated stalls, or blockers that cannot be derived from the repo.
 3. Group tasks by dependency and write scope. Execute dependent work sequentially; dispatch independent read-only review or disjoint write work to fresh subagents. For explicit parallel fan-out requests, load `references/parallel-fanout.md` before widening lanes.
    - When the plan enumerates many similar per-item findings (checklist rows, board cards, per-screen fixes) **or** `Scope triage: Large` with three or more task groups in the active phase, load `references/batch-execution.md` before the first spawn; expensive harnesses, review chains, and commits run once per surface-grouped wave, not per item.
+   - **Before every subagent dispatch:** load the host execute profile (`references/claude-execute-profile.md` on Claude Code, `references/codex-execute-profile.md` on Codex). When the spawn guard hook is registered and active, it is the **sole spawn recorder** — use `check-spawn --dry-run` from the skill layer only while debugging packet shape. When the hook is bypassed (`ETRNL_SKIP_HOOKS=cc-spawn-guard` / `spawn-guard`) or mode is `off`, run `check-spawn` **without** `--dry-run` before every dispatch. Recovery: `check-spawn --explain --json`.
     - Use wave-based execution: earlier waves must finish before later waves.
     - Before parallel work, run an overlap check against the plan's task file lists when practical (`node ~/.claude/scripts/execution-wave-check.mjs < tasks.json`); if two tasks in a wave touch the same file, run that wave sequentially and log the planning defect.
     - MUST dispatch write-capable implementation subagents for every parallel-safe wave with two or more independent source-file tasks.
@@ -80,11 +81,14 @@ Completion means every item inside the plan's `Execution scope` is verified or e
 9. Preserve user changes and do not revert unrelated dirty files.
 10. Before broad edits, invoke required domain companions when installed (`eternal-best-practices`, `finding-duplicate-functions`, `code-simplifier`, `etrnl-code-review-excellence`). Record missing skills and compensating checks before continuing.
 
-## Codex execute profile
+## Execute profiles (dual-host)
 
-`ETRNL_EXECUTE_HOST` selects the profile at startup: `codex` runs the Codex profile, `claude` runs the Claude path unchanged, and an unset value runs the Codex profile only under a detected Codex CLI session. Any other value is a configuration defect. State the resolved profile and its selecting signal in the first status line.
+`ETRNL_EXECUTE_HOST` selects the profile at startup: `codex` runs the Codex profile, `claude` runs the Claude path unchanged, and an unset value auto-detects the host (Codex CLI signals vs Claude Code Task/Agent tools). Any other value is a configuration defect. State the resolved profile and its selecting signal in the first status line.
 
-Load `references/codex-execute-profile.md` before the first spawn on the Codex host. It carries host detection, the profile defaults (`maxConcurrentLanes` 2, one merged per-wave review at tier 0–2, tier 3 gates at full strength on every wave), the spawn contract (explicit `model` and reasoning effort on every spawn, `inherit` as a packet defect), and the progress-reporting command contract.
+- **Claude Code:** load `references/claude-execute-profile.md` before the first spawn. Default `maxConcurrentLanes` is 3; `cc-spawn-guard.sh` registers on `Task|Agent|TaskCreate` in the default template.
+- **Codex:** load `references/codex-execute-profile.md` before the first spawn. Default `maxConcurrentLanes` is 2; register `spawn-guard-pre-tool-use.sh` in `~/.codex/config.toml`.
+
+Both profiles share batch adoption triggers, wave 2+ merged review economics, and progress reporting from `history --gates`. Tier 3 gates hold at full strength on every wave under either profile.
 
 ## Plan scope triage
 
@@ -106,7 +110,7 @@ Trivial shape rules:
 
 ## Bounded CodeRabbit-lens review (risk-tiered)
 
-After the final edit of a task or wave, resolve `REPO_ROOT` once (`git rev-parse --show-toplevel`), then run the review helper from the installed Eternal Stack home in application repos (`node ~/.claude/scripts/review-rules.mjs check --changed-only --root "$REPO_ROOT"`) or from `"$ETRNL_STACK/scripts/review-rules.mjs"` when `ETRNL_STACK` points at a trusted Eternal Stack checkout, then run parallel reviewers, merge with the matching `review-merge.mjs` path, apply only validated deterministic `safe_auto` fixes, and require confirmation for other changes before reopening on P0/P1 blockers. Load `references/bounded-review.md` for helper-path resolution, synthesis, reopen caps (ledger-enforced), and per-tier depth.
+After the final edit of a task or wave, resolve `REPO_ROOT` once (`git rev-parse --show-toplevel`), then run the review helper from `node ~/.claude/scripts/review-rules.mjs check --changed-only --root "$REPO_ROOT"` in application repos or from `"$ETRNL_STACK/scripts/review-rules.mjs"` only when `ETRNL_STACK` points at the trusted Eternal Stack checkout that owns the active install, then run reviewers per the tier and scope shape from `references/bounded-review.md` (Trivial: review-rules plus one quality lens only — no parallel reviewer fan-out; tier ≤2: one merged pass per wave; tier 3: full chain per write task or merged wave per execute profile), merge with the matching `review-merge.mjs` path, apply only validated deterministic `safe_auto` fixes, and require confirmation for other changes before reopening on P0/P1 blockers. Load `references/bounded-review.md` for helper-path resolution, synthesis, reopen caps (ledger-enforced), and per-tier depth.
 
 ### Wave and task exit check
 

@@ -325,15 +325,47 @@ tier3_residual_ledger_path="$(node "$ROOT/scripts/execution-ledger.mjs" init --s
 assert_file "execution ledger tier3 residual init creates file" "$tier3_residual_ledger_path"
 node "$ROOT/scripts/execution-ledger.mjs" record-decision --session fixture-tier3-residual --topic tier3-residual-closure-pending --decision proceed-with-residuals --rationale "P2 cosmetic residual after cap"
 if tier3_residual_stop="$(node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-tier3-residual 2>&1)"; then
-  not_ok "check-stop blocks tier-3 residual closure without owner confirmation"
+  not_ok "check-stop blocks tier-3 residual closure without investigator evidence"
 else
-  assert_contains "check-stop tier-3 residual closure gate" "$tier3_residual_stop" "tier3-residual-closure-confirmed"
+  assert_contains "check-stop tier-3 residual closure gate" "$tier3_residual_stop" "etrnl-investigator evidence"
 fi
-node "$ROOT/scripts/execution-ledger.mjs" record-decision --session fixture-tier3-residual --topic tier3-residual-closure-confirmed --decision owner-confirmed --rationale "investigator reviewed residuals"
-if tier3_residual_cleared="$(node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-tier3-residual 2>&1)"; then
-  not_ok "check-stop still reports other blockers after tier-3 residual confirmation"
+node "$ROOT/scripts/execution-ledger.mjs" record-decision --session fixture-tier3-residual --topic tier3-residual-closure-confirmed --decision owner-confirmed --rationale "owner approved without investigator pass"
+if tier3_residual_no_investigator="$(node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-tier3-residual 2>&1)"; then
+  not_ok "check-stop blocks tier-3 residual owner confirmation without investigator evidence"
 else
-  assert_not_contains "check-stop clears tier-3 residual closure after owner confirmation" "$tier3_residual_cleared" "tier3-residual-closure-confirmed"
+  assert_contains "check-stop tier-3 residual requires investigator evidence" "$tier3_residual_no_investigator" "etrnl-investigator evidence"
+fi
+node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-tier3-residual --task T-residual --status verified
+node "$ROOT/scripts/execution-ledger.mjs" record-specialist --session fixture-tier3-residual --task T-residual --skill etrnl-investigator --status verified
+if tier3_residual_cleared="$(node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-tier3-residual 2>&1)"; then
+  not_ok "check-stop still reports other blockers after tier-3 residual investigator and owner confirmation"
+else
+  assert_not_contains "check-stop clears tier-3 residual closure after investigator and owner confirmation" "$tier3_residual_cleared" "tier3-residual-closure-confirmed"
+  assert_not_contains "check-stop clears tier-3 investigator requirement after evidence recorded" "$tier3_residual_cleared" "etrnl-investigator evidence"
+fi
+worktree_nogit_dir="$TMPROOT/worktree-nogit-cwd"
+mkdir -p "$worktree_nogit_dir"
+worktree_nogit_ledger_path="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-worktree-nogit --plan "$ROOT/hooks/fixtures/plans/good-plan.md" --cwd "$worktree_nogit_dir")"
+node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-worktree-nogit --task T1 --status verified
+tmp_worktree_nogit_ledger="$(mktemp "$TMPROOT/worktree-nogit.XXXXXX.json")"
+jq '.checks = [{name: "gate:lint", command: "pnpm lint", status: "passed", treeHash: "deadbeef"}]' "$worktree_nogit_ledger_path" >"$tmp_worktree_nogit_ledger"
+mv "$tmp_worktree_nogit_ledger" "$worktree_nogit_ledger_path"
+if worktree_nogit_stop="$(node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-worktree-nogit 2>&1)"; then
+  not_ok "check-stop fails closed when worktree hash is unavailable"
+else
+  assert_contains "check-stop reports unavailable worktree hash" "$worktree_nogit_stop" "cannot verify checks against the current worktree"
+fi
+worktree_stale_ledger_path="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-worktree-stale --plan "$ROOT/hooks/fixtures/plans/good-plan.md" --cwd "$ROOT")"
+node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-worktree-stale --task T1 --status verified
+worktree_current_hash="$(node -e "import {worktreeHash} from '$ROOT/scripts/lib/etrnl-state-core.mjs'; process.stdout.write(worktreeHash(process.argv[1]))" "$ROOT")"
+node "$ROOT/scripts/execution-ledger.mjs" record-check --session fixture-worktree-stale --name gate:lint --command "pnpm lint" --status passed
+tmp_worktree_stale_ledger="$(mktemp "$TMPROOT/worktree-stale.XXXXXX.json")"
+jq --arg current "$worktree_current_hash" '.checks += [{name: "gate:test", command: "pnpm test", status: "passed", treeHash: "stale111deadbeef"}] | .checks[0].treeHash = $current' "$worktree_stale_ledger_path" >"$tmp_worktree_stale_ledger"
+mv "$tmp_worktree_stale_ledger" "$worktree_stale_ledger_path"
+if worktree_stale_stop="$(node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-worktree-stale 2>&1)"; then
+  not_ok "check-stop rejects mixed fresh and stale stamped checks"
+else
+  assert_contains "check-stop reports stale stamped checks" "$worktree_stale_stop" "verification checks are stale for the current worktree"
 fi
 reopen_override_ledger_path="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-reopen-override --plan "$ROOT/hooks/fixtures/plans/good-plan.md" --cwd "$ROOT")"
 node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-reopen-override --task T-review --status reviewing --lineage wave-1.T-review --packet-hash cap789
@@ -3976,6 +4008,11 @@ if node "$ROOT/scripts/review-merge.mjs" skip-plan --learnings "$tg12_learnings"
 else
   ok "skip-plan requires --reviewers"
 fi
+if tg12_scope_repo_out="$(node "$ROOT/scripts/review-merge.mjs" skip-plan --reviewers etrnl-quality-reviewer --scope repo --json 2>&1)"; then
+  not_ok "skip-plan rejects --scope repo without --learnings"
+else
+  assert_contains "skip-plan requires --learnings for repo-local scope" "$tg12_scope_repo_out" "--scope repo requires --learnings"
+fi
 
 tg12_bounded_review="$(cat "$ROOT/skills/etrnl-dev-execute/references/bounded-review.md")"
 assert_contains "bounded-review documents the recurring-finding park limit" "$tg12_bounded_review" "ETRNL_REVIEW_RECURRING_FINDING_LIMIT"
@@ -3999,7 +4036,8 @@ assert_contains "bounded-review tier-3 residual closure requires investigator on
 assert_contains "bounded-review park path keeps tier-3 residual confirmation" "$tg12_bounded_review" 'requires `etrnl-investigator` review plus `record-decision` owner confirmation before closure'
 assert_contains "bounded-review tier-3 P2 residuals stay recorded until owner confirmation" "$tg12_bounded_review" "P2/P3 findings stay recorded as residuals"
 assert_contains "bounded-review tier-3 residual closure uses ledger decision topics" "$tg12_bounded_review" "tier3-residual-closure-pending"
-assert_contains "bounded-review tier-3 residual closure blocks check-stop until confirmed" "$tg12_bounded_review" "blocks completion while a pending decision lacks confirmation"
+assert_contains "bounded-review tier-3 residual closure blocks check-stop until confirmed" "$tg12_bounded_review" "investigator evidence or owner confirmation is missing"
+assert_contains "bounded-review tier-3 residual closure records investigator evidence" "$tg12_bounded_review" "record-specialist --skill etrnl-investigator"
 tg12_verification_gates="$(cat "$ROOT/skills/etrnl-dev-execute/references/verification-gates.md")"
 assert_contains "verification-gates documents browser-qa completion gate" "$tg12_verification_gates" "--require-complete"
 assert_contains "verification-gates documents react-doctor scope changed base" "$tg12_verification_gates" "--scope changed --base <ledger-base-commit> --blocking error"

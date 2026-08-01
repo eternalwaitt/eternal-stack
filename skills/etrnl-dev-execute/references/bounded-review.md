@@ -80,6 +80,19 @@ Run every helper with `--root "$REPO_ROOT"`. Never pass a repository-local `--le
 2. Exclude findings that match a `review-rules.mjs` or linter rule ID from LLM review scope — fix them mechanically and record the rule ID.
 3. `"${ETRNL_NODE[@]}" "$ETRNL_SCRIPT_ROOT/review-rules.mjs" check --changed-only --report-only --root "$REPO_ROOT"` returns the same findings and exits 0 with no escalation to block. Read the deterministic tail with it mid-wave without stopping the wave. It rewrites no rule mode and touches no warn-to-block promotion state, so the blocking run in step 1 still gates LLM review and push.
 
+## Review scope by tier (spawn guard integrated)
+
+Before dispatching LLM reviewers, `check-spawn` classifies the wave diff through `review-scope.mjs`:
+
+| Tier | Diff size (tier 0–2) | Allowed reviewer lenses |
+| --- | --- | --- |
+| ≥ 3 | any | `full_lenses` always (spec + quality + simplifier) |
+| 0–2 | `< ETRNL_REVIEW_SCOPE_SMALL_MAX` (50) | `deterministic_only` — no LLM reviewers |
+| 0–2 | 50–200 LOC | `merged_quality` — one quality lens only |
+| 0–2 | ≥ 200 LOC or NEVER_GATE path | `full_lenses` |
+
+NEVER_GATE paths (auth, money, migration, tenant, install surfaces) always use `full_lenses` regardless of diff size. When scope is narrower than the lenses you planned, `check-spawn` returns `review-scope-exceeded` — do not rename tasks to bypass it.
+
 ## Parallel review and synthesis
 
 1. Dispatch reviewers in parallel. Each reviewer emits findings JSON with `reviewer`, `severity` (P0–P3), `confidence` (0–1), `file`, `line`, `fingerprint`, `summary`, and `autofix_class` (`safe_auto`, `gated_auto`, `manual`).
@@ -87,6 +100,29 @@ Run every helper with `--root "$REPO_ROOT"`. Never pass a repository-local `--le
 3. Fix every `safe_auto` finding immediately.
 4. Record `residual` (`gated_auto`/`manual`) findings as non-blocking todos — do not reopen the wave for them alone.
 5. Reopen and fix only when the merged artifact has `blocking` (P0/P1) entries. After code changes, re-run only the reviewers whose lenses cover the changed surfaces.
+
+## Fix-round scoped re-review
+
+When a fix round changes only a subset of files, carry the scoped diff in the subagent packet and merge only the targeted findings:
+
+1. Record `fixBaseSha` (pre-fix), `fixHeadSha` (post-fix), and `findingIds[]` on the fix-round packet (`agent-task-packet-check.mjs --template read-only|write`).
+2. Re-run only the reviewers whose lenses cover the changed surfaces.
+3. Merge with scoped synthesis:
+
+```bash
+"${ETRNL_NODE[@]}" "$ETRNL_SCRIPT_ROOT/review-merge.mjs" merge --scoped \
+  --fix-base-sha "$fixBaseSha" \
+  --fix-head-sha "$fixHeadSha" \
+  --finding-ids "<comma-separated-fingerprint-or-id-list>" \
+  --file <findings.json> \
+  --root "$REPO_ROOT"
+```
+
+Do not re-run the full wave diff when the fix touched fewer files than the original review scope.
+
+## Plan-end one-fixer
+
+After the whole-branch adversarial pass at plan end, dispatch **one** write-capable fixer subagent for all remaining P0/P1 blockers in a single packet. Do not spawn per-finding fixers or per-file fix loops at plan end — batch the blocker list, fix, re-run only the lenses that cover the changed surfaces, and close with `capDecision`.
 
 ## Fix rounds and reopen caps
 
@@ -110,7 +146,7 @@ A spent reopen cap and a tripped park counter both end the loop. Severity decide
 | `proceed-with-residuals` | Loop ended, no P0/P1 open | Record every residual as a non-blocking note, close the stream, continue. |
 | `owner-decision` | Loop ended, P0/P1 still open | Escalate per the rules below. |
 
-1. `proceed-with-residuals` is autonomous at tier 0-2. At tier 3 on auth/money/migration/tenancy/security streams, P2/P3 findings stay recorded as residuals but require `etrnl-investigator` review plus `record-decision` owner confirmation before the stream closes — they are not silently downgraded to non-blocking notes. Log `record-decision --topic tier3-residual-closure-pending` when residuals remain after the cap; after investigator review and owner confirmation, log `--topic tier3-residual-closure-confirmed`. `check-stop` blocks completion while a pending decision lacks confirmation.
+1. `proceed-with-residuals` is autonomous at tier 0-2. At tier 3 on auth/money/migration/tenancy/security streams, P2/P3 findings stay recorded as residuals but require `etrnl-investigator` review plus `record-decision` owner confirmation before the stream closes — they are not silently downgraded to non-blocking notes. Log `record-decision --topic tier3-residual-closure-pending` when residuals remain after the cap; record investigator evidence with `record-specialist --skill etrnl-investigator` or a verified `record-review --reviewer etrnl-investigator`; after investigator review and owner confirmation, log `--topic tier3-residual-closure-confirmed`. `check-stop` blocks completion while investigator evidence or owner confirmation is missing.
 2. Before an `owner-decision` escalation, dispatch `etrnl-investigator` once on the open blocker and re-merge. Escalate only when the blocker survives that pass.
 3. An `owner-decision` stops the named task or stream only. Independent task groups keep running; a plan does not halt because one stream is parked. Park the stream per rule 6 below and continue the rest of the plan before reporting.
 4. When escalation is genuinely required, report the `capDecision.blockingFingerprints`, the fix attempted in each round, and the exact `record-review --override-owner-approved "<reason>"` command. Do not ask the user to judge severity, choose a path, or approve "one more cycle" in free text — the owner is confirming an override, not doing the triage.
@@ -141,7 +177,9 @@ Reopen caps bound the worst case. Trajectory counters end a loop that stopped co
 A reviewer that returns nothing on five consecutive dispatches stops earning its turn cost.
 
 1. Record each dispatch outcome during synthesis: `"${ETRNL_NODE[@]}" "$ETRNL_SCRIPT_ROOT/review-merge.mjs" --file <findings.json> --dispatched <reviewer-ids> --learnings "$REVIEW_LEARNINGS" --root "$REPO_ROOT"`. Counters persist under `reviewerDispatches` in the private overlay ledger; each writer rewrites the whole object and keeps the other's keys.
-2. Plan the next dispatch with `"${ETRNL_NODE[@]}" "$ETRNL_SCRIPT_ROOT/review-merge.mjs" skip-plan --reviewers <ids> --learnings "$REVIEW_LEARNINGS" --json --root "$REPO_ROOT"`. Dispatch every id in `dispatch` and skip every row in `skips`.
+2. Plan the next dispatch with `"${ETRNL_NODE[@]}" "$ETRNL_SCRIPT_ROOT/review-merge.mjs" skip-plan --reviewers <ids> [--learnings "$REVIEW_LEARNINGS"] --json --root "$REPO_ROOT"`. Dispatch every id in `dispatch` and skip every row in `skips`.
+   - Always pass `--learnings "$REVIEW_LEARNINGS"` pointing at the private overlay ledger under `~/.claude/review-learnings/`.
+   - When repo-local streaks must survive across machines, pass `--learnings "$REPO_ROOT/.etrnl/review-learnings.json"` explicitly; never commit that file when it contains private overlay data.
 3. The limit is five consecutive zero-finding dispatches, overridable with `ETRNL_REVIEW_ADAPTIVE_SKIP_STREAK`. One finding resets the streak to 0.
 4. Exemptions always dispatch and never accrue a skip: security lenses, tenancy lenses, and every deep-audit lane registered in `"$DEEP_AUDIT_REGISTRY"`. A deep-audit lane reporting zero findings states coverage, not redundancy, and skipping it reintroduces the sampling those lanes exist to remove.
 5. Each skip row carries `reasonCode`, `reason`, and the `zeroFindingStreak` behind it, following the `coverageExceptions` precedent in `"$ETRNL_SCRIPT_ROOT/ux-audit-check.mjs"`. Copy the rows into the wave's review artifact so a review that never ran stays distinguishable from a review that found nothing.

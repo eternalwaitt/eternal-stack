@@ -267,11 +267,25 @@ function worktreeCheckErrors(ledger) {
   const stamped = passedChecks.filter((check) => check.treeHash);
   if (stamped.length === 0) return errors;
   const currentHash = worktreeHash(ledger.cwd || process.cwd());
-  if (!currentHash) return errors;
-  if (!passedChecks.some((check) => check.treeHash === currentHash)) {
+  if (!currentHash) {
+    errors.push("cannot verify checks against the current worktree");
+    return errors;
+  }
+  if (stamped.some((check) => check.treeHash !== currentHash)) {
     errors.push("verification checks are stale for the current worktree");
   }
   return errors;
+}
+
+function tier3InvestigatorEvidenceRecorded(ledger) {
+  if ((ledger.specialistEvidence ?? []).some((row) => String(row.skill || row.reviewer || "") === "etrnl-investigator")) {
+    return true;
+  }
+  if ((ledger.reviews ?? []).some((row) => row.reviewer === "etrnl-investigator" && REVIEW_DONE.has(row.status))) {
+    return true;
+  }
+  return (ledger.agents ?? []).some((row) =>
+    row.agentType === "etrnl-investigator" || row.role === "etrnl-investigator");
 }
 
 function tier3ResidualClosureErrors(ledger) {
@@ -279,9 +293,14 @@ function tier3ResidualClosureErrors(ledger) {
   const decisions = ledger.decisions ?? [];
   const pendingIdx = decisions.findIndex((row) => row.topic === "tier3-residual-closure-pending");
   if (pendingIdx < 0) return [];
+  if (!tier3InvestigatorEvidenceRecorded(ledger)) {
+    return ["tier-3 auth/money/migration/tenancy/security residual closure requires etrnl-investigator evidence before owner confirmation"];
+  }
   const confirmed = decisions.slice(pendingIdx + 1).some((row) => row.topic === "tier3-residual-closure-confirmed");
-  if (confirmed) return [];
-  return ["tier-3 auth/money/migration/tenancy/security residual closure requires investigator review and record-decision owner confirmation (topic: tier3-residual-closure-confirmed)"];
+  if (!confirmed) {
+    return ["tier-3 auth/money/migration/tenancy/security residual closure requires record-decision owner confirmation (topic: tier3-residual-closure-confirmed)"];
+  }
+  return [];
 }
 
 function completionErrors(ledger, options = {}) {
