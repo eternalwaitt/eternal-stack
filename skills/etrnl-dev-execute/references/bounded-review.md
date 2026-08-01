@@ -164,7 +164,7 @@ Close a task or wave only when acceptance criteria are met AND the merged review
 
 | Excuse | Rule |
 | --- | --- |
-| "One more review round" | Capped at 2 fix rounds; record residual non-P0/P1 as todos and proceed. |
+| "One more review round" | Tier 0-2: cap at 2 reopen rounds. Tier 3: reopen P0/P1 blockers until clean, capped at 4; follow `capDecision` for residuals. |
 | "Ask the owner to approve another cycle" | Only when `capDecision.ownerDecisionRequired` is `true`. A non-P0/P1 finding at the cap is a residual: record it and continue. |
 | "The cap is spent, so the run stops" | An `owner-decision` stops that stream only. Independent task groups keep executing. |
 | "Full doctor after a nit fix" | Run `bash scripts/doctor.sh --changed` only; full doctor stays for release/install. |

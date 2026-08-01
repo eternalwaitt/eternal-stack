@@ -125,7 +125,7 @@ After each phase:
 
 ### Browser-QA v2 Matrix Artifact
 
-Create with `browser-qa-report.mjs create --schema-version 2`; validate before completion. Complete reports need fresh capture metadata, screenshot + hash, and provenance on every route×viewport row.
+Create with `browser-qa-report.mjs create --schema-version 2`; run `browser-qa-report.mjs validate <report-path> --artifact-root <root>` and require exit 0 before completion. Complete reports need fresh capture metadata, screenshot + hash, and provenance on every route×viewport row.
 
 ## Verification Gates (hardened)
 
