@@ -19,6 +19,7 @@ const args = process.argv.slice(2);
 const allowDraft = args.includes('--allow-draft');
 const allowTransitionalDeepStack = args.includes('--allow-transitional-deep-stack');
 const json = args.includes('--json');
+const explain = args.includes('--explain');
 const selfReviewMode = args.includes('--self-review');
 const nonFlagArgs = args.filter((arg) => !arg.startsWith('--'));
 const planPath = nonFlagArgs[0];
