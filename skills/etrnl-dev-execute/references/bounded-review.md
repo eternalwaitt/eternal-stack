@@ -110,7 +110,7 @@ A spent reopen cap and a tripped park counter both end the loop. Severity decide
 | `proceed-with-residuals` | Loop ended, no P0/P1 open | Record every residual as a non-blocking note, close the stream, continue. |
 | `owner-decision` | Loop ended, P0/P1 still open | Escalate per the rules below. |
 
-1. `proceed-with-residuals` is autonomous at tier 0-2. At tier 3, auth/money/migration/tenancy/security streams require `etrnl-investigator` review plus recorded owner confirmation via `record-decision` before closing with residuals. Lower-severity findings on those surfaces can still be release-blocking; do not treat tier alone as permission to skip confirmation.
+1. `proceed-with-residuals` is autonomous at tier 0-2. At tier 3 on auth/money/migration/tenancy/security streams, P2/P3 findings stay recorded as residuals but require `etrnl-investigator` review plus `record-decision` owner confirmation before the stream closes — they are not silently downgraded to non-blocking notes.
 2. Before an `owner-decision` escalation, dispatch `etrnl-investigator` once on the open blocker and re-merge. Escalate only when the blocker survives that pass.
 3. An `owner-decision` stops the named task or stream only. Independent task groups keep running; a plan does not halt because one stream is parked. Park the stream per rule 6 below and continue the rest of the plan before reporting.
 4. When escalation is genuinely required, report the `capDecision.blockingFingerprints`, the fix attempted in each round, and the exact `record-review --override-owner-approved "<reason>"` command. Do not ask the user to judge severity, choose a path, or approve "one more cycle" in free text — the owner is confirming an override, not doing the triage.
@@ -134,7 +134,29 @@ Reopen caps bound the worst case. Trajectory counters end a loop that stopped co
    | `roundsSinceProgress` | 2 | `ETRNL_REVIEW_ROUNDS_SINCE_PROGRESS_LIMIT` | `rounds-since-progress-limit` |
 
 5. Any single tripped counter parks the stream while reopen rounds remain: `park.reopenCapExhausted` reports `false` in that case and the loop stops anyway.
-6. On a park, record a blocker naming every `park.reasons[].reasonCode`. Downgrade only non-P0/P1 residuals to non-blocking notes; unresolved P0/P1 findings stay blocking and follow the investigator/owner-decision path. `capDecision` decides what follows: at tier 0-2, `proceed-with-residuals` closes autonomously; at tier 3 on auth/money/migration/tenancy/security streams, `proceed-with-residuals` still requires `etrnl-investigator` review and `record-decision` owner confirmation before closure; `owner-decision` always requires `record-decision`.
+6. On a park, record a blocker naming every `park.reasons[].reasonCode`. Unresolved P0/P1 findings stay blocking and follow the investigator/owner-decision path. `capDecision` decides what follows: at tier 0-2, `proceed-with-residuals` downgrades non-P0/P1 findings to non-blocking notes and closes autonomously; at tier 3 on auth/money/migration/tenancy/security streams, `proceed-with-residuals` keeps P2/P3 findings as recorded residuals and requires `etrnl-investigator` review plus `record-decision` owner confirmation before closure; `owner-decision` always requires `record-decision`.
+
+## Fix-round re-review (scoped)
+
+When fixing review findings without widening scope, use a fix-round packet with:
+
+- `fixBaseSha` — tree before the fix
+- `fixHeadSha` — tree after the fix
+- `findingIds[]` — ids from the prior merged review artifact being addressed
+
+Merge only those findings in scoped mode:
+
+```bash
+node scripts/review-merge.mjs merge --scoped \
+  --fix-base-sha <base> --fix-head-sha <head> \
+  --finding-ids <id,id> --file <findings.json> --json
+```
+
+Re-verify with targeted gates for the touched lens only; do not replay the full harness for nits.
+
+## Plan-end one-fixer
+
+At plan end, dispatch **one** fixer subagent for all remaining non-blocking residuals across independent streams, then one merged adversarial pass over the whole branch. Do not spawn per-stream fixer chains when residuals are source-only and disjoint.
 
 ## Adaptive reviewer skip
 

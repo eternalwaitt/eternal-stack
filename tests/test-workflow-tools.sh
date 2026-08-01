@@ -1808,6 +1808,11 @@ if qa_missing_tree="$(node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_r
 else
   assert_contains "browser QA validate requires tree hash with completion gate" "$qa_missing_tree" "validate --require-complete requires --tree-hash"
 fi
+if qa_v1_complete_gate="$(node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_report_flags" --require-complete --tree-hash "$qa_expected_tree_hash" 2>&1)"; then
+  not_ok "browser QA validate rejects v1 report under completion gate"
+else
+  assert_contains "browser QA validate requires schema v2 for completion gate" "$qa_v1_complete_gate" "complete validation requires schemaVersion 2"
+fi
 qa_artifacts="$TMPROOT/browser-qa-artifacts"
 mkdir -p "$qa_artifacts/browser-qa"
 printf '{bad' >"$qa_artifacts/browser-qa/bad.json"
@@ -3970,6 +3975,7 @@ assert_contains "bounded-review fails closed on missing installed helper" "$tg12
 assert_contains "bounded-review passes explicit repo root to helpers" "$tg12_bounded_review" '--root "$REPO_ROOT"'
 assert_contains "bounded-review tier-3 residual closure requires investigator on all high-risk streams" "$tg12_bounded_review" "auth/money/migration/tenancy/security streams require"
 assert_contains "bounded-review park path keeps tier-3 residual confirmation" "$tg12_bounded_review" 'still requires `etrnl-investigator` review and `record-decision` owner confirmation before closure'
+assert_contains "bounded-review tier-3 P2 residuals stay recorded until owner confirmation" "$tg12_bounded_review" "P2/P3 findings stay recorded as residuals"
 tg12_dev_pr="$(cat "$ROOT/skills/etrnl-dev-pr/SKILL.md")"
 assert_contains "etrnl-dev-pr routes review-learn through the installed helper" "$tg12_dev_pr" "node ~/.claude/scripts/review-learn.mjs learn"
 assert_contains "etrnl-dev-pr uses FINDINGS_FILE for review-learn ingestion" "$tg12_dev_pr" 'FINDINGS_FILE="${FINDINGS_FILE:?set FINDINGS_FILE to a sanitized JSON file}"'
@@ -4120,6 +4126,46 @@ else
   ok "spawn guard enforces concurrent lane cap"
 fi
 
+ETRNL_EXECUTE_HOST=codex lane_cap_codex_path="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-lane-cap-codex --plan "$ROOT/hooks/fixtures/plans/good-plan.md" --cwd "$ROOT")"
+assert_file "codex lane cap ledger init creates file" "$lane_cap_codex_path"
+assert_command "codex profile allows lane one" env ETRNL_EXECUTE_HOST=codex node "$ROOT/scripts/execution-ledger.mjs" check-spawn --session fixture-lane-cap-codex --task-name burst_lane_1 --wave wave-1
+assert_command "codex profile allows lane two" env ETRNL_EXECUTE_HOST=codex node "$ROOT/scripts/execution-ledger.mjs" check-spawn --session fixture-lane-cap-codex --task-name burst_lane_2 --wave wave-1
+if env ETRNL_EXECUTE_HOST=codex node "$ROOT/scripts/execution-ledger.mjs" check-spawn --session fixture-lane-cap-codex --task-name burst_lane_3 --wave wave-1 >/dev/null 2>&1; then
+  not_ok "codex profile enforces maxConcurrentLanes=2"
+else
+  ok "codex profile enforces maxConcurrentLanes=2"
+fi
+
+if explain_out="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-spawn-explain --plan "$ROOT/hooks/fixtures/plans/good-plan.md" --cwd "$ROOT" >/dev/null && node "$ROOT/scripts/execution-ledger.mjs" check-spawn --explain --session fixture-spawn-explain --task-name p108c2_r9_spec_review --wave wave-3 --json 2>&1)"; then
+  not_ok "spawn guard explain should fail for blocked spawn"
+else
+  if [[ "$explain_out" == *"reasonCode"* && "$explain_out" == *"exactFix"* ]]; then
+    ok "spawn guard explain prints structured recovery"
+  else
+    not_ok "spawn guard explain missing structured fields: $explain_out"
+  fi
+fi
+
+large_batch_plan="$TMPROOT/large-scope-plan.md"
+cat >"$large_batch_plan" <<'PLAN'
+# Large scope plan
+Scope triage: Large
+## Task group A
+## Task group B
+## Task group C
+## Verification gates
+- `node scripts/doctor.sh`
+PLAN
+large_batch_ledger="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-large-batch --plan "$large_batch_plan" --cwd "$ROOT")"
+assert_file "large scope batch ledger init" "$large_batch_ledger"
+if node "$ROOT/scripts/execution-ledger.mjs" check-spawn --session fixture-large-batch --task-name wave-1_spec_review --wave wave-1 >/dev/null 2>&1; then
+  not_ok "large scope requires batch-execution-adopted before first reviewer"
+else
+  ok "large scope requires batch-execution-adopted before first reviewer"
+fi
+node "$ROOT/scripts/execution-ledger.mjs" record-decision --session fixture-large-batch --topic batch-execution-adopted --decision "Surface-grouped waves" --reason "Large scope test" >/dev/null
+assert_command "batch adoption unlocks reviewer spawn on large scope" node "$ROOT/scripts/execution-ledger.mjs" check-spawn --session fixture-large-batch --task-name wave-1_spec_review --wave wave-1
+
 tg12_batch_execution="$(cat "$ROOT/skills/etrnl-dev-execute/references/batch-execution.md")"
 assert_contains "batch-execution defers tier 0-2 human-verify pauses" "$tg12_batch_execution" "## Human-verify batching (tier ≤ 2 default)"
 assert_contains "batch-execution keeps tier 3 UAT gates in place" "$tg12_batch_execution" "Tier 3 keeps explicit UAT gates where the plan places them"
@@ -4127,5 +4173,7 @@ assert_contains "batch-execution requires adoption decision" "$tg12_batch_execut
 assert_contains "batch-execution blocks per-patch review on wave 2+" "$tg12_batch_execution" "wave 2+ hard rule"
 codex_execute_profile="$(cat "$ROOT/skills/etrnl-dev-execute/references/codex-execute-profile.md")"
 assert_contains "codex execute profile mandates check-spawn" "$codex_execute_profile" "check-spawn"
+claude_execute_profile="$(cat "$ROOT/skills/etrnl-dev-execute/references/claude-execute-profile.md")"
+assert_contains "claude execute profile documents hook authoritative spawn guard" "$claude_execute_profile" "hook authoritative"
 
 finish_tests

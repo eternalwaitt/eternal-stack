@@ -214,6 +214,9 @@ function reportErrors(report, options = {}) {
   if (options.requireComplete && report.status !== "complete") {
     errors.push("report status must be complete");
   }
+  if (options.requireComplete && report.schemaVersion !== 2) {
+    errors.push("complete validation requires schemaVersion 2");
+  }
   if (options.expectedTreeHash) {
     const actual = report.provenance?.treeHash;
     if (!actual || actual !== options.expectedTreeHash) {

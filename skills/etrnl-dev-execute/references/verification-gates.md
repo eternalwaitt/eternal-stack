@@ -42,4 +42,6 @@ npx --no-install react-doctor --scope changed --base <ledger-base-commit> --bloc
 - **Out-of-scope finding:** working-note only; never blocks.
 - **Clean in-scope run:** `record-check --status passed`.
 
-**Missing tool or N/A scope:** `record-decision` with rationale — never invent `record-check` statuses for those paths.
+**Missing react-doctor:** block completion or require an owner-approved exception with compensating verification — do not treat unavailability as pass.
+
+**Genuinely N/A scope:** `record-decision` with rationale; do not invent `record-check` statuses for those paths.
