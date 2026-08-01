@@ -458,6 +458,17 @@ for codex_startup_file in AGENTS.md AGENTS.override.md; do
     restored_count=$((restored_count + 1))
   fi
 done
+if [[ -d "$BACKUP/codex-hooks" ]]; then
+  mkdir -p "$CODEX_TARGET/hooks"
+  for codex_hook in "$BACKUP/codex-hooks"/*; do
+    [[ -f "$codex_hook" ]] || continue
+    hook_name="$(basename -- "$codex_hook")"
+    cp -- "$codex_hook" "$CODEX_TARGET/hooks/$hook_name"
+    chmod +x "$CODEX_TARGET/hooks/$hook_name" 2>/dev/null || true
+    restored+=("codex-hooks/$hook_name")
+    restored_count=$((restored_count + 1))
+  done
+fi
 
 # Remove paths this install newly created (no pre-install counterpart) so rollback
 # returns to pre-install absence, not a half-reverted home. install.sh recorded them

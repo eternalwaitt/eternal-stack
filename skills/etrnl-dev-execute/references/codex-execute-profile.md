@@ -47,3 +47,72 @@ User-facing status is ledger position plus named gates, read from one command:
 - Line two carries `planStatus`, `nextGate`, and `nextGatePhase`.
 - With `--plan` omitted the command reports `planStatus=not-provided` and still exits 0 with task counts intact. Never assume the plan file is present.
 - Quote those field values verbatim. When `planStatus` is `not-provided` or `missing`, report the task counts and mark the named gate unavailable.
+
+## Spawn guard (mandatory before every subagent)
+
+Before **every** `spawn_agent` / native child-agent call on the Codex host:
+
+- When `~/.codex/hooks/spawn-guard-pre-tool-use.sh` is registered in `config.toml`, the hook is the **sole spawn recorder** — do not call `check-spawn` without `--dry-run` from the skill layer.
+- When the hook is absent or spawn guard mode is `off`, run `check-spawn` without `--dry-run` before dispatch.
+
+```bash
+node scripts/execution-ledger.mjs check-spawn \
+  --session "$CLAUDE_SESSION_ID" \
+  --task-name "<spawn task_name>" \
+  --wave "<current wave or phase id>"
+```
+
+- Exit 0 permits dispatch (hook records when active). Exit 1 is a hard stop — do not spawn, do not rename the task to bypass the guard.
+- `--dry-run` checks without recording (skill-layer debugging only when the hook is active).
+- `--explain` prints structured recovery: `reasonCode`, `exactFix`, `exampleCommand`.
+- `--override-spawn-cap "<reason>"` is only for a recorded P0/P1 blocker that survived investigator review; cosmetic reopen loops are not valid overrides.
+
+The guard enforces:
+
+1. **`maxConcurrentLanes`** — default 2 on Codex; no more than that many spawns in any rolling 60s window unless the plan raises the cap explicitly.
+2. **Wave 2+ merged review only** — blocks per-patch reviewers (`p108c2_spec_review`, `p108c2_r9_quality_review`, …) on wave/phase ≥ 2. Use `wave-N_spec_review` / `wave-N_quality_review` / `wave-N_simplifier_review` on the combined diff instead.
+3. **Review round cap** — blocks `_r3_` and higher spawn names; tier 0–2 fix rounds cap at 2, tier 3 reopen cap at 4. Further work uses `record-review` + `capDecision`, not new spawn aliases.
+4. **Per-patch reviewer budget** — at most one spec + quality + simplifier trio per patch on wave 1.
+5. **Batch adoption** — `planScope=large` or ≥3 task groups require `batch-execution-adopted` before the first reviewer spawn; opening another concurrent lane on batch-eligible plans requires the same decision; backstop at 20+ spawns with >55% reviewers.
+6. **Review scope (tier 0–2)** — `review-scope.mjs` integrated into `check-spawn`; tier ≥3 always `full_lenses`. See `references/bounded-review.md`.
+
+Read-only scout lanes must still pass through `check-spawn` so burst accounting stays accurate.
+
+## Batch adoption (unified triggers)
+
+Record `batch-execution-adopted` before the **first reviewer spawn** when any of these apply:
+
+| Trigger | Condition |
+| --- | --- |
+| Scope | `planScope=large` OR ≥3 task groups in the plan |
+| Parallel | third concurrent lane on Codex (default cap 2) |
+| Backstop | 20+ total spawns AND >55% reviewers |
+
+See `references/batch-execution.md` for wave shaping and gate economics.
+
+## Full fan-out waves (tier 3)
+
+When the plan names a wave that must keep the per-write-task spec → quality → simplifier chain on wave 2+, record it once before dispatching per-patch reviewers on that wave:
+
+```bash
+node scripts/execution-ledger.mjs record-decision \
+  --topic full-fan-out-wave \
+  --decision "<wave-id>" \
+  --reason "Plan requires per-task review chain on this wave"
+```
+
+`check-spawn` allows per-patch reviewer names on the named wave only; all other wave 2+ reviewers stay merged.
+
+## Subagent lifecycle (Codex)
+
+When a native child agent or `spawn_agent` lane completes:
+
+1. Call `close_agent` (or the host equivalent) so the harness releases the lane.
+2. Record closure in the ledger so lane caps stay accurate:
+
+```bash
+printf '{"agentId":"<id>","taskId":"<task>","agentType":"<role>","status":"completed","outputTokens":0,"findingsCount":0}\n' \
+  | node scripts/execution-ledger.mjs record-subagent --session "$CLAUDE_SESSION_ID"
+```
+
+`record-subagent` writes `endedAt` / `completedAt` on the agent row when the lane closes. Do not rely on spawn timestamps alone — burst accounting uses spawn rows in the ledger; close every lane explicitly after `close_agent`.

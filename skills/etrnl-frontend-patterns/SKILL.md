@@ -4,7 +4,7 @@ description: ETRNL frontend and UI design orchestrator. Use when building or res
 ---
 # ETRNL Frontend Patterns
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-frontend-patterns`; on update, never stop to ask; local updates auto-apply when enabled and safe.
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-frontend-patterns`; on update, run the reported update command before continuing; only skip if the user explicitly declines.
 
 Single entry point for frontend design work. Read only the reference files the task needs; do not preload the whole suite.
 

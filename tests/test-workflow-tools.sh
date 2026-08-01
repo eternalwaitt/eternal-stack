@@ -1403,6 +1403,12 @@ node "$ROOT/scripts/merge-settings.mjs" "$merge_mixed_target" "$merge_mixed_temp
 assert_json_expr "merge-settings sorts guard ahead of a user hook sharing its input group" "$(jq -c . "$merge_mixed_target")" '([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/cc-pretooluse-guard.sh")) < ([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/user-gamma.sh"))'
 assert_json_expr "merge-settings sorts guard ahead of every user hook from a mixed group" "$(jq -c . "$merge_mixed_target")" '([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/cc-pretooluse-guard.sh")) < ([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/user-delta.sh"))'
 assert_json_expr "merge-settings preserves flattened user hook order from a mixed group" "$(jq -c . "$merge_mixed_target")" '([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/user-gamma.sh")) < ([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/user-delta.sh"))'
+merge_spawn_target="$TMPROOT/merge-spawn-order-target.json"
+merge_spawn_template="$TMPROOT/merge-spawn-order-template.json"
+printf '%s\n' '{"hooks":{"PreToolUse":[{"matcher":"Bash|Read|Edit|Write|MultiEdit|WebSearch|Task|TaskCreate|Agent","hooks":[{"type":"command","command":"bash ~/.claude/hooks/cc-pretooluse-guard.sh","timeout":10}]}]}}' >"$merge_spawn_target"
+printf '%s\n' '{"hooks":{"PreToolUse":[{"matcher":"Bash|Read|Edit|Write|MultiEdit|WebSearch|Task|TaskCreate|Agent","hooks":[{"type":"command","command":"bash ~/.claude/hooks/cc-spawn-guard.sh","timeout":10}]}]}}' >"$merge_spawn_template"
+node "$ROOT/scripts/merge-settings.mjs" "$merge_spawn_target" "$merge_spawn_template"
+assert_json_expr "merge-settings orders cc-spawn-guard before cc-pretooluse-guard" "$(jq -c . "$merge_spawn_target")" '([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/cc-spawn-guard.sh")) < ([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/cc-pretooluse-guard.sh"))'
 settings_audit_target="$TMPROOT/settings-audit-target.json"
 settings_audit_home="$TMPROOT/settings-audit-home"
 settings_audit_project="$TMPROOT/settings-audit-project"
@@ -4024,7 +4030,7 @@ assert_contains "bounded-review documents the recurring-finding park limit" "$tg
 assert_contains "bounded-review documents the alternation park limit" "$tg12_bounded_review" "ETRNL_REVIEW_STREAM_ALTERNATION_LIMIT"
 assert_contains "bounded-review documents the progress park limit" "$tg12_bounded_review" "ETRNL_REVIEW_ROUNDS_SINCE_PROGRESS_LIMIT"
 assert_contains "bounded-review documents the report-only deterministic pass" "$tg12_bounded_review" "--report-only"
-assert_contains "bounded-review carries the tier 3 Codex-profile carve-out" "$tg12_bounded_review" "Codex-profile carve-out"
+assert_contains "bounded-review carries the dual-host tier 3 wave cadence rule" "$tg12_bounded_review" "Dual-host wave cadence"
 assert_contains "bounded-review keeps tier 3 gates at full strength" "$tg12_bounded_review" "Tier 3 gates hold at full strength on every wave"
 assert_contains "bounded-review exempts deep-audit lanes from adaptive skip" "$tg12_bounded_review" "DEEP_AUDIT_REGISTRY=\"\$ETRNL_SCRIPT_ROOT/lib/deep-audit-categories.mjs\""
 assert_contains "bounded-review reuses the review-learnings store" "$tg12_bounded_review" "reviewerDispatches"
@@ -4175,5 +4181,168 @@ assert_contains "review-learn JSON-shaped secret rejection leaves rules unchange
 tg12_batch_execution="$(cat "$ROOT/skills/etrnl-dev-execute/references/batch-execution.md")"
 assert_contains "batch-execution defers tier 0-2 human-verify pauses" "$tg12_batch_execution" "## Human-verify batching (tier ≤ 2 default)"
 assert_contains "batch-execution keeps tier 3 UAT gates in place" "$tg12_batch_execution" "Tier 3 keeps explicit UAT gates where the plan places them"
+
+spawn_batch_plan="$ROOT/hooks/fixtures/plans/large-batch-plan.md"
+node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-spawn-batch --plan "$spawn_batch_plan" --cwd "$ROOT" >/dev/null
+if batch_deny_out="$(node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-batch --task-name "wave-1_spec_review" --wave "wave-1" --json 2>&1)"; then
+  not_ok "spawn guard blocks first reviewer on Large plan without batch adoption"
+else
+  assert_json_expr "spawn guard blocks first reviewer on Large plan without batch adoption" "$batch_deny_out" '.reasonCode == "large-scope-batch-required"'
+fi
+node "$ROOT/scripts/execution-ledger.mjs" record-decision --session fixture-spawn-batch --topic batch-execution-adopted --decision "Surface-grouped waves" --reason "Large scope fixture"
+assert_command "spawn guard allows reviewer after batch adoption" node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-batch --task-name "wave-1_spec_review" --wave "wave-1" --json
+node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-spawn-codex-lanes --plan "$ROOT/hooks/fixtures/plans/good-plan.md" --cwd "$ROOT" >/dev/null
+assert_command "codex spawn guard records first implementer" env ETRNL_EXECUTE_HOST=codex node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-codex-lanes --task-name "p01a_writer" --wave "wave-1" --json
+assert_command "codex spawn guard records second implementer" env ETRNL_EXECUTE_HOST=codex node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-codex-lanes --task-name "p108c2_writer" --wave "wave-1" --json
+if codex_lane_out="$(env ETRNL_EXECUTE_HOST=codex node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-codex-lanes --task-name "p01a_executor" --wave "wave-1" --json 2>&1)"; then
+  not_ok "codex spawn guard enforces maxConcurrentLanes=2 burst cap"
+else
+  assert_json_expr "codex spawn guard enforces maxConcurrentLanes=2 burst cap" "$codex_lane_out" '.reasonCode == "concurrent-lane-cap"'
+fi
+spawn_double_ledger="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-spawn-double --plan "$ROOT/hooks/fixtures/plans/good-plan.md" --cwd "$ROOT")"
+spawn_before="$(jq '.spawns | length' "$spawn_double_ledger")"
+assert_command "spawn guard dry-run does not record spawn" node "$ROOT/scripts/execution-ledger.mjs" check-spawn --session fixture-spawn-double --task-name "p01a_writer" --wave "wave-1" --dry-run --json
+spawn_after_dry="$(jq '.spawns | length' "$spawn_double_ledger")"
+if [[ "$spawn_after_dry" == "$spawn_before" ]]; then
+  ok "spawn guard dry-run leaves spawn count unchanged"
+else
+  not_ok "spawn guard dry-run should leave spawn count unchanged (before=$spawn_before after=$spawn_after_dry)"
+fi
+record_deny_rc=0
+record_deny_out="$(node "$ROOT/scripts/execution-ledger.mjs" check-spawn --session fixture-spawn-double --task-name "p01a_writer" --wave "wave-1" --json 2>&1)" || record_deny_rc=$?
+if [[ "$record_deny_rc" -eq 2 ]] && [[ "$record_deny_out" == *"requires hook authority"* ]]; then
+  ok "spawn guard rejects recording without hook authority or --allow-record"
+else
+  not_ok "spawn guard should reject recording without authority (rc=$record_deny_rc out=$record_deny_out)"
+fi
+assert_command "spawn guard records allowed spawn once" node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-double --task-name "p01a_writer" --wave "wave-1" --json
+spawn_after_record="$(jq '.spawns | length' "$spawn_double_ledger")"
+if [[ "$spawn_after_record" -eq $((spawn_before + 1)) ]]; then
+  ok "spawn guard increments spawn count exactly once per allowed spawn"
+else
+  not_ok "spawn guard should increment spawn count once (before=$spawn_before after=$spawn_after_record)"
+fi
+node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-spawn-third-lane --plan "$spawn_batch_plan" --cwd "$ROOT" >/dev/null
+assert_command "third-lane fixture records first lane" node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-third-lane --task-name "tg1_writer" --wave "wave-1" --json
+assert_command "third-lane fixture records second lane" node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-third-lane --task-name "tg2_writer" --wave "wave-1" --json
+if third_lane_out="$(node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-third-lane --task-name "tg3_writer" --wave "wave-1" --json 2>&1)"; then
+  not_ok "spawn guard requires batch adoption before third concurrent lane on Large plan"
+else
+  assert_json_expr "spawn guard requires batch adoption before third concurrent lane on Large plan" "$third_lane_out" '.reasonCode == "parallel-lane-batch-required"'
+fi
+heavy_ledger_file="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-spawn-heavy --plan "$ROOT/hooks/fixtures/plans/good-plan.md" --cwd "$ROOT")"
+if [[ -n "$heavy_ledger_file" && -f "$heavy_ledger_file" ]]; then
+  python3 - "$heavy_ledger_file" <<'PY'
+import json
+import sys
+from datetime import datetime, timedelta, timezone
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as handle:
+    ledger = json.load(handle)
+now = datetime.now(timezone.utc)
+ledger["spawns"] = [
+    {
+        "taskName": "wave-1_spec_review" if i < 12 else f"worker_{i}_writer",
+        "waveId": "wave-1",
+        "role": "reviewer" if i < 12 else "implementer",
+        "at": (now - timedelta(seconds=120 if i < 18 else 0)).isoformat().replace("+00:00", "Z"),
+    }
+    for i in range(20)
+]
+with open(path, "w", encoding="utf-8") as handle:
+    json.dump(ledger, handle, indent=2)
+    handle.write("\n")
+PY
+  if heavy_out="$(node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-heavy --task-name "wave-1_quality_review" --wave "wave-1" --json 2>&1)"; then
+    not_ok "spawn guard blocks reviewer-heavy backstop without batch adoption (allowed: $heavy_out)"
+  else
+    assert_json_expr "spawn guard blocks reviewer-heavy backstop without batch adoption" "$heavy_out" '.reasonCode == "batch-execution-required"'
+  fi
+else
+  not_ok "reviewer-heavy backstop fixture could not resolve ledger path"
+fi
+if scope_tier3_out="$(node "$ROOT/scripts/review-scope.mjs" classify --tier 3 --json 2>&1)"; then
+  assert_json_expr "review-scope tier 3 always full_lenses" "$scope_tier3_out" '.mode == "full_lenses"'
+else
+  not_ok "review-scope tier 3 classify failed: $scope_tier3_out"
+fi
+if scope_t2_small_out="$(node "$ROOT/scripts/review-scope.mjs" classify --tier 2 --diff-lines 25 --json 2>&1)"; then
+  assert_json_expr "review-scope tier 2 small diff deterministic_only" "$scope_t2_small_out" '.mode == "deterministic_only"'
+else
+  not_ok "review-scope tier 2 small classify failed: $scope_t2_small_out"
+fi
+if scope_t2_medium_out="$(node "$ROOT/scripts/review-scope.mjs" classify --tier 2 --diff-lines 120 --json 2>&1)"; then
+  assert_json_expr "review-scope tier 2 medium diff merged_quality" "$scope_t2_medium_out" '.mode == "merged_quality"'
+else
+  not_ok "review-scope tier 2 medium classify failed: $scope_t2_medium_out"
+fi
+scope_exceeded_out="$(node --input-type=module -e "
+import { evaluateSpawnGuard } from './scripts/lib/spawn-guard.mjs';
+const verdict = evaluateSpawnGuard({ spawns: [], planScope: 'small' }, {
+  taskName: 'wave-1_spec_review',
+  waveId: 'wave-1',
+  riskTier: 2,
+  reviewScopeMode: 'deterministic_only',
+  subagentType: 'etrnl-spec-reviewer',
+});
+console.log(JSON.stringify(verdict));
+" 2>&1)"
+assert_json_expr "spawn guard blocks reviewer when review scope is deterministic_only" "$scope_exceeded_out" '.reasonCode == "review-scope-exceeded"'
+registry_plan="$ROOT/hooks/fixtures/plans/good-plan.md"
+node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-spawn-registry --plan "$registry_plan" --cwd "$ROOT" >/dev/null
+assert_command "record-spawn-registry refreshes plan allowlist" node "$ROOT/scripts/execution-ledger.mjs" record-spawn-registry --session fixture-spawn-registry --plan "$registry_plan"
+if registry_deny_out="$(node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-registry --task-name "not_in_plan_writer" --wave "wave-1" --json 2>&1)"; then
+  not_ok "spawn guard denies unknown spawn name when allowlist populated"
+else
+  assert_json_expr "spawn guard denies unknown spawn name when allowlist populated" "$registry_deny_out" '.reasonCode == "spawn-name-not-registered"'
+fi
+node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-spawn-fanout --plan "$registry_plan" --cwd "$ROOT" >/dev/null
+node "$ROOT/scripts/execution-ledger.mjs" record-decision --session fixture-spawn-fanout --topic full-fan-out-wave --decision "wave-3" --reason "fixture"
+assert_command "full-fan-out-wave allows per-patch reviewer on named wave" node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-fanout --task-name "p108c2_spec_review" --wave "wave-3" --json
+scoped_findings="$TMPROOT/scoped-merge-findings.json"
+printf '[{"reviewer":"etrnl-quality-reviewer","severity":"P2","confidence":0.9,"file":"src/a.ts","line":1,"fingerprint":"fp-scoped-1","summary":"nit","autofix_class":"manual"}]\n' >"$scoped_findings"
+scoped_merge_out="$(node "$ROOT/scripts/review-merge.mjs" merge --scoped --fix-base-sha abc123 --fix-head-sha def456 --finding-ids fp-scoped-1 --file "$scoped_findings" --root "$ROOT" 2>&1)"
+assert_json_expr "review-merge scoped mode records fix-round metadata" "$scoped_merge_out" '.scopedFixRound.fixBaseSha == "abc123" and .scopedFixRound.fixHeadSha == "def456"'
+skip_repo_root="$TMPROOT/skip-plan-repo-scope"
+mkdir -p "$skip_repo_root/.etrnl"
+skip_repo_learnings="$skip_repo_root/.etrnl/review-learnings.json"
+printf '{"schemaVersion":1,"recurrences":{},"promoted":{},"cleanRuns":{},"reviewerDispatches":{}}\n' >"$skip_repo_learnings"
+skip_repo_out="$(node "$ROOT/scripts/review-merge.mjs" skip-plan --reviewers etrnl-quality-reviewer --scope repo --learnings "$skip_repo_learnings" --json --root "$skip_repo_root" 2>&1)"
+assert_json_expr "skip-plan --scope repo dispatches reviewers" "$skip_repo_out" '.dispatch | length >= 1'
+node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-spawn-misclass --plan "$registry_plan" --cwd "$ROOT" >/dev/null
+if misclass_cli_out="$(node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-misclass --task-name "p108c2_writer" --wave "wave-3" --subagent-type "etrnl-spec-reviewer" --json 2>&1)"; then
+  not_ok "check-spawn blocks reviewer subagent with writer task name on wave 3"
+else
+  assert_json_expr "check-spawn blocks reviewer subagent with writer task name on wave 3" "$misclass_cli_out" '.reasonCode == "per-patch-review-on-wave-2-plus"'
+fi
+if reverse_misclass_out="$(node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-misclass --task-name "p108c2_writer" --wave "wave-3" --subagent-type "etrnl-executor" --packet-mode "read-only" --json 2>&1)"; then
+  not_ok "check-spawn blocks read-only writer alias disguised as implementer on wave 3"
+else
+  assert_json_expr "check-spawn blocks read-only writer alias disguised as implementer on wave 3" "$reverse_misclass_out" '.reasonCode == "per-patch-review-on-wave-2-plus"'
+fi
+if self_review_ok_out="$(node "$ROOT/scripts/plan-readiness-check.mjs" "$ROOT/hooks/fixtures/plans/good-plan.md" --self-review --allow-transitional-deep-stack --json 2>&1)"; then
+  assert_json_expr "plan-readiness self-review eligible for tier 2 complete plan" "$self_review_ok_out" '.selfReview.eligible == true'
+else
+  not_ok "plan-readiness self-review failed for good plan: $self_review_ok_out"
+fi
+self_review_t3_out="$(node "$ROOT/scripts/plan-readiness-check.mjs" "$ROOT/hooks/fixtures/plans/tier3-plan.md" --self-review --allow-transitional-deep-stack --json 2>&1 || true)"
+if [[ -n "$self_review_t3_out" ]]; then
+  assert_json_expr "plan-readiness self-review ineligible for tier 3 plan" "$self_review_t3_out" '.selfReview.eligible == false'
+else
+  not_ok "plan-readiness self-review tier 3 check produced no output"
+fi
+if packet_fix_bad_out="$(node "$ROOT/scripts/agent-task-packet-check.mjs" <<< '{"mode":"write","goal":"fix","contextSummary":"ctx","cwd":"/tmp","scope":"src","readSet":["src"],"expectedOutput":"done","noRevert":true,"fixBaseSha":"abc123"}' 2>&1)"; then
+  not_ok "agent-task-packet-check should reject partial fix-round packet"
+else
+  assert_contains "agent-task-packet-check rejects partial fix-round packet" "$packet_fix_bad_out" "fix-round packets require"
+fi
+claude_exec_profile="$(cat "$ROOT/skills/etrnl-dev-execute/references/claude-execute-profile.md")"
+codex_exec_profile="$(cat "$ROOT/skills/etrnl-dev-execute/references/codex-execute-profile.md")"
+for trigger_text in "batch-execution-adopted" "third concurrent lane" "20+" "55%"; do
+  assert_contains "batch trigger table includes $trigger_text in batch-execution.md" "$tg12_batch_execution" "$trigger_text"
+  assert_contains "batch trigger table includes $trigger_text in claude execute profile" "$claude_exec_profile" "$trigger_text"
+  assert_contains "batch trigger table includes $trigger_text in codex execute profile" "$codex_exec_profile" "$trigger_text"
+done
 
 finish_tests

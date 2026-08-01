@@ -93,6 +93,7 @@ const compactExistingEventHooks = (eventName) => {
 
 const commandOrder = (command) => {
   const canonical = canonicalCommand(command);
+  if (canonical.includes("cc-spawn-guard.sh")) return 15;
   if (canonical.includes("cc-rtk-rg-compat.sh")) return 10;
   if (canonical.includes("cc-pretooluse-guard.sh")) return 20;
   if (canonical === "rtk hook claude" || canonical.includes("rtk-rewrite.sh")) return 30;

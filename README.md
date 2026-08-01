@@ -21,7 +21,8 @@ Most power users eventually hit the same wall: the agent is capable but undiscip
 | Agent says "done", nothing is verified | Stop hooks block completion claims without passing a checklist |
 | Skills installed locally drift from source | `skill-contract-check.mjs` and install metadata detect drift on every session |
 | Thin plans get shipped to execution without pushback | `plan-readiness-check.mjs` gates any plan that's missing scope, risks, or rollback steps |
-| Parallel edits spiral out of control | Task packets, wave overlap checks, and write-scope enforcement keep changes bounded |
+| Parallel edits spiral out of control | Task packets, wave overlap checks, write-scope enforcement, and dual-host spawn guard (`check-spawn`) keep changes bounded |
+| Review learnings drift or get overwritten | `review-learn.mjs` and `review-merge.mjs` merge additively into separate top-level keys in `review-learnings.json` under one file lock |
 | Settings get overwritten on reinstall | Merge-in-place hooks, settings audit, and rollback backups protect your config |
 
 ---
@@ -51,7 +52,7 @@ tests/test-hooks.sh
 
 ## What ships with it
 
-**Hooks** — enforcement at tool boundaries. Full catalog and lifecycle wiring: [docs/hooks.md](docs/hooks.md). Pretool and stop rules: [docs/guards.md](docs/guards.md). Regression: [tests/test-hooks.sh](tests/test-hooks.sh).
+**Hooks** — enforcement at tool boundaries, including dual-host spawn economics (`cc-spawn-guard.sh`, Codex `spawn-guard-pre-tool-use.sh`). Full catalog and lifecycle wiring: [docs/hooks.md](docs/hooks.md). Pretool and stop rules: [docs/guards.md](docs/guards.md). Regression: [tests/test-hooks.sh](tests/test-hooks.sh).
 
 **Skills** — repeatable workflows as `/etrnl-*` commands, grouped by namespace (`dev`, `audit`, `ops`, `comm`). Inventory: [docs/skills.md](docs/skills.md).
 

@@ -4,7 +4,7 @@ description: ETRNL planning companion for Claude Code. Use when the user asks to
 ---
 # ETRNL Autoplan
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-autoplan`; on update, never stop to ask; local updates auto-apply when enabled and safe.
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-autoplan`; on update, run the reported update command before continuing; only skip if the user explicitly declines.
 
 Create execution-ready plans for `/etrnl-dev-execute`. Do not implement the plan.
 
@@ -90,6 +90,14 @@ Emit `## Tier assessment` before `## What already exists` with five lines: decla
 Load `references/tier-assessment-and-model-routing.md` before writing that section, the `Scope triage:` line, or any packet model. It carries the five-line field contract, the scope triage table, the Codex model map resolved through `scripts/lib/codex-model-routing.mjs`, the rule that an omitted or inherited `model` is a packet defect rather than a fallback, the `## Parallelization strategy` row format, and the tier-3 install-proof status rules.
 
 ## Full Deep Stack Review
+
+Before spawning plan reviewer subagents, run inline self-review when eligible:
+
+```bash
+node scripts/plan-readiness-check.mjs <plan-path> --self-review --json
+```
+
+When `selfReview.eligible` is `true` (tier 0–2, readiness passed, required self-review sections present), perform the parent inline review using the readiness checklist sections instead of spawning engineering or adversarial plan reviewers. Tier 3 plans and plans with self-review gaps still run the full gauntlet below.
 
 Run the review gauntlet required by the plan's `Risk tier` before finalizing. Tier 0–1 use one merged quality review lane only — no task packets, no multi-reviewer fan-out, no deep-stack bundle. Tier 2 requires engineering plus adversarial lanes. Tier 3 requires all eight lanes and a validated `Deep stack artifacts:` bundle before execution.
 

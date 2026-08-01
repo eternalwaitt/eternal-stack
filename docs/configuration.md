@@ -125,8 +125,8 @@ Updater:
 - `ETRNL_AUTO_UPDATE`: unset means local auto-update is enabled from the recorded source checkout (SessionStart, requested Claude `etrnl-*` skills via the prompt router, and Codex `skill-update-prompt.mjs`); set `ETRNL_AUTO_UPDATE=0` to disable automatic local etrnl repair while developing against a dirty source checkout.
 - `ETRNL_AUTO_UPDATE_DIRTY=1` allows SessionStart auto-update even when `install.json` marks the source checkout as dirty (`sourceDirty: true`); leave unset to skip auto-update until the checkout is clean or changes are committed.
 - `ETRNL_UPDATE_INTERVAL_SEC` controls the remote-check cache window; default is `21600` seconds (six hours) when unset.
-- `ETRNL_SKILL_UPDATE_CHECK=0` disables the prompt router's per-prompt requested-`etrnl-*`-skill freshness/auto-update check; enabled by default when unset. The check is non-blocking: local Eternal Stack updates are auto-applied silently (unless `ETRNL_AUTO_UPDATE=0` or the source checkout is dirty) and the agent continues the requested work — it never stops to ask update/snooze/continue. Any remaining remote or tool-stack updates are surfaced as informational only and are never turned into a blocking prompt.
-- `ETRNL_SKILL_UPDATE_TIMEOUT_SEC` bounds each prompt-router skill-update subprocess; default is `5` seconds when unset.
+- `ETRNL_SKILL_UPDATE_CHECK=0` disables the prompt router's per-prompt requested-`etrnl-*`-skill freshness/auto-update check; enabled by default when unset. When an update is available, the router injects the reported update command and expects the agent to run it before continuing the requested work — only skip when the user explicitly declines. Local Eternal Stack updates are still auto-applied when possible (`update-check.mjs --auto`, unless `ETRNL_AUTO_UPDATE=0` or the source checkout is dirty); any remaining remote or tool-stack items must also be applied before proceeding.
+- `ETRNL_SKILL_UPDATE_TIMEOUT_SEC` bounds each prompt-router skill-update subprocess; default is `120` seconds when unset.
 - `ETRNL_SKILL_UPDATE_INTERVAL_SEC` stamp-gates the prompt-router skill-update check so it runs at most once per interval instead of on every prompt after a skill match; default is `1800` seconds. `ETRNL_SKILL_UPDATE_STAMP` overrides the stamp file path for tests.
 - `ETRNL_SKILL_UPDATE_MAX_CHARS` caps the skill-update context the prompt router injects; default is `1200` characters when unset.
 - `ETRNL_INSTALL_STATE` and `ETRNL_UPDATE_STATE` override the installed metadata and update cache paths for tests or custom Claude homes.
@@ -224,5 +224,27 @@ Guard state and break-glass:
 - `CLAUDE_GUARD_DEBUG=1` prints extra guard diagnostics.
 - `CLAUDE_GUARD_FILE_SPRAWL=1` re-enables the opt-in new-source-file sprawl check (blocks a Write that would create the fourth-or-later new source file this session — i.e. when three or more new source files already exist — outside the active write scope); disabled by default when unset.
 - `CLAUDE_GUARD_OVERRIDE_TOKEN` supplies a one-time override token for approved safety-critical commands.
+- `ETRNL_SPAWN_GUARD_MODE` controls spawn economics hooks (`cc-spawn-guard.sh`, Codex `spawn-guard-pre-tool-use.sh`): `enforce` (default), `advisory` (log only), or `off`.
+- `ETRNL_SKIP_HOOKS=cc-spawn-guard` bypasses the Claude spawn guard only; Codex uses `ETRNL_SKIP_HOOKS=spawn-guard`.
+- `ETRNL_EXECUTE_HOST=codex|claude` selects execute-profile lane caps (2 vs 3) in `spawn-guard.mjs`.
+- `ETRNL_BATCH_TASK_GROUP_THRESHOLD` (default `3`) — batch adoption required at or above this many plan task groups.
+- `ETRNL_BATCH_REVIEWER_HEAVY_MIN_SPAWNS` (default `20`) and `ETRNL_BATCH_REVIEWER_HEAVY_RATIO` (default `0.55`) — backstop trigger when reviewer spawns dominate a long run.
+- `ETRNL_HARD_SPAWN_CAP` (default `80`) — hard stop on total spawn count for a run unless `--override-spawn-cap` records an approved P0/P1 blocker.
+- `ETRNL_SPAWN_BURST_WINDOW_MS` (default `60000`) — rolling window for concurrent lane burst accounting in `spawn-guard.mjs`.
+- `ETRNL_MAX_CONCURRENT_LANES` overrides the profile default lane cap when the plan's `## Parallelization strategy` justifies it.
+- `ETRNL_REVIEW_SCOPE_SMALL_MAX` (default `50`) and `ETRNL_REVIEW_SCOPE_MEDIUM_MAX` (default `200`) tune tier 0–2 diff-size review gating in `review-scope.mjs`. Tier ≥3 always uses `full_lenses`.
+- `ETRNL_PACKET_MAX_BYTES` (default `12000`) caps subagent packet JSON size in `agent-task-packet-check.mjs`.
+- `ETRNL_REVIEW_ADAPTIVE_SKIP_STREAK` (default `5`) controls adaptive reviewer skip in `review-merge.mjs skip-plan`; use `--scope repo` to persist counters under `.etrnl/review-learnings.json`.
+
+Codex spawn guard registration (`~/.codex/config.toml`):
+
+```toml
+# Example — ordering: spawn guard before RTK when both are enabled
+# [[hooks.pre_tool_use]]
+# command = "bash ~/.codex/hooks/spawn-guard-pre-tool-use.sh"
+# [[hooks.pre_tool_use]]
+# command = "bash ~/.codex/hooks/rtk-pre-tool-use.sh"
+```
+
 - `CLAUDE_GUARD_WEBSEARCH_CANARY` points strict WebSearch checks at a custom canary result file.
 - `CLAUDE_GUARD_PORT_START`, `CLAUDE_GUARD_PORT_END`, `CLAUDE_GUARD_MAX_PORT_SCAN`, and `CLAUDE_GUARD_FORCE_LARGE_SCAN=1` tune local dev-server port selection.

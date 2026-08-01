@@ -7,7 +7,7 @@ paths:
 ---
 # ETRNL Writing Plans
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-plan`; on update, never stop to ask; local updates auto-apply when enabled and safe.
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-plan`; on update, run the reported update command before continuing; only skip if the user explicitly declines.
 
 Create a plan file, review it, improve it, then finalize it. Do not put the full plan in chat unless the user explicitly asks for chat-only output.
 

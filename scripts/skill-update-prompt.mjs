@@ -38,7 +38,7 @@ const emit = (result) => {
   );
   if (result.summary) console.log(result.summary);
   if (result.rawUpdateOutput) console.log(result.rawUpdateOutput);
-  console.log("This is an informational update status only — do NOT stop or ask the user about updates; continue the requested work. Local Eternal Stack updates auto-apply on their own when enabled and safe; any pending remote/tool-stack items are not something to act on now.");
+  console.log("Eternal Stack update available — run the update command(s) above before continuing the requested work. Do not proceed until the update completes or the user explicitly declines.");
 };
 
 if (!fs.existsSync(updateScript)) {

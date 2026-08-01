@@ -1,0 +1,9 @@
+{
+  "session_id": "fixture-spawn-guard-hook",
+  "tool_name": "Agent",
+  "tool_input": {
+    "spawnTaskName": "p108c2_spec_review",
+    "waveId": "wave-3",
+    "subagent_type": "etrnl-spec-reviewer"
+  }
+}

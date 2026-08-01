@@ -1,0 +1,22 @@
+{
+  "session_id": "fixture-spawn-guard-hook",
+  "tool_name": "Task",
+  "tool_input": {
+    "spawnTaskName": "p01a_writer",
+    "waveId": "wave-1",
+    "packet": {
+      "mode": "write",
+      "taskId": "p01a",
+      "goal": "implement wave 1 task",
+      "contextSummary": "approved plan exists",
+      "cwd": "/repo",
+      "scope": "scripts only",
+      "readSet": ["scripts"],
+      "writeScope": "scripts/example.mjs",
+      "forbiddenPaths": [],
+      "expectedOutput": "changed files",
+      "verificationCommand": "pnpm test",
+      "noRevert": true
+    }
+  }
+}

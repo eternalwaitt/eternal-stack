@@ -156,3 +156,13 @@ ledger:
 A worktree is whatever `git rev-parse --show-toplevel` reports, so subdirectories of a repo
 share one bucket and a linked worktree gets its own. A directory outside any repository keys
 on itself.
+
+## Spawn guard rollback
+
+When spawn economics block legitimate work:
+
+1. Read recovery: `node ~/.claude/scripts/execution-ledger.mjs check-spawn --explain --task-name "<name>" --wave "<wave>"`.
+2. Advisory mode for one session: `ETRNL_SPAWN_GUARD_MODE=advisory`.
+3. Bypass Claude hook only: `ETRNL_SKIP_HOOKS=cc-spawn-guard` (Codex: `spawn-guard`).
+4. Remove Codex hook entry from `~/.codex/config.toml` or restore prior hooks from install backup via `~/.claude/scripts/rollback-local.sh`.
+5. Full stack rollback: `~/.claude/scripts/rollback-local.sh` restores pre-install hooks including Codex `~/.codex/hooks/spawn-guard-pre-tool-use.sh` when backed up.

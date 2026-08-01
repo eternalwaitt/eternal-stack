@@ -44,6 +44,16 @@
     ],
     "PreToolUse": [
       {
+        "matcher": "Task|Agent|TaskCreate",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/cc-spawn-guard.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "matcher": "Bash",
         "hooks": [
           {

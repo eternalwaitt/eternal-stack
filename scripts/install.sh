@@ -759,6 +759,12 @@ for script in "${CRITICAL_SCRIPTS[@]}"; do
     cp -- "$CODEX_TARGET/scripts/$script" "$BACKUP/codex-scripts/$script"
   fi
 done
+mkdir -p "$BACKUP/codex-hooks"
+for codex_hook in spawn-guard-pre-tool-use.sh rtk-pre-tool-use.sh; do
+  if [[ -f "$CODEX_TARGET/hooks/$codex_hook" ]]; then
+    cp -- "$CODEX_TARGET/hooks/$codex_hook" "$BACKUP/codex-hooks/$codex_hook"
+  fi
+done
 removed_moved=0
 backup_removed_skills "$TARGET/skills" "$BACKUP/skills"
 backup_removed_skills "$CODEX_TARGET/skills" "$BACKUP/codex-skills"
@@ -951,6 +957,13 @@ copy_profile_templates "$CODEX_TARGET"
 chmod +x "$TARGET/hooks/test-hooks.sh" "$TARGET/hooks/test-workflow-tools.sh" "$TARGET/tests/test-hooks.sh" "$TARGET/tests/test-workflow-tools.sh" "$TARGET/scripts/"*.sh
 chmod_control_scripts "$TARGET"
 chmod_control_scripts "$CODEX_TARGET"
+mkdir -p "$CODEX_TARGET/hooks"
+if [[ -f "$ROOT/scripts/codex-spawn-guard-pre-tool-use.sh" ]]; then
+  install -m 755 "$ROOT/scripts/codex-spawn-guard-pre-tool-use.sh" "$CODEX_TARGET/hooks/spawn-guard-pre-tool-use.sh"
+fi
+if [[ -f "$ROOT/scripts/codex-rtk-pre-tool-use.sh" ]]; then
+  install -m 755 "$ROOT/scripts/codex-rtk-pre-tool-use.sh" "$CODEX_TARGET/hooks/rtk-pre-tool-use.sh"
+fi
 
 if [[ "$RESET_CLAUDE_SETTINGS" == "1" ]]; then
   reset_settings_preserving_user_settings "$TARGET/settings.json" "$BACKUP/settings.json"

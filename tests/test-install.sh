@@ -241,6 +241,8 @@ assert_executable "installed stack profile helper" "$CLAUDE_HOME/scripts/stack-p
 assert_executable "installed tool stack check helper" "$CLAUDE_HOME/scripts/tool-stack-check.mjs"
 assert_executable "installed tool bootstrap helper" "$CLAUDE_HOME/scripts/bootstrap-tools.sh"
 assert_executable "installed codex RTK pre-tool hook" "$CLAUDE_HOME/scripts/codex-rtk-pre-tool-use.sh"
+assert_executable "installed codex spawn guard pre-tool hook" "$CLAUDE_HOME/scripts/codex-spawn-guard-pre-tool-use.sh"
+assert_executable "post-install: Codex spawn guard hook at ~/.codex/hooks" "$CODEX_HOME/hooks/spawn-guard-pre-tool-use.sh"
 assert_executable "installed update helper" "$CLAUDE_HOME/scripts/update.sh"
 assert_executable "installed uninstall helper" "$CLAUDE_HOME/scripts/uninstall.sh"
 assert_file "installed autoplan metadata" "$CLAUDE_HOME/skills/metadata/etrnl-dev-autoplan.json"
@@ -328,6 +330,7 @@ for template_file in settings.json settings.strict.json; do
   template_json="$(jq -c . "$ROOT/templates/$template_file")"
   assert_json_expr "template $template_file registers cc-compact-suggest.sh" "$template_json" '([.hooks.PreToolUse[]?.hooks[]?.command // empty | select(test("cc-compact-suggest\\.sh"))] | length) == 1'
   assert_json_expr "template $template_file registers cc-question-preference.sh" "$template_json" '([.hooks.PreToolUse[]?.hooks[]?.command // empty | select(test("cc-question-preference\\.sh"))] | length) == 1'
+  assert_json_expr "template $template_file registers cc-spawn-guard.sh" "$template_json" '([.hooks.PreToolUse[]?.hooks[]?.command // empty | select(test("cc-spawn-guard\\.sh"))] | length) == 1'
   assert_json_expr "template $template_file matches MCP ask tools, not just AskUserQuestion" "$template_json" '[.hooks.PreToolUse[]? | select(any(.hooks[]?.command // ""; test("cc-question-preference\\.sh"))) | .matcher] | first | test("AskUserQuestion") and test("mcp__")'
   # The RTK entry landed with an in-flight lane; the new hooks are appended after the
   # existing chain, so the Bash group must still lead with rtk-rg-compat then rtk itself.

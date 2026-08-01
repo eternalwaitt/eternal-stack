@@ -92,6 +92,9 @@ if (templateIndex !== -1) {
       deepStackArtifacts: "path/to/deep-stack-artifacts.json",
       riskTier: { tier: 1, reason: "Small source change after deep review.", verificationGate: "project-specific verification command" },
       completionEvidence: "Plan item to diff/test evidence, or not applicable for Tier 0.",
+      fixBaseSha: "optional: git sha before fix-round re-review",
+      fixHeadSha: "optional: git sha after fix",
+      findingIds: ["optional-finding-id"],
     });
   }
   console.log(JSON.stringify({ packet }, null, 2));
@@ -312,6 +315,26 @@ for (const key of ["taskId", "lineageId"]) {
       violations.push(`${key} must contain only letters, numbers, dots, underscores, or hyphens`);
     }
   }
+}
+
+const fixRoundFields = ["fixBaseSha", "fixHeadSha", "findingIds"];
+const fixRoundPresent = fixRoundFields.some((key) => key in packet);
+if (fixRoundPresent) {
+  if (typeof packet.fixBaseSha !== "string" || packet.fixBaseSha.trim().length === 0) {
+    violations.push("fix-round packets require fixBaseSha");
+  }
+  if (typeof packet.fixHeadSha !== "string" || packet.fixHeadSha.trim().length === 0) {
+    violations.push("fix-round packets require fixHeadSha");
+  }
+  if (!Array.isArray(packet.findingIds) || packet.findingIds.length === 0 || !packet.findingIds.every((id) => typeof id === "string" && id.trim().length > 0)) {
+    violations.push("fix-round packets require findingIds as a non-empty string array");
+  }
+}
+
+const maxPacketBytes = Number.parseInt(process.env.ETRNL_PACKET_MAX_BYTES ?? "12000", 10);
+const packetBytes = Buffer.byteLength(JSON.stringify(packet), "utf8");
+if (Number.isFinite(maxPacketBytes) && maxPacketBytes > 0 && packetBytes > maxPacketBytes) {
+  violations.push(`packet JSON exceeds ${maxPacketBytes} bytes (${packetBytes}); add an Execution Digest and dispatch bounded chunks`);
 }
 
 if ("timeoutSec" in packet && (!Number.isFinite(packet.timeoutSec) || packet.timeoutSec <= 0)) {

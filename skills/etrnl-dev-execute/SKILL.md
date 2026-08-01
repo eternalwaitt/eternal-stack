@@ -5,7 +5,7 @@ disable-model-invocation: true
 ---
 # ETRNL Execute
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-execute`; on update, never stop to ask; local updates auto-apply when enabled and safe.
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-execute`; on update, run the reported update command before continuing; only skip if the user explicitly declines.
 
 Execute an approved plan end to end. Create a run ledger, fan out bounded implementation subagents for parallel-safe work, review output, run verification, and continue through mechanical phases.
 
@@ -58,7 +58,7 @@ Completion means every item inside the plan's `Execution scope` is verified or e
     - Emit heartbeat text at wave and task boundaries: `[checkpoint] wave <n> task <id> starting`.
     - If a subagent completion signal is missing, spot-check expected output, git state, and ledger artifacts before deciding whether to retry or continue.
     - Default `maxConcurrentLanes` to 3 unless the plan's `## Parallelization strategy` justifies more in one explicit line. The Codex execute profile drops that default to 2.
-    - Progress reported to the user is ledger position plus named gates only, per the Progress reporting rules in `references/codex-execute-profile.md`. Rolling hour ETAs are prohibited on every host; report a field the ledger cannot supply as unavailable rather than guessing.
+    - Progress reported to the user is ledger position plus named gates only, per the execute profile (`references/claude-execute-profile.md` or `references/codex-execute-profile.md`). Rolling hour ETAs are prohibited on every host; report a field the ledger cannot supply as unavailable rather than guessing.
     - When `history --progress --renegotiation-check` shows `renegotiationRequired=true`, pause once: present a consolidation proposal (bundle remaining waves per screen/domain for all tiers; one merged review per wave; tier-3 surfaces keep tier-3 lenses and gates per wave — no batching exemption), take ONE user decision, log it via `record-decision`, and never re-ask.
     - Model tier defaults: read-only scout/review/consumer-trace lanes → `fast`; write implementation → `standard`; tier-3 money/migration/security review → `top`; packet override needs one `modelTierJustification` line. Resolve each tier to a slug and reasoning effort through `scripts/lib/codex-model-routing.mjs`; never hand-write a model string.
 4. Subagent packets scale to tier, scope triage, and wave shape. The plan's `Scope triage:` line selects the shape; see `## Plan scope triage`.
@@ -80,11 +80,24 @@ Completion means every item inside the plan's `Execution scope` is verified or e
 9. Preserve user changes and do not revert unrelated dirty files.
 10. Before broad edits, invoke required domain companions when installed (`eternal-best-practices`, `finding-duplicate-functions`, `code-simplifier`, `etrnl-code-review-excellence`). Record missing skills and compensating checks before continuing.
 
-## Codex execute profile
+## Dual-host execute profiles
 
-`ETRNL_EXECUTE_HOST` selects the profile at startup: `codex` runs the Codex profile, `claude` runs the Claude path unchanged, and an unset value runs the Codex profile only under a detected Codex CLI session. Any other value is a configuration defect. State the resolved profile and its selecting signal in the first status line.
+`ETRNL_EXECUTE_HOST` selects the profile at startup: `codex` runs the Codex profile, `claude` runs the Claude profile, and an unset value runs the Codex profile only under a detected Codex CLI session. Any other value is a configuration defect. State the resolved profile and its selecting signal in the first status line.
 
-Load `references/codex-execute-profile.md` before the first spawn on the Codex host. It carries host detection, the profile defaults (`maxConcurrentLanes` 2, one merged per-wave review at tier 0–2, tier 3 gates at full strength on every wave), the spawn contract (explicit `model` and reasoning effort on every spawn, `inherit` as a packet defect), and the progress-reporting command contract.
+Load the matching execute profile before the first spawn:
+
+- **Codex:** `references/codex-execute-profile.md` — lane cap 2, explicit model on every spawn, batch adoption triggers, `close_agent` + `record-subagent`.
+- **Claude:** `references/claude-execute-profile.md` — lane cap 3, `cc-spawn-guard.sh` on Task/Agent/TaskCreate, batch adoption triggers, subagent close + `record-subagent`.
+
+## Spawn guard (both hosts)
+
+Before **every** subagent dispatch (`Task`, `Agent`, `TaskCreate`, `spawn_agent`, or native child agent):
+
+1. When the host spawn hook is registered and active (`cc-spawn-guard.sh` on Claude; `spawn-guard-pre-tool-use.sh` in Codex `config.toml`), the hook is the **sole spawn recorder** — use `check-spawn --dry-run` from the skill layer only while debugging packet shape.
+2. When the hook is absent or spawn guard mode is `off`, run `node scripts/execution-ledger.mjs check-spawn` without `--dry-run` before dispatch so economics stay enforced.
+3. Exit 1 is a hard stop — read recovery with `check-spawn --explain --task-name "<name>" --wave "<wave>"`; do not rename the task to bypass the guard.
+
+The guard enforces wave 2+ merged review, batch adoption on Large/multi-group plans, lane caps, review-scope gating, and spawn-name allowlists derived from the plan.
 
 ## Plan scope triage
 

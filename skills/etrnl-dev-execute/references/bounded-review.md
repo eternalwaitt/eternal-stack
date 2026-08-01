@@ -86,7 +86,19 @@ Run every helper with `--root "$REPO_ROOT"`. Never pass a repository-local `--le
 2. Pipe the combined array through `"${ETRNL_NODE[@]}" "$ETRNL_SCRIPT_ROOT/review-merge.mjs" --root "$REPO_ROOT"` (or `--file`) to produce the single merged review artifact (JSON; add `--markdown` for human scan).
 3. Fix every `safe_auto` finding immediately.
 4. Record `residual` (`gated_auto`/`manual`) findings as non-blocking todos — do not reopen the wave for them alone.
-5. Reopen and fix only when the merged artifact has `blocking` (P0/P1) entries. After code changes, re-run only the reviewers whose lenses cover the changed surfaces.
+5. Reopen and fix only when the merged artifact has `blocking` (P0/P1) entries. After code changes, re-run only the reviewers whose lenses cover the changed surfaces. For fix-round re-review, narrow scope with `review-merge.mjs merge --scoped --fix-base-sha <sha> --fix-head-sha <sha> --finding-ids <fp,...>` so only named fingerprints re-enter the merge; the report carries `scopedFixRound` metadata for the ledger.
+
+## Review scope by tier (tier 0–2)
+
+`check-spawn` calls `review-scope.mjs` before reviewer-class spawns. Tier ≥3 always uses `full_lenses` (invariant). Tier 0–2 gates by diff size (`ETRNL_REVIEW_SCOPE_SMALL_MAX` default 50, `ETRNL_REVIEW_SCOPE_MEDIUM_MAX` default 200):
+
+| Mode | When | Reviewer dispatch |
+| --- | --- | --- |
+| `deterministic_only` | Small diff, no never-gate paths | `review-rules.mjs` only — no LLM reviewer spawn |
+| `merged_quality` | Medium diff | One merged quality reviewer per wave |
+| `full_lenses` | Large diff, install/auth/migration/tenancy paths, or tier ≥3 | Full spec → quality → simplifier chain |
+
+When `check-spawn` returns `review-scope-exceeded`, read recovery with `check-spawn --explain`. Classify locally with `node scripts/review-scope.mjs classify --tier <n> [--diff-lines <n>] --json`.
 
 ## Fix rounds and reopen caps
 
@@ -150,11 +162,15 @@ A reviewer that returns nothing on five consecutive dispatches stops earning its
 ## Review depth by tier
 
 - **Tier ≤ 2:** one merged reviewer pass per wave over the combined diff, plus one whole-branch adversarial pass at plan end. This replaces the spec→quality chain for tier ≤ 2 waves.
-- **Tier 3:** keep the full spec → quality → simplifier chain per write task, review the wave diff, and re-verify only changed lenses after each fix round. **Codex-profile carve-out:** when the run resolves the Codex execute profile (`ETRNL_EXECUTE_HOST=codex`, or a detected Codex session), wave 1 runs that per-write-task chain and wave 2 onward runs the same three roles as one merged review per wave over the wave diff, except on a wave the plan names for full fan-out, which keeps the per-task chain. The carve-out moves review cadence only. Tier 3 gates hold at full strength on every wave — staged install proof, rollback proof, reopen-until-clean caps, consumer-trace on shared contracts, and the auth/money/tenancy/migration lenses — and no carve-out downgrades a plan's declared risk tier.
+- **Tier 3:** keep the full spec → quality → simplifier chain per write task, review the wave diff, and re-verify only changed lenses after each fix round. **Dual-host wave cadence (Claude and Codex execute profiles):** wave 1 runs the per-write-task chain; wave 2 onward runs those three roles as one merged review per wave over the wave diff, except on a wave recorded with `full-fan-out-wave`, which keeps the per-task chain. This moves review cadence only. Tier 3 gates hold at full strength on every wave — staged install proof, rollback proof, reopen-until-clean caps, consumer-trace on shared contracts, and the auth/money/tenancy/migration lenses — and no profile downgrades a plan's declared risk tier.
 
 ## Shared contracts
 
 When the diff changes a shared contract — a field made nullable, a soft-delete/`tenantId` filter, an enum, or a Money/format helper — dispatch `etrnl-consumer-tracer` and require its consumer matrix. Fix every stale consumer it reports before the wave closes.
+
+## Plan-end one-fixer
+
+Before plan-end adversary or owner-decision escalation, dispatch **one** fixer pass (`etrnl-executor` or the covering implementer lane) over the combined open blockers from the final wave merge. Re-merge after that single fixer pass. Do not chain multiple fixer spawns for the same plan-end blocker set — if P0/P1 survive, park with `capDecision.owner-decision` and investigator review per the loop end disposition table.
 
 ## Wave closure
 
@@ -164,8 +180,8 @@ Close a task or wave only when acceptance criteria are met AND the merged review
 
 | Excuse | Rule |
 | --- | --- |
-| "One more review round" | Tier 0-2: cap at 2 reopen rounds. Tier 3: reopen P0/P1 blockers until clean, capped at 4; follow `capDecision` for residuals. On Codex profile only, use merged wave review on wave 2+ — never spawn `_r3_`+ reviewer aliases. |
-| "Per-patch reviewers on wave 2+" | Forbidden on Codex profile unless the plan names the wave for full fan-out. Otherwise use one merged spec+quality+simplifier set per wave over the combined diff. |
+| "One more review round" | Tier 0-2: cap at 2 reopen rounds. Tier 3: reopen P0/P1 blockers until clean, capped at 4; follow `capDecision` for residuals. On **both Claude and Codex execute profiles**, use merged wave review on wave 2+ — never spawn `_r3_`+ per-patch reviewer aliases. |
+| "Per-patch reviewers on wave 2+" | Forbidden on **both hosts**. One merged spec+quality+simplifier set per wave over the combined diff. `check-spawn` blocks per-patch names on every host. |
 | "Ask the owner to approve another cycle" | Tier 0-2: only when `capDecision.ownerDecisionRequired` is `true`. Tier 3 auth/money/migration/tenancy/security streams at residual closure: always confirm after investigator review via `record-decision`. |
 | "The cap is spent, so the run stops" | An `owner-decision` stops that stream only. Independent task groups keep executing. |
 | "Full doctor after a nit fix" | Run `bash scripts/doctor.sh --changed` only; full doctor stays for release/install. |

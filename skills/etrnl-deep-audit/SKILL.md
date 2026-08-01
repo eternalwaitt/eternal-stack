@@ -4,7 +4,7 @@ description: ETRNL application deep-audit orchestrator. Use when a user asks for
 ---
 # ETRNL Deep Audit
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-deep-audit`; on update, never stop to ask; local updates auto-apply when enabled and safe.
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-deep-audit`; on update, run the reported update command before continuing; only skip if the user explicitly declines.
 
 Run application deep audits through the registered category contract. Use `etrnl-audit-code` for repo-wide code health; use `etrnl-deep-audit-ux` for UI/UX/product audits; use this skill for orchestrator-included application categories and final synthesis.
 
