@@ -23,7 +23,7 @@
         "cc-postcompact-record.sh",
         "cc-stop-verifier.sh"
       ],
-      "requiredHooksIntent": "compact-handoff and stop-gate minimum; templates/settings.json owns the broader lifecycle hook set",
+      "requiredHooksIntent": "compact-handoff and stop-gate minimum; templates/settings.strict.json owns the broader lifecycle hook set",
       "healthChecks": [
         "tests/test-hooks.sh",
         "tests/test-workflow-tools.sh",
@@ -85,7 +85,7 @@
     }
   },
   "settings": {
-    "template": "templates/settings.json",
+    "template": "templates/settings.strict.json",
     "stockBoundary": "repo-owned hooks plus explicitly enabled full-profile plugin",
     "unsupportedTopLevelKeys": [
       "autoCompactWindow",

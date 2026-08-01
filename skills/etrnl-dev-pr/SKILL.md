@@ -5,7 +5,7 @@ disable-model-invocation: true
 ---
 # PR
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-pr`; on update, never stop to ask; local updates auto-apply when enabled and safe.
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-pr`; on update, run the reported update command before continuing; only skip if the user explicitly declines.
 
 Prepare, update, and close the pull request loop only after local evidence, remote state, and reviewer feedback are known.
 

@@ -5,7 +5,7 @@ disable-model-invocation: true
 ---
 # Ship
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-ops-ship`; on update, never stop to ask; local updates auto-apply when enabled and safe.
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-ops-ship`; on update, run the reported update command before continuing; only skip if the user explicitly declines.
 
 Ship verifies release readiness that plan and PR already recorded, then promotes by signal. Ship does not originate requirements. If plan or PR work is missing, route back to that stage — never propose a follow-up release-controls PR as the remedy.
 

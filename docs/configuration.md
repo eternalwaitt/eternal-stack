@@ -2,16 +2,16 @@
 
 Profiles:
 
-- Core install: observer hooks, prompt router, prompt expansion, `CLAUDE.md` reinjection, skill recorder, locked advisory rate limiter, session cleanup, scripts, docs, rules, skills, agents, settings audit, and Codex skill/runtime sync.
+- Core install: strict blocker hooks (pretool guard, post-write quality/sycophancy, repeated-failure diagnosis, subagent recording), prompt router, prompt expansion, `CLAUDE.md` reinjection, skill recorder, advisory rate limiter, session cleanup, scripts, docs, rules, skills, agents, settings audit, and Codex skill/runtime sync.
 - Full install: core plus CodeGraph, Beads, Hindsight plugin/config, stack profile metadata, memory posture checks, and canaries.
-- Strict mode: adds `PreToolUse` guard, post-write sycophancy and quality checks, `PostToolUseFailure` repeated-failure blocker, and `SubagentStop` recorder on top of the default template. Default install already registers `Stop` verifier, compact recovery, RTK `rg` compat, and observer hooks.
+- Observer-only install: set `ETRNL_ENABLE_STRICT=0` to merge `templates/settings.json` instead of the strict template. That drops pretool guard and post-write blockers while keeping compact recovery, RTK `rg` compat, observer hooks, and the `Stop` verifier.
 - Private overlay: identity, accounts, local permissions, and project-specific preferences.
 
 Hook profiles (`ETRNL_HOOK_PROFILE`):
 
 - `standard` (default when unset): all advisory hooks run; guards, compact recovery, session lifecycle, and stop verification are unchanged.
 - `minimal`: early-exits advisory hooks only — `cc-posttooluse-sycophancy.sh`, `cc-posttoolbatch-observer.sh`, `cc-userprompt-expansion.sh`, `cc-rate-limiter.sh`, and `cc-compact-suggest.sh` — and skips the prompt router's advisory context (CLAUDE.md reinjection and the skill update check; deterministic skill-routing state still records). Guards (`cc-pretooluse-guard.sh`, `cc-stop-verifier.sh`), compact hooks, and session lifecycle hooks are never gated by profile.
-- `strict`: same advisory surface as `standard`. Strict blocker hooks come from install strict mode (`ETRNL_ENABLE_STRICT=1` / `settings.strict.json`), not from this variable.
+- `strict`: same advisory surface as `standard`. Blocker hook registration comes from the install template (`settings.strict.json` by default, `settings.json` when `ETRNL_ENABLE_STRICT=0`), not from this variable.
 
 Invalid values fall back to `standard`. Missing `hooks/lib/profile.sh` is fail-open (standard behavior).
 
@@ -107,7 +107,8 @@ Repo-owned ETRNL agents install into `~/.claude/agents/` by default. Local run l
 Install:
 
 - `ETRNL_STACK_PROFILE=core|full` sets the default install profile when `--profile` is omitted.
-- `ETRNL_ENABLE_STRICT=1` merges strict blocker hooks during install.
+- Default install merges strict blocker hooks from `templates/settings.strict.json`.
+- `ETRNL_ENABLE_STRICT=0` merges the observer-only template (`templates/settings.json`) instead.
 - `./scripts/install.sh` backs up managed `~/.claude/settings.json`, drops stack-owned `hooks`, and re-merges the selected stack while preserving all other user top-level settings (for example `permissions`, `skillOverrides`, `enabledPlugins`, and `statusLine`). Use `--preserve-settings` only for a deliberate merge into existing hook wiring without dropping hooks first.
 - `ETRNL_INSTALL_STARTUP=1` overwrites installed `AGENTS.md` and `CLAUDE.md` startup files instead of preserving existing local copies.
 - `ETRNL_INSTALL_SOURCE_TESTS=0` skips the pre-install source test suites (`tests/test-hooks.sh`, `tests/test-workflow-tools.sh`). Only for callers that already ran both suites as separate gates in the same pipeline (doctor heavy checks, `tests/test-install.sh`); a direct user install keeps them on, running in parallel with logs captured and the failing suite's log tail printed.
@@ -125,8 +126,8 @@ Updater:
 - `ETRNL_AUTO_UPDATE`: unset means local auto-update is enabled from the recorded source checkout (SessionStart, requested Claude `etrnl-*` skills via the prompt router, and Codex `skill-update-prompt.mjs`); set `ETRNL_AUTO_UPDATE=0` to disable automatic local etrnl repair while developing against a dirty source checkout.
 - `ETRNL_AUTO_UPDATE_DIRTY=1` allows SessionStart auto-update even when `install.json` marks the source checkout as dirty (`sourceDirty: true`); leave unset to skip auto-update until the checkout is clean or changes are committed.
 - `ETRNL_UPDATE_INTERVAL_SEC` controls the remote-check cache window; default is `21600` seconds (six hours) when unset.
-- `ETRNL_SKILL_UPDATE_CHECK=0` disables the prompt router's per-prompt requested-`etrnl-*`-skill freshness/auto-update check; enabled by default when unset. The check is non-blocking: local Eternal Stack updates are auto-applied silently (unless `ETRNL_AUTO_UPDATE=0` or the source checkout is dirty) and the agent continues the requested work — it never stops to ask update/snooze/continue. Any remaining remote or tool-stack updates are surfaced as informational only and are never turned into a blocking prompt.
-- `ETRNL_SKILL_UPDATE_TIMEOUT_SEC` bounds each prompt-router skill-update subprocess; default is `5` seconds when unset.
+- `ETRNL_SKILL_UPDATE_CHECK=0` disables the prompt router's per-prompt requested-`etrnl-*`-skill freshness/auto-update check; enabled by default when unset. When an update is available, the router injects the reported update command as an advisory note — run it when practical; only skip when the user explicitly declines. Local Eternal Stack updates are still auto-applied when possible (`update-check.mjs --auto`, unless `ETRNL_AUTO_UPDATE=0` or the source checkout is dirty); remaining remote or tool-stack items are noted but do not block the requested work.
+- `ETRNL_SKILL_UPDATE_TIMEOUT_SEC` bounds each prompt-router skill-update subprocess; default is `120` seconds when unset.
 - `ETRNL_SKILL_UPDATE_INTERVAL_SEC` stamp-gates the prompt-router skill-update check so it runs at most once per interval instead of on every prompt after a skill match; default is `1800` seconds. `ETRNL_SKILL_UPDATE_STAMP` overrides the stamp file path for tests.
 - `ETRNL_SKILL_UPDATE_MAX_CHARS` caps the skill-update context the prompt router injects; default is `1200` characters when unset.
 - `ETRNL_INSTALL_STATE` and `ETRNL_UPDATE_STATE` override the installed metadata and update cache paths for tests or custom Claude homes.
@@ -224,5 +225,27 @@ Guard state and break-glass:
 - `CLAUDE_GUARD_DEBUG=1` prints extra guard diagnostics.
 - `CLAUDE_GUARD_FILE_SPRAWL=1` re-enables the opt-in new-source-file sprawl check (blocks a Write that would create the fourth-or-later new source file this session — i.e. when three or more new source files already exist — outside the active write scope); disabled by default when unset.
 - `CLAUDE_GUARD_OVERRIDE_TOKEN` supplies a one-time override token for approved safety-critical commands.
+- `ETRNL_SPAWN_GUARD_MODE` controls spawn economics hooks (`cc-spawn-guard.sh`, Codex `spawn-guard-pre-tool-use.sh`): `enforce` (default), `advisory` (log only), or `off`.
+- `ETRNL_SKIP_HOOKS=cc-spawn-guard` bypasses the Claude spawn guard only; Codex uses `ETRNL_SKIP_HOOKS=spawn-guard`.
+- `ETRNL_EXECUTE_HOST=codex|claude` selects execute-profile lane caps (2 vs 3) in `spawn-guard.mjs`.
+- `ETRNL_BATCH_TASK_GROUP_THRESHOLD` (default `3`) — batch adoption required at or above this many plan task groups.
+- `ETRNL_BATCH_REVIEWER_HEAVY_MIN_SPAWNS` (default `20`) and `ETRNL_BATCH_REVIEWER_HEAVY_RATIO` (default `0.55`) — backstop trigger when reviewer spawns dominate a long run.
+- `ETRNL_HARD_SPAWN_CAP` (default `80`) — hard stop on total spawn count for a run unless `check-spawn --override-spawn-cap` is paired with a prior `record-decision` owner approval tied to a surviving P0/P1 blocker (investigator-reviewed); `--override-reason` text alone is not sufficient.
+- `ETRNL_SPAWN_BURST_WINDOW_MS` (default `60000`) — rolling window for concurrent lane burst accounting in `spawn-guard.mjs`.
+- `ETRNL_MAX_CONCURRENT_LANES` overrides the profile default lane cap when the plan's `## Parallelization strategy` justifies it. When unset, spawn guard parses `maxConcurrentLanes=N` from the active plan (1–6) before falling back to Codex 2 / Claude 3.
+- `ETRNL_REVIEW_SCOPE_SMALL_MAX` (default `50`) and `ETRNL_REVIEW_SCOPE_MEDIUM_MAX` (default `200`) tune tier 0–2 diff-size review gating in `review-scope.mjs`. Tier ≥3 always uses `full_lenses`.
+- `ETRNL_PACKET_MAX_BYTES` (default `12000`) caps subagent packet JSON size in `agent-task-packet-check.mjs`.
+- `ETRNL_REVIEW_ADAPTIVE_SKIP_STREAK` (default `5`) controls adaptive reviewer skip in `review-merge.mjs skip-plan`; use `--scope repo` to persist counters under `.etrnl/review-learnings.json`.
+
+Codex spawn guard registration (`~/.codex/config.toml`):
+
+```toml
+# Example — ordering: spawn guard before RTK when both are enabled
+# [[hooks.pre_tool_use]]
+# command = "bash ~/.codex/hooks/spawn-guard-pre-tool-use.sh"
+# [[hooks.pre_tool_use]]
+# command = "bash ~/.codex/hooks/rtk-pre-tool-use.sh"
+```
+
 - `CLAUDE_GUARD_WEBSEARCH_CANARY` points strict WebSearch checks at a custom canary result file.
 - `CLAUDE_GUARD_PORT_START`, `CLAUDE_GUARD_PORT_END`, `CLAUDE_GUARD_MAX_PORT_SCAN`, and `CLAUDE_GUARD_FORCE_LARGE_SCAN=1` tune local dev-server port selection.

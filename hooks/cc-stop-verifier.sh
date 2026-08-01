@@ -263,13 +263,53 @@ cc_email_triage_requested() {
   ' <<<"$state" >/dev/null
 }
 
+# CONSTRAINT: cc_email_triage_requested is deliberately broad and is the ONLY
+# path that can set email_triage_verified=true, so it must never be narrowed —
+# under-triggering would silently delete the whole triage gate. Sessions that
+# merely DISCUSS or investigate the email-triage skill (e.g. "can we
+# investigate our email-triage skill?") are handled by EXCLUSION instead: the
+# gate is skipped only when the session recorded zero vivaz-email executions
+# AND the prompt carries no explicit triage-run request. Any actual triage
+# session either asks for a run explicitly (skill invocation, "/email-triage
+# agencia", "triage an inbox", "reach Inbox Zero", "continue email queue
+# work") or executes vivaz-email — both keep the gate armed.
+cc_email_triage_run_explicitly_requested() {
+  jq -e "$NORM_JQ"'
+    ([.requestedSkills[]?.value // empty | norm] | any(. == "email-triage"))
+      or ((.lastPrompt // "" | ascii_downcase)
+        | test("/email-triage|inbox[ -]*zero|(email|triage|reply|action)[ -]+queue|triage[ -]+(run|the|an?|my|our|both|all|agencia|victor)[ -]+|triage[ -]+(inbox|email|mail)|(run|start|launch|continue|resume|recover|finish)[^\n]{0,40}(triage|guarded[ -]run)|guarded[ -]run"))
+  ' <<<"$state" >/dev/null
+}
+
+cc_email_triage_session_ran_vivaz_email() {
+  jq -e '
+    [.successfulCommands[]?
+      | (.command // "")
+      | select(test("(^|[[:space:];&|])([^[:space:];&|]*/)?vivaz-email([[:space:]]|$)"))]
+    | length > 0
+  ' <<<"$state" >/dev/null
+}
+
+# Gate arming predicate used at every consumption site in place of the bare
+# broad matcher. Keeps cc_email_triage_requested untouched (see constraint
+# above) and excludes only the investigation shape: no explicit triage-run
+# request AND zero vivaz-email executions in the session state.
+cc_email_triage_gate_active() {
+  cc_email_triage_requested || return 1
+  if cc_email_triage_run_explicitly_requested; then
+    return 0
+  fi
+  cc_email_triage_session_ran_vivaz_email
+}
+
 cc_email_triage_request_at() {
   jq -r "$NORM_JQ"'
-    [.requestedSkills[]?
+    . as $st
+    | [$st.requestedSkills[]?
       | select((.value // "" | norm) == "email-triage")
       | (.at // "")]
     | map(select(. != ""))
-    | max // (.startedAt // "")
+    | (max // ($st.startedAt // ""))
   ' <<<"$state"
 }
 
@@ -468,7 +508,7 @@ cc_email_triage_completion_message() {
 }
 
 if [[ "$claims_done" != "true" ]] \
-  && cc_email_triage_requested \
+  && cc_email_triage_gate_active \
   && cc_email_triage_completion_message; then
   claims_done=true
 fi
@@ -563,10 +603,10 @@ if [[ "$claims_done" == "true" ]]; then
     fi
     exit 0
   fi
-  if cc_email_triage_requested; then
+  if cc_email_triage_gate_active; then
     email_triage_since="$(cc_email_triage_request_at)"
     if ! cc_email_triage_evidence_after "$email_triage_since"; then
-      cc_json_block "email-triage phase 1 must clear INBOX first. Run vivaz-email triage guarded-run --account <id> --max-inbox 500 --apply --require-insights and verify Inbox Zero before opening the action queue."
+      cc_json_block "email-triage phase 1 must clear INBOX first. Run vivaz-email triage guarded-run --account <id> --max-inbox 500 --apply --allow-apply-before-enrichment --progress and verify Inbox Zero before opening the action queue."
       exit 0
     fi
     if ! cc_email_triage_verify_latest "$email_triage_since"; then
@@ -574,7 +614,7 @@ if [[ "$claims_done" == "true" ]]; then
       exit 0
     fi
     if ! cc_email_triage_verify_applied "$email_triage_since"; then
-      cc_json_block "email-triage Inbox Zero completion requires provider-verified INBOX zero and either gmail_mutated true or queue_ready_without_mutation true. Use vivaz-email triage guarded-run --account <id> --max-inbox 500 --apply --require-insights, verify inbox_count is 0, then open the action queue."
+      cc_json_block "email-triage Inbox Zero completion requires provider-verified INBOX zero and either gmail_mutated true or queue_ready_without_mutation true. Use vivaz-email triage guarded-run --account <id> --max-inbox 500 --apply --allow-apply-before-enrichment --progress, verify inbox_count is 0, then open the action queue."
       exit 0
     fi
     if ! cc_email_triage_message_has_runtime_output; then

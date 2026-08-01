@@ -23,6 +23,8 @@ Risk tier: 2 — multi-file readiness fixture with full plan shape.
 
 ## Task groups
 
+- Task id: p01a
+- Task id: p108c2
 - Owner: parent agent.
 - Dependencies: existing plan and execute skills.
 - Acceptance criteria: readiness accepts the complete plan fixture and rejects thin plans.

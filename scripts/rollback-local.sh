@@ -458,6 +458,37 @@ for codex_startup_file in AGENTS.md AGENTS.override.md; do
     restored_count=$((restored_count + 1))
   fi
 done
+if [[ -d "$BACKUP/codex-hooks" ]]; then
+  mkdir -p "$CODEX_TARGET/hooks"
+  for codex_hook in "$BACKUP/codex-hooks"/*; do
+    [[ -f "$codex_hook" ]] || continue
+    hook_name="$(basename -- "$codex_hook")"
+    cp -- "$codex_hook" "$CODEX_TARGET/hooks/$hook_name"
+    chmod +x "$CODEX_TARGET/hooks/$hook_name" 2>/dev/null || true
+    restored+=("codex-hooks/$hook_name")
+    restored_count=$((restored_count + 1))
+  done
+fi
+
+removed_codex_new=()
+removed_codex_new_count=0
+if [[ -f "$BACKUP/new-codex-source-paths.txt" ]]; then
+  while IFS= read -r codex_rel; do
+    [[ -n "$codex_rel" ]] || continue
+    case "$codex_rel" in
+      hooks/*) : ;;
+      *) continue ;;
+    esac
+    case "$codex_rel" in
+      *..*) continue ;;
+    esac
+    if [[ -e "$CODEX_TARGET/$codex_rel" || -L "$CODEX_TARGET/$codex_rel" ]]; then
+      rm -f -- "${CODEX_TARGET:?}/$codex_rel"
+      removed_codex_new+=("$codex_rel")
+      removed_codex_new_count=$((removed_codex_new_count + 1))
+    fi
+  done < "$BACKUP/new-codex-source-paths.txt"
+fi
 
 # Remove paths this install newly created (no pre-install counterpart) so rollback
 # returns to pre-install absence, not a half-reverted home. install.sh recorded them
@@ -505,5 +536,8 @@ if (( restored_count > 0 )); then
 fi
 if (( removed_new_count > 0 )); then
   printf 'Removed install-created files (returned to pre-install absence): %s\n' "${removed_new[*]}"
+fi
+if (( removed_codex_new_count > 0 )); then
+  printf 'Removed install-created Codex hook files: %s\n' "${removed_codex_new[*]}"
 fi
 printf 'Manual emergency bypass: export CLAUDE_GUARD_DISABLED=1\n'

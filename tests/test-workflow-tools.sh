@@ -313,6 +313,60 @@ if reopen_tier3_out="$(node "$ROOT/scripts/execution-ledger.mjs" record-review -
 else
   assert_contains "record-review tier3 reopen cap message" "$reopen_tier3_out" "reopen cap"
 fi
+tier3_residual_plan="$TMPROOT/tier3-residual-plan.md"
+cat >"$tier3_residual_plan" <<'PLAN'
+# Tier 3 residual plan
+Status: Final
+Execution scope: all_phases
+Goal: Tier 3 residual closure gate fixture.
+Risk tier: 3 — auth surface change.
+PLAN
+tier3_residual_ledger_path="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-tier3-residual --plan "$tier3_residual_plan" --cwd "$ROOT")"
+assert_file "execution ledger tier3 residual init creates file" "$tier3_residual_ledger_path"
+node "$ROOT/scripts/execution-ledger.mjs" record-decision --session fixture-tier3-residual --topic tier3-residual-closure-pending --decision proceed-with-residuals --rationale "P2 cosmetic residual after cap"
+if tier3_residual_stop="$(node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-tier3-residual 2>&1)"; then
+  not_ok "check-stop blocks tier-3 residual closure without investigator evidence"
+else
+  assert_contains "check-stop tier-3 residual closure gate" "$tier3_residual_stop" "etrnl-investigator evidence"
+fi
+node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-tier3-residual --task T-residual --status verified
+node "$ROOT/scripts/execution-ledger.mjs" record-specialist --session fixture-tier3-residual --task T-residual --skill etrnl-investigator --status verified
+if tier3_residual_pending_only="$(node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-tier3-residual 2>&1)"; then
+  not_ok "check-stop blocks tier-3 residual closure without owner confirmation after investigator evidence"
+else
+  assert_contains "check-stop tier-3 residual requires owner confirmation after investigator" "$tier3_residual_pending_only" "tier3-residual-closure-confirmed"
+fi
+node "$ROOT/scripts/execution-ledger.mjs" record-decision --session fixture-tier3-residual --topic tier3-residual-closure-confirmed --decision owner-confirmed --rationale "investigator reviewed residuals"
+if tier3_residual_cleared="$(node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-tier3-residual 2>&1)"; then
+  not_ok "check-stop still reports other blockers after tier-3 residual investigator and owner confirmation"
+else
+  assert_not_contains "check-stop clears tier-3 residual closure after investigator and owner confirmation" "$tier3_residual_cleared" "tier3-residual-closure-confirmed"
+  assert_not_contains "check-stop clears tier-3 investigator requirement after evidence recorded" "$tier3_residual_cleared" "completed etrnl-investigator evidence"
+fi
+worktree_nogit_dir="$TMPROOT/worktree-nogit-cwd"
+mkdir -p "$worktree_nogit_dir"
+worktree_nogit_ledger_path="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-worktree-nogit --plan "$ROOT/hooks/fixtures/plans/good-plan.md" --cwd "$worktree_nogit_dir")"
+node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-worktree-nogit --task T1 --status verified
+tmp_worktree_nogit_ledger="$(mktemp "$TMPROOT/worktree-nogit.XXXXXX.json")"
+jq '.checks = [{name: "gate:lint", command: "pnpm lint", status: "passed", treeHash: "deadbeef"}]' "$worktree_nogit_ledger_path" >"$tmp_worktree_nogit_ledger"
+mv "$tmp_worktree_nogit_ledger" "$worktree_nogit_ledger_path"
+if worktree_nogit_stop="$(node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-worktree-nogit 2>&1)"; then
+  not_ok "check-stop fails closed when worktree hash is unavailable"
+else
+  assert_contains "check-stop reports unavailable worktree hash" "$worktree_nogit_stop" "cannot verify checks against the current worktree"
+fi
+worktree_stale_ledger_path="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-worktree-stale --plan "$ROOT/hooks/fixtures/plans/good-plan.md" --cwd "$ROOT")"
+node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-worktree-stale --task T1 --status verified
+worktree_current_hash="$(node -e "import {worktreeHash} from '$ROOT/scripts/lib/etrnl-state-core.mjs'; process.stdout.write(worktreeHash(process.argv[1]))" "$ROOT")"
+node "$ROOT/scripts/execution-ledger.mjs" record-check --session fixture-worktree-stale --name gate:lint --command "pnpm lint" --status passed
+tmp_worktree_stale_ledger="$(mktemp "$TMPROOT/worktree-stale.XXXXXX.json")"
+jq --arg current "$worktree_current_hash" '.checks += [{name: "gate:test", command: "pnpm test", status: "passed", treeHash: "stale111deadbeef"}] | .checks[0].treeHash = $current' "$worktree_stale_ledger_path" >"$tmp_worktree_stale_ledger"
+mv "$tmp_worktree_stale_ledger" "$worktree_stale_ledger_path"
+if worktree_stale_stop="$(node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-worktree-stale 2>&1)"; then
+  not_ok "check-stop rejects mixed fresh and stale stamped checks"
+else
+  assert_contains "check-stop reports stale stamped checks" "$worktree_stale_stop" "verification checks are stale for the current worktree"
+fi
 reopen_override_ledger_path="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-reopen-override --plan "$ROOT/hooks/fixtures/plans/good-plan.md" --cwd "$ROOT")"
 node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-reopen-override --task T-review --status reviewing --lineage wave-1.T-review --packet-hash cap789
 for _ in 1 2 3; do
@@ -1346,9 +1400,21 @@ merge_mixed_template="$TMPROOT/merge-mixed-order-template.json"
 printf '%s\n' '{"hooks":{"PreToolUse":[{"matcher":"Bash|Read","hooks":[{"type":"command","command":"bash ~/.claude/hooks/cc-pretooluse-guard.sh","timeout":10},{"type":"command","command":"bash ~/.claude/hooks/user-gamma.sh"}]},{"matcher":"Bash","hooks":[{"type":"command","command":"bash ~/.claude/hooks/user-delta.sh"}]}]}}' >"$merge_mixed_target"
 printf '%s\n' '{"hooks":{"PreToolUse":[]}}' >"$merge_mixed_template"
 node "$ROOT/scripts/merge-settings.mjs" "$merge_mixed_target" "$merge_mixed_template"
-assert_json_expr "merge-settings sorts guard ahead of a user hook sharing its input group" "$(jq -c . "$merge_mixed_target")" '([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/cc-pretooluse-guard.sh")) < ([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/user-gamma.sh"))'
-assert_json_expr "merge-settings sorts guard ahead of every user hook from a mixed group" "$(jq -c . "$merge_mixed_target")" '([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/cc-pretooluse-guard.sh")) < ([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/user-delta.sh"))'
-assert_json_expr "merge-settings preserves flattened user hook order from a mixed group" "$(jq -c . "$merge_mixed_target")" '([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/user-gamma.sh")) < ([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/user-delta.sh"))'
+assert_json_expr "merge-settings sorts guard ahead of a user hook sharing its input group" "$(jq -c . "$merge_mixed_target")" '(( [.hooks.PreToolUse[].hooks[].command] | index("bash ~/.claude/hooks/cc-pretooluse-guard.sh")) != null) and (( [.hooks.PreToolUse[].hooks[].command] | index("bash ~/.claude/hooks/user-gamma.sh")) != null) and (( [.hooks.PreToolUse[].hooks[].command] | index("bash ~/.claude/hooks/cc-pretooluse-guard.sh")) < ([.hooks.PreToolUse[].hooks[].command] | index("bash ~/.claude/hooks/user-gamma.sh")))'
+assert_json_expr "merge-settings sorts guard ahead of every user hook from a mixed group" "$(jq -c . "$merge_mixed_target")" '(( [.hooks.PreToolUse[].hooks[].command] | index("bash ~/.claude/hooks/cc-pretooluse-guard.sh")) != null) and (( [.hooks.PreToolUse[].hooks[].command] | index("bash ~/.claude/hooks/user-delta.sh")) != null) and (( [.hooks.PreToolUse[].hooks[].command] | index("bash ~/.claude/hooks/cc-pretooluse-guard.sh")) < ([.hooks.PreToolUse[].hooks[].command] | index("bash ~/.claude/hooks/user-delta.sh")))'
+assert_json_expr "merge-settings preserves flattened user hook order from a mixed group" "$(jq -c . "$merge_mixed_target")" '(( [.hooks.PreToolUse[].hooks[].command] | index("bash ~/.claude/hooks/user-gamma.sh")) != null) and (( [.hooks.PreToolUse[].hooks[].command] | index("bash ~/.claude/hooks/user-delta.sh")) != null) and (( [.hooks.PreToolUse[].hooks[].command] | index("bash ~/.claude/hooks/user-gamma.sh")) < ([.hooks.PreToolUse[].hooks[].command] | index("bash ~/.claude/hooks/user-delta.sh")))'
+merge_spawn_target="$TMPROOT/merge-spawn-order-target.json"
+merge_spawn_template="$TMPROOT/merge-spawn-order-template.json"
+printf '%s\n' '{"hooks":{"PreToolUse":[{"matcher":"Bash|Read|Edit|Write|MultiEdit|WebSearch|Task|TaskCreate|Agent","hooks":[{"type":"command","command":"bash ~/.claude/hooks/cc-pretooluse-guard.sh","timeout":10}]}]}}' >"$merge_spawn_target"
+printf '%s\n' '{"hooks":{"PreToolUse":[{"matcher":"Bash|Read|Edit|Write|MultiEdit|WebSearch|Task|TaskCreate|Agent","hooks":[{"type":"command","command":"bash ~/.claude/hooks/cc-spawn-guard.sh","timeout":10}]}]}}' >"$merge_spawn_template"
+node "$ROOT/scripts/merge-settings.mjs" "$merge_spawn_target" "$merge_spawn_template"
+assert_json_expr "merge-settings orders cc-spawn-guard before cc-pretooluse-guard" "$(jq -c . "$merge_spawn_target")" '(( [.hooks.PreToolUse[].hooks[].command] | index("bash ~/.claude/hooks/cc-spawn-guard.sh")) != null) and (( [.hooks.PreToolUse[].hooks[].command] | index("bash ~/.claude/hooks/cc-pretooluse-guard.sh")) != null) and (( [.hooks.PreToolUse[].hooks[].command] | index("bash ~/.claude/hooks/cc-spawn-guard.sh")) < ([.hooks.PreToolUse[].hooks[].command] | index("bash ~/.claude/hooks/cc-pretooluse-guard.sh")))'
+merge_stack_target="$TMPROOT/merge-stack-order-target.json"
+merge_stack_template="$TMPROOT/merge-stack-order-template.json"
+printf '%s\n' '{"hooks":{"PreToolUse":[{"matcher":"Bash|Read|Edit|Write|MultiEdit|WebSearch|Task|TaskCreate|Agent","hooks":[{"type":"command","command":"bash ~/.claude/hooks/cc-pretooluse-guard.sh","timeout":10}]}]}}' >"$merge_stack_target"
+printf '%s\n' '{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"bash ~/.claude/hooks/cc-rtk-rg-compat.sh","timeout":5}]},{"matcher":"Bash|Read|Edit|Write|MultiEdit|WebSearch|Task|TaskCreate|Agent","hooks":[{"type":"command","command":"bash ~/.claude/hooks/cc-spawn-guard.sh","timeout":10}]}]}}' >"$merge_stack_template"
+node "$ROOT/scripts/merge-settings.mjs" "$merge_stack_target" "$merge_stack_template"
+assert_json_expr "merge-settings orders rtk compat before spawn guard before pretool guard" "$(jq -c . "$merge_stack_target")" '(( [.hooks.PreToolUse[].hooks[].command] | index("bash ~/.claude/hooks/cc-rtk-rg-compat.sh")) != null) and (( [.hooks.PreToolUse[].hooks[].command] | index("bash ~/.claude/hooks/cc-spawn-guard.sh")) != null) and (( [.hooks.PreToolUse[].hooks[].command] | index("bash ~/.claude/hooks/cc-pretooluse-guard.sh")) != null) and (( [.hooks.PreToolUse[].hooks[].command] | index("bash ~/.claude/hooks/cc-rtk-rg-compat.sh")) < ([.hooks.PreToolUse[].hooks[].command] | index("bash ~/.claude/hooks/cc-spawn-guard.sh"))) and (( [.hooks.PreToolUse[].hooks[].command] | index("bash ~/.claude/hooks/cc-spawn-guard.sh")) < ([.hooks.PreToolUse[].hooks[].command] | index("bash ~/.claude/hooks/cc-pretooluse-guard.sh")))'
 settings_audit_target="$TMPROOT/settings-audit-target.json"
 settings_audit_home="$TMPROOT/settings-audit-home"
 settings_audit_project="$TMPROOT/settings-audit-project"
@@ -1759,22 +1825,30 @@ qa_v2_matrix="$(jq -cn \
   --arg capturedAt "$qa_captured_at" \
   --arg desktopHash "$desktop_hash" \
   --arg mobileHash "$mobile_hash" \
-  '[{"route":"/","viewport":"desktop","status":"passed","screenshot":"desktop-home.png","screenshotSha256":$desktopHash,"capturedAt":$capturedAt,"consoleErrors":0,"failedRequests":0},{"route":"/","viewport":"mobile","status":"passed","screenshot":"mobile-home.png","screenshotSha256":$mobileHash,"capturedAt":$capturedAt,"consoleErrors":0,"failedRequests":0}]')"
+  '[{"route":"/","viewport":"desktop","status":"passed","screenshot":"desktop-home.png","screenshotSha256":$desktopHash,"capturedAt":$capturedAt,"provenance":{"tool":"playwright-cli","capturedAt":$capturedAt},"consoleErrors":0,"failedRequests":0},{"route":"/","viewport":"mobile","status":"passed","screenshot":"mobile-home.png","screenshotSha256":$mobileHash,"capturedAt":$capturedAt,"provenance":{"tool":"playwright-cli","capturedAt":$capturedAt},"consoleErrors":0,"failedRequests":0}]')"
 qa_provenance="$(jq -cn --arg capturedAt "$qa_captured_at" '{"tool":"playwright-cli","targetUrl":"http://127.0.0.1:4173","command":"playwright-cli screenshot","capturedAt":$capturedAt}')"
 qa_report_explicit_v1="$(node "$ROOT/scripts/browser-qa-report.mjs" create --path "$TMPROOT/browser-qa-explicit-v1.json" --schema-version 1 --matrix "$qa_v2_matrix" --console "checked console logs" --network "checked network panel" --status complete)"
 assert_json_expr "browser QA explicit schema version 1 stays v1" "$(jq -c . "$qa_report_explicit_v1")" '.schemaVersion == 1 and (.matrix | not)'
 qa_duplicate_matrix="$(jq -cn \
   --arg capturedAt "$qa_captured_at" \
   --arg desktopHash "$desktop_hash" \
-  '[{"route":"/","viewport":"desktop","status":"passed","screenshot":"desktop-home.png","screenshotSha256":$desktopHash,"capturedAt":$capturedAt,"consoleErrors":0,"failedRequests":0},{"route":"/","viewport":"desktop","status":"passed","screenshot":"desktop-home.png","screenshotSha256":$desktopHash,"capturedAt":$capturedAt,"consoleErrors":0,"failedRequests":0}]')"
+  '[{"route":"/","viewport":"desktop","status":"passed","screenshot":"desktop-home.png","screenshotSha256":$desktopHash,"capturedAt":$capturedAt,"provenance":{"tool":"playwright-cli","capturedAt":$capturedAt},"consoleErrors":0,"failedRequests":0},{"route":"/","viewport":"desktop","status":"passed","screenshot":"desktop-home.png","screenshotSha256":$desktopHash,"capturedAt":$capturedAt,"provenance":{"tool":"playwright-cli","capturedAt":$capturedAt},"consoleErrors":0,"failedRequests":0}]')"
 if matrix_out="$(node "$ROOT/scripts/browser-qa-report.mjs" create --path "$TMPROOT/browser-qa-v2-duplicate.json" --artifact-root "$TMPROOT" --schema-version 2 --routes "/" --viewports "desktop,mobile" --target-url "http://127.0.0.1:4173" --tool "playwright-cli" --provenance "$qa_provenance" --matrix "$qa_duplicate_matrix" --console "checked console logs" --network "checked network panel" --status complete 2>&1)"; then
   not_ok "browser QA v2 rejects incomplete route viewport matrix"
 else
   assert_contains "browser QA v2 reports missing matrix combination" "$matrix_out" "matrix missing route / viewport mobile"
   assert_contains "browser QA v2 reports duplicate matrix combination" "$matrix_out" "matrix contains duplicate route / viewport desktop"
 fi
-qa_report_v2="$(node "$ROOT/scripts/browser-qa-report.mjs" create --path "$TMPROOT/browser-qa-v2.json" --artifact-root "$TMPROOT" --schema-version 2 --routes "/" --viewports "desktop,mobile" --target-url "http://127.0.0.1:4173" --tool "playwright-cli" --provenance "$qa_provenance" --matrix "$qa_v2_matrix" --console "checked console logs" --network "checked network panel" --status complete)"
+qa_expected_tree_hash="$(node -e "import {worktreeHash} from '$ROOT/scripts/lib/etrnl-state-core.mjs'; process.stdout.write(worktreeHash('$ROOT'))")"
+qa_report_v2="$(node "$ROOT/scripts/browser-qa-report.mjs" create --path "$TMPROOT/browser-qa-v2.json" --artifact-root "$TMPROOT" --schema-version 2 --routes "/" --viewports "desktop,mobile" --target-url "http://127.0.0.1:4173" --tool "playwright-cli" --provenance "$qa_provenance" --matrix "$qa_v2_matrix" --console "checked console logs" --network "checked network panel" --status complete --tree-hash "$qa_expected_tree_hash")"
+assert_json_expr "browser QA v2 stores expected worktree hash" "$(jq -c . "$qa_report_v2")" ".provenance.treeHash == \"$qa_expected_tree_hash\""
 assert_command "browser QA v2 report validates" node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_report_v2" --artifact-root "$TMPROOT"
+assert_command "browser QA v2 completion gate validates complete report at tree hash" node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_report_v2" --artifact-root "$TMPROOT" --require-complete --tree-hash "$qa_expected_tree_hash"
+if qa_tree_gate="$(node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_report_v2" --artifact-root "$TMPROOT" --require-complete --tree-hash "wrong-tree-hash" 2>&1)"; then
+  not_ok "browser QA validate rejects mismatched tree hash"
+else
+  assert_contains "browser QA validate rejects tree hash mismatch" "$qa_tree_gate" "provenance.treeHash does not match expected worktree hash"
+fi
 printf '%s\n' "trace bytes" >"$TMPROOT/home.trace.zip"
 printf '%s\n' "video bytes" >"$TMPROOT/home.webm"
 trace_hash="$(node "$ROOT/scripts/browser-qa-report.mjs" hash "$TMPROOT/home.trace.zip")"
@@ -1784,12 +1858,27 @@ qa_trace_matrix="$(jq -cn \
   --arg desktopHash "$desktop_hash" \
   --arg traceHash "$trace_hash" \
   --arg videoHash "$video_hash" \
-  '[{"route":"/","viewport":"desktop","status":"passed","screenshot":"desktop-home.png","screenshotSha256":$desktopHash,"trace":"home.trace.zip","traceSha256":$traceHash,"video":"home.webm","videoSha256":$videoHash,"pageErrors":[],"capturedAt":$capturedAt,"consoleErrors":0,"failedRequests":0}]')"
+  '[{"route":"/","viewport":"desktop","status":"passed","screenshot":"desktop-home.png","screenshotSha256":$desktopHash,"trace":"home.trace.zip","traceSha256":$traceHash,"video":"home.webm","videoSha256":$videoHash,"pageErrors":[],"capturedAt":$capturedAt,"provenance":{"tool":"playwright-cli","capturedAt":$capturedAt},"consoleErrors":0,"failedRequests":0}]')"
 qa_report_trace="$(node "$ROOT/scripts/browser-qa-report.mjs" create --path "$TMPROOT/browser-qa-trace.json" --artifact-root "$TMPROOT" --schema-version 2 --routes "/" --viewports "desktop" --target-url "http://127.0.0.1:4173" --tool "playwright-cli" --provenance "$qa_provenance" --matrix "$qa_trace_matrix" --console "checked console logs" --network "checked network panel" --status complete)"
 assert_command "browser QA v2 trace video pageErrors validate" node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_report_trace" --artifact-root "$TMPROOT"
 qa_migrated="$(node "$ROOT/scripts/browser-qa-report.mjs" migrate "$qa_report" --path "$TMPROOT/browser-qa-migrated.json")"
+assert_json_expr "browser QA migrated report is v2 draft with lineage" "$(jq -c . "$qa_migrated")" '.schemaVersion == 2 and .status == "draft" and (.matrix | length) == 2 and (.migratedFrom.schemaVersion | type) == "number"'
 assert_command "browser QA migrate emits valid v2 draft" node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_migrated"
-assert_json_expr "browser QA migrated report is v2" "$(jq -c . "$qa_migrated")" '.schemaVersion == 2 and (.matrix | length) == 2'
+if qa_draft_gate="$(node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_migrated" --artifact-root "$TMPROOT" --require-complete --tree-hash "$qa_expected_tree_hash" 2>&1)"; then
+  not_ok "browser QA validate rejects draft report under completion gate"
+else
+  assert_contains "browser QA validate rejects draft under --require-complete" "$qa_draft_gate" "report status must be complete"
+fi
+if qa_missing_tree="$(node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_report_v2" --artifact-root "$TMPROOT" --require-complete 2>&1)"; then
+  not_ok "browser QA validate rejects completion gate without tree hash"
+else
+  assert_contains "browser QA validate requires tree hash with completion gate" "$qa_missing_tree" "validate --require-complete requires --tree-hash"
+fi
+if qa_v1_complete_gate="$(node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_report_flags" --require-complete --tree-hash "$qa_expected_tree_hash" 2>&1)"; then
+  not_ok "browser QA validate rejects v1 report under completion gate"
+else
+  assert_contains "browser QA validate requires schema v2 for completion gate" "$qa_v1_complete_gate" "complete validation requires schemaVersion 2"
+fi
 qa_artifacts="$TMPROOT/browser-qa-artifacts"
 mkdir -p "$qa_artifacts/browser-qa"
 printf '{bad' >"$qa_artifacts/browser-qa/bad.json"
@@ -3145,23 +3234,21 @@ else
   # TODO-integration: pending Lane A A4 packet removal for tier 0-1
   not_ok "behavior eval: autoplan tier 0-1 omits task packet requirements (TODO-integration: pending Lane A)"
 fi
-if rg -q -i '(at most|max(imum)?) 2.*(fix round|reopen)' "$bounded_review"; then
+if rg -q -i '(at most|max(imum)?) 2.*(fix round|reopen)' "$bounded_review" && rg -q 'Per-patch reviewers on wave 2\+' "$bounded_review"; then
   ok "behavior eval: bounded-review caps fix rounds at 2"
 else
-  # TODO-integration: pending Lane A A2 bounded-review rewrite (max 2 fix rounds)
-  not_ok "behavior eval: bounded-review caps fix rounds at 2 (TODO-integration: pending Lane A)"
+  not_ok "behavior eval: bounded-review caps fix rounds at 2"
 fi
-if rg -q -i 'tier.*(≤|<= ).*2.*(one consolidated|one merged).*review' "$bounded_review"; then
+if rg -q -i 'tier.*(≤|<=).*2.*one merged.*reviewer pass' "$bounded_review"; then
   ok "behavior eval: bounded-review scopes tier <=2 to one merged reviewer pass"
 else
   # TODO-integration: pending Lane A A2 merged-review synthesis wording
   not_ok "behavior eval: bounded-review scopes tier <=2 to one merged reviewer pass (TODO-integration: pending Lane A)"
 fi
-if rg -q -i 'Expensive \(per wave\)' "$batch_exec"; then
+if rg -q 'batch-execution-adopted' "$batch_exec" && rg -q 'check-spawn' "$batch_exec"; then
   ok "behavior eval: batch-execution keeps expensive gates per wave"
 else
-  # TODO-integration: pending Lane A batch-execution gate economics
-  not_ok "behavior eval: batch-execution keeps expensive gates per wave (TODO-integration: pending Lane A)"
+  not_ok "behavior eval: batch-execution keeps expensive gates per wave"
 fi
 if rg -q 'blocking.*P0/P1|P0.*P1.*blocking|severity === "P0" \|\| item.severity === "P1"' "$review_merge"; then
   ok "behavior eval: review-merge blocking output restricted to P0/P1"
@@ -3933,13 +4020,23 @@ if node "$ROOT/scripts/review-merge.mjs" skip-plan --learnings "$tg12_learnings"
 else
   ok "skip-plan requires --reviewers"
 fi
+if tg12_scope_repo_out="$(node "$ROOT/scripts/review-merge.mjs" skip-plan --reviewers etrnl-quality-reviewer --scope repo --json 2>&1)"; then
+  not_ok "skip-plan rejects --scope repo without --learnings"
+else
+  assert_contains "skip-plan requires --learnings for repo-local scope" "$tg12_scope_repo_out" "--scope repo requires --learnings"
+fi
+if tg12_scope_typo_out="$(node "$ROOT/scripts/review-merge.mjs" skip-plan --reviewers etrnl-quality-reviewer --scope rep --json 2>&1)"; then
+  not_ok "skip-plan rejects invalid --scope values"
+else
+  assert_contains "skip-plan rejects invalid scope values" "$tg12_scope_typo_out" "--scope must be wave or repo"
+fi
 
 tg12_bounded_review="$(cat "$ROOT/skills/etrnl-dev-execute/references/bounded-review.md")"
 assert_contains "bounded-review documents the recurring-finding park limit" "$tg12_bounded_review" "ETRNL_REVIEW_RECURRING_FINDING_LIMIT"
 assert_contains "bounded-review documents the alternation park limit" "$tg12_bounded_review" "ETRNL_REVIEW_STREAM_ALTERNATION_LIMIT"
 assert_contains "bounded-review documents the progress park limit" "$tg12_bounded_review" "ETRNL_REVIEW_ROUNDS_SINCE_PROGRESS_LIMIT"
 assert_contains "bounded-review documents the report-only deterministic pass" "$tg12_bounded_review" "--report-only"
-assert_contains "bounded-review carries the tier 3 Codex-profile carve-out" "$tg12_bounded_review" "Codex-profile carve-out"
+assert_contains "bounded-review carries the dual-host tier 3 wave cadence rule" "$tg12_bounded_review" "Dual-host wave cadence"
 assert_contains "bounded-review keeps tier 3 gates at full strength" "$tg12_bounded_review" "Tier 3 gates hold at full strength on every wave"
 assert_contains "bounded-review exempts deep-audit lanes from adaptive skip" "$tg12_bounded_review" "DEEP_AUDIT_REGISTRY=\"\$ETRNL_SCRIPT_ROOT/lib/deep-audit-categories.mjs\""
 assert_contains "bounded-review reuses the review-learnings store" "$tg12_bounded_review" "reviewerDispatches"
@@ -3952,6 +4049,16 @@ assert_contains "bounded-review validates execution-ledger helper" "$tg12_bounde
 assert_contains "bounded-review validates deep-audit registry helper" "$tg12_bounded_review" "lib/deep-audit-categories.mjs"
 assert_contains "bounded-review fails closed on missing installed helper" "$tg12_bounded_review" "bounded-review error: missing required helper"
 assert_contains "bounded-review passes explicit repo root to helpers" "$tg12_bounded_review" '--root "$REPO_ROOT"'
+assert_contains "bounded-review tier-3 residual closure requires investigator on all high-risk streams" "$tg12_bounded_review" "auth/money/migration/tenancy/security streams, P2/P3 findings stay recorded as residuals"
+assert_contains "bounded-review park path keeps tier-3 residual confirmation" "$tg12_bounded_review" 'requires `etrnl-investigator` review plus `record-decision` owner confirmation before closure'
+assert_contains "bounded-review tier-3 P2 residuals stay recorded until owner confirmation" "$tg12_bounded_review" "P2/P3 findings stay recorded as residuals"
+assert_contains "bounded-review tier-3 residual closure uses ledger decision topics" "$tg12_bounded_review" "tier3-residual-closure-pending"
+assert_contains "bounded-review tier-3 residual closure blocks check-stop until confirmed" "$tg12_bounded_review" "investigator evidence or owner confirmation is missing"
+assert_contains "bounded-review tier-3 residual closure records investigator evidence" "$tg12_bounded_review" "record-specialist --skill etrnl-investigator"
+tg12_verification_gates="$(cat "$ROOT/skills/etrnl-dev-execute/references/verification-gates.md")"
+assert_contains "verification-gates documents browser-qa completion gate" "$tg12_verification_gates" "--require-complete"
+assert_contains "verification-gates documents react-doctor scope changed base" "$tg12_verification_gates" "--scope changed --base <ledger-base-commit> --blocking error"
+assert_contains "verification-gates separates missing react-doctor from N/A scope" "$tg12_verification_gates" "**Missing react-doctor:**"
 tg12_dev_pr="$(cat "$ROOT/skills/etrnl-dev-pr/SKILL.md")"
 assert_contains "etrnl-dev-pr routes review-learn through the installed helper" "$tg12_dev_pr" "node ~/.claude/scripts/review-learn.mjs learn"
 assert_contains "etrnl-dev-pr uses FINDINGS_FILE for review-learn ingestion" "$tg12_dev_pr" 'FINDINGS_FILE="${FINDINGS_FILE:?set FINDINGS_FILE to a sanitized JSON file}"'
@@ -4076,8 +4183,214 @@ else
 fi
 assert_no_file "review-learn JSON-shaped secret rejection leaves no ledger behind" "$tg12_review_learn_sensitive_ledger"
 assert_contains "review-learn JSON-shaped secret rejection leaves rules unchanged" "$(shasum "$tg12_review_learn_rules" | awk '{print $1}')" "$tg12_review_learn_sensitive_rules_hash"
+
 tg12_batch_execution="$(cat "$ROOT/skills/etrnl-dev-execute/references/batch-execution.md")"
 assert_contains "batch-execution defers tier 0-2 human-verify pauses" "$tg12_batch_execution" "## Human-verify batching (tier ≤ 2 default)"
 assert_contains "batch-execution keeps tier 3 UAT gates in place" "$tg12_batch_execution" "Tier 3 keeps explicit UAT gates where the plan places them"
+
+spawn_batch_plan="$ROOT/hooks/fixtures/plans/large-batch-plan.md"
+node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-spawn-batch --plan "$spawn_batch_plan" --cwd "$ROOT" >/dev/null
+if batch_deny_out="$(node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-batch --task-name "wave-1_spec_review" --wave "wave-1" --json 2>&1)"; then
+  not_ok "spawn guard blocks first reviewer on Large plan without batch adoption"
+else
+  assert_json_expr "spawn guard blocks first reviewer on Large plan without batch adoption" "$batch_deny_out" '.reasonCode == "large-scope-batch-required"'
+fi
+node "$ROOT/scripts/execution-ledger.mjs" record-decision --session fixture-spawn-batch --topic batch-execution-adopted --decision "Surface-grouped waves" --reason "Large scope fixture"
+assert_command "spawn guard allows reviewer after batch adoption" node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-batch --task-name "wave-1_spec_review" --wave "wave-1" --json
+node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-spawn-codex-lanes --plan "$ROOT/hooks/fixtures/plans/good-plan.md" --cwd "$ROOT" >/dev/null
+assert_command "codex spawn guard records first implementer" env ETRNL_EXECUTE_HOST=codex node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-codex-lanes --task-name "p01a_writer" --wave "wave-1" --json
+assert_command "codex spawn guard records second implementer" env ETRNL_EXECUTE_HOST=codex node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-codex-lanes --task-name "p108c2_writer" --wave "wave-1" --json
+if codex_lane_out="$(env ETRNL_EXECUTE_HOST=codex node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-codex-lanes --task-name "p01a_executor" --wave "wave-1" --json 2>&1)"; then
+  not_ok "codex spawn guard enforces maxConcurrentLanes=2 burst cap"
+else
+  assert_json_expr "codex spawn guard enforces maxConcurrentLanes=2 burst cap" "$codex_lane_out" '.reasonCode == "concurrent-lane-cap"'
+fi
+parallel_lanes_plan="$ROOT/hooks/fixtures/plans/parallel-lanes-plan.md"
+node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-spawn-plan-lanes --plan "$parallel_lanes_plan" --cwd "$ROOT" >/dev/null
+assert_command "codex spawn guard honors plan maxConcurrentLanes=4 (spawn 1)" env ETRNL_EXECUTE_HOST=codex node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-plan-lanes --task-name "p01a_writer" --wave "wave-1" --json
+assert_command "codex spawn guard honors plan maxConcurrentLanes=4 (spawn 2)" env ETRNL_EXECUTE_HOST=codex node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-plan-lanes --task-name "p108c2_writer" --wave "wave-1" --json
+assert_command "codex spawn guard honors plan maxConcurrentLanes=4 (spawn 3)" env ETRNL_EXECUTE_HOST=codex node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-plan-lanes --task-name "p01a_executor" --wave "wave-1" --json
+assert_command "codex spawn guard honors plan maxConcurrentLanes=4 (spawn 4)" env ETRNL_EXECUTE_HOST=codex node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-plan-lanes --task-name "p108c2_executor" --wave "wave-1" --json
+if plan_lane_out="$(env ETRNL_EXECUTE_HOST=codex node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-plan-lanes --task-name "p01a_writer" --wave "wave-2" --json 2>&1)"; then
+  not_ok "codex spawn guard blocks fifth spawn when plan maxConcurrentLanes=4"
+else
+  assert_json_expr "codex spawn guard blocks fifth spawn when plan maxConcurrentLanes=4" "$plan_lane_out" '.reasonCode == "concurrent-lane-cap"'
+fi
+plan_lane_dry="$(env ETRNL_EXECUTE_HOST=codex node "$ROOT/scripts/execution-ledger.mjs" check-spawn --session fixture-spawn-plan-lanes --task-name "p01a_writer" --wave "wave-1" --dry-run --json)"
+assert_json_expr "check-spawn dry-run reports plan maxConcurrentLanes=4" "$plan_lane_dry" '.maxConcurrentLanes == 4'
+lane_scope_plan="$TMPROOT/lane-scope-plan.md"
+cat >"$lane_scope_plan" <<'PLAN'
+# Lane scope fixture
+
+Status: Final
+Execution scope: all_phases
+Risk tier: 2 — lane scope precedence fixture.
+
+## Tier assessment
+
+Execution cost shape: maxConcurrentLanes=2 in prose only.
+
+## Parallelization strategy
+
+maxConcurrentLanes=5
+
+## Verdict
+
+Approved.
+PLAN
+if node --input-type=module -e "
+import { extractMaxConcurrentLanes } from '$ROOT/scripts/lib/spawn-registry.mjs';
+import { readFileSync } from 'node:fs';
+const cap = extractMaxConcurrentLanes(readFileSync('$lane_scope_plan', 'utf8'));
+if (cap !== 5) { console.error('expected 5 from Parallelization strategy, got', cap); process.exit(1); }
+"; then
+  ok "extractMaxConcurrentLanes prefers Parallelization strategy over Tier assessment"
+else
+  not_ok "extractMaxConcurrentLanes should prefer Parallelization strategy over Tier assessment"
+fi
+spawn_double_ledger="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-spawn-double --plan "$ROOT/hooks/fixtures/plans/good-plan.md" --cwd "$ROOT")"
+spawn_before="$(jq '.spawns | length' "$spawn_double_ledger")"
+assert_command "spawn guard dry-run does not record spawn" node "$ROOT/scripts/execution-ledger.mjs" check-spawn --session fixture-spawn-double --task-name "p01a_writer" --wave "wave-1" --dry-run --json
+spawn_after_dry="$(jq '.spawns | length' "$spawn_double_ledger")"
+if [[ "$spawn_after_dry" == "$spawn_before" ]]; then
+  ok "spawn guard dry-run leaves spawn count unchanged"
+else
+  not_ok "spawn guard dry-run should leave spawn count unchanged (before=$spawn_before after=$spawn_after_dry)"
+fi
+record_deny_rc=0
+record_deny_out="$(node "$ROOT/scripts/execution-ledger.mjs" check-spawn --session fixture-spawn-double --task-name "p01a_writer" --wave "wave-1" --json 2>&1)" || record_deny_rc=$?
+if [[ "$record_deny_rc" -eq 2 ]] && [[ "$record_deny_out" == *"requires hook authority"* ]]; then
+  ok "spawn guard rejects recording without hook authority or --allow-record"
+else
+  not_ok "spawn guard should reject recording without authority (rc=$record_deny_rc out=$record_deny_out)"
+fi
+assert_command "spawn guard records allowed spawn once" node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-double --task-name "p01a_writer" --wave "wave-1" --json
+spawn_after_record="$(jq '.spawns | length' "$spawn_double_ledger")"
+if [[ "$spawn_after_record" -eq $((spawn_before + 1)) ]]; then
+  ok "spawn guard increments spawn count exactly once per allowed spawn"
+else
+  not_ok "spawn guard should increment spawn count once (before=$spawn_before after=$spawn_after_record)"
+fi
+node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-spawn-third-lane --plan "$spawn_batch_plan" --cwd "$ROOT" >/dev/null
+assert_command "third-lane fixture records first lane" node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-third-lane --task-name "tg1_writer" --wave "wave-1" --json
+assert_command "third-lane fixture records second lane" node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-third-lane --task-name "tg2_writer" --wave "wave-1" --json
+if third_lane_out="$(node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-third-lane --task-name "tg3_writer" --wave "wave-1" --json 2>&1)"; then
+  not_ok "spawn guard requires batch adoption before third concurrent lane on Large plan"
+else
+  assert_json_expr "spawn guard requires batch adoption before third concurrent lane on Large plan" "$third_lane_out" '.reasonCode == "parallel-lane-batch-required"'
+fi
+heavy_ledger_file="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-spawn-heavy --plan "$ROOT/hooks/fixtures/plans/good-plan.md" --cwd "$ROOT")"
+if [[ -n "$heavy_ledger_file" && -f "$heavy_ledger_file" ]]; then
+  heavy_spawn_now="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+  heavy_spawn_past="$(date -u -v-120S +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -d '120 seconds ago' +"%Y-%m-%dT%H:%M:%SZ")"
+  jq --arg past "$heavy_spawn_past" --arg now "$heavy_spawn_now" '
+    .spawns = [
+      range(0; 20) as $i |
+      {
+        taskName: (if $i < 12 then "wave-1_spec_review" else "worker_\($i)_writer" end),
+        waveId: "wave-1",
+        role: (if $i < 12 then "reviewer" else "implementer" end),
+        at: (if $i < 18 then $past else $now end)
+      }
+    ]
+  ' "$heavy_ledger_file" >"$heavy_ledger_file.tmp" && mv "$heavy_ledger_file.tmp" "$heavy_ledger_file"
+  if heavy_out="$(node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-heavy --task-name "wave-1_quality_review" --wave "wave-1" --json 2>&1)"; then
+    not_ok "spawn guard blocks reviewer-heavy backstop without batch adoption (allowed: $heavy_out)"
+  else
+    assert_json_expr "spawn guard blocks reviewer-heavy backstop without batch adoption" "$heavy_out" '.reasonCode == "batch-execution-required"'
+  fi
+else
+  not_ok "reviewer-heavy backstop fixture could not resolve ledger path"
+fi
+if scope_tier3_out="$(node "$ROOT/scripts/review-scope.mjs" classify --tier 3 --json 2>&1)"; then
+  assert_json_expr "review-scope tier 3 always full_lenses" "$scope_tier3_out" '.mode == "full_lenses"'
+else
+  not_ok "review-scope tier 3 classify failed: $scope_tier3_out"
+fi
+scope_fixture_cwd="$TMPROOT/review-scope-clean"
+mkdir -p "$scope_fixture_cwd"
+printf 'hello\n' > "$scope_fixture_cwd/readme.txt"
+if scope_t2_small_out="$(node "$ROOT/scripts/review-scope.mjs" classify --tier 2 --diff-lines 25 --cwd "$scope_fixture_cwd" --json 2>&1)"; then
+  assert_json_expr "review-scope tier 2 small diff deterministic_only" "$scope_t2_small_out" '.mode == "deterministic_only"'
+else
+  not_ok "review-scope tier 2 small classify failed: $scope_t2_small_out"
+fi
+if scope_t2_medium_out="$(node "$ROOT/scripts/review-scope.mjs" classify --tier 2 --diff-lines 120 --cwd "$scope_fixture_cwd" --json 2>&1)"; then
+  assert_json_expr "review-scope tier 2 medium diff merged_quality" "$scope_t2_medium_out" '.mode == "merged_quality"'
+else
+  not_ok "review-scope tier 2 medium classify failed: $scope_t2_medium_out"
+fi
+scope_exceeded_out="$(node --input-type=module -e "
+import { evaluateSpawnGuard } from '$ROOT/scripts/lib/spawn-guard.mjs';
+const verdict = evaluateSpawnGuard({ spawns: [], planScope: 'small' }, {
+  taskName: 'wave-1_spec_review',
+  waveId: 'wave-1',
+  riskTier: 2,
+  reviewScopeMode: 'deterministic_only',
+  subagentType: 'etrnl-spec-reviewer',
+});
+console.log(JSON.stringify(verdict));
+" 2>&1)"
+assert_json_expr "spawn guard blocks reviewer when review scope is deterministic_only" "$scope_exceeded_out" '.reasonCode == "review-scope-exceeded"'
+registry_plan="$ROOT/hooks/fixtures/plans/good-plan.md"
+node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-spawn-registry --plan "$registry_plan" --cwd "$ROOT" >/dev/null
+assert_command "record-spawn-registry refreshes plan allowlist" node "$ROOT/scripts/execution-ledger.mjs" record-spawn-registry --session fixture-spawn-registry --plan "$registry_plan"
+if registry_unreadable_out="$(node "$ROOT/scripts/execution-ledger.mjs" record-spawn-registry --session fixture-spawn-registry --plan "$TMPROOT/missing-plan.md" 2>&1)"; then
+  not_ok "record-spawn-registry should fail on unreadable plan"
+else
+  assert_contains "record-spawn-registry rejects unreadable plan" "$registry_unreadable_out" "cannot read plan"
+fi
+if registry_deny_out="$(node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-registry --task-name "not_in_plan_writer" --wave "wave-1" --json 2>&1)"; then
+  not_ok "spawn guard denies unknown spawn name when allowlist populated"
+else
+  assert_json_expr "spawn guard denies unknown spawn name when allowlist populated" "$registry_deny_out" '.reasonCode == "spawn-name-not-registered"'
+fi
+node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-spawn-fanout --plan "$registry_plan" --cwd "$ROOT" >/dev/null
+node "$ROOT/scripts/execution-ledger.mjs" record-decision --session fixture-spawn-fanout --topic full-fan-out-wave --decision "wave-3" --reason "fixture"
+assert_command "full-fan-out-wave allows per-patch reviewer on named wave" node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-fanout --task-name "p108c2_spec_review" --wave "wave-3" --json
+scoped_findings="$TMPROOT/scoped-merge-findings.json"
+printf '[{"reviewer":"etrnl-quality-reviewer","severity":"P2","confidence":0.9,"file":"src/a.ts","line":1,"fingerprint":"fp-scoped-1","summary":"nit","autofix_class":"manual"}]\n' >"$scoped_findings"
+scoped_merge_out="$(node "$ROOT/scripts/review-merge.mjs" merge --scoped --fix-base-sha abc123 --fix-head-sha def456 --finding-ids fp-scoped-1 --file "$scoped_findings" --root "$ROOT" 2>&1)"
+assert_json_expr "review-merge scoped mode records fix-round metadata" "$scoped_merge_out" '.scopedFixRound.fixBaseSha == "abc123" and .scopedFixRound.fixHeadSha == "def456"'
+skip_repo_root="$TMPROOT/skip-plan-repo-scope"
+mkdir -p "$skip_repo_root/.etrnl"
+skip_repo_learnings="$skip_repo_root/.etrnl/review-learnings.json"
+printf '{"schemaVersion":1,"recurrences":{},"promoted":{},"cleanRuns":{},"reviewerDispatches":{}}\n' >"$skip_repo_learnings"
+skip_repo_out="$(node "$ROOT/scripts/review-merge.mjs" skip-plan --reviewers etrnl-quality-reviewer --scope repo --learnings "$skip_repo_learnings" --json --root "$skip_repo_root" 2>&1)"
+assert_json_expr "skip-plan --scope repo dispatches reviewers" "$skip_repo_out" '.dispatch | length >= 1'
+node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-spawn-misclass --plan "$registry_plan" --cwd "$ROOT" >/dev/null
+if misclass_cli_out="$(node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-misclass --task-name "p108c2_writer" --wave "wave-3" --subagent-type "etrnl-spec-reviewer" --json 2>&1)"; then
+  not_ok "check-spawn blocks reviewer subagent with writer task name on wave 3"
+else
+  assert_json_expr "check-spawn blocks reviewer subagent with writer task name on wave 3" "$misclass_cli_out" '.reasonCode == "per-patch-review-on-wave-2-plus"'
+fi
+if reverse_misclass_out="$(node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-misclass --task-name "p108c2_writer" --wave "wave-3" --subagent-type "etrnl-executor" --packet-mode "read-only" --json 2>&1)"; then
+  not_ok "check-spawn blocks read-only writer alias disguised as implementer on wave 3"
+else
+  assert_json_expr "check-spawn blocks read-only writer alias disguised as implementer on wave 3" "$reverse_misclass_out" '.reasonCode == "per-patch-review-on-wave-2-plus"'
+fi
+if self_review_ok_out="$(node "$ROOT/scripts/plan-readiness-check.mjs" "$ROOT/hooks/fixtures/plans/good-plan.md" --self-review --allow-transitional-deep-stack --json 2>&1)"; then
+  assert_json_expr "plan-readiness self-review eligible for tier 2 complete plan" "$self_review_ok_out" '.selfReview.eligible == true'
+else
+  not_ok "plan-readiness self-review failed for good plan: $self_review_ok_out"
+fi
+self_review_t3_out="$(node "$ROOT/scripts/plan-readiness-check.mjs" "$ROOT/hooks/fixtures/plans/tier3-plan.md" --self-review --allow-transitional-deep-stack --json 2>&1 || true)"
+if [[ -n "$self_review_t3_out" ]]; then
+  assert_json_expr "plan-readiness self-review ineligible for tier 3 plan" "$self_review_t3_out" '.selfReview.eligible == false'
+else
+  not_ok "plan-readiness self-review tier 3 check produced no output"
+fi
+if packet_fix_bad_out="$(node "$ROOT/scripts/agent-task-packet-check.mjs" <<< '{"mode":"write","goal":"fix","contextSummary":"ctx","cwd":"/tmp","scope":"src","readSet":["src"],"expectedOutput":"done","noRevert":true,"fixBaseSha":"abc123"}' 2>&1)"; then
+  not_ok "agent-task-packet-check should reject partial fix-round packet"
+else
+  assert_contains "agent-task-packet-check rejects partial fix-round packet" "$packet_fix_bad_out" "fix-round packets require"
+fi
+claude_exec_profile="$(cat "$ROOT/skills/etrnl-dev-execute/references/claude-execute-profile.md")"
+codex_exec_profile="$(cat "$ROOT/skills/etrnl-dev-execute/references/codex-execute-profile.md")"
+for trigger_text in "batch-execution-adopted" "third concurrent lane" "20+" "55%"; do
+  assert_contains "batch trigger table includes $trigger_text in batch-execution.md" "$tg12_batch_execution" "$trigger_text"
+  assert_contains "batch trigger table includes $trigger_text in claude execute profile" "$claude_exec_profile" "$trigger_text"
+  assert_contains "batch trigger table includes $trigger_text in codex execute profile" "$codex_exec_profile" "$trigger_text"
+done
 
 finish_tests

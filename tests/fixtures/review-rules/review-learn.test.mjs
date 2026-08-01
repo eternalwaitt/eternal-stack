@@ -1,7 +1,8 @@
-import { test } from "node:test";
+import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, copyFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, copyFileSync, rmSync, existsSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,19 +11,64 @@ import { classify } from "../../../scripts/lib/coderabbit-classifier.mjs";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..", "..");
 const learn = path.join(repoRoot, "scripts", "review-learn.mjs");
+const fixtureRoots = [];
+
+function overlayDir(root) {
+  return path.join(path.dirname(root), `${path.basename(root)}-overlay`);
+}
+
+function homeDir(root) {
+  return path.join(path.dirname(root), `${path.basename(root)}-home`);
+}
+
+function cleanupRoot(root) {
+  rmSync(root, { recursive: true, force: true });
+  rmSync(overlayDir(root), { recursive: true, force: true });
+  rmSync(homeDir(root), { recursive: true, force: true });
+}
+
+after(() => {
+  for (const root of fixtureRoots) cleanupRoot(root);
+});
 
 function freshRoot() {
   const root = mkdtempSync(path.join(tmpdir(), "rl-"));
+  fixtureRoots.push(root);
   mkdirSync(path.join(root, "templates"));
   copyFileSync(path.join(repoRoot, "templates", "review-rules.example.json"), path.join(root, "templates", "review-rules.example.json"));
   writeFileSync(path.join(root, "review-rules.json"), JSON.stringify({ schemaVersion: 1, rulesetId: "t", version: 1, enabledRuleIds: [], rules: [] }));
   return root;
 }
 
+function ledgerFor(root) {
+  const overlay = overlayDir(root);
+  mkdirSync(overlay, { recursive: true });
+  return path.join(overlay, "review-learnings.json");
+}
+
+function runLearnDefault(root, findings) {
+  const fp = path.join(root, "findings-default.json");
+  writeFileSync(fp, JSON.stringify(findings));
+  const home = homeDir(root);
+  mkdirSync(path.join(home, ".claude", "review-learnings"), { recursive: true });
+  const res = spawnSync("node", [learn, "learn", "--findings", fp, "--root", root, "--json"], {
+    encoding: "utf8",
+    env: { ...process.env, HOME: home },
+  });
+  assert.equal(res.status, 0, res.stderr);
+  const metric = JSON.parse(res.stdout);
+  const repoKey = createHash("sha256").update(path.resolve(root)).digest("hex").slice(0, 16);
+  const defaultLedger = path.join(home, ".claude", "review-learnings", repoKey, "review-learnings.json");
+  assert.equal(existsSync(defaultLedger), true);
+  assert.equal(existsSync(path.join(root, "review-learnings.json")), false);
+  return { metric, defaultLedger };
+}
+
 function runLearn(root, findings, { reviewId = null, corpus = null, minPrecision = null } = {}) {
   const fp = path.join(root, "findings.json");
+  const ledger = ledgerFor(root);
   writeFileSync(fp, JSON.stringify(findings));
-  const args = [learn, "learn", "--findings", fp, "--root", root, "--json"];
+  const args = [learn, "learn", "--findings", fp, "--root", root, "--ledger", ledger, "--json"];
   if (reviewId) args.push("--review-id", reviewId);
   if (corpus) args.push("--corpus", corpus);
   if (minPrecision !== null) args.push("--min-precision", String(minPrecision));
@@ -31,12 +77,17 @@ function runLearn(root, findings, { reviewId = null, corpus = null, minPrecision
   return {
     metric: JSON.parse(res.stdout),
     rules: JSON.parse(readFileSync(path.join(root, "review-rules.json"), "utf8")),
-    ledger: JSON.parse(readFileSync(path.join(root, "review-learnings.json"), "utf8")),
+    ledger: JSON.parse(readFileSync(ledger, "utf8")),
   };
 }
 
 const asAny = [{ summary: "Avoid `as any` cast", body: "unsafe type escape", severity: "minor", lensId: "types_schema_contracts", category: "unsafe-type-escape" }];
 const tenant = [{ summary: "Missing tenantId filter", body: "query not scoped to tenant", severity: "major", lensId: "security_privacy_tenancy", category: "tenant-scope" }];
+
+test("default ledger path resolves under private home store outside fixture repo", () => {
+  const root = freshRoot();
+  runLearnDefault(root, tenant);
+});
 
 test("3 recurrences of a template-matching finding auto-promote a WARN guard", () => {
   const root = freshRoot();
@@ -129,7 +180,7 @@ test("clean-run escalation is counted per guard ruleId, not per recurrence key",
     enabledRuleIds: ["no-expect-any"],
     rules: [{ ruleId: "no-expect-any", mode: "warn", version: 1 }],
   }));
-  writeFileSync(path.join(root, "review-learnings.json"), JSON.stringify({
+  writeFileSync(ledgerFor(root), JSON.stringify({
     schemaVersion: 1,
     recurrences: { "deterministic_guard:types_schema_contracts:other-escape": 3, [keyA]: 3 },
     promoted: {

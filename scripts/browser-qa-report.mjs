@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import { homedir } from "node:os";
 import path from "node:path";
 import { argValue } from "./lib/cli-args.mjs";
+import { worktreeHash } from "./lib/etrnl-state-core.mjs";
 import { fileInfo, fileSha256, isFreshIso, nowIso, resolveContainedPath } from "./lib/evidence-trace.mjs";
 import { readStdinJson as readSharedStdinJson } from "./lib/read-stdin.mjs";
 import { UX_SEVERITIES, UX_SEVERITY_SET } from "./lib/ux-finding-taxonomy.mjs";
@@ -210,6 +211,18 @@ function validateCompleteMatrix(report, errors) {
 function reportErrors(report, options = {}) {
   const errors = [];
   const root = path.resolve(options.artifactRoot || artifactRoot());
+  if (options.requireComplete && report.status !== "complete") {
+    errors.push("report status must be complete");
+  }
+  if (options.requireComplete && report.schemaVersion !== 2) {
+    errors.push("complete validation requires schemaVersion 2");
+  }
+  if (options.expectedTreeHash) {
+    const actual = report.provenance?.treeHash;
+    if (!actual || actual !== options.expectedTreeHash) {
+      errors.push("provenance.treeHash does not match expected worktree hash");
+    }
+  }
   if (![1, 2].includes(report.schemaVersion)) errors.push("schemaVersion must be 1 or 2");
   if (!report.reportId) errors.push("reportId is required");
   if (!Array.isArray(report.routes) || report.routes.length === 0) errors.push("routes must be a non-empty array");
@@ -224,6 +237,9 @@ function reportErrors(report, options = {}) {
     if (report.status === "complete") {
       if (!existsSync(root)) errors.push(`artifactRoot does not exist: ${root}`);
       const provenance = report.provenance;
+      if (!provenance?.treeHash || typeof provenance.treeHash !== "string" || provenance.treeHash.trim() === "") {
+        errors.push("complete v2 reports require provenance.treeHash");
+      }
       for (const key of ["tool", "targetUrl", "command", "capturedAt"]) {
         if (!provenance || typeof provenance[key] !== "string" || provenance[key].trim() === "") {
           errors.push(`complete v2 reports require provenance.${key}`);
@@ -280,6 +296,19 @@ function reportErrors(report, options = {}) {
             if (!row.capturedAt || !isFreshIso(row.capturedAt, maxAgeMs())) {
               errors.push(`matrix[${index}].capturedAt must be a fresh ISO timestamp`);
             }
+            const rowProvenance = row.provenance;
+            if (!rowProvenance || typeof rowProvenance !== "object" || Array.isArray(rowProvenance)) {
+              errors.push(`matrix[${index}].provenance is required for complete non-skipped rows`);
+            } else {
+              for (const key of ["tool", "capturedAt"]) {
+                if (typeof rowProvenance[key] !== "string" || rowProvenance[key].trim() === "") {
+                  errors.push(`matrix[${index}].provenance.${key} is required`);
+                }
+              }
+              if (rowProvenance.capturedAt && !isFreshIso(rowProvenance.capturedAt, maxAgeMs())) {
+                errors.push(`matrix[${index}].provenance.capturedAt must be a fresh ISO timestamp`);
+              }
+            }
             for (const field of ["trace", "video"]) {
               const artifact = String(row[field] || "").trim();
               if (!artifact) continue;
@@ -333,6 +362,9 @@ function create() {
   const routes = input.routes || splitList(argValue(args, "--routes", argValue(args, "--route", "/")));
   const viewports = input.viewports || splitList(argValue(args, "--viewports", argValue(args, "--viewport", "desktop")));
   const schemaVersion = hasV2Input(input) ? 2 : 1;
+  const captureTreeHash = schemaVersion === 2
+    ? argValue(args, "--tree-hash") || input.provenance?.treeHash || worktreeHash(process.cwd())
+    : "";
   const report = {
     schemaVersion,
     reportId: input.reportId || argValue(args, "--id", `browser-qa-${Date.now()}`),
@@ -360,6 +392,14 @@ function create() {
       createdBy: "eternal-stack",
       capturedAt: nowIso(),
     });
+    if (
+      captureTreeHash
+      && report.provenance
+      && typeof report.provenance === "object"
+      && !Array.isArray(report.provenance)
+    ) {
+      report.provenance.treeHash = captureTreeHash;
+    }
   }
   const errors = reportErrors(report, { artifactRoot: artifactRoot() });
   if (errors.length > 0) {
@@ -375,8 +415,18 @@ function validate() {
     console.error("browser-qa-report validate requires a file path.");
     process.exit(2);
   }
+  const requireComplete = args.includes("--require-complete");
+  const expectedTreeHash = argValue(args, "--tree-hash");
+  if (requireComplete && !expectedTreeHash) {
+    console.error("validate --require-complete requires --tree-hash");
+    process.exit(2);
+  }
   const report = JSON.parse(readFileSync(file, "utf8"));
-  const errors = reportErrors(report, { artifactRoot: artifactRoot() });
+  const errors = reportErrors(report, {
+    artifactRoot: artifactRoot(),
+    requireComplete,
+    expectedTreeHash,
+  });
   if (errors.length > 0) {
     console.error(errors.join("\n"));
     process.exit(1);

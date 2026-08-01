@@ -5,7 +5,7 @@ disable-model-invocation: true
 ---
 # Disk Cleanup
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-ops-disk-cleanup`; on update, never stop to ask; local updates auto-apply when enabled and safe.
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-ops-disk-cleanup`; on update, run the reported update command before continuing; only skip if the user explicitly declines.
 
 Reclaim local disk space with an inspect-first, trash-only workflow.
 

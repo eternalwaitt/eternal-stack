@@ -1023,6 +1023,16 @@ if doctor_group_enabled scripts; then
 fi
 if doctor_group_enabled hooks; then
   doctor_note_group hooks
+  if [[ -f "$ROOT/hooks/cc-spawn-guard.sh" ]]; then
+    report_command "spawn guard hook syntax valid" "spawn guard hook syntax invalid" bash -n "$ROOT/hooks/cc-spawn-guard.sh"
+  else
+    fail "cc-spawn-guard.sh missing"
+  fi
+  if [[ -f "$ROOT/scripts/codex-spawn-guard-pre-tool-use.sh" ]]; then
+    report_command "codex spawn guard hook syntax valid" "codex spawn guard hook syntax invalid" bash -n "$ROOT/scripts/codex-spawn-guard-pre-tool-use.sh"
+  else
+    fail "codex spawn guard hook script missing"
+  fi
   if [[ -f "$ROOT/scripts/codex-rtk-pre-tool-use.sh" ]]; then
     report_command "codex RTK hook syntax valid" "codex RTK hook syntax invalid" bash -n "$ROOT/scripts/codex-rtk-pre-tool-use.sh"
   else
@@ -1051,6 +1061,42 @@ if doctor_group_enabled hooks; then
       fail "critical hook missing: $hook_file"
     fi
   done
+  if [[ -f "$ROOT/templates/settings.json" ]]; then
+    if jq -e '
+      [.hooks.PreToolUse[]? | select(.matcher == "Task|Agent|TaskCreate") | .hooks[]?
+      | select(.type == "command" and (.command | test("cc-spawn-guard\\.sh")))] | length >= 1
+    ' "$ROOT/templates/settings.json" >/dev/null 2>&1; then
+      ok "default template registers cc-spawn-guard.sh on PreToolUse Task|Agent|TaskCreate"
+    else
+      fail "default template missing cc-spawn-guard.sh PreToolUse registration"
+    fi
+  fi
+  if [[ -f "$ROOT/templates/settings.strict.json" ]]; then
+    if jq -e '
+      [.hooks.PreToolUse[]? | select(.matcher == "Task|Agent|TaskCreate") | .hooks[]?
+      | select(.type == "command" and (.command | test("cc-spawn-guard\\.sh")))] | length >= 1
+    ' "$ROOT/templates/settings.strict.json" >/dev/null 2>&1; then
+      ok "strict template registers cc-spawn-guard.sh on PreToolUse Task|Agent|TaskCreate"
+    else
+      fail "strict template missing cc-spawn-guard.sh PreToolUse registration"
+    fi
+  fi
+  codex_target="${CODEX_HOME:-$HOME/.codex}"
+  codex_config="$codex_target/config.toml"
+  if [[ -f "$codex_target/hooks/spawn-guard-pre-tool-use.sh" ]]; then
+    ok "Codex spawn guard hook installed at ~/.codex/hooks/spawn-guard-pre-tool-use.sh"
+    if [[ -f "$codex_config" ]]; then
+      if grep -Eq '^[^#]*spawn-guard-pre-tool-use' "$codex_config" 2>/dev/null; then
+        ok "Codex config.toml registers spawn guard hook"
+      else
+        fail "Codex spawn guard hook installed but not registered in config.toml"
+      fi
+    else
+      fail "Codex spawn guard hook installed but config.toml missing (register spawn-guard-pre-tool-use.sh)"
+    fi
+  else
+    ok "Codex spawn guard hook not installed (run install.sh; register in config.toml)"
+  fi
 fi
 if doctor_group_enabled scripts; then
   for script_file in "${CRITICAL_SCRIPTS[@]}"; do
@@ -1242,6 +1288,11 @@ fi
 
 if doctor_group_enabled optional; then
   doctor_note_group optional
+  if [[ -f "$ROOT/scripts/codex-rollout-baseline.mjs" ]]; then
+    if report_command "codex-rollout-baseline syntax valid" "codex-rollout-baseline syntax invalid" node --check "$ROOT/scripts/codex-rollout-baseline.mjs"; then
+      ok "codex-rollout-baseline trend available (warn-only until baseline corpus exists)"
+    fi
+  fi
   optional_command codex "optional Codex escalation available" "optional Codex escalation not installed"
   codex_target="${CODEX_HOME:-$HOME/.codex}"
   codex_config="$codex_target/config.toml"

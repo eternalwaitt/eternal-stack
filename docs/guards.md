@@ -4,26 +4,26 @@ Pretool deny rules, stop-verifier completion gates, fail-open behavior, and shar
 
 ## What runs when
 
-| Layer | Registered in default install | Added in strict install |
+| Layer | Default install | Observer-only opt-out (`ETRNL_ENABLE_STRICT=0`) |
 | --- | --- | --- |
-| Session / prompt | `cc-sessionstart-restore.sh`, `cc-userprompt-router.sh`, `cc-userprompt-expansion.sh` | — |
-| Pretool | `cc-rtk-rg-compat.sh` (`Bash` only) | `cc-pretooluse-guard.sh` (expanded matchers) |
-| Post-tool | `cc-rate-limiter.sh`, `cc-posttoolbatch-observer.sh` | `cc-posttooluse-sycophancy.sh`, `cc-posttooluse-quality.sh`, `cc-posttoolusefailure-diagnose.sh` |
-| Completion | `cc-stop-verifier.sh` | `cc-subagentstop-record.sh` |
-| Compact / end | `cc-precompact-save.sh`, `cc-postcompact-record.sh`, `cc-sessionend-save.sh` | — |
+| Session / prompt | `cc-sessionstart-restore.sh`, `cc-userprompt-router.sh`, `cc-userprompt-expansion.sh` | same |
+| Pretool | `cc-spawn-guard.sh` (`Task / Agent / TaskCreate`), `cc-rtk-rg-compat.sh` (`Bash`), `cc-pretooluse-guard.sh` | `cc-spawn-guard.sh`, `cc-rtk-rg-compat.sh` only |
+| Post-tool | `cc-rate-limiter.sh`, `cc-posttoolbatch-observer.sh`, `cc-posttooluse-sycophancy.sh`, `cc-posttooluse-quality.sh`, `cc-posttoolusefailure-diagnose.sh` | `cc-rate-limiter.sh`, `cc-posttoolbatch-observer.sh` only |
+| Completion | `cc-stop-verifier.sh`, `cc-subagentstop-record.sh` | `cc-stop-verifier.sh` only |
+| Compact / end | `cc-precompact-save.sh`, `cc-postcompact-record.sh`, `cc-sessionend-save.sh` | same |
 
-`cc-stop-verifier.sh` is not strict-only: both templates register it on `Stop`. Strict mode adds pretool and post-write blockers plus subagent recording.
+`cc-stop-verifier.sh` runs in both templates on `Stop`. Default install adds pretool and post-write blockers plus subagent recording.
 
 ### Install ordering and overrides
 
 `scripts/merge-settings.mjs` merges stack hooks into your existing `settings.json` on every install. Two behaviors are intentional and worth knowing:
 
-- **Stack guards run before user hooks.** Merge assigns a deterministic order — `cc-rtk-rg-compat.sh` (10), `cc-pretooluse-guard.sh` (20), `rtk-rewrite.sh` (30) — and everything else defaults to 100. A `PreToolUse` hook you added yourself therefore runs *after* the stack guards even if it was originally listed first; user hooks keep their relative order among themselves. This guarantees the guard inspects a tool call before any user hook can act on it.
+- **Stack guards run before user hooks.** Merge assigns a deterministic order — `cc-rtk-rg-compat.sh` (10), `cc-spawn-guard.sh` (15), `cc-pretooluse-guard.sh` (20), `rtk-rewrite.sh` (30) — and everything else defaults to 100. A `PreToolUse` hook you added yourself therefore runs *after* the stack guards even if it was originally listed first; user hooks keep their relative order among themselves. This guarantees the guard inspects a tool call before any user hook can act on it.
 - **Stack-owned hook metadata is reset to template values on every install; matcher tokens are merged.** When a hook command already exists in your settings, the template entry wins on `timeout`, `statusMessage`, and `enabled` (last-write-wins), so a stale or hand-edited copy of that metadata is repaired to the current template. The `matcher` is treated differently: merge computes the *union* of the template's matcher tokens and your existing ones (`mergeMatcher` → `matcherFromTokens`), so extra matcher tokens you added persist across installs. Only a matcher you shrank below the template set is restored — the template tokens are re-added, but nothing you added on top is dropped. To change `timeout`, `statusMessage`, or `enabled` durably, edit the template you install from rather than `settings.json`, since an in-place edit to those fields is overwritten on the next install/update.
 
 ## `cc-pretooluse-guard.sh`
 
-Blocks unsafe or unscoped tool use before Claude executes the tool. Matcher (strict template): `Bash|Read|Edit|Write|MultiEdit|WebSearch|Task|TaskCreate|Agent|mcp__serena__search_for_pattern`.
+Blocks unsafe or unscoped tool use before Claude executes the tool. Matcher (default template): `Bash|Read|Edit|Write|MultiEdit|WebSearch|Task|TaskCreate|Agent|mcp__serena__search_for_pattern`.
 
 Rule families (aggregated where possible so the agent can fix multiple issues in one pass):
 
@@ -50,7 +50,7 @@ Override approved safety-critical commands with `CLAUDE_GUARD_OVERRIDE_TOKEN` wh
 
 ## `cc-stop-verifier.sh`
 
-Blocks completion claims on `Stop` when evidence is missing or stale. Runs in default and strict installs.
+Blocks completion claims on `Stop` when evidence is missing or stale. Runs in both install templates.
 
 Checks include:
 
@@ -114,7 +114,7 @@ port=$(node ~/.claude/scripts/port-guard.mjs pick --start 3100)
 pnpm dev -- --port "$port"
 ```
 
-Port checking is active for dev-server commands in strict mode. If `node` or `~/.claude/scripts/port-guard.mjs` is missing, the guard denies the dev-server command until the helper/runtime is restored. Install Node and rerun `scripts/install.sh` to restore strict checking.
+Port checking is active for dev-server commands when the pretool guard is installed (default). If `node` or `~/.claude/scripts/port-guard.mjs` is missing, the guard denies the dev-server command until the helper/runtime is restored. Install Node and rerun `scripts/install.sh` to restore checking.
 
 Tune scanning with `CLAUDE_GUARD_PORT_START`, `CLAUDE_GUARD_PORT_END`, `CLAUDE_GUARD_MAX_PORT_SCAN`, and `CLAUDE_GUARD_FORCE_LARGE_SCAN=1`.
 
@@ -146,3 +146,29 @@ Shared modules under `hooks/lib/`:
 | `complexity-check.mjs` | File complexity and test-quality analysis |
 
 See [hooks.md](hooks.md) for which hooks source each library.
+
+## Spawn guard (`cc-spawn-guard.sh`, Codex `spawn-guard-pre-tool-use.sh`)
+
+Deterministic spawn economics via `execution-ledger.mjs check-spawn`. The hook is the **sole spawn recorder** when mode is `enforce`; the skill uses `--dry-run` only while debugging.
+
+| Condition | Behavior |
+| --- | --- |
+| Active execution ledger + enforce mode | Fail-closed on economics violations |
+| No ledger / outside execute (`planExecutionRequested` false) | Fail-open (allow spawn) |
+| Execute context without ledger (`planExecutionRequested` true) | Fail-closed with init hint |
+| `ETRNL_SPAWN_GUARD_MODE=advisory` | Allow with context message |
+| `ETRNL_SPAWN_GUARD_MODE=off` or skip env | Hook exits 0 immediately |
+| Missing `execution-ledger.mjs` | Fail-closed in enforce; fail-open in advisory |
+
+Deny payloads include `reasonCode`, `exactFix`, and `exampleCommand` from `check-spawn --explain`.
+
+Economics enforced by `spawn-guard.mjs` include:
+
+| Gate | Trigger |
+| --- | --- |
+| Wave 2+ merged review | Per-patch reviewer names on wave/phase ≥ 2 |
+| Batch adoption | `planScope=large`, ≥3 task groups (`ETRNL_BATCH_TASK_GROUP_THRESHOLD`), third lane, or 20+/55% reviewer-heavy backstop (`ETRNL_BATCH_*`) |
+| Review scope (tier 0–2) | `review-scope.mjs` integrated into `check-spawn`; tier ≥3 always `full_lenses` |
+| Role classification | Reviewer `subagent_type` overrides `_writer` task aliases; reviewer spawns require explicit `--wave` |
+
+Registry: `record-spawn-registry --plan <path>` refreshes allowlist; `enrichLedgerPlanMetadata` runs on every `check-spawn`.

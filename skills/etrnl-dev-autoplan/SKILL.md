@@ -4,7 +4,7 @@ description: ETRNL planning companion for Claude Code. Use when the user asks to
 ---
 # ETRNL Autoplan
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-autoplan`; on update, never stop to ask; local updates auto-apply when enabled and safe.
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-autoplan`; on update, run the reported update command before continuing; only skip if the user explicitly declines.
 
 Create execution-ready plans for `/etrnl-dev-execute`. Do not implement the plan.
 
@@ -89,9 +89,19 @@ Emit `## Tier assessment` before `## What already exists` with five lines: decla
 
 Load `references/tier-assessment-and-model-routing.md` before writing that section, the `Scope triage:` line, or any packet model. It carries the five-line field contract, the scope triage table, the Codex model map resolved through `scripts/lib/codex-model-routing.mjs`, the rule that an omitted or inherited `model` is a packet defect rather than a fallback, the `## Parallelization strategy` row format, and the tier-3 install-proof status rules.
 
+For tier ≥ 2 plans with two or more task groups, load `references/parallel-lane-maximization.md` before `## Parallelization strategy`. Maximize safe concurrent lanes (up to 6); do not copy the execute host default (Codex 2 / Claude 3) without a wave analysis.
+
 ## Full Deep Stack Review
 
-Run the review gauntlet required by the plan's `Risk tier` before finalizing. Tier 0–1 use one merged quality review lane only — no task packets, no multi-reviewer fan-out, no deep-stack bundle. Tier 2 requires engineering plus adversarial lanes. Tier 3 requires all eight lanes and a validated `Deep stack artifacts:` bundle before execution.
+Before spawning plan reviewer subagents, run inline self-review when eligible:
+
+```bash
+node scripts/plan-readiness-check.mjs <plan-path> --self-review --json
+```
+
+When `selfReview.eligible` is `true` (tier 0–2, readiness passed, required self-review sections present), perform the parent inline review using the readiness checklist sections instead of spawning engineering or adversarial plan reviewers. Tier 3 plans and plans with self-review gaps still run the full gauntlet below.
+
+Run the review gauntlet required by the plan's `Risk tier` before finalizing. Tier 0–1 use one merged quality review lane only — no task packets, no multi-reviewer fan-out, no deep-stack bundle. Tier 2 requires engineering plus adversarial lanes when self-review is not eligible; when self-review is eligible, those two lanes are satisfied by the inline pass above. Tier 3 requires all eight lanes and a validated `Deep stack artifacts:` bundle before execution.
 
 Load `references/deep-stack-review.md` for the lane definitions: CEO/founder, engineering (with `references/review-contract.md` and `references/coderabbit-preemption.md`), design, DX, adversarial, outside voices (with `references/reviewer-routing.md` and `references/reversible-compression.md`), and specialist convergence. Close, disprove, or explicitly user-accept every high/blocker finding before finalization.
 
@@ -212,7 +222,7 @@ Return or save a single implementation plan with this readiness-compatible shape
 - `## Test plan`
 - `## Test-first execution plan`
 - `## Failure modes`
-- `## Parallelization strategy` — with the required `Agent/model/effort` column on every packet row
+- `## Parallelization strategy` — with the required `Agent/model/effort` column on every packet row, wave/disjoint-scope notes, serialized chokepoints, and an explicit `maxConcurrentLanes=N` line (1–6, maximized for safe parallelism per `references/parallel-lane-maximization.md`)
 - `## Verification gates`
 - `## Rollback`
 - `## Execution handoff`

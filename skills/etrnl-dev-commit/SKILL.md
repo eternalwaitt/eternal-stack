@@ -5,7 +5,7 @@ disable-model-invocation: true
 ---
 # Commit
 
-Codex startup: after install, run `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-commit`; in the source checkout the helper lives at `scripts/skill-update-prompt.mjs`. On update, never stop to ask; local updates auto-apply when enabled and safe.
+Codex startup: after install, run `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-commit`; in the source checkout the helper lives at `scripts/skill-update-prompt.mjs`. On update, run the reported update command before continuing; only skip if the user explicitly declines.
 
 Create one logical commit at a time after evidence is clean.
 

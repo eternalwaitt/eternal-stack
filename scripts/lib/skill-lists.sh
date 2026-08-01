@@ -97,6 +97,7 @@ OWNED_COMMANDS=(
 
 CRITICAL_HOOKS=(
   cc-sessionstart-restore.sh
+  cc-spawn-guard.sh
   cc-pretooluse-guard.sh
   cc-rate-limiter.sh
   cc-posttoolbatch-observer.sh
@@ -120,6 +121,7 @@ CRITICAL_SCRIPTS=(
   deep-stack-check.mjs
   deep-audit-artifact-check.mjs
   plan-readiness-check.mjs
+  review-scope.mjs
   performance-baseline.mjs
   ux-inventory.mjs
   ux-audit-check.mjs
@@ -141,6 +143,9 @@ CRITICAL_SCRIPTS=(
   lib/etrnl-state-core.mjs
   lib/evidence-trace.mjs
   lib/plan-headings.mjs
+  lib/spawn-guard.mjs
+  lib/spawn-guard-explain.mjs
+  lib/spawn-registry.mjs
   lib/text-matchers.mjs
   lib/skill-lists.sh
   merge-settings.mjs
@@ -170,6 +175,7 @@ INSTALL_SCRIPTS=(
   deep-stack-check.mjs
   deep-audit-artifact-check.mjs
   plan-readiness-check.mjs
+  review-scope.mjs
   performance-baseline.mjs
   ux-inventory.mjs
   ux-audit-check.mjs
@@ -213,6 +219,7 @@ INSTALL_SCRIPTS=(
   update-check.mjs
   tool-stack-check.mjs
   codex-rtk-pre-tool-use.sh
+  codex-spawn-guard-pre-tool-use.sh
   bootstrap-tools.sh
   update.sh
   uninstall.sh

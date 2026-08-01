@@ -504,7 +504,8 @@ skill_update_prompt="$(jq -cn '{session_id:"fixture-skill-update-prompt",prompt:
 out="$(ETRNL_SKILL_UPDATE_CHECK=1 ETRNL_UPDATE_CHECK_SCRIPT="$fake_skill_update" run_hook cc-userprompt-router.sh "$skill_update_prompt")"
 assert_contains "skill prompt checks etrnl updates" "$out" "Skill update check before requested skill"
 assert_contains "skill prompt includes tool-stack update" "$out" "TOOL_STACK_UPDATE_AVAILABLE codegraph"
-assert_contains "skill prompt is non-blocking (auto-apply, never ask)" "$out" "do NOT stop or ask the user about updates"
+assert_contains "skill prompt requires update when practical" "$out" "run the update command(s) above when practical"
+assert_contains "skill prompt allows skip only on explicit decline" "$out" "user explicitly declines"
 assert_not_contains "skill prompt never instructs telling the user about updates" "$out" "tell the user"
 health_prompt="$(jq -cn '{session_id:"fixture-health-prompt",prompt:"audit the entire codebase with no skips or loose ends"}')"
 out="$(run_hook cc-userprompt-router.sh "$health_prompt")"
@@ -749,6 +750,32 @@ assert_contains "posttool full-file complexity denied" "$out" "Full-file quality
 stop_json="$(fixture stop.json)"
 out="$(run_hook cc-stop-verifier.sh "$stop_json")"
 assert_json_expr "stop verifier blocks unverified completion" "$out" '.decision == "block"'
+
+# email-triage stop gate: bidirectional matcher fixtures for cc_email_triage_gate_active.
+# Paraphrases come from the email-triage SKILL.md description (not from the matcher
+# regex) so this cannot pass circularly. The gate must stay armed for real triage
+# requests and skip investigation-only sessions (zero vivaz-email executions).
+email_triage_stop_state_template='{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:$cmds,failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:$skills,evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:$prompt,lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}'
+
+jq -nc --arg prompt "/email-triage agencia" --argjson cmds '[]' --argjson skills '[{"value":"email-triage","at":"2026-01-01T00:00:00Z"}]' "$email_triage_stop_state_template" >"$TMPROOT/claude-guard-fixture-stop-triage-slash.json"
+out="$(run_hook cc-stop-verifier.sh "$(jq -cn '{session_id:"fixture-stop-triage-slash",last_assistant_message:"Done, email triage complete.",stop_hook_active:false}')")"
+assert_contains "stop email-triage gate armed by slash command" "$out" "email-triage"
+
+jq -nc --arg prompt "let's do email triage and reach Inbox Zero on agencia" --argjson cmds '[]' --argjson skills '[]' "$email_triage_stop_state_template" >"$TMPROOT/claude-guard-fixture-stop-triage-paraphrase.json"
+out="$(run_hook cc-stop-verifier.sh "$(jq -cn '{session_id:"fixture-stop-triage-paraphrase",last_assistant_message:"Done, email triage complete.",stop_hook_active:false}')")"
+assert_contains "stop email-triage gate armed by SKILL.md paraphrase" "$out" "email-triage"
+
+jq -nc --arg prompt "can we investigate our email-triage skill?" --argjson cmds '[{"command":"vivaz-email triage guarded-run --account agencia --max-inbox 500 --apply --allow-apply-before-enrichment --progress","at":"2026-01-01T00:00:01Z"}]' --argjson skills '[]' "$email_triage_stop_state_template" >"$TMPROOT/claude-guard-fixture-stop-triage-ran-cli.json"
+out="$(run_hook cc-stop-verifier.sh "$(jq -cn '{session_id:"fixture-stop-triage-ran-cli",last_assistant_message:"Done, email triage complete.",stop_hook_active:false}')")"
+assert_contains "stop email-triage gate armed by vivaz-email execution evidence" "$out" "email-triage"
+
+jq -nc --arg prompt "can we investigate our email-triage skill?" --argjson cmds '[]' --argjson skills '[]' "$email_triage_stop_state_template" >"$TMPROOT/claude-guard-fixture-stop-triage-investigation.json"
+out="$(run_hook cc-stop-verifier.sh "$(jq -cn '{session_id:"fixture-stop-triage-investigation",last_assistant_message:"Investigation findings: the skill wastes tokens in three places.",stop_hook_active:false}')")"
+if [[ "$out" != *"email-triage phase 1"* && "$out" != *"Inbox Zero"* ]]; then
+  ok "stop email-triage gate skipped for investigation-only session"
+else
+  not_ok "stop email-triage gate should skip investigation-only session: $out"
+fi
 
 evidence_advisory_stop="$(jq -cn '{session_id:"fixture-stop-evidence-advisory",last_assistant_message:"You are right. I will check the log next.",stop_hook_active:false}')"
 out="$(run_hook cc-stop-verifier.sh "$evidence_advisory_stop")"
@@ -1122,7 +1149,7 @@ email_triage_missing_state="$TMPROOT/claude-guard-fixture-email-triage-missing.j
 jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[{value:"email-triage",at:"2026-01-01T00:00:00Z"}],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"/email-triage agencia",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$email_triage_missing_state"
 email_triage_missing_stop="$(jq -cn '{session_id:"fixture-email-triage-missing",last_assistant_message:"Done, email triage complete.",stop_hook_active:false}')"
 out="$(PATH="$TMPROOT/bin:$PATH" run_hook cc-stop-verifier.sh "$email_triage_missing_stop")"
-assert_contains "email triage stop requires runtime apply command" "$out" "vivaz-email triage guarded-run --account <id> --max-inbox 500 --apply --require-insights"
+assert_contains "email triage stop requires runtime apply command" "$out" "vivaz-email triage guarded-run --account <id> --max-inbox 500 --apply --allow-apply-before-enrichment --progress"
 
 email_triage_ok_state="$TMPROOT/claude-guard-fixture-email-triage-ok.json"
 jq -nc '{schemaVersion:4,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[{command:"vivaz-email triage guarded-run --account agencia --max-inbox 50 --apply --require-insights",at:"2026-01-01T00:00:01Z"}],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[{value:"email-triage",at:"2026-01-01T00:00:00Z"}],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],lastPrompt:"/email-triage agencia",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$email_triage_ok_state"
@@ -1659,6 +1686,80 @@ assert_contains "invalid task fixture reports retry policy" "$out" "retryPolicy"
 agent_valid="$(fixture pretooluse-task-valid.json)"
 out="$(run_hook cc-pretooluse-guard.sh "$agent_valid")"
 assert_json_expr "valid task packet allowed" "$out" '.continue == true'
+
+node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-spawn-guard-hook --plan "$ROOT/hooks/fixtures/plans/good-plan.md" >/dev/null
+spawn_allow="$(fixture spawn-guard-allow-wave1.json)"
+out="$(run_hook cc-spawn-guard.sh "$spawn_allow")"
+assert_json_expr "spawn guard allows wave-1 implementer when ledger active" "$out" '.continue == true'
+spawn_deny="$(fixture spawn-guard-deny-wave3-perpatch.json)"
+out="$(run_hook cc-spawn-guard.sh "$spawn_deny")"
+assert_json_expr "spawn guard denies per-patch review on wave 3" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+assert_contains "spawn guard deny includes reasonCode context" "$out" "per-patch-review-on-wave-2-plus"
+spawn_explain_out="$(node "$ROOT/scripts/execution-ledger.mjs" check-spawn --dry-run --session fixture-spawn-guard-hook --task-name "p108c2_spec_review" --wave "wave-3" --explain --json 2>&1 || true)"
+assert_json_expr "check-spawn explain returns structured reasonCode" "$spawn_explain_out" '.reasonCode == "per-patch-review-on-wave-2-plus"'
+assert_json_expr "check-spawn explain returns exactFix" "$spawn_explain_out" '.exactFix | length > 0'
+assert_json_expr "check-spawn explain returns exampleCommand" "$spawn_explain_out" '.exampleCommand | length > 0'
+if misclass_out="$(node "$ROOT/scripts/execution-ledger.mjs" check-spawn --dry-run --session fixture-spawn-guard-hook --task-name "p108c2_writer" --wave "wave-3" --subagent-type "etrnl-spec-reviewer" --json 2>&1)"; then
+  not_ok "spawn guard blocks reviewer subagent disguised as writer on wave 3"
+else
+  assert_json_expr "spawn guard blocks reviewer subagent disguised as writer on wave 3" "$misclass_out" '.reasonCode == "per-patch-review-on-wave-2-plus"'
+fi
+spawn_reviewer_no_wave="$(jq -cn '{session_id:"fixture-spawn-guard-hook",tool_name:"Task",tool_input:{spawnTaskName:"p108c2_spec_review",subagent_type:"etrnl-spec-reviewer",packet:{mode:"read-only",taskId:"p108c2"}}}')"
+out="$(run_hook cc-spawn-guard.sh "$spawn_reviewer_no_wave")"
+assert_json_expr "spawn guard denies reviewer spawn without explicit wave" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+assert_contains "spawn guard reviewer missing wave cites reasonCode" "$out" "missing-wave"
+spawn_no_ledger="$(jq -cn '{session_id:"fixture-spawn-no-ledger",tool_name:"Task",tool_input:{spawnTaskName:"scout_lane",waveId:"wave-1"}}')"
+out="$(run_hook cc-spawn-guard.sh "$spawn_no_ledger")"
+assert_json_expr "spawn guard fail-open outside execute without ledger" "$out" '.continue == true'
+spawn_exec_no_ledger_state="$TMPROOT/claude-guard-fixture-spawn-exec-no-ledger.json"
+jq -nc '{schemaVersion:5,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],skillRequestWaivers:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},contractVerdicts:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],toolSignals:[],firstEditAt:"",firstEditGeneration:0,toolUseBeforeFirstEdit:{},toolNoise:{},effectivenessCounters:{},newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:true,planExecutionRequestedAt:"2026-01-01T00:00:00Z",lastPrompt:"implement the plan",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$spawn_exec_no_ledger_state"
+spawn_exec_no_ledger="$(jq -cn '{session_id:"fixture-spawn-exec-no-ledger",tool_name:"Task",tool_input:{spawnTaskName:"tg1_writer",waveId:"wave-1"}}')"
+out="$(run_hook cc-spawn-guard.sh "$spawn_exec_no_ledger")"
+assert_json_expr "spawn guard fail-closed in execute context without ledger" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-codex-spawn-hook --plan "$ROOT/hooks/fixtures/plans/good-plan.md" >/dev/null
+codex_spawn_allow='{"session_id":"fixture-codex-spawn-hook","tool_name":"spawn_agent","tool_input":{"task_name":"p01a_writer","wave":"wave-1"}}'
+codex_allow_rc=0
+codex_allow_out="$(printf '%s' "$codex_spawn_allow" | bash "$ROOT/scripts/codex-spawn-guard-pre-tool-use.sh" 2>&1)" || codex_allow_rc=$?
+if [[ "$codex_allow_rc" -eq 0 ]] && [[ "$codex_allow_out" != *'permissionDecision": "deny"'* ]]; then
+  ok "codex spawn guard allows wave-1 implementer when ledger active"
+else
+  not_ok "codex spawn guard should allow wave-1 implementer when ledger active: rc=$codex_allow_rc out=$codex_allow_out"
+fi
+codex_spawn_deny='{"session_id":"fixture-codex-spawn-hook","tool_name":"spawn_agent","tool_input":{"task_name":"p108c2_spec_review","wave":"wave-3"}}'
+codex_deny_out="$(printf '%s' "$codex_spawn_deny" | bash "$ROOT/scripts/codex-spawn-guard-pre-tool-use.sh" 2>&1 || true)"
+assert_json_expr "codex spawn guard denies per-patch review on wave 3" "$codex_deny_out" '.hookSpecificOutput.permissionDecision == "deny"'
+assert_contains "codex spawn guard deny includes reasonCode context" "$codex_deny_out" "per-patch-review-on-wave-2-plus"
+codex_spawn_exec_no_ledger_state="$TMPROOT/claude-guard-fixture-codex-spawn-exec-no-ledger.json"
+jq -nc '{schemaVersion:5,reads:{},searches:{},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[],skillRequestWaivers:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},contractVerdicts:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],toolSignals:[],firstEditAt:"",firstEditGeneration:0,toolUseBeforeFirstEdit:{},toolNoise:{},effectivenessCounters:{},newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:true,planExecutionRequestedAt:"2026-01-01T00:00:00Z",lastPrompt:"implement the plan",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:"",settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$codex_spawn_exec_no_ledger_state"
+codex_exec_no_ledger='{"session_id":"fixture-codex-spawn-exec-no-ledger","tool_name":"spawn_agent","tool_input":{"task_name":"tg1_writer","wave":"wave-1"}}'
+export CLAUDE_SESSION_ID="fixture-codex-spawn-exec-no-ledger"
+codex_exec_deny_out="$(printf '%s' "$codex_exec_no_ledger" | bash "$ROOT/scripts/codex-spawn-guard-pre-tool-use.sh" 2>&1 || true)"
+assert_json_expr "codex spawn guard fail-closed in execute context without ledger" "$codex_exec_deny_out" '.hookSpecificOutput.permissionDecision == "deny"'
+unset CLAUDE_SESSION_ID
+spawn_reverse_misclass="$(jq -cn '{session_id:"fixture-spawn-guard-hook",tool_name:"Task",tool_input:{spawnTaskName:"p108c2_writer",waveId:"wave-3",subagent_type:"etrnl-executor",packet:{mode:"read-only",taskId:"p108c2"}}}')"
+out="$(run_hook cc-spawn-guard.sh "$spawn_reverse_misclass")"
+assert_json_expr "spawn guard denies read-only writer alias disguised as implementer on wave 3" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+assert_contains "spawn guard reverse misclass cites reasonCode" "$out" "per-patch-review-on-wave-2-plus"
+node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-spawn-hook-record --plan "$ROOT/hooks/fixtures/plans/good-plan.md" >/dev/null
+spawn_hook_ledger="$(node -e "import { currentLedgerPath } from './scripts/lib/ledger-pointer.mjs'; console.log(currentLedgerPath('fixture-spawn-hook-record') || '');")"
+spawn_hook_before="$(jq '.spawns | length' "$spawn_hook_ledger")"
+spawn_hook_allow="$(jq -cn '{session_id:"fixture-spawn-hook-record",tool_name:"Task",tool_input:{spawnTaskName:"p01a_writer",waveId:"wave-1"}}')"
+out="$(run_hook cc-spawn-guard.sh "$spawn_hook_allow")"
+assert_json_expr "spawn guard hook allows and records wave-1 implementer" "$out" '.continue == true'
+spawn_hook_after="$(jq '.spawns | length' "$spawn_hook_ledger")"
+if [[ "$spawn_hook_after" -eq $((spawn_hook_before + 1)) ]]; then
+  ok "spawn guard hook increments ledger spawn count exactly once"
+else
+  not_ok "spawn guard hook should increment spawn count once (before=$spawn_hook_before after=$spawn_hook_after)"
+fi
+record_cli_rc=0
+record_cli_out="$(node "$ROOT/scripts/execution-ledger.mjs" check-spawn --session fixture-spawn-hook-record --task-name "p108c2_writer" --wave "wave-1" --json 2>&1)" || record_cli_rc=$?
+if [[ "$record_cli_rc" -eq 2 ]] && [[ "$record_cli_out" == *"requires hook authority"* ]]; then
+  ok "check-spawn rejects skill-side recording when hook is authoritative"
+else
+  not_ok "check-spawn should reject skill-side recording (rc=$record_cli_rc out=$record_cli_out)"
+fi
+
 wrapped_packet_prompt="$(jq -cn '{packet:{mode:"read-only",goal:"inspect wrapped prompt",context_summary:"repo facts and constraints",cwd:"/repo",scope:"scripts",read_set:["scripts"],expected_output:"summary",no_revert:true}}')"
 agent_wrapped="$(jq -cn --arg prompt "$wrapped_packet_prompt" '{session_id:"fixture-task-wrapped-prompt",tool_name:"Task",tool_input:{subagent_type:"etrnl-scout",prompt:$prompt}}')"
 out="$(run_hook cc-pretooluse-guard.sh "$agent_wrapped")"

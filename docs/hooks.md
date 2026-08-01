@@ -1,6 +1,6 @@
 # Hooks
 
-Eternal Stack hooks are shell and Python scripts that Claude Code invokes at fixed lifecycle points. They record session evidence, route prompts to the right skills, preserve state across compaction, and — when strict mode is enabled — block unsafe tool use and unverified completion claims.
+Eternal Stack hooks are shell and Python scripts that Claude Code invokes at fixed lifecycle points. They record session evidence, route prompts to the right skills, preserve state across compaction, and — on default install — block unsafe tool use and unverified completion claims at tool boundaries.
 
 Skills describe repeatable workflows. Hooks enforce what must not be skipped at tool boundaries. Together they keep agent behavior aligned with install source without relying on the model to remember every rule.
 
@@ -17,9 +17,10 @@ Skills describe repeatable workflows. Hooks enforce what must not be skipped at 
 
 **Observer hooks** watch tool and session activity, append structured events to session state, and inject context. They do not deny tool calls except where noted below.
 
-**Enforcement hooks** return a block decision to Claude Code. Most enforcement hooks register only when you install with `ETRNL_ENABLE_STRICT=1`. Two exceptions run on every install:
+**Enforcement hooks** return a block decision to Claude Code. Default install registers pretool guard, post-write quality and sycophancy checks, repeated-failure diagnosis, and subagent recording. Three hooks run in every template (including observer-only opt-out):
 
-- **`cc-stop-verifier.sh`** blocks completion claims that lack evidence (registered on `Stop` in both default and strict templates).
+- **`cc-stop-verifier.sh`** blocks completion claims that lack evidence (registered on `Stop` in both templates).
+- **`cc-spawn-guard.sh`** enforces execute spawn economics on `Task / Agent / TaskCreate` (registered on `PreToolUse` in both templates; default enforce mode).
 - **`cc-rtk-rg-compat.sh`** rewrites selected `rg` Bash commands before RTK hooks run (registered on `PreToolUse` for `Bash` in both templates).
 
 **Session state** lives in a per-session JSON file under the system temp directory (`CLAUDE_GUARD_STATE_DIR` overrides the root). Durable cross-compact history is appended to canonical ETRNL JSONL state via `scripts/etrnl-state.mjs` (`ETRNL_STATE_DIR` overrides storage for tests).
@@ -54,6 +55,7 @@ flowchart TB
   UP --> cc-userprompt-router
   UPE --> cc-userprompt-expansion
   PT --> cc-rtk-rg-compat
+  PT --> cc-spawn-guard
   PT --> cc-pretooluse-guard
   PT --> cc-compact-suggest
   PT --> cc-question-preference
@@ -69,31 +71,32 @@ flowchart TB
   SE --> cc-sessionend-save
 ```
 
-Solid boxes are Claude Code events. Hook names are the `cc-*` entrypoints wired in `templates/settings.json` (default) or `templates/settings.strict.json` (strict).
+Solid boxes are Claude Code events. Hook names are the `cc-*` entrypoints wired in `templates/settings.strict.json` (default) or `templates/settings.json` (observer-only opt-out).
 
 ## Install profiles
 
 Install selects the settings template:
 
-| Template | Command | Pretool guard | Post-write blockers | Stop verifier |
-| --- | --- | --- | --- | --- |
-| Default | `./scripts/install.sh` | RTK `rg` compat only | Rate limiter (advisory) | Yes |
-| Strict | `ETRNL_ENABLE_STRICT=1 ./scripts/install.sh` | Full pretool guard | Sycophancy + quality + failure diagnose | Yes |
+| Template | Command | Pretool guard | Spawn guard | Post-write blockers | Stop verifier |
+| --- | --- | --- | --- | --- | --- |
+| Default | `./scripts/install.sh` | Full pretool guard | Yes (enforce) | Sycophancy + quality + failure diagnose | Yes |
+| Observer-only | `ETRNL_ENABLE_STRICT=0 ./scripts/install.sh` | RTK `rg` compat only | Yes (enforce) | Rate limiter (advisory) | Yes |
 
-Strict mode adds `cc-pretooluse-guard.sh` on `PreToolUse`, post-write quality and sycophancy checks on `PostToolUse`, `cc-posttoolusefailure-diagnose.sh` on `PostToolUseFailure`, and `cc-subagentstop-record.sh` on `SubagentStop`. Compact and session hooks are identical between templates.
+Default install adds `cc-pretooluse-guard.sh` on `PreToolUse`, post-write quality and sycophancy checks on `PostToolUse`, `cc-posttoolusefailure-diagnose.sh` on `PostToolUseFailure`, and `cc-subagentstop-record.sh` on `SubagentStop`. Both templates register `cc-spawn-guard.sh` on `Task / Agent / TaskCreate`. Compact and session hooks are identical between templates.
 
-Run `./scripts/doctor.sh` and `tests/test-hooks.sh` before enabling strict mode. Use [install.md](install.md) for rollback and `--preserve-settings`.
+Run `./scripts/doctor.sh` and `tests/test-hooks.sh` before switching to observer-only. Use [install.md](install.md) for rollback and `--preserve-settings`.
 
 ## Hook catalog
 
 Every hook entrypoint under `hooks/` is listed below. Matchers and timeouts come from the installed settings template.
 
-| Hook | Event | Matcher | Default | Strict | Blocks? | Purpose |
+| Hook | Event | Matcher | Observer-only | Default | Blocks? | Purpose |
 | --- | --- | --- | --- | --- | --- | --- |
 | `cc-sessionstart-restore.sh` | `SessionStart` | — | Yes | Yes | No | Restore compact handoff, drift/update hints, optional learning hints |
 | `cc-userprompt-router.sh` | `UserPromptSubmit` | — | Yes | Yes | No | Record requested skills, reinject `CLAUDE.md`, route `etrnl-*` hints |
 | `cc-userprompt-expansion.sh` | `UserPromptExpansion` | — | Yes | Yes | No | Expand in-root `@*.md` imports for prompt context |
 | `cc-rtk-rg-compat.sh` | `PreToolUse` | `Bash` | Yes | Yes | Rewrites | Proxy `rg` flags RTK mishandles to `rtk proxy --ultra-compact` |
+| `cc-spawn-guard.sh` | `PreToolUse` | `Task / Agent / TaskCreate` | Yes | Yes | Yes | Spawn economics via `execution-ledger.mjs check-spawn`; fail-open outside execute |
 | `cc-pretooluse-guard.sh` | `PreToolUse` | `Bash\|Read\|Edit\|Write\|MultiEdit\|WebSearch\|Task\|TaskCreate\|Agent\|mcp__serena__search_for_pattern` | No | Yes | Yes | Policy denies before tools run (see [guards.md](guards.md)) |
 | `cc-compact-suggest.sh` | `PreToolUse` | `Task\|Read\|Grep\|Glob\|WebFetch\|WebSearch` | Yes | Yes | No | Advise a checkpoint-and-compact when the context window passes a scaled threshold |
 | `cc-question-preference.sh` | `PreToolUse` | `AskUserQuestion\|mcp__.*ask_user.*\|mcp__.*ask_question.*\|mcp__.*[Aa]sk[Uu]ser[Qq]uestion.*\|mcp__.*user_question.*` | Yes | Yes | Yes | Auto-decide low-stakes questions from a preference map; one-way doors always reach the user |
@@ -126,7 +129,7 @@ Runs on every user prompt before the model sees it.
 - Detects `/etrnl-*` and related slash commands; records `requestedSkills` in session state.
 - Reinjects global `~/.claude/CLAUDE.md` and project `CLAUDE.md` / `AGENTS.md` hierarchy once per session (tunable via `ETRNL_INJECT_CLAUDE_MD`).
 - Applies keyword routing hints for bundled backend-pattern workflows and explicit ship/rollout prompts (`staged rollout`, `go/no-go`, `cut over`, `ship to production`) — routine PR phrasing such as "ship this feature change" does not route `etrnl-ops-ship`.
-- When `update-check.mjs` reports stale repo-owned skills or tool stack, injects a short informational note (local updates auto-applied; remote/tool-stack items informational only) and continues honoring the requested `etrnl-*` skill without stopping to ask.
+- When `update-check.mjs` reports stale repo-owned skills or tool stack, injects an advisory note with the reported update command. Apply updates when practical; only skip when the user explicitly declines. Local updates are auto-applied when possible; remaining remote or tool-stack items are noted but do not block the requested work.
 - Tracks `activePlanPath` only for a path that lives in a plans directory (`.claude/plans/`, `.planning/`) **and** exists on disk. `activePlanPath` is sticky with no expiry, so a merely-mentioned or mis-captured path would otherwise arm the plan-execution branch for the rest of the session. That branch also requires phrasing that names the plan (`execute the plan`, `finish the plan`); conversational replies such as "do it" or "carry on" do not route `etrnl-dev-execute`, because a routed skill becomes a completion obligation the stop verifier enforces.
 
 Advisory notes are deduplicated and budgeted. Each note is fingerprinted, so an identical hint is injected once per turn and once per session, and the running total of injected note characters is capped by `ETRNL_USERPROMPT_CONTEXT_MAX_CHARS`. Routing decisions are recorded in `requestedSkills` **before** this filter runs, so a suppressed hint has still routed its skill — dedup changes what is re-sent, never where a prompt routes. Standing protocol text is appended last so a tight budget is spent on task-specific routing hints before generic boilerplate. Reinjected `CLAUDE.md` context is tracked separately under its own `ETRNL_CLAUDE_MD_MAX_CHARS` cap.
@@ -139,11 +142,25 @@ Expands `@path/to/file.md` references inside injected startup markdown. Only fol
 
 ### `cc-rtk-rg-compat.sh`
 
-Runs before native RTK `PreToolUse` hooks and before `cc-pretooluse-guard.sh` when strict mode is on (`merge-settings.mjs` enforces ordering).
+Runs before native RTK `PreToolUse` hooks and before `cc-pretooluse-guard.sh` on default install (`merge-settings.mjs` enforces ordering).
 
 When `rtk` and `jq` are available, detects direct `rg` invocations that use flags or modes `rtk grep` does not preserve (`--json`, globs, `-l`, chained shell, and similar). Returns `updatedInput` so Claude runs `rtk proxy --ultra-compact rg …` instead. No-op when the command is already safe or RTK is absent.
 
 See [troubleshooting.md](troubleshooting.md) if RTK and native `rg` behavior diverge after upgrades.
+
+### `cc-spawn-guard.sh`
+
+Default-template PreToolUse gate on `Task / Agent / TaskCreate`. Runs at merge order 15 — after `cc-rtk-rg-compat.sh` (10) and before strict pretool guards (20).
+
+- Resolves spawn `task_name` from `tool_input.spawnTaskName`, packet aliases, or subagent type.
+- Calls `execution-ledger.mjs check-spawn` without `--dry-run` and is the **sole spawn recorder** in enforce mode. Passes `--subagent-type` and `--packet-mode` when present so reviewer subagents cannot bypass economics via `_writer` task aliases.
+- Integrates `review-scope.mjs` for tier 0–2 diff-size gating (tier ≥3 always `full_lenses`).
+- **Fail-open** when no active ledger and `planExecutionRequested` is false (read-only turns, audits, questions).
+- **Fail-closed** when `planExecutionRequested` is true but no ledger exists, or when economics violations fire.
+- Reviewer spawns require an explicit `waveId`; implementer/scout spawns default to `wave-1` when omitted.
+- Deny payloads carry `reasonCode`, `exactFix`, and `exampleCommand` from `check-spawn --explain`.
+
+Codex equivalent: `scripts/codex-spawn-guard-pre-tool-use.sh` installed to `~/.codex/hooks/spawn-guard-pre-tool-use.sh` and registered in `config.toml`. See [guards.md](guards.md) and [configuration.md](configuration.md).
 
 ### `cc-pretooluse-guard.sh`
 
@@ -193,23 +210,23 @@ When an execution ledger is active, sources `hooks/lib/ledger-gate-record.sh` to
 
 Feeds the stop verifier and pretool repeat checks. Continues with degraded tracking if state init fails.
 
-### `cc-posttooluse-sycophancy.sh` (strict)
+### `cc-posttooluse-sycophancy.sh`
 
 Inspects the current assistant message after a successful tool call. Blocks when `cc_evidence_discipline_violation` matches (for example opening with "You're right" before verifying). May spawn `cc-hindsight-lesson.py` in the background on violation.
 
 Dedupes identical violation fingerprints within a session.
 
-### `cc-posttooluse-quality.sh` (strict)
+### `cc-posttooluse-quality.sh`
 
 After writes, runs `hooks/lib/complexity-check.mjs` on the edited file. Blocks when complexity or test-quality regressions exceed configured thresholds.
 
-### `cc-posttoolusefailure-diagnose.sh` (strict)
+### `cc-posttoolusefailure-diagnose.sh`
 
 Records tool failures in session state. First occurrence of a failure fingerprint gets diagnostic context; identical repeated failures are blocked to force a different approach. Includes specialized recovery hints for email-triage workflows when matched.
 
 ### `cc-stop-verifier.sh`
 
-Runs when the assistant attempts to end its turn (`Stop`). Present in **both** default and strict installs.
+Runs when the assistant attempts to end its turn (`Stop`). Present in both install templates.
 
 Gate sequence:
 
@@ -223,7 +240,7 @@ Allows paused or awaiting-approval handoffs without treating weak "done" phrasin
 
 May spawn `cc-hindsight-lesson.py` on evidence-discipline violations.
 
-### `cc-subagentstop-record.sh` (strict)
+### `cc-subagentstop-record.sh`
 
 When an execution ledger is active, records subagent completion into the ledger. Blocks malformed or empty subagent output that would corrupt ledger evidence.
 
@@ -320,6 +337,6 @@ hooks/
 | [guards.md](guards.md) | Pretool deny catalog, stop-verifier detail, fail-open matrix |
 | [configuration.md](configuration.md) | Env vars for guards, rate limiter, state, prompts |
 | [compact-recovery.md](compact-recovery.md) | Debugging compact handoff and `etrnl-state.mjs` |
-| [install.md](install.md) | Install, strict mode, rollback |
+| [install.md](install.md) | Install, observer-only opt-out, rollback |
 | [skills.md](skills.md) | Slash commands hooks route to |
 | [health-stack.md](health-stack.md) | Doctor gates and tool-stack posture |

@@ -366,9 +366,9 @@ cc_prompt_skill_update_note() {
 
   update_status=0
   local update_timeout update_check_cmd
-  update_timeout="${ETRNL_SKILL_UPDATE_TIMEOUT_SEC:-5}"
+  update_timeout="${ETRNL_SKILL_UPDATE_TIMEOUT_SEC:-120}"
   if [[ ! "$update_timeout" =~ ^[0-9]+$ ]] || (( update_timeout <= 0 )); then
-    update_timeout=5
+    update_timeout=120
   fi
   update_check_cmd=(node "$update_script")
   if [[ "${ETRNL_AUTO_UPDATE:-1}" != "0" ]]; then
@@ -402,12 +402,15 @@ cc_prompt_skill_update_note() {
     fi
     update_output="$(cat "$update_output_file")"
   fi
-  [[ "$update_status" == "0" ]] || return 0
+  if [[ "$update_status" != "0" ]]; then
+    notes+=("Skill update check failed or timed out (status=${update_status}). Treat Eternal Stack updates as pending until a successful check or explicit user decline.")
+    return 0
+  fi
   [[ "$update_output" =~ (ETRNL_UPDATE_AVAILABLE|ETRNL_REMOTE_UPDATE_AVAILABLE|TOOL_STACK_UPDATE_AVAILABLE|TOOL_STACK_MISSING) ]] || return 0
 
   max_chars="$(cc_prompt_context_cap "${ETRNL_SKILL_UPDATE_MAX_CHARS:-1200}")"
   update_output="${update_output:0:max_chars}"
-  notes+=("Skill update check before requested skill: $update_output"$'\n'"This is an informational update status only — do NOT stop or ask the user about updates; continue the requested work. Local Eternal Stack updates auto-apply on their own when enabled and safe; any remote/tool-stack items above are for a later manual run, not something to act on mid-task.")
+  notes+=("Skill update check before requested skill: $update_output"$'\n'"Eternal Stack update available — run the update command(s) above when practical; only skip if the user explicitly declines.")
 }
 
 documentation_health_pattern='documentation[[:space:]-]+health|docs[[:space:]-]+health|documentation[[:space:]-]+audit|docs[[:space:]-]+audit|documentation[[:space:]-]+drift|docs[[:space:]-]+drift|stale[[:space:]]+docs|readme[[:space:]-]+audit|adr[[:space:]-]+health|runbook[[:space:]-]+audit|api[[:space:]-]+docs[[:space:]-]+audit|tsdoc|jsdoc|code[[:space:]-]+documentation[[:space:]-]+health|onboarding[[:space:]-]+docs|documentation[[:space:]-]+pass'

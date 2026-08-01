@@ -20,11 +20,12 @@ const allowDraft = args.includes('--allow-draft');
 const allowTransitionalDeepStack = args.includes('--allow-transitional-deep-stack');
 const json = args.includes('--json');
 const explain = args.includes('--explain');
+const selfReviewMode = args.includes('--self-review');
 const nonFlagArgs = args.filter((arg) => !arg.startsWith('--'));
 const planPath = nonFlagArgs[0];
 
 if (!planPath) {
-  console.error('usage: plan-readiness-check.mjs <single-plan.md> [--allow-draft] [--allow-transitional-deep-stack] [--json]');
+  console.error('usage: plan-readiness-check.mjs <single-plan.md> [--allow-draft] [--allow-transitional-deep-stack] [--self-review] [--json] [--explain]');
   process.exit(2);
 }
 if (nonFlagArgs.length > 1) {
@@ -346,6 +347,29 @@ if (!deepStackResult.ok) {
   }
 }
 
+const selfReviewChecks = [
+  ['what_already_exists', /^##\s+What already exists/im],
+  ['not_in_scope', /^##\s+NOT in scope/im],
+  ['verification_gates', /^##\s+Verification gates/im],
+  ['failure_modes', /^##\s+Failure modes/im],
+  ['parallelization', /^##\s+Parallelization strategy/im],
+];
+const selfReviewGaps = [];
+if (selfReviewMode) {
+  for (const [name, pattern] of selfReviewChecks) {
+    if (!pattern.test(text)) {
+      selfReviewGaps.push({
+        name,
+        message: `Plan missing inline self-review surface: ${name.replaceAll('_', ' ')}`,
+      });
+    }
+  }
+}
+const selfReviewEligible = selfReviewGaps.length === 0
+  && failures.length === 0
+  && effectiveTier <= 2
+  && isFinal;
+
 if (json) {
   console.log(JSON.stringify({
     ok: failures.length === 0,
@@ -356,9 +380,19 @@ if (json) {
     repairHints,
     optionalMetadata,
     deepStack: deepStackResult,
+    selfReview: selfReviewMode ? {
+      eligible: selfReviewEligible,
+      gaps: selfReviewGaps,
+      tier: effectiveTier,
+    } : undefined,
   }, null, 2));
 } else if (failures.length === 0) {
   console.log(`ok: plan readiness passed for ${planPath}`);
+  if (selfReviewMode) {
+    console.log(selfReviewEligible
+      ? 'self-review: eligible for inline parent review (tier 0-2); skip plan reviewer spawns unless gaps reopen'
+      : `self-review: not eligible (${selfReviewGaps.length} gap(s) or tier ${effectiveTier})`);
+  }
 } else {
   console.error(`fail: plan readiness failed for ${planPath}`);
   for (const failure of failures) {

@@ -5,7 +5,7 @@ disable-model-invocation: true
 ---
 # Deps
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-deps`; on update, never stop to ask; local updates auto-apply when enabled and safe.
+Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-deps`; on update, run the reported update command before continuing; only skip if the user explicitly declines.
 
 Use compatibility-first dependency maintenance. Do not turn dependency work into a broad modernization pass unless the repository owner explicitly asks.
 
