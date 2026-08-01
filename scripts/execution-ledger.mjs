@@ -16,13 +16,6 @@ import {
   worktreeKey,
 } from "./lib/ledger-pointer.mjs";
 import { parseRiskTier } from "./lib/plan-risk-tier.mjs";
-import {
-  evaluateSpawnGuard,
-  resolveMaxConcurrentLanes,
-} from "./lib/spawn-guard.mjs";
-import { explainSpawnVerdict } from "./lib/spawn-guard-explain.mjs";
-import { loadPlanRegistry, resolvePlanScopeFromFile } from "./lib/spawn-registry.mjs";
-import { classifyReviewScope } from "./review-scope.mjs";
 import { readStdinJson, readStdinRaw } from "./lib/read-stdin.mjs";
 
 const STATUSES = new Set(["pending", "in_progress", "reviewing", "changes_requested", "verified", "blocked", "skipped"]);
@@ -108,14 +101,6 @@ function validateLedger(ledger) {
   if (ledger.completionAudit && !Array.isArray(ledger.completionAudit)) errors.push("completionAudit must be an array");
   if (ledger.installProof && !Array.isArray(ledger.installProof)) errors.push("installProof must be an array");
   if (ledger.waves && !Array.isArray(ledger.waves)) errors.push("waves must be an array");
-  if (ledger.spawns && !Array.isArray(ledger.spawns)) errors.push("spawns must be an array");
-  if (ledger.planScope !== undefined && typeof ledger.planScope !== "string") errors.push("planScope must be a string");
-  if (ledger.taskGroupCount !== undefined && (!Number.isInteger(ledger.taskGroupCount) || ledger.taskGroupCount < 0)) {
-    errors.push("taskGroupCount must be a non-negative integer");
-  }
-  if (ledger.allowedSpawnNames !== undefined && !Array.isArray(ledger.allowedSpawnNames)) {
-    errors.push("allowedSpawnNames must be an array");
-  }
   if (ledger.phaseId !== undefined && typeof ledger.phaseId !== "string") errors.push("phaseId must be a string");
   if (ledger.workstreamId !== undefined && typeof ledger.workstreamId !== "string") errors.push("workstreamId must be a string");
   if (ledger.uatArtifact !== undefined && typeof ledger.uatArtifact !== "string") errors.push("uatArtifact must be a string");
@@ -386,134 +371,6 @@ function completionErrors(ledger, options = {}) {
   return errors;
 }
 
-function enrichLedgerPlanMetadata(ledger) {
-  const planPath = ledger.planPath || argValue("--plan");
-  if (!planPath) return { ...ledger, spawns: ledger.spawns ?? [] };
-  const scopeInfo = resolvePlanScopeFromFile(planPath);
-  const registry = loadPlanRegistry(planPath);
-  return {
-    ...ledger,
-    planScope: scopeInfo.scope || ledger.planScope,
-    planScopeReason: scopeInfo.reason || ledger.planScopeReason,
-    taskGroupCount: registry.taskGroupCount,
-    allowedSpawnNames: registry.allowedSpawnNames,
-    spawns: ledger.spawns ?? [],
-  };
-}
-
-function resolveReviewScopeMode(ledger, tier, waveId) {
-  if (tier >= 3) return "full_lenses";
-  try {
-    return classifyReviewScope({
-      riskTier: tier,
-      planPath: ledger.planPath,
-      cwd: ledger.cwd,
-      waveId,
-    }).mode;
-  } catch {
-    return "full_lenses";
-  }
-}
-
-function recordSpawnRegistry() {
-  const file = currentLedgerOrFail();
-  const planPath = argValue("--plan") || readJson(file).planPath;
-  if (!planPath) {
-    console.error("record-spawn-registry requires --plan or ledger.planPath.");
-    process.exit(1);
-  }
-  const registry = loadPlanRegistry(planPath);
-  const scopeInfo = resolvePlanScopeFromFile(planPath);
-  updateJson(file, (ledger) => {
-    ledger.planPath = planPath;
-    ledger.planScope = scopeInfo.scope;
-    ledger.planScopeReason = scopeInfo.reason;
-    ledger.taskGroupCount = registry.taskGroupCount;
-    ledger.allowedSpawnNames = registry.allowedSpawnNames;
-    ledger.updatedAt = nowIso();
-    appendEvent(ledger, "spawn.registry.updated", {
-      planPath,
-      planScope: scopeInfo.scope,
-      taskGroupCount: registry.taskGroupCount,
-      allowedCount: registry.allowedSpawnNames.length,
-    });
-    return ledger;
-  });
-  console.log(`Spawn registry updated: scope=${scopeInfo.scope} names=${registry.allowedSpawnNames.length}`);
-}
-
-function checkSpawn() {
-  const file = currentLedgerOrFail();
-  updateJson(file, (current) => {
-    const enriched = enrichLedgerPlanMetadata(current);
-    Object.assign(current, enriched);
-    return current;
-  });
-  const ledger = enrichLedgerPlanMetadata(readJson(file));
-  const taskName = argValue("--task-name");
-  const waveId = argValue("--wave");
-  const subagentType = argValue("--subagent-type");
-  const packetMode = argValue("--packet-mode");
-  const overrideReason = argValue("--override-spawn-cap", argValue("--override-reason"));
-  const dryRun = args.includes("--dry-run");
-  const jsonOutput = args.includes("--json");
-  const explainOutput = args.includes("--explain");
-  const tier = resolvePlanRiskTier(ledger);
-  const reviewScopeMode = resolveReviewScopeMode(ledger, tier, waveId);
-  const verdict = evaluateSpawnGuard(ledger, {
-    taskName,
-    waveId,
-    riskTier: tier,
-    overrideReason,
-    reviewScopeMode,
-    subagentType,
-    packetMode,
-  });
-  const explained = explainSpawnVerdict(verdict);
-  if (!verdict.allowed) {
-    if (jsonOutput || explainOutput) {
-      console.log(JSON.stringify(explained, null, 2));
-    } else {
-      console.error(`Spawn guard blocked ${taskName}: ${verdict.reason}`);
-      if (explained.exampleCommand) {
-        console.error(`Recovery: ${explained.exactFix}`);
-        console.error(`Example: ${explained.exampleCommand}`);
-      }
-    }
-    process.exit(1);
-  }
-  if (!dryRun) {
-    const allowRecord = args.includes("--allow-record")
-      || process.env.ETRNL_SPAWN_GUARD_RECORDER === "hook";
-    if (!allowRecord) {
-      console.error("check-spawn: recording requires hook authority; pass --dry-run for skill-side probes or --allow-record for tests.");
-      process.exit(2);
-    }
-    updateJson(file, (current) => {
-      const enriched = enrichLedgerPlanMetadata(current);
-      enriched.spawns = enriched.spawns ?? [];
-      enriched.spawns.push(verdict.record);
-      enriched.updatedAt = nowIso();
-      appendEvent(enriched, "spawn.recorded", verdict.record);
-      Object.assign(current, enriched);
-      return current;
-    });
-  }
-  const payload = {
-    allowed: true,
-    dryRun,
-    maxConcurrentLanes: resolveMaxConcurrentLanes(ledger, process.env),
-    spawnCount: (ledger.spawns ?? []).length + (dryRun ? 0 : 1),
-    reviewScopeMode,
-    ...explained,
-  };
-  if (jsonOutput || explainOutput) {
-    console.log(JSON.stringify(payload, null, 2));
-  } else {
-    console.log(`Spawn guard allowed ${taskName} on ${waveId}`);
-  }
-}
-
 function initLedger() {
   const cwd = path.resolve(argValue("--cwd", process.cwd()));
   // The bucket is derived from the ledger's own cwd, not the caller's: `init --cwd`
@@ -523,20 +380,13 @@ function initLedger() {
   const runId = `run-${bucket}-${Date.now()}`;
   const file = path.join(runsDir(), `${runId}.json`);
   const at = nowIso();
-  const planPath = argValue("--plan");
-  const scopeInfo = planPath ? resolvePlanScopeFromFile(planPath) : { scope: null, reason: "no-plan" };
-  const registry = planPath ? loadPlanRegistry(planPath) : { taskGroupCount: 0, allowedSpawnNames: [] };
-  const ledger = enrichLedgerPlanMetadata({
+  const ledger = {
     schemaVersion: 2,
     runId,
     sessionId: bucket,
     cwd,
     projectId: safeId(argValue("--project", path.basename(cwd) || "default")),
-    planPath,
-    ...(scopeInfo.scope ? { planScope: scopeInfo.scope, planScopeReason: scopeInfo.reason } : {}),
-    taskGroupCount: registry.taskGroupCount,
-    allowedSpawnNames: registry.allowedSpawnNames,
-    spawns: [],
+    planPath: argValue("--plan"),
     mode: argValue("--mode", "agent-os"),
     startedAt: at,
     updatedAt: at,
@@ -556,7 +406,7 @@ function initLedger() {
     decisions: [],
     events: [{ type: "ledger.init", at, actor: eventActor(bucket) }],
     continuations: { count: 0, max: 3, lastReason: "" },
-  });
+  };
   writeJson(file, ledger);
   writeJson(pointerPath(bucket), { path: file, updatedAt: ledger.updatedAt });
   console.log(file);
@@ -1887,8 +1737,6 @@ if (command === "init") initLedger();
 else if (command === "validate") validateCommand();
 else if (command === "check-stop") checkStop();
 else if (command === "check-bound-execute") checkBoundExecute();
-else if (command === "check-spawn") checkSpawn();
-else if (command === "record-spawn-registry") recordSpawnRegistry();
 else if (command === "set-task") setTask();
 else if (command === "set-phase") setPhase();
 else if (command === "record-uat") recordUat();
@@ -1909,7 +1757,7 @@ else if (command === "record-decision") recordDecision();
 else if (command === "reconcile") reconcilePointers();
 else if (command === "history") history();
 else {
-  console.error(`usage: execution-ledger.mjs init|validate|check-stop [--require-ledger] [--require-tasks] [--require-plan-phases]|check-bound-execute|check-spawn [--task-name <name>] [--wave <id>] [--subagent-type <type>] [--packet-mode <mode>] [--dry-run] [--allow-record] [--explain] [--json]|record-spawn-registry [--plan <path>]|set-task|set-phase|record-uat|record-check|require-artifact|record-artifact|record-agent|record-review|record-tdd|record-simplifier|record-specialist|record-completion-audit|record-install-proof|record-task-bundle [--file <path>]|<json-stdin>|record-trajectory --wave <id> [--recurring-finding-count <n>] [--stream-alternation-count <n>] [--rounds-since-progress <n>]|record-decision|record-subagent|reconcile [--apply] [--json]|history [--progress] [--renegotiation-check] [--gates] [--plan <path>] [--json]`);
+  console.error(`usage: execution-ledger.mjs init|validate|check-stop [--require-ledger] [--require-tasks] [--require-plan-phases]|check-bound-execute|set-task|set-phase|record-uat|record-check|require-artifact|record-artifact|record-agent|record-review|record-tdd|record-simplifier|record-specialist|record-completion-audit|record-install-proof|record-task-bundle [--file <path>]|<json-stdin>|record-trajectory --wave <id> [--recurring-finding-count <n>] [--stream-alternation-count <n>] [--rounds-since-progress <n>]|record-decision|record-subagent|reconcile [--apply] [--json]|history [--progress] [--renegotiation-check] [--gates] [--plan <path>] [--json]`);
   console.error(reopenCapUsageText());
   process.exit(2);
 }

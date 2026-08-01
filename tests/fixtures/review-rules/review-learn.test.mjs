@@ -17,9 +17,14 @@ function overlayDir(root) {
   return path.join(path.dirname(root), `${path.basename(root)}-overlay`);
 }
 
+function homeDir(root) {
+  return path.join(path.dirname(root), `${path.basename(root)}-home`);
+}
+
 function cleanupRoot(root) {
   rmSync(root, { recursive: true, force: true });
   rmSync(overlayDir(root), { recursive: true, force: true });
+  rmSync(homeDir(root), { recursive: true, force: true });
 }
 
 after(() => {
@@ -44,7 +49,7 @@ function ledgerFor(root) {
 function runLearnDefault(root, findings) {
   const fp = path.join(root, "findings-default.json");
   writeFileSync(fp, JSON.stringify(findings));
-  const home = path.join(path.dirname(root), `${path.basename(root)}-home`);
+  const home = homeDir(root);
   mkdirSync(path.join(home, ".claude", "review-learnings"), { recursive: true });
   const res = spawnSync("node", [learn, "learn", "--findings", fp, "--root", root, "--json"], {
     encoding: "utf8",

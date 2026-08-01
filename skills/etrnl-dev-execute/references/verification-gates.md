@@ -15,7 +15,7 @@ node ~/.claude/scripts/browser-qa-report.mjs create --schema-version 2 --status 
 
 Each complete non-skipped matrix row needs a valid `status`, numeric `consoleErrors` and `failedRequests`, fresh row-level `capturedAt`, `provenance.tool`, fresh `provenance.capturedAt`, screenshot + hash, and the route/viewport coverage the plan names.
 
-Complete reports also need report-level `provenance.tool`, `provenance.targetUrl`, `provenance.command`, and fresh `provenance.capturedAt`.
+Complete reports also need report-level `provenance.treeHash`, `provenance.tool`, `provenance.targetUrl`, `provenance.command`, and fresh `provenance.capturedAt`.
 
 **Validate before completion:**
 

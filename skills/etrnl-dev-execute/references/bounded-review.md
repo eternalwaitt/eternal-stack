@@ -142,7 +142,6 @@ A reviewer that returns nothing on five consecutive dispatches stops earning its
 
 1. Record each dispatch outcome during synthesis: `"${ETRNL_NODE[@]}" "$ETRNL_SCRIPT_ROOT/review-merge.mjs" --file <findings.json> --dispatched <reviewer-ids> --learnings "$REVIEW_LEARNINGS" --root "$REPO_ROOT"`. Counters persist under `reviewerDispatches` in the private overlay ledger; each writer rewrites the whole object and keeps the other's keys.
 2. Plan the next dispatch with `"${ETRNL_NODE[@]}" "$ETRNL_SCRIPT_ROOT/review-merge.mjs" skip-plan --reviewers <ids> --learnings "$REVIEW_LEARNINGS" --json --root "$REPO_ROOT"`. Dispatch every id in `dispatch` and skip every row in `skips`.
-   - Always pass `--learnings "$REVIEW_LEARNINGS"` pointing at the private overlay ledger under `~/.claude/review-learnings/`.
 3. The limit is five consecutive zero-finding dispatches, overridable with `ETRNL_REVIEW_ADAPTIVE_SKIP_STREAK`. One finding resets the streak to 0.
 4. Exemptions always dispatch and never accrue a skip: security lenses, tenancy lenses, and every deep-audit lane registered in `"$DEEP_AUDIT_REGISTRY"`. A deep-audit lane reporting zero findings states coverage, not redundancy, and skipping it reintroduces the sampling those lanes exist to remove.
 5. Each skip row carries `reasonCode`, `reason`, and the `zeroFindingStreak` behind it, following the `coverageExceptions` precedent in `"$ETRNL_SCRIPT_ROOT/ux-audit-check.mjs"`. Copy the rows into the wave's review artifact so a review that never ran stays distinguishable from a review that found nothing.
@@ -166,7 +165,7 @@ Close a task or wave only when acceptance criteria are met AND the merged review
 | Excuse | Rule |
 | --- | --- |
 | "One more review round" | Tier 0-2: cap at 2 reopen rounds. Tier 3: reopen P0/P1 blockers until clean, capped at 4; follow `capDecision` for residuals. On Codex profile only, use merged wave review on wave 2+ — never spawn `_r3_`+ reviewer aliases. |
-| "Per-patch reviewers on wave 2+" | Forbidden on Codex profile. One merged spec+quality+simplifier set per wave over the combined diff. `check-spawn` blocks per-patch names. |
+| "Per-patch reviewers on wave 2+" | Forbidden on Codex profile unless the plan names the wave for full fan-out. Otherwise use one merged spec+quality+simplifier set per wave over the combined diff. |
 | "Ask the owner to approve another cycle" | Tier 0-2: only when `capDecision.ownerDecisionRequired` is `true`. Tier 3 auth/money/migration/tenancy/security streams at residual closure: always confirm after investigator review via `record-decision`. |
 | "The cap is spent, so the run stops" | An `owner-decision` stops that stream only. Independent task groups keep executing. |
 | "Full doctor after a nit fix" | Run `bash scripts/doctor.sh --changed` only; full doctor stays for release/install. |

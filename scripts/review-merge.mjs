@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, realpathSync } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { argValue } from "./lib/cli-args.mjs";
@@ -136,7 +136,8 @@ function learningsPath() {
   if (scope === "repo") {
     abort("--scope repo requires --learnings <path>; use .etrnl/review-learnings.json in the target repo only when repo-local streaks must survive across machines");
   }
-  const root = path.resolve(argValue(args, "--root", "") || process.cwd());
+  const rawRoot = path.resolve(argValue(args, "--root", "") || process.cwd());
+  const root = existsSync(rawRoot) ? realpathSync(rawRoot) : rawRoot;
   const home = process.env.HOME;
   if (!home) {
     abort("review-merge requires --learnings <path> or a set HOME for the default private overlay");
