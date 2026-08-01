@@ -180,8 +180,8 @@ Close a task or wave only when acceptance criteria are met AND the merged review
 
 | Excuse | Rule |
 | --- | --- |
-| "One more review round" | Tier 0-2: cap at 2 reopen rounds. Tier 3: reopen P0/P1 blockers until clean, capped at 4; follow `capDecision` for residuals. On **both Claude and Codex execute profiles**, use merged wave review on wave 2+ — never spawn `_r3_`+ per-patch reviewer aliases. |
-| "Per-patch reviewers on wave 2+" | Forbidden on **both hosts**. One merged spec+quality+simplifier set per wave over the combined diff. `check-spawn` blocks per-patch names on every host. |
+| "One more review round" | Tier 0-2: cap at 2 reopen rounds. Tier 3: reopen P0/P1 blockers until clean, capped at 4; follow `capDecision` for residuals. On **both Claude and Codex execute profiles**, use merged wave review on wave 2+ — never spawn `_r3_`+ per-patch reviewer aliases — except on a wave recorded with `full-fan-out-wave`. |
+| "Per-patch reviewers on wave 2+" | Forbidden on **both hosts** except when the plan names a wave for full fan-out and `record-decision --topic full-fan-out-wave` covers that wave. Otherwise one merged spec+quality+simplifier set per wave over the combined diff. `check-spawn` blocks per-patch names on every host. |
 | "Ask the owner to approve another cycle" | Tier 0-2: only when `capDecision.ownerDecisionRequired` is `true`. Tier 3 auth/money/migration/tenancy/security streams at residual closure: always confirm after investigator review via `record-decision`. |
 | "The cap is spent, so the run stops" | An `owner-decision` stops that stream only. Independent task groups keep executing. |
 | "Full doctor after a nit fix" | Run `bash scripts/doctor.sh --changed` only; full doctor stays for release/install. |

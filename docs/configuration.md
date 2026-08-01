@@ -229,7 +229,7 @@ Guard state and break-glass:
 - `ETRNL_EXECUTE_HOST=codex|claude` selects execute-profile lane caps (2 vs 3) in `spawn-guard.mjs`.
 - `ETRNL_BATCH_TASK_GROUP_THRESHOLD` (default `3`) — batch adoption required at or above this many plan task groups.
 - `ETRNL_BATCH_REVIEWER_HEAVY_MIN_SPAWNS` (default `20`) and `ETRNL_BATCH_REVIEWER_HEAVY_RATIO` (default `0.55`) — backstop trigger when reviewer spawns dominate a long run.
-- `ETRNL_HARD_SPAWN_CAP` (default `80`) — hard stop on total spawn count for a run unless `--override-spawn-cap` records an approved P0/P1 blocker.
+- `ETRNL_HARD_SPAWN_CAP` (default `80`) — hard stop on total spawn count for a run unless `check-spawn --override-spawn-cap` is paired with a prior `record-decision` owner approval tied to a surviving P0/P1 blocker (investigator-reviewed); `--override-reason` text alone is not sufficient.
 - `ETRNL_SPAWN_BURST_WINDOW_MS` (default `60000`) — rolling window for concurrent lane burst accounting in `spawn-guard.mjs`.
 - `ETRNL_MAX_CONCURRENT_LANES` overrides the profile default lane cap when the plan's `## Parallelization strategy` justifies it.
 - `ETRNL_REVIEW_SCOPE_SMALL_MAX` (default `50`) and `ETRNL_REVIEW_SCOPE_MEDIUM_MAX` (default `200`) tune tier 0–2 diff-size review gating in `review-scope.mjs`. Tier ≥3 always uses `full_lenses`.

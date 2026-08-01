@@ -10,7 +10,7 @@ Rollout order is intentionally conservative:
 6. Confirm installed scripts, docs, agents, settings, and mode with `scripts/doctor.sh` and `~/.claude/scripts/doctor-etrnl.sh`.
 7. Confirm local ledger and artifact helpers report cleanly with `scripts/workflow-health.mjs`.
 8. Hard blockers one group at a time with `ETRNL_ENABLE_STRICT=1`, including `PreToolUse`, `PostToolUseFailure`, `Stop`, and `SubagentStop`.
-8.5. After spawn-guard hooks install, run one tier-0 canary execute (`etrnl-dev-execute` on a docs-only plan) and confirm `check-spawn --explain` recovery works before enabling strict spawn enforcement on production plans.
+8.5. After spawn-guard hooks install, set `ETRNL_SPAWN_GUARD_MODE=advisory` for one tier-0 canary execute (`etrnl-dev-execute` on a docs-only plan), confirm `check-spawn --explain` recovery works, then switch to `ETRNL_SPAWN_GUARD_MODE=enforce` before enabling strict spawn enforcement on production plans.
 9. CLAUDE.md pruning only after prompt reinjection is verified.
 10. Hindsight canary and memory consolidation.
 11. Plugin and permission cleanup. MCP and plugin pruning is a manual operator rollout step — see the `Codex-first efficiency profile` section in [configuration.md](configuration.md) — not an install-time side effect; Eternal Stack does not auto-remove user MCP servers during install.

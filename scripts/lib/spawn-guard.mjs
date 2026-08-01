@@ -4,15 +4,22 @@
  * and concurrent lane bursts above the execute profile default.
  */
 
-export const BATCH_REVIEWER_HEAVY_MIN_SPAWNS = Number(process.env.ETRNL_BATCH_REVIEWER_HEAVY_MIN_SPAWNS ?? 20);
-export const BATCH_REVIEWER_HEAVY_RATIO = Number(process.env.ETRNL_BATCH_REVIEWER_HEAVY_RATIO ?? 0.55);
-export const BATCH_TASK_GROUP_THRESHOLD = Number(process.env.ETRNL_BATCH_TASK_GROUP_THRESHOLD ?? 3);
-export const HARD_SPAWN_CAP_DEFAULT = Number(process.env.ETRNL_HARD_SPAWN_CAP ?? 80);
-export const SPAWN_BURST_WINDOW_MS = Number(process.env.ETRNL_SPAWN_BURST_WINDOW_MS ?? 60_000);
-export const PER_PATCH_REVIEW_BUDGET = Number(process.env.ETRNL_PER_PATCH_REVIEW_BUDGET ?? 3);
+function positiveEnv(name, defaultValue) {
+  const raw = process.env[name];
+  if (raw === undefined || raw === "") return defaultValue;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : defaultValue;
+}
+
+export const BATCH_REVIEWER_HEAVY_MIN_SPAWNS = positiveEnv("ETRNL_BATCH_REVIEWER_HEAVY_MIN_SPAWNS", 20);
+export const BATCH_REVIEWER_HEAVY_RATIO = positiveEnv("ETRNL_BATCH_REVIEWER_HEAVY_RATIO", 0.55);
+export const BATCH_TASK_GROUP_THRESHOLD = positiveEnv("ETRNL_BATCH_TASK_GROUP_THRESHOLD", 3);
+export const HARD_SPAWN_CAP_DEFAULT = positiveEnv("ETRNL_HARD_SPAWN_CAP", 80);
+export const SPAWN_BURST_WINDOW_MS = positiveEnv("ETRNL_SPAWN_BURST_WINDOW_MS", 60_000);
+export const PER_PATCH_REVIEW_BUDGET = positiveEnv("ETRNL_PER_PATCH_REVIEW_BUDGET", 3);
 
 const REVIEW_LANE_PATTERN = /_(spec|quality|simplifier)(?:_review|_final|_r\d+)?$/i;
-const ROUND_PATTERN = /_r(\d+)_/i;
+const ROUND_PATTERN = /_r(\d+)(?:_|$)/i;
 const MERGED_WAVE_REVIEW_PATTERN = /^wave[\w-]*_(spec|quality|simplifier)(?:_review)?$/i;
 const SURFACE_WAVE_REVIEW_PATTERN = /^surface-[\w-]+_wave-\d+_(spec|quality|simplifier)(?:_review)?$/i;
 const WAVE_NUMBER_PATTERN = /^wave-?(\d+)/i;
@@ -55,8 +62,8 @@ export function classifySpawnTaskName(taskName) {
   const lower = name.toLowerCase();
   let role = "other";
   if (REVIEWER_HINTS.some((hint) => lower.includes(hint))) role = "reviewer";
-  if (IMPLEMENTER_HINTS.some((hint) => lower.includes(hint))) role = "implementer";
-  if (SCOUT_HINTS.some((hint) => lower.includes(hint))) role = "scout";
+  else if (IMPLEMENTER_HINTS.some((hint) => lower.includes(hint))) role = "implementer";
+  else if (SCOUT_HINTS.some((hint) => lower.includes(hint))) role = "scout";
 
   const mergedMatch = name.match(MERGED_WAVE_REVIEW_PATTERN)
     || name.match(SURFACE_WAVE_REVIEW_PATTERN);
@@ -70,7 +77,7 @@ export function classifySpawnTaskName(taskName) {
   patchId = patchId.replace(REVIEW_LANE_PATTERN, "");
   patchId = patchId.replace(/_r\d+_.*$/i, "");
   patchId = patchId.replace(/_(final|retry|audit).*$/i, "");
-  if (isMergedWaveReview || role !== "reviewer") patchId = isMergedWaveReview ? null : patchId;
+  if (isMergedWaveReview) patchId = null;
 
   const roundMatch = name.match(ROUND_PATTERN);
   const reviewRound = roundMatch ? Number.parseInt(roundMatch[1], 10) : 0;
@@ -203,6 +210,32 @@ function allowedSpawnNamesSet(ledger) {
   const names = ledger.allowedSpawnNames;
   if (!Array.isArray(names) || names.length === 0) return null;
   return new Set(names.map((name) => String(name)));
+}
+
+export function inferSpawnWaveId(ledger, { taskName = "" } = {}) {
+  const name = String(taskName || "").trim();
+  const mergedWave = name.match(/^(wave[\w-]+)_/i)?.[1];
+  if (mergedWave) return mergedWave;
+  const surfaceWave = name.match(/^surface-[\w-]+_(wave-\d+)_/i)?.[1];
+  if (surfaceWave) return surfaceWave;
+
+  const classified = classifySpawnTaskName(name);
+  const spawns = ledger?.spawns ?? [];
+  if (classified.patchId) {
+    for (let i = spawns.length - 1; i >= 0; i -= 1) {
+      const spawn = spawns[i];
+      const spawnTask = String(spawn.taskName || "");
+      if (spawnTask.startsWith(`${classified.patchId}_`) && spawn.waveId) {
+        return String(spawn.waveId);
+      }
+    }
+  }
+  const waves = ledger?.waves ?? [];
+  if (waves.length > 0) {
+    const lastWave = waves[waves.length - 1];
+    if (lastWave?.waveId) return String(lastWave.waveId);
+  }
+  return "";
 }
 
 export function isSpawnNameRegistered(taskName, ledger) {

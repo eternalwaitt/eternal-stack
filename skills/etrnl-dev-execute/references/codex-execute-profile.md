@@ -57,7 +57,7 @@ Before **every** `spawn_agent` / native child-agent call on the Codex host:
 
 ```bash
 node scripts/execution-ledger.mjs check-spawn \
-  --session "$CLAUDE_SESSION_ID" \
+  --session "${CODEX_SESSION_ID:-${CLAUDE_SESSION_ID:-default}}" \
   --task-name "<spawn task_name>" \
   --wave "<current wave or phase id>"
 ```
@@ -80,7 +80,7 @@ Read-only scout lanes must still pass through `check-spawn` so burst accounting 
 
 ## Batch adoption (unified triggers)
 
-Record `batch-execution-adopted` before the **first reviewer spawn** when any of these apply:
+Record `batch-execution-adopted` **before the first reviewer spawn** or **before opening another concurrent lane** when any of these apply:
 
 | Trigger | Condition |
 | --- | --- |
@@ -111,8 +111,9 @@ When a native child agent or `spawn_agent` lane completes:
 2. Record closure in the ledger so lane caps stay accurate:
 
 ```bash
-printf '{"agentId":"<id>","taskId":"<task>","agentType":"<role>","status":"completed","outputTokens":0,"findingsCount":0}\n' \
-  | node scripts/execution-ledger.mjs record-subagent --session "$CLAUDE_SESSION_ID"
+printf '{"session_id":"%s","task_id":"<task>","agent_id":"<id>","last_assistant_message":"<subagent output with ETRNL_CONTRACT>"}\n' \
+  "${CODEX_SESSION_ID:-${CLAUDE_SESSION_ID:-default}}" \
+  | node scripts/execution-ledger.mjs record-subagent
 ```
 
 `record-subagent` writes `endedAt` / `completedAt` on the agent row when the lane closes. Do not rely on spawn timestamps alone — burst accounting uses spawn rows in the ledger; close every lane explicitly after `close_agent`.

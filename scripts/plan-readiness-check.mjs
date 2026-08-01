@@ -347,11 +347,11 @@ if (!deepStackResult.ok) {
 }
 
 const selfReviewChecks = [
-  ['what_already_exists', /What already exists/i],
-  ['not_in_scope', /NOT in scope/i],
+  ['what_already_exists', /^##\s+What already exists/im],
+  ['not_in_scope', /^##\s+NOT in scope/im],
   ['verification_gates', /^##\s+Verification gates/im],
-  ['failure_modes', /Failure modes/i],
-  ['parallelization', /Parallelization/i],
+  ['failure_modes', /^##\s+Failure modes/im],
+  ['parallelization', /^##\s+Parallelization strategy/im],
 ];
 const selfReviewGaps = [];
 if (selfReviewMode) {

@@ -1,11 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-if ! command -v jq >/dev/null 2>&1; then
-  echo "Codex spawn guard hook requires jq, but jq is not on PATH." >&2
-  exit 2
-fi
-
 if [[ "${ETRNL_SKIP_HOOKS:-}" == *"spawn-guard"* ]]; then
   exit 0
 fi
@@ -13,6 +8,14 @@ fi
 spawn_mode="${ETRNL_SPAWN_GUARD_MODE:-enforce}"
 if [[ "$spawn_mode" == "off" ]]; then
   exit 0
+fi
+
+if ! command -v jq >/dev/null 2>&1; then
+  if [[ "$spawn_mode" == "advisory" ]]; then
+    exit 0
+  fi
+  echo "Codex spawn guard hook requires jq, but jq is not on PATH." >&2
+  exit 2
 fi
 
 input="$(cat)"
@@ -62,8 +65,8 @@ if [[ -z "$task_name" ]]; then
   fi
 fi
 
+reviewer_spawn=0
 if [[ -z "$wave_id" ]]; then
-  reviewer_spawn=0
   case "$subagent_type" in
     *spec-review*|*quality-review*|*simplifier*|*adversary*|*design-review*|*dx-review*|*consumer-trace*|*browser-qa*|*reviewer*)
       reviewer_spawn=1
@@ -77,6 +80,19 @@ if [[ -z "$wave_id" ]]; then
   fi
 fi
 
+session_id="$(printf '%s' "$input" | jq -r '.session_id // empty' 2>/dev/null || true)"
+if [[ -z "$session_id" ]]; then
+  session_id="${CODEX_SESSION_ID:-${CLAUDE_SESSION_ID:-default}}"
+fi
+export CLAUDE_SESSION_ID="$session_id"
+
+if [[ -z "$wave_id" && "$reviewer_spawn" -eq 1 ]]; then
+  inferred_wave="$(node "$LEDGER_SCRIPT" infer-spawn-wave --session "$session_id" --task-name "$task_name" --json 2>/dev/null | jq -r '.waveId // empty' 2>/dev/null || true)"
+  if [[ -n "$inferred_wave" && "$inferred_wave" != "null" ]]; then
+    wave_id="$inferred_wave"
+  fi
+fi
+
 if [[ -z "$task_name" ]]; then
   if [[ "$spawn_mode" == "advisory" ]]; then
     exit 0
@@ -85,11 +101,6 @@ if [[ -z "$task_name" ]]; then
   exit 0
 fi
 
-session_id="$(printf '%s' "$input" | jq -r '.session_id // empty' 2>/dev/null || true)"
-if [[ -z "$session_id" ]]; then
-  session_id="${CLAUDE_SESSION_ID:-${CODEX_SESSION_ID:-default}}"
-fi
-export CLAUDE_SESSION_ID="$session_id"
 plan_exec=0
 state_lib="${CLAUDE_HOME:-$HOME/.claude}/hooks/lib/state.sh"
 if [[ ! -f "$state_lib" ]]; then
@@ -113,7 +124,16 @@ if [[ "$spawn_mode" == "advisory" ]]; then
   check_args+=(--dry-run)
 fi
 
-if ! output="$(ETRNL_SPAWN_GUARD_RECORDER=hook node "$LEDGER_SCRIPT" "${check_args[@]}" 2>&1)"; then
+ledger_stderr="$(mktemp "${TMPDIR:-/tmp}/codex-spawn-guard.XXXXXX")"
+ledger_rc=0
+ledger_stdout="$(ETRNL_SPAWN_GUARD_RECORDER=hook node "$LEDGER_SCRIPT" "${check_args[@]}" 2>"$ledger_stderr")" || ledger_rc=$?
+output="$ledger_stdout"
+if [[ "$ledger_rc" -ne 0 && -z "$output" && -s "$ledger_stderr" ]]; then
+  output="$(cat "$ledger_stderr")"
+fi
+rm -f -- "$ledger_stderr"
+
+if [[ "$ledger_rc" -ne 0 ]]; then
   if [[ "$plan_exec" -eq 0 ]] && [[ "$output" == *"No active execution ledger"* ]]; then
     exit 0
   fi

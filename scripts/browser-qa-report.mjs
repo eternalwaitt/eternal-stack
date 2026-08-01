@@ -363,7 +363,7 @@ function create() {
   const viewports = input.viewports || splitList(argValue(args, "--viewports", argValue(args, "--viewport", "desktop")));
   const schemaVersion = hasV2Input(input) ? 2 : 1;
   const captureTreeHash = schemaVersion === 2
-    ? input.provenance?.treeHash || argValue(args, "--tree-hash") || worktreeHash(process.cwd())
+    ? argValue(args, "--tree-hash") || input.provenance?.treeHash || worktreeHash(process.cwd())
     : "";
   const report = {
     schemaVersion,

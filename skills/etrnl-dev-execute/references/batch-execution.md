@@ -48,7 +48,7 @@ The spawn guard blocks reviewer spawns on Large or multi-group plans until this 
 ## Review and commit batching
 
 1. One merged review pass per wave over the combined diff (see `bounded-review.md`). Tier-3 surfaces keep tier-3 lenses and reopen caps on the wave diff — per-item review chains are for genuinely independent risk, not items sharing one surface. Batching applies at every tier; tier 3 keeps stricter gates, not a batching exemption.
-2. **Wave 2+ hard rule (dual-host):** after wave 1 (or phase P2 on phase-oriented plans), never spawn per-patch reviewers such as `p108c2_spec_review` or `p108c2_r9_quality_review`. Spawn only merged wave reviewers (`wave-3_spec_review`, `wave-3_quality_review`, `wave-3_simplifier_review`) over the combined diff. Enforce with `execution-ledger.mjs check-spawn` before every subagent dispatch on Claude and Codex.
+2. **Wave 2+ hard rule (dual-host):** after wave 1 (or phase P2 on phase-oriented plans), never spawn per-patch reviewers such as `p108c2_spec_review` or `p108c2_r9_quality_review`. Spawn only merged wave reviewers (`wave-3_spec_review`, `wave-3_quality_review`, `wave-3_simplifier_review`) over the combined diff — except on a wave the plan names for full fan-out with a prior `record-decision --topic full-fan-out-wave`. Enforce with `execution-ledger.mjs check-spawn` before every subagent dispatch on Claude and Codex.
 3. One commit and one push per wave, listing the items it closes. Per-item evidence (dispositions, capture hashes, ledger rows) still gets recorded individually.
 4. Build evidence packets on a shared wave-level base (environment, provenance, harness description) with per-item rows, instead of duplicating the full packet per item.
 

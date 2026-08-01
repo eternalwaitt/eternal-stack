@@ -94,7 +94,7 @@ Every hook entrypoint under `hooks/` is listed below. Matchers and timeouts come
 | `cc-userprompt-router.sh` | `UserPromptSubmit` | — | Yes | Yes | No | Record requested skills, reinject `CLAUDE.md`, route `etrnl-*` hints |
 | `cc-userprompt-expansion.sh` | `UserPromptExpansion` | — | Yes | Yes | No | Expand in-root `@*.md` imports for prompt context |
 | `cc-rtk-rg-compat.sh` | `PreToolUse` | `Bash` | Yes | Yes | Rewrites | Proxy `rg` flags RTK mishandles to `rtk proxy --ultra-compact` |
-| `cc-spawn-guard.sh` | `PreToolUse` | `Task\|Agent\|TaskCreate` | Yes (default **and strict**) | No | Yes | Spawn economics via `execution-ledger.mjs check-spawn`; fail-open outside execute |
+| `cc-spawn-guard.sh` | `PreToolUse` | `Task / Agent / TaskCreate` | Yes (default **and strict**) | No | Yes | Spawn economics via `execution-ledger.mjs check-spawn`; fail-open outside execute |
 | `cc-pretooluse-guard.sh` | `PreToolUse` | `Bash\|Read\|Edit\|Write\|MultiEdit\|WebSearch\|Task\|TaskCreate\|Agent\|mcp__serena__search_for_pattern` | No | Yes | Yes | Policy denies before tools run (see [guards.md](guards.md)) |
 | `cc-compact-suggest.sh` | `PreToolUse` | `Task\|Read\|Grep\|Glob\|WebFetch\|WebSearch` | Yes | Yes | No | Advise a checkpoint-and-compact when the context window passes a scaled threshold |
 | `cc-question-preference.sh` | `PreToolUse` | `AskUserQuestion\|mcp__.*ask_user.*\|mcp__.*ask_question.*\|mcp__.*[Aa]sk[Uu]ser[Qq]uestion.*\|mcp__.*user_question.*` | Yes | Yes | Yes | Auto-decide low-stakes questions from a preference map; one-way doors always reach the user |

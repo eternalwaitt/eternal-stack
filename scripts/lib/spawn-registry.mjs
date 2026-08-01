@@ -4,6 +4,7 @@
 
 import { readFileSync } from "node:fs";
 import { parseRiskTier } from "./plan-risk-tier.mjs";
+import { isSpawnNameRegistered } from "./spawn-guard.mjs";
 
 const TASK_ID_PATTERN = /\b(?:task\s*)?id[:\s]+([A-Za-z0-9][A-Za-z0-9_.-]*)/gi;
 const CHECKBOX_TASK_PATTERN = /^-\s*\[[ xX]\]\s*(?:\*\*)?([A-Za-z0-9][A-Za-z0-9_.-]*)/gm;
@@ -31,10 +32,8 @@ export function extractPlanTaskIds(planText) {
   CHECKBOX_TASK_PATTERN.lastIndex = 0;
   while ((match = CHECKBOX_TASK_PATTERN.exec(text)) !== null) {
     ids.add(match[1]);
-  }
-  PATCH_ID_PATTERN.lastIndex = 0;
-  while ((match = PATCH_ID_PATTERN.exec(text)) !== null) {
-    ids.add(match[1].toLowerCase());
+    const patchMatch = match[0].match(/\b(p\d+[a-z]?)\b/i);
+    if (patchMatch) ids.add(patchMatch[1].toLowerCase());
   }
   return [...ids];
 }
@@ -56,16 +55,10 @@ export function buildAllowedSpawnNames(taskIds) {
 }
 
 export function isAllowedSpawnName(taskName, allowedNames) {
-  if (!allowedNames || allowedNames.size === 0) return true;
-  const name = String(taskName || "").trim();
-  if (!name) return false;
-  if (/^wave[\w-]*_(spec|quality|simplifier)(?:_review)?$/i.test(name)) return true;
-  if (/^surface-[\w-]+_wave-\d+_(spec|quality|simplifier)(?:_review)?$/i.test(name)) return true;
-  if (allowedNames.has(name)) return true;
-  for (const allowed of allowedNames) {
-    if (name.startsWith(`${allowed}_`)) return true;
-  }
-  return false;
+  const ledger = allowedNames instanceof Set
+    ? { allowedSpawnNames: [...allowedNames] }
+    : { allowedSpawnNames: Array.isArray(allowedNames) ? allowedNames : [] };
+  return isSpawnNameRegistered(taskName, ledger);
 }
 
 export function resolvePlanScopeFromFile(planPath) {

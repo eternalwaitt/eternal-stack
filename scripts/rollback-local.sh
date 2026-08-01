@@ -470,6 +470,26 @@ if [[ -d "$BACKUP/codex-hooks" ]]; then
   done
 fi
 
+removed_codex_new=()
+removed_codex_new_count=0
+if [[ -f "$BACKUP/new-codex-source-paths.txt" ]]; then
+  while IFS= read -r codex_rel; do
+    [[ -n "$codex_rel" ]] || continue
+    case "$codex_rel" in
+      hooks/*) : ;;
+      *) continue ;;
+    esac
+    case "$codex_rel" in
+      *..*) continue ;;
+    esac
+    if [[ -e "$CODEX_TARGET/$codex_rel" || -L "$CODEX_TARGET/$codex_rel" ]]; then
+      rm -f -- "${CODEX_TARGET:?}/$codex_rel"
+      removed_codex_new+=("$codex_rel")
+      removed_codex_new_count=$((removed_codex_new_count + 1))
+    fi
+  done < "$BACKUP/new-codex-source-paths.txt"
+fi
+
 # Remove paths this install newly created (no pre-install counterpart) so rollback
 # returns to pre-install absence, not a half-reverted home. install.sh recorded them
 # in new-source-paths.txt; every entry is a stack-owned relative path under the install
@@ -516,5 +536,8 @@ if (( restored_count > 0 )); then
 fi
 if (( removed_new_count > 0 )); then
   printf 'Removed install-created files (returned to pre-install absence): %s\n' "${removed_new[*]}"
+fi
+if (( removed_codex_new_count > 0 )); then
+  printf 'Removed install-created Codex hook files: %s\n' "${removed_codex_new[*]}"
 fi
 printf 'Manual emergency bypass: export CLAUDE_GUARD_DISABLED=1\n'

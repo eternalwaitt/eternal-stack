@@ -760,9 +760,12 @@ for script in "${CRITICAL_SCRIPTS[@]}"; do
   fi
 done
 mkdir -p "$BACKUP/codex-hooks"
+: > "$BACKUP/new-codex-source-paths.txt"
 for codex_hook in spawn-guard-pre-tool-use.sh rtk-pre-tool-use.sh; do
   if [[ -f "$CODEX_TARGET/hooks/$codex_hook" ]]; then
     cp -- "$CODEX_TARGET/hooks/$codex_hook" "$BACKUP/codex-hooks/$codex_hook"
+  else
+    printf 'hooks/%s\n' "$codex_hook" >> "$BACKUP/new-codex-source-paths.txt"
   fi
 done
 removed_moved=0

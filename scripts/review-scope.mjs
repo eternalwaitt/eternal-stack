@@ -64,24 +64,25 @@ export function classifyReviewScope({ riskTier, planPath, cwd = process.cwd(), w
   if (Number(riskTier) >= 3) {
     return { mode: "full_lenses", reason: "tier-3-invariant", lineCount: null, waveId };
   }
-  const explicitDiffLines = Number.isInteger(diffLines) && diffLines >= 0;
-  const workCwd = cwd || process.cwd();
-  if (!explicitDiffLines) {
-    const paths = changedPaths(workCwd, baseRef);
-    if (paths.some(isNeverGatePath)) {
-      return { mode: "full_lenses", reason: "never-gate-path", lineCount: diffLineCount(workCwd, baseRef), waveId };
-    }
-    if (planPath && existsSync(planPath)) {
-      try {
-        const planText = readFileSync(planPath, "utf8");
-        if (planTouchesInstallSurface(planText)) {
-          return { mode: "full_lenses", reason: "install-surface", lineCount: diffLineCount(workCwd, baseRef), waveId };
-        }
-      } catch {
-        // fail-safe toward full_lenses below
-      }
-    }
+  const workCwd = path.resolve(cwd || process.cwd());
+  const resolvedPlan = planPath ? path.resolve(workCwd, planPath) : "";
+  const paths = changedPaths(workCwd, baseRef);
+  if (paths.some(isNeverGatePath)) {
+    return { mode: "full_lenses", reason: "never-gate-path", lineCount: diffLineCount(workCwd, baseRef), waveId };
   }
+  if (resolvedPlan && existsSync(resolvedPlan)) {
+    try {
+      const planText = readFileSync(resolvedPlan, "utf8");
+      if (planTouchesInstallSurface(planText)) {
+        return { mode: "full_lenses", reason: "install-surface", lineCount: diffLineCount(workCwd, baseRef), waveId };
+      }
+    } catch {
+      return { mode: "full_lenses", reason: "plan-unreadable", lineCount: null, waveId };
+    }
+  } else if (planPath) {
+    return { mode: "full_lenses", reason: "plan-unreadable", lineCount: null, waveId };
+  }
+  const explicitDiffLines = Number.isInteger(diffLines) && diffLines >= 0;
   const lineCount = explicitDiffLines
     ? diffLines
     : diffLineCount(workCwd, baseRef);

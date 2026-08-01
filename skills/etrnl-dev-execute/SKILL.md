@@ -48,19 +48,19 @@ Completion means every item inside the plan's `Execution scope` is verified or e
    - Still ask for conflicting user edits, repeated stalls, or blockers that cannot be derived from the repo.
 3. Group tasks by dependency and write scope. Execute dependent work sequentially; dispatch independent read-only review or disjoint write work to fresh subagents. For explicit parallel fan-out requests, load `references/parallel-fanout.md` before widening lanes.
    - When the plan enumerates many similar per-item findings (checklist rows, board cards, per-screen fixes) **or** `Scope triage: Large` with three or more task groups in the active phase, load `references/batch-execution.md` before the first spawn; expensive harnesses, review chains, and commits run once per surface-grouped wave, not per item.
-    - Use wave-based execution: earlier waves must finish before later waves.
-    - Before parallel work, run an overlap check against the plan's task file lists when practical (`node ~/.claude/scripts/execution-wave-check.mjs < tasks.json`); if two tasks in a wave touch the same file, run that wave sequentially and log the planning defect.
-    - MUST dispatch write-capable implementation subagents for every parallel-safe wave with two or more independent source-file tasks.
-    - The parent orchestrator must not edit files directly for tasks assigned to implementation subagents; it only coordinates, integrates, verifies, and repairs blocked work.
-    - Use direct parent edits only for a single local task, a dependency-ordered sequential wave, an overlap conflict, missing subagent runtime, or a user-requested no-subagent run; state the exact sequential-degraded blocker before editing.
-    - A malformed or rejected subagent packet is not a sequential-degraded blocker. Fix the packet and retry the subagent call before any source edit for that task.
-    - Use worktree isolation only when the task is write-capable, disjoint, not touching submodule paths, and the runtime supports it.
-    - Emit heartbeat text at wave and task boundaries: `[checkpoint] wave <n> task <id> starting`.
-    - If a subagent completion signal is missing, spot-check expected output, git state, and ledger artifacts before deciding whether to retry or continue.
-    - Default `maxConcurrentLanes` to 3 unless the plan's `## Parallelization strategy` justifies more in one explicit line. The Codex execute profile drops that default to 2.
-    - Progress reported to the user is ledger position plus named gates only, per the execute profile (`references/claude-execute-profile.md` or `references/codex-execute-profile.md`). Rolling hour ETAs are prohibited on every host; report a field the ledger cannot supply as unavailable rather than guessing.
-    - When `history --progress --renegotiation-check` shows `renegotiationRequired=true`, pause once: present a consolidation proposal (bundle remaining waves per screen/domain for all tiers; one merged review per wave; tier-3 surfaces keep tier-3 lenses and gates per wave — no batching exemption), take ONE user decision, log it via `record-decision`, and never re-ask.
-    - Model tier defaults: read-only scout/review/consumer-trace lanes → `fast`; write implementation → `standard`; tier-3 money/migration/security review → `top`; packet override needs one `modelTierJustification` line. Resolve each tier to a slug and reasoning effort through `scripts/lib/codex-model-routing.mjs`; never hand-write a model string.
+   - Use wave-based execution: earlier waves must finish before later waves.
+   - Before parallel work, run an overlap check against the plan's task file lists when practical (`node ~/.claude/scripts/execution-wave-check.mjs < tasks.json`); if two tasks in a wave touch the same file, run that wave sequentially and log the planning defect.
+   - MUST dispatch write-capable implementation subagents for every parallel-safe wave with two or more independent source-file tasks.
+   - The parent orchestrator must not edit files directly for tasks assigned to implementation subagents; it only coordinates, integrates, verifies, and repairs blocked work.
+   - Use direct parent edits only for a single local task, a dependency-ordered sequential wave, an overlap conflict, missing subagent runtime, or a user-requested no-subagent run; state the exact sequential-degraded blocker before editing.
+   - A malformed or rejected subagent packet is not a sequential-degraded blocker. Fix the packet and retry the subagent call before any source edit for that task.
+   - Use worktree isolation only when the task is write-capable, disjoint, not touching submodule paths, and the runtime supports it.
+   - Emit heartbeat text at wave and task boundaries: `[checkpoint] wave <n> task <id> starting`.
+   - If a subagent completion signal is missing, spot-check expected output, git state, and ledger artifacts before deciding whether to retry or continue.
+   - Default `maxConcurrentLanes` to 3 unless the plan's `## Parallelization strategy` justifies more in one explicit line. The Codex execute profile drops that default to 2.
+   - Progress reported to the user is ledger position plus named gates only, per the execute profile (`references/claude-execute-profile.md` or `references/codex-execute-profile.md`). Rolling hour ETAs are prohibited on every host; report a field the ledger cannot supply as unavailable rather than guessing.
+   - When `history --progress --renegotiation-check` shows `renegotiationRequired=true`, pause once: present a consolidation proposal (bundle remaining waves per screen/domain for all tiers; one merged review per wave; tier-3 surfaces keep tier-3 lenses and gates per wave — no batching exemption), take ONE user decision, log it via `record-decision`, and never re-ask.
+   - Model tier defaults: read-only scout/review/consumer-trace lanes → `fast`; write implementation → `standard`; tier-3 money/migration/security review → `top`; packet override needs one `modelTierJustification` line. Resolve each tier to a slug and reasoning effort through `scripts/lib/codex-model-routing.mjs`; never hand-write a model string.
 4. Subagent packets scale to tier, scope triage, and wave shape. The plan's `Scope triage:` line selects the shape; see `## Plan scope triage`.
    - **Tier 0–1 quick-dev lane:** no task packets, no reviewer fan-out, no deep-stack artifacts. Parent executes TDD probe → surgical fix → targeted tests → `review-rules.mjs` → ONE merged quality lens. State success criteria up front as the stop condition.
    - **Sequential single-task work (tier ≥ 2):** 5-field mini-packet — `taskId`, `goal`, `exact scope`, `verification command`, `write scope` (or read-only). No hash, lineageId, reviewers, waveId, or completionReceipt.
@@ -82,7 +82,7 @@ Completion means every item inside the plan's `Execution scope` is verified or e
 
 ## Dual-host execute profiles
 
-`ETRNL_EXECUTE_HOST` selects the profile at startup: `codex` runs the Codex profile, `claude` runs the Claude profile, and an unset value runs the Codex profile only under a detected Codex CLI session. Any other value is a configuration defect. State the resolved profile and its selecting signal in the first status line.
+`ETRNL_EXECUTE_HOST` selects the profile at startup: `codex` runs the Codex profile, `claude` runs the Claude profile, and an unset value runs the Codex profile when Codex CLI detection succeeds; otherwise it defaults to Claude. Any other value is a configuration defect. State the resolved profile and its selecting signal in the first status line.
 
 Load the matching execute profile before the first spawn:
 

@@ -84,7 +84,7 @@ function runLearn(root, findings, { reviewId = null, corpus = null, minPrecision
 const asAny = [{ summary: "Avoid `as any` cast", body: "unsafe type escape", severity: "minor", lensId: "types_schema_contracts", category: "unsafe-type-escape" }];
 const tenant = [{ summary: "Missing tenantId filter", body: "query not scoped to tenant", severity: "major", lensId: "security_privacy_tenancy", category: "tenant-scope" }];
 
-test("default ledger path resolves to private overlay outside the fixture repo", () => {
+test("default ledger path resolves under private home store outside fixture repo", () => {
   const root = freshRoot();
   runLearnDefault(root, tenant);
 });

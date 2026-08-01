@@ -331,9 +331,14 @@ if (fixRoundPresent) {
   }
 }
 
-const maxPacketBytes = Number.parseInt(process.env.ETRNL_PACKET_MAX_BYTES ?? "12000", 10);
+const maxPacketBytesRaw = process.env.ETRNL_PACKET_MAX_BYTES;
+const maxPacketBytes = maxPacketBytesRaw === undefined || maxPacketBytesRaw === ""
+  ? 12000
+  : Number.parseInt(maxPacketBytesRaw, 10);
 const packetBytes = Buffer.byteLength(JSON.stringify(packet), "utf8");
-if (Number.isFinite(maxPacketBytes) && maxPacketBytes > 0 && packetBytes > maxPacketBytes) {
+if (!Number.isInteger(maxPacketBytes) || maxPacketBytes <= 0) {
+  violations.push("ETRNL_PACKET_MAX_BYTES must be a positive integer when set");
+} else if (packetBytes > maxPacketBytes) {
   violations.push(`packet JSON exceeds ${maxPacketBytes} bytes (${packetBytes}); add an Execution Digest and dispatch bounded chunks`);
 }
 

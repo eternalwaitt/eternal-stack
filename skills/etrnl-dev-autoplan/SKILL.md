@@ -99,7 +99,7 @@ node scripts/plan-readiness-check.mjs <plan-path> --self-review --json
 
 When `selfReview.eligible` is `true` (tier 0–2, readiness passed, required self-review sections present), perform the parent inline review using the readiness checklist sections instead of spawning engineering or adversarial plan reviewers. Tier 3 plans and plans with self-review gaps still run the full gauntlet below.
 
-Run the review gauntlet required by the plan's `Risk tier` before finalizing. Tier 0–1 use one merged quality review lane only — no task packets, no multi-reviewer fan-out, no deep-stack bundle. Tier 2 requires engineering plus adversarial lanes. Tier 3 requires all eight lanes and a validated `Deep stack artifacts:` bundle before execution.
+Run the review gauntlet required by the plan's `Risk tier` before finalizing. Tier 0–1 use one merged quality review lane only — no task packets, no multi-reviewer fan-out, no deep-stack bundle. Tier 2 requires engineering plus adversarial lanes when self-review is not eligible; when self-review is eligible, those two lanes are satisfied by the inline pass above. Tier 3 requires all eight lanes and a validated `Deep stack artifacts:` bundle before execution.
 
 Load `references/deep-stack-review.md` for the lane definitions: CEO/founder, engineering (with `references/review-contract.md` and `references/coderabbit-preemption.md`), design, DX, adversarial, outside voices (with `references/reviewer-routing.md` and `references/reversible-compression.md`), and specialist convergence. Close, disprove, or explicitly user-accept every high/blocker finding before finalization.
 

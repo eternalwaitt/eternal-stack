@@ -18,6 +18,7 @@ import {
 import { parseRiskTier } from "./lib/plan-risk-tier.mjs";
 import {
   evaluateSpawnGuard,
+  inferSpawnWaveId,
   resolveMaxConcurrentLanes,
 } from "./lib/spawn-guard.mjs";
 import { explainSpawnVerdict } from "./lib/spawn-guard-explain.mjs";
@@ -294,6 +295,9 @@ function worktreeCheckErrors(ledger) {
 
 function latestTier3InvestigatorMs(ledger, afterAt) {
   const afterMs = Date.parse(afterAt || "");
+  if (!Number.isFinite(afterMs)) {
+    throw new Error("tier3-residual-closure-pending requires a parseable pendingAt timestamp");
+  }
   let latest = null;
   const consider = (rowAt) => {
     const ms = Date.parse(rowAt || "");
@@ -391,12 +395,13 @@ function enrichLedgerPlanMetadata(ledger) {
   if (!planPath) return { ...ledger, spawns: ledger.spawns ?? [] };
   const scopeInfo = resolvePlanScopeFromFile(planPath);
   const registry = loadPlanRegistry(planPath);
+  const hasTaskIds = registry.taskIds.length > 0;
   return {
     ...ledger,
     planScope: scopeInfo.scope || ledger.planScope,
     planScopeReason: scopeInfo.reason || ledger.planScopeReason,
-    taskGroupCount: registry.taskGroupCount,
-    allowedSpawnNames: registry.allowedSpawnNames,
+    taskGroupCount: hasTaskIds ? registry.taskGroupCount : ledger.taskGroupCount,
+    allowedSpawnNames: hasTaskIds ? registry.allowedSpawnNames : (ledger.allowedSpawnNames ?? []),
     spawns: ledger.spawns ?? [],
   };
 }
@@ -444,18 +449,13 @@ function recordSpawnRegistry() {
 
 function checkSpawn() {
   const file = currentLedgerOrFail();
-  updateJson(file, (current) => {
-    const enriched = enrichLedgerPlanMetadata(current);
-    Object.assign(current, enriched);
-    return current;
-  });
+  const dryRun = args.includes("--dry-run");
   const ledger = enrichLedgerPlanMetadata(readJson(file));
   const taskName = argValue("--task-name");
   const waveId = argValue("--wave");
   const subagentType = argValue("--subagent-type");
   const packetMode = argValue("--packet-mode");
   const overrideReason = argValue("--override-spawn-cap", argValue("--override-reason"));
-  const dryRun = args.includes("--dry-run");
   const jsonOutput = args.includes("--json");
   const explainOutput = args.includes("--explain");
   const tier = resolvePlanRiskTier(ledger);
@@ -511,6 +511,18 @@ function checkSpawn() {
     console.log(JSON.stringify(payload, null, 2));
   } else {
     console.log(`Spawn guard allowed ${taskName} on ${waveId}`);
+  }
+}
+
+function inferSpawnWave() {
+  const file = currentLedgerOrFail();
+  const ledger = readJson(file);
+  const taskName = argValue("--task-name", "");
+  const waveId = inferSpawnWaveId(ledger, { taskName });
+  if (args.includes("--json")) {
+    console.log(JSON.stringify({ waveId: waveId || null }, null, 2));
+  } else {
+    console.log(waveId || "");
   }
 }
 
@@ -1888,6 +1900,7 @@ else if (command === "validate") validateCommand();
 else if (command === "check-stop") checkStop();
 else if (command === "check-bound-execute") checkBoundExecute();
 else if (command === "check-spawn") checkSpawn();
+else if (command === "infer-spawn-wave") inferSpawnWave();
 else if (command === "record-spawn-registry") recordSpawnRegistry();
 else if (command === "set-task") setTask();
 else if (command === "set-phase") setPhase();

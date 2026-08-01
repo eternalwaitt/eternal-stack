@@ -7,7 +7,7 @@ Pretool deny rules, stop-verifier completion gates, fail-open behavior, and shar
 | Layer | Registered in default install | Added in strict install |
 | --- | --- | --- |
 | Session / prompt | `cc-sessionstart-restore.sh`, `cc-userprompt-router.sh`, `cc-userprompt-expansion.sh` | — |
-| Pretool | `cc-spawn-guard.sh` (`Task|Agent|TaskCreate`), `cc-rtk-rg-compat.sh` (`Bash` only) | `cc-pretooluse-guard.sh` (expanded matchers; packet check only — spawn economics stay in spawn guard) |
+| Pretool | `cc-spawn-guard.sh` (`Task / Agent / TaskCreate`), `cc-rtk-rg-compat.sh` (`Bash` only) | `cc-pretooluse-guard.sh` (expanded matchers; packet check only — spawn economics stay in spawn guard) |
 | Post-tool | `cc-rate-limiter.sh`, `cc-posttoolbatch-observer.sh` | `cc-posttooluse-sycophancy.sh`, `cc-posttooluse-quality.sh`, `cc-posttoolusefailure-diagnose.sh` |
 | Completion | `cc-stop-verifier.sh` | `cc-subagentstop-record.sh` |
 | Compact / end | `cc-precompact-save.sh`, `cc-postcompact-record.sh`, `cc-sessionend-save.sh` | — |

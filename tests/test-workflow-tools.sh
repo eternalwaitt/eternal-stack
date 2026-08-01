@@ -1400,15 +1400,21 @@ merge_mixed_template="$TMPROOT/merge-mixed-order-template.json"
 printf '%s\n' '{"hooks":{"PreToolUse":[{"matcher":"Bash|Read","hooks":[{"type":"command","command":"bash ~/.claude/hooks/cc-pretooluse-guard.sh","timeout":10},{"type":"command","command":"bash ~/.claude/hooks/user-gamma.sh"}]},{"matcher":"Bash","hooks":[{"type":"command","command":"bash ~/.claude/hooks/user-delta.sh"}]}]}}' >"$merge_mixed_target"
 printf '%s\n' '{"hooks":{"PreToolUse":[]}}' >"$merge_mixed_template"
 node "$ROOT/scripts/merge-settings.mjs" "$merge_mixed_target" "$merge_mixed_template"
-assert_json_expr "merge-settings sorts guard ahead of a user hook sharing its input group" "$(jq -c . "$merge_mixed_target")" '([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/cc-pretooluse-guard.sh")) < ([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/user-gamma.sh"))'
-assert_json_expr "merge-settings sorts guard ahead of every user hook from a mixed group" "$(jq -c . "$merge_mixed_target")" '([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/cc-pretooluse-guard.sh")) < ([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/user-delta.sh"))'
-assert_json_expr "merge-settings preserves flattened user hook order from a mixed group" "$(jq -c . "$merge_mixed_target")" '([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/user-gamma.sh")) < ([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/user-delta.sh"))'
+assert_json_expr "merge-settings sorts guard ahead of a user hook sharing its input group" "$(jq -c . "$merge_mixed_target")" '([.hooks.PreToolUse[].hooks[].command] | index("bash ~/.claude/hooks/cc-pretooluse-guard.sh")) < ([.hooks.PreToolUse[].hooks[].command] | index("bash ~/.claude/hooks/user-gamma.sh"))'
+assert_json_expr "merge-settings sorts guard ahead of every user hook from a mixed group" "$(jq -c . "$merge_mixed_target")" '([.hooks.PreToolUse[].hooks[].command] | index("bash ~/.claude/hooks/cc-pretooluse-guard.sh")) < ([.hooks.PreToolUse[].hooks[].command] | index("bash ~/.claude/hooks/user-delta.sh"))'
+assert_json_expr "merge-settings preserves flattened user hook order from a mixed group" "$(jq -c . "$merge_mixed_target")" '([.hooks.PreToolUse[].hooks[].command] | index("bash ~/.claude/hooks/user-gamma.sh")) < ([.hooks.PreToolUse[].hooks[].command] | index("bash ~/.claude/hooks/user-delta.sh"))'
 merge_spawn_target="$TMPROOT/merge-spawn-order-target.json"
 merge_spawn_template="$TMPROOT/merge-spawn-order-template.json"
 printf '%s\n' '{"hooks":{"PreToolUse":[{"matcher":"Bash|Read|Edit|Write|MultiEdit|WebSearch|Task|TaskCreate|Agent","hooks":[{"type":"command","command":"bash ~/.claude/hooks/cc-pretooluse-guard.sh","timeout":10}]}]}}' >"$merge_spawn_target"
 printf '%s\n' '{"hooks":{"PreToolUse":[{"matcher":"Bash|Read|Edit|Write|MultiEdit|WebSearch|Task|TaskCreate|Agent","hooks":[{"type":"command","command":"bash ~/.claude/hooks/cc-spawn-guard.sh","timeout":10}]}]}}' >"$merge_spawn_template"
 node "$ROOT/scripts/merge-settings.mjs" "$merge_spawn_target" "$merge_spawn_template"
-assert_json_expr "merge-settings orders cc-spawn-guard before cc-pretooluse-guard" "$(jq -c . "$merge_spawn_target")" '([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/cc-spawn-guard.sh")) < ([.hooks.PreToolUse[].hooks[0].command] | index("bash ~/.claude/hooks/cc-pretooluse-guard.sh"))'
+assert_json_expr "merge-settings orders cc-spawn-guard before cc-pretooluse-guard" "$(jq -c . "$merge_spawn_target")" '([.hooks.PreToolUse[].hooks[].command] | index("bash ~/.claude/hooks/cc-spawn-guard.sh")) < ([.hooks.PreToolUse[].hooks[].command] | index("bash ~/.claude/hooks/cc-pretooluse-guard.sh"))'
+merge_stack_target="$TMPROOT/merge-stack-order-target.json"
+merge_stack_template="$TMPROOT/merge-stack-order-template.json"
+printf '%s\n' '{"hooks":{"PreToolUse":[{"matcher":"Bash|Read|Edit|Write|MultiEdit|WebSearch|Task|TaskCreate|Agent","hooks":[{"type":"command","command":"bash ~/.claude/hooks/cc-pretooluse-guard.sh","timeout":10}]}]}}' >"$merge_stack_target"
+printf '%s\n' '{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"bash ~/.claude/hooks/cc-rtk-rg-compat.sh","timeout":5}]},{"matcher":"Bash|Read|Edit|Write|MultiEdit|WebSearch|Task|TaskCreate|Agent","hooks":[{"type":"command","command":"bash ~/.claude/hooks/cc-spawn-guard.sh","timeout":10}]}]}}' >"$merge_stack_template"
+node "$ROOT/scripts/merge-settings.mjs" "$merge_stack_target" "$merge_stack_template"
+assert_json_expr "merge-settings orders rtk compat before spawn guard before pretool guard" "$(jq -c . "$merge_stack_target")" '([.hooks.PreToolUse[].hooks[].command] | index("bash ~/.claude/hooks/cc-rtk-rg-compat.sh")) < ([.hooks.PreToolUse[].hooks[].command] | index("bash ~/.claude/hooks/cc-spawn-guard.sh")) and ([.hooks.PreToolUse[].hooks[].command] | index("bash ~/.claude/hooks/cc-spawn-guard.sh")) < ([.hooks.PreToolUse[].hooks[].command] | index("bash ~/.claude/hooks/cc-pretooluse-guard.sh"))'
 settings_audit_target="$TMPROOT/settings-audit-target.json"
 settings_audit_home="$TMPROOT/settings-audit-home"
 settings_audit_project="$TMPROOT/settings-audit-project"
@@ -1833,7 +1839,7 @@ else
   assert_contains "browser QA v2 reports missing matrix combination" "$matrix_out" "matrix missing route / viewport mobile"
   assert_contains "browser QA v2 reports duplicate matrix combination" "$matrix_out" "matrix contains duplicate route / viewport desktop"
 fi
-qa_expected_tree_hash="$(node -e "import {worktreeHash} from '$ROOT/scripts/lib/etrnl-state-core.mjs'; process.stdout.write(worktreeHash(process.cwd()))")"
+qa_expected_tree_hash="$(node -e "import {worktreeHash} from '$ROOT/scripts/lib/etrnl-state-core.mjs'; process.stdout.write(worktreeHash('$ROOT'))")"
 qa_report_v2="$(node "$ROOT/scripts/browser-qa-report.mjs" create --path "$TMPROOT/browser-qa-v2.json" --artifact-root "$TMPROOT" --schema-version 2 --routes "/" --viewports "desktop,mobile" --target-url "http://127.0.0.1:4173" --tool "playwright-cli" --provenance "$qa_provenance" --matrix "$qa_v2_matrix" --console "checked console logs" --network "checked network panel" --status complete --tree-hash "$qa_expected_tree_hash")"
 assert_json_expr "browser QA v2 stores expected worktree hash" "$(jq -c . "$qa_report_v2")" ".provenance.treeHash == \"$qa_expected_tree_hash\""
 assert_command "browser QA v2 report validates" node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_report_v2" --artifact-root "$TMPROOT"
@@ -3233,7 +3239,7 @@ if rg -q -i '(at most|max(imum)?) 2.*(fix round|reopen)' "$bounded_review" && rg
 else
   not_ok "behavior eval: bounded-review caps fix rounds at 2"
 fi
-if rg -q -i 'tier.*(≤|<= ).*2.*(one consolidated|one merged).*review' "$bounded_review"; then
+if rg -q -i 'tier.*(≤|<=).*2.*one merged.*reviewer pass' "$bounded_review"; then
   ok "behavior eval: bounded-review scopes tier <=2 to one merged reviewer pass"
 else
   # TODO-integration: pending Lane A A2 merged-review synthesis wording
@@ -4232,28 +4238,19 @@ else
 fi
 heavy_ledger_file="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-spawn-heavy --plan "$ROOT/hooks/fixtures/plans/good-plan.md" --cwd "$ROOT")"
 if [[ -n "$heavy_ledger_file" && -f "$heavy_ledger_file" ]]; then
-  python3 - "$heavy_ledger_file" <<'PY'
-import json
-import sys
-from datetime import datetime, timedelta, timezone
-
-path = sys.argv[1]
-with open(path, encoding="utf-8") as handle:
-    ledger = json.load(handle)
-now = datetime.now(timezone.utc)
-ledger["spawns"] = [
-    {
-        "taskName": "wave-1_spec_review" if i < 12 else f"worker_{i}_writer",
-        "waveId": "wave-1",
-        "role": "reviewer" if i < 12 else "implementer",
-        "at": (now - timedelta(seconds=120 if i < 18 else 0)).isoformat().replace("+00:00", "Z"),
-    }
-    for i in range(20)
-]
-with open(path, "w", encoding="utf-8") as handle:
-    json.dump(ledger, handle, indent=2)
-    handle.write("\n")
-PY
+  heavy_spawn_now="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+  heavy_spawn_past="$(date -u -v-120S +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -d '120 seconds ago' +"%Y-%m-%dT%H:%M:%SZ")"
+  jq --arg past "$heavy_spawn_past" --arg now "$heavy_spawn_now" '
+    .spawns = [
+      range(0; 20) as $i |
+      {
+        taskName: (if $i < 12 then "wave-1_spec_review" else "worker_\($i)_writer" end),
+        waveId: "wave-1",
+        role: (if $i < 12 then "reviewer" else "implementer" end),
+        at: (if $i < 18 then $past else $now end)
+      }
+    ]
+  ' "$heavy_ledger_file" >"$heavy_ledger_file.tmp" && mv "$heavy_ledger_file.tmp" "$heavy_ledger_file"
   if heavy_out="$(node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-heavy --task-name "wave-1_quality_review" --wave "wave-1" --json 2>&1)"; then
     not_ok "spawn guard blocks reviewer-heavy backstop without batch adoption (allowed: $heavy_out)"
   else
@@ -4267,18 +4264,21 @@ if scope_tier3_out="$(node "$ROOT/scripts/review-scope.mjs" classify --tier 3 --
 else
   not_ok "review-scope tier 3 classify failed: $scope_tier3_out"
 fi
-if scope_t2_small_out="$(node "$ROOT/scripts/review-scope.mjs" classify --tier 2 --diff-lines 25 --json 2>&1)"; then
+scope_fixture_cwd="$TMPROOT/review-scope-clean"
+mkdir -p "$scope_fixture_cwd"
+printf 'hello\n' > "$scope_fixture_cwd/readme.txt"
+if scope_t2_small_out="$(node "$ROOT/scripts/review-scope.mjs" classify --tier 2 --diff-lines 25 --cwd "$scope_fixture_cwd" --json 2>&1)"; then
   assert_json_expr "review-scope tier 2 small diff deterministic_only" "$scope_t2_small_out" '.mode == "deterministic_only"'
 else
   not_ok "review-scope tier 2 small classify failed: $scope_t2_small_out"
 fi
-if scope_t2_medium_out="$(node "$ROOT/scripts/review-scope.mjs" classify --tier 2 --diff-lines 120 --json 2>&1)"; then
+if scope_t2_medium_out="$(node "$ROOT/scripts/review-scope.mjs" classify --tier 2 --diff-lines 120 --cwd "$scope_fixture_cwd" --json 2>&1)"; then
   assert_json_expr "review-scope tier 2 medium diff merged_quality" "$scope_t2_medium_out" '.mode == "merged_quality"'
 else
   not_ok "review-scope tier 2 medium classify failed: $scope_t2_medium_out"
 fi
 scope_exceeded_out="$(node --input-type=module -e "
-import { evaluateSpawnGuard } from './scripts/lib/spawn-guard.mjs';
+import { evaluateSpawnGuard } from '$ROOT/scripts/lib/spawn-guard.mjs';
 const verdict = evaluateSpawnGuard({ spawns: [], planScope: 'small' }, {
   taskName: 'wave-1_spec_review',
   waveId: 'wave-1',

@@ -49,7 +49,7 @@ node scripts/execution-ledger.mjs history --gates --plan <plan-path>
 
 ## Batch adoption (unified triggers)
 
-Record `batch-execution-adopted` before the **first reviewer spawn** when any of these apply:
+Record `batch-execution-adopted` **before the first reviewer spawn** or **before opening a third concurrent lane** when any of these apply:
 
 | Trigger | Condition |
 | --- | --- |
