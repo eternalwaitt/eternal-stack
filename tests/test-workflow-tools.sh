@@ -329,19 +329,19 @@ if tier3_residual_stop="$(node "$ROOT/scripts/execution-ledger.mjs" check-stop -
 else
   assert_contains "check-stop tier-3 residual closure gate" "$tier3_residual_stop" "etrnl-investigator evidence"
 fi
-node "$ROOT/scripts/execution-ledger.mjs" record-decision --session fixture-tier3-residual --topic tier3-residual-closure-confirmed --decision owner-confirmed --rationale "owner approved without investigator pass"
-if tier3_residual_no_investigator="$(node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-tier3-residual 2>&1)"; then
-  not_ok "check-stop blocks tier-3 residual owner confirmation without investigator evidence"
-else
-  assert_contains "check-stop tier-3 residual requires investigator evidence" "$tier3_residual_no_investigator" "etrnl-investigator evidence"
-fi
 node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-tier3-residual --task T-residual --status verified
 node "$ROOT/scripts/execution-ledger.mjs" record-specialist --session fixture-tier3-residual --task T-residual --skill etrnl-investigator --status verified
+if tier3_residual_pending_only="$(node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-tier3-residual 2>&1)"; then
+  not_ok "check-stop blocks tier-3 residual closure without owner confirmation after investigator evidence"
+else
+  assert_contains "check-stop tier-3 residual requires owner confirmation after investigator" "$tier3_residual_pending_only" "tier3-residual-closure-confirmed"
+fi
+node "$ROOT/scripts/execution-ledger.mjs" record-decision --session fixture-tier3-residual --topic tier3-residual-closure-confirmed --decision owner-confirmed --rationale "investigator reviewed residuals"
 if tier3_residual_cleared="$(node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-tier3-residual 2>&1)"; then
   not_ok "check-stop still reports other blockers after tier-3 residual investigator and owner confirmation"
 else
   assert_not_contains "check-stop clears tier-3 residual closure after investigator and owner confirmation" "$tier3_residual_cleared" "tier3-residual-closure-confirmed"
-  assert_not_contains "check-stop clears tier-3 investigator requirement after evidence recorded" "$tier3_residual_cleared" "etrnl-investigator evidence"
+  assert_not_contains "check-stop clears tier-3 investigator requirement after evidence recorded" "$tier3_residual_cleared" "completed etrnl-investigator evidence"
 fi
 worktree_nogit_dir="$TMPROOT/worktree-nogit-cwd"
 mkdir -p "$worktree_nogit_dir"

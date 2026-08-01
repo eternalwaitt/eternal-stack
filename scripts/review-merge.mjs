@@ -47,7 +47,6 @@ const HELP = `usage: review-merge.mjs [--file <path>] [--markdown]
                         [--reopen-round <n>] [--reopen-cap <n>]
                         [--dispatched <a,b,c>] [--learnings <path>]
        review-merge.mjs skip-plan --reviewers <a,b,c> [--scope wave|repo] [--learnings <path>] [--json]
-       review-merge.mjs merge [--scoped] [--fix-base-sha <sha>] [--fix-head-sha <sha>] [--finding-ids <id,id>] [--file <path>] [--markdown]
 
 Merge parallel reviewer findings into one artifact.
 
@@ -249,18 +248,9 @@ function confidenceThreshold(severity) {
   return severity === "P0" ? 0.50 : 0.60;
 }
 
-function mergeFindings(findings, options = {}) {
-  const scoped = Boolean(options.scoped);
-  const findingIdSet = options.findingIds ? new Set(options.findingIds) : null;
-  let scopedFindings = findings;
-  if (scoped && findingIdSet) {
-    scopedFindings = findings.filter((finding) => {
-      const id = finding.id || finding.findingId || finding.fingerprint;
-      return id && findingIdSet.has(String(id));
-    });
-  }
+function mergeFindings(findings) {
   const groups = new Map();
-  for (const finding of scopedFindings) {
+  for (const finding of findings) {
     const key = dedupeKey(finding);
     const bucket = groups.get(key) ?? [];
     bucket.push(finding);
@@ -618,18 +608,7 @@ async function skipPlan() {
 
 function mergeMain() {
   const findings = loadFindings();
-  const scoped = args.includes("--scoped");
-  const fixBaseSha = argValue(args, "--fix-base-sha", "");
-  const fixHeadSha = argValue(args, "--fix-head-sha", "");
-  const findingIds = listArg("--finding-ids");
-  if (scoped) {
-    if (!fixBaseSha || !fixHeadSha) abort("--scoped requires --fix-base-sha and --fix-head-sha");
-    if (findingIds.length === 0) abort("--scoped requires --finding-ids <id,id>");
-  }
-  const report = mergeFindings(findings, { scoped, findingIds });
-  if (scoped) {
-    report.scopedFixRound = { fixBaseSha, fixHeadSha, findingIds };
-  }
+  const report = mergeFindings(findings);
   report.park = evaluatePark();
   report.capDecision = evaluateCapDecision(report, report.park);
   report.dispatchAccounting = recordDispatchOutcome(findings);
