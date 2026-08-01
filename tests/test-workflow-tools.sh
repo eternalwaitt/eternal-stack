@@ -313,6 +313,28 @@ if reopen_tier3_out="$(node "$ROOT/scripts/execution-ledger.mjs" record-review -
 else
   assert_contains "record-review tier3 reopen cap message" "$reopen_tier3_out" "reopen cap"
 fi
+tier3_residual_plan="$TMPROOT/tier3-residual-plan.md"
+cat >"$tier3_residual_plan" <<'PLAN'
+# Tier 3 residual plan
+Status: Final
+Execution scope: all_phases
+Goal: Tier 3 residual closure gate fixture.
+Risk tier: 3 — auth surface change.
+PLAN
+tier3_residual_ledger_path="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-tier3-residual --plan "$tier3_residual_plan" --cwd "$ROOT")"
+assert_file "execution ledger tier3 residual init creates file" "$tier3_residual_ledger_path"
+node "$ROOT/scripts/execution-ledger.mjs" record-decision --session fixture-tier3-residual --topic tier3-residual-closure-pending --decision proceed-with-residuals --rationale "P2 cosmetic residual after cap"
+if tier3_residual_stop="$(node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-tier3-residual 2>&1)"; then
+  not_ok "check-stop blocks tier-3 residual closure without owner confirmation"
+else
+  assert_contains "check-stop tier-3 residual closure gate" "$tier3_residual_stop" "tier3-residual-closure-confirmed"
+fi
+node "$ROOT/scripts/execution-ledger.mjs" record-decision --session fixture-tier3-residual --topic tier3-residual-closure-confirmed --decision owner-confirmed --rationale "investigator reviewed residuals"
+if tier3_residual_cleared="$(node "$ROOT/scripts/execution-ledger.mjs" check-stop --session fixture-tier3-residual 2>&1)"; then
+  not_ok "check-stop still reports other blockers after tier-3 residual confirmation"
+else
+  assert_not_contains "check-stop clears tier-3 residual closure after owner confirmation" "$tier3_residual_cleared" "tier3-residual-closure-confirmed"
+fi
 reopen_override_ledger_path="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-reopen-override --plan "$ROOT/hooks/fixtures/plans/good-plan.md" --cwd "$ROOT")"
 node "$ROOT/scripts/execution-ledger.mjs" set-task --session fixture-reopen-override --task T-review --status reviewing --lineage wave-1.T-review --packet-hash cap789
 for _ in 1 2 3; do
@@ -3976,6 +3998,12 @@ assert_contains "bounded-review passes explicit repo root to helpers" "$tg12_bou
 assert_contains "bounded-review tier-3 residual closure requires investigator on all high-risk streams" "$tg12_bounded_review" "auth/money/migration/tenancy/security streams, P2/P3 findings stay recorded as residuals"
 assert_contains "bounded-review park path keeps tier-3 residual confirmation" "$tg12_bounded_review" 'requires `etrnl-investigator` review plus `record-decision` owner confirmation before closure'
 assert_contains "bounded-review tier-3 P2 residuals stay recorded until owner confirmation" "$tg12_bounded_review" "P2/P3 findings stay recorded as residuals"
+assert_contains "bounded-review tier-3 residual closure uses ledger decision topics" "$tg12_bounded_review" "tier3-residual-closure-pending"
+assert_contains "bounded-review tier-3 residual closure blocks check-stop until confirmed" "$tg12_bounded_review" "blocks completion while a pending decision lacks confirmation"
+tg12_verification_gates="$(cat "$ROOT/skills/etrnl-dev-execute/references/verification-gates.md")"
+assert_contains "verification-gates documents browser-qa completion gate" "$tg12_verification_gates" "--require-complete"
+assert_contains "verification-gates documents react-doctor scope changed base" "$tg12_verification_gates" "--scope changed --base <ledger-base-commit> --blocking error"
+assert_contains "verification-gates separates missing react-doctor from N/A scope" "$tg12_verification_gates" "**Missing react-doctor:**"
 tg12_dev_pr="$(cat "$ROOT/skills/etrnl-dev-pr/SKILL.md")"
 assert_contains "etrnl-dev-pr routes review-learn through the installed helper" "$tg12_dev_pr" "node ~/.claude/scripts/review-learn.mjs learn"
 assert_contains "etrnl-dev-pr uses FINDINGS_FILE for review-learn ingestion" "$tg12_dev_pr" 'FINDINGS_FILE="${FINDINGS_FILE:?set FINDINGS_FILE to a sanitized JSON file}"'

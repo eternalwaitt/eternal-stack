@@ -274,6 +274,16 @@ function worktreeCheckErrors(ledger) {
   return errors;
 }
 
+function tier3ResidualClosureErrors(ledger) {
+  if (resolvePlanRiskTier(ledger) < 3) return [];
+  const decisions = ledger.decisions ?? [];
+  const pendingIdx = decisions.findIndex((row) => row.topic === "tier3-residual-closure-pending");
+  if (pendingIdx < 0) return [];
+  const confirmed = decisions.slice(pendingIdx + 1).some((row) => row.topic === "tier3-residual-closure-confirmed");
+  if (confirmed) return [];
+  return ["tier-3 auth/money/migration/tenancy/security residual closure requires investigator review and record-decision owner confirmation (topic: tier3-residual-closure-confirmed)"];
+}
+
 function completionErrors(ledger, options = {}) {
   const errors = validateLedger(ledger);
   const tasks = ledger.tasks ?? [];
@@ -313,6 +323,7 @@ function completionErrors(ledger, options = {}) {
   }
   errors.push(...boundEvidenceErrors(ledger));
   errors.push(...requiredEvidenceErrors(ledger));
+  errors.push(...tier3ResidualClosureErrors(ledger));
   return errors;
 }
 
