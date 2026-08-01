@@ -353,6 +353,7 @@ function writeReport(report) {
 
 function create() {
   const input = readCreateInput();
+  const captureTreeHash = input.provenance?.treeHash || argValue(args, "--tree-hash") || worktreeHash(process.cwd());
   const routes = input.routes || splitList(argValue(args, "--routes", argValue(args, "--route", "/")));
   const viewports = input.viewports || splitList(argValue(args, "--viewports", argValue(args, "--viewport", "desktop")));
   const schemaVersion = hasV2Input(input) ? 2 : 1;
@@ -383,8 +384,14 @@ function create() {
       createdBy: "eternal-stack",
       capturedAt: nowIso(),
     });
-    const treeHash = input.provenance?.treeHash || argValue(args, "--tree-hash") || worktreeHash(process.cwd());
-    if (treeHash) report.provenance.treeHash = treeHash;
+    if (
+      captureTreeHash
+      && report.provenance
+      && typeof report.provenance === "object"
+      && !Array.isArray(report.provenance)
+    ) {
+      report.provenance.treeHash = captureTreeHash;
+    }
   }
   const errors = reportErrors(report, { artifactRoot: artifactRoot() });
   if (errors.length > 0) {
@@ -400,11 +407,17 @@ function validate() {
     console.error("browser-qa-report validate requires a file path.");
     process.exit(2);
   }
+  const requireComplete = args.includes("--require-complete");
+  const expectedTreeHash = argValue(args, "--tree-hash");
+  if (requireComplete && !expectedTreeHash) {
+    console.error("validate --require-complete requires --tree-hash");
+    process.exit(2);
+  }
   const report = JSON.parse(readFileSync(file, "utf8"));
   const errors = reportErrors(report, {
     artifactRoot: artifactRoot(),
-    requireComplete: args.includes("--require-complete"),
-    expectedTreeHash: argValue(args, "--tree-hash"),
+    requireComplete,
+    expectedTreeHash,
   });
   if (errors.length > 0) {
     console.error(errors.join("\n"));

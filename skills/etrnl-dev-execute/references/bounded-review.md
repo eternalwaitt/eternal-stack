@@ -110,7 +110,7 @@ A spent reopen cap and a tripped park counter both end the loop. Severity decide
 | `proceed-with-residuals` | Loop ended, no P0/P1 open | Record every residual as a non-blocking note, close the stream, continue. |
 | `owner-decision` | Loop ended, P0/P1 still open | Escalate per the rules below. |
 
-1. `proceed-with-residuals` is autonomous at tier 0-2. At tier 3, auth/money/migration/tenancy/security streams require `etrnl-investigator` review plus recorded owner confirmation via `record-decision` before closing with residuals — unless the plan names `Residual closure: autonomous` on that stream. Lower-severity findings on those surfaces can still be release-blocking; do not treat tier alone as permission to skip confirmation.
+1. `proceed-with-residuals` is autonomous at tier 0-2. At tier 3, auth/money/migration/tenancy/security streams require `etrnl-investigator` review plus recorded owner confirmation via `record-decision` before closing with residuals. Lower-severity findings on those surfaces can still be release-blocking; do not treat tier alone as permission to skip confirmation.
 2. Before an `owner-decision` escalation, dispatch `etrnl-investigator` once on the open blocker and re-merge. Escalate only when the blocker survives that pass.
 3. An `owner-decision` stops the named task or stream only. Independent task groups keep running; a plan does not halt because one stream is parked. Park the stream per rule 6 below and continue the rest of the plan before reporting.
 4. When escalation is genuinely required, report the `capDecision.blockingFingerprints`, the fix attempted in each round, and the exact `record-review --override-owner-approved "<reason>"` command. Do not ask the user to judge severity, choose a path, or approve "one more cycle" in free text — the owner is confirming an override, not doing the triage.
@@ -164,8 +164,9 @@ Close a task or wave only when acceptance criteria are met AND the merged review
 
 | Excuse | Rule |
 | --- | --- |
-| "One more review round" | Tier 0-2: cap at 2 reopen rounds. Tier 3: reopen P0/P1 blockers until clean, capped at 4; follow `capDecision` for residuals. |
-| "Ask the owner to approve another cycle" | Tier 0-2: only when `capDecision.ownerDecisionRequired` is `true`. Tier 3 security streams at residual closure: always confirm after investigator review unless the plan names autonomous residual closure. |
+| "One more review round" | Tier 0-2: cap at 2 reopen rounds. Tier 3: reopen P0/P1 blockers until clean, capped at 4; follow `capDecision` for residuals. Never spawn `_r3_`+ reviewer aliases — use merged wave review on wave 2+. |
+| "Per-patch reviewers on wave 2+" | Forbidden on Codex profile. One merged spec+quality+simplifier set per wave over the combined diff. `check-spawn` blocks per-patch names. |
+| "Ask the owner to approve another cycle" | Tier 0-2: only when `capDecision.ownerDecisionRequired` is `true`. Tier 3 security streams at residual closure: always confirm after investigator review. |
 | "The cap is spent, so the run stops" | An `owner-decision` stops that stream only. Independent task groups keep executing. |
 | "Full doctor after a nit fix" | Run `bash scripts/doctor.sh --changed` only; full doctor stays for release/install. |
 | "Rebuild the canary to be safe" | Reuse the warm environment at unchanged tree hash; rebuild only when harness, migration, or shared surface changed. |

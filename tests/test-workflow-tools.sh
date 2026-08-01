@@ -1773,10 +1773,11 @@ else
   assert_contains "browser QA v2 reports missing matrix combination" "$matrix_out" "matrix missing route / viewport mobile"
   assert_contains "browser QA v2 reports duplicate matrix combination" "$matrix_out" "matrix contains duplicate route / viewport desktop"
 fi
-qa_report_v2="$(node "$ROOT/scripts/browser-qa-report.mjs" create --path "$TMPROOT/browser-qa-v2.json" --artifact-root "$TMPROOT" --schema-version 2 --routes "/" --viewports "desktop,mobile" --target-url "http://127.0.0.1:4173" --tool "playwright-cli" --provenance "$qa_provenance" --matrix "$qa_v2_matrix" --console "checked console logs" --network "checked network panel" --status complete)"
-qa_v2_tree_hash="$(jq -r '.provenance.treeHash' "$qa_report_v2")"
+qa_expected_tree_hash="$(node -e "import {worktreeHash} from '$ROOT/scripts/lib/etrnl-state-core.mjs'; process.stdout.write(worktreeHash(process.cwd()))")"
+qa_report_v2="$(node "$ROOT/scripts/browser-qa-report.mjs" create --path "$TMPROOT/browser-qa-v2.json" --artifact-root "$TMPROOT" --schema-version 2 --routes "/" --viewports "desktop,mobile" --target-url "http://127.0.0.1:4173" --tool "playwright-cli" --provenance "$qa_provenance" --matrix "$qa_v2_matrix" --console "checked console logs" --network "checked network panel" --status complete --tree-hash "$qa_expected_tree_hash")"
+assert_json_expr "browser QA v2 stores expected worktree hash" "$(jq -c . "$qa_report_v2")" ".provenance.treeHash == \"$qa_expected_tree_hash\""
 assert_command "browser QA v2 report validates" node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_report_v2" --artifact-root "$TMPROOT"
-assert_command "browser QA v2 completion gate validates complete report at tree hash" node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_report_v2" --artifact-root "$TMPROOT" --require-complete --tree-hash "$qa_v2_tree_hash"
+assert_command "browser QA v2 completion gate validates complete report at tree hash" node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_report_v2" --artifact-root "$TMPROOT" --require-complete --tree-hash "$qa_expected_tree_hash"
 if qa_tree_gate="$(node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_report_v2" --artifact-root "$TMPROOT" --require-complete --tree-hash "wrong-tree-hash" 2>&1)"; then
   not_ok "browser QA validate rejects mismatched tree hash"
 else
@@ -1795,13 +1796,18 @@ qa_trace_matrix="$(jq -cn \
 qa_report_trace="$(node "$ROOT/scripts/browser-qa-report.mjs" create --path "$TMPROOT/browser-qa-trace.json" --artifact-root "$TMPROOT" --schema-version 2 --routes "/" --viewports "desktop" --target-url "http://127.0.0.1:4173" --tool "playwright-cli" --provenance "$qa_provenance" --matrix "$qa_trace_matrix" --console "checked console logs" --network "checked network panel" --status complete)"
 assert_command "browser QA v2 trace video pageErrors validate" node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_report_trace" --artifact-root "$TMPROOT"
 qa_migrated="$(node "$ROOT/scripts/browser-qa-report.mjs" migrate "$qa_report" --path "$TMPROOT/browser-qa-migrated.json")"
+assert_json_expr "browser QA migrated report is v2 draft with lineage" "$(jq -c . "$qa_migrated")" '.schemaVersion == 2 and .status == "draft" and (.matrix | length) == 2 and (.migratedFrom.schemaVersion | type) == "number"'
 assert_command "browser QA migrate emits valid v2 draft" node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_migrated"
-if qa_draft_gate="$(node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_migrated" --artifact-root "$TMPROOT" --require-complete 2>&1)"; then
+if qa_draft_gate="$(node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_migrated" --artifact-root "$TMPROOT" --require-complete --tree-hash "$qa_expected_tree_hash" 2>&1)"; then
   not_ok "browser QA validate rejects draft report under completion gate"
 else
   assert_contains "browser QA validate rejects draft under --require-complete" "$qa_draft_gate" "report status must be complete"
 fi
-assert_json_expr "browser QA migrated report is v2" "$(jq -c . "$qa_migrated")" '.schemaVersion == 2 and (.matrix | length) == 2'
+if qa_missing_tree="$(node "$ROOT/scripts/browser-qa-report.mjs" validate "$qa_report_v2" --artifact-root "$TMPROOT" --require-complete 2>&1)"; then
+  not_ok "browser QA validate rejects completion gate without tree hash"
+else
+  assert_contains "browser QA validate requires tree hash with completion gate" "$qa_missing_tree" "validate --require-complete requires --tree-hash"
+fi
 qa_artifacts="$TMPROOT/browser-qa-artifacts"
 mkdir -p "$qa_artifacts/browser-qa"
 printf '{bad' >"$qa_artifacts/browser-qa/bad.json"
@@ -3157,11 +3163,10 @@ else
   # TODO-integration: pending Lane A A4 packet removal for tier 0-1
   not_ok "behavior eval: autoplan tier 0-1 omits task packet requirements (TODO-integration: pending Lane A)"
 fi
-if rg -q -i '(at most|max(imum)?) 2.*(fix round|reopen)' "$bounded_review"; then
+if rg -q -i '(at most|max(imum)?) 2.*(fix round|reopen)' "$bounded_review" && rg -q 'Per-patch reviewers on wave 2\+' "$bounded_review"; then
   ok "behavior eval: bounded-review caps fix rounds at 2"
 else
-  # TODO-integration: pending Lane A A2 bounded-review rewrite (max 2 fix rounds)
-  not_ok "behavior eval: bounded-review caps fix rounds at 2 (TODO-integration: pending Lane A)"
+  not_ok "behavior eval: bounded-review caps fix rounds at 2"
 fi
 if rg -q -i 'tier.*(≤|<= ).*2.*(one consolidated|one merged).*review' "$bounded_review"; then
   ok "behavior eval: bounded-review scopes tier <=2 to one merged reviewer pass"
@@ -3169,11 +3174,10 @@ else
   # TODO-integration: pending Lane A A2 merged-review synthesis wording
   not_ok "behavior eval: bounded-review scopes tier <=2 to one merged reviewer pass (TODO-integration: pending Lane A)"
 fi
-if rg -q -i 'Expensive \(per wave\)' "$batch_exec"; then
+if rg -q 'batch-execution-adopted' "$batch_exec" && rg -q 'check-spawn' "$batch_exec"; then
   ok "behavior eval: batch-execution keeps expensive gates per wave"
 else
-  # TODO-integration: pending Lane A batch-execution gate economics
-  not_ok "behavior eval: batch-execution keeps expensive gates per wave (TODO-integration: pending Lane A)"
+  not_ok "behavior eval: batch-execution keeps expensive gates per wave"
 fi
 if rg -q 'blocking.*P0/P1|P0.*P1.*blocking|severity === "P0" \|\| item.severity === "P1"' "$review_merge"; then
   ok "behavior eval: review-merge blocking output restricted to P0/P1"
@@ -4088,8 +4092,35 @@ else
 fi
 assert_no_file "review-learn JSON-shaped secret rejection leaves no ledger behind" "$tg12_review_learn_sensitive_ledger"
 assert_contains "review-learn JSON-shaped secret rejection leaves rules unchanged" "$(shasum "$tg12_review_learn_rules" | awk '{print $1}')" "$tg12_review_learn_sensitive_rules_hash"
+spawn_guard_ledger_path="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-spawn-guard --plan "$ROOT/hooks/fixtures/plans/good-plan.md" --cwd "$ROOT")"
+assert_file "spawn guard ledger init creates file" "$spawn_guard_ledger_path"
+assert_command "spawn guard allows wave-1 implementer" node "$ROOT/scripts/execution-ledger.mjs" check-spawn --session fixture-spawn-guard --task-name p01a_writer --wave wave-1
+assert_command "spawn guard allows wave-1 per-patch review trio" node "$ROOT/scripts/execution-ledger.mjs" check-spawn --session fixture-spawn-guard --task-name p01a_spec_review --wave wave-1
+if node "$ROOT/scripts/execution-ledger.mjs" check-spawn --session fixture-spawn-guard --task-name p108c2_r9_spec_review --wave wave-3 >/dev/null 2>&1; then
+  not_ok "spawn guard blocks per-patch review on wave 3"
+else
+  ok "spawn guard blocks per-patch review on wave 3"
+fi
+assert_command "spawn guard allows merged wave review on wave 3" node "$ROOT/scripts/execution-ledger.mjs" check-spawn --session fixture-spawn-guard --task-name wave-3_spec_review --wave wave-3
+if node "$ROOT/scripts/execution-ledger.mjs" check-spawn --session fixture-spawn-guard --task-name p108c2_r4_quality_review --wave wave-2 >/dev/null 2>&1; then
+  not_ok "spawn guard blocks high review round aliases"
+else
+  ok "spawn guard blocks high review round aliases"
+fi
+if node "$ROOT/scripts/execution-ledger.mjs" check-spawn --session fixture-spawn-guard --task-name burst_lane_1 --wave wave-1 >/dev/null 2>&1 \
+  && node "$ROOT/scripts/execution-ledger.mjs" check-spawn --session fixture-spawn-guard --task-name burst_lane_2 --wave wave-1 >/dev/null 2>&1 \
+  && node "$ROOT/scripts/execution-ledger.mjs" check-spawn --session fixture-spawn-guard --task-name burst_lane_3 --wave wave-1 >/dev/null 2>&1; then
+  not_ok "spawn guard enforces concurrent lane cap"
+else
+  ok "spawn guard enforces concurrent lane cap"
+fi
+
 tg12_batch_execution="$(cat "$ROOT/skills/etrnl-dev-execute/references/batch-execution.md")"
 assert_contains "batch-execution defers tier 0-2 human-verify pauses" "$tg12_batch_execution" "## Human-verify batching (tier ≤ 2 default)"
 assert_contains "batch-execution keeps tier 3 UAT gates in place" "$tg12_batch_execution" "Tier 3 keeps explicit UAT gates where the plan places them"
+assert_contains "batch-execution requires adoption decision" "$tg12_batch_execution" "batch-execution-adopted"
+assert_contains "batch-execution blocks per-patch review on wave 2+" "$tg12_batch_execution" "wave 2+ hard rule"
+codex_execute_profile="$(cat "$ROOT/skills/etrnl-dev-execute/references/codex-execute-profile.md")"
+assert_contains "codex execute profile mandates check-spawn" "$codex_execute_profile" "check-spawn"
 
 finish_tests
