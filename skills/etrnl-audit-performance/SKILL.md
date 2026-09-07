@@ -12,7 +12,7 @@ Default mode is read-only audit. Enter remediation mode only when the user asks 
 
 ## Required Flow
 
-1. Locate the source checkout or installed stack root. Read the `performance` entry in `scripts/lib/deep-audit-categories.mjs`.
+1. Locate the source checkout or installed stack root. Resolve helper paths from `scripts/` in source, `~/.codex/scripts/` in Codex, or `~/.claude/scripts/` in Claude Code. Read the `performance` entry in `scripts/lib/deep-audit-categories.mjs`.
 1. Create or reuse a run-scoped artifact directory. Direct invocation creates the same worklist, receipt, report, and baseline envelope locally; it does not require the full orchestrator.
 1. Load `references/audit-checks.md`. Load `references/measurement-evidence.md` before any measurement claim. Load `references/remediation-contract.md` in remediation mode.
 1. Discover the complete target surface, then select critical journeys, hot operations, and representative authenticated fixtures. Record every discovered target as measured, `not_applicable`, `source_limited`, or explicitly lower priority.
@@ -20,7 +20,7 @@ Default mode is read-only audit. Enter remediation mode only when the user asks 
 1. Run the six registry lanes against those immutable worklists. With an authorized agent mechanism, dispatch the registry model tier returned by `categoryLaneDispatch("performance")`; without one, execute lanes sequentially and retain identical receipts.
 1. Separate static hypotheses from measured findings. Static evidence proves risk or a producing path, never a latency, byte, query-cost, rendering, or Core Web Vitals result.
 1. Record each `perf-*` result exactly once as `finding`, `confirmed_clean`, `skipped`, `not_applicable`, or `source_limited`. Attach the evidence kind and measurement conditions.
-1. Write a schema-v2 baseline for measured work. Run these commands from the source checkout; from an installed copy, replace `scripts/` with `~/.claude/scripts/`:
+1. Write a schema-v2 baseline for measured work. Run these commands from the source checkout; use the installed helper root resolved in step 1 on an installed copy:
 
 ```bash
 node scripts/performance-baseline.mjs create < measurements.json
