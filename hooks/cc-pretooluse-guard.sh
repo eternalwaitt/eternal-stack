@@ -250,6 +250,32 @@ command_is_email_triage_dry_run() {
   [[ "$cmd" =~ (^|[[:space:];&|])([^[:space:];&|]*/)?vivaz-email[[:space:]]+triage[[:space:]]+run([[:space:]]|$) ]]
 }
 
+command_is_email_triage_guarded_run() {
+  local cmd="$1"
+  [[ "$cmd" =~ (^|[[:space:];&|])([^[:space:];&|]*/)?vivaz-email[[:space:]]+triage[[:space:]]+guarded-run([[:space:]]|$) ]]
+}
+
+cc_email_triage_guarded_run_started() {
+  local since="$1"
+  jq -e --arg since "$since" '
+    any(.successfulCommands[]?;
+      ((.at // "") >= $since)
+      and ((.command // "") | test("(^|[[:space:];&|])([^[:space:];&|]*/)?vivaz-email[[:space:]]+triage[[:space:]]+guarded-run([[:space:]]|$)")))
+  ' "$(cc_state_file)" >/dev/null 2>&1
+}
+
+cc_email_triage_guarded_run_failed() {
+  local since="$1"
+  jq -e --arg since "$since" '
+    any(.failures[]?;
+      ((.at // "") >= $since)
+      and ((.value // "") | test("guarded-run|TRIAGE_GUARD"; "i")))
+    or any(.blockedCommands[]?;
+      ((.at // "") >= $since)
+      and ((.command // "") | test("guarded-run")))
+  ' "$(cc_state_file)" >/dev/null 2>&1
+}
+
 command_is_email_triage_debug_dry_run() {
   local cmd="$1"
   [[ "$cmd" =~ (^|[[:space:]])--no-sync([[:space:]]|$) ]]
@@ -695,15 +721,28 @@ handle_bash() {
   fi
 
   if cc_email_triage_active && command_is_raw_email_triage_gmail_mutation "$cmd"; then
-    deny "Raw Gmail mutation is blocked during email-triage. Phase 1 must use the VIVAZ runtime: vivaz-email triage guarded-run --account <id> --max-inbox 500 --apply --require-insights, then vivaz-email triage verify --latest --account <id>. Only after verified Inbox Zero, open the queue."
+    deny "Raw Gmail mutation is blocked during email-triage. Phase 1 must use the VIVAZ runtime: vivaz-email triage guarded-run --account <id> --max-inbox 500 --apply --allow-apply-before-enrichment --progress, then vivaz-email triage verify --latest --account <id>. Only after verified Inbox Zero, open the queue."
+  fi
+
+  if cc_email_triage_active && command_is_email_triage_guarded_run "$cmd"; then
+    local bash_timeout
+    bash_timeout="$(cc_json_get '.tool_input.timeout // .input.timeout // empty')"
+    if [[ -n "$bash_timeout" && "$bash_timeout" != "null" && "$bash_timeout" != "0" ]]; then
+      deny "Do not set Bash tool timeout on vivaz-email triage guarded-run during /email-triage. Provider sync, archive ML, and apply can take several minutes. Poll the same session until it exits."
+    fi
+    email_triage_since="$(cc_email_triage_request_at)"
+    if [[ -n "$email_triage_since" ]] && cc_email_triage_guarded_run_started "$email_triage_since" \
+      && ! cc_email_triage_verify_seen && ! cc_email_triage_guarded_run_failed "$email_triage_since"; then
+      deny "A guarded-run is already in progress or awaiting verify for this /email-triage session. Poll the original process, run vivaz-email triage verify --latest --account <id>, or wait for the first run to record failure before starting another guarded-run."
+    fi
   fi
 
   if cc_email_triage_active && command_is_email_triage_dry_run "$cmd" && ! command_is_email_triage_debug_dry_run "$cmd"; then
-    deny "Dry email-triage runs are blocked during /email-triage. Phase 1 must clear INBOX with vivaz-email triage guarded-run --account <id> --max-inbox 500 --apply --require-insights, then vivaz-email triage verify --latest --account <id> before any queue item is shown."
+    deny "Dry email-triage runs are blocked during /email-triage. Phase 1 must clear INBOX with vivaz-email triage guarded-run --account <id> --max-inbox 500 --apply --allow-apply-before-enrichment --progress, then vivaz-email triage verify --latest --account <id> before any queue item is shown."
   fi
 
   if cc_email_triage_active && command_is_email_triage_queue "$cmd" && ! cc_email_triage_verify_seen; then
-    deny "email-triage queue is blocked until Inbox Zero verification has run. First run vivaz-email triage guarded-run --account <id> --max-inbox 500 --apply --require-insights, then vivaz-email triage verify --latest --account <id>. Open the queue only after verify reports inbox_zero_verified true and inbox_count 0."
+    deny "email-triage queue is blocked until Inbox Zero verification has run. First run vivaz-email triage guarded-run --account <id> --max-inbox 500 --apply --allow-apply-before-enrichment --progress, then vivaz-email triage verify --latest --account <id>. Open the queue only after verify reports inbox_zero_verified true and inbox_count 0."
   fi
 
   if cc_email_triage_active && command_is_email_triage_queue "$cmd" && ! cc_email_triage_queue_verified "$cmd"; then

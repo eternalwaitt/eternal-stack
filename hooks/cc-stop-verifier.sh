@@ -432,9 +432,9 @@ cc_email_triage_verify_json_after() {
 cc_email_triage_message_has_queue() {
   local lower
   lower="$(printf '%s' "$message" | tr '[:upper:]' '[:lower:]')"
-  [[ "$message" == *"# Email Reply Queue"* ]] \
-    && [[ "$message" == *"## Next Step"* ]] \
-    && { [[ "$lower" == *"approve/send"* ]] || [[ "$lower" == *"show the next item"* ]] || [[ "$message" == *"No reply actions are currently queued"* ]]; }
+  { [[ "$message" == *"# Email Reply Queue"* ]] || [[ "$message" == *"# Human Review Email Queue"* ]]; } \
+    && { [[ "$message" == *"## Next Step"* ]] || [[ "$message" == *"Decision packet:"* ]]; } \
+    && { [[ "$lower" == *"approve/send"* ]] || [[ "$lower" == *"show the next item"* ]] || [[ "$message" == *"No reply actions are currently queued"* ]] || [[ "$message" == *"No Manual Review or action items are currently open"* ]]; }
 }
 
 cc_email_triage_message_has_report() {
@@ -552,13 +552,13 @@ if [[ "$claims_done" == "true" ]]; then
     stop_err=""
     stop_err_file="$(mktemp "${TMPDIR:-/tmp}/cc-stop-status.XXXXXX")"
     cc_register_cleanup "$stop_err_file"
-    timeout_cmd=()
     if command -v timeout >/dev/null 2>&1; then
-      timeout_cmd=(timeout 5)
+      stop_status_cmd=(timeout 5 node "$(cc_etrnl_state_script)" stop-status --session "$(cc_session_id)" --json --cwd "$cwd")
     elif command -v gtimeout >/dev/null 2>&1; then
-      timeout_cmd=(gtimeout 5)
+      stop_status_cmd=(gtimeout 5 node "$(cc_etrnl_state_script)" stop-status --session "$(cc_session_id)" --json --cwd "$cwd")
+    else
+      stop_status_cmd=(node "$(cc_etrnl_state_script)" stop-status --session "$(cc_session_id)" --json --cwd "$cwd")
     fi
-    stop_status_cmd=("${timeout_cmd[@]}" node "$(cc_etrnl_state_script)" stop-status --session "$(cc_session_id)" --json --cwd "$cwd")
     if ! stop_status_json="$("${stop_status_cmd[@]}" 2>"$stop_err_file")"; then
       stop_err="$(head -n 1 "$stop_err_file" 2>/dev/null || true)"
       stop_reason="ETRNL stop-status check failed. Verification is stale after compact."
@@ -618,7 +618,7 @@ if [[ "$claims_done" == "true" ]]; then
       exit 0
     fi
     if ! cc_email_triage_message_has_runtime_output; then
-      cc_json_block "email-triage completion must paste the generated runtime queue item, including '# Email Reply Queue' and '## Next Step', or an explicit audit report. A one-line inbox-zero summary is not actionable."
+      cc_json_block "email-triage completion must paste the generated runtime queue item, including a decision packet or '# Human Review Email Queue' with '## Next Step', or an explicit audit report. A one-line inbox-zero summary is not actionable."
       exit 0
     fi
     if cc_email_triage_message_claims_complete_with_active_queue; then

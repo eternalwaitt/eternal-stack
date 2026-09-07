@@ -14,7 +14,7 @@ Default mode is read-only audit. Enter remediation mode only when the user asks 
 
 1. Locate the source checkout or installed stack root. Resolve helper paths from `scripts/` in source, `~/.codex/scripts/` in Codex, or `~/.claude/scripts/` in Claude Code. Read the `performance` entry in `scripts/lib/deep-audit-categories.mjs`.
 1. Create or reuse a run-scoped artifact directory. Direct invocation creates the same worklist, receipt, report, and baseline envelope locally; it does not require the full orchestrator.
-1. Load `references/audit-checks.md`. Load `references/measurement-evidence.md` before any measurement claim. Load `references/remediation-contract.md` in remediation mode.
+1. Load `references/audit-checks.md`. Load `references/measurement-evidence.md` before any measurement claim. Load `references/remediation-contract.md` in remediation mode. When a TypeScript or framework build exhausts memory, is killed near type validation, or passes only with a larger V8 heap, also load `references/typescript-build-memory.md`.
 1. Discover the complete target surface, then select critical journeys, hot operations, and representative authenticated fixtures. Record every discovered target as measured, `not_applicable`, `source_limited`, or explicitly lower priority.
 1. Build every registered `perf_*` worklist before analysis. Record path, item count, and SHA-256 hash.
 1. Run the six registry lanes against those immutable worklists. With an authorized agent mechanism, dispatch the registry model tier returned by `categoryLaneDispatch("performance")`; without one, execute lanes sequentially and retain identical receipts.
@@ -57,6 +57,7 @@ Completion requires all of these items:
 - "React Compiler handles rendering." -> It does not remove waterfalls, context churn, unstable keys, or oversized client boundaries.
 - "One slow query is isolated." -> Prove call frequency, row volume, query plan, and the user-facing route that pays the cost.
 - "The number improved, so keep the patch." -> A result inside noise is inconclusive, and a faster broken path is a regression.
+- "The build passes with a larger heap, so it is fixed." -> A heap increase contains the failure. Isolate the phase, attribute the compiler graph, reduce structural pressure, and prove the ordinary type gate still fails closed.
 
 ## Red Flags
 
@@ -67,11 +68,12 @@ Completion requires all of these items:
 - Heavy client imports with no route/import-chain attribution, or legacy First Load JS output treated as authoritative for a current React Server Components app.
 - Manual memoization proposed solely from source inspection when React Compiler is active.
 - Shared cache keys that omit tenant, viewer, locale, permissions, feature flags, or other response-varying inputs.
+- TypeScript or framework builds that die after compilation, plateau at the V8 heap limit, compile generated implementation sources through an application graph, or silently disable type validation to finish.
 
 ## When NOT to use
 
 - Input validation, auth bypass, tenancy leaks, or injection belong to `etrnl-audit-security`.
-- Correctness bugs, type failures, and diff review belong to the quality and spec reviewers.
+- Correctness bugs, ordinary type errors, and diff review belong to the quality and spec reviewers. Type-check/build resource exhaustion with a performance symptom belongs to the conditional build-memory playbook here.
 - Deployment readiness, observability wiring, and runbooks belong to `etrnl-audit-production`.
 - Whole-codebase dead code and repository decay belong to `etrnl-audit-code`.
 - Visual polish without a performance symptom belongs to the UI/UX audit family.
@@ -92,3 +94,4 @@ Run counts every item. Any FAIL leaves the run incomplete:
 - `references/audit-checks.md`: scope discovery, immutable worklists, six-lane checks, and report envelope.
 - `references/measurement-evidence.md`: evidence hierarchy, Core Web Vitals, route matrix, repeat measurement, and schema-v2 baseline.
 - `references/remediation-contract.md`: causal fixes, comparable verification, framework-safe remediation, guards, and rollback.
+- `references/typescript-build-memory.md`: phase isolation, compiler-graph attribution, declaration boundaries, heap containment, and fail-closed framework builds.

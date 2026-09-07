@@ -4236,6 +4236,8 @@ else
 fi
 parallel_lanes_plan="$ROOT/hooks/fixtures/plans/parallel-lanes-plan.md"
 node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-spawn-plan-lanes --plan "$parallel_lanes_plan" --cwd "$ROOT" >/dev/null
+plan_lane_dry="$(env ETRNL_EXECUTE_HOST=codex node "$ROOT/scripts/execution-ledger.mjs" check-spawn --session fixture-spawn-plan-lanes --task-name "p01a_writer" --wave "wave-1" --dry-run --json)"
+assert_json_expr "check-spawn dry-run reports plan maxConcurrentLanes=4" "$plan_lane_dry" '.maxConcurrentLanes == 4'
 assert_command "codex spawn guard honors plan maxConcurrentLanes=4 (spawn 1)" env ETRNL_EXECUTE_HOST=codex node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-plan-lanes --task-name "p01a_writer" --wave "wave-1" --json
 assert_command "codex spawn guard honors plan maxConcurrentLanes=4 (spawn 2)" env ETRNL_EXECUTE_HOST=codex node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-plan-lanes --task-name "p108c2_writer" --wave "wave-1" --json
 assert_command "codex spawn guard honors plan maxConcurrentLanes=4 (spawn 3)" env ETRNL_EXECUTE_HOST=codex node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-plan-lanes --task-name "p01a_executor" --wave "wave-1" --json
@@ -4245,8 +4247,6 @@ if plan_lane_out="$(env ETRNL_EXECUTE_HOST=codex node "$ROOT/scripts/execution-l
 else
   assert_json_expr "codex spawn guard blocks fifth spawn when plan maxConcurrentLanes=4" "$plan_lane_out" '.reasonCode == "concurrent-lane-cap"'
 fi
-plan_lane_dry="$(env ETRNL_EXECUTE_HOST=codex node "$ROOT/scripts/execution-ledger.mjs" check-spawn --session fixture-spawn-plan-lanes --task-name "p01a_writer" --wave "wave-1" --dry-run --json)"
-assert_json_expr "check-spawn dry-run reports plan maxConcurrentLanes=4" "$plan_lane_dry" '.maxConcurrentLanes == 4'
 lane_scope_plan="$TMPROOT/lane-scope-plan.md"
 cat >"$lane_scope_plan" <<'PLAN'
 # Lane scope fixture

@@ -22,16 +22,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Changed
 
+- `etrnl-audit-performance` adds a conditional TypeScript/framework build-memory playbook: distinguish V8 heap exhaustion from external kills, isolate compilation from type validation, attribute generated-source and type-instantiation pressure, prefer declaration/project-reference boundaries, preserve a fail-closed type gate when bypassing duplicate framework checks, and treat larger heaps as containment. Bundle remediation also prevents lightweight configuration exports from statically importing heavy payloads such as locale catalogs.
+- Email triage now runs guarded Inbox Zero with progress and apply-before-enrichment, prevents competing guarded runs and tool-level timeouts, opens the human-review queue with on-demand drafts, and requires a checked replacement before presenting a failed draft for approval.
 - `etrnl-audit-performance` now combines Eternal Stack's six-lane coverage with a causal measure-identify-fix-verify-guard loop, explicit field/lab/trace/runtime/query-plan/bundle evidence, current Core Web Vitals and React/Next.js rules, complete target dispositions, and remediation receipts. `performance-baseline.mjs` adds backward-compatible schema v2 with comparison conditions, source revisions, lab-INP and field-p75 validation, noise-aware trend verdicts, and focused regression tests.
 - Default install now merges strict blocker hooks (`templates/settings.strict.json`). Set `ETRNL_ENABLE_STRICT=0` for the previous observer-only template.
 - `etrnl-ops-ship` is a class-aware verifier: it reads plan/PR evidence and the release manifest, confirms PR gate green, and promotes by signal. It no longer originates release-control requirements or blocks deploy with "write a follow-up release-controls PR."
 - UserPromptSubmit routing for `etrnl-ops-ship` no longer matches routine phrasing such as "ship this feature change"; explicit rollout/cutover/go-no-go prompts still route ship.
 - `pr-preflight` and `plan-readiness-check` auto-bootstrap release controls; users no longer run setup scripts manually.
-- `etrnl-dev-execute` is back under the 18,000-byte repo-owned prompt budget (18,705 → 17,897) by stating the source-checkout/installed helper-path convention once instead of spelling both forms per command, and by removing restatements the same file already carried (full-packet schema, reopen-cap disposition, `doctor.sh --changed`, parent-vs-subagent ownership). No rule was dropped.
+- `etrnl-dev-execute` and `etrnl-dev-autoplan` are back under the 18,000-byte repo-owned prompt budget (18,515 → 17,954 and 18,927 → 16,934) by consolidating repeated execution, review, artifact, and routing guidance into their existing canonical sections and references. No rule was dropped.
 - `etrnl-dev-autoplan` records install proof as `planned` while planning and `not_applicable` when no install surface is in scope, and declares the risk tier the deterministic gate requires. Escalating above that floor on judgment is still allowed but must be named as a judgment call on the `Risk tier` line rather than attributed to the readiness gate.
 
 ### Fixed
 
+- The Stop verifier now constructs its ETRNL status command explicitly when neither GNU `timeout` nor `gtimeout` exists, avoiding Bash 3.2's unbound empty-array expansion; the lane-cap test now probes dry-run metadata before intentionally filling the burst window.
 - Dual-host spawn guard audit remediation: `settings.strict.json` registers `cc-spawn-guard.sh`; `spawn-guard.mjs` classifies reviewer `subagent_type` over writer task-name aliases (both directions on wave 2+); `review-merge.mjs` implements `--scoped` fix-round merge; `check-spawn` records only from hook authority (`ETRNL_SPAWN_GUARD_RECORDER=hook` or `--allow-record`); spawn economics acceptance tests restored; bounded-review dual-host wave-2+ wording and review-scope matrix.
 - CodeRabbit round 12: Stop-verifier question detection is clause-local so an unrelated `?` in a later sentence no longer suppresses a positive verification claim; UserPromptSubmit read-only questions require execution intent only after the question delimiter and suppress downstream plan-execution re-arming; `bounded-review.md` validates `execution-ledger.mjs` and the selected script root; eternal-saas install backup paths avoid the `mktemp`/`rmdir` reservation race; `cc_json_read_stdin` passes idle-reader config explicitly; `etrnl-dev-pr` compares before copying helpers, gates full-install refresh on owner confirmation, and validates/redacts `FINDINGS_FILE` before ingestion; `review-learn.mjs` rejects sensitive-looking finding text before persistence.
 - CodeRabbit round 13: Stop-verifier treats questioned and hypothetical lint/typecheck/checks claims like test/build wording; router extracts execution intent after the final question mark in informational prompts; `review-learn.mjs` defaults the ledger to the private overlay, scans complete finding JSON for secrets, and expands credential patterns; `etrnl-dev-pr` rejects in-repo findings files and allowlists persisted fields; `reset_settings_preserving_user_settings` no longer injects a null `hooks` key; stdin auto-fallback warning markers expire after 60 minutes.
@@ -550,8 +553,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ### Security
 
 - Public repository boundary: no private identity, credentials, transcripts, or local planning artifacts in tracked files.
-
-
 
 
 

@@ -12,6 +12,7 @@ Own these performance surfaces:
 - React rendering strategy, React Compiler status, large list rendering, context churn, high-tree state, data-fetching patterns, transitions, and Suspense boundaries;
 - perceived performance, route loading states, optimistic writes, debounced inputs, image loading, link prefetch, and fast shells for heavy views;
 - infrastructure and network performance, runtime placement, headers, compression, image config, CDN/object-storage fit, and large public assets.
+- TypeScript and framework build-memory exhaustion when an observed build or type-validation failure makes it a delivery bottleneck; use `typescript-build-memory.md` and keep it distinct from application memory leaks.
 
 Do not score these as performance findings:
 
@@ -72,6 +73,7 @@ No lane starts before every registry worklist has a path, count, and hash.
 ## Lane Rules
 
 - Read only from Phase 1 worklists and files referenced by those worklists.
+- For a reproduced TypeScript/framework build-memory failure, additionally inspect only the exact build entrypoint, TypeScript project configuration, package export/type boundaries, generated-source directories, and imports named by compiler diagnostics; record this symptom-driven expansion in the lane receipt.
 - Record `CONFIRMED_CLEAN: <check id> - <evidence and file count>` for every clean check.
 - Record `CHECKS_SKIPPED: <check id> - <reason and blocker>` for every skipped check.
 - Record `not_applicable` only after the applicability gate from the registry is false.
@@ -179,6 +181,7 @@ Use `perf_route_handlers`, `perf_next_configs`, and `perf_large_files`. Inspect:
 - cache headers, compression, image optimization, and static asset headers in framework config;
 - large files in public/static paths that belong on CDN or object storage;
 - connection pooling and serverless database client behavior when route evidence shows connection overhead.
+- observed TypeScript/framework build-memory exhaustion, phase attribution, generated-source fan-in, and package declaration boundaries using `typescript-build-memory.md`; do not scan or score this path without a build-memory symptom.
 
 For each finding, report `LOCATION`, `TYPE`, `SEVERITY`, `ISSUE`, `FIX`, and `IMPACT`.
 

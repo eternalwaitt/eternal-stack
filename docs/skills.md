@@ -76,7 +76,7 @@ Whole-repo or category audits with deterministic ledgers and artifact contracts.
 | `/etrnl-audit-code` | User only | Runs the canonical code-health router: inventory, Health Stack, deterministic gates, bundled-skill audits, ledger, and no-skips closure. |
 | `/etrnl-audit-docs` | Model or user | Runs documentation-health audits across READMEs, docs, ADRs, runbooks, API/runtime docs, AI context, and code comments. |
 | `/etrnl-audit-security` | Model or user | Runs the registered security deep-audit category with exploitable-bug evidence and explicit non-findings. |
-| `/etrnl-audit-performance` | Model or user | Runs the registered performance deep-audit category with route matrix evidence, cold/warm measurements, and lane receipts. |
+| `/etrnl-audit-performance` | Model or user | Runs the registered performance deep-audit category with route matrix evidence, cold/warm measurements, lane receipts, and symptom-driven TypeScript/framework build-memory diagnosis. |
 | `/etrnl-audit-production` | Model or user | Runs the registered production-readiness deep-audit category with applicability gates and source-limited blockers. |
 | `/etrnl-audit-tooling` | Model or user | Runs the registered tooling-ecosystem deep-audit category across local setup, lint/format/type gates, CI parity, and rollback paths. |
 | `/etrnl-audit-browser` | User only | Produces browser QA reports with route, viewport, screenshot, console, network, accessibility, and responsive evidence. |
@@ -114,7 +114,7 @@ Host, session, and stack maintenance. These skills do not implement product feat
 
 | Command | Invocation | Purpose |
 | --- | --- | --- |
-| `/email-triage <account>` | User only | Runs private email triage in two phases: archive/label INBOX items and provider-verify Inbox Zero, then render one action/reply queue item only after verification reports `inbox_zero_verified: true`, `inbox_count: 0`, and either `gmail_mutated: true` or `queue_ready_without_mutation: true`; visible reply drafts require the local draft checker before approval. |
+| `/email-triage <account>` | User only | Runs private email triage in two phases: archive/label INBOX items and provider-verify Inbox Zero with `--allow-apply-before-enrichment --progress`, then render one human-review queue item (`--mode review`) only after verification reports `inbox_zero_verified: true`, `inbox_count: 0`, and either `gmail_mutated: true` or `queue_ready_without_mutation: true`; reply drafts generate on demand for the current item; visible reply drafts require the local draft checker before approval. |
 
 ## Code Review Excellence
 

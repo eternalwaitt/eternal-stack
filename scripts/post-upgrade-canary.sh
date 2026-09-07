@@ -119,9 +119,9 @@ if [[ "$email_dry_out" != *"Dry email-triage runs are blocked"* ]]; then
   exit 1
 fi
 
-jq '.successfulCommands = [{command:"vivaz-email triage guarded-run --account agencia --max-inbox 500 --apply --require-insights", at:"2026-01-01T00:00:01Z"}]' "$email_state" >"$email_state.tmp"
+jq '.successfulCommands = [{command:"vivaz-email triage guarded-run --account agencia --max-inbox 500 --apply --allow-apply-before-enrichment --progress", at:"2026-01-01T00:00:01Z"}]' "$email_state" >"$email_state.tmp"
 mv -- "$email_state.tmp" "$email_state"
-email_queue_payload="$(jq -nc '{session_id:"canary-email-triage",tool_name:"Bash",tool_input:{command:"vivaz-email triage queue --run-id triage_canary --mode reply --format markdown --next"}}')"
+email_queue_payload="$(jq -nc '{session_id:"canary-email-triage",tool_name:"Bash",tool_input:{command:"vivaz-email triage queue --run-id triage_canary --mode review --format markdown --next"}}')"
 email_queue_out="$(printf '%s' "$email_queue_payload" | CLAUDE_GUARD_STATE_DIR="$canary_state" "$TARGET/hooks/cc-pretooluse-guard.sh")"
 if ! jq -e '.hookSpecificOutput.permissionDecision == "deny"' <<<"$email_queue_out" >/dev/null; then
   printf 'fail: email-triage canary accepted queue before verify: %s\n' "$email_queue_out" >&2
@@ -149,7 +149,7 @@ exit 0
 BASH
 chmod +x "$canary_vivaz_email"
 jq '.successfulCommands = [
-  {command:"vivaz-email triage guarded-run --account agencia --max-inbox 500 --apply --require-insights", at:"2026-01-01T00:00:01Z"},
+  {command:"vivaz-email triage guarded-run --account agencia --max-inbox 500 --apply --allow-apply-before-enrichment --progress", at:"2026-01-01T00:00:01Z"},
   {command:"vivaz-email triage verify --latest --account agencia", at:"2026-01-01T00:00:02Z"}
 ]' "$email_state" >"$email_state.tmp"
 mv -- "$email_state.tmp" "$email_state"

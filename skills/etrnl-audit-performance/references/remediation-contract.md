@@ -42,6 +42,7 @@ Do not stack unrelated optimizations before attribution exists.
 ## Bundle and Loading
 
 - Remove or replace heavy dependencies only after route/import-chain attribution.
+- Keep lightweight metadata and configuration in modules that do not statically import heavy payloads. Locale catalogs, generated registries, fixtures, or other bulk data belong behind a server-only or dynamic loader; prove removal from client chunks with the emitted graph.
 - Move client boundaries downward; do not convert server behavior into client behavior to chase a bundle score.
 - Lazy-load below-fold or interaction-only code while preserving focus, navigation, error, and loading behavior.
 - Preserve analytics events, campaign parameters, forms, and conversion flows during public-page work.
@@ -63,6 +64,7 @@ Do not stack unrelated optimizations before attribution exists.
 - Change compression, cache headers, CDN placement, connection pooling, or image policy with response-header and runtime evidence.
 - Test cold-process behavior after singleton, pool, snapshot, or initialization changes.
 - Keep private/user-specific responses out of public and shared caches.
+- For TypeScript or framework build-memory exhaustion, follow `typescript-build-memory.md`. A larger V8 heap is containment until compiler-graph evidence rules out a structural cause.
 
 ## Guard Selection
 

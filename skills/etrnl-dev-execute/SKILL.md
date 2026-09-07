@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-execute`; on update, run the reported update command before continuing; only skip if the user explicitly declines.
 
-Execute an approved plan end to end. Create a run ledger, fan out bounded implementation subagents for parallel-safe work, review output, run verification, and continue through mechanical phases.
+Execute an approved plan end to end with a run ledger, bounded parallel implementation, review, and verification.
 
 Helper paths: `node scripts/<name>` in a source checkout, `node ~/.claude/scripts/<name>` after install. Both spellings run the same helper; commands below show one.
 
@@ -51,12 +51,11 @@ Completion means every item inside the plan's `Execution scope` is verified or e
    - Use wave-based execution: earlier waves must finish before later waves.
    - Before parallel work, run an overlap check against the plan's task file lists when practical (`node ~/.claude/scripts/execution-wave-check.mjs < tasks.json`); if two tasks in a wave touch the same file, run that wave sequentially and log the planning defect.
    - MUST dispatch write-capable implementation subagents for every parallel-safe wave with two or more independent source-file tasks, except on the tier 0–1 quick-dev lane below where the parent edits directly.
-   - The parent orchestrator must not edit files directly for tasks assigned to implementation subagents; it only coordinates, integrates, verifies, and repairs blocked work.
-   - Use direct parent edits only for a single local task, a dependency-ordered sequential wave, an overlap conflict, missing subagent runtime, or a user-requested no-subagent run; state the exact sequential-degraded blocker before editing.
+   - The parent orchestrator must not edit files assigned to implementation subagents. Direct parent edits require a single local task, sequential dependency/overlap, missing runtime, or user-requested no-subagent run; state the reason first.
    - A malformed or rejected subagent packet is not a sequential-degraded blocker. Fix the packet and retry the subagent call before any source edit for that task.
    - Use worktree isolation only when the task is write-capable, disjoint, not touching submodule paths, and the runtime supports it.
    - Emit heartbeat text at wave and task boundaries: `[checkpoint] wave <n> task <id> starting`.
-   - If a subagent completion signal is missing, spot-check expected output, git state, and ledger artifacts before deciding whether to retry or continue.
+   - If completion is missing, spot-check output, git state, and ledger artifacts before retrying or continuing.
    - When the plan omits `maxConcurrentLanes`, default to 3 on Claude and 2 on Codex. An explicit `maxConcurrentLanes=N` in `## Parallelization strategy` overrides the host default for every N from 1 through 6.
    - Progress reported to the user is ledger position plus named gates only, per the execute profile (`references/claude-execute-profile.md` or `references/codex-execute-profile.md`). Rolling hour ETAs are prohibited on every host; report a field the ledger cannot supply as unavailable rather than guessing.
    - When `history --progress --renegotiation-check` shows `renegotiationRequired=true`, pause once: present a consolidation proposal (bundle remaining waves per screen/domain for all tiers; one merged review per wave; tier-3 surfaces keep tier-3 lenses and gates per wave — no batching exemption), take ONE user decision, log it via `record-decision`, and never re-ask.
@@ -82,7 +81,7 @@ Completion means every item inside the plan's `Execution scope` is verified or e
 
 ## Dual-host execute profiles
 
-`ETRNL_EXECUTE_HOST` selects the profile at startup: explicit `codex` or `claude` always wins. When unset, use `codex` on Codex CLI sessions (`CODEX_SESSION_ID` or Codex spawn path), `claude` on Claude Code sessions (`CLAUDE_SESSION_ID` or Task/Agent tools), and when both CLIs are installed with no host signal use `codex` when `codex` is on PATH otherwise `claude`. Any other value is a configuration defect. State the resolved profile and its selecting signal in the first status line.
+`ETRNL_EXECUTE_HOST=codex|claude` wins. Otherwise detect Codex from `CODEX_SESSION_ID`/spawn path, Claude from `CLAUDE_SESSION_ID`/Task tools, then select `codex` when its CLI is available. Any other explicit value is invalid. State the profile and selecting signal first.
 
 Load the matching execute profile before the first spawn:
 
@@ -97,7 +96,7 @@ Before **every** subagent dispatch (`Task`, `Agent`, `TaskCreate`, `spawn_agent`
 2. When the hook is absent or spawn guard mode is `off`, run `node scripts/execution-ledger.mjs check-spawn --allow-record` before dispatch so the skill layer can record spawns.
 3. Exit 1 is a hard stop — read recovery with `check-spawn --explain --task-name "<name>" --wave "<wave>"`; do not rename the task to bypass the guard.
 
-The guard enforces wave 2+ merged review, batch adoption on Large/multi-group plans, lane caps, review-scope gating, and spawn-name allowlists derived from the plan.
+The guard enforces wave 2+ merged review, Large-plan batching, lane caps, review scope, and plan-derived spawn names.
 
 ## Plan scope triage
 
