@@ -1,6 +1,6 @@
 # Performance Audit Checks
 
-Use this reference after `SKILL.md` creates the shared deep-audit envelope. Keep analysis read-only unless the user explicitly asks for fixes.
+Use this reference after `SKILL.md` creates the shared deep-audit envelope. Keep analysis read-only unless the user explicitly asks for fixes. Use `measurement-evidence.md` for every number and `remediation-contract.md` for every code change.
 
 ## Category Scope
 
@@ -28,21 +28,23 @@ Create worklists under the run artifact directory, for example:
 ```bash
 AUDIT_DIR="artifacts/deep-audit/<audit-id>"
 mkdir -p "$AUDIT_DIR/worklists"
-fd -g 'page.tsx' --exclude node_modules --exclude .next | sort > "$AUDIT_DIR/worklists/perf_pages.txt"
-fd -g 'route.ts' --exclude node_modules --exclude .next | sort > "$AUDIT_DIR/worklists/perf_route_handlers.txt"
+rg --files -g '**/page.tsx' -g '!**/node_modules/**' -g '!**/.next/**' | sort > "$AUDIT_DIR/worklists/perf_pages.txt"
+rg --files -g '**/route.ts' -g '!**/node_modules/**' -g '!**/.next/**' | sort > "$AUDIT_DIR/worklists/perf_route_handlers.txt"
 rg "\\[[^/]+?\\]" "$AUDIT_DIR/worklists/perf_pages.txt" "$AUDIT_DIR/worklists/perf_route_handlers.txt" > "$AUDIT_DIR/worklists/perf_dynamic_routes.txt"
-fd -g 'loading.tsx' --exclude node_modules --exclude .next | sort > "$AUDIT_DIR/worklists/perf_loading.txt"
+rg --files -g '**/loading.tsx' -g '!**/node_modules/**' -g '!**/.next/**' | sort > "$AUDIT_DIR/worklists/perf_loading.txt"
 rg "prisma\\." --type ts -g '!**/generated/**' -g '!**/*.test.*' > "$AUDIT_DIR/worklists/perf_queries.txt"
 rg "'use client'" -g '*.tsx' -l > "$AUDIT_DIR/worklists/perf_client.txt"
 rg "dynamic\\(|import\\(" --type ts -g '!**/generated/**' -g '!**/*.test.*' > "$AUDIT_DIR/worklists/perf_dynamic.txt"
 : > "$AUDIT_DIR/worklists/perf_deps.txt"
-fd -g 'package.json' --max-depth 3 --exclude node_modules | while IFS= read -r file; do rg '"dependencies"' -A 100 "$file"; done > "$AUDIT_DIR/worklists/perf_deps.txt"
+rg --files -g 'package.json' -g '!**/node_modules/**' -g '!**/.next/**' | while IFS= read -r file; do rg '"dependencies"' -A 100 "$file"; done > "$AUDIT_DIR/worklists/perf_deps.txt"
 : > "$AUDIT_DIR/worklists/perf_large_files.txt"
 for root in .cache public apps packages; do
   [ -d "$root" ] || continue
-  fd --type f . "$root" --exclude node_modules --exclude .next --exclude generated --exec sh -c 'stat -f "%z %N" "$1" 2>/dev/null || stat -c "%s %n" "$1"' sh {} \;
+  rg --files "$root" -g '!**/node_modules/**' -g '!**/.next/**' -g '!**/generated/**' | while IFS= read -r file; do
+    stat -f "%z %N" "$file" 2>/dev/null || stat -c "%s %n" "$file"
+  done
 done | sort -nr > "$AUDIT_DIR/worklists/perf_large_files.txt"
-fd -g 'next.config.*' --exclude node_modules | sort > "$AUDIT_DIR/worklists/perf_next_configs.txt"
+rg --files -g 'next.config.*' -g '!**/node_modules/**' | sort > "$AUDIT_DIR/worklists/perf_next_configs.txt"
 : > "$AUDIT_DIR/worklists/perf_compiler_status.txt"
 while IFS= read -r file; do
   [ -f "$file" ] && rg "reactCompiler|babel-plugin-react-compiler|react-compiler" "$file"
@@ -75,8 +77,9 @@ No lane starts before every registry worklist has a path, count, and hash.
 - Record `not_applicable` only after the applicability gate from the registry is false.
 - Record source-limited blockers for missing tables, missing migrations, missing env, missing seed data, missing local files, auth blockers, dynamic fixture blockers, and unavailable runtime targets.
 - Treat non-2xx responses, unexpected redirects, auth loops, route crashes, and fixture failures as findings unless code documents that behavior as intentional.
-- Separate dev compilation from runtime latency. Warm each route once, consume the body, then measure warm runtime. Run fresh-process checks for routes backed by large files, generated ledgers, snapshots, remote object storage, or expensive startup work.
+- Separate dev compilation, process-cold startup, cache-cold execution, and warm runtime. Consume every response body. Run repeated measurements under the conditions contract from `measurement-evidence.md`.
 - Measure user-facing pages and route handlers through HTTP or browser evidence. Service/procedure timings identify hotspots but do not close a route.
+- Treat source inspection as hypothesis evidence. Promote it to a measured finding only after a trace, runtime sample, query plan, bundle artifact, lab run, or field result establishes impact.
 
 ## Check `perf-01-database-query-performance`
 
@@ -106,26 +109,13 @@ Use `perf_pages`, `perf_route_handlers`, `perf_dynamic_routes`, `perf_large_file
 - fetch calls without explicit cache or revalidation behavior;
 - pages or handlers marked dynamic without runtime need;
 - middleware or proxy work that hits databases, remote APIs, or static asset paths;
-- full page/API route matrix with status, cold latency, warm latency, bytes, auth state, fixture state, and redirect result;
-- page/RSC payloads over 500 KB, 1 MB, and 3 MB thresholds;
+- complete page/API route inventory with status, disposition, auth state, fixture state, and redirect result;
+- critical-journey route measurements with process-cold or cache-cold definition, repeated warm latency, response bytes, and measurement conditions;
+- payload budgets derived from a baseline, user impact, or repository policy; absent budgets remain unscored observations;
 - fresh-process latency for file-backed caches, snapshots, generated data, remote storage, and singleton initialization;
 - route handler, image, API, RPC, upload, download, and fallback paths.
 
-Always consume response bodies while measuring. For route rows, record:
-
-```yaml
-route:
-source:
-kind:
-auth:
-fixture:
-cold_ms:
-warm_ms:
-bytes:
-status:
-redirect:
-notes:
-```
+Always consume response bodies while measuring. Use the route row in `measurement-evidence.md`.
 
 For each finding, report `LOCATION`, `TYPE`, `SEVERITY`, `CURRENT BEHAVIOR`, `FIX`, and `TIME SAVED`.
 
@@ -135,12 +125,13 @@ Lane id: `bundle-code-splitting`
 
 Use `perf_client`, `perf_dynamic`, and `perf_deps`. Inspect:
 
-- whole-library imports from large packages;
+- whole-library imports from large packages when a build artifact or import trace attributes browser bytes to the route;
 - star imports that force broad bundle inclusion;
 - Moment, charting, rich text, map, PDF, spreadsheet, and editor dependencies in initial client bundles;
 - heavy components imported at top level instead of dynamic boundaries;
 - client components that contain no client-only feature;
-- root barrel imports that pull large modules into browser bundles.
+- root barrel imports that pull large modules into browser bundles;
+- current framework bundle-analysis output and server/client import chains; do not rely on removed or legacy First Load JS summaries for a React Server Components application.
 
 For each finding, report `LOCATION`, `TYPE`, `SEVERITY`, `CURRENT SIZE`, `FIX`, and `SAVINGS`.
 
@@ -159,7 +150,7 @@ Use `perf_client`, `perf_pages`, and `perf_compiler_status`. Inspect:
 - missing `startTransition`, `useTransition`, or `useDeferredValue` on non-urgent interactions;
 - async server components lacking Suspense at the call site or a route loading boundary.
 
-If React Compiler is enabled, do not propose manual memoization. If React Compiler is disabled in a React 19 target, report compiler enablement as `P0` and keep manual memoization out of the fix plan.
+If React Compiler is enabled, do not propose manual memoization without profiler evidence and a named compiler limitation. If it is disabled, record compiler enablement as a scoped experiment whose priority follows measured render cost; do not assign severity from version alone.
 
 For each finding, report `COMPONENT`, `TYPE`, `SEVERITY`, `ROOT CAUSE`, `FIX`, and `IMPACT`.
 
@@ -203,8 +194,8 @@ Include these sections in the category report:
 - Top 5 Highest-Impact Changes ranked by user impact.
 - Coverage Report with counters for completed lanes, completed checks, skipped checks, clean checks, React Compiler status, audited queries/pages/handlers, HTTP-measured routes, dynamic fixtures created and blocked, fixture cleanup, cold/warm checks, max page bytes, oversized routes, broken routes, and loading coverage.
 - Next Run Input with prior fixes, known-good routes, and targeted skipped checks.
-- Persisted Baseline with `baselineId`, `targetLabel`, measurement rows, thresholds, and `nextRun.command`; validate it with `node ~/.claude/scripts/performance-baseline.mjs validate <baseline-json>`.
-- Trend Delta when a prior baseline exists; compute it with `node ~/.claude/scripts/performance-baseline.mjs trend --before <old-baseline> --after <new-baseline>`.
+- Persisted Baseline with schema v2, `baselineId`, `targetLabel`, evidence-bound measurement rows, thresholds, and `nextRun.command`; validate it with `node scripts/performance-baseline.mjs validate <baseline-json>` from the source checkout.
+- Trend Delta when a comparable prior baseline exists; compute it with `node scripts/performance-baseline.mjs trend --before <old-baseline> --after <new-baseline>`.
 
 ## Artifact Rows
 

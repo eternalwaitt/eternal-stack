@@ -904,6 +904,35 @@ printf '%s\n' '{"schemaVersion":1,"baselineId":"after","targetLabel":"fixture","
 perf_trend_json="$(node "$ROOT/scripts/performance-baseline.mjs" trend --before "$perf_baseline_fixture" --after "$perf_baseline_after")"
 assert_json_expr "performance baseline trend reports delta" "$perf_trend_json" '.comparisons[0].deltaMs == 25'
 assert_json_expr "performance baseline trend reports removed rows" "$perf_trend_json" 'any(.comparisons[]; .key == "/removed" and .removed == true and .beforeMs == 75 and .afterMs == null)'
+perf_v2_before="$TMPROOT/performance-baseline-v2-before.json"
+perf_v2_after="$TMPROOT/performance-baseline-v2-after.json"
+printf '%s\n' '{"schemaVersion":2,"baselineId":"v2-before","targetLabel":"checkout","measurements":[{"route":"/checkout","metric":"lcp","value":2200,"unit":"ms","evidenceKind":"lab","statistic":"median","sampleCount":5,"direction":"lower","capturedAt":"2026-09-07T12:00:00Z","conditions":{"environment":"local-production-build","sourceRevision":"before-revision","device":"desktop","network":"cable","cacheState":"browser_cold","auth":"member","fixture":"tenant-safe"}}],"nextRun":{"command":"pnpm perf:checkout","thresholds":{"noisePct":5,"minImprovementPct":8,"maxRegressionPct":5}}}' >"$perf_v2_before"
+printf '%s\n' '{"schemaVersion":2,"baselineId":"v2-after","targetLabel":"checkout","measurements":[{"route":"/checkout","metric":"lcp","value":1980,"unit":"ms","evidenceKind":"lab","statistic":"median","sampleCount":5,"direction":"lower","capturedAt":"2026-09-07T12:10:00Z","conditions":{"environment":"local-production-build","sourceRevision":"after-revision","device":"desktop","network":"cable","cacheState":"browser_cold","auth":"member","fixture":"tenant-safe"}}],"nextRun":{"command":"pnpm perf:checkout","thresholds":{"noisePct":5,"minImprovementPct":8,"maxRegressionPct":5}}}' >"$perf_v2_after"
+assert_command "performance baseline v2 validates evidence conditions" node "$ROOT/scripts/performance-baseline.mjs" validate "$perf_v2_before"
+perf_v2_trend_json="$(node "$ROOT/scripts/performance-baseline.mjs" trend --before "$perf_v2_before" --after "$perf_v2_after")"
+assert_json_expr "performance baseline v2 compares across source revisions" "$perf_v2_trend_json" '.comparisons[0].beforeRevision == "before-revision" and .comparisons[0].afterRevision == "after-revision" and .comparisons[0].delta == -220'
+assert_json_expr "performance baseline v2 classifies improvement beyond noise" "$perf_v2_trend_json" '.comparisons[0].verdict == "improved"'
+perf_v2_mismatched="$TMPROOT/performance-baseline-v2-mismatched.json"
+printf '%s\n' '{"schemaVersion":2,"baselineId":"v2-mismatched","targetLabel":"checkout","measurements":[{"route":"/checkout","metric":"lcp","value":1980,"unit":"ms","evidenceKind":"lab","statistic":"median","sampleCount":5,"direction":"lower","capturedAt":"2026-09-07T12:10:00Z","conditions":{"environment":"local-production-build","sourceRevision":"after-revision","device":"mobile","network":"cable","cacheState":"browser_cold","auth":"member","fixture":"tenant-safe"}}],"nextRun":{"command":"pnpm perf:checkout","thresholds":{"noisePct":5,"minImprovementPct":8,"maxRegressionPct":5}}}' >"$perf_v2_mismatched"
+perf_v2_mismatch_trend="$(node "$ROOT/scripts/performance-baseline.mjs" trend --before "$perf_v2_before" --after "$perf_v2_mismatched")"
+assert_json_expr "performance baseline v2 refuses mismatched-condition deltas" "$perf_v2_mismatch_trend" '([.comparisons[] | select(.verdict == "added" and .beforeValue == null)] | length) == 1 and ([.comparisons[] | select(.verdict == "removed" and .afterValue == null)] | length) == 1'
+perf_v2_lab_inp="$TMPROOT/performance-baseline-v2-lab-inp.json"
+printf '%s\n' '{"schemaVersion":2,"baselineId":"bad-inp","targetLabel":"checkout","measurements":[{"route":"/checkout","metric":"inp","value":180,"unit":"ms","evidenceKind":"lab","statistic":"median","sampleCount":5,"capturedAt":"2026-09-07T12:00:00Z","conditions":{"environment":"local-production-build","sourceRevision":"revision"}}]}' >"$perf_v2_lab_inp"
+if perf_lab_inp_error="$(node "$ROOT/scripts/performance-baseline.mjs" validate "$perf_v2_lab_inp" 2>&1)"; then
+  not_ok "performance baseline v2 rejects lab INP"
+else
+  assert_contains "performance baseline v2 rejects lab INP" "$perf_lab_inp_error" "cannot claim INP from lab evidence"
+fi
+perf_v2_field_p50="$TMPROOT/performance-baseline-v2-field-p50.json"
+printf '%s\n' '{"schemaVersion":2,"baselineId":"bad-field-stat","targetLabel":"checkout","measurements":[{"route":"/checkout","metric":"lcp","value":2100,"unit":"ms","evidenceKind":"field","statistic":"p50","sampleCount":100,"capturedAt":"2026-09-07T12:00:00Z","conditions":{"environment":"production-rum","sourceRevision":"revision"}}]}' >"$perf_v2_field_p50"
+if perf_field_p50_error="$(node "$ROOT/scripts/performance-baseline.mjs" validate "$perf_v2_field_p50" 2>&1)"; then
+  not_ok "performance baseline v2 rejects non-p75 field Core Web Vitals"
+else
+  assert_contains "performance baseline v2 rejects non-p75 field Core Web Vitals" "$perf_field_p50_error" "field Core Web Vitals must use statistic p75"
+fi
+perf_v2_field_private_count="$TMPROOT/performance-baseline-v2-field-private-count.json"
+printf '%s\n' '{"schemaVersion":2,"baselineId":"field-private-count","targetLabel":"checkout","measurements":[{"route":"/checkout","metric":"lcp","value":2100,"unit":"ms","evidenceKind":"field","statistic":"p75","sampleCount":null,"capturedAt":"2026-09-07T12:00:00Z","conditions":{"environment":"production-rum","sourceRevision":"mixed-window","cohort":"all-navigation-mobile","window":"rolling-28-days","sampleCountUnavailableReason":"provider does not expose sample count"}}]}' >"$perf_v2_field_private_count"
+assert_command "performance baseline v2 accepts named unavailable field sample count" node "$ROOT/scripts/performance-baseline.mjs" validate "$perf_v2_field_private_count"
 if perf_missing_file="$(node "$ROOT/scripts/performance-baseline.mjs" validate "$TMPROOT/missing-performance-baseline.json" 2>&1)"; then
   not_ok "performance baseline validate reports missing file"
 else

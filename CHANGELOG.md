@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Changed
 
+- `etrnl-audit-performance` now combines Eternal Stack's six-lane coverage with a causal measure-identify-fix-verify-guard loop, explicit field/lab/trace/runtime/query-plan/bundle evidence, current Core Web Vitals and React/Next.js rules, complete target dispositions, and remediation receipts. `performance-baseline.mjs` adds backward-compatible schema v2 with comparison conditions, source revisions, lab-INP and field-p75 validation, noise-aware trend verdicts, and focused regression tests.
 - Default install now merges strict blocker hooks (`templates/settings.strict.json`). Set `ETRNL_ENABLE_STRICT=0` for the previous observer-only template.
 - `etrnl-ops-ship` is a class-aware verifier: it reads plan/PR evidence and the release manifest, confirms PR gate green, and promotes by signal. It no longer originates release-control requirements or blocks deploy with "write a follow-up release-controls PR."
 - UserPromptSubmit routing for `etrnl-ops-ship` no longer matches routine phrasing such as "ship this feature change"; explicit rollout/cutover/go-no-go prompts still route ship.
@@ -549,7 +550,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ### Security
 
 - Public repository boundary: no private identity, credentials, transcripts, or local planning artifacts in tracked files.
-
 
 
 
