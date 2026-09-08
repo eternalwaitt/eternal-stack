@@ -133,6 +133,21 @@
       "sha256": "sha256:perf_queries",
       "artifactLabel": "perf-queries"
     },
+    "perf_procedures": {
+      "count": 1,
+      "sha256": "sha256:perf_procedures",
+      "artifactLabel": "perf-procedures"
+    },
+    "perf_request_graph": {
+      "count": 2,
+      "sha256": "sha256:perf_request_graph",
+      "artifactLabel": "perf-request-graph"
+    },
+    "perf_relations": {
+      "count": 1,
+      "sha256": "sha256:perf_relations",
+      "artifactLabel": "perf-relations"
+    },
     "perf_client": {
       "count": 1,
       "sha256": "sha256:perf_client",
@@ -162,6 +177,14 @@
       "count": 1,
       "sha256": "sha256:perf_compiler_status",
       "artifactLabel": "perf-compiler-status"
+    },
+    "perf_provider_incidents": {
+      "count": 0,
+      "sha256": "sha256:perf_provider_incidents",
+      "artifactLabel": "perf-provider-incidents",
+      "intakeStatus": "not_applicable",
+      "intakeSources": ["synthetic fixture has no provider runtime"],
+      "incidentIds": []
     },
     "sec_entrypoints": {
       "count": 1,
@@ -644,12 +667,16 @@
         "perf_dynamic_routes": "sha256:perf_dynamic_routes",
         "perf_loading": "sha256:perf_loading",
         "perf_queries": "sha256:perf_queries",
+        "perf_procedures": "sha256:perf_procedures",
+        "perf_request_graph": "sha256:perf_request_graph",
+        "perf_relations": "sha256:perf_relations",
         "perf_client": "sha256:perf_client",
         "perf_dynamic": "sha256:perf_dynamic",
         "perf_deps": "sha256:perf_deps",
         "perf_large_files": "sha256:perf_large_files",
         "perf_next_configs": "sha256:perf_next_configs",
-        "perf_compiler_status": "sha256:perf_compiler_status"
+        "perf_compiler_status": "sha256:perf_compiler_status",
+        "perf_provider_incidents": "sha256:perf_provider_incidents"
       },
       "checks": [
         {
@@ -812,6 +839,9 @@
         "perf_dynamic_routes": "sha256:perf_dynamic_routes",
         "perf_loading": "sha256:perf_loading",
         "perf_queries": "sha256:perf_queries",
+        "perf_procedures": "sha256:perf_procedures",
+        "perf_request_graph": "sha256:perf_request_graph",
+        "perf_relations": "sha256:perf_relations",
         "perf_client": "sha256:perf_client",
         "perf_dynamic": "sha256:perf_dynamic",
         "perf_deps": "sha256:perf_deps",
@@ -829,6 +859,8 @@
         "perf_pages": "sha256:perf_pages",
         "perf_route_handlers": "sha256:perf_route_handlers",
         "perf_dynamic_routes": "sha256:perf_dynamic_routes",
+        "perf_procedures": "sha256:perf_procedures",
+        "perf_request_graph": "sha256:perf_request_graph",
         "perf_loading": "sha256:perf_loading",
         "perf_queries": "sha256:perf_queries",
         "perf_client": "sha256:perf_client",
@@ -887,6 +919,7 @@
         "perf_route_handlers": "sha256:perf_route_handlers",
         "perf_dynamic_routes": "sha256:perf_dynamic_routes",
         "perf_loading": "sha256:perf_loading",
+        "perf_request_graph": "sha256:perf_request_graph",
         "perf_queries": "sha256:perf_queries",
         "perf_client": "sha256:perf_client",
         "perf_dynamic": "sha256:perf_dynamic",
@@ -904,6 +937,8 @@
       "consumedWorklistHashes": {
         "perf_pages": "sha256:perf_pages",
         "perf_route_handlers": "sha256:perf_route_handlers",
+        "perf_request_graph": "sha256:perf_request_graph",
+        "perf_relations": "sha256:perf_relations",
         "perf_dynamic_routes": "sha256:perf_dynamic_routes",
         "perf_loading": "sha256:perf_loading",
         "perf_queries": "sha256:perf_queries",
@@ -912,7 +947,8 @@
         "perf_deps": "sha256:perf_deps",
         "perf_large_files": "sha256:perf_large_files",
         "perf_next_configs": "sha256:perf_next_configs",
-        "perf_compiler_status": "sha256:perf_compiler_status"
+        "perf_compiler_status": "sha256:perf_compiler_status",
+        "perf_provider_incidents": "sha256:perf_provider_incidents"
       },
       "summary": "lane completed"
     }

@@ -14,8 +14,11 @@ Every metric carries exactly one evidence kind:
 | `runtime` | endpoint or operation behavior in the named runtime and fixture | browser rendering or field experience |
 | `query_plan` | database execution strategy and cost for the named data shape | end-to-end route latency |
 | `bundle` | emitted bytes and import ownership for the named build and route | download, parse, render, or user impact by itself |
+| `provider_runtime` | a provider-observed termination, memory-limit event, restart, or resource incident in the named deployment/runtime | an exact peak-heap value when the provider does not expose one |
 
 Static source inspection identifies a hypothesis and producing path. It never receives a measurement row.
+
+Keep metric domains separate. TypeScript/framework build memory describes a build process. Server runtime memory describes the deployed request isolate or process. Client bytes describe emitted or transferred browser assets. A successful build or smaller client bundle cannot substitute for runtime-memory verification.
 
 ## Core Web Vitals
 
@@ -34,6 +37,7 @@ Static source inspection identifies a hypothesis and producing path. It never re
 - Store the sample count and statistic. Use median for repeatable lab/runtime comparisons and p75 for field Core Web Vitals. Use the explicit provider-unavailable form above for field counts that are not exposed.
 - Store raw sample artifacts or a private evidence path when the data carries tenant or user content.
 - Treat a single trace or observation as diagnostic evidence, not a trend.
+- Treat a provider incident as primary evidence that the named runtime failure occurred, even when it exposes no peak-heap sample. Record the provider event count, affected deployment/runtime, request burst, routes or operations, resource limit when exposed, recurrence, and an honest unavailable reason for any missing metric.
 - Calculate noise from an unchanged control or repeated baseline. Set `noisePct` in `nextRun.thresholds`.
 
 ## Comparison Conditions
@@ -84,6 +88,14 @@ notes:
 ```
 
 Measure every critical journey and suspected hotspot. Inventory lower-priority targets without fabricating measurements. A non-2xx response, unexpected redirect, auth loop, or broken fixture stays visible.
+
+For request fanout, add a journey graph that maps each page to the procedures it starts, each procedure to its database/remote reads, and each read to root and nested relation cardinality. Mark which calls overlap in the same isolate. A route inventory without these edges is incomplete when a page triggers RPC/API work.
+
+## Runtime Memory Evidence
+
+When runtime memory is in scope, load `runtime-memory-incidents.md`. Record runtime memory separately from build memory and client bytes. Use provider event data plus bounded producing-path tests and same-journey runtime replay without inventing a peak value the platform does not expose.
+
+An all-pages pass runs every discovered page journey sequentially in one process or isolate without restarting between pages, consumes response bodies, and samples memory at stable checkpoints when instrumentation exists. Follow it with representative concurrency. When a managed runtime does not expose isolate identity or scheduling control, record that constraint and limit the result to all-pages actual-runtime coverage rather than claiming same-isolate proof. A per-response payload limit, one route in a fresh process, or a build-memory result does not establish accumulated runtime-memory safety.
 
 ## Bundle Evidence
 

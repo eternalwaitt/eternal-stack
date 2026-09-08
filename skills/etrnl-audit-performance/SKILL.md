@@ -14,9 +14,9 @@ Default mode is read-only audit. Enter remediation mode only when the user asks 
 
 1. Locate the source checkout or installed stack root. Resolve helper paths from `scripts/` in source, `~/.codex/scripts/` in Codex, or `~/.claude/scripts/` in Claude Code. Read the `performance` entry in `scripts/lib/deep-audit-categories.mjs`.
 1. Create or reuse a run-scoped artifact directory. Direct invocation creates the same worklist, receipt, report, and baseline envelope locally; it does not require the full orchestrator.
-1. Load `references/audit-checks.md`. Load `references/measurement-evidence.md` before any measurement claim. Load `references/remediation-contract.md` in remediation mode. When a TypeScript or framework build exhausts memory, is killed near type validation, or passes only with a larger V8 heap, also load `references/typescript-build-memory.md`.
+1. Load `references/audit-checks.md`. Load `references/measurement-evidence.md` before any measurement claim. Load `references/runtime-memory-incidents.md` whenever a provider, runtime, deploy log, or user report identifies server memory pressure. Load `references/remediation-contract.md` in remediation mode. When a TypeScript or framework build exhausts memory, is killed near type validation, or passes only with a larger V8 heap, also load `references/typescript-build-memory.md`.
 1. Discover the complete target surface, then select critical journeys, hot operations, and representative authenticated fixtures. Record every discovered target as measured, `not_applicable`, `source_limited`, or explicitly lower priority.
-1. Build every registered `perf_*` worklist before analysis. Record path, item count, and SHA-256 hash.
+1. Build every registered `perf_*` worklist before analysis. Record path, item count, and SHA-256 hash. For provider incidents, preserve and reconcile unresolved prior ids, fetch user-linked evidence, query provider/deploy errors and alerts when access exists, and record exact access failures; never truncate the incident list before reconciliation or infer zero from an untouched empty file.
 1. Run the six registry lanes against those immutable worklists. With an authorized agent mechanism, dispatch the registry model tier returned by `categoryLaneDispatch("performance")`; without one, execute lanes sequentially and retain identical receipts.
 1. Separate static hypotheses from measured findings. Static evidence proves risk or a producing path, never a latency, byte, query-cost, rendering, or Core Web Vitals result.
 1. Record each `perf-*` result exactly once as `finding`, `confirmed_clean`, `skipped`, `not_applicable`, or `source_limited`. Attach the evidence kind and measurement conditions.
@@ -41,11 +41,13 @@ Completion requires all of these items:
 - Every registry worklist has a path, count, and hash.
 - Six lane receipts exist for `database-query-performance`, `server-response-caching`, `bundle-code-splitting`, `react-rendering`, `perceived-performance`, and `infrastructure-network`.
 - Every discovered target has a disposition; critical journeys include status, response bytes, auth/fixture state, cold-process or cold-cache definition, and warm measurements.
-- Every metric names `field`, `lab`, `trace`, `runtime`, `query_plan`, or `bundle` evidence plus source revision and environment.
+- Every metric names `field`, `lab`, `trace`, `runtime`, `query_plan`, `bundle`, or `provider_runtime` evidence plus source revision and environment.
 - Dev compilation, process cold start, cache cold start, and warm runtime remain distinct.
+- Build memory, server runtime memory, and client bundle/transfer bytes remain separate evidence domains. One cannot close another.
 - Every registered check id appears exactly once. Blockers and unmeasured targets remain explicit.
 - Measured work includes a validated schema-v2 baseline and replay command. A measurement blocker names the missing dependency instead.
 - Remediation work includes comparable before/after evidence, correctness gates, regression checks, and keep/revert/inconclusive disposition.
+- A provider-reported runtime memory incident remains an actionable finding. It closes only with causal remediation, bounded root/nested cardinality, all affected-journey coverage, representative overlapping replay in the actual runtime, and provider recurrence evidence; otherwise it remains open with one concrete external dependency. Record whole-repository accumulated-process coverage separately and limit that broader claim when isolate identity is unavailable.
 - The category envelope passes `deep-audit-artifact-check.mjs`.
 
 ## Common Rationalizations
@@ -58,6 +60,8 @@ Completion requires all of these items:
 - "One slow query is isolated." -> Prove call frequency, row volume, query plan, and the user-facing route that pays the cost.
 - "The number improved, so keep the patch." -> A result inside noise is inconclusive, and a faster broken path is a regression.
 - "The build passes with a larger heap, so it is fixed." -> A heap increase contains the failure. Isolate the phase, attribute the compiler graph, reduce structural pressure, and prove the ordinary type gate still fails closed.
+- "We do not have our own heap trace." -> A provider incident is primary evidence that the failure occurred. Missing heap telemetry limits mechanism attribution; it does not erase the incident or justify deferring a known producing path.
+- "Every response was bounded." -> Per-response bounds do not prove process memory is bounded. Replay all pages and critical journeys in one isolate, then add representative concurrency.
 
 ## Red Flags
 
@@ -69,6 +73,7 @@ Completion requires all of these items:
 - Manual memoization proposed solely from source inspection when React Compiler is active.
 - Shared cache keys that omit tenant, viewer, locale, permissions, feature flags, or other response-varying inputs.
 - TypeScript or framework builds that die after compilation, plateau at the V8 heap limit, compile generated implementation sources through an application graph, or silently disable type validation to finish.
+- Provider OOM, restart, eviction, RSS-limit, or memory-pressure evidence summarized as clean or `source_limited`; a known producing path left for a future audit because local heap telemetry is unavailable.
 
 ## When NOT to use
 
@@ -94,4 +99,5 @@ Run counts every item. Any FAIL leaves the run incomplete:
 - `references/audit-checks.md`: scope discovery, immutable worklists, six-lane checks, and report envelope.
 - `references/measurement-evidence.md`: evidence hierarchy, Core Web Vitals, route matrix, repeat measurement, and schema-v2 baseline.
 - `references/remediation-contract.md`: causal fixes, comparable verification, framework-safe remediation, guards, and rollback.
+- `references/runtime-memory-incidents.md`: provider evidence intake, request-graph and relation-cardinality attribution, accumulated-process replay, concurrency, and closure.
 - `references/typescript-build-memory.md`: phase isolation, compiler-graph attribution, declaration boundaries, heap containment, and fail-closed framework builds.
