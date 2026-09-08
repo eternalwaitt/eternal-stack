@@ -1,4 +1,5 @@
 import { MODEL_TIERS, resolveCodexModel } from "./codex-model-routing.mjs";
+import { PERFORMANCE_CHECKS, PERFORMANCE_CONTRACT_VERSION } from "./performance-contract.mjs";
 
 /** Version for the deep-audit category registry schema and expected fixture snapshots. */
 export const CATEGORY_REGISTRY_VERSION = "2026-07-24.1";
@@ -217,6 +218,8 @@ export const REGISTERED_DEEP_AUDIT_CATEGORIES = [
   },
   {
     categoryId: "performance",
+    domainContractVersion: PERFORMANCE_CONTRACT_VERSION,
+    domainChecks: PERFORMANCE_CHECKS,
     skillName: "etrnl-audit-performance",
     referencePath: "skills/etrnl-audit-performance/references/audit-checks.md",
     executionMode: "fanout",

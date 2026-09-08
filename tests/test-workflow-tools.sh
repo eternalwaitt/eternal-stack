@@ -995,6 +995,8 @@ assert_command "deep-audit category registry syntax" node --check "$ROOT/scripts
 assert_command "deep-audit valid artifact passes" node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$ROOT/tests/fixtures/deep-audit/report.valid.json"
 assert_command "deep-audit production direct artifact passes" node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$ROOT/tests/fixtures/deep-audit/report.production-valid.json"
 assert_command "deep-audit performance direct artifact passes" node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$ROOT/tests/fixtures/deep-audit/report.performance-valid.json"
+cp "$ROOT/tests/fixtures/deep-audit/performance-contract.json" "$TMPROOT/performance-contract.json"
+cp "$ROOT/tests/fixtures/deep-audit/performance-evidence.txt" "$TMPROOT/performance-evidence.txt"
 performance_provider_false_clean="$TMPROOT/performance-provider-false-clean.json"
 jq '
   .worklists.perf_provider_incidents.count = 1
@@ -4518,5 +4520,7 @@ for trigger_text in "batch-execution-adopted" "third concurrent lane" "20+" "55%
   assert_contains "batch trigger table includes $trigger_text in claude execute profile" "$claude_exec_profile" "$trigger_text"
   assert_contains "batch trigger table includes $trigger_text in codex execute profile" "$codex_exec_profile" "$trigger_text"
 done
+
+assert_command "performance fine contracts, routing and parity pass" node --test "$ROOT/tests/fixtures/performance/test-contract.mjs"
 
 finish_tests

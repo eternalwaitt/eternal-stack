@@ -1,0 +1,79 @@
+[
+  {
+    "repository": "vercel-labs/agent-skills",
+    "path": "skills/react-best-practices/SKILL.md",
+    "revision": "063bee94c3f4df8453406c830b0a7df0f2860278",
+    "url": "https://raw.githubusercontent.com/vercel-labs/agent-skills/063bee94c3f4df8453406c830b0a7df0f2860278/skills/react-best-practices/SKILL.md",
+    "status": 200,
+    "sha256": "71ed7794962fa6e803ee83030517b5b93a9f70fbfeb431ec4535c5480a8d8355",
+    "license": "unverified; no material vendored",
+    "checkedAt": "2026-09-08",
+    "usage": "mechanism comparison only; no external text or code vendored"
+  },
+  {
+    "repository": "vercel-labs/agent-skills",
+    "path": "skills/vercel-optimize/SKILL.md",
+    "revision": "063bee94c3f4df8453406c830b0a7df0f2860278",
+    "url": "https://raw.githubusercontent.com/vercel-labs/agent-skills/063bee94c3f4df8453406c830b0a7df0f2860278/skills/vercel-optimize/SKILL.md",
+    "status": 200,
+    "sha256": "95ae2683b30d892d165af92a350c5628b68106f395a59b448857b654e306ed91",
+    "license": "unverified; no material vendored",
+    "checkedAt": "2026-09-08",
+    "usage": "mechanism comparison only; no external text or code vendored"
+  },
+  {
+    "repository": "addyosmani/agent-skills",
+    "path": "skills/performance-optimization/SKILL.md",
+    "revision": "6ca0cd7db39b41b1c37e26d335c507ee92382c6d",
+    "url": "https://raw.githubusercontent.com/addyosmani/agent-skills/6ca0cd7db39b41b1c37e26d335c507ee92382c6d/skills/performance-optimization/SKILL.md",
+    "status": 200,
+    "sha256": "00694d0c69bbde674d0e39de24052d90afea32d9fef9553eaee21a50a7e9b8cf",
+    "license": "MIT",
+    "checkedAt": "2026-09-08",
+    "usage": "mechanism comparison only; no external text or code vendored"
+  },
+  {
+    "repository": "addyosmani/agent-skills",
+    "path": "agents/web-performance-auditor.md",
+    "revision": "6ca0cd7db39b41b1c37e26d335c507ee92382c6d",
+    "url": "https://raw.githubusercontent.com/addyosmani/agent-skills/6ca0cd7db39b41b1c37e26d335c507ee92382c6d/agents/web-performance-auditor.md",
+    "status": 200,
+    "sha256": "0928b1cf8103262a364bce0c1fc689a918852e2275441f1b2e687adfa1e607e9",
+    "license": "MIT",
+    "checkedAt": "2026-09-08",
+    "usage": "mechanism comparison only; no external text or code vendored"
+  },
+  {
+    "repository": "PierreAndreis/pierre-skills",
+    "path": "skills/agent-laboratory/SKILL.md",
+    "revision": "3158a4c90589a7013a0a28536f7feb4c861a6c7c",
+    "url": "https://raw.githubusercontent.com/PierreAndreis/pierre-skills/3158a4c90589a7013a0a28536f7feb4c861a6c7c/skills/agent-laboratory/SKILL.md",
+    "status": 200,
+    "sha256": "47aa9a676d11ef0cc9d79fcdb66ff4b0fcee3e5784a7e0632f7cd4937cf5f77d",
+    "license": "MIT",
+    "checkedAt": "2026-09-08",
+    "usage": "mechanism comparison only; no external text or code vendored"
+  },
+  {
+    "repository": "SkillMedev/skills",
+    "path": "skills/load-testing/SKILL.md",
+    "revision": "a28c4ce9366b5a8540577bed8f70b6a60f8fde27",
+    "url": "https://raw.githubusercontent.com/SkillMedev/skills/a28c4ce9366b5a8540577bed8f70b6a60f8fde27/skills/load-testing/SKILL.md",
+    "status": 200,
+    "sha256": "5d103dde3fd7e62ecbd2e7906d4777ab4893f4678175dc52659692fc0abed65c",
+    "license": "MIT",
+    "checkedAt": "2026-09-08",
+    "usage": "mechanism comparison only; no external text or code vendored"
+  },
+  {
+    "repository": "intel/intel-performance-skills",
+    "path": "README.md",
+    "revision": "e9d0b6410fb1ad7a50fb81e0868fd23ae886882c",
+    "url": "https://raw.githubusercontent.com/intel/intel-performance-skills/e9d0b6410fb1ad7a50fb81e0868fd23ae886882c/README.md",
+    "status": 200,
+    "sha256": "ca031de7d65422b92259f120da3dd1f7aef4d9bc52a9cb58b0c6370bd9043fe2",
+    "license": "NOASSERTION",
+    "checkedAt": "2026-09-08",
+    "usage": "mechanism comparison only; no external text or code vendored"
+  }
+]

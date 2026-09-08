@@ -214,7 +214,7 @@ Include these sections in the category report:
 - File-Level Consolidation with one block per file that has multiple findings.
 - Index Migration Block when query-latency evidence requires index additions.
 - Zero-Cost Quick Wins with file-specific rows or `CONFIRMED_CLEAN: no quick wins found, all high-effort`.
-- Top 5 Highest-Impact Changes ranked by user impact.
+- Executive summary: up to five highest-impact changes ranked by user impact. The complete structured findings ledger remains mandatory and uncapped; this summary never limits investigation.
 - Coverage Report with counters for completed lanes, completed checks, skipped checks, clean checks, React Compiler status, audited queries/pages/handlers, HTTP-measured routes, dynamic fixtures created and blocked, fixture cleanup, cold/warm checks, max page bytes, oversized routes, broken routes, and loading coverage.
 - Next Run Input with prior fixes, known-good routes, and targeted skipped checks.
 - Persisted Baseline with schema v2, `baselineId`, `targetLabel`, evidence-bound measurement rows, thresholds, and `nextRun.command`; validate it with `node scripts/performance-baseline.mjs validate <baseline-json>` from the source checkout.

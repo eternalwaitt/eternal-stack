@@ -1,0 +1,3 @@
+# These synthetic evidence artifacts are verified by byte-exact SHA-256.
+tests/fixtures/deep-audit/performance-contract.json text eol=lf
+tests/fixtures/deep-audit/performance-evidence.txt text eol=lf

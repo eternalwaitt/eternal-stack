@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Added
 
+- Performance audit kernel with 64 independent evidence receipts, conservative stack-neutral discovery, conditional domain playbooks, adversarial contract tests and read-only distribution parity checks. Existing runtime-memory incident closure remains mandatory.
 - Dual-host spawn guard: `cc-spawn-guard.sh` on Claude default template (`Task|Agent|TaskCreate`) and Codex `spawn-guard-pre-tool-use.sh` enforce shared `spawn-guard.mjs` policy through `execution-ledger.mjs check-spawn` with `--explain` recovery, batch adoption triggers, and wave 2+ merged-review economics.
 - `review-scope.mjs` classifies tier 0–2 diff-size review scope; tier ≥3 always uses `full_lenses`.
 - `references/claude-execute-profile.md` documents Claude host defaults alongside the existing Codex profile.
@@ -21,6 +22,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - `planTouchesInstallSurface()` in `scripts/lib/plan-risk-tier.mjs` reports whether a plan changes an installable surface. The tier-3 auto-escalation list is now split into install-surface patterns (`hooks/`, `scripts/install*.sh`, `scripts/update.sh`) and high-risk domain patterns (auth, payment, money, migration, tenant); their union is unchanged, so escalation behavior is identical.
 
 ### Changed
+
+- Performance contract v2 requires detected specialist receipts, uncapped per-surface sweeps and evidence-backed rerun reconciliation.
 
 - `etrnl-audit-performance` adds conditional build-memory and provider-runtime-memory playbooks: distinguish build memory, server runtime memory, and client bytes; ingest provider incidents as primary evidence; map page -> oRPC procedure -> query/relation fanout; verify root and nested cardinality; and close incidents through bounded-path tests plus same-journey post-deployment runtime evidence without inventing unavailable peak-heap metrics. Bundle remediation also prevents lightweight configuration exports from statically importing heavy payloads such as locale catalogs.
 - Email triage now runs guarded Inbox Zero with progress and apply-before-enrichment, prevents competing guarded runs and tool-level timeouts, opens the human-review queue with on-demand drafts, and requires a checked replacement before presenting a failed draft for approval.

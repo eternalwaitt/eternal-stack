@@ -1,0 +1,6328 @@
+{
+  "version": 2,
+  "runId": "fixture-run",
+  "targetId": "fixture-target",
+  "mode": "audit",
+  "inventory": {
+    "files": [
+      {
+        "path": "synthetic-app.mjs",
+        "sha256": "b3cc0475bb78a5026098858e9889acf666d31062d513d303314eca31d36e72f2"
+      }
+    ],
+    "sha256": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+    "command": "synthetic fixture inventory",
+    "revision": "fixture-v1"
+  },
+  "surfaces": [
+    {
+      "id": "synthetic",
+      "files": [
+        "synthetic-app.mjs"
+      ],
+      "domains": [
+        "database",
+        "runtime",
+        "cache",
+        "requests",
+        "react",
+        "browser",
+        "bundle",
+        "delivery",
+        "load",
+        "background",
+        "build",
+        "platform"
+      ],
+      "journeys": [
+        "fixture-journey"
+      ]
+    }
+  ],
+  "exclusions": [],
+  "discoveryReview": {
+    "routeCommand": "synthetic route fixture",
+    "runtimeCommand": "synthetic runtime fixture",
+    "limitations": "Synthetic validation only; no live agent or application evidence"
+  },
+  "receipts": [
+    {
+      "id": "database.query-count",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-database.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "database",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "database.root-cardinality",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-database.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "database",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "database.nested-cardinality",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-database.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "database",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "database.projection",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-database.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "database",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "database.plans",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-database.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "database",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "database.indexes",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-database.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "database",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "database.pool-wait",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-database.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "database",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "database.locks-transactions",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-database.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "database",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "runtime.cpu",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-runtime.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "server_runtime",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "runtime.saturation",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-runtime.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "server_runtime",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "runtime.event-loop",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-runtime.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "server_runtime",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "runtime.thread-pool",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-runtime.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "server_runtime",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "runtime.gc",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-runtime.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "server_runtime",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "runtime.heap-retention",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-runtime.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "server_runtime",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "runtime.native-rss",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-runtime.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "server_runtime",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "runtime.handles-io",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-runtime.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "server_runtime",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "runtime.cold-start",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-runtime.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "server_runtime",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "runtime.concurrency",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-runtime.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "server_runtime",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "cache.keys-invalidation",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-runtime.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "server_runtime",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "cache.stampede",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-runtime.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "server_runtime",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "cache.coalescing",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-runtime.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "server_runtime",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "cache.capacity",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-runtime.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "server_runtime",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "requests.route-coverage",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-runtime.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "server_runtime",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "requests.waterfalls",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-runtime.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "server_runtime",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "requests.serialization",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-runtime.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "server_runtime",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "requests.external-retries",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-runtime.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "server_runtime",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "react.render-commit",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-browser.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "browser",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "react.context-subscriptions",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-browser.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "browser",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "react.virtualization",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-browser.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "browser",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "react.compiler",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-browser.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "browser",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "react.effects-leaks",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-browser.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "browser",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "browser.hydration",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-browser.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "browser",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "browser.long-tasks",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-browser.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "browser",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "browser.field-vitals",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-browser.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "browser",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "browser.constrained-device",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-browser.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "browser",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "browser.transitions-streaming",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-browser.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "browser",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "browser.resource-loading",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-browser.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "browser",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "bundle.route-ownership",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-browser.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "client_bundle",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "bundle.transfer-parse-execute",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-browser.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "client_bundle",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "bundle.duplicates-tree-shaking",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-browser.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "client_bundle",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "bundle.client-leakage",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-browser.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "client_bundle",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "bundle.dynamic-imports",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-browser.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "client_bundle",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "bundle.budgets",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-browser.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "client_bundle",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "delivery.cdn-compression",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-operations.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "network",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "delivery.assets",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-operations.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "network",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "delivery.placement",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-operations.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "network",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "delivery.network-io",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-operations.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "network",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "load.traffic-mix",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "loadPlan": {
+        "target": "synthetic fixture only",
+        "environment": "synthetic fixture only",
+        "authorization": "synthetic fixture only",
+        "duration": "synthetic fixture only",
+        "maxRate": "synthetic fixture only",
+        "maxConcurrency": "synthetic fixture only",
+        "abortLatency": "synthetic fixture only",
+        "abortErrors": "synthetic fixture only",
+        "abortResources": "synthetic fixture only",
+        "generatorLimits": "synthetic fixture only",
+        "cleanup": "synthetic fixture only"
+      },
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-operations.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "capacity",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "load.smoke",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "loadPlan": {
+        "target": "synthetic fixture only",
+        "environment": "synthetic fixture only",
+        "authorization": "synthetic fixture only",
+        "duration": "synthetic fixture only",
+        "maxRate": "synthetic fixture only",
+        "maxConcurrency": "synthetic fixture only",
+        "abortLatency": "synthetic fixture only",
+        "abortErrors": "synthetic fixture only",
+        "abortResources": "synthetic fixture only",
+        "generatorLimits": "synthetic fixture only",
+        "cleanup": "synthetic fixture only"
+      },
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-operations.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "capacity",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "load.steady",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "loadPlan": {
+        "target": "synthetic fixture only",
+        "environment": "synthetic fixture only",
+        "authorization": "synthetic fixture only",
+        "duration": "synthetic fixture only",
+        "maxRate": "synthetic fixture only",
+        "maxConcurrency": "synthetic fixture only",
+        "abortLatency": "synthetic fixture only",
+        "abortErrors": "synthetic fixture only",
+        "abortResources": "synthetic fixture only",
+        "generatorLimits": "synthetic fixture only",
+        "cleanup": "synthetic fixture only"
+      },
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-operations.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "capacity",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "load.stress",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "loadPlan": {
+        "target": "synthetic fixture only",
+        "environment": "synthetic fixture only",
+        "authorization": "synthetic fixture only",
+        "duration": "synthetic fixture only",
+        "maxRate": "synthetic fixture only",
+        "maxConcurrency": "synthetic fixture only",
+        "abortLatency": "synthetic fixture only",
+        "abortErrors": "synthetic fixture only",
+        "abortResources": "synthetic fixture only",
+        "generatorLimits": "synthetic fixture only",
+        "cleanup": "synthetic fixture only"
+      },
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-operations.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "capacity",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "load.spike",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "loadPlan": {
+        "target": "synthetic fixture only",
+        "environment": "synthetic fixture only",
+        "authorization": "synthetic fixture only",
+        "duration": "synthetic fixture only",
+        "maxRate": "synthetic fixture only",
+        "maxConcurrency": "synthetic fixture only",
+        "abortLatency": "synthetic fixture only",
+        "abortErrors": "synthetic fixture only",
+        "abortResources": "synthetic fixture only",
+        "generatorLimits": "synthetic fixture only",
+        "cleanup": "synthetic fixture only"
+      },
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-operations.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "capacity",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "load.soak",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "loadPlan": {
+        "target": "synthetic fixture only",
+        "environment": "synthetic fixture only",
+        "authorization": "synthetic fixture only",
+        "duration": "synthetic fixture only",
+        "maxRate": "synthetic fixture only",
+        "maxConcurrency": "synthetic fixture only",
+        "abortLatency": "synthetic fixture only",
+        "abortErrors": "synthetic fixture only",
+        "abortResources": "synthetic fixture only",
+        "generatorLimits": "synthetic fixture only",
+        "cleanup": "synthetic fixture only"
+      },
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-operations.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "capacity",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "load.headroom",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "loadPlan": {
+        "target": "synthetic fixture only",
+        "environment": "synthetic fixture only",
+        "authorization": "synthetic fixture only",
+        "duration": "synthetic fixture only",
+        "maxRate": "synthetic fixture only",
+        "maxConcurrency": "synthetic fixture only",
+        "abortLatency": "synthetic fixture only",
+        "abortErrors": "synthetic fixture only",
+        "abortResources": "synthetic fixture only",
+        "generatorLimits": "synthetic fixture only",
+        "cleanup": "synthetic fixture only"
+      },
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-operations.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "capacity",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "load.autoscaling",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "loadPlan": {
+        "target": "synthetic fixture only",
+        "environment": "synthetic fixture only",
+        "authorization": "synthetic fixture only",
+        "duration": "synthetic fixture only",
+        "maxRate": "synthetic fixture only",
+        "maxConcurrency": "synthetic fixture only",
+        "abortLatency": "synthetic fixture only",
+        "abortErrors": "synthetic fixture only",
+        "abortResources": "synthetic fixture only",
+        "generatorLimits": "synthetic fixture only",
+        "cleanup": "synthetic fixture only"
+      },
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-operations.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "capacity",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "load.generator",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "loadPlan": {
+        "target": "synthetic fixture only",
+        "environment": "synthetic fixture only",
+        "authorization": "synthetic fixture only",
+        "duration": "synthetic fixture only",
+        "maxRate": "synthetic fixture only",
+        "maxConcurrency": "synthetic fixture only",
+        "abortLatency": "synthetic fixture only",
+        "abortErrors": "synthetic fixture only",
+        "abortResources": "synthetic fixture only",
+        "generatorLimits": "synthetic fixture only",
+        "cleanup": "synthetic fixture only"
+      },
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-operations.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "capacity",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "background.queues",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-operations.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "background",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "background.backpressure",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-operations.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "background",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "background.scheduled-jobs",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-operations.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "background",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "build.cpu",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-operations.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "build",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "build.memory",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-operations.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "build",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "build.incremental-cache",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-operations.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "build",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "platform.provider-signals",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-operations.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "provider_runtime",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    },
+    {
+      "id": "platform.resource-limits",
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "surfaceIds": [
+        "synthetic"
+      ],
+      "journeyIds": [
+        "fixture-journey"
+      ],
+      "itemCount": 1,
+      "journeyCount": 1,
+      "status": "confirmed_clean",
+      "reason": "Synthetic positive contract fixture",
+      "dispatch": {
+        "mode": "builtin",
+        "reference": "domains-operations.md",
+        "fallbackReason": "Built-in domain playbook"
+      },
+      "commands": [
+        "synthetic measurement fixture"
+      ],
+      "criteria": [
+        "fixture measurement below synthetic limit"
+      ],
+      "artifacts": [
+        {
+          "path": "performance-evidence.txt",
+          "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+        }
+      ],
+      "evidenceKind": "measured",
+      "measurement": {
+        "metricDomain": "provider_runtime",
+        "evidenceType": "trace",
+        "method": "synthetic trace",
+        "metric": "fixture-duration",
+        "value": 11,
+        "unit": "ms",
+        "statistic": "median",
+        "variance": "range 10-12",
+        "warmups": 1,
+        "sampleCount": 3,
+        "conditions": {
+          "environment": "synthetic",
+          "sourceRevision": "fixture-v1",
+          "fixture": "synthetic",
+          "auth": "synthetic",
+          "cacheState": "warm",
+          "device": "synthetic",
+          "network": "synthetic",
+          "concurrency": "1"
+        }
+      },
+      "findingIds": []
+    }
+  ],
+  "stack": {
+    "signals": [],
+    "features": {
+      "orpc": {
+        "status": "absent",
+        "reason": "Synthetic feature-free fixture"
+      },
+      "prisma": {
+        "status": "absent",
+        "reason": "Synthetic feature-free fixture"
+      },
+      "sql": {
+        "status": "absent",
+        "reason": "Synthetic feature-free fixture"
+      },
+      "react": {
+        "status": "absent",
+        "reason": "Synthetic feature-free fixture"
+      },
+      "next": {
+        "status": "absent",
+        "reason": "Synthetic feature-free fixture"
+      },
+      "tanstack-query": {
+        "status": "absent",
+        "reason": "Synthetic feature-free fixture"
+      },
+      "node": {
+        "status": "absent",
+        "reason": "Synthetic feature-free fixture"
+      },
+      "cache": {
+        "status": "absent",
+        "reason": "Synthetic feature-free fixture"
+      },
+      "queues": {
+        "status": "absent",
+        "reason": "Synthetic feature-free fixture"
+      },
+      "streaming": {
+        "status": "absent",
+        "reason": "Synthetic feature-free fixture"
+      },
+      "vercel": {
+        "status": "absent",
+        "reason": "Synthetic feature-free fixture"
+      },
+      "external-services": {
+        "status": "absent",
+        "reason": "Synthetic feature-free fixture"
+      }
+    }
+  },
+  "expertise": [],
+  "completion": {
+    "status": "complete",
+    "findingLimit": null,
+    "cellLimit": null
+  },
+  "rerun": {
+    "mode": "first_run",
+    "historySearch": "Synthetic first-run fixture",
+    "quality": "first_run"
+  },
+  "findings": [],
+  "rounds": [
+    {
+      "number": 1,
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "approach": "producer-tracing",
+      "cells": [
+        {
+          "id": "database.query-count::synthetic",
+          "checkId": "database.query-count",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "database.root-cardinality::synthetic",
+          "checkId": "database.root-cardinality",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "database.nested-cardinality::synthetic",
+          "checkId": "database.nested-cardinality",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "database.projection::synthetic",
+          "checkId": "database.projection",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "database.plans::synthetic",
+          "checkId": "database.plans",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "database.indexes::synthetic",
+          "checkId": "database.indexes",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "database.pool-wait::synthetic",
+          "checkId": "database.pool-wait",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "database.locks-transactions::synthetic",
+          "checkId": "database.locks-transactions",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "runtime.cpu::synthetic",
+          "checkId": "runtime.cpu",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "runtime.saturation::synthetic",
+          "checkId": "runtime.saturation",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "runtime.event-loop::synthetic",
+          "checkId": "runtime.event-loop",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "runtime.thread-pool::synthetic",
+          "checkId": "runtime.thread-pool",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "runtime.gc::synthetic",
+          "checkId": "runtime.gc",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "runtime.heap-retention::synthetic",
+          "checkId": "runtime.heap-retention",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "runtime.native-rss::synthetic",
+          "checkId": "runtime.native-rss",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "runtime.handles-io::synthetic",
+          "checkId": "runtime.handles-io",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "runtime.cold-start::synthetic",
+          "checkId": "runtime.cold-start",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "runtime.concurrency::synthetic",
+          "checkId": "runtime.concurrency",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "cache.keys-invalidation::synthetic",
+          "checkId": "cache.keys-invalidation",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "cache.stampede::synthetic",
+          "checkId": "cache.stampede",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "cache.coalescing::synthetic",
+          "checkId": "cache.coalescing",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "cache.capacity::synthetic",
+          "checkId": "cache.capacity",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "requests.route-coverage::synthetic",
+          "checkId": "requests.route-coverage",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "requests.waterfalls::synthetic",
+          "checkId": "requests.waterfalls",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "requests.serialization::synthetic",
+          "checkId": "requests.serialization",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "requests.external-retries::synthetic",
+          "checkId": "requests.external-retries",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "react.render-commit::synthetic",
+          "checkId": "react.render-commit",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "react.context-subscriptions::synthetic",
+          "checkId": "react.context-subscriptions",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "react.virtualization::synthetic",
+          "checkId": "react.virtualization",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "react.compiler::synthetic",
+          "checkId": "react.compiler",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "react.effects-leaks::synthetic",
+          "checkId": "react.effects-leaks",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "browser.hydration::synthetic",
+          "checkId": "browser.hydration",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "browser.long-tasks::synthetic",
+          "checkId": "browser.long-tasks",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "browser.field-vitals::synthetic",
+          "checkId": "browser.field-vitals",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "browser.constrained-device::synthetic",
+          "checkId": "browser.constrained-device",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "browser.transitions-streaming::synthetic",
+          "checkId": "browser.transitions-streaming",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "browser.resource-loading::synthetic",
+          "checkId": "browser.resource-loading",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "bundle.route-ownership::synthetic",
+          "checkId": "bundle.route-ownership",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "bundle.transfer-parse-execute::synthetic",
+          "checkId": "bundle.transfer-parse-execute",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "bundle.duplicates-tree-shaking::synthetic",
+          "checkId": "bundle.duplicates-tree-shaking",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "bundle.client-leakage::synthetic",
+          "checkId": "bundle.client-leakage",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "bundle.dynamic-imports::synthetic",
+          "checkId": "bundle.dynamic-imports",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "bundle.budgets::synthetic",
+          "checkId": "bundle.budgets",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "delivery.cdn-compression::synthetic",
+          "checkId": "delivery.cdn-compression",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "delivery.assets::synthetic",
+          "checkId": "delivery.assets",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "delivery.placement::synthetic",
+          "checkId": "delivery.placement",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "delivery.network-io::synthetic",
+          "checkId": "delivery.network-io",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "load.traffic-mix::synthetic",
+          "checkId": "load.traffic-mix",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "load.smoke::synthetic",
+          "checkId": "load.smoke",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "load.steady::synthetic",
+          "checkId": "load.steady",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "load.stress::synthetic",
+          "checkId": "load.stress",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "load.spike::synthetic",
+          "checkId": "load.spike",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "load.soak::synthetic",
+          "checkId": "load.soak",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "load.headroom::synthetic",
+          "checkId": "load.headroom",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "load.autoscaling::synthetic",
+          "checkId": "load.autoscaling",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "load.generator::synthetic",
+          "checkId": "load.generator",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "background.queues::synthetic",
+          "checkId": "background.queues",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "background.backpressure::synthetic",
+          "checkId": "background.backpressure",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "background.scheduled-jobs::synthetic",
+          "checkId": "background.scheduled-jobs",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "build.cpu::synthetic",
+          "checkId": "build.cpu",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "build.memory::synthetic",
+          "checkId": "build.memory",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "build.incremental-cache::synthetic",
+          "checkId": "build.incremental-cache",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "platform.provider-signals::synthetic",
+          "checkId": "platform.provider-signals",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        },
+        {
+          "id": "platform.resource-limits::synthetic",
+          "checkId": "platform.resource-limits",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic producer trace",
+          "findingIds": []
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "inventoryHash": "5127ec4080b4b8367e6590085889f16821845624e8121fc32b2b487f5deaee9f",
+      "approach": "coverage-challenge",
+      "cells": [
+        {
+          "id": "database.query-count::synthetic",
+          "checkId": "database.query-count",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "database.root-cardinality::synthetic",
+          "checkId": "database.root-cardinality",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "database.nested-cardinality::synthetic",
+          "checkId": "database.nested-cardinality",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "database.projection::synthetic",
+          "checkId": "database.projection",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "database.plans::synthetic",
+          "checkId": "database.plans",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "database.indexes::synthetic",
+          "checkId": "database.indexes",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "database.pool-wait::synthetic",
+          "checkId": "database.pool-wait",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "database.locks-transactions::synthetic",
+          "checkId": "database.locks-transactions",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "runtime.cpu::synthetic",
+          "checkId": "runtime.cpu",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "runtime.saturation::synthetic",
+          "checkId": "runtime.saturation",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "runtime.event-loop::synthetic",
+          "checkId": "runtime.event-loop",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "runtime.thread-pool::synthetic",
+          "checkId": "runtime.thread-pool",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "runtime.gc::synthetic",
+          "checkId": "runtime.gc",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "runtime.heap-retention::synthetic",
+          "checkId": "runtime.heap-retention",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "runtime.native-rss::synthetic",
+          "checkId": "runtime.native-rss",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "runtime.handles-io::synthetic",
+          "checkId": "runtime.handles-io",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "runtime.cold-start::synthetic",
+          "checkId": "runtime.cold-start",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "runtime.concurrency::synthetic",
+          "checkId": "runtime.concurrency",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "cache.keys-invalidation::synthetic",
+          "checkId": "cache.keys-invalidation",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "cache.stampede::synthetic",
+          "checkId": "cache.stampede",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "cache.coalescing::synthetic",
+          "checkId": "cache.coalescing",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "cache.capacity::synthetic",
+          "checkId": "cache.capacity",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "requests.route-coverage::synthetic",
+          "checkId": "requests.route-coverage",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "requests.waterfalls::synthetic",
+          "checkId": "requests.waterfalls",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "requests.serialization::synthetic",
+          "checkId": "requests.serialization",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "requests.external-retries::synthetic",
+          "checkId": "requests.external-retries",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "react.render-commit::synthetic",
+          "checkId": "react.render-commit",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "react.context-subscriptions::synthetic",
+          "checkId": "react.context-subscriptions",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "react.virtualization::synthetic",
+          "checkId": "react.virtualization",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "react.compiler::synthetic",
+          "checkId": "react.compiler",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "react.effects-leaks::synthetic",
+          "checkId": "react.effects-leaks",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "browser.hydration::synthetic",
+          "checkId": "browser.hydration",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "browser.long-tasks::synthetic",
+          "checkId": "browser.long-tasks",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "browser.field-vitals::synthetic",
+          "checkId": "browser.field-vitals",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "browser.constrained-device::synthetic",
+          "checkId": "browser.constrained-device",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "browser.transitions-streaming::synthetic",
+          "checkId": "browser.transitions-streaming",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "browser.resource-loading::synthetic",
+          "checkId": "browser.resource-loading",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "bundle.route-ownership::synthetic",
+          "checkId": "bundle.route-ownership",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "bundle.transfer-parse-execute::synthetic",
+          "checkId": "bundle.transfer-parse-execute",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "bundle.duplicates-tree-shaking::synthetic",
+          "checkId": "bundle.duplicates-tree-shaking",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "bundle.client-leakage::synthetic",
+          "checkId": "bundle.client-leakage",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "bundle.dynamic-imports::synthetic",
+          "checkId": "bundle.dynamic-imports",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "bundle.budgets::synthetic",
+          "checkId": "bundle.budgets",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "delivery.cdn-compression::synthetic",
+          "checkId": "delivery.cdn-compression",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "delivery.assets::synthetic",
+          "checkId": "delivery.assets",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "delivery.placement::synthetic",
+          "checkId": "delivery.placement",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "delivery.network-io::synthetic",
+          "checkId": "delivery.network-io",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "load.traffic-mix::synthetic",
+          "checkId": "load.traffic-mix",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "load.smoke::synthetic",
+          "checkId": "load.smoke",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "load.steady::synthetic",
+          "checkId": "load.steady",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "load.stress::synthetic",
+          "checkId": "load.stress",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "load.spike::synthetic",
+          "checkId": "load.spike",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "load.soak::synthetic",
+          "checkId": "load.soak",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "load.headroom::synthetic",
+          "checkId": "load.headroom",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "load.autoscaling::synthetic",
+          "checkId": "load.autoscaling",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "load.generator::synthetic",
+          "checkId": "load.generator",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "background.queues::synthetic",
+          "checkId": "background.queues",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "background.backpressure::synthetic",
+          "checkId": "background.backpressure",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "background.scheduled-jobs::synthetic",
+          "checkId": "background.scheduled-jobs",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "build.cpu::synthetic",
+          "checkId": "build.cpu",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "build.memory::synthetic",
+          "checkId": "build.memory",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "build.incremental-cache::synthetic",
+          "checkId": "build.incremental-cache",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "platform.provider-signals::synthetic",
+          "checkId": "platform.provider-signals",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        },
+        {
+          "id": "platform.resource-limits::synthetic",
+          "checkId": "platform.resource-limits",
+          "surfaceId": "synthetic",
+          "journeyIds": [
+            "fixture-journey"
+          ],
+          "status": "examined",
+          "commands": [
+            "synthetic sweep"
+          ],
+          "artifacts": [
+            {
+              "path": "performance-evidence.txt",
+              "sha256": "12636b09c20b5ac593341357825622c9d6381119a87382e95eda0a3ee5b0e84b"
+            }
+          ],
+          "analysis": "Synthetic coverage challenge",
+          "findingIds": []
+        }
+      ]
+    }
+  ]
+}

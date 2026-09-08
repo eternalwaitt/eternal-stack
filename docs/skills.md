@@ -330,3 +330,11 @@ These repo-owned agents are installed by default into `~/.claude/agents/`. They 
 | `etrnl-dx-reviewer` | Read-only developer-experience reviewer for install, commands, docs, errors, and rollback. |
 | `etrnl-browser-qa` | Browser evidence collector that produces `browser-qa-report.json` artifacts. |
 | `etrnl-test-wiring-auditor` | Read-only, diff-driven test-wiring auditor: maps each behavioral change to its required test and emits `PASS`/`ADD_REQUIRED` with `required_tests[]`; never proposes removing a test or weakening a gate. |
+
+## Performance audit kernel
+
+`etrnl-audit-performance` uses 64 registered subchecks and four conditionally loaded domain references. `performance-audit.mjs discover <git-root>` seeds a hashed inventory; reconcile runtime routes and topology before completing receipts. `performance-audit.mjs parity <source-root> <installed-root>` detects distribution drift. The [decision and coverage matrix](adr/2026-09-performance-audit-kernel.md) explains applicability, evidence and contributor fallback.
+
+### Performance expertise and investigation depth
+
+The performance contract v2 reuses the bundled `orpc-patterns` (entrypoint `orpc-fullstack`), `prisma-expert` and `sql-optimization-patterns` resources when detected, plus React/Next and conditional query-cache, runtime, queue, streaming and provider playbooks. Resource hashes and version review fence inherited examples. Every check/surface cell requires an initial investigation and full challenge sweeps until a sweep adds no findings. Findings are uncapped; prior-run reconciliation exposes missed issues and audit-quality failures. See [the routing and depth contract](../skills/etrnl-audit-performance/references/conditional-performance.md).

@@ -183,7 +183,9 @@
       "sha256": "sha256:perf_provider_incidents",
       "artifactLabel": "perf-provider-incidents",
       "intakeStatus": "not_applicable",
-      "intakeSources": ["synthetic fixture has no provider runtime"],
+      "intakeSources": [
+        "synthetic fixture has no provider runtime"
+      ],
       "incidentIds": []
     },
     "sec_entrypoints": {
@@ -709,7 +711,11 @@
           "status": "confirmed_clean",
           "confirmedClean": "CONFIRMED_CLEAN: Infrastructure and network performance - 0 findings"
         }
-      ]
+      ],
+      "performanceContract": {
+        "path": "performance-contract.json",
+        "sha256": "8fda2a05ce81be9a79dbb86c23c035aa264dec3d9bb10f637ab58af6c52584be"
+      }
     },
     {
       "categoryId": "shared-reuse",

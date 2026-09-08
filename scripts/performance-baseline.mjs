@@ -133,7 +133,7 @@ function measurementKey(report, row) {
   const target = row.route || row.operation;
   if (report.schemaVersion === 1) return target;
   const { sourceRevision: _sourceRevision, ...comparisonConditions } = row.conditions;
-  return `${target}|${row.metric}|${row.unit}|${row.statistic}|${stableJson(comparisonConditions)}`;
+  return `${target}|${row.metric}|${row.unit}|${row.statistic}|${row.evidenceKind}|${row.direction || "lower"}|${stableJson(comparisonConditions)}`;
 }
 
 function measurementValue(report, row) {

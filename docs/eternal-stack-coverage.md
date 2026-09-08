@@ -80,3 +80,11 @@ Eternal Stack is a bundled skill family: `etrnl-*` orchestration from this repo 
 | Reviewer-gated subagents | done | write packets require task identity and lineage; multi-file write packets require reviewer contracts; Stop blocks execute completion when packet-bound implementation evidence is missing or spec/quality reviewer evidence is absent. |
 | Phase/UAT artifacts | done | `execution-ledger.mjs set-phase` and `record-uat`; open UAT findings block `check-stop`. |
 | Hybrid Deep Stack artifacts | done | `deep-stack-check.mjs validate-plan --plan <plan>` and section validators require artifact bundles for final plans; legacy transition is an explicit flag, not the default. |
+
+## Performance coverage depth
+
+The six performance lanes now require 64 independent receipts across 12 domain families. Deterministic coverage, raw artifact hashes, measurement conditions, contributor fallback and distribution parity are implemented. Automated semantic discovery of every framework and live-agent recall certification are not claimed. See [the full matrix and limitations](adr/2026-09-performance-audit-kernel.md).
+
+### Performance expertise and investigation depth
+
+The performance contract v2 reuses the bundled `orpc-patterns` (entrypoint `orpc-fullstack`), `prisma-expert` and `sql-optimization-patterns` resources when detected, plus React/Next and conditional query-cache, runtime, queue, streaming and provider playbooks. Resource hashes and version review fence inherited examples. Every check/surface cell requires an initial investigation and full challenge sweeps until a sweep adds no findings. Findings are uncapped; prior-run reconciliation exposes missed issues and audit-quality failures. See [the routing and depth contract](../skills/etrnl-audit-performance/references/conditional-performance.md).

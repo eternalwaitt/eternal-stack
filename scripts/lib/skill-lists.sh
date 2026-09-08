@@ -122,6 +122,7 @@ CRITICAL_SCRIPTS=(
   deep-audit-artifact-check.mjs
   plan-readiness-check.mjs
   review-scope.mjs
+  performance-audit.mjs
   performance-baseline.mjs
   ux-inventory.mjs
   ux-audit-check.mjs
@@ -176,6 +177,7 @@ INSTALL_SCRIPTS=(
   deep-audit-artifact-check.mjs
   plan-readiness-check.mjs
   review-scope.mjs
+  performance-audit.mjs
   performance-baseline.mjs
   ux-inventory.mjs
   ux-audit-check.mjs

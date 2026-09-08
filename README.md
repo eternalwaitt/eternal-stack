@@ -120,3 +120,11 @@ To my mentor and friend [@PierreAndreis](https://github.com/PierreAndreis): than
 ## Credits
 
 Inlined reference modules (Brooks, oRPC, Prisma, SQL), bundled skill attribution, and the projects that inspired specific patterns are documented in [CREDITS.md](CREDITS.md).
+
+## Performance audit evidence
+
+The performance audit retains six lanes and requires 64 focused checks with retained evidence, explicit blockers and comparable verification. See the [architecture and coverage matrix](docs/adr/2026-09-performance-audit-kernel.md). Run `node scripts/performance-audit.mjs parity <source-root> <installed-root>` to detect stale installed skills and helper libraries before an audit; this command does not install updates.
+
+### Performance expertise and investigation depth
+
+The performance contract v2 reuses the bundled `orpc-patterns` (entrypoint `orpc-fullstack`), `prisma-expert` and `sql-optimization-patterns` resources when detected, plus React/Next and conditional query-cache, runtime, queue, streaming and provider playbooks. Resource hashes and version review fence inherited examples. Every check/surface cell requires an initial investigation and full challenge sweeps until a sweep adds no findings. Findings are uncapped; prior-run reconciliation exposes missed issues and audit-quality failures. See [the routing and depth contract](skills/etrnl-audit-performance/references/conditional-performance.md).

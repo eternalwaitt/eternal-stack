@@ -69,3 +69,11 @@ Eternal Stack targets [Claude Code](https://docs.anthropic.com/en/docs/claude-co
 ## Contributing upstream
 
 If you maintain one of the projects above and want a more formal attribution line or link correction, open an issue or PR in this repository.
+
+## Performance research additions
+
+The performance kernel compares mechanisms from [Vercel Optimize](https://github.com/vercel-labs/agent-skills/tree/main/skills/vercel-optimize), [Addy Osmani agent skills](https://github.com/addyosmani/agent-skills), [Pierre's Agent Laboratory](https://github.com/PierreAndreis/pierre-skills), [Skill Me Load Testing](https://github.com/SkillMedev/skills), and [Intel performance skills](https://github.com/intel/intel-performance-skills). No external text/code is vendored by this change. Exact revisions, hashes and license observations are in the [research ledger](docs/adr/performance-research-sources.json); technical anchors and adaptations are in the [design record](docs/adr/2026-09-performance-audit-kernel.md).
+
+### Performance expertise and investigation depth
+
+The performance contract v2 reuses the bundled `orpc-patterns` (entrypoint `orpc-fullstack`), `prisma-expert` and `sql-optimization-patterns` resources when detected, plus React/Next and conditional query-cache, runtime, queue, streaming and provider playbooks. Resource hashes and version review fence inherited examples. Every check/surface cell requires an initial investigation and full challenge sweeps until a sweep adds no findings. Findings are uncapped; prior-run reconciliation exposes missed issues and audit-quality failures. See [the routing and depth contract](skills/etrnl-audit-performance/references/conditional-performance.md).

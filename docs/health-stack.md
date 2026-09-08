@@ -252,3 +252,11 @@ Run when installed and relevant to the target repo:
 - Repomix or Code2Prompt for AI-ready context packs with ignore and secret scanning.
 
 If an optional tool is missing, record it as `not installed` in the findings ledger. Do not fail the audit unless the repo's own health stack marks it required.
+
+## Performance contract gate
+
+Performance category reports require contract version 1 with 64 fine receipts. `deep-audit-artifact-check.mjs` rejects missing subchecks, unsupported clean claims, changed evidence files and hidden blockers. `tests/test-workflow-tools.sh` runs `node --test tests/fixtures/performance/test-contract.mjs`; tests cover counts, missing measurements, contributor fallback, experiment decisions and stale distribution content. Use `performance-audit.mjs parity` for actual installed/staged parity; source health alone does not establish it. See [the design record](adr/2026-09-performance-audit-kernel.md).
+
+### Performance expertise and investigation depth
+
+The performance contract v2 reuses the bundled `orpc-patterns` (entrypoint `orpc-fullstack`), `prisma-expert` and `sql-optimization-patterns` resources when detected, plus React/Next and conditional query-cache, runtime, queue, streaming and provider playbooks. Resource hashes and version review fence inherited examples. Every check/surface cell requires an initial investigation and full challenge sweeps until a sweep adds no findings. Findings are uncapped; prior-run reconciliation exposes missed issues and audit-quality failures. See [the routing and depth contract](../skills/etrnl-audit-performance/references/conditional-performance.md).

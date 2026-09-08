@@ -13,6 +13,7 @@ import {
 } from "./lib/deep-audit-categories.mjs";
 import { UX_FINDING_STATUS_SET, UX_FINDING_STATUSES, UX_SEVERITIES, UX_SEVERITY_SET } from "./lib/ux-finding-taxonomy.mjs";
 import { hasPrivateString } from "./lib/private-strings.mjs";
+import { validatePerformanceContract } from "./lib/performance-contract.mjs";
 
 const args = process.argv.slice(2);
 const command = args[0] || "help";
@@ -466,6 +467,9 @@ function validateWholeRepositoryRuntimeCoverage(coverage, artifactPath, errors, 
 }
 
 function validatePerformanceCategoryReport(report, artifact, artifactPath, errors, reportPath) {
+  for (const problem of validatePerformanceContract(report.performanceContract, path.dirname(path.resolve(artifactPath)), asArray(report.checks), report.status === 'clean' || artifact.synthesis?.status === 'clean', asArray(artifact.findings).map(f => f.id))) {
+    errors.push(diagnostic("PERFORMANCE_CONTRACT_INVALID", artifactPath, problem, "Fine performance coverage or evidence is incomplete.", "Complete the mandatory performance contract; retain exact blockers instead of clean claims.", `${reportPath}.performanceContract`));
+  }
   const incidents = asArray(report.runtimeIncidents);
   const providerWorklist = artifact.worklists?.perf_provider_incidents;
   const providerCount = Number(providerWorklist?.count || 0);

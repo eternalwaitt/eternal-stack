@@ -71,7 +71,7 @@ Record one inventory row for every discovered user-facing page and route handler
 route:
 source:
 kind: page|route_handler|rpc|asset|other
-disposition: measured|lower_priority|not_applicable|source_limited
+disposition: measured|not_applicable|source_limited
 auth:
 fixture:
 status:
@@ -87,7 +87,7 @@ source_revision:
 notes:
 ```
 
-Measure every critical journey and suspected hotspot. Inventory lower-priority targets without fabricating measurements. A non-2xx response, unexpected redirect, auth loop, or broken fixture stays visible.
+Measure every discovered applicable journey, including lower-priority targets. Priority orders measurement; it never substitutes for investigation. When a dependency prevents measurement, retain an exact source-limited blocker without fabricating results. A non-2xx response, unexpected redirect, auth loop, or broken fixture stays visible.
 
 For request fanout, add a journey graph that maps each page to the procedures it starts, each procedure to its database/remote reads, and each read to root and nested relation cardinality. Mark which calls overlap in the same isolate. A route inventory without these edges is incomplete when a page triggers RPC/API work.
 

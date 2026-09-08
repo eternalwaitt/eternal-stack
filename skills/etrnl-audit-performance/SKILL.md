@@ -4,7 +4,7 @@ description: Evidence-first full-stack performance audit and remediation workflo
 ---
 # ETRNL Performance Audit
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-audit-performance`; never stop to ask about updates. Local updates auto-apply when enabled and safe; continue the requested work.
+Resolve the source or installed helper root before execution. Run `performance-audit.mjs parity <source-root> <installed-root>` when both exist. Report drift and use one coherent source toolchain; do not update global copies without authorization.
 
 Find the bottleneck, prove its producing path, measure it honestly, and close the loop with a comparable result. Preserve the registered six-lane envelope so direct runs and `etrnl-deep-audit` runs produce the same artifact.
 
@@ -12,10 +12,13 @@ Default mode is read-only audit. Enter remediation mode only when the user asks 
 
 ## Required Flow
 
+1. Load `references/audit-kernel.md`. Run `node scripts/performance-audit.mjs discover <target-git-root>` into the run directory. Reconcile its inventory against runtime routes and topology, then classify surfaces and journeys. This conservative seed cannot pass before reconciliation. Attach it as `categoryReports[].performanceContract`; each fine check from `scripts/lib/performance-contract.mjs` needs its own receipt.
+1. Load `references/conditional-performance.md`. Reconcile stack features, run `performance-audit.mjs experts <contract.json>`, read every selected specialist and retain hashed load receipts. oRPC, Prisma, SQL and React/Next expertise is mandatory when present; load other expertise only when applicable.
+1. Load only the domain references selected by those checks: `domains-database.md`, `domains-runtime.md`, `domains-browser.md`, and `domains-operations.md`. External contributors are conditional and consume/return the same receipts; unavailable contributors use the built-in playbook or a named blocker.
 1. Locate the source checkout or installed stack root. Resolve helper paths from `scripts/` in source, `~/.codex/scripts/` in Codex, or `~/.claude/scripts/` in Claude Code. Read the `performance` entry in `scripts/lib/deep-audit-categories.mjs`.
 1. Create or reuse a run-scoped artifact directory. Direct invocation creates the same worklist, receipt, report, and baseline envelope locally; it does not require the full orchestrator.
 1. Load `references/audit-checks.md`. Load `references/measurement-evidence.md` before any measurement claim. Load `references/runtime-memory-incidents.md` whenever a provider, runtime, deploy log, or user report identifies server memory pressure. Load `references/remediation-contract.md` in remediation mode. When a TypeScript or framework build exhausts memory, is killed near type validation, or passes only with a larger V8 heap, also load `references/typescript-build-memory.md`.
-1. Discover the complete target surface, then select critical journeys, hot operations, and representative authenticated fixtures. Record every discovered target as measured, `not_applicable`, `source_limited`, or explicitly lower priority.
+1. Discover the complete target surface, then select critical journeys, hot operations, and representative authenticated fixtures. Record every discovered target as measured, `not_applicable`, `source_limited`, or blocked with an exact dependency; priority never removes investigation.
 1. Build every registered `perf_*` worklist before analysis. Record path, item count, and SHA-256 hash. For provider incidents, preserve and reconcile unresolved prior ids, fetch user-linked evidence, query provider/deploy errors and alerts when access exists, and record exact access failures; never truncate the incident list before reconciliation or infer zero from an untouched empty file.
 1. Run the six registry lanes against those immutable worklists. With an authorized agent mechanism, dispatch the registry model tier returned by `categoryLaneDispatch("performance")`; without one, execute lanes sequentially and retain identical receipts.
 1. Separate static hypotheses from measured findings. Static evidence proves risk or a producing path, never a latency, byte, query-cost, rendering, or Core Web Vitals result.
@@ -28,6 +31,7 @@ node scripts/performance-baseline.mjs validate <baseline-json>
 ```
 
 1. In remediation mode, change one causal bottleneck or independently measurable batch at a time. Re-run under matching conditions, run correctness gates, and classify the change as keep, revert, or inconclusive.
+1. Run `performance-audit.mjs cells <contract.json>`. Investigate every check/surface cell in producer-tracing and coverage-challenge rounds. Continue full challenge rounds until a round adds no findings. Retain the complete ledger without a finding cap. Search previous reports and reconcile every prior/current fingerprint; record missed findings as audit-quality failures.
 1. Validate the category artifact:
 
 ```bash
@@ -38,6 +42,7 @@ node scripts/deep-audit-artifact-check.mjs validate --artifact <artifact-json>
 
 Completion requires all of these items:
 
+- Mandatory specialist receipts, every cell in two or more distinct sweeps, a final sweep adding no findings, and prior-run reconciliation are present.
 - Every registry worklist has a path, count, and hash.
 - Six lane receipts exist for `database-query-performance`, `server-response-caching`, `bundle-code-splitting`, `react-rendering`, `perceived-performance`, and `infrastructure-network`.
 - Every discovered target has a disposition; critical journeys include status, response bytes, auth/fixture state, cold-process or cold-cache definition, and warm measurements.
@@ -52,28 +57,13 @@ Completion requires all of these items:
 
 ## Common Rationalizations
 
-- "It feels fast locally." -> Local caches and small fixtures hide cold starts, N+1 queries, and tail latency. Capture repeatable evidence.
-- "Lighthouse proves production is fast." -> Lighthouse is lab evidence. Pair it with field data or label the field-data gap.
-- "TBT is INP." -> TBT is a lab diagnostic proxy, not an INP measurement. Record it as TBT.
-- "The bundle grew only a little." -> Attribute bytes to a route and import chain, then compare against its recorded baseline.
-- "React Compiler handles rendering." -> It does not remove waterfalls, context churn, unstable keys, or oversized client boundaries.
-- "One slow query is isolated." -> Prove call frequency, row volume, query plan, and the user-facing route that pays the cost.
-- "The number improved, so keep the patch." -> A result inside noise is inconclusive, and a faster broken path is a regression.
-- "The build passes with a larger heap, so it is fixed." -> A heap increase contains the failure. Isolate the phase, attribute the compiler graph, reduce structural pressure, and prove the ordinary type gate still fails closed.
-- "We do not have our own heap trace." -> A provider incident is primary evidence that the failure occurred. Missing heap telemetry limits mechanism attribution; it does not erase the incident or justify deferring a known producing path.
-- "Every response was bounded." -> Per-response bounds do not prove process memory is bounded. Replay all pages and critical journeys in one isolate, then add representative concurrency.
+- "The lane looks clean." -> Close every fine receipt with retained evidence; source inspection alone remains a hypothesis.
+- "The contributor is unavailable." -> Execute the built-in domain reference or retain the exact dependency blocker.
+- "The build uses less memory." -> That cannot close a server runtime incident; preserve affected-journey and provider recurrence evidence.
 
 ## Red Flags
 
-- A performance number with no command, source revision, environment, fixture, statistic, or sample count/provider-unavailable reason.
-- Lab output presented as real-user experience; TBT presented as INP; one warm sample presented as a trend.
-- Before/after runs with different auth, data, cache, device, network, build, or route conditions.
-- Database calls in loops, unbounded collection reads, over-fetching, missing supporting indexes, or query plans captured against toy data only.
-- Heavy client imports with no route/import-chain attribution, or legacy First Load JS output treated as authoritative for a current React Server Components app.
-- Manual memoization proposed solely from source inspection when React Compiler is active.
-- Shared cache keys that omit tenant, viewer, locale, permissions, feature flags, or other response-varying inputs.
-- TypeScript or framework builds that die after compilation, plateau at the V8 heap limit, compile generated implementation sources through an application graph, or silently disable type validation to finish.
-- Provider OOM, restart, eviction, RSS-limit, or memory-pressure evidence summarized as clean or `source_limited`; a known producing path left for a future audit because local heap telemetry is unavailable.
+Missing surfaces, unmeasured clean claims, one-sample proof, mismatched experiments, missing raw artifacts and hidden provider incidents leave the audit incomplete. Read the kernel and domain references for detailed checks.
 
 ## When NOT to use
 
