@@ -81,6 +81,9 @@ const UX_COVERAGE_COUNTERS = [
   "stateCellsTotal",
   "stateCellsCovered",
 ];
+const PERFORMANCE_CATEGORY_ID = "performance";
+const RUNTIME_INCIDENT_STATUSES = new Set(["open", "blocked_external", "resolved"]);
+const PROVIDER_INTAKE_STATUSES = new Set(["queried", "unavailable", "not_applicable"]);
 
 function usage() {
   console.error([
@@ -331,6 +334,163 @@ function validateUxCategoryReport(report, artifactPath, errors, reportPath) {
   }
 }
 
+function requireIncidentStrings(incident, artifactPath, errors, incidentPath) {
+  for (const field of ["incidentId", "environment", "symptom", "evidenceLabel", "producingPathStatus"]) {
+    if (!String(incident?.[field] || "").trim()) {
+      errors.push(diagnostic("RUNTIME_INCIDENT_FIELD_MISSING", artifactPath, `Runtime incident lacks ${field}.`, "Provider incidents need stable, sanitized evidence and attribution state.", `Add runtimeIncidents[].${field}.`, `${incidentPath}.${field}`));
+    }
+  }
+  if (incident?.evidenceKind !== "provider_runtime") {
+    errors.push(diagnostic("RUNTIME_INCIDENT_EVIDENCE_INVALID", artifactPath, "Provider runtime incident does not use provider_runtime evidence.", "Build, bundle, and source evidence cannot substitute for an observed runtime incident.", "Set evidenceKind to provider_runtime.", `${incidentPath}.evidenceKind`));
+  }
+  if (incident?.metricDomain !== "runtime_memory") {
+    errors.push(diagnostic("RUNTIME_MEMORY_METRIC_SUBSTITUTION", artifactPath, `Runtime incident uses ${JSON.stringify(incident?.metricDomain)} as its metric domain.`, "Build memory and client bytes do not prove server runtime-memory behavior.", "Use runtime_memory and retain other metrics in separate rows.", `${incidentPath}.metricDomain`));
+  }
+  if (incident?.observedMetric) {
+    validateMetricObject(incident.observedMetric, artifactPath, errors, `${incidentPath}.observedMetric`);
+  } else if (!String(incident?.unavailableMetricReason || "").trim()) {
+    errors.push(diagnostic("RUNTIME_METRIC_STATUS_MISSING", artifactPath, "Runtime incident neither records the provider metric nor explains why it is unavailable.", "Provider evidence must remain useful without fabricating a peak-memory value.", "Add observedMetric with name/value/unit or unavailableMetricReason.", incidentPath));
+  }
+  if (incident?.producingPathStatus && !["known", "unknown"].includes(incident.producingPathStatus)) {
+    errors.push(diagnostic("RUNTIME_PRODUCING_PATH_STATUS_INVALID", artifactPath, `Runtime incident uses invalid producingPathStatus ${JSON.stringify(incident.producingPathStatus)}.`, "Attribution must distinguish a known code path from a concrete unresolved dependency.", "Use known or unknown.", `${incidentPath}.producingPathStatus`));
+  }
+  if (!RUNTIME_INCIDENT_STATUSES.has(incident?.status)) {
+    errors.push(diagnostic("RUNTIME_INCIDENT_STATUS_INVALID", artifactPath, `Runtime incident uses invalid status ${JSON.stringify(incident?.status)}.`, "Incidents must stay open, identify a concrete external dependency, or carry closure evidence.", "Use open, blocked_external, or resolved.", `${incidentPath}.status`));
+  }
+}
+
+function validateMetricObject(metric, artifactPath, errors, metricPath) {
+  const value = metric?.value;
+  if (!String(metric?.name || "").trim() || !Number.isFinite(value) || !String(metric?.unit || "").trim()) {
+    errors.push(diagnostic("RUNTIME_METRIC_INVALID", artifactPath, "Runtime memory metric lacks name, finite numeric value, or unit.", "Truthy placeholders are not measurement evidence.", "Record the exact provider metric or replace it with an unavailable reason.", metricPath));
+  }
+}
+
+function validateRuntimeDependency(incident, artifactPath, errors, incidentPath) {
+  if (incident?.producingPathStatus === "known" && !String(incident?.producingPath || "").trim()) {
+    errors.push(diagnostic("RUNTIME_PRODUCING_PATH_MISSING", artifactPath, "Known runtime producing path is unnamed.", "A known hot path cannot be deferred behind missing heap instrumentation.", "Add the page -> procedure -> query/relation producing path.", `${incidentPath}.producingPath`));
+  }
+  if (incident?.producingPathStatus === "unknown" || incident?.status === "blocked_external") {
+    const dependency = incident?.concreteDependency;
+    for (const field of ["owner", "action", "evidenceNeeded"]) {
+      if (!String(dependency?.[field] || "").trim()) {
+        errors.push(diagnostic("RUNTIME_DEPENDENCY_INCOMPLETE", artifactPath, `Runtime incident dependency lacks ${field}.`, "An unresolved incident needs one concrete dependency rather than a generic source-limited label.", `Add concreteDependency.${field}.`, `${incidentPath}.concreteDependency.${field}`));
+      }
+    }
+  }
+}
+
+function validateRuntimeReplay(verification, artifactPath, errors, verificationPath) {
+  const requiredTrue = ["actualRuntime", "postDeployment", "sameJourney", "overlappingRequests", "responseBodiesConsumed", "providerRecurrenceChecked"];
+  for (const field of requiredTrue) {
+    if (verification?.[field] !== true) errors.push(diagnostic("RUNTIME_CLOSURE_COVERAGE_INCOMPLETE", artifactPath, `Resolved runtime incident requires runtimeVerification.${field}=true.`, "Partial or non-overlapping evidence cannot close the affected journey.", `Set ${field} only after the named evidence is captured.`, `${verificationPath}.${field}`));
+  }
+  for (const [totalField, coveredField] of [["pagesTotal", "pagesExercised"], ["proceduresTotal", "proceduresExercised"]]) {
+    const total = Number(verification?.[totalField]);
+    if (!Number.isInteger(total) || total < 1 || verification?.[coveredField] !== total) {
+      errors.push(diagnostic("RUNTIME_AFFECTED_JOURNEY_COVERAGE_INCOMPLETE", artifactPath, `Resolved runtime incident does not cover every affected ${totalField === "pagesTotal" ? "page" : "procedure"}.`, "Incident closure is scoped to the complete affected journey.", `Set ${totalField} and matching ${coveredField}.`, verificationPath));
+    }
+  }
+  if (!Array.isArray(verification?.concurrencyLevels) || !verification.concurrencyLevels.some((value) => Number(value) > 1)) {
+    errors.push(diagnostic("RUNTIME_CONCURRENCY_COVERAGE_INCOMPLETE", artifactPath, "Resolved runtime incident lacks representative concurrent replay.", "Sequential success cannot reproduce the provider-observed overlapping request shape.", "Add a concurrencyLevels value greater than 1 from actual-runtime replay.", `${verificationPath}.concurrencyLevels`));
+  }
+  if (verification?.metricDomain !== "runtime_memory") {
+    errors.push(diagnostic("RUNTIME_MEMORY_METRIC_SUBSTITUTION", artifactPath, `Runtime closure uses ${JSON.stringify(verification?.metricDomain)} evidence.`, "Build memory and client bytes cannot close a server runtime-memory incident.", "Use runtime_memory and keep build/client metrics separate.", `${verificationPath}.metricDomain`));
+  }
+  for (const field of ["journeyGraphArtifact", "outcomeEvidence", "latencyEvidence", "bodyVolumeEvidence"]) {
+    if (!String(verification?.[field] || "").trim()) errors.push(diagnostic("RUNTIME_CLOSURE_EVIDENCE_MISSING", artifactPath, `Resolved runtime incident lacks runtimeVerification.${field}.`, "Closure must retain actual-runtime outcomes, latency, and body volume.", `Add runtimeVerification.${field}.`, `${verificationPath}.${field}`));
+  }
+  if (verification?.peakMemory) validateMetricObject(verification.peakMemory, artifactPath, errors, `${verificationPath}.peakMemory`);
+  else if (!String(verification?.peakMemoryUnavailableReason || "").trim()) {
+    errors.push(diagnostic("RUNTIME_PEAK_MEMORY_STATUS_MISSING", artifactPath, "Resolved runtime incident neither records peak memory nor explains why it is unavailable.", "Evidence must stay honest without inventing provider metrics.", "Add peakMemory or peakMemoryUnavailableReason.", verificationPath));
+  }
+}
+
+function validateRuntimeClosure(incident, artifactPath, errors, incidentPath) {
+  if (incident?.status !== "resolved") return;
+  if (incident?.producingPathStatus !== "known") {
+    errors.push(diagnostic("RUNTIME_PRODUCING_PATH_UNRESOLVED", artifactPath, "Resolved runtime incident does not have a known producing path.", "An external dependency can keep an incident blocked, but cannot support causal closure.", "Set resolved only after the producing path is known and verified.", `${incidentPath}.producingPathStatus`));
+  }
+  const receipt = incident?.remediationReceipt;
+  for (const field of ["producingPath", "change", "correctnessGates", "regressionGuard"]) {
+    if (!String(receipt?.[field] || "").trim()) errors.push(diagnostic("RUNTIME_REMEDIATION_RECEIPT_INCOMPLETE", artifactPath, `Resolved runtime incident lacks remediationReceipt.${field}.`, "Resolution requires the causal fix and its deterministic guard.", `Add remediationReceipt.${field}.`, `${incidentPath}.remediationReceipt.${field}`));
+  }
+  const cardinality = incident?.cardinalityVerification;
+  for (const field of ["rootCollections", "nestedRelations", "regressionTest"]) {
+    if (!String(cardinality?.[field] || "").trim()) errors.push(diagnostic("RUNTIME_CARDINALITY_COVERAGE_INCOMPLETE", artifactPath, `Resolved runtime incident lacks cardinalityVerification.${field}.`, "Root and nested relation cardinality must be checked independently.", `Add cardinalityVerification.${field}.`, `${incidentPath}.cardinalityVerification.${field}`));
+  }
+  validateRuntimeReplay(incident?.runtimeVerification, artifactPath, errors, `${incidentPath}.runtimeVerification`);
+}
+
+function validateProviderIncidentIds(worklist, incidents, artifactPath, errors, reportPath) {
+  const count = Number(worklist?.count);
+  const worklistIds = asArray(worklist?.incidentIds);
+  const reportIds = incidents.map((incident) => incident?.incidentId).filter(Boolean);
+  if (!Number.isInteger(count) || count < 0 || worklistIds.length !== count || new Set(worklistIds).size !== worklistIds.length) {
+    errors.push(diagnostic("PROVIDER_INCIDENT_WORKLIST_INVALID", artifactPath, "Provider incident worklist count does not match unique incidentIds.", "A count alone cannot prove every discovered incident reached synthesis.", "Record one unique incidentIds entry per worklist row.", "$.worklists.perf_provider_incidents.incidentIds"));
+  }
+  if (new Set(reportIds).size !== reportIds.length) errors.push(diagnostic("PROVIDER_INCIDENT_DUPLICATE", artifactPath, "Performance report repeats a runtime incident id.", "Duplicate ids can hide an omitted incident.", "Keep each runtime incident id exactly once.", `${reportPath}.runtimeIncidents`));
+  for (const incidentId of worklistIds) {
+    if (!reportIds.includes(incidentId)) errors.push(diagnostic("PROVIDER_INCIDENT_EVIDENCE_OMITTED", artifactPath, `Provider incident ${incidentId} is absent from the performance report.`, "Every discovered provider incident needs its own disposition.", "Add the missing runtimeIncidents entry.", `${reportPath}.runtimeIncidents`));
+  }
+  for (const incidentId of reportIds) {
+    if (!worklistIds.includes(incidentId)) errors.push(diagnostic("PROVIDER_INCIDENT_NOT_IN_WORKLIST", artifactPath, `Runtime incident ${incidentId} is absent from the provider worklist.`, "Report-only ids bypass intake reconciliation and worklist provenance.", "Add the id to perf_provider_incidents or remove the stale report row.", `${reportPath}.runtimeIncidents`));
+  }
+}
+
+function validateProviderIncidentIntake(worklist, artifactPath, errors) {
+  const intakePath = "$.worklists.perf_provider_incidents";
+  if (!PROVIDER_INTAKE_STATUSES.has(worklist?.intakeStatus)) {
+    errors.push(diagnostic("PROVIDER_INCIDENT_INTAKE_MISSING", artifactPath, "Provider incident worklist lacks an intake status.", "An untouched empty file cannot prove provider incidents were checked.", "Set intakeStatus to queried, unavailable, or not_applicable.", `${intakePath}.intakeStatus`));
+  }
+  if (!Array.isArray(worklist?.intakeSources) || worklist.intakeSources.length === 0) {
+    errors.push(diagnostic("PROVIDER_INCIDENT_INTAKE_MISSING", artifactPath, "Provider incident worklist lacks intakeSources.", "Known issue links, provider alerts, prior unresolved incidents, and access failures must be reconciled before zero/clean.", "Record at least one sanitized intake source.", `${intakePath}.intakeSources`));
+  }
+  if (worklist?.intakeStatus === "unavailable" && (!Array.isArray(worklist?.accessFailures) || worklist.accessFailures.length === 0)) {
+    errors.push(diagnostic("PROVIDER_INCIDENT_ACCESS_FAILURE_MISSING", artifactPath, "Unavailable provider intake lacks an exact access failure.", "A generic source-limited label does not identify the external dependency.", "Add accessFailures with the failed source and reason.", `${intakePath}.accessFailures`));
+  }
+}
+
+function validateWholeRepositoryRuntimeCoverage(coverage, artifactPath, errors, coveragePath) {
+  if (!coverage) return;
+  const total = Number(coverage.pagesTotal);
+  if (coverage.scope !== "all_pages_accumulated" || !Number.isInteger(total) || total < 1 || coverage.pagesExercised !== total || coverage.responseBodiesConsumed !== true || coverage.actualRuntime !== true) {
+    errors.push(diagnostic("RUNTIME_ALL_PAGES_COVERAGE_INCOMPLETE", artifactPath, "Whole-repository runtime coverage is partial or malformed.", "Broad accumulated-process claims require every discovered page, response body consumption, and actual-runtime evidence.", "Complete the all-pages coverage fields or omit the broad claim.", coveragePath));
+  }
+  if (!Array.isArray(coverage.concurrencyLevels) || !coverage.concurrencyLevels.some((value) => Number(value) > 1)) {
+    errors.push(diagnostic("RUNTIME_CONCURRENCY_COVERAGE_INCOMPLETE", artifactPath, "Whole-repository runtime coverage lacks representative overlap.", "Sequential requests alone do not exercise concurrent memory pressure.", "Add a measured concurrency level greater than 1.", `${coveragePath}.concurrencyLevels`));
+  }
+  if (coverage.sharedIsolateObserved !== true && !String(coverage.isolateIdentityUnavailableReason || "").trim()) {
+    errors.push(diagnostic("RUNTIME_ISOLATE_IDENTITY_STATUS_MISSING", artifactPath, "Whole-repository runtime coverage neither proves shared-isolate reuse nor explains why identity is unavailable.", "Managed runtimes can hide isolate identity, so the broader claim must stay limited.", "Set sharedIsolateObserved=true only with evidence, otherwise add isolateIdentityUnavailableReason.", coveragePath));
+  }
+}
+
+function validatePerformanceCategoryReport(report, artifact, artifactPath, errors, reportPath) {
+  const incidents = asArray(report.runtimeIncidents);
+  const providerWorklist = artifact.worklists?.perf_provider_incidents;
+  const providerCount = Number(providerWorklist?.count || 0);
+  validateProviderIncidentIntake(providerWorklist, artifactPath, errors);
+  validateProviderIncidentIds(providerWorklist, incidents, artifactPath, errors, reportPath);
+  if (providerCount > 0 && incidents.length === 0) {
+    errors.push(diagnostic("PROVIDER_INCIDENT_EVIDENCE_OMITTED", artifactPath, "Provider incident worklist is non-empty but performance report has no runtimeIncidents.", "Known runtime failures cannot disappear into clean or source-limited synthesis.", "Add one runtimeIncidents entry per provider incident.", `${reportPath}.runtimeIncidents`));
+  }
+  const runtimeCheck = asArray(report.checks).find((check) => check.checkId === "perf-06-infrastructure-network");
+  const hasUnresolved = incidents.some((incident) => incident?.status !== "resolved");
+  if (hasUnresolved && runtimeCheck?.status !== "finding") {
+    errors.push(diagnostic("PROVIDER_INCIDENT_FALSE_CLOSURE", artifactPath, "Provider runtime incident exists but perf-06 is not a finding.", "A provider failure is actionable primary evidence even without a local heap trace.", "Mark perf-06 as finding and retain the incident until closure evidence passes.", `${reportPath}.checks`));
+  }
+  if (hasUnresolved && (report.status === "clean" || artifact.synthesis?.status === "clean")) {
+    errors.push(diagnostic("PROVIDER_INCIDENT_FALSE_CLOSURE", artifactPath, "Unresolved provider runtime incident is hidden under a clean status.", "Missing instrumentation is not clean evidence.", "Use findings_present and keep the incident open or name its concrete dependency.", reportPath));
+  }
+  incidents.forEach((incident, index) => {
+    const incidentPath = `${reportPath}.runtimeIncidents[${index}]`;
+    requireIncidentStrings(incident, artifactPath, errors, incidentPath);
+    validateRuntimeDependency(incident, artifactPath, errors, incidentPath);
+    validateRuntimeClosure(incident, artifactPath, errors, incidentPath);
+  });
+  validateWholeRepositoryRuntimeCoverage(report.wholeRepositoryRuntimeCoverage, artifactPath, errors, `${reportPath}.wholeRepositoryRuntimeCoverage`);
+}
+
 function validateRequiredFields(artifact, artifactPath, errors) {
   for (const field of REQUIRED_ARTIFACT_FIELDS) {
     if (!(field in artifact)) {
@@ -440,6 +600,9 @@ function validateCategoryReport(report, reportIndex, artifact, artifactPath, reg
   if (category.categoryId === UX_CATEGORY_ID) {
     validateUxCategoryReport(report, artifactPath, errors, reportPath);
   }
+  if (category.categoryId === PERFORMANCE_CATEGORY_ID) {
+    validatePerformanceCategoryReport(report, artifact, artifactPath, errors, reportPath);
+  }
   for (const registeredCheck of category.checks) {
     if (!covered.has(registeredCheck.checkId)) {
       errors.push(diagnostic("CHECK_OMITTED", artifactPath, `${registeredCheck.checkId} is missing from ${category.categoryId}.`, "No-sampling requires every registered check to be represented.", "Add a finding, confirmed_clean, skipped, not_applicable, or source_limited row for this check.", reportPath));
@@ -472,7 +635,7 @@ function validateLaneReceipts(artifact, artifactPath, errors, selected) {
         if (!receipt.summary) {
           errors.push(diagnostic("LANE_RECEIPT_SUMMARY_MISSING", artifactPath, `${category.categoryId}/${lane.laneId} has no summary.`, "Fanout receipts need a human-readable completion summary before synthesis.", "Add a non-empty summary.", `${receiptPath}.summary`));
         }
-        validateConsumedHashes(receipt, category, artifact, artifactPath, errors, receiptPath);
+        validateConsumedHashes(receipt, { ...category, requiredWorklists: lane.allowedWorklists }, artifact, artifactPath, errors, receiptPath);
       }
     }
   }

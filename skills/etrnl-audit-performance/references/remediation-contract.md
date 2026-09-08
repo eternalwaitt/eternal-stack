@@ -31,9 +31,11 @@ Do not stack unrelated optimizations before attribution exists.
 
 - Remove N+1 work through set-based reads, bounded includes/selects, batching, or data-loader boundaries.
 - Bound collections with pagination or a proven finite domain invariant.
+- Bound root collections and every nested relation separately. Add a regression fixture whose data shape would fail if either level becomes unbounded.
 - Run query plans against representative data before and after query or index changes.
 - Add an index only after the filter/order/join path and write/storage cost are recorded.
 - Parallelize independent I/O. Preserve ordering when a data dependency exists.
+- Reduce page-level request fanout when concurrent procedures duplicate reads or share a constrained isolate. Prove the retained load sequence against the whole journey, including deferred tabs or scroll-triggered work.
 - Cache only stable computations or reads with an explicit invalidation path.
 - Include every response-varying dimension in a cache key: tenant, viewer/role, locale, permissions, feature flags, query inputs, and data version.
 - Test stale data, invalidation, cross-tenant isolation, and authorization before retaining a cache change.
@@ -65,6 +67,7 @@ Do not stack unrelated optimizations before attribution exists.
 - Test cold-process behavior after singleton, pool, snapshot, or initialization changes.
 - Keep private/user-specific responses out of public and shared caches.
 - For TypeScript or framework build-memory exhaustion, follow `typescript-build-memory.md`. A larger V8 heap is containment until compiler-graph evidence rules out a structural cause.
+- For provider-reported server memory incidents, follow `runtime-memory-incidents.md`. Do not require unavailable peak-heap instrumentation before shipping a verified bounded-producing-path fix. Verify the same journey in the actual runtime and state the peak-memory gap honestly.
 
 ## Guard Selection
 
@@ -76,6 +79,7 @@ Retained fixes add the smallest deterministic guard that detects the same regres
 - interaction trace or render-count fixture for rendering work;
 - cache-key/isolation/invalidation test for caching work;
 - Core Web Vitals field monitor for real-user regressions.
+- bounded root/nested cardinality plus same-journey representative overlapping replay for runtime memory incidents.
 
 A guard failure is a regression signal, not permission to loosen the threshold.
 

@@ -22,7 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Changed
 
-- `etrnl-audit-performance` adds a conditional TypeScript/framework build-memory playbook: distinguish V8 heap exhaustion from external kills, isolate compilation from type validation, attribute generated-source and type-instantiation pressure, prefer declaration/project-reference boundaries, preserve a fail-closed type gate when bypassing duplicate framework checks, and treat larger heaps as containment. Bundle remediation also prevents lightweight configuration exports from statically importing heavy payloads such as locale catalogs.
+- `etrnl-audit-performance` adds conditional build-memory and provider-runtime-memory playbooks: distinguish build memory, server runtime memory, and client bytes; ingest provider incidents as primary evidence; map page -> oRPC procedure -> query/relation fanout; verify root and nested cardinality; and close incidents through bounded-path tests plus same-journey post-deployment runtime evidence without inventing unavailable peak-heap metrics. Bundle remediation also prevents lightweight configuration exports from statically importing heavy payloads such as locale catalogs.
 - Email triage now runs guarded Inbox Zero with progress and apply-before-enrichment, prevents competing guarded runs and tool-level timeouts, opens the human-review queue with on-demand drafts, and requires a checked replacement before presenting a failed draft for approval.
 - `etrnl-audit-performance` now combines Eternal Stack's six-lane coverage with a causal measure-identify-fix-verify-guard loop, explicit field/lab/trace/runtime/query-plan/bundle evidence, current Core Web Vitals and React/Next.js rules, complete target dispositions, and remediation receipts. `performance-baseline.mjs` adds backward-compatible schema v2 with comparison conditions, source revisions, lab-INP and field-p75 validation, noise-aware trend verdicts, and focused regression tests.
 - Default install now merges strict blocker hooks (`templates/settings.strict.json`). Set `ETRNL_ENABLE_STRICT=0` for the previous observer-only template.
@@ -553,7 +553,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ### Security
 
 - Public repository boundary: no private identity, credentials, transcripts, or local planning artifacts in tracked files.
-
 
 
 

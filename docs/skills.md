@@ -76,7 +76,7 @@ Whole-repo or category audits with deterministic ledgers and artifact contracts.
 | `/etrnl-audit-code` | User only | Runs the canonical code-health router: inventory, Health Stack, deterministic gates, bundled-skill audits, ledger, and no-skips closure. |
 | `/etrnl-audit-docs` | Model or user | Runs documentation-health audits across READMEs, docs, ADRs, runbooks, API/runtime docs, AI context, and code comments. |
 | `/etrnl-audit-security` | Model or user | Runs the registered security deep-audit category with exploitable-bug evidence and explicit non-findings. |
-| `/etrnl-audit-performance` | Model or user | Runs the registered performance deep-audit category with route matrix evidence, cold/warm measurements, lane receipts, and symptom-driven TypeScript/framework build-memory diagnosis. |
+| `/etrnl-audit-performance` | Model or user | Runs the registered performance deep-audit category with route/journey graphs, cold/warm measurements, lane receipts, build-memory diagnosis, and provider-runtime-memory incident closure. |
 | `/etrnl-audit-production` | Model or user | Runs the registered production-readiness deep-audit category with applicability gates and source-limited blockers. |
 | `/etrnl-audit-tooling` | Model or user | Runs the registered tooling-ecosystem deep-audit category across local setup, lint/format/type gates, CI parity, and rollback paths. |
 | `/etrnl-audit-browser` | User only | Produces browser QA reports with route, viewport, screenshot, console, network, accessibility, and responsive evidence. |

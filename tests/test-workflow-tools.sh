@@ -995,6 +995,103 @@ assert_command "deep-audit category registry syntax" node --check "$ROOT/scripts
 assert_command "deep-audit valid artifact passes" node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$ROOT/tests/fixtures/deep-audit/report.valid.json"
 assert_command "deep-audit production direct artifact passes" node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$ROOT/tests/fixtures/deep-audit/report.production-valid.json"
 assert_command "deep-audit performance direct artifact passes" node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$ROOT/tests/fixtures/deep-audit/report.performance-valid.json"
+performance_provider_false_clean="$TMPROOT/performance-provider-false-clean.json"
+jq '
+  .worklists.perf_provider_incidents.count = 1
+  | .worklists.perf_provider_incidents.incidentIds = ["provider-event-1"]
+  | .worklists.perf_provider_incidents.intakeStatus = "queried"
+  | .worklists.perf_provider_incidents.intakeSources = ["user-linked provider incident"]
+  | .categoryReports[0].runtimeIncidents = [{
+      incidentId: "provider-event-1",
+      environment: "production-worker",
+      symptom: "requests terminated after shared-isolate memory limit",
+      evidenceLabel: "provider-event-sanitized",
+      evidenceKind: "provider_runtime",
+      metricDomain: "runtime_memory",
+      unavailableMetricReason: "provider reports termination class but not peak heap",
+      status: "open",
+      producingPathStatus: "known",
+      producingPath: "campaign page -> enriched list procedure -> nested relation materialization"
+    }]
+' "$ROOT/tests/fixtures/deep-audit/report.performance-valid.json" >"$performance_provider_false_clean"
+performance_provider_false_clean_json="$(node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$performance_provider_false_clean" --json 2>/dev/null || true)"
+assert_json_expr "provider runtime incident rejects clean or source-limited closure" "$performance_provider_false_clean_json" 'any(.errors[]; .errorCode == "PROVIDER_INCIDENT_FALSE_CLOSURE")'
+performance_provider_omitted="$TMPROOT/performance-provider-omitted.json"
+jq 'del(.categoryReports[0].runtimeIncidents)' "$performance_provider_false_clean" >"$performance_provider_omitted"
+performance_provider_omitted_json="$(node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$performance_provider_omitted" --json 2>/dev/null || true)"
+assert_json_expr "provider incident intake rejects omitted known id" "$performance_provider_omitted_json" 'any(.errors[]; .errorCode == "PROVIDER_INCIDENT_EVIDENCE_OMITTED")'
+
+performance_invalid_metric="$TMPROOT/performance-provider-invalid-metric.json"
+jq '.categoryReports[0].runtimeIncidents[0].observedMetric = {} | del(.categoryReports[0].runtimeIncidents[0].unavailableMetricReason)' "$performance_provider_false_clean" >"$performance_invalid_metric"
+performance_invalid_metric_json="$(node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$performance_invalid_metric" --json 2>/dev/null || true)"
+assert_json_expr "provider runtime incident rejects empty metric placeholders" "$performance_invalid_metric_json" 'any(.errors[]; .errorCode == "RUNTIME_METRIC_INVALID")'
+
+performance_wrong_metric="$TMPROOT/performance-runtime-wrong-metric.json"
+jq '
+  .worklists.perf_provider_incidents.count = 1
+  | .worklists.perf_provider_incidents.incidentIds = ["provider-event-2"]
+  | .worklists.perf_provider_incidents.intakeStatus = "queried"
+  | .worklists.perf_provider_incidents.intakeSources = ["provider alert stream"]
+  | .categoryReports[0].status = "findings_present"
+  | .categoryReports[0].checks |= map(if .checkId == "perf-06-infrastructure-network" then (.status = "finding" | del(.confirmedClean) | .findings = [{evidence: "provider runtime incident"}]) else . end)
+  | .categoryReports[0].runtimeIncidents = [{
+      incidentId: "provider-event-2",
+      environment: "production-worker",
+      symptom: "shared-isolate memory termination",
+      evidenceLabel: "provider-event-sanitized",
+      evidenceKind: "provider_runtime",
+      metricDomain: "runtime_memory",
+      unavailableMetricReason: "provider reports termination class but not peak heap",
+      status: "resolved",
+      producingPathStatus: "known",
+      producingPath: "page -> list procedure -> relation materialization",
+      remediationReceipt: {producingPath: "page -> list procedure", change: "bounded root and nested results", correctnessGates: "focused tests pass", regressionGuard: "cardinality contract"},
+      cardinalityVerification: {rootCollections: "bounded", nestedRelations: "bounded", regressionTest: "fixture covers both levels"},
+      runtimeVerification: {actualRuntime: true, postDeployment: true, sameJourney: true, overlappingRequests: true, responseBodiesConsumed: true, providerRecurrenceChecked: true, pagesTotal: 2, pagesExercised: 2, proceduresTotal: 4, proceduresExercised: 4, concurrencyLevels: [1, 4], metricDomain: "build_memory", journeyGraphArtifact: "journey-graph", outcomeEvidence: "all requests completed", latencyEvidence: "runtime latency artifact", bodyVolumeEvidence: "response byte artifact", peakMemoryUnavailableReason: "provider does not expose peak heap"}
+    }]
+  | .findings = [{evidence: "provider runtime incident"}]
+  | .synthesis.status = "findings_present"
+' "$ROOT/tests/fixtures/deep-audit/report.performance-valid.json" >"$performance_wrong_metric"
+performance_wrong_metric_json="$(node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$performance_wrong_metric" --json 2>/dev/null || true)"
+assert_json_expr "runtime memory closure rejects build-memory substitution" "$performance_wrong_metric_json" 'any(.errors[]; .errorCode == "RUNTIME_MEMORY_METRIC_SUBSTITUTION" and (.jsonPath | endswith("runtimeVerification.metricDomain")))'
+
+performance_resolved_clean="$TMPROOT/performance-runtime-resolved-clean.json"
+jq '
+  .categoryReports[0].checks |= map(if .checkId == "perf-06-infrastructure-network" then (.status = "confirmed_clean" | del(.findings) | .confirmedClean = "CONFIRMED_CLEAN: resolved provider runtime incident passed affected-journey closure") else . end)
+  | .categoryReports[0].status = "clean"
+  | .categoryReports[0].runtimeIncidents[0].runtimeVerification.metricDomain = "runtime_memory"
+  | .findings = []
+  | .synthesis.status = "clean"
+' "$performance_wrong_metric" >"$performance_resolved_clean"
+assert_command "resolved provider runtime incident can return to clean" node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$performance_resolved_clean"
+performance_resolved_unknown="$TMPROOT/performance-runtime-resolved-unknown.json"
+jq '.categoryReports[0].runtimeIncidents[0].producingPathStatus = "unknown" | .categoryReports[0].runtimeIncidents[0].concreteDependency = {owner: "provider", action: "expose trace", evidenceNeeded: "allocation attribution"}' "$performance_resolved_clean" >"$performance_resolved_unknown"
+performance_resolved_unknown_json="$(node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$performance_resolved_unknown" --json 2>/dev/null || true)"
+assert_json_expr "resolved runtime incident requires a known producing path" "$performance_resolved_unknown_json" 'any(.errors[]; .errorCode == "RUNTIME_PRODUCING_PATH_UNRESOLVED")'
+performance_report_only_incident="$TMPROOT/performance-report-only-incident.json"
+jq '.categoryReports[0].runtimeIncidents[0].incidentId = "report-only-event"' "$performance_resolved_clean" >"$performance_report_only_incident"
+performance_report_only_incident_json="$(node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$performance_report_only_incident" --json 2>/dev/null || true)"
+assert_json_expr "runtime incident report ids must come from intake worklist" "$performance_report_only_incident_json" 'any(.errors[]; .errorCode == "PROVIDER_INCIDENT_NOT_IN_WORKLIST")'
+
+client_directive_fixture="$TMPROOT/performance-client-directives"
+mkdir -p "$client_directive_fixture"
+printf '%s\n' "'use client';" >"$client_directive_fixture/single.tsx"
+printf '%s\n' '  "use client"' >"$client_directive_fixture/double.tsx"
+client_directive_matches="$(rg -l -U "^[[:space:]]*['\"]use client['\"][[:space:]]*;?" -g '*.tsx' "$client_directive_fixture" | wc -l | tr -d ' ')"
+if [[ "$client_directive_matches" == "2" ]]; then
+  ok "performance client discovery accepts both quote styles"
+else
+  not_ok "performance client discovery accepts both quote styles"
+fi
+provider_rerun_fixture="$TMPROOT/performance-provider-rerun.txt"
+printf '%s\n' 'provider-event-open' >"$provider_rerun_fixture"
+test -f "$provider_rerun_fixture" || : >"$provider_rerun_fixture"
+provider_rerun_contents="$(tr -d '\n' <"$provider_rerun_fixture")"
+if [[ "$provider_rerun_contents" == "provider-event-open" ]]; then
+  ok "performance provider intake preserves unresolved rows across reruns"
+else
+  not_ok "performance provider intake preserves unresolved rows across reruns"
+fi
 assert_command "deep-audit source-limited artifact passes" node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$ROOT/tests/fixtures/deep-audit/report.source-limited.json"
 assert_command "deep-audit fixture suite passes" node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate-fixtures
 assert_command "deep-audit registry validates" node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate-registry --root "$ROOT"

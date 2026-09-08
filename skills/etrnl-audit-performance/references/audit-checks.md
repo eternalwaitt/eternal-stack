@@ -11,13 +11,13 @@ Own these performance surfaces:
 - bundle size, code splitting, lazy loading, client-component scope, barrel imports, and heavy dependencies;
 - React rendering strategy, React Compiler status, large list rendering, context churn, high-tree state, data-fetching patterns, transitions, and Suspense boundaries;
 - perceived performance, route loading states, optimistic writes, debounced inputs, image loading, link prefetch, and fast shells for heavy views;
-- infrastructure and network performance, runtime placement, headers, compression, image config, CDN/object-storage fit, and large public assets.
+- infrastructure and network performance, runtime placement, server memory, shared-isolate concurrency, headers, compression, image config, CDN/object-storage fit, and large public assets;
 - TypeScript and framework build-memory exhaustion when an observed build or type-validation failure makes it a delivery bottleneck; use `typescript-build-memory.md` and keep it distinct from application memory leaks.
 
 Do not score these as performance findings:
 
 - schema correctness unrelated to measured query latency;
-- memory leaks and effect cleanup;
+- client-only effect cleanup without an observed performance symptom;
 - loading skeleton visual design quality;
 - console logging and observability hygiene;
 - manual `memo`, `useMemo`, or `useCallback` gaps when React Compiler is enabled.
@@ -33,8 +33,11 @@ rg --files -g '**/page.tsx' -g '!**/node_modules/**' -g '!**/.next/**' | sort > 
 rg --files -g '**/route.ts' -g '!**/node_modules/**' -g '!**/.next/**' | sort > "$AUDIT_DIR/worklists/perf_route_handlers.txt"
 rg "\\[[^/]+?\\]" "$AUDIT_DIR/worklists/perf_pages.txt" "$AUDIT_DIR/worklists/perf_route_handlers.txt" > "$AUDIT_DIR/worklists/perf_dynamic_routes.txt"
 rg --files -g '**/loading.tsx' -g '!**/node_modules/**' -g '!**/.next/**' | sort > "$AUDIT_DIR/worklists/perf_loading.txt"
-rg "prisma\\." --type ts -g '!**/generated/**' -g '!**/*.test.*' > "$AUDIT_DIR/worklists/perf_queries.txt"
-rg "'use client'" -g '*.tsx' -l > "$AUDIT_DIR/worklists/perf_client.txt"
+rg -n "(prisma|db)\\.[[:alnum:]_]+\\.(findMany|findFirst|findUnique|count|aggregate|groupBy|queryRaw|executeRaw)|\\.(include|select):[[:space:]]*\\{" --type ts -g '!**/generated/**' -g '!**/*.test.*' > "$AUDIT_DIR/worklists/perf_queries.txt"
+rg -n "(public|protected|admin)?Procedure|\\bos\\.(handler|route|use)|\\.(handler|route)\\([[:space:]]*async|createRouter|router\\(" --type ts -g '!**/generated/**' -g '!**/*.test.*' > "$AUDIT_DIR/worklists/perf_procedures.txt"
+rg -n "fetch\\(|(api|client|orpc|rpc)\\.[[:alnum:]_.]+\\.(call|query|mutate)|use(Query|Mutation|SuspenseQuery)\\(|(query|mutation)Options\\(|prefetchQuery\\(|ensureQueryData\\(" --glob '*.{ts,tsx}' -g '!**/generated/**' -g '!**/*.test.*' > "$AUDIT_DIR/worklists/perf_request_graph.txt"
+rg -n "\\b(include|select):[[:space:]]*\\{|\\b(take|limit):|findMany\\(" --type ts -g '!**/generated/**' -g '!**/*.test.*' > "$AUDIT_DIR/worklists/perf_relations.txt"
+rg -l -U "^[[:space:]]*['\\\"]use client['\\\"][[:space:]]*;?" -g '*.tsx' > "$AUDIT_DIR/worklists/perf_client.txt"
 rg "dynamic\\(|import\\(" --type ts -g '!**/generated/**' -g '!**/*.test.*' > "$AUDIT_DIR/worklists/perf_dynamic.txt"
 : > "$AUDIT_DIR/worklists/perf_deps.txt"
 rg --files -g 'package.json' -g '!**/node_modules/**' -g '!**/.next/**' | while IFS= read -r file; do rg '"dependencies"' -A 100 "$file"; done > "$AUDIT_DIR/worklists/perf_deps.txt"
@@ -50,9 +53,14 @@ rg --files -g 'next.config.*' -g '!**/node_modules/**' | sort > "$AUDIT_DIR/work
 while IFS= read -r file; do
   [ -f "$file" ] && rg "reactCompiler|babel-plugin-react-compiler|react-compiler" "$file"
 done < "$AUDIT_DIR/worklists/perf_next_configs.txt" > "$AUDIT_DIR/worklists/perf_compiler_status.txt"
+test -f "$AUDIT_DIR/worklists/perf_provider_incidents.txt" || : > "$AUDIT_DIR/worklists/perf_provider_incidents.txt"
+# Reconcile unresolved rows from the prior run, user-linked incidents, deploy/provider
+# errors and alerts, and retained runtime logs before declaring zero incidents.
+# Append sanitized ids/labels only. Never copy secrets or private payloads.
 ```
 
 After each worklist command, run `wc -l` and record `path`, `count`, and `sha256`. If a command is not applicable to the target stack, create an empty worklist with a hash and record the applicability result.
+For `perf_provider_incidents`, also record `intakeStatus`, `intakeSources`, and a unique `incidentIds` array whose length equals `count`; one incident can summarize a provider burst and carries its raw event count separately. Query provider/deploy errors and alerts when access exists, fetch user-linked incident evidence, and reconcile unresolved prior ids without truncating them. For inaccessible sources, set `intakeStatus: unavailable` and record the exact `accessFailures`. Every id must appear exactly once in the category report.
 
 Required manifest fields:
 
@@ -63,7 +71,11 @@ TOTAL_DYNAMIC_ROUTES:
 TOTAL_LOADING_FILES:
 PAGES_WITHOUT_LOADING:
 TOTAL_PRISMA_QUERY_LINES:
+TOTAL_PROCEDURE_LINES:
+TOTAL_REQUEST_GRAPH_CANDIDATES:
+TOTAL_RELATION_CARDINALITY_CANDIDATES:
 TOTAL_CLIENT_COMPONENTS:
+TOTAL_PROVIDER_MEMORY_INCIDENTS:
 LARGE_LOCAL_FILES_OVER_1MB:
 REACT_COMPILER_ENABLED:
 ```
@@ -72,7 +84,7 @@ No lane starts before every registry worklist has a path, count, and hash.
 
 ## Lane Rules
 
-- Read only from Phase 1 worklists and files referenced by those worklists.
+- Read only from Phase 1 worklists and files referenced by those worklists. The request-graph lane follows only the discovered page -> procedure -> query/relation edges needed to resolve each critical journey.
 - For a reproduced TypeScript/framework build-memory failure, additionally inspect only the exact build entrypoint, TypeScript project configuration, package export/type boundaries, generated-source directories, and imports named by compiler diagnostics; record this symptom-driven expansion in the lane receipt.
 - Record `CONFIRMED_CLEAN: <check id> - <evidence and file count>` for every clean check.
 - Record `CHECKS_SKIPPED: <check id> - <reason and blocker>` for every skipped check.
@@ -82,15 +94,18 @@ No lane starts before every registry worklist has a path, count, and hash.
 - Separate dev compilation, process-cold startup, cache-cold execution, and warm runtime. Consume every response body. Run repeated measurements under the conditions contract from `measurement-evidence.md`.
 - Measure user-facing pages and route handlers through HTTP or browser evidence. Service/procedure timings identify hotspots but do not close a route.
 - Treat source inspection as hypothesis evidence. Promote it to a measured finding only after a trace, runtime sample, query plan, bundle artifact, lab run, or field result establishes impact.
+- Treat a provider `exceededMemory`, OOM, eviction, restart, or memory-limit event as primary runtime evidence that the incident occurred. Load `runtime-memory-incidents.md`; do not downgrade a known producing path to `source_limited` because a bespoke heap trace or provider peak-RSS value is unavailable.
+- Keep build-memory metrics, server runtime-memory metrics, and client bundle/transfer bytes in separate evidence domains.
 
 ## Check `perf-01-database-query-performance`
 
 Lane id: `database-query-performance`
 
-Use `perf_queries` and schema files. Inspect:
+Use `perf_queries`, `perf_procedures`, `perf_request_graph`, `perf_relations`, and schema files. Inspect:
 
 - loops containing Prisma/database calls;
 - queries without narrowed `select` or justified `include`;
+- root collection cardinality and every nested relation cardinality independently; a bounded root query can still materialize an unbounded nested relation;
 - independent sequential awaits;
 - unbounded `findMany` or equivalent collection reads;
 - expensive `count`, `aggregate`, and `groupBy` calls without cache boundaries;
@@ -98,6 +113,7 @@ Use `perf_queries` and schema files. Inspect:
 - raw SQL without query plan, bounded filters, or measured cost;
 - filters and ordering fields that lack supporting indexes;
 - multi-field filters that need compound index coverage.
+- the page -> procedure -> query graph so repeated/enriched procedures and page-level fanout are visible together.
 
 For each finding, report `QUERY LOCATION`, `TYPE`, `SEVERITY`, `CURRENT`, `IMPACT`, and `FIX`. Emit a single index migration block as remediation input when index impact is part of request latency evidence.
 
@@ -105,7 +121,7 @@ For each finding, report `QUERY LOCATION`, `TYPE`, `SEVERITY`, `CURRENT`, `IMPAC
 
 Lane id: `server-response-caching`
 
-Use `perf_pages`, `perf_route_handlers`, `perf_dynamic_routes`, `perf_large_files`, and `perf_next_configs`. Inspect:
+Use `perf_pages`, `perf_route_handlers`, `perf_dynamic_routes`, `perf_procedures`, `perf_request_graph`, `perf_large_files`, and `perf_next_configs`. Inspect:
 
 - async server-component waterfalls and repeated data fetches;
 - fetch calls without explicit cache or revalidation behavior;
@@ -116,6 +132,7 @@ Use `perf_pages`, `perf_route_handlers`, `perf_dynamic_routes`, `perf_large_file
 - payload budgets derived from a baseline, user impact, or repository policy; absent budgets remain unscored observations;
 - fresh-process latency for file-backed caches, snapshots, generated data, remote storage, and singleton initialization;
 - route handler, image, API, RPC, upload, download, and fallback paths.
+- all procedures triggered by each critical page journey, including concurrent fanout, duplicate enriched/plain reads, and deferred tab/scroll work.
 
 Always consume response bodies while measuring. Use the route row in `measurement-evidence.md`.
 
@@ -175,12 +192,15 @@ For each finding, report `LOCATION`, `TYPE`, `SEVERITY`, `CURRENT`, `IDEAL`, `FI
 
 Lane id: `infrastructure-network`
 
-Use `perf_route_handlers`, `perf_next_configs`, and `perf_large_files`. Inspect:
+Use `perf_route_handlers`, `perf_procedures`, `perf_request_graph`, `perf_relations`, `perf_provider_incidents`, `perf_next_configs`, and `perf_large_files`. Inspect:
 
 - runtime placement for edge-suitable auth/redirect/simple transform routes and Node-required database or filesystem routes;
 - cache headers, compression, image optimization, and static asset headers in framework config;
 - large files in public/static paths that belong on CDN or object storage;
 - connection pooling and serverless database client behavior when route evidence shows connection overhead.
+- provider-reported runtime memory incidents and the exact request burst, route/procedure set, isolate limit, and recurrence window available from that evidence;
+- process memory accumulated while every discovered page journey runs sequentially in one isolate, followed by representative concurrent replay in the same isolate;
+- response materialization and serialization volume at root and nested relation levels. Consuming a response or bounding each response separately does not prove aggregate isolate memory is safe;
 - observed TypeScript/framework build-memory exhaustion, phase attribution, generated-source fan-in, and package declaration boundaries using `typescript-build-memory.md`; do not scan or score this path without a build-memory symptom.
 
 For each finding, report `LOCATION`, `TYPE`, `SEVERITY`, `ISSUE`, `FIX`, and `IMPACT`.
