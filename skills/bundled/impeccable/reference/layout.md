@@ -13,17 +13,17 @@ Native (`ios` / `android` / `adaptive`): structure follows the Layout section of
 
 ---
 
-## Two isolated assessments (required)
+## Design assessment and mechanical evidence
 
-Spawn two parallel sub-agents whenever a sub-agent/Task tool is exposed: one for the layout assessment, one for the mechanical pre-scan. If the harness needs explicit user permission for sub-agents, stop and ask before proceeding. Isolation is the point: detector output anchors visual judgment toward what the scan can see, so neither sub-agent gets the other's output. Each assessment runs in its own sub-agent; running either one in this context when a sub-agent tool exists is not permitted, even when it is faster; the fallback below is only for sessions with no sub-agent tool. Give each a self-contained prompt (target files, register, documented spacing scale when present, and its instructions below); do not assume it can read this file.
+Keep visual judgment and mechanical evidence analytically distinct. Use separate agents only when authorized, useful and within the stored workflow contract; otherwise assess the design first and scan second in the same context. A focused correction does not require two workers. Pass the target, relevant context and checklist path/section instead of copying the entire skill. Assign browser/server and shared-check ownership through the execute parallel-work guidance.
 
-**Sub-agent A (layout assessment)**: give it the full [Assess Current Layout](#assess-current-layout) checklist below, verbatim, in its prompt. It works through every item and returns per-item findings citing file, selector, or value.
+**Sub-agent A (layout assessment)**: point it to the relevant [Assess Current Layout](#assess-current-layout) checklist below and the requested scope. It works through every item and returns per-item findings citing file, selector, or value.
 
 **Sub-agent B (mechanical pre-scan)**: the deterministic detector is not included in this vendored copy; perform its checks manually. Search the target files for arbitrary spacing and stacking values — `gap-\[`, `p[trblxy]?-\[`, `m[trblxy]?-\[`, `z-\[` — plus raw pixel paddings/margins outside any token system, and judge each hit against the project's documented spacing scale (flag it when no scale is documented). Report the findings in the same structure a detector run would: one entry per hit with file, line, offending value, and a verdict (violation / consistent-with-scale / deliberate exception).
 
-**If no sub-agent tool is exposed (or the user declined)**: run both yourself, assessment first, pre-scan second, so the deterministic findings can't anchor the visual judgment. Keep that order even when the scan feels quicker to start with.
+**When working inline**: run both yourself, assessment first, pre-scan second, so the deterministic findings can't anchor the visual judgment. Keep that order even when the scan feels quicker to start with.
 
-**Synthesize** once both are done: merge into a single findings list, noting where they agree and what each caught alone. Fix every finding, or list it as a deliberate exception for the user to accept. A clean scan is a floor, not a verdict: a monotone grid with uniform spacing passes every detector rule, which is exactly what the assessment exists to catch. State in your final summary which path ran (parallel sub-agents or single-context fallback).
+**Synthesize** once both are done: merge into a single findings list, noting where they agree and what each caught alone. For authorized fixes, resolve relevant findings within scope; otherwise report them. Distinguish deliberate design choices from actual defects. A clean scan is a floor, not a verdict: a monotone grid with uniform spacing passes every detector rule, which is exactly what the assessment exists to catch. State in your final summary which path ran (parallel sub-agents or single-context fallback).
 
 ---
 

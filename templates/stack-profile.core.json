@@ -1,33 +1,21 @@
 {
   "schemaVersion": 1,
   "profile": "core",
-  "description": "ETRNL core harness without global semantic memory or backlog services.",
+  "description": "Portable shared guidance plus one in-host router skill and an on-demand capability library for Claude Code and Codex; no automatic orchestration.",
   "installCommand": "./scripts/install.sh --profile core",
   "components": {
     "etrnl": {
       "enabled": true,
-      "authority": "compact-handoff",
+      "authority": "project-instructions",
       "installs": [
-        "claude-hooks",
-        "claude-skills",
-        "claude-agents",
-        "claude-commands",
-        "codex-skills",
-        "rules",
-        "scripts",
-        "settings-audit"
+        "shared-guidance",
+        "router-skill",
+        "private-capability-library"
       ],
-      "requiredHooks": [
-        "cc-sessionstart-restore.sh",
-        "cc-precompact-save.sh",
-        "cc-postcompact-record.sh",
-        "cc-stop-verifier.sh"
-      ],
-      "requiredHooksIntent": "compact-handoff and stop-gate minimum; templates/settings.strict.json owns the broader lifecycle hook set",
+      "requiredHooks": [],
+      "requiredHooksIntent": "Core registers no hooks; native host permissions and project verification remain authoritative.",
       "healthChecks": [
-        "tests/test-hooks.sh",
-        "tests/test-workflow-tools.sh",
-        "scripts/doctor.sh"
+        "node --test tests/core-install.test.mjs"
       ]
     },
     "hindsight": {
@@ -44,15 +32,13 @@
     }
   },
   "settings": {
-    "template": "templates/settings.strict.json",
-    "stockBoundary": "repo-owned harness hooks only",
-    "unsupportedTopLevelKeys": [
-      "autoCompactWindow",
-      "skipAutoPermissionPrompt"
-    ]
+    "template": null,
+    "stockBoundary": "No host settings are written",
+    "unsupportedTopLevelKeys": []
   },
   "rollback": {
-    "installMetadataTarget": "~/.claude/etrnl/install.json",
-    "required": true
+    "required": true,
+    "command": "./scripts/install.sh --profile core --uninstall",
+    "ownershipManifest": ".etrnl-core.json"
   }
 }

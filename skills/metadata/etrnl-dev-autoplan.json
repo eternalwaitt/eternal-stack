@@ -1,9 +1,8 @@
 {
   "skill": "etrnl-dev-autoplan",
-  "executionMode": "file-backed planning with CEO/DX/adversarial review",
+  "executionMode": "file-backed planning guided by the canonical workflow contract",
   "ownershipRule": "reuse existing helpers and docs before adding plan surfaces",
   "fallback": "evidence-pending handoff with explicit blockers",
-  "testDiscipline": "deterministic plan-readiness and deep-stack gates",
-  "riskTiering": "after-deep-review-only",
-  "deepStackArtifacts": true
+  "testDiscipline": "name relevant verification and report actual readiness-check results",
+  "workflowContract": "explicit intent, impact scope, consequence risk, and bounded whole-task budget"
 }

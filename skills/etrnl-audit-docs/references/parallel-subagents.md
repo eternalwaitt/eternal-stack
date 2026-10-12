@@ -5,11 +5,11 @@ Use this reference when a documentation-health run is broad enough to benefit fr
 ## Rules
 
 - Keep the parent session as orchestrator: inventory, lane split, integration, edits not delegated, and final verification.
-- Dispatch a maximum of 6 agents per batch.
+- Use the stored workflow contract and native host capacity for delegation limits. The coverage lanes below are not a requirement to start that many agents; combine or sequence them without losing coverage.
 - Use read-only subagents for audit lanes.
 - Use write-capable agents only in `fix` mode, only after findings are deduplicated, and only with disjoint file ownership.
 - Do not duplicate work between parent and agents.
-- Do not let subagents decide final health. The parent must merge evidence and rerun gates.
+- Do not let subagents decide final health. The parent must merge evidence and run required integrated gates once on frozen source. Reuse earlier results only while their source, configuration and scope still match.
 - Tell every subagent that it is not alone in the codebase, must not revert others' changes, and must preserve user edits.
 
 ## Default Read-Only Lanes
@@ -48,7 +48,7 @@ Use these lanes for no-skips repo documentation audits:
   "verificationCommand": "read-only; no verification command",
   "modelTier": "inherit",
   "timeout": "bounded",
-  "retryPolicy": "retry only if output lacks evidence",
+  "retryPolicy": "correct missing evidence within the stored contract budget; preserve prior attempts",
   "doNotRevert": true,
   "webSearchGuidance": "no web unless the assigned docs reference external current behavior"
 }
@@ -92,4 +92,4 @@ Use only after the parent has a deduplicated ledger and disjoint ownership.
 
 Merge lane output by finding id and source-of-truth path. Deduplicate repeated stale claims. Escalate severity when multiple lanes prove the same misleading instruction affects setup, deployment, security, or agent behavior.
 
-After integration, rerun the docs-specific gates and the repo health stack relevant to changed files. If a subagent output lacks paths, evidence, or dispositions, treat it as incomplete and ask for a narrower redo or recheck locally.
+After integration, rerun the docs-specific gates and the repo health stack relevant to changed files. If a subagent output lacks paths, evidence, or dispositions, treat it as incomplete. Request only the missing evidence within the remaining contract budget or verify it locally; do not restart the entire lane or reset counters.

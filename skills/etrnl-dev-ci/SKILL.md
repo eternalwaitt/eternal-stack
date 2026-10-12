@@ -1,10 +1,9 @@
 ---
 name: etrnl-dev-ci
-description: ETRNL CI/CD workflow for Claude Code. Use when designing, auditing, hardening, debugging, or repairing CI/CD pipelines, GitHub Actions, deploy gates, release automation, branch protection, OIDC, SBOMs, image builds, staging, canary, blue-green, rollback, flaky CI, or slow builds.
+description: ETRNL CI/CD workflow for Claude Code and Codex. Use when designing, auditing, hardening, debugging, or repairing CI/CD pipelines, GitHub Actions, deploy gates, release automation, branch protection, OIDC, SBOMs, image builds, staging, canary, blue-green, rollback, flaky CI, or slow builds.
 ---
 # ETRNL CI/CD
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-ci`; on update, run the reported update command before continuing; only skip if the user explicitly declines.
 
 Treat CI/CD as an execution harness with lanes, evidence, and rollback, not as scattered workflow YAML.
 
@@ -14,22 +13,20 @@ Treat CI/CD as an execution harness with lanes, evidence, and rollback, not as s
    - Package manager, workspace layout, build system, test runner, deployment target, protected branches, required checks, and current workflow files.
    - Existing hooks, package scripts, Dockerfiles, deploy scripts, branch-protection docs, environment names, and release notes.
 2. Separate lanes:
-   - Local hooks: cheap deterministic checks that block obvious bad pushes. Install the CodeRabbit-preemption guard as a pre-push step: git feeds each ref four fields on the hook's stdin (`local_ref local_sha remote_ref remote_sha`); pass the remote SHA as `node scripts/review-rules.mjs check --base <remote_sha>` so it scopes to the outgoing range `<remote_sha>...HEAD`, not the clean worktree. An all-zero remote SHA means a brand-new remote branch, so the guard diffs against Git's empty tree (checks the whole outgoing history) instead of blocking; any other unresolvable base fails closed. (`--changed-only` is the working-tree variant for pre-commit/local runs.)
+   - Local hooks: cheap deterministic checks that block obvious bad pushes. Install the CodeRabbit-preemption guard as a pre-push step: git feeds each ref four fields on the hook's stdin (`local_ref local_sha remote_ref remote_sha`); pass the remote SHA as `node {{ETRNL_COMPANION}} run scripts/review-rules.mjs -- check --base <remote_sha>` so it scopes to the outgoing range `<remote_sha>...HEAD`, not the clean worktree. An all-zero remote SHA means a brand-new remote branch, so the guard diffs against Git's empty tree (checks the whole outgoing history) instead of blocking; any other unresolvable base fails closed. (`--changed-only` is the working-tree variant for pre-commit/local runs.)
    - PR CI: fast review-readiness signal.
    - Main CI: full merge-integrity gate and artifact publication.
    - Deploy workflow: explicit environment, immutable artifact, health check, rollback evidence, and post-deploy revision.
    - Scheduled lane: slow scans, broad audits, flaky-test reports, drift checks, dependency reviews, and full E2E.
 3. Preserve existing required check names through an aggregate job unless branch protection is intentionally updated.
 4. Patch the smallest real pipeline surface that closes the verified gap.
-5. Verify syntax, local gates, and the real CI or deploy dry run before reporting completion.
+5. Verify syntax and applicable local gates. Use an available CI run or deploy dry run only when it matches the requested scope and the user's existing authority; otherwise report source-level or CI-configuration evidence and the unverified boundary.
 
 ## GitHub Actions Audit Flow
 
 For broad workflow audits:
 
-1. If the companion CI/CD skill helper exists, run it first:
-   - `test -f ~/.agents/skills/ci-cd/scripts/audit_github_actions.py && python ~/.agents/skills/ci-cd/scripts/audit_github_actions.py .`
-   - This helper belongs to the external `ci-cd` companion skill, not this repo-owned Eternal Stack; continue manually when it is absent.
+1. If the `ci-cd` skill and its audit helper are available from the active host's loaded skill/library paths, run that helper first. Do not assume a fixed `~/.agents` path or confuse it with a repository-local copy; continue with the manual workflow review when it is unavailable.
 2. Inspect `.github/workflows/*.yml`, `.github/workflows/*.yaml`, action references, `permissions:`, shell `run:` blocks, secrets, caches, artifacts, and concurrency by hand.
 3. Record every finding with file, job, step, impact, fix, and verification command.
 4. Rerun the helper or manual checklist after patching.

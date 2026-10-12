@@ -1,11 +1,10 @@
 ---
 name: etrnl-dev-commit
-description: ETRNL commit workflow for Claude Code. Use only when the user explicitly asks to commit; hidden from model auto-invocation because it has side effects.
+description: ETRNL commit workflow for Claude Code and Codex. Use only when the user explicitly asks to commit; hidden from model auto-invocation because it has side effects.
 disable-model-invocation: true
 ---
 # Commit
 
-Codex startup: after install, run `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-commit`; in the source checkout the helper lives at `scripts/skill-update-prompt.mjs`. On update, run the reported update command before continuing; only skip if the user explicitly declines.
 
 Create one logical commit at a time after evidence is clean.
 

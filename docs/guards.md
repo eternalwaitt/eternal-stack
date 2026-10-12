@@ -1,10 +1,15 @@
 # Guard Reference
 
-Pretool deny rules, stop-verifier completion gates, fail-open behavior, and shared hook libraries. For the full hook catalog (every `cc-*` file, Claude events, default vs strict registration), start with [hooks.md](hooks.md).
+## Enforcement scope
+
+These guards belong to the optional `orchestrated`/`full` package. Core relies on native host permissions, the resolved workflow contract, and project checks; it registers no hook. In contract-backed ledgers, spawn admission and verification budgets come from the stored contract. Ledgers without a contract retain compatibility behavior from the earlier optional workflow. Regex command/message guards are workflow assistance, not a security sandbox or proof of authorization. Missing runtime paths, unrecognized tool shapes, and host compatibility can reduce enforcement; do not claim cross-host parity from installed files alone.
+
+
+Pretool deny rules, stop-verifier completion gates, fail-open behavior, and shared hook libraries. These controls belong to the optional package and primarily describe Claude hooks; Core registers none. For profile behavior by host, see the [host capability matrix](host-capabilities.md). For the full hook catalog (every `cc-*` file, Claude events, strict vs reduced registration), start with [hooks.md](hooks.md).
 
 ## What runs when
 
-| Layer | Default install | Observer-only opt-out (`ETRNL_ENABLE_STRICT=0`) |
+| Layer | Orchestrated strict template | Reduced-hook template (`ETRNL_ENABLE_STRICT=0`) |
 | --- | --- | --- |
 | Session / prompt | `cc-sessionstart-restore.sh`, `cc-userprompt-router.sh`, `cc-userprompt-expansion.sh` | same |
 | Pretool | `cc-spawn-guard.sh` (`Task / Agent / TaskCreate`), `cc-rtk-rg-compat.sh` (`Bash`), `cc-pretooluse-guard.sh` | `cc-spawn-guard.sh`, `cc-rtk-rg-compat.sh` only |
@@ -12,7 +17,7 @@ Pretool deny rules, stop-verifier completion gates, fail-open behavior, and shar
 | Completion | `cc-stop-verifier.sh`, `cc-subagentstop-record.sh` | `cc-stop-verifier.sh` only |
 | Compact / end | `cc-precompact-save.sh`, `cc-postcompact-record.sh`, `cc-sessionend-save.sh` | same |
 
-`cc-stop-verifier.sh` runs in both templates on `Stop`. Default install adds pretool and post-write blockers plus subagent recording.
+`cc-stop-verifier.sh` runs in both optional Claude templates on `Stop`. The strict orchestrated template adds the full pretool and post-write blockers plus subagent recording; Core has no registered hook runtime.
 
 ### Install ordering and overrides
 
@@ -114,7 +119,7 @@ port=$(node ~/.claude/scripts/port-guard.mjs pick --start 3100)
 pnpm dev -- --port "$port"
 ```
 
-Port checking is active for dev-server commands when the pretool guard is installed (default). If `node` or `~/.claude/scripts/port-guard.mjs` is missing, the guard denies the dev-server command until the helper/runtime is restored. Install Node and rerun `scripts/install.sh` to restore checking.
+Port checking is active for dev-server commands when the optional strict pretool guard is installed. If `node` or `~/.claude/scripts/port-guard.mjs` is missing, the guard denies the dev-server command until the helper/runtime is restored. Install Node and rerun `scripts/install.sh --profile orchestrated` to restore checking.
 
 Tune scanning with `CLAUDE_GUARD_PORT_START`, `CLAUDE_GUARD_PORT_END`, `CLAUDE_GUARD_MAX_PORT_SCAN`, and `CLAUDE_GUARD_FORCE_LARGE_SCAN=1`.
 
@@ -162,13 +167,13 @@ Deterministic spawn economics via `execution-ledger.mjs check-spawn`. The hook i
 
 Deny payloads include `reasonCode`, `exactFix`, and `exampleCommand` from `check-spawn --explain`.
 
-Economics enforced by `spawn-guard.mjs` include:
+For ledgers with a workflow contract, `check-spawn` checks the contract budget and reserves concurrency for ledger-admitted workers. It cannot govern native spawns that bypass the ledger path. Older ledgers without a contract use the compatibility gates below:
 
 | Gate | Trigger |
 | --- | --- |
-| Wave 2+ merged review | Per-patch reviewer names on wave/phase ≥ 2 |
-| Batch adoption | `planScope=large`, ≥3 task groups (`ETRNL_BATCH_TASK_GROUP_THRESHOLD`), third lane, or 20+/55% reviewer-heavy backstop (`ETRNL_BATCH_*`) |
-| Review scope (tier 0–2) | `review-scope.mjs` integrated into `check-spawn`; tier ≥3 always `full_lenses` |
-| Role classification | Reviewer `subagent_type` overrides `_writer` task aliases; reviewer spawns require explicit `--wave` |
+| Wave-based review | Per-patch reviewer names on wave/phase ≥ 2 |
+| Batch adoption | `planScope=large`, task-group threshold, third lane, or reviewer-heavy backstop |
+| Review scope | `review-scope.mjs` classifies legacy ledger work |
+| Role classification | Reviewer `subagent_type` overrides `_writer` aliases; reviewer spawns require explicit `--wave` |
 
 Registry: `record-spawn-registry --plan <path>` refreshes allowlist; `enrichLedgerPlanMetadata` runs on every `check-spawn`.

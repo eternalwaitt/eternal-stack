@@ -1,11 +1,10 @@
 ---
 name: etrnl-dev-stress-test
-description: ETRNL adversarial review workflow for Claude Code. Use when stress-testing architecture, rollout plans, migrations, automation, hooks, permissions, or safety assumptions.
+description: ETRNL adversarial review workflow for Claude Code and Codex. Use when stress-testing architecture, rollout plans, migrations, automation, hooks, permissions, or safety assumptions.
 disable-model-invocation: true
 ---
 # Stress Test
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-stress-test`; on update, run the reported update command before continuing; only skip if the user explicitly declines.
 
 Stress-test the proposal:
 

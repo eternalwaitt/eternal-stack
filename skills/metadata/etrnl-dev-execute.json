@@ -1,9 +1,8 @@
 {
   "skill": "etrnl-dev-execute",
-  "executionMode": "wave-based execution",
-  "ownershipRule": "do not duplicate",
-  "fallback": "spot-check",
-  "testDiscipline": "TDD red-green",
-  "riskTiering": "hybrid-after-deep-review",
-  "deepStackArtifacts": true
+  "executionMode": "contract-driven execution in the resolved direct, structured, or program mode",
+  "ownershipRule": "preserve unrelated changes and use disjoint write scopes when delegating",
+  "fallback": "stop on a material blocker or exhausted budget, preserve the result, and report what remains",
+  "testDiscipline": "use test-first evidence when required by the resolved contract; capture required ledger checks as command-run evidence",
+  "workflowContract": "explicit intent, impact scope, consequence risk, and bounded whole-task budget"
 }

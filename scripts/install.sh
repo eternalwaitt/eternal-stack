@@ -2,6 +2,17 @@
 set -Eeuo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
+# Core has no dependency on the legacy orchestration runtime or its installer.
+selected_profile="${ETRNL_STACK_PROFILE:-core}"
+previous_arg=""
+for install_arg in "$@"; do
+  if [[ "$previous_arg" == "--profile" ]]; then selected_profile="$install_arg"; fi
+  case "$install_arg" in --profile=*) selected_profile="${install_arg#--profile=}" ;; esac
+  previous_arg="$install_arg"
+done
+if [[ "$selected_profile" == "core" ]]; then
+  exec node "$ROOT/scripts/lib/install-core.mjs" "$@"
+fi
 SKILL_LISTS="$ROOT/scripts/lib/skill-lists.sh"
 if [[ ! -f "$SKILL_LISTS" ]]; then
   printf 'fatal: missing %s\n' "$SKILL_LISTS" >&2
@@ -30,19 +41,25 @@ legacy_saas_rules_present=0
 DRY_RUN=0
 YES=0
 RESET_CLAUDE_SETTINGS=1
-PROFILE="${ETRNL_STACK_PROFILE:-core}"
+PROFILE="${ETRNL_STACK_PROFILE:-orchestrated}"
 SKIP_HINDSIGHT=0
 SKIP_BEADS=0
 SKIP_CODEGRAPH=0
+NATIVE_CONTINUITY=0
+CLAUDE_NATIVE_VERSION=""
+CODEX_NATIVE_VERSION=""
 
 usage() {
   cat <<EOF
-Usage: ${0##*/} [--profile core|full] [--yes] [--dry-run] [options]
+Usage: ${0##*/} [--profile core|orchestrated|full] [--yes] [--dry-run] [options]
 
 Options:
-  --profile <name>       Install profile: core or full. Default: core.
+  --profile <name>       Choose an alternate layout: core companion, orchestrated hooks, or full services.
   --yes, -y              Approve noninteractive full-profile bootstrap actions.
   --dry-run              Print planned file, tool, config, and rollback actions.
+  --native-continuity    Register optional native continuity adapters (explicit host versions required).
+  --claude-version X.Y.Z Native registration: declared Claude Code version.
+  --codex-version X.Y.Z  Native registration: declared Codex CLI version.
   --preserve-settings    Merge into existing settings.json instead of resetting it first.
   --skip-hindsight       Full profile: explicitly skip Hindsight plugin/config.
   --skip-beads           Full profile: explicitly skip Beads binary/project DB.
@@ -55,7 +72,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --profile)
       PROFILE="${2:-}"
-      [[ -n "$PROFILE" ]] || { printf 'install error: --profile requires core or full\n' >&2; exit 2; }
+      [[ -n "$PROFILE" ]] || { printf 'install error: --profile requires core, orchestrated or full\n' >&2; exit 2; }
       shift 2
       ;;
     --profile=*)
@@ -69,6 +86,16 @@ while [[ $# -gt 0 ]]; do
     --dry-run)
       DRY_RUN=1
       shift
+      ;;
+    --native-continuity)
+      NATIVE_CONTINUITY=1
+      RESET_CLAUDE_SETTINGS=0
+      shift
+      ;;
+    --claude-version|--codex-version)
+      [[ -n "${2:-}" ]] || { printf 'native version requires a value\n' >&2; exit 2; }
+      if [[ "$1" == "--claude-version" ]]; then CLAUDE_NATIVE_VERSION="$2"; else CODEX_NATIVE_VERSION="$2"; fi
+      shift 2
       ;;
     --preserve-settings)
       RESET_CLAUDE_SETTINGS=0
@@ -99,7 +126,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$PROFILE" in
-  core|full) ;;
+  orchestrated|full) ;;
   *)
     printf 'install error: unknown profile: %s\n' "$PROFILE" >&2
     usage >&2
@@ -196,6 +223,7 @@ sync_owned_skills() {
     fi
     rm -rf -- "$target_dir/${skill:?}"
     cp -R -- "$source_dir/${skill:?}" "$target_dir/${skill:?}"
+    render_companion_refs "$target_dir/${skill:?}" "$target_dir/../scripts/companion.mjs"
   done
 }
 
@@ -222,7 +250,33 @@ sync_bundled_skills() {
     fi
     rm -rf -- "$target_dir/${skill:?}"
     cp -R -- "$source_dir/${skill:?}" "$target_dir/${skill:?}"
+    render_companion_refs "$target_dir/${skill:?}" "$target_dir/../scripts/companion.mjs"
   done
+}
+
+render_companion_refs() {
+  local target_path="$1"
+  local helper_path="$2"
+  node - "$target_path" "$helper_path" <<'NODE'
+const fs = require('node:fs');
+const path = require('node:path');
+const target = path.resolve(process.argv[2]);
+const helper = path.resolve(process.argv[3]);
+const quoted = `'${helper.replaceAll("'", "'\\''")}'`;
+function visit(file) {
+  const stat = fs.lstatSync(file);
+  if (stat.isSymbolicLink()) return;
+  if (stat.isDirectory()) {
+    for (const name of fs.readdirSync(file)) visit(path.join(file, name));
+    return;
+  }
+  if (!stat.isFile() || !file.toLowerCase().endsWith('.md')) return;
+  const before = fs.readFileSync(file, 'utf8');
+  const after = before.replaceAll('{{ETRNL_COMPANION}}', quoted);
+  if (after !== before) fs.writeFileSync(file, after);
+}
+visit(target);
+NODE
 }
 
 sync_skill_support_dir() {
@@ -271,6 +325,7 @@ install_skill_command_shims() {
       printf '</etrnl_skill_contract>\n'
     } >"$tmp"
     mv -- "$tmp" "$command_file"
+    render_companion_refs "$command_file" "$TARGET/scripts/companion.mjs"
   done
 }
 
@@ -354,6 +409,7 @@ copy_control_scripts() {
   cp -- "$ROOT/scripts/doctor.sh" "$target_home/scripts/doctor-etrnl.sh"
   ln -sf -- "doctor-etrnl.sh" "$target_home/scripts/doctor.sh"
   for script in "${INSTALL_SCRIPTS[@]}"; do
+    mkdir -p -- "$target_home/scripts/$(dirname -- "$script")"
     cp -- "$ROOT/scripts/$script" "$target_home/scripts/$script"
   done
   mkdir -p "$target_home/scripts/lib"
@@ -372,6 +428,7 @@ copy_profile_templates() {
   cp -- "$ROOT/templates/settings.strict.json" "$target_home/templates/settings.strict.json"
   cp -- "$ROOT/templates/settings.local.example.json" "$target_home/templates/settings.local.example.json"
   cp -- "$ROOT/templates/stack-profile.core.json" "$target_home/templates/stack-profile.core.json"
+  cp -- "$ROOT/templates/stack-profile.orchestrated.json" "$target_home/templates/stack-profile.orchestrated.json"
   cp -- "$ROOT/templates/stack-profile.full.json" "$target_home/templates/stack-profile.full.json"
   copy_dir_contents "$ROOT/templates/hindsight" "$target_home/templates/hindsight"
 }
@@ -449,6 +506,9 @@ validate_source_install_inputs() {
   command -v node >/dev/null 2>&1 || preflight+=("required command not found: node")
   command -v jq >/dev/null 2>&1 || preflight+=("required command not found: jq")
   for dir in "$TARGET" "$CODEX_TARGET"; do
+    if [[ -e "$dir/.etrnl-core.json" || -L "$dir/.etrnl-core.json" ]]; then
+      preflight+=("core companion is already installed at $dir; optional profiles are alternate layouts and cannot be overlaid")
+    fi
     if [[ -e "$dir" ]]; then
       # A writable regular file passes -e and -w but the install cannot create
       # subpaths under it, so a non-directory target is a hard precondition failure.
@@ -529,6 +589,10 @@ migrate_legacy_runtime_dir() {
   fi
 }
 
+if (( NATIVE_CONTINUITY )); then
+  node "$ROOT/scripts/native-adapters.mjs" --preflight --profile "$PROFILE" --claude-home "$TARGET" --codex-home "$CODEX_TARGET" --claude-version "$CLAUDE_NATIVE_VERSION" --codex-version "$CODEX_NATIVE_VERSION"
+fi
+
 if [[ "$DRY_RUN" == "1" ]]; then
   validate_source_install_inputs
   printf 'Dry run: profile=%s manifest=%s\n' "$PROFILE" "$PROFILE_MANIFEST"
@@ -551,7 +615,7 @@ if [[ "$DRY_RUN" == "1" ]]; then
     [[ "$SKIP_HINDSIGHT" == "1" ]] || printf 'Dry run: would install/verify Hindsight plugin and materialize token-free config\n'
     printf 'Dry run: would run Hindsight, Beads, CodeGraph, settings, and doctor canaries\n'
   else
-    printf 'Dry run: core profile skips Hindsight, Beads, and CodeGraph bootstrap\n'
+    printf 'Dry run: orchestrated profile skips Hindsight, Beads, and CodeGraph bootstrap\n'
   fi
   printf 'Dry run: would create backup at %s\n' "$BACKUP"
   if [[ -d "$TARGET/control-plane" && ! -e "$TARGET/etrnl" ]]; then
@@ -563,6 +627,9 @@ if [[ "$DRY_RUN" == "1" ]]; then
 fi
 
 mkdir -p "$TARGET" "$BACKUP"
+if (( NATIVE_CONTINUITY )); then
+  node "$ROOT/scripts/native-adapters.mjs" --snapshot "$BACKUP" --claude-home "$TARGET" --codex-home "$CODEX_TARGET"
+fi
 # Reject a symlinked stack subtree before any backup or overlay runs. `find` skips a
 # symlinked root (so the per-file backup below captures nothing) and the later
 # `cp -R` overlay writes THROUGH the link, clobbering an off-tree target that
@@ -582,6 +649,9 @@ for stack_dir in "$TARGET/hooks" "$TARGET/skills" "$TARGET/rules" \
     printf 'install error: %s is not a directory; resolve it before installing\n' "$stack_dir" >&2
     exit 2
   fi
+done
+for script_root in "$TARGET/scripts" "$TARGET/scripts/lib" "$CODEX_TARGET/scripts" "$CODEX_TARGET/scripts/lib"; do
+  [[ ! -L "$script_root" ]] || { printf 'install error: symlink script root %s\n' "$script_root" >&2; exit 2; }
 done
 migrate_legacy_runtime_dir "$TARGET"
 migrate_legacy_runtime_dir "$CODEX_TARGET"
@@ -769,6 +839,20 @@ for codex_hook in spawn-guard-pre-tool-use.sh rtk-pre-tool-use.sh; do
     printf 'hooks/%s\n' "$codex_hook" >> "$BACKUP/new-codex-source-paths.txt"
   fi
 done
+# Snapshot every source-owned helper actually copied, including all dependency
+# modules, rather than only the health-check subset. Retain absence for rollback.
+for script_host in claude codex; do
+  if [[ "$script_host" == claude ]]; then script_home="$TARGET"; else script_home="$CODEX_TARGET"; fi
+  script_backup="$BACKUP/$script_host-owned-scripts"
+  mkdir -p "$script_backup"
+  { printf '%s\n' "${INSTALL_SCRIPTS[@]}"; find "$ROOT/scripts/lib" -type f -print | while IFS= read -r helper_file; do printf '%s\n' "${helper_file#"$ROOT/scripts/"}"; done; } | LC_ALL=C sort -u > "$script_backup/paths.txt"
+  while IFS= read -r script_rel; do
+    if [[ -f "$script_home/scripts/$script_rel" || -L "$script_home/scripts/$script_rel" ]]; then
+      mkdir -p "$script_backup/files/$(dirname -- "$script_rel")"
+      cp -P -- "$script_home/scripts/$script_rel" "$script_backup/files/$script_rel"
+    fi
+  done < "$script_backup/paths.txt"
+done
 removed_moved=0
 backup_removed_skills "$TARGET/skills" "$BACKUP/skills"
 backup_removed_skills "$CODEX_TARGET/skills" "$BACKUP/codex-skills"
@@ -818,7 +902,7 @@ if [[ "$PROFILE" == "full" ]]; then
   fi
   "$ROOT/scripts/bootstrap-tools.sh" "${bootstrap_args[@]}"
 elif [[ "${ETRNL_BOOTSTRAP_TOOLS:-0}" == "1" ]]; then
-  printf 'install warning: core profile does not bootstrap Hindsight, Beads, or CodeGraph; use --profile full for the supported full stack\n' >&2
+  printf 'install warning: orchestrated profile does not bootstrap Hindsight, Beads, or CodeGraph; use --profile full for the supported full stack\n' >&2
 fi
 remove_removed_skills "$TARGET/skills"
 remove_removed_skills "$CODEX_TARGET/skills"
@@ -861,6 +945,7 @@ for agent in "${OWNED_AGENTS[@]}"; do
 done
 for command_name in "${OWNED_COMMANDS[@]}"; do
   cp -- "$ROOT/commands/$command_name.md" "$TARGET/commands/$command_name.md"
+  render_companion_refs "$TARGET/commands/$command_name.md" "$TARGET/scripts/companion.mjs"
 done
 install_skill_command_shims "$TARGET/commands"
 copy_dir_contents "$ROOT/docs" "$TARGET/docs"
@@ -956,6 +1041,18 @@ mkdir -p "$TARGET/hooks/lib"
 ln -sf -- "../../tests/lib/harness.sh" "$TARGET/hooks/lib/test-harness.sh"
 copy_control_scripts "$TARGET"
 copy_control_scripts "$CODEX_TARGET"
+# Record installed bytes so newly created owned helpers cannot erase later edits.
+for script_host in claude codex; do
+  if [[ "$script_host" == claude ]]; then script_home="$TARGET"; else script_home="$CODEX_TARGET"; fi
+  node - "$script_home" "$BACKUP/$script_host-owned-scripts" <<'NODE'
+const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
+const [home,backup]=process.argv.slice(2), hashes={};
+for(const relative of fs.readFileSync(path.join(backup,'paths.txt'),'utf8').trim().split('\n')) {
+ const file=path.join(home,'scripts',relative);if(fs.existsSync(file))hashes[relative]=crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+}
+fs.writeFileSync(path.join(backup,'installed-hashes.json'),JSON.stringify(hashes)+'\n',{mode:0o600});
+NODE
+ done
 copy_profile_templates "$TARGET"
 copy_profile_templates "$CODEX_TARGET"
 chmod +x "$TARGET/hooks/test-hooks.sh" "$TARGET/hooks/test-workflow-tools.sh" "$TARGET/tests/test-hooks.sh" "$TARGET/tests/test-workflow-tools.sh" "$TARGET/scripts/"*.sh
@@ -1001,7 +1098,8 @@ fi
 
 write_install_metadata() {
   local install_home="$1"
-  local install_settings_mode="$2"
+  local install_host="$2"
+  local install_settings_mode="$3"
   local commit branch dirty fingerprint version metadata_tmp source_git_available settings_mode
   local fingerprint_stderr_file version_stderr_file update_check_error
   local git_output
@@ -1062,16 +1160,23 @@ write_install_metadata() {
     --arg sourceFingerprint "$fingerprint" \
     --arg sourceVersion "$version" \
     --arg settingsMode "$settings_mode" \
+    --arg host "$install_host" \
     --arg stackProfile "$PROFILE" \
     --arg installedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     --argjson sourceGitAvailable "$source_git_available" \
     --argjson sourceDirty "$dirty" \
-    '{sourceRoot:$sourceRoot,sourceCommit:$sourceCommit,sourceCommitShort:$sourceCommitShort,sourceBranch:$sourceBranch,sourceGitAvailable:$sourceGitAvailable,sourceDirty:$sourceDirty,sourceFingerprint:$sourceFingerprint,sourceVersion:$sourceVersion,settingsMode:$settingsMode,stackProfile:$stackProfile,installedAt:$installedAt}' >"$metadata_tmp"
+    '{sourceRoot:$sourceRoot,sourceCommit:$sourceCommit,sourceCommitShort:$sourceCommitShort,sourceBranch:$sourceBranch,sourceGitAvailable:$sourceGitAvailable,sourceDirty:$sourceDirty,sourceFingerprint:$sourceFingerprint,sourceVersion:$sourceVersion,settingsMode:$settingsMode,stackProfile:$stackProfile,host:$host,installedAt:$installedAt}' >"$metadata_tmp"
   install -m 600 "$metadata_tmp" "$install_home/etrnl/install.json"
   rm -f "$metadata_tmp"
 }
-write_install_metadata "$TARGET" "$(settings_mode_for_template "$SETTINGS_TEMPLATE")"
-write_install_metadata "$CODEX_TARGET" "codex"
+if (( NATIVE_CONTINUITY )); then
+  node "$ROOT/scripts/native-adapters.mjs" --restore-user-groups "$BACKUP/settings.json" --claude-home "$TARGET"
+fi
+write_install_metadata "$TARGET" "claude" "$(settings_mode_for_template "$SETTINGS_TEMPLATE")"
+write_install_metadata "$CODEX_TARGET" "codex" "codex"
+if (( NATIVE_CONTINUITY )); then
+  node "$ROOT/scripts/native-adapters.mjs" --profile "$PROFILE" --claude-home "$TARGET" --codex-home "$CODEX_TARGET" --claude-version "$CLAUDE_NATIVE_VERSION" --codex-version "$CODEX_NATIVE_VERSION"
+fi
 
 is_declared_indexed_array() {
   local name="$1"

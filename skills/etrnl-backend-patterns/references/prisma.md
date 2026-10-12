@@ -39,8 +39,8 @@ model Post {
 
 Rules:
 
-- Index every foreign key and every `tenantId` column.
-- Encode soft deletes with nullable `deletedAt`; filter in repositories, not ad hoc in callers.
+- Select indexes using query plans, constraint behavior, tenant access paths and write cost; avoid duplicating indexes already supplied by uniqueness constraints.
+- When the project uses soft deletion, enforce its active-record policy at the existing trusted boundary; retain actual privacy/erasure requirements.
 - Use enums for fixed option sets. Use composite `@@unique` for tenant-scoped uniqueness.
 - Many-to-many: explicit join model with `@@id([postId, tagId])` and indexes on both FK columns.
 
@@ -57,9 +57,9 @@ npx prisma migrate diff \
   --script
 ```
 
-- Commit every migration folder to git. Never run `prisma db push` against production-looking URLs; the stack hooks block it without migration evidence and override tokens.
-- Use `DIRECT_DATABASE_URL` for migrations when `DATABASE_URL` points at PgBouncer.
-- Run `npx prisma validate` and `npx prisma generate` after schema edits.
+- For databases managed with Prisma Migrate, commit migration history and apply reviewed migrations through the project's deployment workflow. `db push` changes the database without recording migrations; reserve it for local prototyping or a provider workflow that explicitly recommends it. Eternal Stack Core installs no hooks, so this guidance is not an automatic command block. Check the target provider and installed Prisma major before choosing commands.
+- Use a direct database URL for migrations when the project's pooled `DATABASE_URL` is not suitable, following the provider and Prisma configuration already in that repository.
+- Validate the schema and regenerate the client with commands supported by the installed Prisma version after schema edits. Check the project's generator and package scripts first; generation behavior differs by version and setup.
 
 ## Query Patterns
 
@@ -170,7 +170,7 @@ Map `P2002` (unique), `P2025` (record not found), and `P2034` (transaction confl
 
 ## Multi-Tenancy
 
-Every query and mutation must scope `tenantId` from authenticated context - in repositories, not in procedure handlers alone.
+In a multi-tenant application, enforce tenant ownership for tenant-scoped records at a trusted repository, policy, or database boundary. Use the target's actual context field and schema; do not require every Prisma query or global lookup to carry `tenantId`.
 
 ```typescript
 function tenantRepo(tenantId: string) {
@@ -193,13 +193,13 @@ Cross-check with `tenant-isolation-patterns` for middleware and authorization ga
 - `prisma db push` in shared or production environments.
 - Global `prisma` queries without `tenantId` in multi-tenant apps.
 
-## 100/100 Checklist
+## Checks to select for applicable Prisma changes
 
-Before marking Prisma work complete, verify:
+Use the relevant checks for the target change; this list is not a universal completion gate:
 
-- [ ] Schema validates; client regenerated; migration committed (not `db push` for shared envs).
-- [ ] Every FK and `tenantId` indexed; composite indexes match query sort/filter order.
-- [ ] Soft-delete columns filtered in repositories.
+- [ ] Schema validates; regenerate the client when the installed generator/version requires it; use the target provider's migration or schema workflow.
+- [ ] Foreign-key and tenant indexes are considered against actual query plans and provider behavior.
+- [ ] Retention/soft-delete policy is applied where the target uses it.
 - [ ] No N+1: `include`, `select`, or batched `in` queries for related reads.
 - [ ] Pagination is cursor-based on hot list endpoints.
 - [ ] Multi-step writes run inside transactions with correct isolation level.

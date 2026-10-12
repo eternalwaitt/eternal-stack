@@ -371,7 +371,7 @@ cc_prompt_skill_update_note() {
     update_timeout=120
   fi
   update_check_cmd=(node "$update_script")
-  if [[ "${ETRNL_AUTO_UPDATE:-1}" != "0" ]]; then
+  if [[ "${ETRNL_AUTO_UPDATE:-0}" == "1" ]]; then
     update_check_cmd+=(--auto)
   fi
   # Stamp before running (any outcome): a repeatedly failing or slow check must
@@ -403,14 +403,14 @@ cc_prompt_skill_update_note() {
     update_output="$(cat "$update_output_file")"
   fi
   if [[ "$update_status" != "0" ]]; then
-    notes+=("Skill update check failed or timed out (status=${update_status}). Treat Eternal Stack updates as pending until a successful check or explicit user decline.")
+    notes+=("Optional skill update check failed or timed out (status=${update_status}). Continue the current task; maintenance can be retried separately.")
     return 0
   fi
   [[ "$update_output" =~ (ETRNL_UPDATE_AVAILABLE|ETRNL_REMOTE_UPDATE_AVAILABLE|TOOL_STACK_UPDATE_AVAILABLE|TOOL_STACK_MISSING) ]] || return 0
 
   max_chars="$(cc_prompt_context_cap "${ETRNL_SKILL_UPDATE_MAX_CHARS:-1200}")"
   update_output="${update_output:0:max_chars}"
-  notes+=("Skill update check before requested skill: $update_output"$'\n'"Eternal Stack update available — run the update command(s) above when practical; only skip if the user explicitly declines.")
+  notes+=("Optional skill maintenance: $update_output"$'\n'"Eternal Stack update available — maintenance is optional; finish the current task before choosing whether to update.")
 }
 
 documentation_health_pattern='documentation[[:space:]-]+health|docs[[:space:]-]+health|documentation[[:space:]-]+audit|docs[[:space:]-]+audit|documentation[[:space:]-]+drift|docs[[:space:]-]+drift|stale[[:space:]]+docs|readme[[:space:]-]+audit|adr[[:space:]-]+health|runbook[[:space:]-]+audit|api[[:space:]-]+docs[[:space:]-]+audit|tsdoc|jsdoc|code[[:space:]-]+documentation[[:space:]-]+health|onboarding[[:space:]-]+docs|documentation[[:space:]-]+pass'
@@ -607,7 +607,7 @@ if [[ "$prompt_lower" =~ design[[:space:]]+system|design[[:space:]]+tokens?|ui[[
 fi
 if [[ "$prompt_lower" =~ plan[[:space:]]+review|review[[:space:]]+.*plan|code[[:space:]]+review[[:space:]]+.*plan ]]; then
   record_skill "etrnl-dev-autoplan"
-  notes+=("Use etrnl-dev-autoplan references/review-contract.md for findings-first plan review and gap mapping.")
+  notes+=("Use the Eternal router's explicit workflow contract; use etrnl-dev-autoplan for an evidence-backed plan and load only relevant review guidance.")
 fi
 if [[ "$prompt" =~ (current|latest|docs|API|library|package) ]]; then
   notes+=("Use context7 or official/current docs before relying on memory.")

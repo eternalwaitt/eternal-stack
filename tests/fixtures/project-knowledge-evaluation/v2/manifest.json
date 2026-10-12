@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 2,
+  "preparedDate": "2026-10-12",
+  "supersedes": "../manifest.json",
+  "supersededReason": "v1 leading prompts and cosmetic variants; not admitted for behavior evaluation",
+  "modelRuns": 0,
+  "caseCount": 10,
+  "variantCount": 20,
+  "files": {
+    "cases.json": "27e60111a8536596055ca447f9e1d162a3c56c9f48afae5ef9b9b1a2b3b4edac",
+    "labels.json": "3cc528972a2f6bb7eecc5b4f7b4d43dc5f7406b6522aa243dd4769f9a3554970"
+  },
+  "freezePolicy": "Version new bytes; do not modify an admitted snapshot. Source preparation only, not runnable or validated causal benchmark."
+}

@@ -1,130 +1,37 @@
 # Eternal Stack
 
-> Hooks and skills that keep Claude Code honest about "done."
+## A coding companion for Claude Code and Codex
 
-I kept hitting the same failure modes: the agent marking work complete without running checks, drifting off the plan we agreed on, or improvising a safer subset halfway through.
+Eternal Stack is a coding companion for Claude Code and Codex. Describe what you want in everyday language; it helps you understand a project, make choices, plan and build changes, and check results—whether you are creating something new or improving software you already use.
 
-Eternal Stack is hooks, skills, and install profiles for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that encode the habits I actually want — read before editing, verify before claiming done, finish the approved plan — in places the model cannot quietly skip.
+## Why Eternal exists
 
-I run this daily on real projects. Default install registers strict blockers — pretool guard, post-edit quality checks, and completion gates — so complexity and policy regressions fail at edit time instead of in CI.
+Writing code is only one part of making something that works. You also have to decide what to build, ask useful questions, understand what is already there, and check whether the result does what you meant. These challenges can feel big when making a first personal tool and grow as an idea becomes a product or a team changes a large codebase. Eternal brings repeatable engineering guidance into the conversation to help you work through decisions and understand the choices.
 
-**Current release:** [VERSION](VERSION) — [CHANGELOG](CHANGELOG.md)
+Small tasks can stay simple. As work grows, Eternal can help keep the agreed goal in view, organize the task, and bring in more review where the app supports it. It reports what it checked and what needs attention; you stay in charge.
 
----
+You might ask:
 
-## The problems it solves
+- “I want a simple tool to organize my recipes. I’ve never built an app; help me choose a first version and explain the choices.”
+- “I’m new to this project. Show me how sign-in works and where I should look first.”
+- “The checkout button fails after I add an item. Find the cause, fix it, and check the change.”
+- “Review this change for problems that could affect existing users. Don’t edit anything.”
+- “Make invoice retries safe across our billing, queue and persistence packages. Preserve existing changes, trace failures, and verify the whole flow.”
 
-Most power users eventually hit the same wall: the agent is capable but undisciplined. It declares victory early, switches approach mid-task, or drifts from what you agreed to build.
+## Get started
 
-| The thing that keeps happening | What Eternal Stack does about it |
-| --- | --- |
-| Agent says "done", nothing is verified | Stop hooks block completion claims without passing a checklist |
-| Skills installed locally drift from source | `skill-contract-check.mjs` and install metadata detect drift on every session |
-| Thin plans get shipped to execution without pushback | `plan-readiness-check.mjs` gates any plan that's missing scope, risks, or rollback steps |
-| Parallel edits spiral out of control | Task packets, wave overlap checks, write-scope enforcement, and dual-host spawn guard (`check-spawn`) keep changes bounded |
-| Review learnings drift or get overwritten | `review-learn.mjs` and `review-merge.mjs` merge additively into separate top-level keys in `review-learnings.json` under one file lock |
-| Settings get overwritten on reinstall | Merge-in-place hooks, settings audit, and rollback backups protect your config |
+Open your project in Claude Code or Codex and ask for help in your own words. To set up Eternal Stack, ask your coding assistant to follow the [setup guide](docs/install.md). It checks your checkout and existing setup before explaining what the default installation changes.
 
----
+The redesigned companion is a preview and has not been published yet; see the setup guide for availability.
 
-## Quick start
+For a first conversation, try:
 
-```bash
-git clone https://github.com/eternalwaitt/eternal-stack.git
-cd eternal-stack
-./scripts/install.sh --profile core
-./scripts/doctor.sh
-```
+> I’m working in an unfamiliar project. Help me understand how its main feature works, point me to the relevant parts of the code, and suggest a useful next step. Please explain as you go.
 
-That's it. The `core` profile is the right default for almost everyone — it installs the strict hook stack, repo-owned `etrnl-*` agents, and verification tests. The `full` profile adds optional CodeGraph, Beads, and Hindsight companions for heavier setups.
+See this repository's [current project state](PROJECT_STATE.md). For ongoing projects, the assistant maintains a concise [project-state overview](docs/project-state.md) with feature status, pending work and useful lessons as part of the task. The guide explains which updates are enforced by helpers and which depend on native assistant guidance.
 
-See [docs/install.md](docs/install.md) for profiles, observer-only opt-out, rollback, and migration.
-
-Install writes `~/.claude/etrnl/install.json` and `~/.codex/etrnl/install.json` so each host can detect source drift. Local auto-update from your checkout is on by default; set `ETRNL_AUTO_UPDATE=0` to opt out.
-
-```bash
-~/.claude/scripts/update.sh    # or ./scripts/update.sh from the repo
-./scripts/doctor.sh            # optional: ./scripts/doctor.sh --jobs 8
-tests/test-hooks.sh
-```
-
----
-
-## What ships with it
-
-**Hooks** — enforcement at tool boundaries, including dual-host spawn economics (`cc-spawn-guard.sh`, Codex `spawn-guard-pre-tool-use.sh`). Full catalog and lifecycle wiring: [docs/hooks.md](docs/hooks.md). Pretool and stop rules: [docs/guards.md](docs/guards.md). Regression: [tests/test-hooks.sh](tests/test-hooks.sh).
-
-**Skills** — repeatable workflows as `/etrnl-*` commands, grouped by namespace (`dev`, `audit`, `ops`, `comm`). Inventory: [docs/skills.md](docs/skills.md).
-
-**Scripts** — deterministic helpers for ledgers, browser QA, workflow health, code-health inventory, deep-audit validation, and release hygiene.
-
-**Agents** — bounded subagents (`etrnl-executor`, reviewers, scout, adversary, browser-QA) installed to `~/.claude/agents/`. They have narrow scopes and write limits by design.
-
----
-
-## Profiles
-
-| Profile | What it includes |
-| --- | --- |
-| `core` | Hooks, skills, agents, doctor, rollback, and ETRNL state. Start here. |
-| `full` | Everything in `core`, plus CodeGraph/Beads bootstrap paths and Hindsight canaries |
-
-Default install registers strict blockers: pretool guard, post-write quality and sycophancy checks, repeated-failure diagnosis, subagent recording, compact recovery, RTK `rg` compat, and the `Stop` verifier. Observer-only install (advisory hooks without pretool/post-write blockers) is opt-out:
-
-```bash
-ETRNL_ENABLE_STRICT=0 ./scripts/install.sh
-```
-
-Run `./scripts/doctor.sh` and `tests/test-hooks.sh` before switching to observer-only if you rely on local enforcement during development.
-
----
-
-## Documentation
-
-| Doc | What it covers |
-| --- | --- |
-| [AGENTS.md](AGENTS.md) | Agent and contributor rules — how this repo works |
-| [CLAUDE.md](CLAUDE.md) | Thin Claude Code wrapper that imports `AGENTS.md` |
-| [docs/hooks.md](docs/hooks.md) | Hook reference: every `cc-*` entrypoint, events, default vs strict |
-| [docs/guards.md](docs/guards.md) | Pretool deny catalog, stop-verifier gates, fail-open matrix |
-| [docs/rules.md](docs/rules.md) | Cross-host rule pack: module catalog, host activation, `init-project-rules.sh` |
-| [docs/install.md](docs/install.md) | Install, update, uninstall, profiles, observer-only opt-out |
-| [docs/migration.md](docs/migration.md) | Rollout sequencing — safe migration order |
-| [docs/configuration.md](docs/configuration.md) | Profiles, env var tuning, Codex-first efficiency profile |
-| [docs/troubleshooting.md](docs/troubleshooting.md) | Common issues, repo vs installed paths, bypass |
-| [docs/compact-recovery.md](docs/compact-recovery.md) | Compact recovery: state capture and safe continuation after auto-compaction |
-| [docs/skills.md](docs/skills.md) | `etrnl-*` skills by namespace and bundled inventory |
-| [docs/health-stack.md](docs/health-stack.md) | Code and documentation health gates |
-| [docs/eternal-stack-coverage.md](docs/eternal-stack-coverage.md) | Capability coverage map |
-| [docs/RELEASING.md](docs/RELEASING.md) | Maintainer release workflow |
-| [CREDITS.md](CREDITS.md) | Vendored and inspirational sources |
-
----
-
-## Safety
-
-Emergency bypass — use it when something is legitimately blocked and you know why:
-
-```bash
-export CLAUDE_GUARD_DISABLED=1
-```
-
-This repository is public-safe. Private identity, accounts, credentials, transcripts, local memories, plans, and background notes don't belong in tracked files and won't be here.
-
----
+See [how the companion works today](docs/product-direction.md), [what differs between Claude Code and Codex](docs/host-capabilities.md), or [the kinds of help available](docs/skills.md).
 
 ## Acknowledgments
 
 To my mentor and friend [@PierreAndreis](https://github.com/PierreAndreis): thank you. You have been a steady source of inspiration in how you build, how you teach, and how you treat people along the way. Eternal Stack carries more of your influence than any changelog line could capture, and I'm grateful for it.
-
-## Credits
-
-Inlined reference modules (Brooks, oRPC, Prisma, SQL), bundled skill attribution, and the projects that inspired specific patterns are documented in [CREDITS.md](CREDITS.md).
-
-## Performance audit evidence
-
-The performance audit retains six lanes and requires 64 focused checks with retained evidence, explicit blockers and comparable verification. See the [architecture and coverage matrix](docs/adr/2026-09-performance-audit-kernel.md). Run `node scripts/performance-audit.mjs parity <source-root> <installed-root>` to detect stale installed skills and helper libraries before an audit; this command does not install updates.
-
-### Performance expertise and investigation depth
-
-The performance contract v2 reuses the bundled `orpc-patterns` (entrypoint `orpc-fullstack`), `prisma-expert` and `sql-optimization-patterns` resources when detected, plus React/Next and conditional query-cache, runtime, queue, streaming and provider playbooks. Resource hashes and version review fence inherited examples. Every check/surface cell requires an initial investigation and full challenge sweeps until a sweep adds no findings. Findings are uncapped; prior-run reconciliation exposes missed issues and audit-quality failures. See [the routing and depth contract](skills/etrnl-audit-performance/references/conditional-performance.md).

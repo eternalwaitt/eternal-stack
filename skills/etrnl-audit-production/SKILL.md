@@ -4,7 +4,6 @@ description: ETRNL deep-audit category skill for production readiness. Use when 
 ---
 # ETRNL Production Readiness
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-audit-production`; on update, run the reported update command before continuing; only skip if the user explicitly declines.
 
 Run the production-readiness deep-audit category against a target application. This category is read-only unless the user explicitly asks for fixes.
 
@@ -43,7 +42,7 @@ Return:
 Direct invocation final output includes:
 
 ```bash
-node scripts/deep-audit-artifact-check.mjs validate --artifact <artifact>
+node {{ETRNL_COMPANION}} run scripts/deep-audit-artifact-check.mjs -- validate --artifact <artifact>
 ```
 
 ## Common Rationalizations
@@ -77,7 +76,7 @@ node scripts/deep-audit-artifact-check.mjs validate --artifact <artifact>
 Run this after producing the report artifact. It exits non-zero when a check status is unsupported, a `finding` row carries no evidence, or a private path leaks into the artifact.
 
 ```bash
-node scripts/deep-audit-artifact-check.mjs validate --artifact <artifact>
+node {{ETRNL_COMPANION}} run scripts/deep-audit-artifact-check.mjs -- validate --artifact <artifact>
 ```
 
 Expected exit code: `0` on a clean, complete artifact; `1` on any validation defect. Any FAIL below marks the run incomplete:

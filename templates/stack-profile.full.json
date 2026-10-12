@@ -98,5 +98,22 @@
     "ownedServiceRecords": [
       "hindsight"
     ]
+  },
+  "nativeAdapters": {
+    "schemaVersion": 1,
+    "defaultEnabled": false,
+    "enableFlag": "--native-continuity",
+    "registration": "scripts/native-adapters.mjs",
+    "hosts": {
+      "claude": {
+        "minimumVersion": "2.1.296",
+        "config": "settings.json"
+      },
+      "codex": {
+        "minimumVersion": "0.159.2",
+        "config": "hooks.json"
+      }
+    },
+    "runtimeVerification": "separate-host-callback-proof"
   }
 }

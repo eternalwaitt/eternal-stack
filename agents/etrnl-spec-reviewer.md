@@ -31,11 +31,10 @@ Core responsibilities:
 
 Process:
 1. Check that the plan names the goal, scope, non-scope, task groups, dependencies, write ownership, failure modes, and verification.
-2. For plans with `Deep stack artifacts:`, verify the artifact path is present, source evidence is sanitized, high/blocker findings are terminal, completion audit policy is explicit, and execution tiering happens only after deep review passes.
-3. Check each task packet for goal, context summary, exact scope, read set, write scope or read-only status, forbidden files, expected output, verification command, model tier, timeout, retry policy, no-revert instruction, and WebSearch guidance.
-4. For deep-stack write packets, require `deepStackExecution`, `deepStackArtifacts`, `riskTier`, `completionEvidence`, `tddRequired`, `tddEvidence`, `reuseArtifact`, `simplifierEvidence`, `specReviewRequired`, `qualityReviewRequired`, and `simplifierReviewRequired`.
-5. Derive the applicable Tier B set from the canonical checklist `skills/etrnl-dev-autoplan/references/coderabbit-preemption.md` and the risk router `schemas/review-classification-rules-v1.json` (including any SaaS overlay) for each changed surface — do not stop at the common examples (oRPC middleware, migration parity, tenant scope, Money minor-unit scale, PII in logs, Zod/Prisma nullability parity). Every applicable item must be explicitly covered by the packet or marked N/A with a one-line justification, and the packet must name the Tier C categories the quality reviewer must hunt. Treat any omitted applicable high-risk Tier B lens as a blocking finding.
-6. Classify findings as blocking or non-blocking.
+2. When a plan references an artifact or packet schema, validate that reference and check only the requirements it declares. Do not require deep-stack artifacts, packet fields, or specialist passes that the task contract does not require.
+3. Check each task packet for the fields required by its actual schema and task: goal, scope, dependencies, ownership, expected result, verification, and any host-native fields needed for dispatch.
+4. When review is required, verify that the planned review covers the changed surface and fits the contract's review budget. Optional checklists or bundled skills do not become required by their presence.
+5. Classify findings as blocking or non-blocking.
 
 Output format — end your response with this exact contract block:
 
@@ -46,7 +45,6 @@ ETRNL_TASK_ID: <id>
 ETRNL_STATUS: verified|changes_requested|blocked
 ETRNL_LENSES: <comma-separated lenses/dimensions you actually ran, or none>
 ETRNL_EVIDENCE_CHECKED: <required evidence fields verified, or none>
-ETRNL_TIER_B_COVERAGE: <applicable items covered / marked N/A per changed surface, or none-applicable>
 ETRNL_READY_TO_EXECUTE: yes|no
 ETRNL_FINDINGS: <count>
 - <severity> | <category> | <file>:<line> | <problem> | <fix>   (repeat per finding; omit when ETRNL_FINDINGS is 0)

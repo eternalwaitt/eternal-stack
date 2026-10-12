@@ -81,9 +81,9 @@ const example = os
 - Set `.output` on hot paths to speed inference.
 - Reuse bases: `const protectedProcedure = os.$context<Ctx>().use(authMiddleware)`.
 
-## Middleware Stack Order (Mandatory)
+## Example Middleware Stack Order
 
-Do not reorder this stack. Error handling stays outermost.
+This is one possible stack for the shown middleware. Order layers according to their wrapping behavior and context dependencies; confirm the installed oRPC version and project conventions before changing an existing stack.
 
 ```ts
 const myProcedure = os
@@ -240,13 +240,13 @@ Before marking an oRPC change complete, verify:
 
 - [ ] Contract and router files exist per domain; root barrels export both.
 - [ ] Contract defines `.errors()` for every user-visible failure mode.
-- [ ] Middleware stack order matches the mandatory sequence above.
+- [ ] Middleware order matches the target's error, tracing, authentication, rate-limit, and authorization dependencies.
 - [ ] `.input` and `.output` schemas are strict; unknown fields rejected.
 - [ ] Auth runs before rate limit and permission checks.
-- [ ] Tenant isolation enforced in repositories, not only in the procedure.
+- [ ] Tenant isolation is enforced at a trusted boundary for tenant-owned records, using the target's schema and policy.
 - [ ] `ORPCError` codes are stable; responses carry `requestId` when HTTP-mounted.
 - [ ] TanStack Query keys use `orpc.*.key()` for invalidation after mutations.
 - [ ] Streaming handlers honor `signal` and backpressure.
-- [ ] Tracing middleware wraps every procedure in production routers.
+- [ ] Critical procedures are instrumented where tracing is configured and useful, with privacy-aware attributes.
 
 Route Better Auth session flows through `better-auth`, tenancy through `tenant-isolation-patterns`, and stack-wide policy through `eternal-best-practices` when installed.

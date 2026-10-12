@@ -4,7 +4,6 @@ description: ETRNL backend design orchestrator. Use when designing or building s
 ---
 # ETRNL Backend Patterns
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-backend-patterns`; on update, run the reported update command before continuing; only skip if the user explicitly declines.
 
 Single entry point for backend design work. Load `references/routing.md` before choosing modules. Read only the reference files the task needs; do not preload the whole suite.
 
@@ -32,4 +31,4 @@ Single entry point for backend design work. Load `references/routing.md` before 
 
 ## Full-Pass Mode
 
-When the user asks for a full backend design review or end-to-end service blueprint, load every module in the table above in dependency-friendly order: architecture → data → prisma → sql-optimization → api → orpc → security → resilience → observability.
+When the user asks for a full backend design review or end-to-end service blueprint, cover every applicable concern, reading its module when that phase needs it in dependency-friendly order: architecture → data → prisma → sql-optimization → api → orpc → security → resilience → observability.

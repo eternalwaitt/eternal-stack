@@ -1,6 +1,6 @@
 # Credits and attributions
 
-Eternal Stack is an opinionated Claude Code stack: hooks, skills, scripts, and install profiles. It combines Eternal engineering practice with ideas and reference material from the wider agent-tooling community.
+Eternal Stack is one maintained companion for Claude Code and Codex. The unreleased Core candidate installs shared guidance, one native router skill, and a private on-demand capability library; the `orchestrated` and `full` profiles remain alternative opt-in layouts with host-specific integrations. Eternal owns the integrated product surface, canonical modules, packaging, and maintenance. This ownership does not imply original authorship of inherited material. See the [host capability matrix](docs/host-capabilities.md) and [capability catalog](docs/skills.md).
 
 ## Inlined reference modules
 
@@ -24,29 +24,31 @@ Vendored files are adapted for Eternal Stack conventions. Check upstream project
 
 ## Bundled stack skills
 
-Eternal Stack is designed as a complete skill family. Policy, review, simplification, domain, auth, tenancy, and payments skills are vendored under `skills/bundled/`, installed by `scripts/install.sh`, and routed by hooks and `etrnl-*` workflows - they are not a separate optional layer outside the stack.
+The private Core library includes the maintained policy, review, simplification, domain, auth, tenancy, and payments capabilities under `skills/`. The router reads selected entries on demand. The alternative optional profiles have their own installation and activation behavior; see the host matrix. Source lineage and notices remain recorded below and with adapted files.
 
 | Skill | Typical use | Attribution |
 | --- | --- | --- |
-| `eternal-best-practices` | Multi-tenant SaaS policy router | Eternal engineering practice |
+| `eternal-best-practices` | Stack-specific SaaS reference patterns | Source metadata recorded as unknown; Eternal Stack maintains this integration |
 | `code-simplifier` | Clarity pass before completion | Personal / community skill bundle |
 | `finding-duplicate-functions` | Dedupe and consolidation review | Personal / community skill bundle |
 | `better-auth`, `tenant-isolation-patterns`, `money-vo-discipline` | Auth, tenancy, and money discipline | Community / upstream skill bundles |
 | `stripe-best-practices`, `abacatepay-integration` | Payments review | Community / upstream skill bundles |
 | `ci-cd` | CI helper scripts referenced by `/etrnl-dev-ci` | Community skill bundle |
 | `domain-*`, `i18n-localization`, and related domain skills | Domain-specific review gates | Community / upstream skill bundles |
-| `orpc-patterns`, `prisma-expert`, `sql-optimization-patterns`, `brooks-audit` | Backend and review depth; also inlined as `etrnl-*/references/` modules | Community / upstream skill bundles |
+| `orpc-patterns`, `prisma-expert`, `sql-optimization-patterns` | Backend depth; also inlined as `etrnl-*/references/` modules | Community / upstream skill bundles |
 | `frontend-design` | Baseline visual direction when building new UI | [anthropics/skills](https://github.com/anthropics/skills) `frontend-design` (Apache-2.0, vendored) |
 | `impeccable` | Product-UI craft: critique, audit, and polish | [pbakaus/impeccable](https://github.com/pbakaus/impeccable) (Apache-2.0, vendored fork — upstream `scripts/` and self-update flow removed) |
 | `design-taste-frontend` | Landing pages, portfolios, and marketing redesigns | [Leonxlnx/taste-skill](https://github.com/Leonxlnx/taste-skill) (MIT, vendored as `design-taste-frontend`) |
 | `wcag-accessibility` | WCAG 2.1/2.2 accessibility audits and remediation | [mrKanoh/claude-wcag-accessibility-skill](https://github.com/mrKanoh/claude-wcag-accessibility-skill) (MIT, vendored) |
 | `ux-researcher-designer` | Personas, journey mapping, usability testing | [davila7/claude-code-templates](https://github.com/davila7/claude-code-templates) `ux-researcher-designer` (MIT, vendored) |
 
-The full inventory and routing notes live in [docs/skills.md](docs/skills.md). These four skills are both vendored under `skills/bundled/` and inlined as `references/` modules; see the [Inlined reference modules](#inlined-reference-modules) table above for their inlined homes.
+The full inventory and routing notes live in [docs/skills.md](docs/skills.md). Where a bundled skill also has inlined reference material, the [Inlined reference modules](#inlined-reference-modules) table above identifies its Eternal home.
 
 ## Design inspiration
 
 Eternal Stack reimplements useful mechanisms from public agent-tooling projects without shipping private background notes or raw analysis artifacts.
+
+For a source-backed comparison of related projects and native host mechanisms, see [comparative research](docs/market-research.md). The comparison is design background; it does not imply that Eternal supports every mechanism described there.
 
 | Project | How Eternal Stack uses it |
 | --- | --- |
@@ -56,15 +58,15 @@ Eternal Stack reimplements useful mechanisms from public agent-tooling projects 
 | [GitHub/spec-kit](https://github.com/github/spec-kit) | Plan/readiness executability gates |
 | [Chachamaru127/claude-code-harness](https://github.com/Chachamaru127/claude-code-harness) | Quality gates, browser artifact contracts, review plateau ideas |
 | [infinri/Writ](https://github.com/infinri/Writ) | Mandatory-rule mechanical enforcement |
-| [gsd-build/get-shit-done](https://github.com/gsd-build/get-shit-done) | Workflow state and context breadcrumbs benchmark. Three further patterns are adapted: its `checkpoints.md` end-of-phase batching shapes the tier ≤2 human-verify deferral in `skills/etrnl-dev-execute/references/batch-execution.md`; its `plan-review-convergence` bounded loop shapes the tier ≥3 spec → quality → adversary cycle in `skills/etrnl-dev-autoplan/references/plan-review-convergence.md`; and its `context-budget.md` Pre-Phase MCP Audit shapes the pre-run MCP prune checklist in [docs/configuration.md](docs/configuration.md) |
-| [gstack](https://github.com/garrytan/gstack) | QA, browser, ship, and review workflow patterns referenced in bundled skill mappings; per-dimension design-review rubric scoring adapted in `skills/etrnl-frontend-patterns/references/design-review-rubric.md` (scoring methodology cites an OpenAI blog post per gstack lineage); its `question-preference-hook.ts` is the pattern behind `hooks/cc-question-preference.sh`, reimplemented in bash with a one-way-door safety clamp that no preference entry can override, and its NEVER_GATE idea is the analog for the security, tenancy, and deep-audit lane exemptions in adaptive reviewer skip |
+| [gsd-build/get-shit-done](https://github.com/gsd-build/get-shit-done) | Workflow state and context breadcrumbs informed earlier execution guidance. Current task requirements and budgets are owned by Eternal's canonical workflow contract; the remaining adapted context-budget guidance is documented in [configuration](docs/configuration.md). |
+| [gstack](https://github.com/garrytan/gstack) | QA, browser, ship, and review patterns inform selected capabilities; per-dimension design-review rubric scoring is adapted in `skills/etrnl-frontend-patterns/references/design-review-rubric.md` (with the cited OpenAI design source). Its question-preference hook is one influence on the optional Claude hook implementation. |
 | [Google web.dev performance guidance](https://web.dev/articles/vitals) and [Chrome Lighthouse performance scoring](https://developer.chrome.com/docs/lighthouse/performance/performance-scoring) | Core Web Vitals p75 field rules, Lighthouse lab boundaries, and TBT-versus-INP evidence honesty in `skills/etrnl-audit-performance/references/measurement-evidence.md` |
 | [EveryInc/compound-engineering-plugin](https://github.com/EveryInc/compound-engineering-plugin) | Two patterns adapted: the `ce-work` trivial-work table informs the Trivial/Small/Large plan scope triage in `scripts/diff-triviality.mjs classify-plan` and `etrnl-dev-autoplan`, and its babysit trajectory fields inform the `recurringFindingCount` / `streamAlternationCount` / `roundsSinceProgress` park thresholds in `scripts/review-merge.mjs` |
 | ECC (`strategic-compact` skill) | Threshold-driven compact advisory pattern behind `hooks/cc-compact-suggest.sh`; also the precedent for `minimal`/`standard`/`strict` hook profiles |
 
-## Claude Code
+## Host integrations
 
-Eternal Stack targets [Claude Code](https://docs.anthropic.com/en/docs/claude-code) hook and skill surfaces. Codex parity helpers install under `~/.codex/etrnl/` when you use both hosts.
+The Core candidate uses the same maintained router and library sources on [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and Codex. Each host still has different tools, permissions, skill discovery, hooks, and agent mechanisms. The alternative optional package can register Claude hooks and agents; copied legacy Codex hook scripts are not active without native registration. The versioned companion lifecycle adapters are Eternal integration code based on documented [Codex 0.159.2 hook schemas](https://github.com/openai/codex/tree/rust-v0.159.2/codex-rs/hooks) and [Claude native hooks/CLI](https://code.claude.com/docs/en/hooks); no upstream implementation code is vendored by this integration. Their shared state/knowledge records preserve existing source attribution. See the [host capability matrix](docs/host-capabilities.md). Source attributions and recorded license observations describe lineage; they are not legal determinations or freshness guarantees.
 
 ## Contributing upstream
 
@@ -76,4 +78,12 @@ The performance kernel compares mechanisms from [Vercel Optimize](https://github
 
 ### Performance expertise and investigation depth
 
-The performance contract v2 reuses the bundled `orpc-patterns` (entrypoint `orpc-fullstack`), `prisma-expert` and `sql-optimization-patterns` resources when detected, plus React/Next and conditional query-cache, runtime, queue, streaming and provider playbooks. Resource hashes and version review fence inherited examples. Every check/surface cell requires an initial investigation and full challenge sweeps until a sweep adds no findings. Findings are uncapped; prior-run reconciliation exposes missed issues and audit-quality failures. See [the routing and depth contract](skills/etrnl-audit-performance/references/conditional-performance.md).
+The performance contract v2 reuses the bundled `orpc-patterns` (entrypoint `orpc-fullstack`), `prisma-expert` and `sql-optimization-patterns` resources when detected, plus React/Next and conditional query-cache, runtime, queue, streaming and provider playbooks. Resource hashes and version review fence inherited examples. Every check/surface cell requires an initial investigation and bounded challenge sweeps (three total rounds by default). A final sweep with new findings ends as `budget_exhausted`, with explicit remaining work rather than a clean claim. Findings are uncapped; prior-run reconciliation exposes missed issues and audit-quality failures. See [the routing and depth contract](skills/etrnl-audit-performance/references/conditional-performance.md).
+
+## Portable-core reset research
+
+The reset compared AIOX, Pi, Superpowers, GSD Core, gstack, ECC, Compound Engineering, BMAD, Spec Kit and Adobe's repository harness guide, plus official Claude/Codex and Agent Skills documentation. These are design references; no external code or prose is vendored by this reset. Sources and decisions are linked in [the architecture decision](docs/adr/2026-10-portable-core.md). Some older bundled entries still lack an exact upstream revision; local vendor paths do not establish authorship or freshness.
+
+### Skills interaction maintenance
+
+Eternal Stack split the large taste, SaaS-pattern and accessibility entrypoints into compact selectors and preserved their detailed guides under each skill's `references/` directory. Existing upstream attribution and license notices remain applicable. The integration also adapts coordination, context recovery, payment/version guidance and project-policy boundaries; these maintenance changes do not imply original authorship of the inherited material.

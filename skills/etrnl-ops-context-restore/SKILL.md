@@ -1,13 +1,12 @@
 ---
 name: etrnl-ops-context-restore
-description: ETRNL context-restore workflow for Claude Code. Use when resuming prior work, loading a saved handoff, recovering after compaction, or checking what remains from an earlier run.
+description: ETRNL context-restore workflow for Claude Code and Codex. Use when resuming prior work, loading a saved handoff, recovering after compaction, or checking what remains from an earlier run.
 disable-model-invocation: true
 ---
 # ETRNL Context Restore
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-ops-context-restore`; on update, run the reported update command before continuing; only skip if the user explicitly declines.
 
-Codex startup checks use the Codex install root (`~/.codex`). Context restore commands below use the Claude install root (`~/.claude`) because install copies the source helper `scripts/context-state.mjs` to `~/.claude/scripts/context-state.mjs`.
+Use the portable context helper from the Eternal library. The companion resolves the active Claude or Codex home and keeps saved state host-local; do not read another host's state by default.
 
 Restore local-only workflow context without replaying transcripts.
 
@@ -16,11 +15,13 @@ Treat restored context as a pointer, not proof. Verify saved `decision`, `patter
 ## Workflow
 
 1. List saved contexts when no explicit path is provided:
-   - `node ~/.claude/scripts/context-state.mjs list`
+   - `node {{ETRNL_COMPANION}} run scripts/context-state.mjs -- list`
 2. Show the selected context:
-   - `node ~/.claude/scripts/context-state.mjs restore <context-path>`
-3. Compare current branch/status with the saved branch/status.
-4. Resume from the saved remaining work only after checking current repo truth.
+   - `node {{ETRNL_COMPANION}} run scripts/context-state.mjs -- restore <context-path>`
+3. Read the existing bound project-state overview and compare current branch/status with the saved branch/status. It supplies durable project context; the host-local snapshot supplies session continuation. Do not create or rewrite shared state merely to answer a read-only restore question.
+4. Reconcile the existing task/run identity, remaining contract budget, check source/configuration freshness, worker status and owned process handles. Resume the same run; restoration does not replenish attempts or authorize repeat side effects.
+5. Read only changed or missing evidence needed for the next action. If the checkpoint is absent or stale, recover from current source and a bounded relevant history lookup; explain unresolved facts rather than repeatedly restoring or replaying full transcripts.
+6. Resume the saved remaining scope after reconciliation. Preserve settled decisions unless new evidence or user direction contradicts them.
 
 ## Output
 

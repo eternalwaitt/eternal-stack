@@ -1,8 +1,11 @@
 ---
 name: domain-cloud-native
-description: "Use when building cloud-native apps. Keywords: kubernetes, k8s, docker, container, grpc, tonic, microservice, service mesh, observability, tracing, metrics, health check, cloud, deployment, 云原生, 微服务, 容器"
+description: "Use when building Rust cloud-native services. Keywords: Rust, kubernetes, k8s, docker, container, grpc, tonic, microservice, service mesh, observability, tracing, metrics, health check, cloud, deployment, 云原生, 微服务, 容器"
+globs: ["**/Cargo.toml"]
 user-invocable: false
 ---
+
+> Applicability: Rust cloud-native domain patterns; apply Rust-specific examples only when the project stack matches.
 
 # Cloud-Native Domain
 

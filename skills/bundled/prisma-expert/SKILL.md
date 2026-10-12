@@ -11,6 +11,10 @@ category: universal
 
 Expert guidance for Prisma ORM across schema design, migrations, query optimization, relations, and database operations for PostgreSQL, MySQL, and SQLite.
 
+## Version and database boundary
+
+Inspect the installed Prisma major version, provider and existing migrations first. The examples below use the schema/client and migration conventions associated with Prisma 6/7; they are not a current-version upgrade prescription. Confirm commands against that installed version before running them. Production migrations, resets and data repair need the task's actual authorization and a recovery plan.
+
 ## Schema Design
 
 ### Basic Models
@@ -157,7 +161,7 @@ model Post {
   // Composite index (order matters!)
   @@index([published, createdAt(sort: Desc)])
 
-  // Covering index (PostgreSQL only)
+  // Hash access method for equality queries (PostgreSQL); not a covering index
   @@index([authorId], type: Hash)
 }
 ```
@@ -179,26 +183,9 @@ npx prisma migrate reset
 
 ### Migration Conflicts
 
-**Problem:** Multiple devs create conflicting migrations
+Inspect the divergent schema and migration history before changing either. Preserve migrations already applied to any shared environment; do not delete migration folders or pull over unrelated dirty changes as a generic conflict fix. Reconcile the schema and create a new forward migration, or use the installed version's documented development-only conflict procedure on a disposable database. Record which databases have applied each migration and verify the resulting history from a clean fixture.
 
-**Solution:**
-```bash
-# Pull latest migrations
-git pull origin main
-
-# Check migration status
-npx prisma migrate status
-
-# If conflicts:
-# 1. Delete your local migration folder
-rm -rf prisma/migrations/YYYYMMDDHHMMSS_your_migration
-
-# 2. Pull schema changes
-git pull
-
-# 3. Create new migration
-npx prisma migrate dev --name your_feature
-```
+See [Prisma 7 migration history](https://docs.prisma.io/docs/orm/v7/prisma-migrate/understanding-prisma-migrate/migration-histories) and [version-specific indexes](https://www.prisma.io/docs/orm/v7/prisma-schema/data-model/indexes). A Hash index is an access method, not a promise that the query is covered.
 
 ### Failed Migration Recovery
 

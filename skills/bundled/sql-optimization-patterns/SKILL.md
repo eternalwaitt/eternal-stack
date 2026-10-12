@@ -7,7 +7,7 @@ category: backend
 ---
 # SQL Optimization Patterns
 
-Transform slow database queries into lightning-fast operations through systematic optimization, proper indexing, and query plan analysis.
+Investigate the actual query plan and workload before choosing an optimization. Match engine/version, representative parameters and data cardinality. `EXPLAIN ANALYZE` executes the statement; use isolated fixtures or authorized safe targets, and account for writes, locks and load. See [PostgreSQL EXPLAIN](https://www.postgresql.org/docs/current/using-explain.html).
 
 ## When to Use This Skill
 
@@ -46,9 +46,9 @@ WHERE u.created_at > NOW() - INTERVAL '30 days';
 
 **Key Metrics to Watch:**
 
-- **Seq Scan**: Full table scan (usually slow for large tables)
-- **Index Scan**: Using index (good)
-- **Index Only Scan**: Using index without touching table (best)
+- **Seq Scan**: May be appropriate when many rows are needed; inspect selectivity and buffers
+- **Index Scan**: Inspect rows, random I/O and filtering; an index is not automatically faster
+- **Index Only Scan**: Can avoid heap access when visibility permits; inspect heap fetches
 - **Nested Loop**: Join method (okay for small datasets)
 - **Hash Join**: Join method (good for larger datasets)
 - **Merge Join**: Join method (good for sorted data)
@@ -124,18 +124,18 @@ SELECT * FROM users WHERE email = 'user@example.com';
 **Optimize JOINs:**
 
 ```sql
--- Bad: Cartesian product then filter
+-- Equivalent inner-join notation; inspect the plan rather than assuming a cross product
 SELECT u.name, o.total
 FROM users u, orders o
 WHERE u.id = o.user_id AND u.created_at > '2024-01-01';
 
--- Good: Filter before join
+-- Explicit JOIN improves readability; the optimizer chooses filter placement
 SELECT u.name, o.total
 FROM users u
 JOIN orders o ON u.id = o.user_id
 WHERE u.created_at > '2024-01-01';
 
--- Better: Filter both tables
+-- Derived-table spelling; not inherently faster and only users are filtered here
 SELECT u.name, o.total
 FROM (SELECT * FROM users WHERE created_at > '2024-01-01') u
 JOIN orders o ON u.id = o.user_id;
@@ -461,7 +461,7 @@ REINDEX TABLE users;
 - **Unused Indexes**: Waste space and slow writes
 - **Missing Indexes**: Slow queries, full table scans
 - **Implicit Type Conversion**: Prevents index usage
-- **OR Conditions**: Can't use indexes efficiently
+- **OR Conditions**: Inspect the plan; bitmap index combinations may be effective
 - **LIKE with Leading Wildcard**: `LIKE '%abc'` can't use index
 - **Function in WHERE**: Prevents index usage unless functional index exists
 

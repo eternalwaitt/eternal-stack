@@ -1,8 +1,10 @@
+import { discoverStatePaths } from "./project-identity.mjs";
 import crypto from "node:crypto";
-import { execSync } from "node:child_process";
+import { execSync, execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { normalizeProjectStateSource } from "./project-state-format.mjs";
 
 /** Current durable ETRNL state event schema version written to local JSONL state. */
 export const SCHEMA_VERSION = 1;
@@ -112,7 +114,7 @@ export function stableHash(value) {
   return crypto.createHash("sha256").update(String(value || "unknown")).digest("hex").slice(0, 16);
 }
 
-/** Return a stable fingerprint of the git worktree at cwd, or "" when unknown. */
+/** Return a stable fingerprint of the git worktree, including untracked file contents, or "" when unknown. */
 export function worktreeHash(cwd = process.cwd()) {
   try {
     const resolved = path.resolve(String(cwd || process.cwd()));
@@ -125,11 +127,66 @@ export function worktreeHash(cwd = process.cwd()) {
     // throws ENOBUFS, returns "", and fakes a stale verification (one lockfile
     // regeneration is enough to exceed the old 512KB cap).
     const opts = { cwd: resolved, encoding: "utf8", maxBuffer: 5 * 1024 * 1024, timeout: 2000, stdio: ["ignore", "pipe", "ignore"] };
-    const headTree = execSync("git rev-parse HEAD^{tree}", opts).trim();
-    const status = execSync("git status --porcelain=v1", opts);
-    const diff = execSync("git diff", opts);
-    const diffCached = execSync("git diff --cached", opts);
-    return crypto.createHash("sha256").update(`${headTree}\n${status}\n${diff}\n${diffCached}`).digest("hex");
+    let headTree;
+    try { headTree = execSync("git rev-parse HEAD^{tree}", opts).trim(); }
+    catch {
+      // A genuinely unborn symbolic branch has no ref yet. Do not turn corrupt
+      // or detached HEAD failures into an empty repository fingerprint.
+      const ref = execFileSync('git', ['symbolic-ref', '--quiet', 'HEAD'], opts).trim();
+      if (!ref.startsWith('refs/heads/')) return '';
+      try { execFileSync('git', ['show-ref', '--verify', '--quiet', ref], opts); return ''; }
+      catch (error) { if (error.status !== 1) return ''; }
+      headTree = 'unborn-symbolic-branch';
+    }
+    const root = path.resolve(execSync("git rev-parse --show-toplevel", opts).trim());
+    const statePaths = discoverStatePaths(root);
+    const exclusions = statePaths.map(relative => `:(exclude)${relative}`);
+    const git = args => execFileSync('git', args, { ...opts, cwd: root });
+    const status = statePaths.length ? git(['status', '--porcelain=v1', '--', '.', ...exclusions]) : execSync("git status --porcelain=v1", opts);
+    const diff = statePaths.length ? git(['diff', '--', '.', ...exclusions]) : execSync("git diff", opts);
+    const diffCached = statePaths.length ? git(['diff', '--cached', '--', '.', ...exclusions]) : execSync("git diff --cached", opts);
+    const untracked = execSync("git ls-files --others --exclude-standard -z", { ...opts, cwd: root })
+      .split("\0").filter(Boolean).sort();
+    if (untracked.length > 10_000) return "";
+    let untrackedBytes = 0;
+    const hash = crypto.createHash("sha256").update(`${headTree}\n${status}\n${diff}\n${diffCached}`);
+    for (const relative of statePaths) {
+      const absolute = path.join(root, relative);
+      hash.update(`\0project-state:${relative}\0`);
+      if (fs.existsSync(absolute)) {
+        let parent = root;
+        for (const component of relative.split('/')) {
+          parent = path.join(parent, component);
+          if (fs.lstatSync(parent).isSymbolicLink()) return '';
+        }
+        const stat = fs.statSync(absolute);
+        if (!stat.isFile() || stat.size > 128 * 1024) return '';
+        hash.update(normalizeProjectStateSource(fs.readFileSync(absolute, 'utf8')));
+      } else hash.update('deleted');
+      hash.update('\0index\0');
+      try { hash.update(normalizeProjectStateSource(git(['show', `:${relative}`]))); }
+      catch (error) { if (error.status) hash.update('absent'); else throw error; }
+    }
+    for (const relative of untracked) {
+      if (statePaths.includes(relative)) continue;
+      const absolute = path.resolve(root, relative);
+      if (absolute !== root && !absolute.startsWith(`${root}${path.sep}`)) return "";
+      const stat = fs.lstatSync(absolute);
+      hash.update(`\0${relative}\0`);
+      if (stat.isSymbolicLink()) {
+        hash.update("symlink\0").update(fs.readlinkSync(absolute));
+      } else if (stat.isFile()) {
+        if (stat.size > 32 * 1024 * 1024) return "";
+        untrackedBytes += stat.size;
+        if (untrackedBytes > 64 * 1024 * 1024) return "";
+        hash.update("file\0").update(fs.readFileSync(absolute));
+      } else {
+        // Git normally lists leaf paths only. Unknown file types (sockets, devices,
+        // or a race that replaced a leaf with a directory) fail closed.
+        return "";
+      }
+    }
+    return hash.digest("hex");
   } catch {
     return "";
   }

@@ -80,6 +80,8 @@ if [[ ! "$DOCTOR_JOBS" =~ ^[0-9]+$ ]] || (( DOCTOR_JOBS < 1 )); then
   DOCTOR_JOBS="$(doctor_detect_jobs)"
 fi
 
+export DOCTOR_JOBS
+
 SOURCE_ROOT="$ROOT"
 if [[ -f "$ROOT/etrnl/install.json" ]]; then
   installed_source_root="$(jq -r '.sourceRoot // ""' "$ROOT/etrnl/install.json" 2>/dev/null || true)"
@@ -868,6 +870,10 @@ run_parallel_scripts_fixture_checks() {
   fi
   if [[ -f "$ROOT/templates/stack-profile.core.json" && -f "$ROOT/templates/stack-profile.full.json" ]]; then
     wait_for_doctor_job_slot "$DOCTOR_JOBS"
+    if [[ -f "$ROOT/tests/core-install.test.mjs" ]]; then
+      queue_async_command "scripts-core-install" "portable core install tests" "portable core install tests failed" node --test "$ROOT/tests/core-install.test.mjs"
+    fi
+    queue_async_command "scripts-stack-profile-orchestrated" "orchestrated stack profile valid" "orchestrated stack profile invalid" node "$ROOT/scripts/stack-profile-check.mjs" "$ROOT/templates/stack-profile.orchestrated.json"
     queue_async_command "scripts-stack-profile-core" "core stack profile valid" "core stack profile invalid" node "$ROOT/scripts/stack-profile-check.mjs" "$ROOT/templates/stack-profile.core.json"
     wait_for_doctor_job_slot "$DOCTOR_JOBS"
     queue_async_command "scripts-stack-profile-full" "full stack profile valid" "full stack profile invalid" node "$ROOT/scripts/stack-profile-check.mjs" "$ROOT/templates/stack-profile.full.json"
@@ -1183,8 +1189,8 @@ if doctor_group_enabled skills || doctor_group_enabled docs; then
     if [[ "$skill_name" != "$skill_dir" ]]; then
       fail "skill name mismatch in $skill_file: $skill_name"
       skill_check_failed=1
-    elif ! rg -F "/$skill_dir" "$ROOT/docs/skills.md" >/dev/null; then
-      fail "docs/skills.md missing /$skill_dir"
+    elif ! rg -q "(^|[^[:alnum:]_-])${skill_dir}([^[:alnum:]_-]|$)" "$ROOT/docs/skills.md"; then
+      fail "docs/skills.md missing capability ID $skill_dir"
       skill_check_failed=1
     fi
     if [[ "$installed_root" == "1" && ! -f "$ROOT/commands/$skill_dir.md" ]]; then
@@ -1212,8 +1218,8 @@ else
     if [[ ! -f "$command_file" ]]; then
       fail "owned command missing: $command_name"
       command_check_failed=1
-    elif ! rg -F "/$command_name" "$ROOT/docs/skills.md" >/dev/null; then
-      fail "docs/skills.md missing /$command_name"
+    elif ! rg -q "(^|[^[:alnum:]_-])${command_name}([^[:alnum:]_-]|$)" "$ROOT/docs/skills.md"; then
+      fail "docs/skills.md missing command reference $command_name"
       command_check_failed=1
     fi
   done
@@ -1234,8 +1240,8 @@ else
     elif ! rg -F "name: $agent" "$agent_file" >/dev/null; then
       fail "agent name mismatch in $agent_file"
       agent_check_failed=1
-    elif ! rg -F "$agent" "$ROOT/docs/skills.md" >/dev/null; then
-      fail "docs/skills.md missing agent $agent"
+    elif ! rg -q "(^|[^[:alnum:]_-])${agent}([^[:alnum:]_-]|$)" "$ROOT/docs/skills.md"; then
+      fail "docs/skills.md missing optional role reference $agent"
       agent_check_failed=1
     fi
   done
@@ -1474,6 +1480,10 @@ else
 fi
 if [[ -f "$ROOT/etrnl/install.json" ]]; then
   report_command "installed update metadata valid" "installed update metadata invalid" jq empty "$ROOT/etrnl/install.json"
+  if [[ -f "$ROOT/scripts/native-adapters.mjs" ]]; then
+    native_host="$(jq -er '.host' "$ROOT/etrnl/install.json")"
+    report_command "native adapter registration inspected (runtime unverified)" "native adapter ownership/config mismatch" node "$ROOT/scripts/native-adapters.mjs" --status --host "$native_host" "--$native_host-home" "$ROOT"
+  fi
 elif [[ -f "$ROOT/scripts/update-check.mjs" ]]; then
   report_command "source update fingerprint available" "source update fingerprint failed" node "$ROOT/scripts/update-check.mjs" --fingerprint-source "$ROOT"
 fi

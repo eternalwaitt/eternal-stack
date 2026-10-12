@@ -54,9 +54,9 @@ Do NOT truncate or summarize - write ALL entries.
 ## Usage
 
 1. Run extraction: `./extract-functions.sh src/ -o catalog.json`
-2. Dispatch haiku subagent with the prompt above, replacing:
+2. Analyze inline or delegate within the stored contract using the prompt above, replacing:
    - `<CATALOG_PATH>` with path to catalog.json
    - `<OUTPUT_PATH>` with desired output path (e.g., `categorized.json`)
 3. Verify output file was created with all entries
 
-**Critical:** The subagent must use the Write tool to save output. If it only returns a summary, re-prompt with explicit file write instructions.
+**Critical:** The subagent must use the Write tool to save output. If output is incomplete, request only the missing entries within the remaining contract budget; do not restart extraction or reset attempts.

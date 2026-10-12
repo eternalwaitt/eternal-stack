@@ -5,8 +5,8 @@ Shape data for the read paths that dominate traffic. Normalize for correctness, 
 ## Schema Modeling
 
 - Start at third normal form. Denormalize a column only with a written reason and a backfill plan.
-- Make every foreign key explicit and indexed. Add `created_at` and `updated_at` on every table.
-- Encode soft deletes as a nullable `deleted_at`; filter it in the repository, not in callers.
+- Model referential integrity explicitly; choose indexes from query/constraint behavior and write cost. Add timestamps when the domain or operational history needs them.
+- Apply soft deletion only when the retention/privacy policy calls for it, through the established read boundary; do not replace required erasure with a soft-delete flag.
 
 ## Indexing
 
@@ -28,7 +28,7 @@ markets.forEach((m) => { m.creator = byId.get(m.creatorId) })
 
 ## Transactions
 
-- Wrap multi-row invariants in one transaction. Pick the isolation level from the invariant: serializable for money balances, read-committed for routine writes.
+- Wrap multi-row invariants in one transaction. Choose isolation, locks or conditional writes from the invariant and engine semantics; verify concurrent behavior and bounded retries rather than assigning isolation solely by domain label.
 - Keep transactions short. Run external calls before or after, never inside the open transaction.
 - Make writes retry-safe so a serialization failure replays cleanly.
 

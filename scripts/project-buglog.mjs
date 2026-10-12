@@ -1,18 +1,20 @@
 #!/usr/bin/env node
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
+import { projectIdentity } from './lib/project-identity.mjs';
+import { redactText, appendKnowledge } from './lib/project-knowledge.mjs';
 import { argValue } from "./lib/cli-args.mjs";
 
 const args = process.argv.slice(2);
 const command = args[0] ?? "help";
 const jsonMode = args.includes("--json");
-const BUGLOG_FINGERPRINT_VERSION = 3;
+const BUGLOG_FINGERPRINT_VERSION = 4;
 
 function artifactDir() {
   return process.env.ETRNL_ARTIFACTS_DIR
-    || path.join(process.env.CLAUDE_HOME || path.join(homedir(), ".claude"), "etrnl", "artifacts");
+    || path.join(process.env.ETRNL_HOME || process.env.CLAUDE_HOME || path.join(homedir(), ".claude"), "etrnl", "artifacts");
 }
 
 function buglogPath() {
@@ -26,7 +28,9 @@ function nowIso() {
 
 function normalizeFile(cwd, file) {
   const resolved = path.resolve(cwd || process.cwd(), file);
-  return path.relative(cwd || process.cwd(), resolved) || path.basename(resolved);
+  const relative = path.relative(cwd || process.cwd(), resolved);
+  if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) throw new Error('bug file must be inside the attributed project');
+  return relative || path.basename(resolved);
 }
 
 function normalizeSummary(summary) {
@@ -43,50 +47,6 @@ function normalizeSummary(summary) {
 // injection vector. High precision by design: only unambiguous template tokens
 // and explicit instruction-override phrases are neutralized, so genuine bug text
 // ("user: null crashes", "revert the previous migration") is preserved intact.
-function neutralizeInjection(value) {
-  return String(value || "")
-    // Canonicalize so compatibility/fullwidth glyphs and zero-width joiners cannot
-    // slip a control phrase past the matchers below. Best-effort: cross-script
-    // homoglyphs are not covered, so these notes remain untrusted context.
-    .normalize("NFKC")
-    .replace(/[\u200B-\u200D\u2060\uFEFF]/g, "")
-    // Chat-template / model special tokens — never legitimate in a bug note. The
-    // 60-char cap comfortably exceeds every real tokenizer token and stays bounded.
-    .replace(/<\|[^\n|>]{0,60}\|>/g, "[neutralized-token]")
-    .replace(/\[\/?INST\]/gi, "[neutralized-token]")
-    .replace(/<<\/?SYS>>/gi, "[neutralized-token]")
-    // Explicit instruction-override phrases: verb ... (previous|all) ... noun. Filler
-    // budgets are kept short (24/16) AND exclude clause separators (. , ; newline) so the
-    // three anchors must sit in ONE clause: a real "ignore previous instructions"
-    // matches, but words spread across separate clauses ("ignore this, previous message
-    // was a mistake" or "ignore stale entries; the previous request failed") stay outside
-    // a single clause and are preserved intact.
-    .replace(/\b(?:ignore|disregard|forget|override|bypass)\b[^.,;\n]{0,24}?\b(?:previous|prior|above|earlier|preceding|all|any|the)\b[^.,;\n]{0,16}?\b(?:instructions?|prompts?|context|messages?|rules?|guardrails?|directives?|system\s+prompt)\b/gi, "[neutralized-instruction]")
-    .replace(/\bignore\s+everything\s+(?:above|before|prior)\b/gi, "[neutralized-instruction]")
-    // Role-play override — only when a persona/role noun follows, so benign text
-    // like "you are now on the wrong branch" is preserved intact.
-    .replace(/\byou\s+are\s+now\s+(?:a\s+|an\s+|the\s+)?(?:developer|dev|assistant|ai|model|bot|chatbot|agent|admin|administrator|root|superuser|sudo|shell|terminal|dan|stan|jailbroken|unrestricted|uncensored|unfiltered|persona|character|role|god|master)\b/gi, "[neutralized-instruction]")
-    .replace(/\bnew\s+(?:instructions?|prompt|system\s+prompt)\s*:/gi, "[neutralized-instruction]")
-    .replace(/\b(?:reveal|print|show|output|repeat|leak)\s+(?:your\s+|the\s+)?(?:system\s+prompt|system\s+message|instructions|guardrails)\b/gi, "[neutralized-instruction]")
-    // Line-leading fake conversation turns. Case-SENSITIVE lowercase on purpose:
-    // injection payloads use lowercase role turns, while capitalized "System:"
-    // appears in legitimate stack traces/log lines and must be preserved.
-    .replace(/(^|\n)[ \t]*(?:#{1,6}[ \t]*)?(?:system|assistant|developer)[ \t]*:[ \t]/g, "$1[neutralized-role] ");
-}
-
-function redactText(value) {
-  // Neutralize (NFKC-fold + strip zero-width + defang injection) BEFORE redaction:
-  // otherwise a fullwidth- or zero-width-disguised secret slips past the ASCII
-  // secret regexes and only THEN normalizes to plaintext, persisting unredacted.
-  return neutralizeInjection(value)
-    .replace(/-----BEGIN[A-Z ]*PRIVATE KEY-----[\s\S]*?-----END[A-Z ]*PRIVATE KEY-----/g, "[REDACTED_PRIVATE_KEY]")
-    .replace(/\bsk_(?:live|test)_[A-Za-z0-9_=-]{8,}\b/g, "[REDACTED_TOKEN]")
-    .replace(/\bsk-[A-Za-z0-9_-]{20,}\b/g, "[REDACTED_TOKEN]")
-    .replace(/\b(AKIA|ASIA)[A-Z0-9]{16}\b/g, "[REDACTED_AWS_KEY]")
-    .replace(/\b(aws_secret_access_key|aws_session_token|password|passwd|token|api[_-]?key)\s*=\s*[^ \n\r\t]+/gi, "$1=[REDACTED]")
-    .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, "[REDACTED_JWT]")
-    .replace(/\b(Bearer)\s+[A-Za-z0-9._~+/=-]{16,}\b/g, "$1 [REDACTED]");
-}
 
 function fingerprint(record) {
   const version = Number(record.fingerprintVersion ?? 1);
@@ -106,7 +66,7 @@ function fingerprint(record) {
       .slice(0, 16);
   }
   return createHash("sha256")
-    .update([version, record.cwd, record.file, record.category, normalizeSummary(record.summary)].join(":"))
+    .update([version, version >= 4 ? record.projectId : record.cwd, record.file, record.category, normalizeSummary(record.summary)].join(":"))
     .digest("hex")
     .slice(0, 16);
 }
@@ -148,7 +108,8 @@ function suggestionFor(entry) {
     severity: severityFor(entry),
     fingerprint: entry.fingerprint,
     lastSeen: entry.at || "",
-    suggestedGuard: suggestedGuard(entry.category),
+    suggestedGuard: `Candidate only: ${suggestedGuard(entry.category)}; confirm the failure mechanism and scope before promotion.`,
+    classification: entry.classification || "observed_failure", occurrenceCount: entry.occurrenceCount || 1, preventionProven: false,
   };
 }
 
@@ -204,7 +165,8 @@ function aggregateSuggestionFor(cwd, entries, { preSorted = false } = {}) {
     lastSeen: latest.at || "",
     affectedFilesCount: affectedFiles.size,
     recentFiles,
-    suggestedGuard: suggestedGuard(latest.category),
+    suggestedGuard: `Candidate only: ${suggestedGuard(latest.category)}; requires confirmed mechanism, scoped test, and independent evidence.`,
+    classification: "observed_failure", occurrenceCount: sorted.reduce((n, entry) => n + (entry.occurrenceCount || 1), 0), preventionProven: false,
   };
 }
 
@@ -256,12 +218,12 @@ function freshEnough(entry) {
   const windowMs = maxAgeMs();
   if (windowMs === null) return true;
   const seen = Date.parse(entry.at || "");
-  if (!Number.isFinite(seen)) return true;
+  if (!Number.isFinite(seen)) return false;
   return Date.now() - seen <= windowMs;
 }
 
 function record() {
-  const cwd = path.resolve(argValue(args, "--cwd", process.cwd()));
+  const cwd = realpathSync(path.resolve(argValue(args, "--cwd", process.cwd())));
   const rawFile = argValue(args, "--file");
   const category = argValue(args, "--category", "quality");
   const summary = argValue(args, "--summary");
@@ -269,40 +231,41 @@ function record() {
     console.error("project-buglog record requires --file and --summary.");
     process.exit(2);
   }
-  const file = normalizeFile(cwd, rawFile);
+  const identity = projectIdentity(cwd);
+  const file = normalizeFile(identity.root, path.resolve(cwd, rawFile));
 
   const target = buglogPath();
   const entry = {
     schemaVersion: 1,
     fingerprintVersion: BUGLOG_FINGERPRINT_VERSION,
-    cwd,
+    projectId: identity.projectId, classification: "observed_failure", evidenceGrade: "author_report", preventionProven: false, occurrenceCount: 1, revision: 1,
+    cwd: identity.root,
     file,
-    category,
-    summary: redactText(summary),
+    category: redactText(category),
+    summary: redactText(summary).slice(0, 2000),
     sessionId: argValue(args, "--session", process.env.CLAUDE_SESSION_ID || "default"),
     at: nowIso(),
   };
   entry.fingerprint = fingerprint(entry);
-  const existing = readEntries(target);
-  if (existing.some((item) => item.fingerprint === entry.fingerprint)) {
-    console.log(entry.fingerprint);
-    return;
-  }
-  mkdirSync(path.dirname(target), { recursive: true, mode: 0o700 });
-  writeFileSync(target, `${JSON.stringify(entry)}\n`, { flag: "a", mode: 0o600 });
+  appendKnowledge(target, rows => {
+    const old = [...rows].reverse().find(item => item.fingerprint === entry.fingerprint);
+    if (old) { entry.occurrenceCount = (old.occurrenceCount || 1) + 1; entry.revision = (old.revision || 1) + 1; entry.firstSeen = old.firstSeen || old.at; }
+    return entry;
+  });
   console.log(entry.fingerprint);
 }
 
 function suggest() {
-  const cwd = path.resolve(argValue(args, "--cwd", process.cwd()));
+  const cwd = realpathSync(path.resolve(argValue(args, "--cwd", process.cwd())));
   const rawFile = argValue(args, "--file");
   if (!rawFile) {
     console.error("project-buglog suggest requires --file.");
     process.exit(2);
   }
-  const file = normalizeFile(cwd, rawFile);
-  const entries = readEntries(buglogPath())
-    .filter((entry) => entry.cwd === cwd && entry.file === file)
+  const identity = projectIdentity(cwd);
+  const file = normalizeFile(identity.root, path.resolve(cwd, rawFile));
+  const entries = latestUnique(readEntries(buglogPath()))
+    .filter((entry) => (entry.projectId ? entry.projectId === identity.projectId : entry.cwd === cwd) && entry.file === file)
     .filter(freshEnough)
     .slice(-3)
     .reverse();
@@ -331,12 +294,13 @@ function latestUnique(entries) {
 }
 
 function suggestProject() {
-  const cwd = path.resolve(argValue(args, "--cwd", process.cwd()));
+  const cwd = realpathSync(path.resolve(argValue(args, "--cwd", process.cwd())));
   const limit = Number.parseInt(argValue(args, "--limit", "5"), 10);
+  const identity = projectIdentity(cwd);
   const aggregateThreshold = Number.parseInt(argValue(args, "--aggregate-threshold", "3"), 10);
   const entries = latestUnique(
     readEntries(buglogPath())
-      .filter((entry) => entry.cwd === cwd)
+      .filter((entry) => (entry.projectId ? entry.projectId === identity.projectId : entry.cwd === cwd))
       .filter(freshEnough),
   );
   const suggestions = projectSuggestions(cwd, entries, limit, aggregateThreshold);
@@ -356,14 +320,14 @@ function suggestProject() {
 }
 
 function validate() {
-  const entries = readEntries(buglogPath());
+  const entries = latestUnique(readEntries(buglogPath()));
   const errors = [];
   for (const entry of entries) {
     if (entry.schemaVersion !== 1) errors.push("entry missing schemaVersion");
     const fingerprintVersion = Number(entry.fingerprintVersion ?? 1);
-    if (![1, 2, 3].includes(fingerprintVersion)) {
+    if (![1, 2, 3, 4].includes(fingerprintVersion)) {
       errors.push(
-        `${entry.file || "<unknown>"} invalid fingerprintVersion (supported fingerprintVersion values: 1, 2, 3; got ${entry.fingerprintVersion})`,
+        `${entry.file || "<unknown>"} invalid fingerprintVersion (supported fingerprintVersion values: 1, 2, 3, 4; got ${entry.fingerprintVersion})`,
       );
     }
     if (!entry.cwd || !entry.file) errors.push("entry missing cwd/file");

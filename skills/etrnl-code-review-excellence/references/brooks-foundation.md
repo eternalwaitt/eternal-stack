@@ -1,6 +1,6 @@
 # Brooks Foundation
 
-Vendored from the `brooks-audit` companion skill. Apply these rules to every Brooks architecture finding in this repo.
+Adapted from Brooks-Lint companion guidance. Apply these rules to every Brooks architecture finding in this repo.
 
 ## Iron Law
 

@@ -1,0 +1,1 @@
+In this fixture, implement only the persistence/idempotency foundation for safe invoice retries after a provider timeout. Record the task contract, decisions, changed files, checks, and remaining work in .companion-handoff.md, then stop.

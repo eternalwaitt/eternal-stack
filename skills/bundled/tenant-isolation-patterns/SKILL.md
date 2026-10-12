@@ -1,29 +1,29 @@
 ---
 name: tenant-isolation-patterns
-description: "Multi-tenant data isolation rules for agency-tbd - every Prisma query must be scoped to the current tenant to prevent cross-tenant data leaks"
+description: "Patterns for reviewing tenant isolation in multi-tenant Prisma applications; adapt field names and authorization boundaries to the target project"
 version: 1.0.0
 source: unknown
 category: backend
-tags: [prisma, tenantId, multi-tenant, saas, data-isolation, agency-tbd, security, database, critical]
+tags: [prisma, tenantId, multi-tenant, saas, data-isolation, security, database]
 ---
-# Tenant Isolation Patterns - agency-tbd
+# Tenant Isolation Patterns
 
 ## Purpose
 
-Enforce strict per-tenant data isolation in every database query. Missing a `tenantId` filter is a data leak - it exposes one customer's data to another. This is the highest-priority correctness rule in the codebase.
+Use these patterns when the target contains tenant-owned data. First identify which records are tenant-scoped, which are intentionally global, the trusted source of tenant identity, and any database or repository-level isolation policy. Missing scope on tenant-owned records can leak data; adding an invented filter to global records or unrelated query shapes can also break behavior.
 
 ## The Rule
 
-**Every Prisma query MUST include `where: { tenantId: ctx.tenantId }` - no exceptions.**
+**Every access to tenant-owned records must enforce the current tenant boundary at a trusted layer.** The field and enforcement point depend on the target schema; a `tenantId` predicate is one common implementation, not a universal Prisma requirement for every query.
 
 ## How `tenantId` Reaches the Handler
 
-The `requirePermission()` middleware resolves the authenticated user's tenant and injects `ctx.tenantId` automatically. It is always present inside any handler that uses `requirePermission`. Never derive `tenantId` from user input - always use `ctx.tenantId`.
+If the target's `requirePermission()` middleware derives tenant context from the authenticated identity, use that trusted context after confirming its implementation. Do not assume this helper or `ctx.tenantId` exists in another project. Never treat a client-supplied tenant identifier as authorization.
 
 ```typescript
 .use(requirePermission('resource:read'))
 .handler(async ({ ctx }) => {
-  // ctx.tenantId is guaranteed here - use it in every query
+  // Example only: confirm this middleware actually guarantees the context field.
 });
 ```
 
@@ -80,7 +80,7 @@ const campaigns = await prisma.campaign.findMany({
 
 ## Nested Queries
 
-Include `tenantId` in nested `where` clauses too. Relations do not inherit the parent's tenant filter.
+Trace nested access as well: a parent filter alone does not prove every related record is authorized. Use the target's tenant predicates, tenant-safe relation constraints or verified database isolation; do not add nonexistent fields to unrelated or global models.
 
 ```typescript
 const campaign = await prisma.campaign.findFirst({
@@ -101,7 +101,7 @@ const campaign = await prisma.campaign.findFirst({
 
 ## Soft Deletes
 
-Use `deletedAt: null` alongside `tenantId` in every read query. Never hard-delete records.
+When the project's retention and privacy policy uses soft deletion, include both the tenant boundary and active-record condition in relevant reads. A soft-delete convention does not replace required hard deletion, retention expiry, or user erasure.
 
 ```typescript
 // Correct read
@@ -130,19 +130,19 @@ await prisma.influencer.delete({ where: { id: input.id } });
 To find queries missing tenant isolation, search with:
 
 ```bash
-sg run --pattern 'prisma.$MODEL.findMany({ where: { $$$ARGS } })' --lang typescript apps/web/src
+sg run --pattern 'prisma.$MODEL.findMany({ where: { $$$ARGS } })' --lang typescript <source-root>
 ```
 
 Or with ripgrep for a quick scan:
 
 ```bash
-rg 'prisma\.\w+\.(findMany|findFirst|findUnique|update|delete)\(' apps/web/src --type ts
+rg 'prisma\.\w+\.(findMany|findFirst|findUnique|update|delete)\(' <source-root> --type ts
 ```
 
-Review every match and confirm `tenantId: ctx.tenantId` is present in the `where` clause.
+Review each match against the target's ownership model and confirm that tenant-owned records are scoped through a trusted boundary. Do not flag intentionally global lookup tables or records protected through another verified layer.
 
 ## Integration
 
 Use with:
-- `orpc-patterns` - `requirePermission()` middleware is the source of `ctx.tenantId`; always use it before any handler that touches the database
-- `money-vo-discipline` - Monetary fields on tenant-scoped records must use the Money VO
+- `orpc-patterns` - if the target actually uses `requirePermission()`, verify that its tenant context is derived from authenticated state and applied to the relevant operation
+- `money-vo-discipline` - preserve the project's validated exact monetary representation and currency policy

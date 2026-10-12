@@ -30,7 +30,11 @@ export function validatePerformanceDepth(contract, checks, base, verifyArtifact,
   const errors = [];
   if (!text(contract.runId) || !text(contract.targetId)) errors.push('performance runId and stable targetId required');
   if (contract.completion?.findingLimit !== null || contract.completion?.cellLimit !== null) errors.push('performance finding and surface limits are prohibited');
-  if (!['complete', 'source_limited'].includes(contract.completion?.status)) errors.push('performance completion status required');
+  if (!['complete', 'source_limited', 'budget_exhausted'].includes(contract.completion?.status)) errors.push('performance completion status required');
+  const roundBudget = contract.completion?.roundBudget ?? 3;
+  if (!Number.isInteger(roundBudget) || roundBudget < 2 || roundBudget > 8) errors.push('performance round budget must be an integer from 2 to 8');
+  if (list(contract.rounds).length > roundBudget) errors.push('performance round budget exceeded; retain findings and stop for a separately scoped follow-up');
+  if (contract.completion?.status === 'budget_exhausted' && (list(contract.rounds).length !== roundBudget || !text(contract.completion.remainingWork))) errors.push('budget exhaustion requires the declared rounds and explicit remaining work');
   const findings = list(contract.findings);
   if (!Array.isArray(contract.findings) || findings.some(f => !f || !text(f.id))) return [...errors, 'complete structured findings ledger required'];
   if (new Set(findings.map(f => f.id)).size !== findings.length) errors.push('duplicate finding fingerprint');

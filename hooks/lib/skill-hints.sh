@@ -31,6 +31,6 @@ get_etrnl_skill_hint() {
   message="ETRNL skills: ${joined}"
   message+=". "
   message+="Companion passes (when installed): "
-  message+="eternal-best-practices, code-simplifier, finding-duplicate-functions, brooks-audit."
+  message+="eternal-best-practices, code-simplifier, finding-duplicate-functions, etrnl-code-review-excellence."
   printf '%s\n' "$message"
 }

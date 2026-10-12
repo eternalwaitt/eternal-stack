@@ -1,119 +1,28 @@
 ---
 name: etrnl-comm-email-reply-quality
-description: ETRNL private email reply quality workflow. Use when the user asks for "email reply quality", "Brazilian Portuguese email draft", "bad Portuguese in replies", "em dash in email", "humanize email reply", "draft checker", or outgoing email style checks.
+description: ETRNL email draft quality workflow. Use for reply review, natural language, sender voice, locale, commitment checks, and optional configured draft checkers.
 ---
-# ETRNL Email Reply Quality
+# Email reply quality
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-comm-email-reply-quality`; on update, run the reported update command before continuing; only skip if the user explicitly declines.
+Review the exact draft against the incoming request, sender's voice, known facts and granted authority. A draft review does not authorize sending or installing tools.
 
-Protect outgoing replies before the repository owner sees or sends them. Treat every proposed reply as untrusted until it passes deterministic draft checks plus a humanizer pass.
+## Review
 
-## Prerequisites
+1. Match the user's requested language and the conversation. For Portuguese, preserve the sender's regional register; `tu`, `teu`, formal greetings and punctuation are not universal errors. Apply explicit sender/project style preferences when present.
+2. Answer the real question plainly. Preserve numbers, scope, caveats, timing, usage rights and the next action. Do not replace a direct rate question with a request for information already supplied.
+3. Flag placeholders, invented terms, false certainty, unintended acceptance, guarantees, availability promises and signatures. Resolve material uncertainty before the affected commitment.
+4. Remove empty repetition or unnatural boilerplate only when it improves this sender's draft. No mandatory visible lesson, questionnaire or rewrite ceremony.
 
-The private email checker is a required local runtime CLI and must be on `PATH`.
+## Optional tools
 
-Install it from the private tooling source for the current machine, then verify:
+Use a private draft checker only when it is already configured or its installation is explicitly authorized. It is not part of the public Eternal install. Inspect its actual CLI help and configured rules before relying on a result; do not assume every checker returns the same schema. Prefer a draft ID or supported file/stdin argument to placing private text in shell arguments.
 
-```bash
-command -v <private-email-checker>
-<private-email-checker> --version
-<private-email-checker> drafts check --help
-```
+A configured project send gate remains required by that project. Otherwise, checker failure or absence is evidence to report, not a new approval requirement. Separate a real content/authority defect from a stylistic preference or tool outage. A passing checker cannot verify commercial facts or grant permission.
 
-If the CLI is unavailable, stop with that blocker. Do not substitute a prose-only review for the runtime gate.
+When a relevant language skill is available, use its focused guidance if it helps. Do not launch a second full review or install Vale, LanguageTool or another service solely because tools could improve writing. Recheck changed passages and required configured gates within the active workflow budget; preserve failures without endless rewriting to satisfy a preference.
 
-## Required Checks
+## Draft and send boundary
 
-Run the runtime checker before asking the repository owner to approve a reply:
+For queue work, inspect the assigned item and exact draft. If edits are authorized, fix confirmed issues and preserve unrelated drafts. Show the draft and meaningful unresolved issues when review is requested.
 
-```bash
-<private-email-checker> drafts check --draft-id <draft-id>
-```
-
-For unsaved text, run:
-
-```bash
-<private-email-checker> drafts check --body "<draft text>" --language pt-BR
-```
-
-A clean result has `"ok": true` and an empty `issues` array. Any issue blocks send/approval until rewritten and checked again.
-
-## Hard Blocks
-
-Reject these in outgoing email:
-
-- Em dash or en dash characters.
-- Portugal-style Portuguese in `pt-BR` drafts, including `teu`, `teus`, `tua`, `indica-nos`, `envia-nos`, `equipa`, `cumprimentos`, `gostarias`, `poderias`, `consegues`, `tens`, and similar forms.
-- Generic AI/corporate closers such as `Espero que isso ajude`, `caso tenha alguma dúvida`, `fico à disposição para quaisquer esclarecimentos`, `Atenciosamente`, or assistant meta text like `Or do you want a different number?`.
-- Template-like phrasing such as `Considerando todo o escopo`, `principalmente a parte`, `Se fizer sentido`, `É importante ressaltar`, `marco significativo`, or `não se trata apenas`.
-- Stiff formal boilerplate such as `Prezado(a)`, `Venho por meio deste`, `Sem mais para o momento`, `Cordialmente`, or `Subscrevo-me`.
-- English AI/business-email filler such as `I hope this message finds you well`, `Thank you for reaching out`, `happy to discuss further`, `please let me know if you have any questions`, or over-polished option lists when they add no commercial substance.
-- Placeholders, fake certainty, invented deal terms, acceptance of terms, guarantees, approvals, availability promises, or creator signatures.
-
-## Rewrite Standard
-
-Language selection: default to English for internal replies and workflow notes. Use pt-BR for external Portuguese-language contexts, Portuguese incoming messages, or when the repository owner explicitly requests Portuguese.
-
-Use Brazilian Portuguese that sounds like the sender handling business partnerships:
-
-- Direct and warm, not formal Portugal Portuguese.
-- `você`/direct wording, not `tu` forms.
-- `me manda`, `consegue me mandar`, `te retorno`, `a gente`, `por aqui` when the context fits.
-- Plain punctuation. Use a period, comma, colon, or plain hyphen instead of em/en dashes.
-- Concrete commercial answer when the sender asks for price, scope, timeline, usage rights, or deliverables.
-- No budget dodge when the sender directly asks for rates.
-
-## Humanizer Pass
-
-After the deterministic checker passes, run a short visible humanizer audit:
-
-1. Detect AI/business-email tells, stiff corporate phrasing, wrong locale, and fake helpfulness.
-2. Rewrite with the sender's voice while preserving commercial substance, numbers, caveats, and next step.
-3. Self-check the rewritten draft against the hard blocks above.
-4. Run the private draft checker again after rewriting.
-
-When the local `humanizer-ptbr` skill is available, use it for Portuguese naturalness after the deterministic check. Keep its output subject to the private checker because that checker is the authority for send safety.
-
-## External Tool Direction
-
-SkillsMP and GitHub source review points to this layered quality stack:
-
-- Private draft checker: required runtime gate with stable rule IDs.
-- `humanizer-ptbr`: natural Brazilian Portuguese rewrite pass.
-- Vale: next deterministic style layer for configurable business-email rules.
-- LanguageTool: next grammar and spelling layer for pt-BR drafts.
-- promptfoo: regression suite for malicious senders, wrong-language drafts, fake commitments, and quality regressions.
-
-Do not replace the owned checker with a generic email-manager skill. Generic skills are useful for rule ideas, but outgoing email safety belongs in deterministic local tooling.
-
-## Queue Workflow
-
-For `/email-triage <account>` and reply queue work:
-
-1. Open one queue item only.
-2. If the queue item has a `draft_id`, run the private draft checker for that draft id.
-3. If the checker fails, rewrite the draft first. Do not ask the repository owner to approve or send a failed draft.
-4. Show the repository owner the exact rewritten draft body only after the checker passes.
-5. Never send email until the repository owner explicitly approves the full visible draft text.
-
-## Example Fix
-
-Bad:
-
-```text
-Indica-nos os teus valores para esta campanha.
-
-Cumprimentos,
-<sender>
-```
-
-Better:
-
-```text
-Consegue me mandar o escopo, período da ação e os formatos que vocês têm em mente?
-
-Com isso eu vejo aqui e te retorno.
-
-Abraço,
-<sender>
-```
+Send only within the user's explicit authorization and actual project rules. Previously granted approval persists for its stated recipient/content/action. Ask only when a consequential ambiguity or missing authority prevents that action; this skill adds no blanket owner reapproval step. Report the actual send result when sending was separately authorized, without treating draft readiness as delivery.

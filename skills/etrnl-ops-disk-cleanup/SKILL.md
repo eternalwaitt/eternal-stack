@@ -1,11 +1,10 @@
 ---
 name: etrnl-ops-disk-cleanup
-description: ETRNL safe local disk cleanup workflow for Claude Code. Use when the user asks to free disk, SSD, or storage space; hidden from model auto-invocation.
+description: ETRNL safe local disk cleanup workflow for Claude Code and Codex. Use when the user asks to free disk, SSD, or storage space; hidden from model auto-invocation.
 disable-model-invocation: true
 ---
 # Disk Cleanup
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-ops-disk-cleanup`; on update, run the reported update command before continuing; only skip if the user explicitly declines.
 
 Reclaim local disk space with an inspect-first, trash-only workflow.
 
@@ -14,7 +13,7 @@ Reclaim local disk space with an inspect-first, trash-only workflow.
 1. Verify `trash` is available before building the manifest: `command -v trash`. If it is missing, abort with `trash is required - install via npm i -g trash-cli or your OS package manager`.
 2. Identify the target host and filesystem first with `pwd`, `df -h`, and a bounded usage command such as `dust -d 2 "$HOME"` or a focused project path.
 3. Build a dry-run manifest before deleting anything. Include exact absolute paths, category, estimated bytes, contents description, why the path is safe to trash, cleanup command, and risk tier.
-   Validate structured manifests with `node ~/.claude/scripts/disk-cleanup-manifest.mjs validate < manifest.json` when the helper is installed.
+   Validate structured manifests with `node {{ETRNL_COMPANION}} run scripts/disk-cleanup-manifest.mjs -- validate < manifest.json` when the helper is installed.
 4. Only cleanup transient paths: caches, build outputs, logs, package-manager caches, simulator/build artifacts, and explicitly disposable temp files.
 5. Use owner cleanup commands before direct path trashing when they exist, such as `brew cleanup`, package-manager cache clean commands, `go clean -cache`, or Docker prune commands after `docker system df` and explicit confirmation.
 6. Use `trash` for deletion. Do not use `rm -r` or `rm -rf` for cleanup.

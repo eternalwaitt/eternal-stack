@@ -1,9 +1,11 @@
 #!/usr/bin/env node
-import { createHash } from "node:crypto";
+import { projectIdentity, validIdentity } from "./lib/project-identity.mjs";
+import { createHash, randomUUID } from "node:crypto";
+import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync } from "node:fs";
 import path from "node:path";
 import { argValue as readArgValue } from "./lib/cli-args.mjs";
-import { updateJsonUnderLock, withFileLock, writeJsonAtomic } from "./lib/json-file-store.mjs";
+import { withFileLock, writeJsonAtomic } from "./lib/json-file-store.mjs";
 import { nowIso, safeId } from "./lib/evidence-trace.mjs";
 import { worktreeHash } from "./lib/etrnl-state-core.mjs";
 import {
@@ -17,6 +19,7 @@ import {
 } from "./lib/ledger-pointer.mjs";
 import { parseRiskTier } from "./lib/plan-risk-tier.mjs";
 import {
+  classifySpawnContext,
   evaluateSpawnGuard,
   inferSpawnWaveId,
   resolveMaxConcurrentLanes,
@@ -25,6 +28,13 @@ import { explainSpawnVerdict } from "./lib/spawn-guard-explain.mjs";
 import { loadPlanRegistry, resolvePlanScopeFromFile } from "./lib/spawn-registry.mjs";
 import { classifyReviewScope } from "./review-scope.mjs";
 import { readStdinJson, readStdinRaw } from "./lib/read-stdin.mjs";
+import { acquireCheckSlot, checkOwnerAlive } from "./lib/check-coordination.mjs";
+import { CHECK_RESOURCE_LIMITS, admitBudgetAction, validateWorkflowContract } from "./lib/workflow-contract.mjs";
+
+import { reviewBinding, hasReviewArtifact } from "./lib/review-evidence.mjs";
+
+import { requestReview } from "./lib/review-controller.mjs";
+import { syncProjectState, acknowledgeProjectState, stateAckErrors, projectStateContext, stateSnapshot, stateReadReceipt, taskNote } from "./lib/project-state.mjs";
 
 const STATUSES = new Set(["pending", "in_progress", "reviewing", "changes_requested", "verified", "blocked", "skipped"]);
 const PHASE_STATUSES = new Set(["pending", "in_progress", "uat", "verified", "blocked", "skipped"]);
@@ -68,12 +78,16 @@ function writeJson(file, value) {
 }
 
 function updateJson(file, updater) {
-  return updateJsonUnderLock(file, {
-    read: readJson,
-    update: updater,
-    mode: 0o600,
-    ...LOCK_OPTIONS,
-  });
+  return withFileLock(file, () => {
+    const result = updater(readJson(file));
+    // Persist captured evidence first. A projection failure propagates without
+    // losing the real command result or publishing an uncommitted receipt.
+    writeJsonAtomic(file, result, { mode: 0o600 });
+    const statePath = result.projectState?.path;
+    syncProjectState(result);
+    if (result.projectState?.path !== statePath) writeJsonAtomic(file, result, { mode: 0o600 });
+    return result;
+  }, LOCK_OPTIONS);
 }
 
 function currentLedgerPath(sessionId) {
@@ -88,6 +102,13 @@ function validateLedger(ledger) {
   if (!Array.isArray(ledger.agents)) errors.push("agents must be an array");
   if (!Array.isArray(ledger.checks)) errors.push("checks must be an array");
   if (ledger.artifacts && !Array.isArray(ledger.artifacts)) errors.push("artifacts must be an array");
+  if (ledger.workflowContract !== undefined) {
+    try {
+      validateWorkflowContract(ledger.workflowContract);
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : String(error));
+    }
+  }
   if (ledger.requiredArtifacts && !Array.isArray(ledger.requiredArtifacts)) errors.push("requiredArtifacts must be an array");
   if (ledger.schemaVersion === 2 && !Array.isArray(ledger.events)) errors.push("events must be an array");
   // Events predating actor provenance stay valid; a malformed actor does not.
@@ -110,6 +131,7 @@ function validateLedger(ledger) {
   if (ledger.installProof && !Array.isArray(ledger.installProof)) errors.push("installProof must be an array");
   if (ledger.waves && !Array.isArray(ledger.waves)) errors.push("waves must be an array");
   if (ledger.spawns && !Array.isArray(ledger.spawns)) errors.push("spawns must be an array");
+  if (ledger.activeWorkerReservations && !Array.isArray(ledger.activeWorkerReservations)) errors.push("activeWorkerReservations must be an array");
   if (ledger.planScope !== undefined && typeof ledger.planScope !== "string") errors.push("planScope must be a string");
   if (ledger.taskGroupCount !== undefined && (!Number.isInteger(ledger.taskGroupCount) || ledger.taskGroupCount < 0)) {
     errors.push("taskGroupCount must be a non-negative integer");
@@ -278,7 +300,14 @@ function requiredEvidenceErrors(ledger) {
 
 function worktreeCheckErrors(ledger) {
   const errors = [];
-  const passedChecks = (ledger.checks ?? []).filter((check) => check.status === "passed");
+  let passedChecks = (ledger.checks ?? []).filter((check) => check.status === "passed");
+  if (ledger.workflowContract) {
+    const named = new Set((ledger.checks ?? []).map((check) => check.name || "<unknown>"));
+    passedChecks = [...named].map((name) => {
+      const rows = (ledger.checks ?? []).filter((check) => (check.name || "<unknown>") === name && check.evidenceKind === "command-run");
+      return rows.at(-1);
+    }).filter((check) => check?.status === "passed");
+  }
   if (passedChecks.length === 0) return errors;
   const stamped = passedChecks.filter((check) => check.treeHash);
   if (stamped.length === 0) return errors;
@@ -287,7 +316,7 @@ function worktreeCheckErrors(ledger) {
     errors.push("cannot verify checks against the current worktree");
     return errors;
   }
-  if (stamped.some((check) => check.treeHash !== currentHash)) {
+  if (stamped.some((check) => check.treeHash !== currentHash || (check.evidenceKind === "command-run" && check.startedTreeHash !== check.treeHash))) {
     errors.push("verification checks are stale for the current worktree");
   }
   return errors;
@@ -348,7 +377,7 @@ function tier3ResidualClosureErrors(ledger) {
 }
 
 function completionErrors(ledger, options = {}) {
-  const errors = validateLedger(ledger);
+  const errors = [...validateLedger(ledger), ...stateAckErrors(ledger)];
   const tasks = ledger.tasks ?? [];
   const phases = ledger.phases ?? [];
   const unfinishedTasks = tasks
@@ -359,15 +388,71 @@ function completionErrors(ledger, options = {}) {
     .map((agent) => `${agent.id}:${agent.status}`);
   const artifactTypes = new Set((ledger.artifacts ?? []).map((artifact) => artifact.type));
   const missingArtifacts = (ledger.requiredArtifacts ?? []).filter((type) => !artifactTypes.has(type));
-  const failedChecks = (ledger.checks ?? [])
-    .filter((check) => check.status !== "passed")
-    .map((check) => `${check.name || "<unknown>"}:${check.status || "<missing>"}`);
+  const contract = ledger.workflowContract;
+  const checks = ledger.checks ?? [];
+  const failedChecks = contract
+    ? [...new Set(checks.map((check) => check.name || "<unknown>"))]
+      .map((name) => {
+        const named = checks.filter((check) => (check.name || "<unknown>") === name);
+        return named.filter((check) => check.evidenceKind === "command-run").at(-1) ?? named.at(-1);
+      })
+      .filter((check) => check.status !== "passed")
+      .map((check) => `${check.name || "<unknown>"}:${check.status || "<missing>"}`)
+    : checks.filter((check) => check.status !== "passed")
+      .map((check) => `${check.name || "<unknown>"}:${check.status || "<missing>"}`);
   if (unfinishedTasks.length > 0) errors.push(`unfinished tasks: ${unfinishedTasks.join(", ")}`);
   if (unfinishedAgents.length > 0) errors.push(`unfinished agents: ${unfinishedAgents.join(", ")}`);
   if (missingArtifacts.length > 0) errors.push(`missing artifacts: ${missingArtifacts.join(", ")}`);
   if (Number(ledger.uatOpenFindings || 0) > 0) errors.push(`open UAT findings: ${ledger.uatOpenFindings}`);
-  if ((ledger.checks ?? []).length === 0) errors.push("no verification checks recorded");
+  if (contract) {
+    const activeReservations = (ledger.activeWorkerReservations ?? []).filter((reservation) => reservation.status === "active");
+    if (activeReservations.length > 0) {
+      errors.push(`active worker reservations remain: ${activeReservations.map((reservation) => `${reservation.taskName || reservation.id} (${reservation.id})`).join(", ")}`);
+    }
+  }
+  if (checks.length === 0 && (!contract || contract.requirements.mechanicalVerification)) errors.push("no verification checks recorded");
+  if ((ledger.workflowCheckReservations ?? []).length > 0) errors.push("one or more captured command checks did not finish");
   if (failedChecks.length > 0) errors.push(`verification checks not passed: ${failedChecks.join(", ")}`);
+  if (contract?.requirements?.mechanicalVerification) {
+    const passedCommands = checks.filter((check) => check.evidenceKind === "command-run"
+      && check.status === "passed" && check.exitCode === 0 && /^[a-f0-9]{64}$/.test(check.outputDigest || "")
+      && Array.isArray(check.argv) && check.argv.length > 0
+      && check.startedTreeHash && check.startedTreeHash === check.treeHash && check.treeHash);
+    if (passedCommands.length === 0) errors.push("no mechanically captured command verification; record-check self-reports do not satisfy this contract");
+    if ((ledger.workflowBudgetUsage?.verificationAttempts ?? checks.filter((check) => check.evidenceKind === "command-run").length) > contract.budget.maxVerificationAttempts) {
+      errors.push(`verification-attempt budget exceeded (${contract.budget.maxVerificationAttempts})`);
+    }
+  }
+  if (contract?.requirements?.taskRecord && tasks.length === 0) errors.push("workflow contract requires an execution task record");
+  if (contract?.requirements?.planPhases) {
+    if (!ledger.planPath) errors.push("workflow contract requires a plan path");
+    if (phases.length === 0) errors.push("workflow contract requires plan phases");
+  }
+  if (contract?.requirements?.packet && !tasks.some((task) => task.packetHash && task.lineageId)) {
+    errors.push("workflow contract requires a task bound to a packet and lineage");
+  }
+  if (contract?.requirements?.tddEvidence && !(ledger.tddEvidence ?? []).some((item) => EVIDENCE_DONE.has(item.status))) {
+    errors.push("workflow contract requires recorded red/green TDD evidence");
+  }
+  if (contract?.requirements?.planPhases && phases.length > 0) {
+    const latest = new Map();
+    for (const phase of phases) if (phase.id) latest.set(phase.id, phase.status);
+    const unfinished = [...latest].filter(([, status]) => !["verified", "skipped"].includes(status)).map(([id, status]) => `${id}:${status}`);
+    if (unfinished.length > 0) errors.push(`workflow contract phases not verified or explicitly skipped: ${unfinished.join(", ")}`);
+  }
+  if (contract?.requirements?.independentReview) {
+    const latestReview = (ledger.workflowReviews ?? []).at(-1);
+    const currentHash = worktreeHash(ledger.cwd || process.cwd());
+    const completedReviews = [latestReview].filter((review) => review?.status === "verified" && hasReviewArtifact(review, currentHash, reviewBinding(ledger)));
+    if (completedReviews.length === 0 || ["pending", "running", "failed"].includes(ledger.reviewRequest?.status)) errors.push("workflow contract requires a recorded independent review with retained separate reviewer output");
+    if ((ledger.workflowBudgetUsage?.reviews ?? (ledger.workflowReviews ?? []).length) > contract.budget.maxReviews) errors.push(`review budget exceeded (${contract.budget.maxReviews})`);
+  }
+  if (contract && ledger.workflowBudgetUsage) {
+    const fields = { workers: "maxWorkers", reviews: "maxReviews", reviewWorkers: "maxReviews", retries: "maxRetries", verificationAttempts: "maxVerificationAttempts" };
+    for (const [used, allowed] of Object.entries(fields)) {
+      if ((ledger.workflowBudgetUsage[used] ?? 0) > contract.budget[allowed]) errors.push(`${used} budget exceeded (${contract.budget[allowed]})`);
+    }
+  }
   errors.push(...worktreeCheckErrors(ledger));
   if (options.requireTasks && tasks.length === 0) errors.push("no execution tasks recorded");
   if (options.requirePlanPhases && !ledger.planPath) errors.push("no plan path recorded");
@@ -476,18 +561,53 @@ function checkSpawn() {
 
   const evaluateLocked = (ledger) => {
     const enriched = enrichLedgerPlanMetadata(ledger);
-    const tier = resolvePlanRiskTier(enriched);
-    const reviewScopeMode = resolveReviewScopeMode(enriched, tier, waveId);
-    const verdict = evaluateSpawnGuard(enriched, {
-      taskName,
-      waveId,
-      riskTier: tier,
-      overrideReason,
-      reviewScopeMode,
-      subagentType,
-      packetMode,
-    });
-    return { enriched, tier, reviewScopeMode, verdict };
+    const activeReservations = (enriched.activeWorkerReservations ?? []).filter((reservation) => reservation.status === "active");
+    if (enriched.workflowContract) {
+      const contractLimit = enriched.workflowContract.budget.maxConcurrentWorkers;
+      // An active contract owns this cap; neither an older native execute
+      // profile nor ETRNL_MAX_CONCURRENT_LANES may raise it.
+      enriched.executeProfile = { ...(enriched.executeProfile ?? {}), maxConcurrentLanes: contractLimit };
+      enriched.planMaxConcurrentLanes = contractLimit;
+    }
+    const classified = classifySpawnContext({ taskName, waveId, subagentType, packetMode });
+    const tier = enriched.workflowContract ? null : resolvePlanRiskTier(enriched);
+    const reviewScopeMode = enriched.workflowContract ? "workflow-contract" : resolveReviewScopeMode(enriched, tier, waveId);
+    const verdict = enriched.workflowContract
+      ? {
+        allowed: true,
+        reasonCode: "ok",
+        reason: "Spawn admitted by the explicit workflow contract.",
+        classified,
+        record: {
+          at: nowIso(), taskName, waveId, role: classified.role,
+          patchId: classified.patchId, reviewLane: classified.reviewLane,
+          reviewRound: classified.reviewRound, isMergedWaveReview: classified.isMergedWaveReview,
+          reviewerSubagent: classified.reviewerSubagent ?? false,
+        },
+      }
+      : evaluateSpawnGuard(enriched, {
+        taskName,
+        waveId,
+        riskTier: tier,
+        overrideReason,
+        reviewScopeMode,
+        subagentType,
+        packetMode,
+      });
+    let budgetDenial = null;
+    if (enriched.workflowContract) {
+      const usage = {
+        ...(enriched.workflowBudgetUsage ?? {}),
+        workers: enriched.workflowBudgetUsage?.workers ?? (enriched.spawns ?? []).length,
+        concurrentWorkers: activeReservations.length,
+      };
+      let admission = admitBudgetAction(enriched.workflowContract, usage, "worker");
+      if (admission.allowed && classified.role === "reviewer") {
+        admission = admitBudgetAction(enriched.workflowContract, usage, "reviewer");
+      }
+      if (!admission.allowed) budgetDenial = admission.reason;
+    }
+    return { enriched, tier, reviewScopeMode, verdict, budgetDenial, activeReservations };
   };
 
   const emitDenied = (explained) => {
@@ -503,14 +623,23 @@ function checkSpawn() {
     process.exit(1);
   };
 
+  if (!taskName && readJson(file).workflowContract) {
+    emitDenied({
+      allowed: false,
+      reasonCode: "missing-task-name",
+      reason: "Contract-backed spawns require a non-empty stable --task-name so the reservation can be identified and released.",
+    });
+  }
+
   if (dryRun) {
-    const { enriched, reviewScopeMode, verdict } = evaluateLocked(readJson(file));
-    const explained = explainSpawnVerdict(verdict);
-    if (!verdict.allowed) emitDenied(explained);
+    const { enriched, reviewScopeMode, verdict, budgetDenial, activeReservations } = evaluateLocked(readJson(file));
+    const explained = budgetDenial ? { allowed: false, reason: budgetDenial } : explainSpawnVerdict(verdict);
+    if (!verdict.allowed || budgetDenial) emitDenied(explained);
     const payload = {
       allowed: true,
       dryRun: true,
       maxConcurrentLanes: resolveMaxConcurrentLanes(enriched, process.env),
+      activeWorkers: activeReservations.length,
       spawnCount: (enriched.spawns ?? []).length,
       reviewScopeMode,
       ...explained,
@@ -533,18 +662,38 @@ function checkSpawn() {
   let denied = null;
   let recorded = null;
   updateJson(file, (current) => {
-    const { enriched, reviewScopeMode, verdict } = evaluateLocked(current);
-    const explained = explainSpawnVerdict(verdict);
-    if (!verdict.allowed) {
+    const { enriched, reviewScopeMode, verdict, budgetDenial, activeReservations } = evaluateLocked(current);
+    const explained = budgetDenial ? { allowed: false, reason: budgetDenial } : explainSpawnVerdict(verdict);
+    if (!verdict.allowed || budgetDenial) {
       denied = explained;
       return current;
     }
     enriched.spawns = enriched.spawns ?? [];
-    enriched.spawns.push(verdict.record);
+    const reservationId = enriched.workflowContract ? randomUUID() : null;
+    enriched.spawns.push({ ...verdict.record, ...(reservationId ? { reservationId, workerStatus: "active" } : {}) });
+    if (enriched.workflowContract) {
+      enriched.activeWorkerReservations = enriched.activeWorkerReservations ?? [];
+      enriched.activeWorkerReservations.push({
+        id: reservationId,
+        taskName,
+        waveId,
+        role: verdict.record.role,
+        patchId: verdict.record.patchId,
+        status: "active",
+        reservedAt: nowIso(),
+      });
+      const usage = enriched.workflowBudgetUsage ?? { workers: 0, concurrentWorkers: 0, reviews: 0, retries: 0, verificationAttempts: 0 };
+      enriched.workflowBudgetUsage = {
+        ...usage,
+        workers: (usage.workers ?? 0) + 1,
+        ...(verdict.record.role === "reviewer" ? { reviewWorkers: (usage.reviewWorkers ?? 0) + 1 } : {}),
+        concurrentWorkers: activeReservations.length + 1,
+      };
+    }
     enriched.updatedAt = nowIso();
     appendEvent(enriched, "spawn.recorded", verdict.record);
     Object.assign(current, enriched);
-    recorded = { enriched, reviewScopeMode, explained };
+    recorded = { enriched, reviewScopeMode, explained, reservationId };
     return current;
   });
   if (denied) emitDenied(denied);
@@ -554,6 +703,7 @@ function checkSpawn() {
     dryRun: false,
     maxConcurrentLanes: resolveMaxConcurrentLanes(recorded.enriched, process.env),
     spawnCount: (recorded.enriched.spawns ?? []).length,
+    ...(recorded.reservationId ? { reservationId: recorded.reservationId } : {}),
     reviewScopeMode: recorded.reviewScopeMode,
     ...recorded.explained,
   };
@@ -586,6 +736,23 @@ function initLedger() {
   const file = path.join(runsDir(), `${runId}.json`);
   const at = nowIso();
   const planPath = argValue("--plan");
+  const workflowContractFlagIndex = args.indexOf("--workflow-contract");
+  const workflowContractPath = argValue("--workflow-contract")
+    || (workflowContractFlagIndex >= 0 && args[workflowContractFlagIndex + 1] === "-" ? "-" : "");
+  let workflowContract;
+  if (workflowContractPath) {
+    try {
+      const inputContract = workflowContractPath === "-" ? readStdinJson({
+        emptyValue: null,
+        onInvalidJson: (error) => { throw new Error(`invalid JSON: ${error.message}`); },
+        onReadError: (error) => { throw new Error(`cannot read JSON: ${error.message}`); },
+      }) : readJson(path.resolve(workflowContractPath));
+      workflowContract = validateWorkflowContract(inputContract);
+    } catch (error) {
+      console.error(`init: invalid workflow contract: ${error instanceof Error ? error.message : String(error)}`);
+      process.exit(2);
+    }
+  }
   const scopeInfo = planPath ? resolvePlanScopeFromFile(planPath) : { scope: null, reason: "no-plan" };
   const registry = planPath ? loadPlanRegistry(planPath) : { taskGroupCount: 0, allowedSpawnNames: [] };
   const ledger = enrichLedgerPlanMetadata({
@@ -593,8 +760,10 @@ function initLedger() {
     runId,
     sessionId: bucket,
     cwd,
-    projectId: safeId(argValue("--project", path.basename(cwd) || "default")),
+    projectId: projectIdentity(cwd, { projectId: argValue("--project"), statePath: argValue("--state-path") }).projectId,
+    ...(argValue("--project") ? { portableProjectId: argValue("--project") } : {}),
     planPath,
+    ...(workflowContract ? { workflowContract } : {}),
     ...(scopeInfo.scope ? { planScope: scopeInfo.scope, planScopeReason: scopeInfo.reason } : {}),
     taskGroupCount: registry.taskGroupCount,
     allowedSpawnNames: registry.allowedSpawnNames,
@@ -619,9 +788,30 @@ function initLedger() {
     events: [{ type: "ledger.init", at, actor: eventActor(bucket) }],
     continuations: { count: 0, max: 3, lastReason: "" },
   });
-  writeJson(file, ledger);
-  writeJson(pointerPath(bucket), { path: file, updatedAt: ledger.updatedAt });
-  console.log(file);
+  let selectedFile = file;
+  withFileLock(pointerPath(bucket), () => {
+    const pointer = existsSync(pointerPath(bucket)) ? readJson(pointerPath(bucket)) : null;
+    if (pointer?.path && existsSync(pointer.path)) {
+      const existing = readJson(pointer.path);
+      if (existing.workflowContract && ledgerOwnedByWorktree(pointer.path, cwd)) {
+        if (workflowContract && JSON.stringify(existing.workflowContract) !== JSON.stringify(workflowContract)) {
+          throw new Error("init cannot replace an active workflow contract or reset its budget; resume the existing task");
+        }
+        selectedFile = pointer.path;
+        updateJson(selectedFile, current => {
+          if (current.projectState?.path && argValue("--state-path") && current.projectState.path !== argValue("--state-path")) throw new Error('cannot replace bound canonical project state; reconcile existing state first');
+          const next = planPath ? enrichLedgerPlanMetadata({ ...current, planPath }) : current;
+          syncProjectState(next, { explicit: argValue("--state-path"), bootstrap: true });
+          return next;
+        });
+        return;
+      }
+    }
+    syncProjectState(ledger, { explicit: argValue("--state-path"), bootstrap: true });
+    writeJson(file, ledger);
+    writeJsonAtomic(pointerPath(bucket), { path: file, updatedAt: ledger.updatedAt }, { mode: 0o600 });
+  });
+  console.log(selectedFile);
 }
 
 function validateCommand() {
@@ -638,8 +828,8 @@ function validateCommand() {
 
 function checkStop() {
   const sessionId = argValue("--session", process.env.CLAUDE_SESSION_ID || "default");
-  const requireTasks = args.includes("--require-tasks");
-  const requirePlanPhases = args.includes("--require-plan-phases");
+  let requireTasks = args.includes("--require-tasks");
+  let requirePlanPhases = args.includes("--require-plan-phases");
   const file = currentLedgerPath(sessionId);
   if (!file) {
     if (args.includes("--require-ledger")) {
@@ -649,11 +839,58 @@ function checkStop() {
     }
     return;
   }
-  const errors = completionErrors(readJson(file), { requireTasks, requirePlanPhases });
+  const ledger = readJson(file);
+  // An explicit workflow contract is authoritative for workflow shape. The
+  // stop hook's plan-prompt fallback is retained for legacy ledgers only; in
+  // particular, structured contracts do not acquire mandatory legacy phases.
+  if (ledger.workflowContract) {
+    requireTasks = false;
+    requirePlanPhases = false;
+  }
+  if (!args.includes("--json")) syncProjectState(ledger);
+  const errors = completionErrors(ledger, { requireTasks, requirePlanPhases });
+  if (args.includes("--json")) { console.log(JSON.stringify({ ok: errors.length === 0, errors })); if (errors.length) process.exitCode = 1; return; }
   if (errors.length > 0) {
     console.error(`Execution ledger is not complete: ${errors.join("; ")}`);
     process.exit(1);
   }
+}
+
+function workflowState() {
+  const file = currentLedgerPath(argValue("--session", process.env.CLAUDE_SESSION_ID || "default"));
+  if (!file) {
+    console.log("{}");
+    return;
+  }
+  const ledger = readJson(file);
+  if (!ledger.workflowContract) {
+    console.log("{}");
+    return;
+  }
+  validateWorkflowContract(ledger.workflowContract);
+  const commandRunEvidence = (ledger.checks ?? [])
+    .filter((check) => check.evidenceKind === "command-run")
+    .map(({ name, argv, status, exitCode, outputDigest, startedTreeHash, treeHash, at }) => ({
+      name, argv, status, exitCode, outputDigest, startedTreeHash, treeHash, evidenceKind: "command-run", at,
+    }));
+  const contractReviewEvidence = (ledger.workflowReviews ?? []).slice(-1).map((review) => ({
+    ...review, independent: !["pending", "running", "failed"].includes(ledger.reviewRequest?.status) && hasReviewArtifact(review, worktreeHash(ledger.cwd || process.cwd()), reviewBinding(ledger)),
+  }));
+  const packetEvidence = (ledger.tasks ?? []).some((task) => task.packetHash && task.lineageId);
+  const tddEvidenceRuns = (ledger.tddEvidence ?? []).map((row) => ({
+    value: "tdd red green evidence",
+    status: row.status,
+    at: row.at || row.completedAt || "",
+  }));
+  console.log(JSON.stringify({
+    workflowContract: ledger.workflowContract,
+    commandRunEvidence,
+    contractReviewEvidence,
+    planPath: ledger.planPath || "",
+    planPhases: ledger.phases ?? [],
+    packetEvidence,
+    tddEvidenceRuns,
+  }));
 }
 
 function checkBoundExecute() {
@@ -878,10 +1115,14 @@ function applySetTask(ledger, taskId, fields = {}, commandName = "set-task") {
   } else if (existing?.completedAt) {
     next.completedAt = existing.completedAt;
   }
-  for (const key of ["mode", "lineageId", "packetHash"]) {
+  for (const key of ["mode", "lineageId", "packetHash", "featureId", "owner", "aliases"]) {
     const snake = key === "lineageId" ? "lineage_id" : key === "packetHash" ? "packet_hash" : key;
     const value = fields[key] ?? fields[snake];
-    if (value) next[key] = value;
+    if (value) {
+      if (["featureId", "owner"].includes(key) && !validIdentity(value)) throw new Error(`invalid ${key}`);
+      if (key === "aliases" && (!Array.isArray(value) || value.some(item => typeof item !== "string" || item.length > 120))) throw new Error("invalid aliases");
+      next[key] = value;
+    }
   }
   for (const key of [
     "requiresImplementationEvidence",
@@ -898,6 +1139,20 @@ function applySetTask(ledger, taskId, fields = {}, commandName = "set-task") {
   ledger.tasks = existing
     ? ledger.tasks.map((task) => task.id === taskId ? { ...task, ...next } : task)
     : [...(ledger.tasks ?? []), next];
+  if (ledger.projectState?.path) {
+    try {
+      const snapshot = stateSnapshot(ledger, taskId);
+      ledger.projectState.reads ||= {};
+      ledger.projectState.reads[snapshot.taskNoteKey] ||= stateReadReceipt(snapshot);
+      const aggregate = stateSnapshot(ledger);
+      ledger.projectState.reads[aggregate.taskNoteKey] ||= stateReadReceipt(aggregate);
+      delete ledger.projectState.readError;
+    } catch (error) {
+      // The outer writer persists this canonical mutation first; state projection
+      // then propagates malformed/missing authored state without losing the task.
+      ledger.projectState.readError = error.message;
+    }
+  }
   ledger.updatedAt = nowIso();
   appendEvent(ledger, "task.set", { taskId, status });
 }
@@ -917,6 +1172,7 @@ function setTask() {
       ["--lineage", "lineageId"],
       ["--lineage-id", "lineageId"],
       ["--packet-hash", "packetHash"],
+      ["--feature", "featureId"], ["--owner", "owner"],
     ]) {
       const value = argValue(flag);
       if (value) fields[key] = value;
@@ -933,6 +1189,7 @@ function setTask() {
     ]) {
       if (args.includes(flag)) fields[key] = true;
     }
+    if (argValue("--aliases")) fields.aliases = JSON.parse(argValue("--aliases"));
     applySetTask(ledger, taskId, fields);
     return ledger;
   });
@@ -1130,6 +1387,7 @@ function recordCheck() {
       name,
       command: commandText,
       status,
+      evidenceKind: "self-reported",
       outputSummary: argValue("--summary"),
       at: nowIso(),
       treeHash: worktreeHash(ledger.cwd || process.cwd()),
@@ -1138,6 +1396,298 @@ function recordCheck() {
     appendEvent(ledger, "check.recorded", { name, status });
     return ledger;
   });
+}
+
+function reserveContractBudget(file, action, detail = {}) {
+  let denial = "";
+  updateJson(file, (ledger) => {
+    const contract = ledger.workflowContract;
+    if (!contract) return ledger;
+    const usage = ledger.workflowBudgetUsage ?? { workers: 0, concurrentWorkers: 0, reviews: 0, retries: 0, verificationAttempts: 0 };
+    const admission = admitBudgetAction(contract, usage, action);
+    if (!admission.allowed) {
+      denial = admission.reason;
+      return ledger;
+    }
+    const field = { worker: "workers", review: "reviews", retry: "retries", verification: "verificationAttempts" }[action];
+    ledger.workflowBudgetUsage = { ...usage, [field]: (usage[field] ?? 0) + 1 };
+    ledger.updatedAt = nowIso();
+    appendEvent(ledger, "workflow.budget-reserved", { action, usage: ledger.workflowBudgetUsage, ...detail });
+    return ledger;
+  });
+  if (denial) {
+    console.error(`Workflow budget exhausted: ${denial}; stop and preserve the partial result.`);
+    process.exit(1);
+  }
+}
+
+async function runCheck() {
+  const separator = args.indexOf("--");
+  const argv = separator >= 0 ? args.slice(separator + 1) : [];
+  const name = argValue("--name");
+  const timeoutMs = Number(argValue("--timeout-ms", "900000"));
+  if (!name || argv.length === 0 || !argv[0]) {
+    console.error("run-check requires --name and an executable argv after --; shell strings are not accepted.");
+    process.exit(2);
+  }
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 7_200_000) {
+    console.error("run-check --timeout-ms must be an integer from 1 to 7200000 (two hours).");
+    process.exit(2);
+  }
+  const file = currentLedgerOrFail();
+  const initialLedger = readJson(file);
+  const cwd = path.resolve(initialLedger.cwd || process.cwd());
+  const commandDigest = createHash("sha256").update(JSON.stringify(argv)).digest("hex");
+  const reuseKey = argValue("--reuse-key", "");
+  // Only hashes are retained; environment values can contain credentials.
+  const environmentDigest = createHash("sha256").update(JSON.stringify(Object.entries(process.env).sort(([a], [b]) => a.localeCompare(b)))).digest("hex");
+  const maxConcurrent = Number(argValue("--max-concurrent-checks", String(CHECK_RESOURCE_LIMITS.defaultConcurrency)));
+  const slot = await acquireCheckSlot(path.join(runsDir(), "coordination", `${worktreeKey(cwd)}.json`), { maxConcurrent, waitMs: timeoutMs, checkKey: createHash("sha256").update(JSON.stringify([cwd, commandDigest, environmentDigest, timeoutMs])).digest("hex") });
+  try {
+  const startedTreeHash = worktreeHash(cwd);
+  // Explicit opt-in: caller supplies an identity covering ignored dependencies,
+  // toolchain and external inputs. Empty/unknown source hashes never reuse.
+  const checkSnapshot = readJson(file);
+  const unfinishedSameCheck = (checkSnapshot.workflowCheckReservations ?? []).some(check => check.name === name || check.commandDigest === commandDigest);
+  const reusable = !unfinishedSameCheck && reuseKey && startedTreeHash && (checkSnapshot.checks ?? []).findLast(check =>
+    check.evidenceKind === "command-run"
+    && check.commandDigest === commandDigest && check.environmentDigest === environmentDigest
+    && check.cwd === cwd && check.timeoutMs === timeoutMs
+    && check.startedTreeHash === startedTreeHash && check.treeHash === startedTreeHash);
+  if (reusable?.status === "passed" && reusable.reuseKey === reuseKey) {
+    updateJson(file, ledger => {
+      ledger.checks.push({ ...reusable, name, reusedFrom: { name: reusable.name, at: reusable.at }, reusedAt: nowIso() });
+      appendEvent(ledger, "check.reused", { name, commandDigest, treeHash: startedTreeHash });
+      return ledger;
+    });
+    process.stdout.write(`Reused command check ${name}: passed (source, argv, environment and declared inputs unchanged)\n`);
+    return;
+  }
+  const reservationId = randomUUID();
+  let budgetDenial = "";
+  let attempt = 1;
+  updateJson(file, (ledger) => {
+    const completed = (ledger.checks ?? []).filter((check) => (check.name === name || check.commandDigest === commandDigest) && check.evidenceKind === "command-run" && !check.reusedFrom).length;
+    const pending = (ledger.workflowCheckReservations ?? []).filter((reservation) => (reservation.name === name || reservation.commandDigest === commandDigest)).length;
+    attempt = completed + pending + 1;
+    if (!ledger.workflowContract) {
+      ledger.workflowCheckReservations = ledger.workflowCheckReservations ?? [];
+      ledger.workflowCheckReservations.push({ id: reservationId, name, commandDigest, ownerPid: process.pid, at: nowIso(), attempt });
+      return ledger;
+    }
+    let usage = ledger.workflowBudgetUsage ?? { workers: 0, concurrentWorkers: 0, reviews: 0, retries: 0, verificationAttempts: 0 };
+    if (attempt > 1) {
+      const retry = admitBudgetAction(ledger.workflowContract, usage, "retry");
+      if (!retry.allowed) { budgetDenial = retry.reason; return ledger; }
+      usage = { ...usage, retries: (usage.retries ?? 0) + 1 };
+    }
+    const verification = admitBudgetAction(ledger.workflowContract, usage, "verification");
+    if (!verification.allowed) { budgetDenial = verification.reason; return ledger; }
+    usage = { ...usage, verificationAttempts: (usage.verificationAttempts ?? 0) + 1 };
+    ledger.workflowBudgetUsage = usage;
+    ledger.workflowCheckReservations = ledger.workflowCheckReservations ?? [];
+    ledger.workflowCheckReservations.push({ id: reservationId, name, commandDigest, ownerPid: process.pid, at: nowIso(), attempt });
+    ledger.updatedAt = nowIso();
+    appendEvent(ledger, "workflow.budget-reserved", { action: attempt > 1 ? "retry+verification" : "verification", name, attempt, usage });
+    return ledger;
+  });
+  if (budgetDenial) {
+    console.error(`Workflow budget exhausted: ${budgetDenial}; stop and preserve the partial result.`);
+    process.exitCode = 1;
+    return;
+  }
+  const startedAt = nowIso();
+  const outputHash = createHash("sha256");
+  const stdoutHash = createHash("sha256");
+  const stderrHash = createHash("sha256");
+  let outputBytes = 0;
+  let forwardedBytes = 0;
+  const tailBytesPerStream = 8 * 1024;
+  const tails = new Map([[process.stdout, Buffer.alloc(0)], [process.stderr, Buffer.alloc(0)]]);
+  const forward = (stream, chunk) => {
+    outputBytes += chunk.length;
+    const tail = Buffer.concat([tails.get(stream), chunk]);
+    tails.set(stream, tail.subarray(Math.max(0, tail.length - tailBytesPerStream)));
+    const available = CHECK_RESOURCE_LIMITS.outputBytes - 2 * tailBytesPerStream - forwardedBytes;
+    if (available > 0) {
+      const bounded = chunk.subarray(0, available);
+      forwardedBytes += bounded.length;
+      stream.write(bounded);
+    }
+  };
+  let pid = null;
+  let exitCode = null;
+  let signal = null;
+  let spawnError = "";
+  let timedOut = false;
+  let interruptedBy = "";
+  let escalationTimer = null;
+  const child = spawn(argv[0], argv.slice(1), {
+    cwd,
+    shell: false,
+    detached: process.platform !== "win32",
+    stdio: ["inherit", "pipe", "pipe"],
+  });
+  const killTree = (signalName) => {
+    if (process.platform !== "win32" && Number.isInteger(child.pid)) {
+      try { process.kill(-child.pid, signalName); return; } catch { /* fall back to the direct child */ }
+    }
+    try { child.kill(signalName); } catch { /* it may have exited */ }
+  };
+  const timeoutTimer = setTimeout(() => {
+    timedOut = true;
+    killTree("SIGTERM");
+    escalationTimer = setTimeout(() => killTree("SIGKILL"), 2_000);
+  }, timeoutMs);
+  const interruptHandler = (signalName) => {
+    if (interruptedBy) return;
+    interruptedBy = signalName;
+    killTree(signalName);
+    escalationTimer = setTimeout(() => killTree("SIGKILL"), 2_000);
+  };
+  const onSigint = () => interruptHandler("SIGINT");
+  const onSigterm = () => interruptHandler("SIGTERM");
+  process.on("SIGINT", onSigint);
+  process.on("SIGTERM", onSigterm);
+  pid = child.pid ?? null;
+  if (pid) slot.registerChild(pid);
+  child.once("exit", () => {
+    // Descendants may keep inherited pipes open after the direct command exits.
+    // Start cleanup on exit rather than waiting for pipe close.
+    killTree("SIGTERM");
+    if (!escalationTimer) escalationTimer = setTimeout(() => killTree("SIGKILL"), 50);
+  });
+  child.stdout.on("data", (chunk) => {
+    stdoutHash.update(chunk);
+    outputHash.update("stdout\0");
+    outputHash.update(chunk);
+    forward(process.stdout, chunk);
+  });
+  child.stderr.on("data", (chunk) => {
+    stderrHash.update(chunk);
+    outputHash.update("stderr\0");
+    outputHash.update(chunk);
+    forward(process.stderr, chunk);
+  });
+  child.on("error", (error) => { spawnError = error.message; });
+  await new Promise((resolve) => child.on("close", (code, childSignal) => {
+    exitCode = code;
+    signal = childSignal;
+    resolve();
+  }));
+  clearTimeout(timeoutTimer);
+  // Keep the escalation armed after the direct child closes: descendants can
+  // ignore the initial signal and inherit no stdio, so `close` alone does not
+  // prove the detached command group has exited.
+  if (escalationTimer && !timedOut && !interruptedBy) clearTimeout(escalationTimer);
+  process.off("SIGINT", onSigint);
+  process.off("SIGTERM", onSigterm);
+  const status = exitCode === 0 && !signal && !spawnError && !timedOut && !interruptedBy ? "passed" : "failed";
+  // Successful finite commands must not leave background descendants running.
+  // Never target unrelated PIDs: only the detached command process group.
+  if (process.platform !== "win32" && Number.isInteger(child.pid)) {
+    killTree("SIGTERM");
+    await new Promise(resolve => setTimeout(resolve, 50));
+    killTree("SIGKILL");
+  }
+  if (outputBytes > forwardedBytes) {
+    process.stderr.write("\n[Check output truncated; final stdout/stderr tails follow]\n");
+    for (const [stream, tail] of tails) { stream.write(tail); forwardedBytes += tail.length; }
+    process.stderr.write(`\nCheck output limited to ${forwardedBytes} prefix/tail bytes; digests cover all ${outputBytes} bytes.\n`);
+  }
+  const evidence = {
+    name,
+    command: argv.map((part) => JSON.stringify(part)).join(" "),
+    argv,
+    status,
+    evidenceKind: "command-run",
+    pid,
+    exitCode,
+    signal,
+    timeoutMs,
+    timedOut,
+    ...(interruptedBy ? { interruptedBy } : {}),
+    ...(spawnError ? { spawnError } : {}),
+    cwd,
+    commandDigest,
+    environmentDigest,
+    ...(reuseKey ? { reuseKey } : {}),
+    outputBytes,
+    forwardedBytes,
+    coordinationWaitMs: slot.waitedMs,
+    outputDigest: outputHash.digest("hex"),
+    stdoutDigest: stdoutHash.digest("hex"),
+    stderrDigest: stderrHash.digest("hex"),
+    startedAt,
+    at: nowIso(),
+    startedTreeHash,
+    treeHash: worktreeHash(cwd),
+  };
+  updateJson(file, (current) => {
+    current.workflowCheckReservations = (current.workflowCheckReservations ?? []).filter((reservation) => {
+      if (reservation.id === reservationId) return false;
+      if ((reservation.name === name || reservation.commandDigest === commandDigest)
+        && Number.isSafeInteger(reservation.ownerPid) && !checkOwnerAlive(reservation.ownerPid)) {
+        appendEvent(current, "check.abandoned-attempt-replaced", { reservationId: reservation.id, name: reservation.name, replacement: name });
+        return false;
+      }
+      return true;
+    });
+    current.checks = current.checks ?? [];
+    current.checks.push(evidence);
+    current.updatedAt = nowIso();
+    appendEvent(current, "check.command-captured", {
+      name, status, exitCode, signal, commandDigest, outputDigest: evidence.outputDigest,
+    });
+    return current;
+  });
+  process.stdout.write(`\nCaptured command check ${name}: ${status} (exit=${exitCode ?? "null"}${timedOut ? ", timed out" : ""}${interruptedBy ? `, interrupted by ${interruptedBy}` : ""})\n`);
+  if (status !== "passed") process.exitCode = 1;
+  } finally { slot.release(); }
+}
+
+function recordWorkflowReview() {
+  const reviewer = argValue("--reviewer");
+  const status = argValue("--status", "verified");
+  if (!reviewer || !["verified", "blocked", "skipped"].includes(status)) {
+    console.error("record-workflow-review requires --reviewer and status verified|blocked|skipped.");
+    process.exit(2);
+  }
+  const file = currentLedgerOrFail();
+  const preview = readJson(file);
+  if (!preview.workflowContract || preview.workflowContract.budget.maxReviews < 1) {
+    console.error("record-workflow-review requires a workflow contract with an available review budget.");
+    process.exit(2);
+  }
+  const treeHash = worktreeHash(preview.cwd || process.cwd());
+  let artifact = {};
+  if (status === "verified") {
+    console.error("verified review imports are not accepted; use request-review then companion review-and-resume from the outer host");
+    process.exit(2);
+  }
+  reserveContractBudget(file, "review", { reviewer });
+  updateJson(file, (ledger) => {
+    ledger.workflowReviews = ledger.workflowReviews ?? [];
+    ledger.workflowReviews.push({ reviewer, status, at: nowIso(), treeHash, ...artifact });
+    ledger.updatedAt = nowIso();
+    appendEvent(ledger, "workflow.review-recorded", { reviewer, status });
+    return ledger;
+  });
+}
+
+function recordBudgetUse() {
+  const action = argValue("--action");
+  if (action !== "retry") {
+    console.error("record-budget-use currently accepts only --action retry; other usage is captured by workflow commands.");
+    process.exit(2);
+  }
+  const operation = argValue("--operation");
+  if (!["replan", "redelegate", "context-restore"].includes(operation)) {
+    console.error("Manual retry accounting requires --operation replan|redelegate|context-restore. Do not pre-reserve check/review/resume retries: run-check and the review controller account for their own attempts automatically.");
+    process.exit(2);
+  }
+  const file = currentLedgerOrFail();
+  reserveContractBudget(file, action, { operation, note: argValue("--note") });
 }
 
 function requireArtifact() {
@@ -1194,6 +1744,67 @@ function requireTaskBinding(ledger, taskId, commandName) {
   }
 }
 
+function releaseWorkerReservation(ledger, {
+  reservationId = "",
+  taskName = "",
+  waveId = "",
+  taskId = "",
+  role = "",
+  agentId = "",
+  status = "completed",
+  reason = "",
+} = {}) {
+  const active = (ledger.activeWorkerReservations ?? []).filter((reservation) => reservation.status === "active");
+  if (active.length === 0) {
+    if (reservationId) throw new Error(`No active worker reservation ${reservationId} exists`);
+    return null;
+  }
+  let candidates;
+  if (reservationId) candidates = active.filter((reservation) => reservation.id === reservationId);
+  else if (taskName) candidates = active.filter((reservation) => reservation.taskName === taskName && (!waveId || reservation.waveId === waveId));
+  else {
+    candidates = active.filter((reservation) => {
+      const taskMatches = reservation.patchId === taskId || reservation.taskName === taskId || reservation.taskName.startsWith(`${taskId}_`);
+      const roleMatches = !role || reservation.role === role;
+      const waveMatches = !waveId || reservation.waveId === waveId;
+      return taskMatches && roleMatches && waveMatches;
+    });
+  }
+  if (candidates.length !== 1) {
+    if (reservationId || taskName) throw new Error(candidates.length === 0
+      ? `No active worker reservation matches ${reservationId || taskName}`
+      : `Worker reservation identity is ambiguous (${candidates.length} active matches); provide --reservation-id`);
+    return { released: false, reason: candidates.length === 0 ? "no-matching-reservation" : "ambiguous-reservation", matches: candidates.length };
+  }
+  const reservation = candidates[0];
+  if (["failed", "cancelled", "blocked"].includes(status) && !String(reason).trim()) {
+    throw new Error(`Releasing a worker as ${status} requires --release-reason`);
+  }
+  const at = nowIso();
+  reservation.status = status;
+  reservation.endedAt = at;
+  if (reason) reservation.releaseReason = String(reason).trim();
+  if (agentId) reservation.endedByAgentId = agentId;
+  ledger.spawns = (ledger.spawns ?? []).map((spawn) => spawn.reservationId === reservation.id
+    ? { ...spawn, workerStatus: status, workerEndedAt: at, ...(agentId ? { endedByAgentId: agentId } : {}) }
+    : spawn);
+  ledger.workflowBudgetUsage = {
+    ...(ledger.workflowBudgetUsage ?? {}),
+    workers: ledger.workflowBudgetUsage?.workers ?? (ledger.spawns ?? []).length,
+    concurrentWorkers: (ledger.activeWorkerReservations ?? []).filter((item) => item.status === "active").length,
+  };
+  appendEvent(ledger, "worker.reservation-released", {
+    reservationId: reservation.id,
+    taskName: reservation.taskName,
+    waveId: reservation.waveId,
+    taskId,
+    agentId,
+    status,
+    reason: String(reason).trim(),
+  });
+  return { released: true, reservationId: reservation.id, status };
+}
+
 function applyRecordAgent(ledger, taskId, options) {
   const id = options.id || options.agent || `agent-${Date.now()}`;
   const lineageId = options.lineageId ?? options.lineage_id ?? "";
@@ -1219,8 +1830,22 @@ function applyRecordAgent(ledger, taskId, options) {
     at,
     completedAt: at,
   });
+  let reservationRelease = null;
+  if (ledger.workflowContract && !["active", "running", "started", "pending"].includes(status)) {
+    reservationRelease = releaseWorkerReservation(ledger, {
+      reservationId: options.reservationId,
+      taskName: options.spawnTaskName,
+      waveId: options.waveId,
+      taskId,
+      role: options.spawnRole,
+      agentId: id,
+      status,
+      reason: options.releaseReason,
+    });
+    if (reservationRelease?.released) ledger.agents.at(-1).workerReservationId = reservationRelease.reservationId;
+  }
   ledger.updatedAt = nowIso();
-  appendEvent(ledger, "agent.recorded", { agentId: id, taskId, role, mode, status, packetHash: packetHashValue });
+  appendEvent(ledger, "agent.recorded", { agentId: id, taskId, role, mode, status, packetHash: packetHashValue, reservationRelease });
 }
 
 function recordAgent() {
@@ -1231,6 +1856,11 @@ function recordAgent() {
   const role = argValue("--role", "etrnl-executor");
   const mode = argValue("--mode", "write");
   const status = argValue("--status", "completed");
+  const reservationId = argValue("--release-reservation", argValue("--reservation-id", ""));
+  const releaseReason = argValue("--release-reason", "");
+  const spawnTaskName = argValue("--spawn-task-name", "");
+  const waveId = argValue("--wave", "");
+  const spawnRole = argValue("--spawn-role", "");
   if (!taskId) {
     console.error("record-agent requires --task.");
     process.exit(2);
@@ -1241,7 +1871,7 @@ function recordAgent() {
   }
   const file = currentLedgerOrFail();
   updateJson(file, (ledger) => {
-    applyRecordAgent(ledger, taskId, { id, role, mode, status, lineageId, packetHash: packetHashValue });
+    applyRecordAgent(ledger, taskId, { id, role, mode, status, lineageId, packetHash: packetHashValue, reservationId, spawnTaskName, waveId, spawnRole, releaseReason });
     return ledger;
   });
 }
@@ -1417,6 +2047,10 @@ function recordSubagent() {
     process.exit(1);
   }
   const agentId = event.agent_id || event.subagent_id || `subagent-${Date.now()}`;
+  const reservationId = event.reservation_id || event.worker_reservation_id || "";
+  const spawnTaskName = event.spawn_task_name || event.task_name || "";
+  const waveId = event.wave_id || event.waveId || "";
+  const workerRole = event.worker_role || "";
   // Deterministic token accounting derived from the same captured output text.
   // outputTokens is a fixed length/4 estimate (no wall-clock, no model call) so
   // token-savings.mjs can attribute cost per agent role and flag net-negative work.
@@ -1447,10 +2081,19 @@ function recordSubagent() {
     }
     const at = preciseNowIso();
     ledger.agents = ledger.agents ?? [];
-    ledger.agents.push({ id: agentId, role: "subagent", status: "completed", taskId, agentType, outputTokens, findingsCount, endedAt: at, completedAt: at });
+    const reservationRelease = ledger.workflowContract ? releaseWorkerReservation(ledger, {
+      reservationId,
+      taskName: spawnTaskName,
+      waveId,
+      taskId,
+      role: workerRole,
+      agentId,
+      status: "completed",
+    }) : null;
+    ledger.agents.push({ id: agentId, role: "subagent", status: "completed", taskId, agentType, outputTokens, findingsCount, endedAt: at, completedAt: at, ...(reservationRelease?.released ? { workerReservationId: reservationRelease.reservationId } : {}) });
     ledger.tasks = (ledger.tasks ?? []).map((task) => task.id === taskId ? { ...task, status: "reviewing", heartbeatAt: nowIso() } : task);
     ledger.updatedAt = nowIso();
-    appendEvent(ledger, "subagent.completed", { agentId, taskId });
+    appendEvent(ledger, "subagent.completed", { agentId, taskId, reservationRelease });
     return ledger;
   });
 }
@@ -1948,6 +2591,23 @@ function history() {
 if (command === "init") initLedger();
 else if (command === "validate") validateCommand();
 else if (command === "check-stop") checkStop();
+else if (command === "workflow-state") workflowState();
+else if (command === "record-state") {
+  updateJson(currentLedgerOrFail(), ledger => { acknowledgeProjectState(ledger, argValue("--learning"), { outcome: argValue("--outcome") || undefined, pending: argValue("--pending") || undefined, unchangedReason: argValue("--unchanged-reason") || undefined, taskId: argValue("--task"), expectedRevision: argValue("--revision") || undefined, expectedEntryRevision: argValue("--entry-revision") || undefined, owner: argValue("--owner") || undefined, disposition: argValue("--disposition", "open"), handoverFrom: argValue("--handover-from") }); return ledger; });
+}
+else if (command === "read-state") {
+  updateJson(currentLedgerOrFail(), ledger => { const snapshot = stateSnapshot(ledger,argValue("--task")); ledger.projectState.reads ||= {}; ledger.projectState.reads[snapshot.taskNoteKey] = stateReadReceipt(snapshot); console.log(JSON.stringify(snapshot)); return ledger; });
+}
+else if (command === "resume-state") {
+  updateJson(currentLedgerOrFail(), ledger => {
+    if (ledger.workflowContract && ledger.workflowContract.effects === 'repository-write' && !ledger.workflowContract.workKind) {
+      ledger.workflowContract.workKind = 'substantive'; ledger.workflowContract.requirements.projectState = true;
+      delete ledger.projectState?.ack;
+    }
+    syncProjectState(ledger,{bootstrap:true}); return ledger;
+  });
+}
+else if (command === "project-state") console.log(projectStateContext(argValue("--cwd", process.cwd()), argValue("--state-path")));
 else if (command === "check-bound-execute") checkBoundExecute();
 else if (command === "check-spawn") checkSpawn();
 else if (command === "infer-spawn-wave") inferSpawnWave();
@@ -1956,6 +2616,10 @@ else if (command === "set-task") setTask();
 else if (command === "set-phase") setPhase();
 else if (command === "record-uat") recordUat();
 else if (command === "record-check") recordCheck();
+else if (command === "run-check") await runCheck();
+else if (command === "request-review") console.log(JSON.stringify(requestReview(currentLedgerOrFail(), argValue("--checkpoint"), argValue("--host", "codex") === "claude" ? process.env.CLAUDE_SESSION_ID : process.env.CODEX_THREAD_ID, argValue("--knowledge-packet"), argValue("--host", "codex"))));
+else if (command === "record-workflow-review") recordWorkflowReview();
+else if (command === "record-budget-use") recordBudgetUse();
 else if (command === "require-artifact") requireArtifact();
 else if (command === "record-artifact") recordArtifact();
 else if (command === "record-agent") recordAgent();
@@ -1972,7 +2636,7 @@ else if (command === "record-decision") recordDecision();
 else if (command === "reconcile") reconcilePointers();
 else if (command === "history") history();
 else {
-  console.error(`usage: execution-ledger.mjs init|validate|check-stop [--require-ledger] [--require-tasks] [--require-plan-phases]|check-bound-execute|check-spawn [--task-name <name>] [--wave <id>] [--subagent-type <type>] [--packet-mode <mode>] [--dry-run] [--allow-record] [--explain] [--json]|record-spawn-registry [--plan <path>]|set-task|set-phase|record-uat|record-check|require-artifact|record-artifact|record-agent|record-review|record-tdd|record-simplifier|record-specialist|record-completion-audit|record-install-proof|record-task-bundle [--file <path>]|<json-stdin>|record-trajectory --wave <id> [--recurring-finding-count <n>] [--stream-alternation-count <n>] [--rounds-since-progress <n>]|record-decision|record-subagent|reconcile [--apply] [--json]|history [--progress] [--renegotiation-check] [--gates] [--plan <path>] [--json]`);
+  console.error(`usage: execution-ledger.mjs init [--workflow-contract <JSON file|->]|validate|check-stop [--require-ledger] [--require-tasks] [--require-plan-phases]|workflow-state|check-bound-execute|check-spawn [--task-name <name>] [--wave <id>] [--subagent-type <type>] [--packet-mode <mode>] [--dry-run] [--allow-record] [--explain] [--json]|record-spawn-registry [--plan <path>]|set-task|set-phase|record-uat|record-check|run-check --name <name> [--timeout-ms 1..7200000] -- <executable> [args]|request-review --checkpoint <path>|record-state --outcome <text> --pending <text> --learning updated|none [or --unchanged-reason <text>]|project-state [--cwd <path>] [--state-path <path>]|record-workflow-review --reviewer <name> --status blocked|skipped|record-budget-use --action retry --operation replan|redelegate|context-restore|require-artifact|record-artifact|record-agent|record-review|record-tdd|record-simplifier|record-specialist|record-completion-audit|record-install-proof|record-task-bundle [--file <path>]|<json-stdin>|record-trajectory --wave <id> [--recurring-finding-count <n>] [--stream-alternation-count <n>] [--rounds-since-progress <n>]|record-decision|record-subagent|reconcile [--apply] [--json]|history [--progress] [--renegotiation-check] [--gates] [--plan <path>] [--json]`);
   console.error(reopenCapUsageText());
   process.exit(2);
 }

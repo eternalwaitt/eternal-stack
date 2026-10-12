@@ -1,12 +1,21 @@
 # Configuration
 
-Profiles:
+## Default versus optional configuration
 
-- Core install: strict blocker hooks (pretool guard, post-write quality/sycophancy, repeated-failure diagnosis, subagent recording), prompt router, prompt expansion, `CLAUDE.md` reinjection, skill recorder, advisory rate limiter, session cleanup, scripts, docs, rules, skills, agents, settings audit, and Codex skill/runtime sync.
-- Full install: core plus CodeGraph, Beads, Hindsight plugin/config, stack profile metadata, memory posture checks, and canaries.
-- Observer-only install: set `ETRNL_ENABLE_STRICT=0` to merge `templates/settings.json` instead of the strict template. That drops pretool guard and post-write blockers while keeping compact recovery, RTK `rg` compat, observer hooks, and the `Stop` verifier.
-- Private overlay: identity, accounts, local permissions, and project-specific preferences.
+Core installs shared guidance, one native `etrnl-router` skill, and its private on-demand library. It registers no hooks, configures no host settings, and provisions no services. Workflow selection uses the canonical contract; Core does not install a hook profile or an always-on ledger. The detailed hook, model, and lifecycle controls below apply only to the alternative `orchestrated`/`full` profiles. Host-specific support is not equivalent merely because guidance is shared.
 
+Local auto-update is **off by default**. `ETRNL_AUTO_UPDATE=1` or `update-check.mjs --auto` explicitly enables mutation; ordinary update checks remain read-only. The optional package may run an advisory freshness check when a skill is invoked. Core's router does not run an update probe as a prerequisite to task selection.
+
+
+Profiles (actual install surfaces are summarized in the [host capability matrix](host-capabilities.md)):
+
+- `core` (default): shared guidance, one router skill, and the private capability library for Claude Code and Codex. It registers no hooks, configures no settings, and provisions no services or plugins.
+- `orchestrated`: the separately selected ETRNL hook-based package. It installs Claude hooks/settings, skills, commands, agents, scripts, and rules; skills and helper scripts are also copied for Codex. Native Codex continuity registration is opt-in through `--native-continuity` with explicit host versions; copied legacy scripts alone stay inactive. See [native adapters](native-adapters.md).
+- `full`: `orchestrated` plus CodeGraph, Beads, and Hindsight provisioning. Hindsight is installed as a Claude CLI plugin; Codex Hindsight remains a separately reported, unverified integration state.
+- `ETRNL_ENABLE_STRICT=0` applies to `orchestrated`/`full`: it selects the reduced Claude hook template, removing pre-tool and post-write blockers while retaining the stop verifier and enforced spawn guard. It is not observer-only.
+- Private overlays: identity, accounts, local permissions, and project-specific preferences stay outside this public repository.
+
+`ETRNL_HOOK_PROFILE=minimal` is a separate setting for advisory hooks inside the optional package. It does not disable required guards or lifecycle hooks. Core has no hook profile.
 Hook profiles (`ETRNL_HOOK_PROFILE`):
 
 - `standard` (default when unset): all advisory hooks run; guards, compact recovery, session lifecycle, and stop verification are unchanged.
@@ -41,7 +50,7 @@ MCP hygiene:
 
 Codex-first efficiency profile:
 
-Use this operator runbook before a long Codex CLI run when you want a cheap, low-context session. Measured agent runs show that context volume — not generation — dominates cost: in one 20-hour run, subagents accounted for most token spend, and the vast majority of subagent input was re-sent cached context rather than new output. Every MCP server enabled at session start inflates that baseline on every turn. The levers below shrink the fixed prefix without disabling guards, compact recovery, or session lifecycle hooks.
+Use this operator runbook before a long Codex CLI run when you want to reduce startup context and make model choices explicit. Enabled tools and inherited model settings can affect context use and spend; the size of that effect depends on the host, session, and pricing. The levers below help reduce unnecessary setup without disabling optional-package guards, compact recovery, or session lifecycle hooks.
 
 | Lever | Control | Where to read more |
 | --- | --- | --- |
@@ -62,11 +71,15 @@ Pre-run MCP audit checklist (manual):
 3. Disable or remove servers you do not need before starting a long run. Eternal Stack does not auto-uninstall user MCP servers at install time — pruning stays a deliberate operator step.
 4. If three or more servers remain enabled, confirm lazy MCP loading (or an equivalent deferral) is active so tool schemas are not injected on every turn.
 
-Why it matters: each listed MCP tool adds schema and instruction text to the session prefix. That prefix is re-sent on every turn and multiplied across subagents, so trimming servers before you start saves more than turning down model temperature or shortening individual replies.
+Why it matters: enabled MCP tools can add schemas and instructions to the context available to a session. The amount loaded and its effect vary by host and configuration, so prune tools you do not need and verify the result in your host.
+
+## Compatibility controls for optional hook sessions
+
+The controls in this section configure the alternative hook-based profiles and sessions using pre-contract ledgers. A stored workflow contract takes precedence for task mode and work budgets. Compatibility controls do not restate or override its requirements.
 
 Codex spawn model and reasoning effort:
 
-A `spawn_agent` call that omits `model` inherits the parent thread's model, so a Sol-equivalent orchestrator spends flagship rates on every child turn. Because subagents dominate token spend, that single omission is the largest avoidable cost in a long run. `scripts/lib/codex-model-routing.mjs` is the one place the slug map lives; skills, packets, and the deep-audit lane registry all resolve through it rather than restating slugs.
+A `spawn_agent` call that omits `model` inherits the parent thread’s model. When you want to choose a different model or reasoning effort for a lane, pass it explicitly. `scripts/lib/codex-model-routing.mjs` is the one place the slug map lives; skills, packets, and the deep-audit lane registry resolve through it rather than restating slugs.
 
 `resolveCodexModel({ modelTier, codexModel, codexReasoningEffort, modelTierJustification })` returns a `{ model, reasoningEffort }` pair:
 
@@ -80,7 +93,7 @@ A `spawn_agent` call that omits `model` inherits the parent thread's model, so a
 - `gpt-5.6-sol` resolves only when `modelTierJustification` names an integration-owner or adversarial escalation. Every other Sol request throws, including one supplied through the environment override.
 - `node scripts/agent-task-packet-check.mjs` errors — not warns — when a write packet omits `codexModel`. Generate a starting packet with `--template read-only`, `--template write`, or `--template mini`; read-only templates emit `gpt-5.6-luna` and write templates emit `gpt-5.6-terra`.
 - Deep-audit fan-out is routed the same way. Every lane in `scripts/lib/deep-audit-categories.mjs` declares a `modelTier` that is validated when the registry loads, and `resolveLaneDispatch(lane)` / `categoryLaneDispatch(categoryId)` return the resolved model and effort for a lane spawn. The eleven `ui-ux-product` and `performance` lanes currently resolve to seven at `gpt-5.6-terra`/medium and four at `gpt-5.6-luna`/low, with none inheriting.
-- `ETRNL_EXECUTE_HOST` selects the execute profile: `codex` runs the lighter Codex profile, `claude` runs the unchanged Claude path, and leaving it unset auto-detects a Codex session. The Codex profile defaults `maxConcurrentLanes` to `2` (Claude keeps `3`) and merges review into one pass per wave for tier 0–2; tier 3 keeps all three reviewer roles and never has its declared risk tier downgraded by the profile.
+- `ETRNL_EXECUTE_HOST` selects the legacy execute profile used by pre-contract sessions: `codex` uses the older Codex lane limits, `claude` uses the Claude path, and leaving it unset auto-detects Codex. A stored workflow contract controls budgets for contract-backed runs.
 - Progress reporting drops rolling hour ETAs, wall-clock finish times, and elapsed-time percentages on every host. User-facing status comes from `node scripts/execution-ledger.mjs history --gates [--plan <path>] [--json]`, which reports `tasks=<done>/<total>`, `phase`, `phaseStatus`, `workstream`, `uatGate`, and `uatOpenFindings`, then `planStatus`, `nextGate`, and `nextGatePhase`. Without `--plan` it reports `planStatus=not-provided` and still exits 0.
 
 Review economy:
@@ -95,20 +108,20 @@ CodeGraph MCP tool surface:
 
 CodeGraph's MCP server (`codegraph serve --mcp`) exposes one tool by default — `codegraph_explore` — because a single Read-equivalent lookup steers agents better than a menu of narrow tools and keeps the MCP catalog small. Seven auxiliary tools (`codegraph_node`, `codegraph_search`, `codegraph_callers`, `codegraph_callees`, `codegraph_impact`, `codegraph_files`, `codegraph_status`) remain fully functional but unlisted unless you opt in; most of what they return already arrives inline on a `codegraph_explore` response (blast radius, relationship map, symbol bodies, callee lists).
 
-- `CODEGRAPH_MCP_TOOLS`: comma-separated allowlist of short tool names (for example `explore,node`) that replaces the default listed surface. Matching is case-insensitive and accepts either short names (`node`) or full names (`codegraph_node`). Set it in the MCP server environment (Codex MCP config or the host's MCP launch env) before the session starts. Each additional listed tool adds schema tokens to every turn; only re-enable tools whose narrower contract you actually need.
+- `CODEGRAPH_MCP_TOOLS`: comma-separated allowlist of short tool names (for example `explore,node`) that replaces the default listed surface. Matching is case-insensitive and accepts either short names (`node`) or full names (`codegraph_node`). Set it in the MCP server environment (Codex MCP config or the host's MCP launch env) before the session starts. Listing additional tools can make their schemas available to the host session; whether and when the host loads that context is host- and configuration-dependent. Re-enable only tools whose narrower contract you actually need.
 - `codegraph_node` read mode: when listed, fetches one symbol's verbatim source plus caller/callee trail, or reads a whole indexed file with line numbers (Read-parity, capped like a normal file read). Use it when you want file- or symbol-scoped reads without the broader flow synthesis that `codegraph_explore` adds. Prefer leaving it unlisted and using `codegraph_explore` unless you have measured mis-picks or repeated whole-file reads that `node` would handle more cheaply.
 
 Codex should receive shared standards through `AGENTS.md`, `AGENTS.override.md` where intentional, Codex hooks, or Codex skills. Claude-specific hook wiring should stay in Claude settings.
 
 Installed public rules live under `~/.claude/rules/etrnl/` so they do not clobber existing personal rule files.
 The cross-host eternal-saas pack stages as `~/.claude/docs/templates/rules/eternal-saas/` and exports `.mdc` twins via `scripts/sync-rule-exports.mjs`. It stays out of `~/.claude/rules/` because Claude Code auto-loads every `.md` there as user-scope memory, which put stack-specific rules into unrelated repos; it is source material for `init-project-rules.sh`, not global context. Project-level pack installs use `scripts/init-project-rules.sh --profile eternal-saas <repo>` and write to the target repo's `.claude/rules/eternal-saas/` and `.cursor/rules/eternal-saas/`. `rules-manifest.json` at the repo root is the schema-v1 authority for module checksums, privacy gates, and host metadata.
-Repo-owned ETRNL agents install into `~/.claude/agents/` by default. Local run ledgers stay under `~/.claude/etrnl/runs/`; review logs, browser QA reports, and context saves stay under `~/.claude/etrnl/artifacts/`. These local workflow records are never committed.
+Repo-owned ETRNL agents install into `~/.claude/agents/` by default. Installed companion helpers supply the selected host home: local run ledgers use `<host-home>/etrnl/runs/`, while review logs, browser QA reports and context saves use `<host-home>/etrnl/artifacts/`. These local workflow records are never committed.
 
 Install:
 
-- `ETRNL_STACK_PROFILE=core|full` sets the default install profile when `--profile` is omitted.
-- Default install merges strict blocker hooks from `templates/settings.strict.json`.
-- `ETRNL_ENABLE_STRICT=0` merges the observer-only template (`templates/settings.json`) instead.
+- `ETRNL_STACK_PROFILE=core|orchestrated|full` sets the default install profile when `--profile` is omitted.
+- The optional orchestrated install merges strict blocker hooks from `templates/settings.strict.json`.
+- `ETRNL_ENABLE_STRICT=0` merges the reduced-hook template (`templates/settings.json`) instead.
 - `./scripts/install.sh` backs up managed `~/.claude/settings.json`, drops stack-owned `hooks`, and re-merges the selected stack while preserving all other user top-level settings (for example `permissions`, `skillOverrides`, `enabledPlugins`, and `statusLine`). Use `--preserve-settings` only for a deliberate merge into existing hook wiring without dropping hooks first.
 - `ETRNL_INSTALL_STARTUP=1` overwrites installed `AGENTS.md` and `CLAUDE.md` startup files instead of preserving existing local copies.
 - `ETRNL_INSTALL_SOURCE_TESTS=0` skips the pre-install source test suites (`tests/test-hooks.sh`, `tests/test-workflow-tools.sh`). Only for callers that already ran both suites as separate gates in the same pipeline (doctor heavy checks, `tests/test-install.sh`); a direct user install keeps them on, running in parallel with logs captured and the failing suite's log tail printed.
@@ -123,10 +136,10 @@ Updater:
 
 - `ETRNL_UPDATE_CHECK=0` disables startup drift checks (enabled by default when unset).
 - `ETRNL_REMOTE_UPDATE_CHECK=1` enables cached upstream checks (disabled by default when unset).
-- `ETRNL_AUTO_UPDATE`: unset means local auto-update is enabled from the recorded source checkout (SessionStart, requested Claude `etrnl-*` skills via the prompt router, and Codex `skill-update-prompt.mjs`); set `ETRNL_AUTO_UPDATE=0` to disable automatic local etrnl repair while developing against a dirty source checkout.
+- `ETRNL_AUTO_UPDATE`: unset or `0` leaves update checks read-only. Set `1` to explicitly permit local repair from the recorded source checkout; dirty-source protection still applies.
 - `ETRNL_AUTO_UPDATE_DIRTY=1` allows SessionStart auto-update even when `install.json` marks the source checkout as dirty (`sourceDirty: true`); leave unset to skip auto-update until the checkout is clean or changes are committed.
 - `ETRNL_UPDATE_INTERVAL_SEC` controls the remote-check cache window; default is `21600` seconds (six hours) when unset.
-- `ETRNL_SKILL_UPDATE_CHECK=0` disables the prompt router's per-prompt requested-`etrnl-*`-skill freshness/auto-update check; enabled by default when unset. When an update is available, the router injects the reported update command as an advisory note — run it when practical; only skip when the user explicitly declines. Local Eternal Stack updates are still auto-applied when possible (`update-check.mjs --auto`, unless `ETRNL_AUTO_UPDATE=0` or the source checkout is dirty); remaining remote or tool-stack items are noted but do not block the requested work.
+- `ETRNL_SKILL_UPDATE_CHECK=0` disables optional prompt-router freshness checks. These are advisory; updates are maintenance, not prerequisites. Local mutation requires `ETRNL_AUTO_UPDATE=1` or an explicit `update-check.mjs --auto`.
 - `ETRNL_SKILL_UPDATE_TIMEOUT_SEC` bounds each prompt-router skill-update subprocess; default is `120` seconds when unset.
 - `ETRNL_SKILL_UPDATE_INTERVAL_SEC` stamp-gates the prompt-router skill-update check so it runs at most once per interval instead of on every prompt after a skill match; default is `1800` seconds. `ETRNL_SKILL_UPDATE_STAMP` overrides the stamp file path for tests.
 - `ETRNL_SKILL_UPDATE_MAX_CHARS` caps the skill-update context the prompt router injects; default is `1200` characters when unset.
@@ -233,7 +246,7 @@ Guard state and break-glass:
 - `ETRNL_HARD_SPAWN_CAP` (default `80`) — hard stop on total spawn count for a run unless `check-spawn --override-spawn-cap` is paired with a prior `record-decision` owner approval tied to a surviving P0/P1 blocker (investigator-reviewed); `--override-reason` text alone is not sufficient.
 - `ETRNL_SPAWN_BURST_WINDOW_MS` (default `60000`) — rolling window for concurrent lane burst accounting in `spawn-guard.mjs`.
 - `ETRNL_MAX_CONCURRENT_LANES` overrides the profile default lane cap when the plan's `## Parallelization strategy` justifies it. When unset, spawn guard parses `maxConcurrentLanes=N` from the active plan (1–6) before falling back to Codex 2 / Claude 3.
-- `ETRNL_REVIEW_SCOPE_SMALL_MAX` (default `50`) and `ETRNL_REVIEW_SCOPE_MEDIUM_MAX` (default `200`) tune tier 0–2 diff-size review gating in `review-scope.mjs`. Tier ≥3 always uses `full_lenses`.
+- `ETRNL_REVIEW_SCOPE_SMALL_MAX` (default `50`) and `ETRNL_REVIEW_SCOPE_MEDIUM_MAX` (default `200`) tune diff-size review checks for optional sessions using ledgers without a workflow contract.
 - `ETRNL_PACKET_MAX_BYTES` (default `12000`) caps subagent packet JSON size in `agent-task-packet-check.mjs`.
 - `ETRNL_REVIEW_ADAPTIVE_SKIP_STREAK` (default `5`) controls adaptive reviewer skip in `review-merge.mjs skip-plan`; use `--scope repo` to persist counters under `.etrnl/review-learnings.json`.
 
@@ -249,3 +262,7 @@ Codex spawn guard registration (`~/.codex/config.toml`):
 
 - `CLAUDE_GUARD_WEBSEARCH_CANARY` points strict WebSearch checks at a custom canary result file.
 - `CLAUDE_GUARD_PORT_START`, `CLAUDE_GUARD_PORT_END`, `CLAUDE_GUARD_MAX_PORT_SCAN`, and `CLAUDE_GUARD_FORCE_LARGE_SCAN=1` tune local dev-server port selection.
+
+## Optional native continuity
+
+Core stays hook-free. Optional profiles use explicit `--native-continuity` with `--claude-version` and `--codex-version`; schema, minimum versions, native files, status and safe removal are documented in [native adapters](native-adapters.md). Registration does not enable host private memory or reset task budgets. Shared helpers resolve host-local data from companion `ETRNL_HOME`, separately from `ETRNL_LIBRARY_ROOT`. Review learning defaults to private proposals; `review-learn learn --apply-rules` permits shared rule promotion/escalation only within user authorization.

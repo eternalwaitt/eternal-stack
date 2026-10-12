@@ -1,6 +1,6 @@
 # Plan Review Checklist
 
-Use this checklist after the draft exists on disk.
+Use this optional checklist after a substantial draft exists on disk, or when the workflow contract requires a planning/review pass. It adds no mandatory workflow by itself.
 
 ## Scope Challenge
 
@@ -8,7 +8,7 @@ Answer these before reviewing tasks:
 
 - What existing code, scripts, flows, helpers, docs, or runtime surfaces already solve each sub-problem?
 - What is the smallest change set that achieves the user's stated goal?
-- Does the plan touch more than 8 files or introduce more than 2 new services/classes? If yes, challenge the scope.
+- Is the proposed work larger than needed or split across unrelated ownership boundaries? Challenge scope using impact and dependencies, not a file-count threshold.
 - Does the plan add a custom architecture pattern where the framework/runtime already has a boring built-in?
 - Does `TODOS.md` or equivalent deferred-work tracking exist, and does it contain work that blocks or overlaps this plan?
 - Is the plan doing the complete version, or a shortcut that only saves minutes with AI-assisted implementation?
@@ -18,7 +18,7 @@ Answer these before reviewing tasks:
 
 Flag and fix before finalizing:
 
-The following checks apply only when the referenced companion skills (e.g., code-simplifier, finding-duplicate-functions, eternal-best-practices) are installed; record unavailable skills and their impact in the Plan Readiness Report.
+Load specialist guidance only when the domain applies or the workflow contract requires it. Record unavailable capabilities only when that absence changes the plan.
 
 - Requirement from the source spec/request has no task.
 - Existing code or workflow solves part of the problem, but the plan rebuilds it.
@@ -35,14 +35,11 @@ The following checks apply only when the referenced companion skills (e.g., code
 - Non-trivial data flow, state machine, processing pipeline, or test map lacks an ASCII diagram.
 - New codepaths lack realistic production failure modes.
 - Test coverage omits code paths, user flows, error states, regressions, or E2E/eval needs.
-- Required workflow skills or companion review passes are missing.
-- Substantial implementation work lacks a `code-simplifier` pass before completion.
-- Refactor/consolidation work lacks a duplicate-function/dedupe review.
-- Domain-sensitive work lacks `eternal-best-practices` or a relevant domain skill route.
+- A required check or capability named by the user's request, project policy, or stored workflow contract is missing.
 
 ## Review Sections
 
-Evaluate every non-trivial plan through these sections:
+When the work benefits from a readiness review, consider:
 
 - Architecture: boundaries, dependency graph, data flow, scaling, auth/data access, rollout, rollback, distribution, and one failure scenario per new integration.
 - Code quality: organization, DRY, error handling, over/under-engineering, stale diagrams, and complexity against the user's preferences.
@@ -88,7 +85,7 @@ Critical gap: no test, no error handling, and silent user impact.
 
 ## Parallelization Strategy
 
-If the plan has at least 2 independent workstreams, include:
+If the contract permits delegation and there are independent workstreams, consider:
 
 - Dependency table with modules touched and dependencies.
 - Parallel lanes grouped by module ownership.
@@ -121,4 +118,4 @@ Record when evidence shows the issue exists:
 
 ## Approval Rule
 
-Approve when a competent worker can execute the plan from the file without chat history, and `plan-readiness-check.mjs` passes when available.
+Mark ready when a competent worker can execute the plan from the file without chat history and any applicable project readiness check passes. Report checks that were unavailable or not run.

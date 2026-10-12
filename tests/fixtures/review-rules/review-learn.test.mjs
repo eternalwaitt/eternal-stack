@@ -68,7 +68,7 @@ function runLearn(root, findings, { reviewId = null, corpus = null, minPrecision
   const fp = path.join(root, "findings.json");
   const ledger = ledgerFor(root);
   writeFileSync(fp, JSON.stringify(findings));
-  const args = [learn, "learn", "--findings", fp, "--root", root, "--ledger", ledger, "--json"];
+  const args = [learn, "learn", "--apply-rules", "--findings", fp, "--root", root, "--ledger", ledger, "--json"];
   if (reviewId) args.push("--review-id", reviewId);
   if (corpus) args.push("--corpus", corpus);
   if (minPrecision !== null) args.push("--min-precision", String(minPrecision));
@@ -89,7 +89,7 @@ test("default ledger path resolves under private home store outside fixture repo
   runLearnDefault(root, tenant);
 });
 
-test("3 recurrences of a template-matching finding auto-promote a WARN guard", () => {
+test("explicit application promotes a WARN guard after 3 recurrences", () => {
   const root = freshRoot();
   runLearn(root, asAny); // 1
   runLearn(root, asAny); // 2
@@ -101,7 +101,7 @@ test("3 recurrences of a template-matching finding auto-promote a WARN guard", (
   assert.ok(third.rules.enabledRuleIds.includes("no-expect-any"));
 });
 
-test("a promoted warn guard escalates to BLOCK after 2 clean runs", () => {
+test("explicit application escalates a warn guard to BLOCK after 2 clean runs", () => {
   const root = freshRoot();
   runLearn(root, asAny); runLearn(root, asAny); runLearn(root, asAny); // promote -> warn
   runLearn(root, tenant); // clean run 1 (no as-any)
@@ -306,4 +306,15 @@ test("a low-precision recurring finding does NOT promote; it becomes a precision
   assert.ok(rule, "no-empty-catch guard was installed with no corpus supplied");
   assert.equal(rule.mode, "warn", "legacy promotion still starts in warn mode");
   assert.ok(legacyThird.rules.enabledRuleIds.includes("no-empty-catch"));
+});
+
+test('recurrence defaults to proposals and leaves shared rule bytes unchanged until explicit application',()=>{
+ const root=freshRoot(),ledger=ledgerFor(root),file=path.join(root,'findings.json');writeFileSync(file,JSON.stringify(asAny));const before=readFileSync(path.join(root,'review-rules.json'),'utf8');
+ const args=[learn,'learn','--findings',file,'--root',root,'--ledger',ledger,'--threshold','1','--review-id','same-review','--json'];
+ const first=spawnSync('node',args,{encoding:'utf8'});assert.equal(first.status,0,first.stderr);const metric=JSON.parse(first.stdout);assert.equal(metric.newGuardPromotions.length,0);assert.equal(metric.newChecklistCandidates[0].blockedBy,'authorization');assert.equal(readFileSync(path.join(root,'review-rules.json'),'utf8'),before);
+ const applied=spawnSync('node',[...args,'--apply-rules'],{encoding:'utf8'});assert.equal(applied.status,0,applied.stderr);assert.equal(JSON.parse(applied.stdout).newGuardPromotions.length,1);assert.equal(JSON.parse(readFileSync(ledger)).recurrences['unsafe-type-escape:Avoid `as any` cast']||Object.values(JSON.parse(readFileSync(ledger)).recurrences)[0],1);
+});
+test('companion Codex host home stores private recurrence without creating a Claude home',()=>{
+ const root=freshRoot(),host=homeDir(root),fp=path.join(root,'findings.json');writeFileSync(fp,JSON.stringify(tenant));mkdirSync(host,{recursive:true});
+ const result=spawnSync('node',[learn,'learn','--findings',fp,'--root',root,'--json'],{encoding:'utf8',env:{...process.env,ETRNL_HOME:host,HOME:host}});assert.equal(result.status,0,result.stderr);assert.equal(existsSync(path.join(host,'.claude')),false);assert.equal(existsSync(path.join(host,'review-learnings')),true);
 });

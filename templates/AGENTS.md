@@ -1,31 +1,20 @@
-# Agent Baseline
+# Eternal Stack companion
 
-This is the portable, agent-neutral baseline for the Eternal Stack. Keep private identity, accounts, credentials, and project-specific memories in local overlays.
-Project `AGENTS.md`/`CLAUDE.md` files override this baseline where they conflict. Keep startup guidance concise; move specialized procedures to scoped rules, skills, hooks, or project docs.
+Shared guidance for Claude Code and Codex. User instructions and project rules take precedence. For coding requests, start with the installed `etrnl-router` skill when available; it resolves Build, Fix, Explain, Review or Ship and loads deeper guidance only when needed. Use the host's native tools, permissions and context recovery.
 
-## Core Rules
+- Read relevant source before editing. Reuse the project's code, dependencies and conventions.
+- Preserve unrelated changes. Keep edits within the requested scope.
+- Clarify decisions that materially change behavior, architecture or external effects; resolve routine choices from project context.
+- Adapt explanations to the user's familiarity. For a new app or feature, describe the user's main journey, recommend reversible defaults for routine choices, and check the actual requested journey when the environment allows.
+- Size the process to the task. Routine fixes need a clear outcome and relevant checks. Save a plan only when dependencies, risk or duration make one useful.
+- Finish all authorized scope. Surface a concrete blocker instead of silently reducing the task.
+- Verify changed behavior with the project's relevant checks. Do not weaken checks to pass. Report unverified behavior honestly.
+- Review the change once, fix substantiated findings, and recheck affected behavior. Repeat investigation only for new evidence, changes or unresolved failures.
+- Use specialists or subagents only when authorized and useful. Give each a bounded question, scope and deliverable; verify the integrated result.
+- Available skills and references are not necessarily loaded, and installed capability does not make a workflow mandatory. Follow only requirements selected for the current task.
+- Keep secrets private. Respect the user's authorization for external writes and destructive actions.
+- Read the project's existing state overview at startup; during authorized implementation, keep affected feature status, pending work and useful lessons current without reminders. Follow the router's canonical state workflow; do not invent lessons or create bookkeeping for read-only questions.
+- Keep temporary task state separate from permanent instructions. A handoff needs the current objective, decisions, changes, checks and remaining work.
+- Report the result, verification and material limitations in plain language. Stop when the requested outcome and required checks pass.
 
-- Reuse before create: inspect existing components, helpers, modules, tests, and local patterns before adding new surfaces.
-- No silent fallbacks: surface failures with clear errors; do not hide exceptions behind defaults.
-- Minimal diffs: change only what the request and verified evidence require.
-- Evidence first: fresh repo, runtime, logs, tests, or live checks beat memory and stale docs.
-- Verify before done: run the relevant preflight, smoke, or live check before claiming completion.
-- Plan execution is all in-scope work: when the user asks to implement or execute a plan, complete every item in the plan's `Execution scope` or stop with a concrete blocker. Do not silently choose the first phase, first patch, MVP, or safest subset.
-
-## Coding Standards
-
-- Use project logging, schema validation at boundaries, named exports, and local permission checks when they fit the language and repo conventions.
-- For typed languages, use typed environment configuration modules.
-- Do not add lint/type suppressions, TypeScript strictness downgrades, skipped hooks, or placeholder comments.
-- Keep files and functions small enough to review: split files over 300 lines and functions over 50 lines unless the project has a documented exception.
-- Prefer structural search (`sg`) for code patterns and `rg`/`fd`/`bat` for text and files.
-
-## Workflow
-
-- When work is unclear, brainstorm into a saved design/spec before planning.
-- Save implementation plans to disk, review them, improve them, then mark them final.
-- Final plans must include `Execution scope:`. Default to `all_phases`; use `first_patch_only` or a named subset only when the user explicitly asks for partial execution.
-- During execution, default non-trivial work to completeness 10/10, preserve user changes, keep a local run ledger and artifacts when available, use bounded subagents only with structured task packets, check file overlap before parallel work, and continue through mechanical phases without asking the user to continue.
-- For local dev servers, choose an explicit free port before running the command; do not rely on default 3000/3001 ports.
-- For reviews, lead with findings and exact file or command evidence.
-- For whole-codebase health, inventory every tracked file, run the repo Health Stack, keep a findings ledger, and close every finding with evidence.
+Deep audits and multi-agent orchestration are optional workflows. They are not prerequisites for ordinary implementation, review or answering questions. Native child agents are available only when the host actually provides them. Do not install or update tools merely to begin a task.

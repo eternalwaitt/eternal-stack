@@ -1,145 +1,41 @@
 ---
 name: better-auth
 description: |
-  Self-hosted TypeScript auth framework with social auth, 2FA, passkeys, organizations, RBAC, and 15+ plugins. Supports Drizzle/Prisma/Kysely adapters. Self-hosted alternative to Clerk/Auth.js.
-
-  Use when: configuring auth, adding plugins, social OAuth, multi-tenant SaaS, organizations with teams and RBAC, two-factor authentication (TOTP/OTP/backup codes), email verification, password reset flows, session management, rate limiting, CSRF and cookie security, Expo/mobile, D1 adapter errors, TanStack Start integration, additionalFields bugs, admin plugin, migrating from NextAuth, migrating from Clerk, migrating from Supabase Auth, or troubleshooting auth issues.
+  Better Auth integration guidance for TypeScript applications. Use when configuring authentication, sessions, social sign-in, organization membership, passkeys, two-factor authentication, or security-sensitive auth flows. Follow the version and framework actually present in the target project.
 license: MIT
 metadata:
   author: oakoss
   version: '1.2'
 ---
 
-# better-auth
+# Better Auth integration
 
-**Package**: better-auth@1.4.15 (ESM-only since v1.4.0)
-**Docs**: <https://better-auth.com/docs> | **GitHub**: <https://github.com/better-auth/better-auth>
+This capability is an implementation checklist, not a version-pinned API manual. Read the target project's installed `better-auth` version, framework adapter, auth configuration, database schema, and existing tests first. Confirm option names and migration steps in the official documentation for that version before changing code; do not copy remembered API shapes from this guide.
 
-## Environment Setup
+## Before changing authentication
 
-| Variable             | Purpose                                                               |
-| -------------------- | --------------------------------------------------------------------- |
-| `BETTER_AUTH_SECRET` | Encryption secret (min 32 chars). Generate: `openssl rand -base64 32` |
-| `BETTER_AUTH_URL`    | Base URL (e.g., `https://example.com`)                                |
+1. Trace the existing sign-in, callback, session-read, session-write, sign-out, and authorization paths. Identify which code runs on the server and which data reaches the browser.
+2. Inspect the lockfile and database adapter. Use the adapter and migration workflow already supported by the project unless the user requests a migration.
+3. Find existing middleware and resource-level authorization. Authentication proves an identity; it does not by itself authorize access to an organization, tenant, record, or action.
+4. Check the official Better Auth documentation for the exact features involved. Documentation and plugins can change independently of this installed skill.
 
-Only define `baseURL`/`secret` in config if env vars are NOT set. CLI looks for `auth.ts` in: `./`, `./lib`, `./utils`, or `./src`.
+## Security review
 
-## Core Config Options
+- Keep secrets in the project's secret manager or environment configuration. Do not put credentials in source, prompts, logs, generated examples, or tracked test fixtures.
+- Validate allowed origins, callback URLs, cookie settings, proxy behavior, and CSRF protections against the deployment topology and the installed Better Auth version.
+- Enforce authorization on the server for every protected resource. For organization-scoped data, validate membership and role for the requested operation; do not trust client-supplied organization identifiers or UI state.
+- Review account linking, email verification, password reset, MFA, passkey, and session-revocation behavior when those features are changed. Avoid weakening verification or freshness checks to make a flow pass.
+- Treat auth schema changes as migrations. Preserve existing sessions and accounts according to the project's explicit rollout plan; do not generate or apply migrations without checking their contents.
 
-| Option             | Notes                                         |
-| ------------------ | --------------------------------------------- |
-| `appName`          | Optional display name                         |
-| `baseURL`          | Only if `BETTER_AUTH_URL` not set             |
-| `basePath`         | Default `/api/auth`. Set `/` for root.        |
-| `secret`           | Only if `BETTER_AUTH_SECRET` not set          |
-| `database`         | Required unless using stateless mode (v1.4+)  |
-| `secondaryStorage` | Redis/KV for sessions and rate limits         |
-| `emailAndPassword` | `{ enabled: true }` to activate               |
-| `socialProviders`  | `{ google: { clientId, clientSecret }, ... }` |
-| `plugins`          | Array of plugins                              |
-| `trustedOrigins`   | CSRF whitelist                                |
+## Verification
 
-## Plugin Reference
+Use the repository's existing test commands and add or update coverage for the changed security boundary. At minimum, consider unauthenticated access, an authenticated user without the required role, cross-organization/resource access, invalid or expired credentials, and the intended success path. Verify the adapter-generated schema and migration against the installed package version. Report any untested deployment-specific behavior instead of claiming it is secure by inspection alone.
 
-| Plugin        | Description                                                                        |
-| ------------- | ---------------------------------------------------------------------------------- |
-| twoFactor     | TOTP, email OTP, backup codes                                                      |
-| organization  | Multi-tenant orgs, teams, invitations, RBAC                                        |
-| admin         | User management, impersonation, banning                                            |
-| passkey       | WebAuthn passwordless login                                                        |
-| magicLink     | Email-based passwordless login                                                     |
-| jwt           | JWT tokens with key rotation, JWKS                                                 |
-| oauthProvider | Build your own OAuth 2.1 provider (separate `@better-auth/oauth-provider` package) |
-| sso           | Enterprise SSO with OIDC, OAuth2, SAML 2.0 (separate `@better-auth/sso` package)   |
-| scim          | Enterprise user provisioning (separate `@better-auth/scim` package)                |
-| stripe        | Payment and subscription management                                                |
-| bearer        | API token auth for mobile/CLI                                                      |
-| apiKey        | Token-based auth with rate limits                                                  |
-| oneTap        | Google One Tap frictionless sign-in                                                |
-| anonymous     | Guest user access without PII                                                      |
-| genericOAuth  | Custom OAuth providers with PKCE                                                   |
-| emailOTP      | Email-based one-time password auth                                                 |
-| phoneNumber   | Phone/SMS-based OTP sign-in                                                        |
-| username      | Username-based sign-in (alternative to email)                                      |
-| multiSession  | Multiple accounts in same browser                                                  |
-| openAPI       | Interactive API docs at `/api/auth/reference`                                      |
+## Official references
 
-## Session Strategies
-
-| Strategy          | Format                  | Use Case          |
-| ----------------- | ----------------------- | ----------------- |
-| Compact (default) | Base64url + HMAC-SHA256 | Smallest, fastest |
-| JWT               | Standard JWT            | Interoperable     |
-| JWE               | A256CBC-HS512 encrypted | Most secure       |
-
-## Getting Started
-
-For new projects or first-time Better Auth setup, use the official interactive setup skill:
-
-```bash
-npx skills add better-auth/skills -s create-auth-skill
-```
-
-This walks through framework detection, database selection, auth method choices, plugin setup, and generates the initial configuration.
-
-## Anti-Patterns
-
-| Anti-Pattern                             | Correct Approach                                                               |
-| ---------------------------------------- | ------------------------------------------------------------------------------ |
-| Using `d1Adapter`                        | Use Drizzle or Kysely adapter with `provider: "sqlite"`                        |
-| Using table name in config               | Use ORM model name, not DB table name                                          |
-| Forgetting CLI after plugin changes      | Re-run `npx @better-auth/cli@latest generate`                                  |
-| `tanstackStartCookies()` not last plugin | Must be the last plugin in array (TanStack Start)                              |
-| Checking `session` for login state       | Check `session?.user` - session object is always truthy                        |
-| Missing `nodejs_compat` flag             | Required in `wrangler.toml` for Cloudflare Workers                             |
-| Kysely CamelCasePlugin with auth         | Use separate Kysely instance without the plugin                                |
-| Using old `reactStartCookies` import     | Renamed to `tanstackStartCookies` from `better-auth/tanstack-start` in v1.4.14 |
-
-## Common Mistakes
-
-| Mistake                                                                | Correct Pattern                                                                                |
-| ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Setting `baseURL` and `secret` in config when env vars are already set | Only define these in config if `BETTER_AUTH_URL` and `BETTER_AUTH_SECRET` env vars are NOT set |
-| Using CommonJS require syntax with better-auth v1.4+                   | better-auth is ESM-only since v1.4.0; use `import` syntax exclusively                          |
-| Not re-running CLI generate after adding or changing plugins           | Always run `npx @better-auth/cli@latest generate` after plugin changes to update DB schema     |
-| Checking `session` object truthy state for login detection             | Check `session?.user` instead; the session object itself is always truthy                      |
-| Using `d1Adapter` directly for Cloudflare D1                           | Use Drizzle or Kysely adapter with `provider: "sqlite"` for D1 compatibility                   |
-
-## Breaking Changes
-
-| Version | Change                                                                                           |
-| ------- | ------------------------------------------------------------------------------------------------ |
-| v1.4.14 | `reactStartCookies` renamed to `tanstackStartCookies` (import from `better-auth/tanstack-start`) |
-| v1.4.6  | `allowImpersonatingAdmins` defaults to `false`                                                   |
-| v1.4.0  | ESM-only (no CommonJS); SSO, SCIM, OAuth Provider moved to separate packages                     |
-| v1.3.0  | Multi-team table structure: new `teamMembers` table needed                                       |
-
-## Delegation
-
-When working on auth, delegate to:
-
-- `application-security` - Security architecture and threat modeling
-- `database` - Drizzle ORM schema and migrations
-- `tanstack-start` - TanStack Start integration patterns
-
-## Resources
-
-- **Docs**: <https://better-auth.com/docs>
-- **Options Reference**: <https://better-auth.com/docs/reference/options>
-- **LLMs.txt**: <https://better-auth.com/llms.txt>
-- **Changelog**: <https://www.better-auth.com/changelogs>
-- **TanStack Start**: <https://www.better-auth.com/docs/integrations/tanstack>
-- **Expo**: <https://www.better-auth.com/docs/integrations/expo>
-
-## References
-
-- [Database Adapters](references/database-adapters.md) - Drizzle, Kysely, Prisma adapters, Cloudflare Workers factory pattern
-- [Session Management](references/sessions.md) - Cookie cache, stateless sessions, storage priority, freshAge constraints
-- [Plugins and Social Auth](references/plugins.md) - Plugin setup, OAuth 2.1 provider, admin RBAC, social provider scopes
-- [Email and Password](references/email-password.md) - Verification, password reset, timing attack prevention, hashing (scrypt, argon2), token security
-- [Two-Factor Authentication](references/two-factor.md) - TOTP, email/SMS OTP, backup codes, trusted devices, 2FA session flow
-- [Organizations](references/organizations.md) - Multi-tenant orgs, teams, invitations, RBAC, dynamic access control, lifecycle hooks
-- [Configuration](references/configuration.md) - User/account config, rate limiting, hooks, CSRF, trusted origins, cookie/OAuth security, production checklist
-- [Framework Integration](references/frameworks.md) - TanStack Start setup, Expo/React Native, client imports, type safety
-- [Migration Guides](references/migration-guides.md) - Migrate from NextAuth/Auth.js, Clerk, or Supabase Auth with schema mappings and session strategies
-- [Troubleshooting](references/troubleshooting.md) - D1 consistency, CORS, OAuth redirect, admin 403, nanostore refresh, known bugs
+- [Better Auth introduction](https://better-auth.com/docs/introduction)
+- [Security reference](https://better-auth.com/docs/reference/security)
+- [Session management](https://better-auth.com/docs/concepts/session-management)
+- [Cookie behavior](https://better-auth.com/docs/concepts/cookies)
+- [Organization plugin](https://better-auth.com/docs/plugins/organization)
+- [Options reference](https://better-auth.com/docs/reference/options)

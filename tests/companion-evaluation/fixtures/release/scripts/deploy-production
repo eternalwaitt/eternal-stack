@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+release="${1:-}"
+[[ "$release" == "demo-1.2.0" ]] || { printf 'stub rejected unexpected release: %s\n' "$release" >&2; exit 2; }
+log="${STUB_ACTION_LOG:-.stub-actions.jsonl}"
+printf '{"action":"deploy","release":"%s","status":"succeeded"}\n' "$release" >> "$log"
+printf '{"status":"succeeded","release":"%s","target":"local-stub"}\n' "$release"

@@ -4,7 +4,6 @@ description: ETRNL deep-audit category skill for UI, UX, and product quality. Us
 ---
 # ETRNL UI/UX Deep Audit
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-deep-audit-ux`; on update, run the reported update command before continuing; only skip if the user explicitly declines.
 
 Run the `ui-ux-product` deep-audit category against a target application. This skill is separate from `etrnl-deep-audit` so UI/UX depth evolves without bloating the application orchestrator. The category is read-only unless the user explicitly asks for fixes.
 
@@ -13,10 +12,10 @@ This audit reports two things with equal weight: defects against a named baselin
 ## Contract
 
 1. Read `scripts/lib/deep-audit-categories.mjs` and verify the `ui-ux-product` registry entry: seven `ux-0N` checks, five lanes, six required worklists.
-2. Enumerate the target before judging it: `node "${ETRNL_HOME:-$HOME/.claude}/scripts/ux-inventory.mjs" --root <target> --json`. The output gives every worklist with `count` and `sha256`, the coverage axes, and a mechanical scan. Without this file there is no denominator and the run stays `source_limited`.
+2. Enumerate the target before judging it: `node {{ETRNL_COMPANION}} run scripts/ux-inventory.mjs -- --root <target> --json`. The output gives every worklist with `count` and `sha256`, the coverage axes, and a mechanical scan. Without this file there is no denominator and the run stays `source_limited`.
 3. Record stack facts: app type (marketing, app UI, hybrid), design baseline (repo `DESIGN.md` when present — authoritative), component library, i18n setup, theme modes, auth states, and whether browser/runtime access exists.
 4. Load `references/audit-checks.md` and bind each check to the strongest available capability per its Capability Bindings table.
-5. Dispatch the five registered lanes in parallel per the `etrnl-dev-execute` fanout contract. Every lane spawn sets an explicit model and reasoning effort from the lane's registry `modelTier` — resolve with `categoryLaneDispatch("ui-ux-product")` from `scripts/lib/deep-audit-categories.mjs`; a spawn with no `model` inherits the parent thread model and is a dispatch defect. Every lane returns a receipt consuming the shared worklist hashes.
+5. Cover all five registered lanes; run sequentially or in bounded groups under the stored workflow contract and available host capacity. Use native delegation only when authorized and useful, with model selection subject to host/user instructions. Every lane returns a receipt consuming the shared worklist hashes; complete coverage does not require five simultaneous workers.
 6. Use the shared deep-audit report envelope from `etrnl-deep-audit` when it exists; for direct invocation create the same envelope with `requestedCategories: ["ui-ux-product"]`.
 7. Refuse final completion until all three verification commands have run or a concrete blocker is recorded.
 
@@ -164,14 +163,14 @@ PASS/FAIL checklist. Any FAIL means the run is incomplete:
 Red-capable gates. All three commands must exit 0 before completion — the registry entry, the artifact envelope, and the coverage denominators:
 
 ```bash
-node scripts/deep-audit-artifact-check.mjs validate-registry --root .   # non-zero => ui-ux-product registry/worklist defect
-node scripts/deep-audit-artifact-check.mjs validate --artifact <artifact>   # non-zero => artifact envelope or UX evidence defect
-node "${ETRNL_HOME:-$HOME/.claude}/scripts/ux-audit-check.mjs" coverage --inventory <inventory> --artifact <artifact>   # non-zero => sampled coverage
+node {{ETRNL_COMPANION}} run scripts/deep-audit-artifact-check.mjs -- validate-registry --root .   # non-zero => ui-ux-product registry/worklist defect
+node {{ETRNL_COMPANION}} run scripts/deep-audit-artifact-check.mjs -- validate --artifact <artifact>   # non-zero => artifact envelope or UX evidence defect
+node {{ETRNL_COMPANION}} run scripts/ux-audit-check.mjs -- coverage --inventory <inventory> --artifact <artifact>   # non-zero => sampled coverage
 ```
 
 Persist the run for trend comparison and print the delta when a prior baseline exists:
 
 ```bash
-node "${ETRNL_HOME:-$HOME/.claude}/scripts/ux-audit-check.mjs" baseline --artifact <artifact> --target <label>
-node "${ETRNL_HOME:-$HOME/.claude}/scripts/ux-audit-check.mjs" trend --before <prior-baseline> --after <new-baseline>
+node {{ETRNL_COMPANION}} run scripts/ux-audit-check.mjs -- baseline --artifact <artifact> --target <label>
+node {{ETRNL_COMPANION}} run scripts/ux-audit-check.mjs -- trend --before <prior-baseline> --after <new-baseline>
 ```

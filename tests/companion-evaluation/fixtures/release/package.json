@@ -1,0 +1,6 @@
+{
+  "name": "companion-eval-release",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test" }
+}

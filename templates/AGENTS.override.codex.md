@@ -1,18 +1,25 @@
-# Codex Host Overrides
+# Eternal Stack baseline
 
-This file adds Codex-specific deltas on top of the global AGENTS.md baseline. It should remain small; shared guidance stays in AGENTS.md.
+Shared guidance for Claude Code and Codex. User instructions and project rules take precedence. Use the host's native tools, permissions and context recovery.
 
-## Host differences
+- Read relevant source before editing. Reuse the project's code, dependencies and conventions.
+- Preserve unrelated changes. Keep edits within the requested scope.
+- Clarify decisions that materially change behavior, architecture or external effects; resolve routine choices from project context.
+- Adapt explanations to the user's familiarity. For a new app or feature, describe the user's main journey, recommend reversible defaults for routine choices, and check the actual requested journey when the environment allows.
+- Size the process to the task. Routine fixes need a clear outcome and relevant checks. Save a plan only when dependencies, risk or duration make one useful.
+- Finish all authorized scope. Surface a concrete blocker instead of silently reducing the task.
+- Verify changed behavior with the project's relevant checks. Do not weaken checks to pass. Report unverified behavior honestly.
+- Review the change once, fix substantiated findings, and recheck affected behavior. Repeat investigation only for new evidence, changes or unresolved failures.
+- Use specialists or subagents only when authorized and useful. Give each a bounded question, scope and deliverable; verify the integrated result.
+- Load specialized guidance only when the task needs it. Installed skills are available capabilities, not mandatory phases.
+- Keep secrets private. Respect the user's authorization for external writes and destructive actions.
+- Keep temporary task state separate from permanent instructions. A handoff needs the current objective, decisions, changes, checks and remaining work.
+- Report the result, verification and material limitations in plain language. Stop when the requested outcome and required checks pass.
 
-- **No slash commands.** Codex invokes skills by task description, not `/etrnl-*` commands. Skills are installed under `~/.codex/skills/`.
-- **Optional Eternal Stack PreToolUse hooks.** Install copies `spawn-guard-pre-tool-use.sh` and `rtk-pre-tool-use.sh` into `~/.codex/hooks/`. Register them in `~/.codex/config.toml` under the PreToolUse hook chain (spawn guard before RTK when both are enabled). Enforcement is fail-closed during execute when a ledger is active; use `ETRNL_SPAWN_GUARD_MODE=advisory|off` or remove the hook entry to bypass. See [configuration.md](../docs/configuration.md) and [troubleshooting.md](../docs/troubleshooting.md).
-- **No `@` import syntax.** AGENTS.md files in Codex cannot use `@rules/...` import syntax. Depth lives in nested `AGENTS.md` files (declared via `codexNested:` in the rules manifest).
-- **Byte budget.** Keep combined AGENTS.md context under the effective `project_doc_max_bytes` limit set in `~/.codex/config.toml`. If that key is unset, doctor.sh assumes an unverified fallback of 32768 bytes.
+Deep audits and orchestration are optional workflows. They are not prerequisites for ordinary implementation, review or answering questions. Do not install or update tools merely to begin a task.
 
-## Skills
+## Codex adapter (optional legacy orchestration package)
 
-Eternal Stack skills are available in `~/.codex/skills/etrnl-*`. Reference them by task description rather than slash command. Example: "Use the etrnl-dev-plan workflow to write an implementation plan."
+This is a complete replacement for the same-directory AGENTS.md, not an additive overlay. The core installer does not create it; the core Codex skill and capability library install independently.
 
-## Startup files
-
-When installed: `~/.codex/AGENTS.md` provides the global baseline, `~/.codex/AGENTS.override.md` applies these Codex-specific overrides, and any project-level `AGENTS.md` in the repo root adds project context and overrides both.
+Use the installed `etrnl-router` skill for coding requests when available. Native child agents exist only when Codex provides them; Eternal Stack agent files are reference prompts, not registered agents. Use native tools and model defaults. Claude hooks and agent files are not proof of Codex enforcement. Keep project instructions within the host's configured instruction byte budget.

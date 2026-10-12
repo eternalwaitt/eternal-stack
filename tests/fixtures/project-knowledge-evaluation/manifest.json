@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "preparedDate": "2026-10-12",
+  "modelRuns": 0,
+  "caseCount": 10,
+  "variantCount": 20,
+  "files": {
+    "cases.json": "df8fca650d2c9bdaa7ed1a6e8c05587e9a35dbe06b20daf556e68a21407498db"
+  },
+  "freezePolicy": "Never edit admitted fixture bytes; version a new manifest. Freeze source/environment/model/host snapshots separately before any paired run."
+}

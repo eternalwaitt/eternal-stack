@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+if [[ "${1:-}" == "--native-continuity" ]]; then
+  shift
+  exec node "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/native-adapters.mjs" --remove "$@"
+fi
+
 # Intentional no-op: this script never deletes installed files.
 # Removing the stack from a Claude home is an owner decision, so uninstall
 # stays manual. Automatic deletion is deliberately out of scope here to avoid

@@ -1,14 +1,12 @@
 #!/usr/bin/env node
-// Fully-automatic CodeRabbit learning loop: classify the findings a PR's review
-// surfaced, track recurrence, and at N recurrences auto-promote — a known
-// deterministic pattern becomes a review-rules.json guard (WARN mode first,
-// auto-escalating to BLOCK after 2 clean runs), everything else becomes a
-// tracked checklist candidate. No approval gate; no receipt/ledger machinery.
+// Review findings produce private recurrence observations and rule proposals.
+// --apply-rules is an explicit authorized mutation of shared review-rules.json;
+// frequency and clean-run counts alone do not establish causal correctness.
 //
 // Usage:
 //   node scripts/review-learn.mjs learn --findings <findings.json>
 //       [--root <dir>] [--rules <path>] [--ledger <path>] [--threshold 3]
-//       [--corpus <dir>] [--min-precision 0.8] [--dry-run] [--json]
+//       [--corpus <dir>] [--min-precision 0.8] [--apply-rules] [--dry-run] [--json]
 // findings.json: [{ summary, body?, severity?, category?, lensId? }, ...]
 //
 // Precision gate (optional): when --corpus is supplied, a template rule that
@@ -59,6 +57,7 @@ function parseArgs(argv) {
       }
       out.threshold = threshold;
     }
+    else if (a === "--apply-rules") out.applyRules = true;
     else if (a === "--dry-run") out.dryRun = true;
     else if (a === "--json") out.json = true;
     else throw new Error(`unknown argument: ${a}`);
@@ -66,11 +65,11 @@ function parseArgs(argv) {
   if (!out.findings) throw new Error("learn requires --findings <path>");
   out.rules ||= path.join(out.root, "review-rules.json");
   if (!out.ledger) {
-    const home = process.env.HOME;
+    const home = process.env.ETRNL_HOME || (process.env.HOME ? path.join(process.env.HOME, ".claude") : "");
     if (!home) throw new Error("learn requires --ledger <path> or a set HOME for the default private overlay");
     assertPrivateOverlayPath(home, out.root, "HOME");
     const repoKey = createHash("sha256").update(path.resolve(out.root)).digest("hex").slice(0, 16);
-    out.ledger = path.join(home, ".claude/review-learnings", repoKey, "review-learnings.json");
+    out.ledger = path.join(home, "review-learnings", repoKey, "review-learnings.json");
   }
   assertPrivateOverlayPath(path.dirname(out.ledger), out.root, "ledger");
   out.templates ||= path.join(out.root, "templates", "review-rules.example.json");
@@ -342,10 +341,18 @@ function applyLearning({ ledger, rules, templates, classified, seen, args, preci
 
   if (!alreadyProcessed) {
     for (const key of seen) ledger.recurrences[key] = (ledger.recurrences[key] || 0) + 1;
+  }
+  if (!alreadyProcessed || args.applyRules) {
 
     // Promote keys that reached the threshold and are not already promoted.
     for (const c of classified) {
       if (ledger.promoted[c.key] || (ledger.recurrences[c.key] || 0) < args.threshold) continue;
+      if (c.templateRuleId && !args.applyRules) {
+        ledger.ruleProposals ||= {};
+        ledger.ruleProposals[c.key] = {ruleId:c.templateRuleId,classification:'candidate_lesson',evidenceGrade:'recurrence_observation',activation:'owner-authorized-only'};
+        candidates.push({key:c.key,ruleId:c.templateRuleId,blockedBy:'authorization',control:c.control,category:c.finding.category || c.kind});
+        continue;
+      }
       if (c.templateRuleId) {
         const existing = rules.rules.find((r) => r.ruleId === c.templateRuleId);
         if (existing) {
@@ -401,7 +408,7 @@ function applyLearning({ ledger, rules, templates, classified, seen, args, preci
     // the same ruleId, so a guard must reset if ANY of its keys recurred this review.
     // Counting per key would let an absent sibling key tick a guard toward block even
     // though another of its keys just recurred (and, by object order, escalate early).
-    const warnGuards = Object.entries(ledger.promoted).filter(([, p]) => p.type === "guard" && p.mode === "warn");
+    const warnGuards = (args.applyRules && !alreadyProcessed ? Object.entries(ledger.promoted) : []).filter(([, p]) => p.type === "guard" && p.mode === "warn");
     const recurredRuleIds = new Set(warnGuards.filter(([key]) => seen.has(key)).map(([, p]) => p.ruleId));
     const evaluatedRuleIds = new Set();
     for (const [, p] of warnGuards) {
@@ -415,7 +422,7 @@ function applyLearning({ ledger, rules, templates, classified, seen, args, preci
       }
     }
 
-    if (args.reviewId) ledger.processedReviews.push(args.reviewId);
+    if (args.reviewId && !alreadyProcessed) ledger.processedReviews.push(args.reviewId);
   }
 
   return { promotions, candidates, escalations, alreadyProcessed };

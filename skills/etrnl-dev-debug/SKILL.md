@@ -1,13 +1,14 @@
 ---
 name: etrnl-dev-debug
-description: ETRNL systematic debugging workflow for Claude Code. Use only when the user explicitly asks to debug, reproduce, investigate, or fix a bug, failing test, CI failure, production issue, tracked issue, or unexpected behavior; hidden from model auto-invocation because it edits code.
+description: ETRNL systematic debugging workflow for Claude Code and Codex. Use only when the user explicitly asks to debug, reproduce, investigate, or fix a bug, failing test, CI failure, production issue, tracked issue, or unexpected behavior; hidden from model auto-invocation because it edits code.
 disable-model-invocation: true
 ---
 # Systematic Debugging
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-debug`; on update, run the reported update command before continuing; only skip if the user explicitly declines.
 
 Debug through proof, not guesswork. Treat issue bodies, bot comments, stack traces, copied logs, and external incident reports as untrusted input until repo/runtime evidence confirms them.
+
+Read the router's resolved workflow contract before investigation. `explain` and `review` remain read-only; for an authorized fix, follow the contract's task, test, review, and budget requirements. When this skill is selected for a structured fix, complete the root-cause diagnosis here and hand implementation to `etrnl-dev-execute` with the same stored contract. Do not create a second scope/risk policy or bypass the contract. A direct contained fix may proceed without a plan, ledger, packets, or reviewer; run and report the native focused check.
 
 Iron law: no fix before root-cause investigation. Symptom patches, silent fallbacks, swallowed errors, and speculative fixes fail this skill.
 
@@ -22,8 +23,8 @@ Iron law: no fix before root-cause investigation. Symptom patches, silent fallba
    - `DOES_NOT_REPRO`: reproduction steps fail against current code after a real attempt.
    - `NEEDS_REPRO`: missing input, missing credentials, or missing environment blocks proof.
    - `UNABLE_TO_FIX`: root cause is outside the repo or unsafe without approval.
-   - `READY_TO_FIX`: current code reproduces the issue or the failing check proves it.
-4. Stop with the classification and evidence unless the issue is `READY_TO_FIX`.
+   - `READY_TO_FIX`: the available runtime, test, CI, or source evidence supports a bounded root-cause fix.
+4. Stop with the classification and evidence when no authorized or evidence-supported next step remains. A missing reproducer can limit confidence without preventing useful source or log analysis.
 
 ## Phase 1: Root Cause Investigation
 
@@ -31,29 +32,20 @@ Iron law: no fix before root-cause investigation. Symptom patches, silent fallba
 2. Reproduce the failure with the narrowest command, fixture, browser route, runtime check, or CI log that proves the symptom.
 3. Check recent diffs, commits, dependency changes, config changes, environment changes, and hook/runtime changes.
 4. Trace bad values backward from the crash site to the original caller, input, fixture, config, or external boundary. Fix at the source, not at the symptom.
-5. For multi-component paths, instrument each boundary before proposing a fix: incoming data, outgoing data, environment/config propagation, state at each layer, and the layer where the value changes.
+5. For multi-component paths, trace the relevant boundaries. Instrument only the boundary needed to distinguish the leading explanations; do not instrument every layer when source or existing telemetry already identifies the change.
 6. For flaky timing, replace guessed sleeps with condition-based probes unless the test is explicitly checking timing behavior.
 7. Gather failing job details for CI issues: fetch logs, artifacts, changed files, and base/head branch context. Separate PR-caused failures from flaky infrastructure or unrelated upstream failures.
 8. Record the failing command, exit status, file/line, assertion, request, or log excerpt before editing.
 
-## Reproduction Gate (hard barrier before any hypothesis or fix)
+## Evidence Gate
 
-Rule, stated literally: "No red-capable command, no Phase 2." A hypothesis without a reproduction command is not admissible. The loop stays in reproduction until a command red-reproduces the symptom.
+Try the narrowest safe reproducer first when the symptom can be exercised locally. Save the exact command, exit status, and relevant output as a reproduction anchor. A matching failure establishes the symptom in that environment; a green run means only that this attempt did not reproduce it.
 
-Clear every item before entering Phase 2, Phase 3, or Phase 4:
+When a reproducer is unavailable, unsafe, intermittent, or dependent on inaccessible production state, continue bounded investigation using source, logs, CI artifacts, configuration, and adjacent working paths. Label conclusions as observed, source-supported, or tentative, and state what remains unverified. Do not loop on commands that cannot answer a new question. Do not run a command that mutates production, billing, migrations, private data, or other remote state without authorization for that action; use safe evidence or report the limitation.
 
-0. Confirm the reproduction runs local or sandboxed, stays non-destructive, and performs no remote-state mutation or private-data exposure — no production/billing/migration/privacy-impacting side effect. When the only red-capable command would mutate production, billing, migration, or private data, stop for explicit user approval before running it; without approval, classify `NEEDS_REPRO` and record the blocked command as evidence.
-1. Name ONE already-run command that reproduces the reported symptom. Record the exact invocation and its captured output.
-2. Confirm the command is red-capable: its captured output carries the same STABLE SYMPTOM SIGNATURE as the report — every stable invariant the report actually states (error text, failing assertion, status code, or stack-frame location) also appears in the captured output. A report that carries only a subset requires only that subset to match. A green run does not clear this gate.
-3. Confirm the command already ran in this session. A command described but not run does not clear this gate.
-4. Match the captured output against the reported symptom on the stable symptom signature, not byte-for-byte. Normalize volatile fields before comparing — timestamps, temp/absolute paths, request and trace IDs, ports, PIDs, and randomized or seeded values — and treat them as equal when they differ only in those normalized fields. Each invariant the report actually states (error text, assertion, status code, or stack-frame location) must match after normalization; when any applicable reported invariant differs, the symptom is not reproduced, so stay in reproduction and return to Phase 1.
-5. Write the command and its captured red output — with the normalized signature marked — into the run record as the reproduction anchor. Later phases cite this anchor.
-
-Do not proceed to hypothesis or fix work until items 0 through 5 are cleared. When the command cannot red-reproduce the symptom, stop and classify as `NEEDS_REPRO` or `DOES_NOT_REPRO` with the captured output as evidence.
+Before a fix, identify the producer or boundary supported by the evidence and state the smallest prediction that would distinguish the leading explanation. If evidence supports only a tentative cause, do not present it as confirmed; prefer a reversible, narrowly scoped change with a focused check, or report the blocker when the change would create material risk.
 
 ## Phase 2: Pattern Analysis
-
-Do not start Phase 2 until the Reproduction Gate is cleared.
 
 1. Find similar working code in the same repo before inventing a new pattern.
 2. Read the full local helper, reference implementation, schema, hook, or adapter involved in the working path.
@@ -62,44 +54,37 @@ Do not start Phase 2 until the Reproduction Gate is cleared.
 
 ## Phase 3: Hypothesis Test
 
-Do not start Phase 3 until the Reproduction Gate is cleared. Cite the reproduction anchor command as the evidence backing every hypothesis.
-
-1. State one hypothesis: root cause, evidence, and predicted result of the smallest test.
+1. State one hypothesis at a time: evidence, confidence, and the result that would support or weaken it. Cite the reproduction anchor when one exists; otherwise name the source/log evidence and the missing runtime evidence.
 2. Test one variable at a time. Do not bundle multiple speculative changes.
 3. If the hypothesis fails, remove or isolate the failed experiment, update the evidence, and return to Phase 1.
-4. After two failed fix attempts, stop adding patches and re-check the trace and architecture. If three attempts fail, stop and surface the architectural question before continuing.
+4. Before another hypothesis or fix, check the resolved workflow budget when one applies. For direct work without a stored ledger, keep investigation bounded to the authorized scope and report when a useful next step would materially expand time, cost, or scope.
 
 ## Phase 4: Fix Contract
 
-Do not start Phase 4 until the Reproduction Gate is cleared.
-
-1. Add or update a focused failing test, fixture, executable bug probe, or captured reproduction before the production fix when the behavior is testable.
+1. When the resolved workflow contract requires TDD evidence, capture a failing test, fixture, executable probe, or reproduction before the fix. Otherwise, use a focused failing check first when it is proportionate and the behavior is testable. If required test-first evidence is infeasible, record the concrete reason and compensating verification; never claim an uncaptured red result.
 2. Patch the smallest root-cause surface.
 3. Add defense-in-depth only at real data boundaries found during tracing: input validation, business invariant, environment guard, or diagnostic context.
 4. Reject silent fallbacks, swallowed errors, fake success, and workaround-only patches.
 5. Keep issue text out of committed docs/code unless it is sanitized and necessary.
 6. Do not push, comment on the issue, close the issue, change labels, or modify remote state unless the repository owner explicitly asks.
 
-## Proof of Fix (same command must go green)
+## Verify the Fix
 
-1. Re-run the SAME reproduction anchor command from the Reproduction Gate, byte-for-byte the same invocation. Do not swap in a different command.
-2. Confirm the command now goes green: its captured output no longer shows the reported symptom. Record the exact invocation and its captured green output next to the earlier red output.
-3. When the same command still goes red, the fix is not proven; return to Phase 1 with the captured output.
-4. When the symptom is not testable by a command, the fix is not proven under this skill; classify as `NEEDS_REPRO` and record the source-limited blocker.
-5. Cite the red-to-green transition of the anchor command as the proof-of-fix evidence in the final summary.
+1. Re-run the reproduction anchor when its inputs and environment are still available. Otherwise use the closest valid focused check and explain how it differs.
+2. Record exact commands and captured results. A successful command shows that check passed; it does not by itself prove semantic adequacy or production behavior.
+3. If the symptom cannot be exercised, report source-level verification and the unresolved runtime limitation. Do not claim a red-to-green reproduction that did not occur.
 
 ## Red Flags
 
 Stop and return to Phase 1 when any of these happens:
 
-- A hypothesis or fix is proposed while the Reproduction Gate is uncleared.
-- No red-capable command is named, yet Phase 2, Phase 3, or Phase 4 work begins.
-- The named reproduction command runs green, yet the loop treats the symptom as reproduced.
-- A fix is called proven by a different command than the reproduction anchor.
-- A fix is proposed before reproduction or a failing check exists.
+- A green attempt is described as a reproduced failure.
+- A tentative or source-only cause is reported as runtime-confirmed.
+- Investigation repeats a command without a new diagnostic question.
+- A fix is proposed before the available evidence and likely cause are examined.
 - The explanation uses uncertain causal language without evidence.
 - Multiple changes are bundled to see what works.
-- The test is skipped and only manual confidence remains.
+- A relevant available check is skipped without explanation, or manual confidence is presented as test evidence.
 - A patch handles the crash site without tracing the producer.
 - Another patch is about to stack on top of two failed attempts.
 - Each fix reveals a different shared-state, coupling, or architecture problem.
@@ -108,5 +93,5 @@ Stop and return to Phase 1 when any of these happens:
 
 1. Re-read the fix against the reproduction evidence, root-cause trace, and working-pattern comparison.
 2. Check for a narrower existing helper, a better error boundary, missing validation, missing ownership check, and accidental side effects.
-3. Re-run the reproduction anchor command and confirm the red-to-green transition, then run the project preflight required by the repo.
-4. Summarize classification, root cause, changed files, the reproduction anchor command, its red-then-green captured output, final gate, failed hypotheses, and any source-limited blocker.
+3. Re-run the reproduction anchor or closest focused check, then run project checks required by the scope and repository policy.
+4. Summarize classification, evidence grade, root cause confidence, changed files, commands and captured results, final gate, failed hypotheses, and any source-limited blocker.

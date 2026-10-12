@@ -6,41 +6,13 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { argValue } from "./lib/cli-args.mjs";
 import { parseBashArray } from "./lib/bash-array-parser.mjs";
-import { REQUIRED_PLAN_HEADINGS } from "./lib/plan-headings.mjs";
-import { hasKeywords } from "./lib/text-matchers.mjs";
+import { resolveWorkflowContract } from "./lib/workflow-contract.mjs";
 
 const args = process.argv.slice(2);
 const root = path.resolve(argValue(args, "--root", path.join(path.dirname(fileURLToPath(import.meta.url)), "..")));
 const claudeHome = path.resolve(argValue(args, "--claude-home", process.env.CLAUDE_HOME || path.join(homedir(), ".claude")));
 const checkInstalled = args.includes("--installed");
 const errors = [];
-const softDirectivePatterns = [
-  { label: "should", pattern: /\bshould\b/i },
-  { label: "could", pattern: /\bcould\b/i },
-  { label: "consider", pattern: /\bconsider\b/i },
-  { label: "recommend", pattern: /\brecommend(?:s|ed|ation|ations)?\b/i },
-  { label: "prefer", pattern: /\bprefer(?:s|red)?\b/i },
-  { label: "try", pattern: /\btry\b/i },
-  { label: "may", pattern: /\bmay\b/i },
-  { label: "might", pattern: /\bmight\b/i },
-  { label: "optional", pattern: /\boption(?:al|ally)\b/i },
-  { label: "if useful", pattern: /\bif useful\b/i },
-  { label: "when useful", pattern: /\bwhen useful\b/i },
-  { label: "as needed", pattern: /\bas needed\b/i },
-  { label: "where practical", pattern: /\bwhere practical\b/i },
-  { label: "where possible", pattern: /\bwhere possible\b/i },
-  { label: "when possible", pattern: /\bwhen possible\b/i },
-  { label: "best effort", pattern: /\bbest[- ]effort\b/i },
-  { label: "aim to", pattern: /\baim to\b/i },
-  { label: "strive", pattern: /\bstrive\b/i },
-  { label: "encourage", pattern: /\bencourage\b/i },
-  { label: "usually", pattern: /\busually\b/i },
-  { label: "generally", pattern: /\bgenerally\b/i },
-  { label: "suggest", pattern: /\bsuggest(?:s|ed|ion|ions)?\b/i },
-  { label: "advisory", pattern: /\badvisory\b/i },
-  { label: "guidance", pattern: /\bguidance\b/i },
-];
-
 function fail(message) {
   errors.push(message);
 }
@@ -196,49 +168,6 @@ function tryShells(shellAttempts, hintScript, timeoutMs) {
   return { succeeded: false, output: "", errors: shellErrors };
 }
 
-function markdownFilesUnder(dir) {
-  if (!existsSync(dir)) return [];
-  const files = [];
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const child = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      files.push(...markdownFilesUnder(child));
-    } else if (entry.isFile() && child.endsWith(".md")) {
-      files.push(child);
-    }
-  }
-  return files.sort((left, right) => left.localeCompare(right));
-}
-
-function assertDirectiveLanguage(file, text) {
-  const relPath = path.relative(root, file) || file;
-  const lines = text.split(/\r?\n/);
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index];
-    if (!line.trim()) continue;
-    for (const entry of softDirectivePatterns) {
-      if (entry.pattern.test(line)) {
-        fail(`${relPath}:${index + 1}: advisory wording "${entry.label}" is not allowed; use directive language or explicit unavailable/not-applicable/blocker wording`);
-        break;
-      }
-    }
-  }
-}
-
-function assertMandatoryRulesNameEnforcement(file, text) {
-  const relPath = path.relative(root, file) || file;
-  const lines = text.split(/\r?\n/);
-  const namedMechanismPattern =
-    /\b([A-Za-z0-9_.-]+\.mjs|[A-Za-z0-9_.-]+\.sh|mechanical\s+gate|ledger\s+command\s+[A-Za-z0-9_.:-]+|hook\s+[A-Za-z0-9_.:-]+|validator\s+[A-Za-z0-9_.:-]+)\b/i;
-  for (let index = 0; index < lines.length; index += 1) {
-    if (!/\bmandatory rules?\b/i.test(lines[index])) continue;
-    const nearby = lines.slice(Math.max(0, index - 1), Math.min(lines.length, index + 2)).join("\n");
-    if (!namedMechanismPattern.test(nearby)) {
-      fail(`${relPath}:${index + 1}: mandatory rules must name a concrete hook, script, validator, ledger command, or mechanical gate`);
-    }
-  }
-}
-
 const skillListsPath = path.join(root, "scripts/lib/skill-lists.sh");
 assertFile(skillListsPath, "skill list");
 const skillLists = read(skillListsPath);
@@ -270,18 +199,11 @@ for (const skill of ownedSkills) {
   if (!existsSync(skillPath)) continue;
   const relSkillPath = path.relative(root, skillPath) || `skills/${skill}/SKILL.md`;
   const text = read(skillPath);
-  assertDirectiveLanguage(skillPath, text);
-  assertMandatoryRulesNameEnforcement(skillPath, text);
   assertNoModelRoutingFrontmatter(text, relSkillPath);
   assertHouseStyle(skillPath, skill, text, relSkillPath);
-  for (const referencePath of markdownFilesUnder(path.join(skillsDir, skill, "references"))) {
-    const referenceText = read(referencePath);
-    assertDirectiveLanguage(referencePath, referenceText);
-    assertMandatoryRulesNameEnforcement(referencePath, referenceText);
-  }
   const frontmatterName = skillFrontmatterName(text, relSkillPath);
   if (frontmatterName !== skill) fail(`${relSkillPath}: frontmatter name is ${frontmatterName || "<missing>"}, expected ${skill}`);
-  if (!docsSkills.includes(`/${skill}`)) fail(`${relSkillPath}: docs/skills.md missing /${skill}`);
+  if (!docsSkills.split(/[^A-Za-z0-9_-]+/).includes(skill)) fail(`${relSkillPath}: docs/skills.md missing capability ID ${skill}`);
   if (/\|\s*head\b/.test(text)) {
     fail(`${relSkillPath}: contains legacy '| head' helper pattern`);
   }
@@ -321,63 +243,37 @@ for (const skill of ownedSkills) {
   }
 }
 
-const autoplan = path.join(skillsDir, "etrnl-dev-autoplan", "SKILL.md");
-const plan = path.join(skillsDir, "etrnl-dev-plan", "SKILL.md");
-const autoplanContent = existsSync(autoplan) ? read(autoplan) : "";
-const planContent = existsSync(plan) ? read(plan) : "";
-for (const heading of REQUIRED_PLAN_HEADINGS) {
-  if (autoplanContent && !autoplanContent.includes(heading)) fail(`etrnl-dev-autoplan missing required readiness heading: ${heading}`);
-  if (planContent && !planContent.includes(heading.replace("Status: Final", "Status: Draft"))) fail(`etrnl-dev-plan missing required readiness concept: ${heading}`);
-}
-if (planContent) {
-  const lines = planContent.split(/\r?\n/);
-  const namedMechanismPattern =
-    /\b([A-Za-z0-9_.-]+\.mjs|[A-Za-z0-9_.-]+\.sh|mechanical\s+gate|ledger\s+command\s+[A-Za-z0-9_.:-]+|hook\s+[A-Za-z0-9_.:-]+|validator\s+[A-Za-z0-9_.:-]+)\b/i;
-  let hasMandatoryBehavior = false;
-  for (let index = 0; index < lines.length; index += 1) {
-    if (!/\bmandatory behavior\b/i.test(lines[index])) continue;
-    hasMandatoryBehavior = true;
-    const nearby = lines.slice(Math.max(0, index - 1), Math.min(lines.length, index + 2)).join("\n");
-    if (!namedMechanismPattern.test(nearby)) {
-      fail("etrnl-dev-plan missing mandatory-behavior mechanical enforcement contract");
-    }
-  }
-  if (!hasMandatoryBehavior) {
-    fail("etrnl-dev-plan missing mandatory-behavior mechanical enforcement contract");
-  }
-}
-
+const routerPath = path.join(skillsDir, "etrnl-router", "SKILL.md");
 const executePath = path.join(skillsDir, "etrnl-dev-execute", "SKILL.md");
-if (existsSync(executePath)) {
-  const execute = read(executePath);
-  const readinessIndex = execute.indexOf("plan-readiness-check.mjs <plan-path>");
-  const ledgerIndex = execute.indexOf("execution-ledger.mjs init");
-  if (readinessIndex < 0) fail("etrnl-dev-execute missing direct plan readiness check");
-  if (ledgerIndex < 0) fail("etrnl-dev-execute missing ledger init");
-  if (readinessIndex >= 0 && ledgerIndex >= 0 && readinessIndex > ledgerIndex) {
-    fail("etrnl-dev-execute must run plan readiness before ledger startup and edits");
-  }
-  if (!/If the readiness check fails.*Do not continue into implementation/s.test(execute)) {
-    fail("etrnl-dev-execute missing fail-closed readiness wording");
-  }
-  const executeRequiredConcepts = [
-    {
-      label: "parallel-safe wave dispatch",
-      keywords: ["dispatch", "write-capable", "implementation subagents", "parallel-safe"],
-    },
-    {
-      label: "parent orchestrator edit prohibition",
-      keywords: ["parent orchestrator", "must not edit", "implementation subagents"],
-    },
-    {
-      label: "sequential-degraded fallback",
-      keywords: ["sequential-degraded", "blocker", "editing"],
-    },
-  ];
-  for (const concept of executeRequiredConcepts) {
-    if (!hasKeywords(execute, concept.keywords)) {
-      fail(`etrnl-dev-execute missing ${concept.label} concept: ${concept.keywords.join(", ")}`);
-    }
+const planPath = path.join(skillsDir, "etrnl-dev-plan", "SKILL.md");
+const router = existsSync(routerPath) ? read(routerPath) : "";
+const execute = existsSync(executePath) ? read(executePath) : "";
+const plan = existsSync(planPath) ? read(planPath) : "";
+for (const [label, text] of [["router", router], ["execute", execute], ["plan", plan]]) {
+  if (label !== "router" && !text.includes("workflow-contract.mjs")) fail(`etrnl ${label} skill does not reference the canonical workflow contract`);
+  if (!text.includes("{{ETRNL_COMPANION}}") && !text.includes("companion.mjs")) fail(`etrnl ${label} skill does not use the portable companion path`);
+  if (/~\/(?:\.claude|\.codex)\/scripts\//.test(text)) fail(`etrnl ${label} skill hard-codes a host-specific helper path`);
+}
+if (!router.includes("--scope") || !router.includes("--risk") || !router.includes("select --intent")) {
+  fail("etrnl-router must resolve explicit intent, scope, and risk through select");
+}
+if (!execute.includes("run-check --name") || !execute.includes("self-reported check row")) {
+  fail("etrnl-dev-execute must distinguish command-captured checks from self-reported evidence");
+}
+if (!execute.includes("Direct work does not require a plan") || !execute.toLowerCase().includes("standing authorization")) {
+  fail("etrnl-dev-execute must preserve proportionate direct work and existing authorization");
+}
+for (const [label, axes] of [
+  ["direct build", { version: 1, intent: "build", scope: "contained", risk: "low" }],
+  ["structured high-risk fix", { version: 1, intent: "fix", scope: "contained", risk: "high" }],
+  ["program ship", { version: 1, intent: "ship", scope: "broad", risk: "low" }],
+  ["read-only review", { version: 1, intent: "review", scope: "coupled", risk: "high" }],
+]) {
+  try {
+    const contract = resolveWorkflowContract(axes);
+    if (!contract || !contract.mode || contract.exhaustion !== "stop-preserve-report") fail(`workflow contract has invalid ${label} result`);
+  } catch (error) {
+    fail(`workflow contract cannot resolve ${label}: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
@@ -411,7 +307,7 @@ for (const agent of ownedAgents) {
     fail(`owned agent file missing: agents/${agent}.md`);
     continue;
   }
-  if (!docsSkills.includes(agent)) fail(`docs/skills.md missing agent ${agent}`);
+  if (!docsSkills.split(/[^A-Za-z0-9_-]+/).includes(agent)) fail(`docs/skills.md missing role reference ${agent}`);
 }
 
 if (checkInstalled) {

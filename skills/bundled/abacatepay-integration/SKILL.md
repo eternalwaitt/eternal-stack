@@ -1,504 +1,75 @@
 ---
 name: abacatepay-integration
-description: "AbacatePay PIX payment integration for Brazilian SaaS - SDK usage, webhook processing, status monitoring"
+description: "AbacatePay payment integration: version-aware PIX, checkout, subscriptions, webhook authentication, idempotency and reconciliation"
 version: 1.0.0
 source: unknown
 category: payments
 ---
-# AbacatePay Payment Integration
-
-## Purpose
-
-Integrate PIX payments and subscription billing into Brazilian SaaS applications using the AbacatePay SDK for Next.js projects.
-
-## Overview
-
-**AbacatePay** is a Brazilian payment gateway specialized in PIX and credit card payments with developer-friendly APIs and competitive pricing.
-
-### Fee Structure
-
-- **PIX:** R$ 0.80 flat fee per transaction
-- **Credit Card:** 3.5% + R$ 0.60 per transaction
-- **No monthly fees**
-- **No setup fees**
-
-## Installation
-
-```bash
-npm install abacatepay-sdk
-```
-
-## Environment Variables
-
-```bash
-# .env.local
-ABACATEPAY_API_KEY=your_api_key_here
-ABACATEPAY_WEBHOOK_SECRET=your_webhook_secret_here
-```
-
-## PIX QR Code Payment
-
-### Create PIX Payment
-
-```typescript
-// app/api/payments/pix/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { AbacatePaySDK } from 'abacatepay-sdk';
-
-export async function POST(req: NextRequest) {
-  const abacatepay = new AbacatePaySDK(process.env.ABACATEPAY_API_KEY!);
-
-  try {
-    const { amount, customerId, description } = await req.json();
-
-    const pixPayment = await abacatepay.pixQrCode.create({
-      amount: amount, // In centavos (R$ 10.00 = 1000)
-      expiresIn: 3600, // 1 hour
-      customer: {
-        id: customerId,
-        name: 'Customer Name',
-        email: 'customer@example.com',
-        taxId: '12345678900' // CPF
-      },
-      metadata: {
-        orderId: 'order_123',
-        productId: 'prod_456'
-      },
-      description
-    });
-
-    return NextResponse.json({
-      qrCodeUrl: pixPayment.qrCodeUrl,
-      qrCodeText: pixPayment.qrCodeText,
-      pixId: pixPayment.id,
-      expiresAt: pixPayment.expiresAt
-    });
-  } catch (error) {
-    console.error('Error creating PIX payment:', error);
-    return NextResponse.json(
-      { error: 'Failed to create payment' },
-      { status: 500 }
-    );
-  }
-}
-```
-
-### Frontend Component
-
-```typescript
-// components/PixPaymentButton.tsx
-'use client';
-
-import { useState } from 'react';
-import QRCode from 'react-qr-code';
-
-export function PixPaymentButton({ amount, description }: {
-  amount: number;
-  description: string;
-}) {
-  const [pixData, setPixData] = useState<{
-    qrCodeUrl: string;
-    qrCodeText: string;
-    pixId: string;
-  } | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const handleCreatePayment = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch('/api/payments/pix', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          amount,
-          customerId: 'user_123',
-          description
-        })
-      });
-
-      const data = await response.json();
-      setPixData(data);
-    } catch (error) {
-      console.error('Payment error:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div>
-      {!pixData ? (
-        <button onClick={handleCreatePayment} disabled={loading}>
-          {loading ? 'Gerando...' : 'Pagar com PIX'}
-        </button>
-      ) : (
-        <div>
-          <h3>Escaneie o QR Code:</h3>
-          <QRCode value={pixData.qrCodeText} size={256} />
-
-          <div>
-            <p>Ou copie o código PIX:</p>
-            <input
-              type="text"
-              value={pixData.qrCodeText}
-              readOnly
-              onClick={(e) => e.currentTarget.select()}
-            />
-            <button onClick={() => navigator.clipboard.writeText(pixData.qrCodeText)}>
-              Copiar
-            </button>
-          </div>
-
-          <p>ID da transação: {pixData.pixId}</p>
-        </div>
-      )}
-    </div>
-  );
-}
-```
-
-## Subscription Billing
-
-### Create Recurring Charge
-
-```typescript
-// app/api/subscriptions/create/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { AbacatePaySDK } from 'abacatepay-sdk';
-
-export async function POST(req: NextRequest) {
-  const abacatepay = new AbacatePaySDK(process.env.ABACATEPAY_API_KEY!);
-
-  try {
-    const { planId, customerId, frequency } = await req.json();
-
-    const subscription = await abacatepay.billing.create({
-      frequency: frequency, // 'monthly', 'quarterly', 'yearly'
-      amount: 4900, // R$ 49.00
-      customer: {
-        id: customerId,
-        name: 'Customer Name',
-        email: 'customer@example.com',
-        taxId: '12345678900'
-      },
-      methods: ['pix', 'credit_card'],
-      metadata: {
-        planId,
-        userId: customerId
-      }
-    });
-
-    return NextResponse.json({
-      subscriptionId: subscription.id,
-      status: subscription.status,
-      nextChargeDate: subscription.nextChargeDate
-    });
-  } catch (error) {
-    console.error('Error creating subscription:', error);
-    return NextResponse.json(
-      { error: 'Failed to create subscription' },
-      { status: 500 }
-    );
-  }
-}
-```
-
-## Webhook Integration
-
-### Webhook Handler
-
-```typescript
-// app/api/webhooks/abacatepay/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
-
-export async function POST(req: NextRequest) {
-  const signature = req.headers.get('x-abacatepay-signature');
-  const payload = await req.text();
-
-  // Verify webhook signature
-  const expectedSignature = crypto
-    .createHmac('sha256', process.env.ABACATEPAY_WEBHOOK_SECRET!)
-    .update(payload)
-    .digest('hex');
-
-  if (signature !== expectedSignature) {
-    console.error('Invalid webhook signature');
-    return NextResponse.json(
-      { error: 'Invalid signature' },
-      { status: 401 }
-    );
-  }
-
-  const event = JSON.parse(payload);
-
-  // Handle different event types
-  switch (event.type) {
-    case 'billing.paid': {
-      const { billingId, customerId, amount, paidAt } = event.data;
-
-      // Update subscription in database
-      await updateSubscriptionStatus(billingId, 'active');
-
-      // Send receipt email
-      await sendReceiptEmail(customerId, amount, paidAt);
-
-      break;
-    }
-
-    case 'billing.failed': {
-      const { billingId, customerId, reason } = event.data;
-
-      // Update subscription status
-      await updateSubscriptionStatus(billingId, 'past_due');
-
-      // Notify customer
-      await sendPaymentFailedEmail(customerId, reason);
-
-      break;
-    }
-
-    case 'billing.canceled': {
-      const { billingId, customerId } = event.data;
-
-      // Cancel subscription
-      await updateSubscriptionStatus(billingId, 'canceled');
-
-      // Send cancellation confirmation
-      await sendCancellationEmail(customerId);
-
-      break;
-    }
-
-    case 'pix.paid': {
-      const { pixId, customerId, amount } = event.data;
-
-      // Mark order as paid
-      await markOrderAsPaid(pixId);
-
-      // Send confirmation
-      await sendPaymentConfirmation(customerId, amount);
-
-      break;
-    }
-
-    case 'pix.expired': {
-      const { pixId } = event.data;
-
-      // Mark payment as expired
-      await updatePixStatus(pixId, 'expired');
-
-      break;
-    }
-
-    default:
-      console.log(`Unhandled event type: ${event.type}`);
-  }
-
-  return NextResponse.json({ received: true });
-}
-
-// Helper functions
-async function updateSubscriptionStatus(billingId: string, status: string) {
-  // Update in your database
-}
-
-async function sendReceiptEmail(customerId: string, amount: number, paidAt: string) {
-  // Send email
-}
-
-async function sendPaymentFailedEmail(customerId: string, reason: string) {
-  // Send email
-}
-
-async function sendCancellationEmail(customerId: string) {
-  // Send email
-}
-
-async function markOrderAsPaid(pixId: string) {
-  // Update order status
-}
-
-async function sendPaymentConfirmation(customerId: string, amount: number) {
-  // Send email
-}
-
-async function updatePixStatus(pixId: string, status: string) {
-  // Update status
-}
-```
-
-### Webhook Event Types
-
-```typescript
-type AbacatePayWebhookEvent =
-  | { type: 'billing.paid'; data: BillingPaidData }
-  | { type: 'billing.failed'; data: BillingFailedData }
-  | { type: 'billing.canceled'; data: BillingCanceledData }
-  | { type: 'pix.paid'; data: PixPaidData }
-  | { type: 'pix.expired'; data: PixExpiredData };
-
-interface BillingPaidData {
-  billingId: string;
-  customerId: string;
-  amount: number;
-  paidAt: string;
-  paymentMethod: 'pix' | 'credit_card';
-}
-
-interface BillingFailedData {
-  billingId: string;
-  customerId: string;
-  reason: string;
-  attemptedAt: string;
-}
-
-interface PixPaidData {
-  pixId: string;
-  customerId: string;
-  amount: number;
-  paidAt: string;
-}
-```
-
-## Payment Status Checking
-
-### Check PIX Status
-
-```typescript
-// app/api/payments/[pixId]/status/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { AbacatePaySDK } from 'abacatepay-sdk';
-
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { pixId: string } }
-) {
-  const abacatepay = new AbacatePaySDK(process.env.ABACATEPAY_API_KEY!);
-
-  try {
-    const pixStatus = await abacatepay.pixQrCode.check(params.pixId);
-
-    return NextResponse.json({
-      status: pixStatus.status, // 'PENDING', 'PAID', 'EXPIRED', 'CANCELLED'
-      amount: pixStatus.amount,
-      paidAt: pixStatus.paidAt
-    });
-  } catch (error) {
-    console.error('Error checking PIX status:', error);
-    return NextResponse.json(
-      { error: 'Failed to check status' },
-      { status: 500 }
-    );
-  }
-}
-```
-
-## Database Schema (Prisma)
-
-```prisma
-model Subscription {
-  id                    String   @id @default(uuid())
-  userId                String
-  abacatePayBillingId   String   @unique
-  planId                String
-  status                String   // active, past_due, canceled
-  amount                Int      // In centavos
-  frequency             String   // monthly, quarterly, yearly
-  nextChargeDate        DateTime
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  user                  User     @relation(fields: [userId], references: [id])
-
-  @@index([userId])
-  @@index([abacatePayBillingId])
-}
-
-model Payment {
-  id                 String   @id @default(uuid())
-  userId             String
-  abacatePayPixId    String?  @unique
-  abacatePayBillingId String?
-  amount             Int      // In centavos
-  status             String   // pending, paid, failed, expired
-  method             String   // pix, credit_card
-  paidAt             DateTime?
-  createdAt          DateTime @default(now())
-  user               User     @relation(fields: [userId], references: [id])
-
-  @@index([userId])
-  @@index([status])
-}
-```
-
-## Testing
-
-### Development Mode
-
-```typescript
-// AbacatePay provides test mode
-const abacatepay = new AbacatePaySDK(
-  process.env.NODE_ENV === 'production'
-    ? process.env.ABACATEPAY_API_KEY!
-    : process.env.ABACATEPAY_TEST_API_KEY!
-);
-```
-
-### Simulate Payment (Test Mode)
-
-```bash
-# In test mode, you can simulate payment success
-curl -X POST https://api.abacatepay.com/v1/test/pix/simulate \
-  -H "Authorization: Bearer $TEST_API_KEY" \
-  -d "pixId=pix_test_123"
-```
-
-## Best Practices
-
-✅ **Verify webhook signatures** - Prevent fake webhooks
-✅ **Idempotency** - Check if payment already processed
-✅ **Handle duplicates** - Webhooks may be sent multiple times
-✅ **Log all events** - For debugging and auditing
-✅ **Retry logic** - For failed API calls
-✅ **Test mode first** - Always test before production
-✅ **Monitor expirations** - Clean up expired PIX codes
-✅ **CPF validation** - Validate Brazilian tax ID format
-
-## CPF/CNPJ Validation
-
-```typescript
-function isValidCPF(cpf: string): boolean {
-  cpf = cpf.replace(/[^\d]/g, '');
-
-  if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) {
-    return false;
-  }
-
-  let sum = 0;
-  for (let i = 0; i < 9; i++) {
-    sum += parseInt(cpf.charAt(i)) * (10 - i);
-  }
-  let digit = 11 - (sum % 11);
-  if (digit >= 10) digit = 0;
-  if (digit !== parseInt(cpf.charAt(9))) return false;
-
-  sum = 0;
-  for (let i = 0; i < 10; i++) {
-    sum += parseInt(cpf.charAt(i)) * (11 - i);
-  }
-  digit = 11 - (sum % 11);
-  if (digit >= 10) digit = 0;
-  if (digit !== parseInt(cpf.charAt(10))) return false;
-
-  return true;
-}
-```
-
-## Integration
-
-Use with:
-- `brazilian-financial-integration` - General Brazilian payment patterns
-- `nextjs-stripe-integration` - Alternative payment provider
-- `prisma-expert` - Database schema
-- `zod-4` - Input validation (CPF, amount)
-- `testing` - Webhook testing
+# AbacatePay integration
+
+Use the target project's installed SDK and API version. Do not mix legacy `pixQrCode`/`billing` examples with v2 checkout, transparent-payment and subscription APIs, or upgrade an existing integration implicitly. The [official SDK guide](https://docs.abacatepay.com/pages/sdks/sdks) distinguishes current and legacy integrations. SDKs and API credentials belong on the server.
+
+## Establish the integration contract
+
+1. Inspect the package lockfile, SDK initialization, configured API version/environment, order schema, auth boundary, existing webhook and retry handling. Never print credential values.
+2. Select the requested product: hosted checkout, embedded PIX, or recurring subscription. Read its matching official API reference before implementing payloads; do not invent SDK imports, event names or response fields.
+3. Use the application's trusted order/catalog to determine payable amounts, currency, customer ownership and allowed products. A browser-supplied amount or customer ID is not authorization.
+4. Store exact minor units with explicit currency and validate integer range/scale at boundaries. Use the project's established money representation; do not perform currency arithmetic with binary floating point.
+5. Keep merchant fees out of reusable code guidance. Check the current merchant agreement and [official fees](https://docs.abacatepay.com/pages/concepts/taxas) when pricing matters.
+
+## Create and display a payment
+
+For v2, the [official API index](https://docs.abacatepay.com/llms.txt) maps hosted checkout, transparent PIX, subscription products, status queries and simulation endpoints. Responses use an envelope; inspect both the transport result and the provider's success/error fields before using `data`. Resolve the current QR-code fields from the exact endpoint documentation.
+
+Implement the full product flow: authenticated order lookup, server-derived price, provider request, durable provider/order association, pending state, QR/link display, expiry, payment confirmation, and recovery after reload. A successful creation response is pending payment, not fulfillment. Status endpoints must authorize access to the local order before revealing provider state.
+
+Bound polling and network requests with cancellation, backoff and a deadline. Stop polling when the UI closes or the payment reaches a terminal state. On a create timeout, reconcile the ambiguous provider outcome before retrying; use a documented provider idempotency mechanism when available and retain the same local operation identity. Do not assume `externalId` alone guarantees provider deduplication.
+
+## Webhook authentication
+
+The [official security contract](https://docs.abacatepay.com/pages/webhooks/security), checked 2026-10-11, uses both the configured secret in `webhookSecret` and `X-Webhook-Signature`. Its HMAC-SHA256 covers the raw body and uses the provider's published key with base64 output. A public HMAC key is not sufficient to authenticate a sender; do not omit the private URL secret. Confirm the contract for the API version in use.
+
+Validate both before interpreting business fields. Preserve raw bytes, reject missing/malformed credentials, and use a timing-safe comparison with a length check. Do not substitute the URL secret for the published HMAC key or use the old `x-abacatepay-signature`/hex example. Redact query secrets at proxies, access logs, tracing and error boundaries; avoid logging full payment payloads or tax identifiers.
+
+Validate the event fields the application consumes while tolerating unknown additive fields. Compare environment, provider payment/order identity, currency and paid amount against the trusted local record before transitioning state. Unknown event kinds must not grant access.
+
+## Durable processing and reconciliation
+
+[Webhook delivery documentation](https://docs.abacatepay.com/pages/webhooks) describes repeated deliveries and the event identifier. Delivery deduplication alone is insufficient for a business operation: manual resend can have a new event ID, and distinct events can refer to the same payment.
+
+Use the project's database transaction and durable job mechanisms:
+
+- Enforce a unique provider/environment/event key at storage level; a read-then-insert sequence races under concurrent delivery.
+- Guard the payment transition using the provider payment identity and current state. Fulfillment must happen once even across different event IDs for the same paid operation.
+- Atomically commit the state transition, receipt and outbox/job intent, or roll them back together. A placeholder helper that returns without persisting is not a successful handler.
+- Perform outbound effects from a durable worker with its own idempotency key and retry/dead-letter policy. An in-memory task after returning success can be lost.
+- Return success only after processing or a durable accepted-work record is committed. Surface temporary storage failure with a retryable result matching the provider contract; do not swallow it and return success.
+- Reconcile pending/ambiguous payments against provider status using a bounded job. Preserve refund, dispute, cancellation and renewal semantics; avoid overwriting a terminal state with an older event.
+
+For subscriptions, model customer entitlement separately from individual invoice/payment status. Confirm supported cycles, cancellation timing, plan changes, failed renewal and refund behavior in the installed API's documentation. Do not infer an active subscription from a generic billing event.
+
+## Verification
+
+Use isolated fixtures before any separately authorized provider sandbox test. Cover:
+
+- Unauthorized order/customer access and client-modified amounts.
+- Missing/wrong URL secret, wrong HMAC, altered raw body, malformed JSON and unknown additive fields.
+- Provider transport errors, failure envelopes, create timeout and reconciliation without duplicate charges.
+- Concurrent duplicate events, different event IDs for the same payment, out-of-order delivery and worker retry.
+- Database failure before commit, crash after commit before response, and outbox recovery.
+- Wrong environment, currency, amount or provider identity; expiry, refund and renewal failures.
+- UI pending/error/expired/confirmed states and state retained after reload.
+
+Retain exact test results and distinguish mocked provider behavior from real sandbox evidence. No live charge, refund, message or credential installation is authorized by this skill.
+
+## Official references
+
+Read only the endpoint needed for the task:
+
+- [Hosted checkout](https://docs.abacatepay.com/pages/payment/reference)
+- [Transparent payments](https://docs.abacatepay.com/pages/transparents/reference)
+- [Subscriptions](https://docs.abacatepay.com/pages/subscriptions/reference)
+- [Webhook security](https://docs.abacatepay.com/pages/webhooks/security)
+- [SDK versions](https://docs.abacatepay.com/pages/sdks/sdks)
+
+Attribution metadata remains unchanged; Eternal Stack maintains these integration corrections without claiming original authorship of the inherited skill.

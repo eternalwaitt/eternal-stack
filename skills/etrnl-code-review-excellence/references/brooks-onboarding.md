@@ -1,6 +1,6 @@
 # Brooks Codebase Onboarding
 
-Vendored from `brooks-audit/onboarding-guide.md`. Produce a newcomer-friendly tour. This is not a diagnostic report - no Health Score, no Iron Law findings.
+Adapted from the Brooks-Lint onboarding guide. Produce a newcomer-friendly tour. This is not a diagnostic report - no Health Score, no Iron Law findings.
 
 ## Step 1: Map the Territory
 

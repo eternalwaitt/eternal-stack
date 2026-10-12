@@ -6,6 +6,6 @@ allowed-tools: Bash, Read, Write, Edit, MultiEdit
 
 User request: `$ARGUMENTS`
 
-Use `skills/etrnl-dev-plan/SKILL.md` as the workflow contract.
+Use `skills/etrnl-dev-plan/SKILL.md` as planning guidance and the router's stored workflow contract as the sole source for workflow requirements and budgets.
 
-Create or update the plan on disk, include `Execution scope: all_phases` unless the user explicitly requests a narrower scope, run the plan readiness gate, and report the saved plan path plus verification evidence.
+Create or update the plan on disk, include `Execution scope: all_phases` unless the user explicitly requests a narrower scope, and run relevant readiness checks when available. Report the saved plan path, checks actually performed, and unresolved blockers. Do not invent risk tiers or fixed reviewer lanes.

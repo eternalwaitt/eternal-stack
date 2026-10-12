@@ -26,13 +26,15 @@ category: frontend
 
 | Project Type      | i18n Needed?       |
 | ----------------- | ------------------ |
-| Public web app    | ✅ Yes             |
-| SaaS product      | ✅ Yes             |
+| Public web app    | Depends on supported audiences/locales |
+| SaaS product      | Depends on product requirements |
 | Internal tool     | ⚠️ Maybe           |
 | Single-region app | ⚠️ Consider future |
 | Personal project  | ❌ Optional        |
 
 ---
+
+Apply translation-key and fallback conventions where the project supports localization. Do not add a new localization framework to a single-language product without a requirement. Text expansion varies by string and language; test actual translations and layout.
 
 ## 3. Implementation Patterns
 

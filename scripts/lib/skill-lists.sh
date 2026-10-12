@@ -51,7 +51,6 @@ OWNED_SKILLS=(
 BUNDLED_SKILLS=(
   abacatepay-integration
   better-auth
-  brooks-audit
   ci-cd
   code-simplifier
   design-taste-frontend
@@ -109,6 +108,16 @@ CRITICAL_HOOKS=(
 )
 
 CRITICAL_SCRIPTS=(
+  companion.mjs
+  companion-evaluate.mjs
+  project-knowledge-evaluate.mjs
+  host-lifecycle.mjs
+  native-adapters.mjs
+  lib/host-adapters.mjs
+  lib/review-provider-claude.mjs
+  lib/install-core.mjs
+  workflow-contract.mjs
+  lib/workflow-contract.mjs
   code-health-ledger-check.mjs
   documentation-comment-health.mjs
   documentation-health-ledger-check.mjs
@@ -166,6 +175,16 @@ CRITICAL_SCRIPTS=(
 # doctor.sh is copied under a different name and validated separately.
 INSTALL_SCRIPTS=(
   install.sh
+  companion.mjs
+  companion-evaluate.mjs
+  project-knowledge-evaluate.mjs
+  host-lifecycle.mjs
+  native-adapters.mjs
+  lib/host-adapters.mjs
+  lib/review-provider-claude.mjs
+  lib/install-core.mjs
+  workflow-contract.mjs
+  lib/workflow-contract.mjs
   code-health-inventory.mjs
   code-health-ledger-check.mjs
   documentation-comment-health.mjs

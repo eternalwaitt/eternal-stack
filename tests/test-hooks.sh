@@ -516,10 +516,10 @@ console.log('TOOL_STACK_UPDATE_AVAILABLE codegraph current=0.9.9 latest=1.0.0 ru
 JS
 skill_update_prompt="$(jq -cn '{session_id:"fixture-skill-update-prompt",prompt:"/etrnl-dev-plan .claude/plans/example.md"}')"
 out="$(ETRNL_SKILL_UPDATE_CHECK=1 ETRNL_UPDATE_CHECK_SCRIPT="$fake_skill_update" run_hook cc-userprompt-router.sh "$skill_update_prompt")"
-assert_contains "skill prompt checks etrnl updates" "$out" "Skill update check before requested skill"
+assert_contains "skill prompt reports optional maintenance" "$out" "Optional skill maintenance"
 assert_contains "skill prompt includes tool-stack update" "$out" "TOOL_STACK_UPDATE_AVAILABLE codegraph"
-assert_contains "skill prompt requires update when practical" "$out" "run the update command(s) above when practical"
-assert_contains "skill prompt allows skip only on explicit decline" "$out" "user explicitly declines"
+assert_contains "skill prompt never makes maintenance a task prerequisite" "$out" "maintenance is optional; finish the current task"
+assert_not_contains "skill prompt does not require explicit decline to continue" "$out" "user explicitly declines"
 assert_not_contains "skill prompt never instructs telling the user about updates" "$out" "tell the user"
 health_prompt="$(jq -cn '{session_id:"fixture-health-prompt",prompt:"audit the entire codebase with no skips or loose ends"}')"
 out="$(run_hook cc-userprompt-router.sh "$health_prompt")"
@@ -552,6 +552,37 @@ plan_exec_arm_prompt="$(jq -cn '{session_id:"fixture-plan-exec-arm",prompt:"impl
 run_hook cc-userprompt-router.sh "$plan_exec_arm_prompt" >/dev/null || true
 plan_exec_arm_state="$TMPROOT/claude-guard-fixture-plan-exec-arm.json"
 assert_json_expr "router arms plan execution on implement the plan" "$(jq -c . "$plan_exec_arm_state")" '.planExecutionRequested == true'
+
+# The natural-language plan prompt still arms the completion hook, while an
+# explicit structured contract owns its requirements and does not inherit the
+# legacy plan-phase requirement. This exercises prompt routing through the
+# actual stop hook, not only the ledger CLI.
+contract_stop_session="fixture-contract-plan-stop"
+contract_stop_repo="$TMPROOT/contract-plan-stop-repo"
+mkdir -p "$contract_stop_repo"
+printf 'fixture\n' >"$contract_stop_repo/README.md"
+git -C "$contract_stop_repo" init -q
+git -C "$contract_stop_repo" -c user.name='ETRNL Test' -c user.email='test@example.invalid' add -A
+git -C "$contract_stop_repo" -c user.name='ETRNL Test' -c user.email='test@example.invalid' commit -qm fixture
+contract_stop_contract="$TMPROOT/contract-plan-stop.json"
+node "$ROOT/scripts/workflow-contract.mjs" resolve --intent build --scope coupled --risk low >"$contract_stop_contract"
+contract_stop_prompt="$(jq -cn --arg session "$contract_stop_session" --arg cwd "$contract_stop_repo" '{session_id:$session,cwd:$cwd,prompt:"implement the plan"}')"
+run_hook cc-userprompt-router.sh "$contract_stop_prompt" >/dev/null || true
+contract_stop_state="$TMPROOT/claude-guard-$contract_stop_session.json"
+assert_json_expr "plan execution prompt arms structured contract stop fixture" "$(jq -c . "$contract_stop_state")" '.planExecutionRequested == true'
+node "$ROOT/scripts/execution-ledger.mjs" init --cwd "$contract_stop_repo" --session "$contract_stop_session" --workflow-contract "$contract_stop_contract"
+node "$ROOT/scripts/execution-ledger.mjs" set-task --session "$contract_stop_session" --task T1 --status verified --title 'Coupled change'
+contract_state_missing_input="$(jq -cn --arg session "$contract_stop_session" --arg cwd "$contract_stop_repo" '{session_id:$session,cwd:$cwd,last_assistant_message:"Done.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$contract_state_missing_input")"
+assert_json_expr "contract stop blocks missing project state upkeep" "$out" '.decision == "block" and (.reason | contains("project state"))'
+node "$ROOT/scripts/execution-ledger.mjs" record-state --session "$contract_stop_session" --outcome 'Coupled fixture change implemented' --pending 'No remaining fixture work' --learning none
+node "$ROOT/scripts/execution-ledger.mjs" run-check --session "$contract_stop_session" --name smoke -- node -e 'process.exit(0)'
+jq '.skillCalls=[{value:"etrnl-dev-execute",at:(now|todate)}]' "$contract_stop_state" >"$contract_stop_state.tmp"
+mv "$contract_stop_state.tmp" "$contract_stop_state"
+contract_stop_input="$(jq -cn --arg session "$contract_stop_session" --arg cwd "$contract_stop_repo" '{session_id:$session,cwd:$cwd,last_assistant_message:"Done.",stop_hook_active:false}')"
+out="$(run_hook cc-stop-verifier.sh "$contract_stop_input")"
+if [[ -z "$out" ]]; then ok "contract overrides legacy phase fallback for plan execution prompt"; else not_ok "contract plan prompt stop should not require legacy phases: $out"; fi
+
 plan_exec_run_tests_prompt="$(jq -cn '{session_id:"fixture-plan-exec-arm",prompt:"review this and run the tests"}')"
 run_hook cc-userprompt-router.sh "$plan_exec_run_tests_prompt" >/dev/null || true
 assert_json_expr "router keeps plan execution armed when run the tests is requested" "$(jq -c . "$plan_exec_arm_state")" '.planExecutionRequested == true'
@@ -1794,6 +1825,34 @@ fallback_edit="$(jq -cn --arg root "$TMPROOT/example" '{session_id:"fixture-agen
 out="$(run_hook cc-pretooluse-guard.sh "$fallback_edit")"
 assert_contains "agent packet failure blocks direct source fallback" "$out" "malformed packet is not a sequential-degraded blocker"
 
+# A validated workflow contract takes precedence over legacy execute policy.
+# Structured work allows a direct parent edit and does not require a task packet;
+# program work still rejects a native Agent call without its required packet.
+contract_pretool_repo="$TMPROOT/contract-pretool-repo"
+mkdir -p "$contract_pretool_repo/src"
+git -C "$contract_pretool_repo" init -q
+contract_pretool_repo="$(cd "$contract_pretool_repo" && pwd -P)"
+printf 'export const value = 1;\n' >"$contract_pretool_repo/src/app.ts"
+structured_contract_file="$TMPROOT/structured-contract.json"
+node "$ROOT/scripts/workflow-contract.mjs" resolve --intent build --scope coupled --risk low >"$structured_contract_file"
+node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-contract-pretool --cwd "$contract_pretool_repo" --workflow-contract "$structured_contract_file" >/dev/null
+contract_pretool_state="$TMPROOT/claude-guard-fixture-contract-pretool.json"
+jq -nc --arg source "$contract_pretool_repo/src/app.ts" '{schemaVersion:5,reads:{($source):"2026-01-01T00:00:01Z"},searches:{"repo search":"2026-01-01T00:00:01Z"},edits:{},commands:[],blockedCommands:[],successfulCommands:[],failures:[],skillCalls:[],agentCalls:[],reviewerAgentCalls:[],requestedSkills:[{value:"etrnl-dev-execute",at:"2026-01-01T00:00:00Z"}],skillRequestWaivers:[],evidenceChallenges:[],evidenceDisciplineViolations:[],evidenceViolationFingerprints:{},warningFingerprints:{},contractVerdicts:{},verificationRuns:[],qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],toolSignals:[],firstEditAt:"",firstEditGeneration:0,toolUseBeforeFirstEdit:{},toolNoise:{},effectivenessCounters:{},newFileSearches:[],newSourceFiles:{},editCounts:{},largeEdits:[],repeatedEditFiles:{},reviewTriggers:[],editGeneration:0,commandLastEditGeneration:{},prodApprovalMarkers:[],activePlanPath:"",activePlanPathUpdatedAt:"",planExecutionRequested:true,planExecutionRequestedAt:"2026-01-01T00:00:00Z",lastPrompt:"build a coupled change",lastCompactSummary:"",lastCompactAt:"",compactCount:0,cwd:$source,settingsFingerprint:"",startedAt:"2026-01-01T00:00:00Z"}' >"$contract_pretool_state"
+contract_direct_edit="$(jq -cn --arg session fixture-contract-pretool --arg root "$contract_pretool_repo" --arg source "$contract_pretool_repo/src/app.ts" '{session_id:$session,tool_name:"Edit",cwd:$root,tool_input:{file_path:$source,old_string:"export const value = 1;",new_string:"export const value = 2;"}}')"
+out="$(run_hook cc-pretooluse-guard.sh "$contract_direct_edit")"
+assert_json_expr "structured contract permits parent source edit without legacy execute delegation" "$out" '.continue == true'
+contract_plain_agent="$(jq -cn --arg session fixture-contract-pretool '{session_id:$session,tool_name:"Agent",cwd:"/tmp",tool_input:{subagent_type:"claude",description:"optional helper",prompt:"Inspect the change and summarize relevant risks."}}')"
+out="$(run_hook cc-pretooluse-guard.sh "$contract_plain_agent")"
+assert_json_expr "structured contract permits native agent prompt without packet" "$out" '.continue == true'
+
+program_contract_file="$TMPROOT/program-contract.json"
+node "$ROOT/scripts/workflow-contract.mjs" resolve --intent ship --scope broad --risk high >"$program_contract_file"
+node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-contract-program-packet --cwd "$contract_pretool_repo" --workflow-contract "$program_contract_file" >/dev/null
+program_plain_agent="$(jq -cn '{session_id:"fixture-contract-program-packet",tool_name:"Agent",cwd:"/tmp",tool_input:{subagent_type:"claude",description:"missing required packet",prompt:"Review the release."}}')"
+out="$(run_hook cc-pretooluse-guard.sh "$program_plain_agent")"
+assert_json_expr "program contract still rejects native agent call without required packet" "$out" '.hookSpecificOutput.permissionDecision == "deny"'
+assert_contains "program contract names packet requirement" "$out" "JSON-only task packet"
+
 # State migration matrix
 migration_state="$TMPROOT/claude-guard-fixture-migration-v1.json"
 jq -nc '{schemaVersion:1,reads:[],searches:"oops",edits:{},commands:{},verificationRuns:"bad",qualityRuns:[],testRuns:[],browserRuns:[],reviewRuns:[],newFileSearches:[],newSourceFiles:[],editCounts:[],largeEdits:{},repeatedEditFiles:[],reviewTriggers:{},lastPrompt:null,lastCompactSummary:null,cwd:null,settingsFingerprint:null,startedAt:null}' >"$migration_state"
@@ -1877,16 +1936,16 @@ fi
 lane_b_state_dir="$TMPROOT/lane-b-retro-state"
 lane_b_lessons_path="$TMPROOT/lane-b-retro-lessons.jsonl"
 mkdir -p "$lane_b_state_dir/snapshots"
-cp "$ROOT/hooks/fixtures/retro/distill-events.jsonl" "$lane_b_state_dir/events.jsonl"
+jq -c --arg cwd "$ROOT" '.cwd=$cwd' "$ROOT/hooks/fixtures/retro/distill-events.jsonl" > "$lane_b_state_dir/events.jsonl"
 lane_b_distill="$(ETRNL_STATE_DIR="$lane_b_state_dir" ETRNL_RETRO_LESSONS="$lane_b_lessons_path" node "$ROOT/scripts/etrnl-retro.mjs" distill --session retro-distill-session --json)"
-assert_json_expr "retro distill captures env remedy" "$lane_b_distill" 'any(.lessons[]?; .type == "env_remedy")'
+assert_json_expr "retro distill retains outcome observation without causal confidence" "$lane_b_distill" 'any(.lessons[]?; .type == "check_outcome_change" and .classification == "observed_failure" and .confidence == null)'
 assert_json_expr "retro distill captures redundant verification" "$lane_b_distill" 'any(.lessons[]?; .type == "redundant_verification")'
 assert_json_expr "retro distill captures compaction stale resets" "$lane_b_distill" 'any(.lessons[]?; .type == "compaction_stale")'
 assert_json_expr "retro distill captures recurring reviewer fingerprints" "$lane_b_distill" 'any(.lessons[]?; .type == "recurring_defect")'
 lane_b_distill_again="$(ETRNL_STATE_DIR="$lane_b_state_dir" ETRNL_RETRO_LESSONS="$lane_b_lessons_path" node "$ROOT/scripts/etrnl-retro.mjs" distill --session retro-distill-session --json)"
 assert_json_expr "retro distill dedupes existing lessons" "$lane_b_distill_again" '(.lessons | length) == 0'
 lane_b_hints="$(ETRNL_RETRO_LESSONS="$lane_b_lessons_path" node "$ROOT/scripts/etrnl-retro.mjs" hints --max-chars 500 --json)"
-assert_json_expr "retro hints respects budget" "$lane_b_hints" '.count >= 1 and (.text | test("Retro lessons:"))'
+assert_json_expr "retro hints respects budget" "$lane_b_hints" '.count >= 1 and (.text | test("Untrusted project knowledge"))'
 lane_b_prune="$(ETRNL_RETRO_LESSONS="$lane_b_lessons_path" node "$ROOT/scripts/etrnl-retro.mjs" prune --json)"
 lane_b_prune_again="$(ETRNL_RETRO_LESSONS="$lane_b_lessons_path" node "$ROOT/scripts/etrnl-retro.mjs" prune --json)"
 lane_b_prune_active="$(jq -c '.active' <<<"$lane_b_prune")"
@@ -1899,12 +1958,12 @@ assert_json_expr "steering hint injects once" "$lane_b_steering_one" '.text | te
 lane_b_steering_two="$(ETRNL_STATE_DIR="$lane_b_state_dir" node "$ROOT/scripts/etrnl-retro.mjs" steering-hint --cwd "$lane_b_steering_repo" --json)"
 assert_json_expr "steering hint suppresses repeat" "$lane_b_steering_two" '.text == ""'
 lane_b_postcompact_out="$(ETRNL_RETRO_LESSONS="$lane_b_lessons_path" run_hook cc-postcompact-record.sh "$postcompact_json")"
-assert_contains "postcompact re-injects retro hints" "$lane_b_postcompact_out" "Retro lessons:"
-lane_b_startup_json="$(jq -cn '{session_id:"fixture-session-status",hook_event_name:"SessionStart"}')"
+if [[ "$lane_b_postcompact_out" != *"Untrusted project knowledge"* ]]; then ok "postcompact excludes other-project knowledge"; else not_ok "postcompact leaked other-project knowledge"; fi
+lane_b_startup_json="$(jq -cn --arg cwd "$ROOT" '{session_id:"fixture-session-status",hook_event_name:"SessionStart",cwd:$cwd}')"
 lane_b_startup_out="$(ETRNL_RETRO_LESSONS="$lane_b_lessons_path" ETRNL_LEARNING_STARTUP_HINTS=1 run_hook cc-sessionstart-restore.sh "$lane_b_startup_json")"
-assert_contains "session start injects retro hints" "$lane_b_startup_out" "Retro lessons:"
+assert_contains "session start injects scoped observations" "$lane_b_startup_out" "Untrusted project knowledge"
 lane_b_hindsight_dry="$(CLAUDE_GUARD_DISABLE_HINDSIGHT_LESSON=0 ETRNL_RETRO_LESSONS="$lane_b_lessons_path" node "$ROOT/scripts/etrnl-retro.mjs" hindsight-retain --cwd "$ROOT" --dry-run --json)"
-assert_json_expr "hindsight retain dry-run includes retro lesson schema" "$lane_b_hindsight_dry" '.items[0].metadata.kind != null and .items[0].metadata.confidence != null and .items[0].metadata.retention_policy == "retro_distilled_lesson"'
+assert_json_expr "hindsight excludes unpromoted observations" "$lane_b_hindsight_dry" '.retained == 0 and (.items | length) == 0'
 lane_b_sessionend_json="$(jq -cn --arg cwd "$compact_fixture_repo" '{session_id:"lane-b-sessionend",hook_event_name:"SessionEnd",cwd:$cwd}')"
 if run_hook cc-sessionend-save.sh "$lane_b_sessionend_json" >/dev/null 2>&1; then
   ok "session end stays fail-open with retro background jobs"

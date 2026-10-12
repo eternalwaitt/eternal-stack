@@ -5,7 +5,6 @@ disable-model-invocation: true
 ---
 # Agent File Doctor
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-ops-agent-files`; on update, run the reported update command before continuing; only skip if the user explicitly declines.
 
 Maintain instruction files as routing/configuration surfaces, not memory stores.
 
@@ -129,8 +128,8 @@ Do not call the work complete when the packet has no inventory table, no net lin
 
 After editing agent instruction surfaces, run the smallest relevant gate:
 
-- `node scripts/skill-contract-check.mjs` for repo-owned skill changes.
-- `node scripts/prompt-budget-check.mjs .` when always-loaded files, skills, agents, or rules changed.
+- `node {{ETRNL_COMPANION}} run scripts/skill-contract-check.mjs --` for repo-owned skill changes.
+- `node {{ETRNL_COMPANION}} run scripts/prompt-budget-check.mjs -- .` when always-loaded files, skills, agents, or rules changed.
 - `tests/test-hooks.sh` when routing, prompt injection, hooks, settings, or triggers changed.
 - `scripts/doctor.sh` before claiming the Eternal Stack install/startup surface is healthy.
 - `git diff --check` for every edit.

@@ -1,15 +1,14 @@
 ---
 name: etrnl-dev-pr
-description: ETRNL pull request workflow for Claude Code. Use only when the user explicitly asks to create or update a PR; writes dual-audience descriptions (business TL;DR/why/impact plus engineering rollout, verification, review guide); hidden from model auto-invocation because it has side effects.
+description: ETRNL pull request workflow for Claude Code and Codex. Use only when the user explicitly asks to create or update a PR; writes dual-audience descriptions (business TL;DR/why/impact plus engineering rollout, verification, review guide); hidden from model auto-invocation because it has side effects.
 disable-model-invocation: true
 ---
 # PR
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-pr`; on update, run the reported update command before continuing; only skip if the user explicitly declines.
 
 Prepare, update, and close the pull request loop only after local evidence, remote state, and reviewer feedback are known.
 
-Helper paths: `node ~/.claude/scripts/<name>` after Eternal Stack install (application repos), `node scripts/<name>` only in an eternal-stack source checkout. Both run the same helper; commands below use the installed path. Run review-learning and preflight helpers from the **target repository root** so `--root` resolves ledger and rules files in that repo.
+Use helpers through the portable runner `node {{ETRNL_COMPANION}} run scripts/<helper>.mjs -- <arguments>` from the target repository root. The runner supplies the active Claude or Codex home while preserving the target repository as the helper's working directory. Do not copy scripts into `~/.claude` or assume the two host homes share a scripts directory.
 
 ## Preflight
 
@@ -18,43 +17,22 @@ Helper paths: `node ~/.claude/scripts/<name>` after Eternal Stack install (appli
 3. Confirm GitHub auth and remote URL before calling `gh`.
 4. Review the diff for secrets, unrelated changes, generated noise, and files outside the requested scope.
 5. Run the repo preflight and smoke checks that prove the PR body claims.
-6. When the helper is installed, run `node ~/.claude/scripts/pr-preflight.mjs status --json` before creating or updating the PR, and run `node ~/.claude/scripts/pr-preflight.mjs validate --json` before claiming PR readiness. For guarded or migration release classes, `status` and `validate-body` auto-bootstrap `.etrnl/release.json` and scaffold modules in deployable app repos — include any newly created files in the same PR without asking the user to run setup.
+6. When the helper is installed, run `node {{ETRNL_COMPANION}} run scripts/pr-preflight.mjs -- status --json` before creating or updating the PR, and run `node {{ETRNL_COMPANION}} run scripts/pr-preflight.mjs -- validate --json` before claiming PR readiness. For guarded or migration release classes, `status` and `validate-body` auto-bootstrap `.etrnl/release.json` and scaffold modules in deployable app repos — include any newly created files in the same PR without asking the user to run setup.
 
-Install or refresh the helper from the Eternal Stack source checkout (not the target application repo) when it is missing or stale:
-
-```bash
-set -euo pipefail
-ETRNL_STACK_SRC="${ETRNL_STACK:-$HOME/Github/eternal-stack}"
-[[ -f "$ETRNL_STACK_SRC/scripts/pr-preflight.mjs" ]] || {
-  echo "missing pr-preflight.mjs in $ETRNL_STACK_SRC" >&2
-  exit 1
-}
-mkdir -p "$HOME/.claude/scripts"
-if [[ -f "$HOME/.claude/scripts/pr-preflight.mjs" ]] && ! cmp -s "$ETRNL_STACK_SRC/scripts/pr-preflight.mjs" "$HOME/.claude/scripts/pr-preflight.mjs"; then
-  echo "pr-preflight.mjs differs from Eternal Stack source; preserve local edits or copy explicitly after review" >&2
-  exit 1
-fi
-cp "$ETRNL_STACK_SRC/scripts/pr-preflight.mjs" "$HOME/.claude/scripts/pr-preflight.mjs"
-chmod +x "$HOME/.claude/scripts/pr-preflight.mjs"
-cd "<target-repo-root>"
-node ~/.claude/scripts/pr-preflight.mjs status --json
-node ~/.claude/scripts/pr-preflight.mjs validate --json
-```
-
-Re-run the copy step after source updates unless `scripts/install.sh` already refreshed the installed helper. Do not run the full installer to recover one helper unless the repository owner explicitly confirms rewriting hooks, rules, and settings.
+If the helper is unavailable, continue with the target repository's documented checks and state that the Eternal preflight helper could not run. Do not manually install or copy host files as a repair step.
 
 ## PR drafting workflow
 
 Agent-only workflow — no repo PR template required. The contract lives in `references/pr-description.md` and is enforced by `pr-preflight.mjs`.
 
-1. Run `node ~/.claude/scripts/pr-preflight.mjs status --json` — branch, dirty state, existing PR, checks.
-2. Run `node ~/.claude/scripts/pr-preflight.mjs template` — emit the dual-audience skeleton to fill in.
+1. Run `node {{ETRNL_COMPANION}} run scripts/pr-preflight.mjs -- status --json` — branch, dirty state, existing PR, checks.
+2. Run `node {{ETRNL_COMPANION}} run scripts/pr-preflight.mjs -- template` — emit the dual-audience skeleton to fill in.
 3. Draft the title and body using `references/pr-description.md`. Delete sections with nothing meaningful to say.
 4. Validate structure before `gh pr create` or `gh pr edit`:
 
 ```bash
 printf '%s' '{"title":"<title>","body":"<body>","changedFiles":["path/a","path/b"]}' \
-  | node ~/.claude/scripts/pr-preflight.mjs validate-body --json
+  | node {{ETRNL_COMPANION}} run scripts/pr-preflight.mjs -- validate-body --json
 ```
 
 Use `--strict` when the diff touches install, hooks, doctor, schemas, templates, skills, or migrations, or when the PR is large (>8 files). Fix all blockers; treat warnings as blockers under `--strict`.
@@ -148,14 +126,13 @@ REVIEW_ARGS=()
 if [[ -n "${GITHUB_REVIEW_ID:-}" ]]; then
   REVIEW_ARGS+=(--review-id "$GITHUB_REVIEW_ID")
 fi
-node ~/.claude/scripts/review-learn.mjs learn \
+node {{ETRNL_COMPANION}} run scripts/review-learn.mjs -- learn \
   --findings "$FINDINGS_FILE" \
   --root "$REPO_ROOT" \
-  --ledger "$HOME/.claude/review-learnings/${REPO_KEY}/review-learnings.json" \
   "${REVIEW_ARGS[@]}"
 ```
 
-The helper is installed by Eternal Stack (`~/.claude/scripts/review-learn.mjs`), not vendored into application repositories — do not probe for `scripts/review-learn.mjs` in the target repo. If the helper is missing, copy only `review-learn.mjs` from the Eternal Stack source checkout (compare with `cmp -s` first and stop when the installed copy differs) before treating the recorder as unavailable. Run `bash "$ETRNL_STACK_SRC/scripts/install.sh"` only after explicit repository-owner confirmation because it rewrites hooks, rules, and settings. As a backstop, `review-learn` drops any item whose `disposition` field is `false-positive`, `source-limited`, `owner-deferred`, or `deferred`, and rejects findings whose summary or body still contain secret- or credential-shaped strings, so a mis-tagged or unsanitized file still cannot promote an excluded item. It tracks recurrence in the private overlay ledger above and at three recurrences proposes auto-promotion: a template-matching class becomes a warn-mode guard candidate in `review-rules.json`, and everything else becomes a tracked checklist candidate for `etrnl-dev-autoplan`. Record the proposal in the private overlay only; never write or enable `review-rules.json` entries without explicit repository-owner confirmation, including warn-to-block escalation proposals from `review-learn`. Keep the ledger under `~/.claude/review-learnings/` — never write `review-learnings.json` into the target repository or commit it. Commit promoted changes to `review-rules.json` only after explicit repository-owner confirmation.
+The review-learning helper runs through the companion library. Do not probe for `scripts/review-learn.mjs` in the target repo or copy helpers into a host scripts directory. The recorder drops findings marked `false-positive`, `source-limited`, `owner-deferred`, or `deferred` and rejects secret- or credential-shaped content. It stores sanitized recurrence data in host-local state and may propose guard/checklist updates; a proposal is not an enabled rule. Only pass `--apply-rules` when the user authorized shared rule changes; that flag permits promotion/escalation and should be reviewed against causal evidence and a labeled precision corpus. Keep private learning data out of the target repository. Change or enable shared review rules only when the user authorized that repository change.
 6. If the diff is too large to review coherently, split by ownership boundary or file set before creating more review churn.
 7. Final readiness requires a clean local gate, no failing required checks, no unresolved must-fix review items, and a PR body that matches the final diff.
 

@@ -1,9 +1,12 @@
 ---
-status: accepted
+status: superseded
 date: 2026-07-15
+superseded-by: 2026-10-portable-core.md and the canonical workflow contract in scripts/lib/workflow-contract.mjs
 ---
 
 # ADR 0004: Lean CodeRabbit Preemption
+
+> Historical record only. Its tiered planning, reviewer, and convergence rules no longer govern current capability routing. See the [ADR index](README.md) and [workflow design](../product-direction.md).
 
 ## Context
 

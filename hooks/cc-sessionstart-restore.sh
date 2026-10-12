@@ -93,18 +93,38 @@ if command -v git >/dev/null 2>&1 && git -C "$cwd" rev-parse --is-inside-work-tr
 fi
 cc_state_update --arg cwd "$cwd" ".cwd = \$cwd"
 
+# Optional profiles restore durable project context. Core has no registered hook.
+project_context=""
+if [[ -f "$SCRIPT_DIR/../scripts/execution-ledger.mjs" ]] && command -v node >/dev/null 2>&1; then
+  if project_context="$(node "$SCRIPT_DIR/../scripts/execution-ledger.mjs" project-state --cwd "$cwd" 2>/dev/null)"; then
+    if [[ "$project_context" != "No project state document found." ]]; then
+      project_context="$(printf '%s' "$project_context" | trim_chars 1000)"
+    else
+      project_context=""
+    fi
+  else
+    project_context=""
+    printf 'claude-guard warning: project state unavailable; resolve document errors before continuing substantive work\n' >&2
+  fi
+fi
+
+
 skill_hint="$(get_etrnl_skill_hint)"
+project_state_pointer="${project_context%%$'\n'*}"
+compact_context_limit=1200
+[[ -z "$project_state_pointer" ]] || compact_context_limit=$((1200 - ${#project_state_pointer} - 1))
 if [[ "$source_name" == "compact" ]]; then
   # Compact recovery stays deterministic: inject only the bounded handoff and
   # skill hint, not advisory workflow/update projections.
   compact_learning_limit="${ETRNL_LEARNING_HINT_MAX_CHARS:-500}"
-  if handoff_json="$(cc_etrnl_state_compact_handoff_json "$(cc_session_id)" 2>/dev/null)" \
+  if handoff_json="$(cc_etrnl_state_compact_handoff_json "$(cc_session_id)" "$compact_context_limit" 2>/dev/null)" \
     && jq -e '.found == true and ((.text // "") | length > 0)' >/dev/null 2>&1 <<<"$handoff_json"; then
     msg="$(jq -r '.text' <<<"$handoff_json")"
     snapshot_hint="$(etrnl_snapshot_hint_text "$(cc_session_id)")"
     retro_hint="$(etrnl_retro_hint_text "$cwd" "$compact_learning_limit")"
     steering_hint="$(etrnl_steering_hint_text "$cwd")"
-    msg="$(append_bounded_lines "$msg" 1200 "$snapshot_hint" "$skill_hint" "$retro_hint" "$steering_hint")"
+    msg="$(append_bounded_lines "$msg" "$compact_context_limit" "$snapshot_hint" "$skill_hint" "$retro_hint" "$steering_hint")"
+    msg="$(append_bounded_lines "$msg" 1200 "$project_state_pointer")"
     msg="$(printf '%s' "$msg" | trim_chars 1200)"
     cc_json_emit_context "SessionStart" "$msg"
     exit 0
@@ -121,7 +141,9 @@ if [[ "$source_name" == "compact" ]]; then
     snapshot_hint="$(etrnl_snapshot_hint_text "$(cc_session_id)")"
     retro_hint="$(etrnl_retro_hint_text "$cwd" "$compact_learning_limit")"
     steering_hint="$(etrnl_steering_hint_text "$cwd")"
-    msg="$(append_bounded_lines "$msg" 1200 "$snapshot_hint" "$retro_hint" "$steering_hint")"
+    msg="$(printf '%s' "$msg" | trim_chars "$compact_context_limit")"
+    msg="$(append_bounded_lines "$msg" "$compact_context_limit" "$snapshot_hint" "$retro_hint" "$steering_hint")"
+    msg="$(append_bounded_lines "$msg" 1200 "$project_state_pointer")"
     msg="$(printf '%s' "$msg" | trim_chars 1200)"
     cc_json_emit_context "SessionStart" "$msg"
     exit 0
@@ -143,7 +165,7 @@ WORKFLOW_ISSUE_FILTER='
 '
 if [[ "${ETRNL_UPDATE_CHECK:-1}" != "0" && -f "$SCRIPT_DIR/../scripts/update-check.mjs" ]] && command -v node >/dev/null 2>&1; then
   update_check_cmd=(node "$SCRIPT_DIR/../scripts/update-check.mjs")
-  [[ "${ETRNL_AUTO_UPDATE:-1}" != "0" ]] && update_check_cmd+=(--auto)
+  [[ "${ETRNL_AUTO_UPDATE:-0}" == "1" ]] && update_check_cmd+=(--auto)
   [[ "${ETRNL_REMOTE_UPDATE_CHECK:-0}" == "1" ]] && update_check_cmd+=(--remote)
   update_check_enabled=1
   update_stdout_file=""
@@ -283,13 +305,24 @@ if [[ -n "$workflow_status_hint" ]]; then
   msg="$msg $workflow_status_hint"
 fi
 if [[ -n "$update_hint" ]]; then
-  msg="$msg Update: $update_hint (advisory — run the update command when practical; only skip if the user explicitly declines)"
+  msg="$msg Update: $update_hint (optional maintenance; finish the current task before choosing whether to update)"
 fi
 if [[ -n "$learning_hint" ]]; then
   msg="$msg $learning_hint"
 fi
 if [[ -n "$steering_hint" ]]; then
   msg="$msg $steering_hint"
+fi
+if [[ -n "$project_state_pointer" ]]; then
+  # Preserve the existing evidence/learning priorities. Reserve only a compact
+  # document pointer, then use genuinely remaining space for authored context.
+  msg="$(printf '%s' "$msg" | trim_chars 1400)"
+  msg="$(append_bounded_lines "$msg" 1500 "$project_state_pointer")"
+  remaining_context_chars=$((1500 - ${#msg} - 1))
+  if (( remaining_context_chars > 80 )); then
+    project_excerpt="$(printf '%s' "${project_context#*$'\n'}" | trim_chars "$remaining_context_chars")"
+    msg="$(append_bounded_lines "$msg" 1500 "$project_excerpt")"
+  fi
 fi
 msg="$(printf '%s' "$msg" | trim_chars 1500)"
 cc_json_emit_context "SessionStart" "$msg"

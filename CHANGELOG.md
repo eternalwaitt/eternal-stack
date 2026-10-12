@@ -6,7 +6,44 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## Unreleased
 
+### Project continuity and optional host adapters
+
+- Add explicit versioned native continuity registration for optional Claude/Codex profiles, preserving unrelated settings and owned-entry removal/rollback; Core remains hook-free.
+- Reuse canonical task/checkpoint/completion and scoped lesson records at supported lifecycle boundaries, with durable repair budgets and explicit fail-open/coverage limits.
+- Add Claude captured-review provider source and fixture evidence; live host parity remains unverified.
+- Keep review-generated rules as private proposals until an authorized `--apply-rules` action, and use companion host-local paths for review learning.
+
+
+### Project knowledge and recovery
+
+- Match natural requests to stable task/feature IDs and aliases, show prior-run recovery without adoption, and explicitly transfer ownership while preserving failures, checkpoints and budgets.
+- Support scoped state revisions, disjoint-entry merges, conflicting-entry rejection and attributed pending-work handover; substantive writes require state maintenance while explicit trivial contained work keeps a light path.
+- Replace inferred high-confidence recovery lessons with scoped observations and captured-review evidence; retain retrieval-only receipts and exclude unattributed global hints.
+- Prepare corrected paired evaluation workspaces with hidden adjudication labels and bounded local reporting; no model trial or quality/cost improvement is implied.
+
+### Durable project state
+
+- Maintain one project-owned Markdown overview of current scope, feature status, pending work and curated lessons; reuse an existing bound overview and preserve authored content.
+- Bind required state acknowledgements to task/source/document freshness and derive a bounded evidence block from the existing ledger; distinguish native guidance from helper-enforced completion.
+
+### Independent review follow-up
+
+- Replace caller-authored verified review imports with an explicit companion host controller that captures a separate Codex reviewer and resumes the original session, preserving source freshness and the stored workflow budget.
+- Preserve captured approvals for source-bound resume-only retries, distinguish planned review from failed-attempt retries, and recover identifiable abandoned controller processes without resetting budgets.
+- Save a recoverable checkpoint before review, keep red/green attempts under the same logical gate name, and distinguish explicit host handoff from automatic Core enforcement or unsupported nested execution.
+
+### Skills and coordination audit
+
+- Keep deep taste, SaaS engineering and accessibility catalogs available on demand through compact topic selectors.
+- Remove forced specialist fanout/model switches, duplicate browser setup and repeated design approval steps; preserve complete category coverage under the canonical workflow contract.
+- Reconcile existing task budgets and evidence when resuming; retain bounded evidence handoffs without transcript replay.
+- Correct payment webhook/version guidance, destructive migration-conflict advice, money decoding and project-specific style assumptions.
+- Coordinate finite check execution and source-bound reuse, bounded output and process cleanup; retain actual separate review output before accepting verified review evidence.
+
+
 ### Added
+
+- Integrated Core companion candidate for Claude Code and Codex: managed shared guidance, one native `etrnl-router` skill, a private on-demand capability library, explicit host selection, dry-run, ownership-aware removal, and incompatible-install checks. It is unreleased; published tags remain unchanged. The supported `orchestrated` and `full` profiles are alternative opt-in installation layouts.
 
 - Performance audit kernel with 64 independent evidence receipts, conservative stack-neutral discovery, conditional domain playbooks, adversarial contract tests and read-only distribution parity checks. Existing runtime-memory incident closure remains mandatory.
 - Dual-host spawn guard: `cc-spawn-guard.sh` on Claude default template (`Task|Agent|TaskCreate`) and Codex `spawn-guard-pre-tool-use.sh` enforce shared `spawn-guard.mjs` policy through `execution-ledger.mjs check-spawn` with `--explain` recovery, batch adoption triggers, and wave 2+ merged-review economics.
@@ -23,12 +60,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Changed
 
+- Public documentation now explains the integrated Claude Code/Codex companion, separates current Core behavior from optional install layouts, and describes available, loaded, and required capabilities independently.
+- Core installs no hooks, settings, agents, services, or plugins. It installs one native router and a private capability library alongside shared instructions. Optional orchestration and provisioning remain separate profiles with host-specific behavior.
+- Skill startup no longer requires update probes; automatic local updates require explicit opt-in. Optional performance investigation stops at a declared round budget and reports unfinished work honestly.
+- Beginner-facing guidance now supports an idea-to-working-app path with adaptive explanations, reversible defaults, full accepted scope, and checks of the requested user journey. Brainstorming remains optional and no longer adds approval gates to authorized work; specialist testing and design guidance now follow contract and host availability.
+
 - Performance contract v2 requires detected specialist receipts, uncapped per-surface sweeps and evidence-backed rerun reconciliation.
 
 - `etrnl-audit-performance` adds conditional build-memory and provider-runtime-memory playbooks: distinguish build memory, server runtime memory, and client bytes; ingest provider incidents as primary evidence; map page -> oRPC procedure -> query/relation fanout; verify root and nested cardinality; and close incidents through bounded-path tests plus same-journey post-deployment runtime evidence without inventing unavailable peak-heap metrics. Bundle remediation also prevents lightweight configuration exports from statically importing heavy payloads such as locale catalogs.
 - Email triage now runs guarded Inbox Zero with progress and apply-before-enrichment, prevents competing guarded runs and tool-level timeouts, opens the human-review queue with on-demand drafts, and requires a checked replacement before presenting a failed draft for approval.
 - `etrnl-audit-performance` now combines Eternal Stack's six-lane coverage with a causal measure-identify-fix-verify-guard loop, explicit field/lab/trace/runtime/query-plan/bundle evidence, current Core Web Vitals and React/Next.js rules, complete target dispositions, and remediation receipts. `performance-baseline.mjs` adds backward-compatible schema v2 with comparison conditions, source revisions, lab-INP and field-p75 validation, noise-aware trend verdicts, and focused regression tests.
-- Default install now merges strict blocker hooks (`templates/settings.strict.json`). Set `ETRNL_ENABLE_STRICT=0` for the previous observer-only template.
+- Before the portable-core reset, the default install merged strict blocker hooks (`templates/settings.strict.json`); at that time, `ETRNL_ENABLE_STRICT=0` selected the observer-only template. Current Core installs no hooks; the optional orchestrated profile uses strict or reduced-hook templates.
 - `etrnl-ops-ship` is a class-aware verifier: it reads plan/PR evidence and the release manifest, confirms PR gate green, and promotes by signal. It no longer originates release-control requirements or blocks deploy with "write a follow-up release-controls PR."
 - UserPromptSubmit routing for `etrnl-ops-ship` no longer matches routine phrasing such as "ship this feature change"; explicit rollout/cutover/go-no-go prompts still route ship.
 - `pr-preflight` and `plan-readiness-check` auto-bootstrap release controls; users no longer run setup scripts manually.
@@ -36,6 +78,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - `etrnl-dev-autoplan` records install proof as `planned` while planning and `not_applicable` when no install surface is in scope, and declares the risk tier the deterministic gate requires. Escalating above that floor on judgment is still allowed but must be named as a judgment call on the `Risk tier` line rather than attributed to the readiness gate.
 
 ### Fixed
+
+- Codex startup respects replacement semantics for `AGENTS.override.md`; the optional replacement template includes the shared baseline.
 
 - The Stop verifier now constructs its ETRNL status command explicitly when neither GNU `timeout` nor `gtimeout` exists, avoiding Bash 3.2's unbound empty-array expansion; the lane-cap test now probes dry-run metadata before intentionally filling the burst window.
 - Dual-host spawn guard audit remediation: `settings.strict.json` registers `cc-spawn-guard.sh`; `spawn-guard.mjs` classifies reviewer `subagent_type` over writer task-name aliases (both directions on wave 2+); `review-merge.mjs` implements `--scoped` fix-round merge; `check-spawn` records only from hook authority (`ETRNL_SPAWN_GUARD_RECORDER=hook` or `--allow-record`); spawn economics acceptance tests restored; bounded-review dual-host wave-2+ wording and review-scope matrix.

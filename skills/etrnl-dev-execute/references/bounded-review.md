@@ -1,191 +1,39 @@
-# Bounded CodeRabbit-lens review (risk-tiered)
+# Optional review handling
 
-Run parallel LLM reviewers after the final edit of a task or wave when review scope permits (`merged_quality` or `full_lenses`); on `deterministic_only` scopes run `review-rules.mjs` only with no LLM reviewer spawns. Merge findings once, fix in at most two rounds on tier 0–2 (tier 3 P0/P1 blockers continue through four reopen rounds), and reopen only on P0/P1 blockers.
+Use this guidance only when review is selected by the workflow contract, requested by the user, or needed to resolve a specific risk. It does not set a universal review chain or round count; the stored contract supplies the allowed review budget.
 
-Helper paths: resolve once from the **target repository root**, then use that prefix for every command below.
+1. Review the changed surface against acceptance criteria and identify findings with concrete evidence, impact, and a proposed correction.
+2. Merge overlapping findings, keep distinct failure modes separate, and distinguish verified defects from questions or preferences.
+3. Apply straightforward repository-local fixes that remain in scope. Re-run the relevant checks after fixes.
+4. At the contract's review limit, stop. Summarize remaining findings and their impact; do not rename reviewers, reset counters, or ask repeatedly for a larger budget.
+5. A review finding never authorizes a destructive or external action. Follow the user's standing authorization and ask only where a material decision remains outside it.
 
-```bash
-if ! REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"; then
-  printf 'bounded-review error: not inside a Git repository\n' >&2
-  exit 1
-fi
-REPO_KEY="$(python3 -c 'import hashlib,sys; print(hashlib.sha256(sys.argv[1].encode()).hexdigest()[:16])' "$REPO_ROOT" 2>/dev/null || true)"
-if [[ -z "$REPO_KEY" ]]; then
-  printf 'bounded-review error: failed to derive repository key for %s\n' "$REPO_ROOT" >&2
-  exit 1
-fi
-if [[ -n "${ETRNL_STACK:-}" ]]; then
-  _etrnl_stack_ready=true
-  for _etrnl_required_helper in \
-    review-rules.mjs \
-    review-merge.mjs \
-    review-learn.mjs \
-    execution-ledger.mjs \
-    lib/deep-audit-categories.mjs; do
-    if [[ ! -f "${ETRNL_STACK}/scripts/${_etrnl_required_helper}" ]]; then
-      _etrnl_stack_ready=false
-      break
-    fi
-  done
-  if [[ "$_etrnl_stack_ready" == true ]]; then
-    ETRNL_STACK_CANON="$(cd -- "${ETRNL_STACK}" && pwd -P)"
-    REPO_ROOT_CANON="$(cd -- "${REPO_ROOT}" && pwd -P 2>/dev/null || printf '%s' "$REPO_ROOT")"
-    if [[ "$REPO_ROOT_CANON" == "$ETRNL_STACK_CANON" ]]; then
-      ETRNL_NODE=(node)
-      ETRNL_SCRIPT_ROOT="${ETRNL_STACK_CANON}/scripts"
-    else
-      ETRNL_NODE=(node)
-      ETRNL_SCRIPT_ROOT="${HOME}/.claude/scripts"
-    fi
-  else
-    printf 'bounded-review warning: ETRNL_STACK is missing required review helpers; using installed script root\n' >&2
-    ETRNL_NODE=(node)
-    ETRNL_SCRIPT_ROOT="${HOME}/.claude/scripts"
-  fi
-  for _etrnl_required_helper in \
-    review-rules.mjs \
-    review-merge.mjs \
-    review-learn.mjs \
-    execution-ledger.mjs \
-    lib/deep-audit-categories.mjs; do
-    if [[ ! -f "${ETRNL_SCRIPT_ROOT}/${_etrnl_required_helper}" ]]; then
-      printf 'bounded-review error: missing required helper %s under %s\n' "$_etrnl_required_helper" "$ETRNL_SCRIPT_ROOT" >&2
-      exit 1
-    fi
-  done
-else
-  ETRNL_NODE=(node)
-  ETRNL_SCRIPT_ROOT="${HOME}/.claude/scripts"
-  for _etrnl_required_helper in \
-    review-rules.mjs \
-    review-merge.mjs \
-    review-learn.mjs \
-    execution-ledger.mjs \
-    lib/deep-audit-categories.mjs; do
-    if [[ ! -f "${ETRNL_SCRIPT_ROOT}/${_etrnl_required_helper}" ]]; then
-      printf 'bounded-review error: missing required helper %s under %s\n' "$_etrnl_required_helper" "$ETRNL_SCRIPT_ROOT" >&2
-      exit 1
-    fi
-  done
-fi
-REVIEW_LEARNINGS="${HOME}/.claude/review-learnings/${REPO_KEY}/review-learnings.json"
-DEEP_AUDIT_REGISTRY="$ETRNL_SCRIPT_ROOT/lib/deep-audit-categories.mjs"
+## Independent-review evidence
+
+When the workflow contract requires independent review, obtain an actual result from a distinct reviewer invocation against current source. Never self-review under another name. Caller-authored review artifacts cannot grant verified status; manual `record-workflow-review` is for honest `blocked` or `skipped` outcomes.
+
+For supported Codex hosts, the author first saves a concise checkpoint and registers it from the original Codex session:
+
+```sh
+node {{ETRNL_COMPANION}} run scripts/execution-ledger.mjs -- request-review --checkpoint <checkpoint-path> [--session <ledger-session-bucket>]
 ```
 
-Run every helper with `--root "$REPO_ROOT"`. Never pass a repository-local `--learnings` or `--ledger` path; review memory lives only under `~/.claude/review-learnings/`.
+The actual author session comes from the host's `CODEX_THREAD_ID`; do not invent or override that identity. Then use the companion's explicit outer-host handoff:
 
-## Deterministic-first
+```sh
+node {{ETRNL_COMPANION}} review-and-resume --host codex --ledger <active-ledger-path>
+```
 
-1. Run `"${ETRNL_NODE[@]}" "$ETRNL_SCRIPT_ROOT/review-rules.mjs" check --changed-only --root "$REPO_ROOT"` and fix every block-mode match before any LLM reviewer runs.
-2. Exclude findings that match a `review-rules.mjs` or linter rule ID from LLM review scope — fix them mechanically and record the rule ID.
-3. `"${ETRNL_NODE[@]}" "$ETRNL_SCRIPT_ROOT/review-rules.mjs" check --changed-only --report-only --root "$REPO_ROOT"` returns the same findings and exits 0 with no escalation to block. Read the deterministic tail with it mid-wave without stopping the wave. It rewrites no rule mode and touches no warn-to-block promotion state, so the blocking run in step 1 still gates LLM review and push.
+The command derives the checkpoint and original author session from the pending request; optional checkpoint/session arguments must match it. Each request permits one review/resume cycle. The command launches a fresh read-only reviewer, captures its provider output, and resumes the original implementation session with the result. It uses the stored contract's remaining allowance; it does not create a fresh budget. Keep the checkpoint/evidence outside tracked source or in an ignored project-local directory so routine evidence updates do not invalidate the reviewed source. Keep the registered checkpoint unchanged until review capture finishes; the controller retains an immutable snapshot for the receipt. After any source fix, earlier review evidence is stale: save an updated checkpoint, register a new request, and use the remaining review allowance for another pass.
 
-## Parallel review and synthesis
+If approved source is unchanged but the author continuation was interrupted, use the same outer command with `--resume-existing`. It revalidates the captured approval and spends a remaining retry before resuming the same author; it does not launch another reviewer. Changed source or failed review cannot use this shortcut; address the findings and request fresh review within the remaining allowance. Exhaustion leaves the work incomplete, never authorizing a fabricated receipt or reset budget. See the capability guide for recovery boundaries.
 
-1. Dispatch reviewers in parallel. Each reviewer emits findings JSON with `reviewer`, `severity` (P0–P3), `confidence` (0–1), `file`, `line`, `fingerprint`, `summary`, and `autofix_class` (`safe_auto`, `gated_auto`, `manual`).
-2. Pipe the combined array through `"${ETRNL_NODE[@]}" "$ETRNL_SCRIPT_ROOT/review-merge.mjs" --root "$REPO_ROOT"` (or `--file`) to produce the single merged review artifact (JSON; add `--markdown` for human scan).
-3. Fix every `safe_auto` finding immediately.
-4. Record `residual` (`gated_auto`/`manual`) findings as non-blocking todos — do not reopen the wave for them alone.
-5. Reopen and fix only when the merged artifact has `blocking` (P0/P1) entries. After code changes, re-run only the reviewers whose lenses cover the changed surfaces. For fix-round re-review, narrow scope with `review-merge.mjs merge --scoped --fix-base-sha <sha> --fix-head-sha <sha> --finding-ids <fp,...>` so only named fingerprints re-enter the merge; the report carries `scopedFixRound` metadata for the ledger.
+Before the final review request, refresh required checks made stale by implementation changes. During finalization, preserve accepted task identity/title/scope and update status only (`set-task --task <id> --status verified`); replacing the title can invalidate an otherwise current review. A deliberate scope change needs fresh review.
 
-## Review scope by tier (tier 0–2)
+This is an explicit host-side operation, not automatic Core interception. If a nested sandbox denies starting the host CLI, retain the checkpoint and report the exact command for the authorized outer host; do not disable the sandbox or substitute an evaluator-only action. An unavailable host/reviewer leaves the requirement unsatisfied. During resumed work, finish required task/check evidence and yield with controller finalization pending. The captured review remains pending until that resumed host turn finishes successfully; do not repeatedly run a completion check that is waiting for the controller or fabricate a verified row. The outer controller then performs the final completion check. Do not claim completion merely because a command exited successfully: inspect the captured findings and controller result. Claude support and host behavior must be established separately. See `docs/skills.md#capturing-independent-review` for the interface and `docs/companion-evaluation.md#review-output-evidence` for measured evidence and limitations.
 
-`check-spawn` calls `review-scope.mjs` before reviewer-class spawns. Tier ≥3 always uses `full_lenses` (invariant). Tier 0–2 gates by diff size (`ETRNL_REVIEW_SCOPE_SMALL_MAX` default 50, `ETRNL_REVIEW_SCOPE_MEDIUM_MAX` default 200):
+A read-only reviewer may inspect current-source captured mechanical-check evidence when its own sandbox cannot run a disk-writing test. A sandbox denial is a verification limitation, not by itself a source defect; it also does not compel approval when evidence is insufficient. Keep that limitation in the result.
 
-| Mode | When | Reviewer dispatch |
-| --- | --- | --- |
-| `deterministic_only` | Small diff, no never-gate paths | `review-rules.mjs` only — no LLM reviewer spawn |
-| `merged_quality` | Medium diff | One merged quality reviewer per wave |
-| `full_lenses` | Large diff, install/auth/migration/tenancy paths, or tier ≥3 | Full spec → quality → simplifier chain |
+The captured lifecycle and source binding establish a separate invocation within the supported local-controller boundary. They do not guarantee review quality or defend against a malicious user rewriting controller state. Stay within the stored review budget.
 
-When `check-spawn` returns `review-scope-exceeded`, read recovery with `check-spawn --explain`. Classify locally with `node scripts/review-scope.mjs classify --tier <n> [--diff-lines <n>] --json`.
-
-## Fix rounds and reopen caps
-
-1. Maximum two fix rounds per wave on tier 0–2. Tier 3 P0/P1 blockers continue through four reopen rounds before `capDecision` resolves residuals. After the applicable cap, record remaining non-P0/P1 findings as non-blocking and proceed.
-2. A review loop whose merged finding count did not decrease between rounds is stalled: park it, record a blocker, and continue other work.
-3. Reopen caps are enforced by `execution-ledger.mjs record-review`:
-   - Tier 0–2: at most 2 reopen rounds per task+reviewer+lineageId, then record remaining findings as non-blocking notes and proceed.
-   - Tier 3 (auth, money, migrations, tenancy, security): reopen until clean, capped at 4 rounds.
-   - Reopen only when code changed for a P0/P1 blocker; never reopen on finding-churn alone.
-   - Counting rule matches the ledger error text: the first verified/completed review for a task+reviewer+lineageId is the initial pass; each later verified/completed row for the same triple is one reopen round.
-   - What happens at the cap is decided by `## Loop end disposition`, not by asking the user.
-
-## Loop end disposition
-
-A spent reopen cap and a tripped park counter both end the loop. Severity decides what happens next, and the merged artifact already computes it: read `capDecision` and run the branch it names. Never derive this decision by hand, and never open a user prompt to obtain it.
-
-| `capDecision.decision` | Meaning | Run this |
-| --- | --- | --- |
-| `close` | No blocking findings, loop still open | Close the task or wave. |
-| `reopen` | P0/P1 open, rounds remain | Fix, then re-run only the covering lenses. |
-| `proceed-with-residuals` | Loop ended, no P0/P1 open | Record every residual as a non-blocking note, close the stream, continue. |
-| `owner-decision` | Loop ended, P0/P1 still open | Escalate per the rules below. |
-
-1. `proceed-with-residuals` is autonomous at tier 0-2. At tier 3 on auth/money/migration/tenancy/security streams, P2/P3 findings stay recorded as residuals but require `etrnl-investigator` review plus `record-decision` owner confirmation before the stream closes — they are not silently downgraded to non-blocking notes. Log `record-decision --topic tier3-residual-closure-pending` when residuals remain after the cap; record investigator evidence with `record-specialist --skill etrnl-investigator` or a verified `record-review --reviewer etrnl-investigator`; after investigator review and owner confirmation, log `--topic tier3-residual-closure-confirmed`. `check-stop` blocks completion while investigator evidence or owner confirmation is missing.
-2. Before an `owner-decision` escalation, dispatch `etrnl-investigator` once on the open blocker and re-merge. Escalate only when the blocker survives that pass.
-3. An `owner-decision` stops the named task or stream only. Independent task groups keep running; a plan does not halt because one stream is parked. Park the stream per rule 6 below and continue the rest of the plan before reporting.
-4. When escalation is genuinely required, report the `capDecision.blockingFingerprints`, the fix attempted in each round, and the exact `record-review --override-owner-approved "<reason>"` command. Do not ask the user to judge severity, choose a path, or approve "one more cycle" in free text — the owner is confirming an override, not doing the triage.
-
-## Trajectory park thresholds
-
-Reopen caps bound the worst case. Trajectory counters end a loop that stopped converging before the cap runs out.
-
-1. Record the counters on the wave row after every review round with `"${ETRNL_NODE[@]}" "$ETRNL_SCRIPT_ROOT/execution-ledger.mjs" record-trajectory --root "$REPO_ROOT" --wave <id> --recurring-finding-count <n> --stream-alternation-count <n> --rounds-since-progress <n>`. Each flag sets an absolute value, and a partial update keeps the counters it omits.
-   - `recurringFindingCount` — rounds in which the same fingerprint stayed open.
-   - `streamAlternationCount` — hand-offs between review streams on one task.
-   - `roundsSinceProgress` — rounds since the merged finding count last fell.
-2. Read them back with `"${ETRNL_NODE[@]}" "$ETRNL_SCRIPT_ROOT/execution-ledger.mjs" history --gates --json --root "$REPO_ROOT"`, which emits `.waves[]` rows carrying `waveId` and the three counters.
-3. Evaluate the park decision inside synthesis: `"${ETRNL_NODE[@]}" "$ETRNL_SCRIPT_ROOT/review-merge.mjs" --file <findings.json> --trajectory <gates.json> --wave <id> --reopen-round <used> --reopen-cap <cap> --root "$REPO_ROOT"`. The merged report carries a `park` object and the `capDecision` that acts on it. Pass `--reopen-round` and `--reopen-cap` on every synthesis run at tier 3 — without them the merge cannot see a spent cap and reports `close` where the loop actually ended.
-4. Park the stream when `park.parked` is true. Each limit is a named constant with an env override:
-
-   | Counter | Limit | Env override | Reason code |
-   | --- | --- | --- | --- |
-   | `recurringFindingCount` | 3 | `ETRNL_REVIEW_RECURRING_FINDING_LIMIT` | `recurring-finding-limit` |
-   | `streamAlternationCount` | 4 | `ETRNL_REVIEW_STREAM_ALTERNATION_LIMIT` | `stream-alternation-limit` |
-   | `roundsSinceProgress` | 2 | `ETRNL_REVIEW_ROUNDS_SINCE_PROGRESS_LIMIT` | `rounds-since-progress-limit` |
-
-5. Any single tripped counter parks the stream while reopen rounds remain: `park.reopenCapExhausted` reports `false` in that case and the loop stops anyway.
-6. On a park, record a blocker naming every `park.reasons[].reasonCode`. Unresolved P0/P1 findings stay blocking and follow the investigator/owner-decision path. `capDecision` decides what follows: at tier 0-2, `proceed-with-residuals` downgrades non-P0/P1 findings to non-blocking notes and closes autonomously; at tier 3 on auth/money/migration/tenancy/security streams, `proceed-with-residuals` keeps P2/P3 findings as recorded residuals and requires `etrnl-investigator` review plus `record-decision` owner confirmation before closure; `owner-decision` always requires `record-decision`.
-
-## Adaptive reviewer skip
-
-A reviewer that returns nothing on five consecutive dispatches stops earning its turn cost.
-
-1. Record each dispatch outcome during synthesis: `"${ETRNL_NODE[@]}" "$ETRNL_SCRIPT_ROOT/review-merge.mjs" --file <findings.json> --dispatched <reviewer-ids> --learnings "$REVIEW_LEARNINGS" --root "$REPO_ROOT"`. Counters persist under `reviewerDispatches` in the private overlay ledger; each writer rewrites the whole object and keeps the other's keys.
-2. Plan the next dispatch with `"${ETRNL_NODE[@]}" "$ETRNL_SCRIPT_ROOT/review-merge.mjs" skip-plan --reviewers <ids> --learnings "$REVIEW_LEARNINGS" --json --root "$REPO_ROOT"`. Dispatch every id in `dispatch` and skip every row in `skips`.
-3. The limit is five consecutive zero-finding dispatches, overridable with `ETRNL_REVIEW_ADAPTIVE_SKIP_STREAK`. One finding resets the streak to 0.
-4. Exemptions always dispatch and never accrue a skip: security lenses, tenancy lenses, and every deep-audit lane registered in `"$DEEP_AUDIT_REGISTRY"`. A deep-audit lane reporting zero findings states coverage, not redundancy, and skipping it reintroduces the sampling those lanes exist to remove.
-5. Each skip row carries `reasonCode`, `reason`, and the `zeroFindingStreak` behind it, following the `coverageExceptions` precedent in `"$ETRNL_SCRIPT_ROOT/ux-audit-check.mjs"`. Copy the rows into the wave's review artifact so a review that never ran stays distinguishable from a review that found nothing.
-6. When the lane registry fails to load, `skipEvaluation` reports `unavailable` and every named reviewer dispatches.
-
-## Review depth by tier
-
-Apply `review-scope.mjs` mode before tier cadence on tier 0–2:
-
-- **`deterministic_only` (Trivial / small diff):** no LLM reviewer fan-out — run `review-rules.mjs check --changed-only` and the plan's verification gates only.
-- **Eligible tier ≤ 2 scopes (`merged_quality` or `full_lenses`):** one merged reviewer pass per wave over the combined diff, plus one whole-branch adversarial pass at plan end. This replaces the spec→quality chain for tier ≤ 2 waves.
-- **Tier 3:** keep the full spec → quality → simplifier chain per write task, review the wave diff, and re-verify only changed lenses after each fix round. **Dual-host wave cadence (Claude and Codex execute profiles):** wave 1 runs the per-write-task chain; wave 2 onward runs those three roles as one merged review per wave over the wave diff, except on a wave recorded with `full-fan-out-wave`, which keeps the per-task chain. This moves review cadence only. Tier 3 gates hold at full strength on every wave — staged install proof, rollback proof, reopen-until-clean caps, consumer-trace on shared contracts, and the auth/money/tenancy/migration lenses — and no profile downgrades a plan's declared risk tier.
-
-## Shared contracts
-
-When the diff changes a shared contract — a field made nullable, a soft-delete/`tenantId` filter, an enum, or a Money/format helper — dispatch `etrnl-consumer-tracer` and require its consumer matrix. Fix every stale consumer it reports before the wave closes.
-
-## Plan-end one-fixer
-
-Before plan-end adversary or owner-decision escalation, dispatch **one** fixer pass (`etrnl-executor` or the covering implementer lane) over the combined open blockers from the final wave merge. Re-merge after that single fixer pass. Do not chain multiple fixer spawns for the same plan-end blocker set — if P0/P1 survive, park with `capDecision.owner-decision` and investigator review per the loop end disposition table.
-
-## Wave closure
-
-Close a task or wave only when acceptance criteria are met AND the merged review artifact has no `blocking` entries.
-
-## Anti-rationalization
-
-| Excuse | Rule |
-| --- | --- |
-| "One more review round" | Tier 0-2: cap at 2 reopen rounds. Tier 3: reopen P0/P1 blockers until clean, capped at 4; follow `capDecision` for residuals. On **both Claude and Codex execute profiles**, use merged wave review on wave 2+ — never spawn `_r3_`+ per-patch reviewer aliases — except on a wave recorded with `full-fan-out-wave`. |
-| "Per-patch reviewers on wave 2+" | Forbidden on **both hosts** except when the plan names a wave for full fan-out and `record-decision --topic full-fan-out-wave` covers that wave. Otherwise one merged spec+quality+simplifier set per wave over the combined diff. `check-spawn` blocks per-patch names on every host. |
-| "Ask the owner to approve another cycle" | Tier 0-2: only when `capDecision.ownerDecisionRequired` is `true`. Tier 3 auth/money/migration/tenancy/security streams at residual closure: always confirm after investigator review via `record-decision`. |
-| "The cap is spent, so the run stops" | An `owner-decision` stops that stream only. Independent task groups keep executing. |
-| "Full doctor after a nit fix" | Run `bash scripts/doctor.sh --changed` only; full doctor stays for release/install. |
-| "Rebuild the canary to be safe" | Reuse the warm environment at unchanged tree hash; rebuild only when harness, migration, or shared surface changed. |
+For deterministic rule checks, use the helper through `node {{ETRNL_COMPANION}} run scripts/review-rules.mjs -- <arguments>`. Review helpers support the work; they do not replace a command-run verification result when the contract requires mechanical verification.
