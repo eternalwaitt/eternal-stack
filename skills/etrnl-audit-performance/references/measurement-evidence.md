@@ -156,8 +156,8 @@ An all-pages pass runs every discovered page journey sequentially in one process
 Run:
 
 ```bash
-node scripts/performance-baseline.mjs validate <baseline-json>
-node scripts/performance-baseline.mjs trend --before <before-json> --after <after-json>
+node {{ETRNL_COMPANION}} run scripts/performance-baseline.mjs -- validate <baseline-json>
+node {{ETRNL_COMPANION}} run scripts/performance-baseline.mjs -- trend --before <before-json> --after <after-json>
 ```
 
 The trend output labels numeric movement as `improved`, `regressed`, `no_change`, `inconclusive`, `added`, or `removed`. Correctness gates still decide keep versus revert.

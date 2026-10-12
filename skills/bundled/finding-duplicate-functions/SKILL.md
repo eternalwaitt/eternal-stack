@@ -27,9 +27,9 @@ This skill uses a two-phase approach: classical extraction followed by LLM-power
 | Phase | Tool | Model | Output |
 |-------|------|-------|--------|
 | 1. Extract | `scripts/extract-functions.sh` | - | `catalog.json` |
-| 2. Categorize | `scripts/categorize-prompt.md` | haiku | `categorized.json` |
+| 2. Categorize | `scripts/categorize-prompt.md` | active host model | `categorized.json` |
 | 3. Split | `scripts/prepare-category-analysis.sh` | - | `categories/*.json` |
-| 4. Detect | `scripts/find-duplicates-prompt.md` | opus | `duplicates/*.json` |
+| 4. Detect | `scripts/find-duplicates-prompt.md` | active host model | `duplicates/*.json` |
 | 5. Report | `scripts/generate-report.sh` | - | `report.md` |
 
 ## Process
@@ -40,9 +40,9 @@ digraph duplicate_detection {
   node [shape=box];
 
   extract [label="1. Extract function catalog\n./scripts/extract-functions.sh"];
-  categorize [label="2. Categorize by domain\n(haiku subagent)"];
+  categorize [label="2. Categorize by domain\n(bounded analysis)"];
   split [label="3. Split into categories\n./scripts/prepare-category-analysis.sh"];
-  detect [label="4. Find duplicates per category\n(opus subagent per category)"];
+  detect [label="4. Find duplicates per category\n(selected category analysis)"];
   report [label="5. Generate report\n./scripts/generate-report.sh"];
   review [label="6. Human review & consolidate"];
 
@@ -66,7 +66,7 @@ Test files (`*.test.*`, `*.spec.*`, `__tests__/**`) are excluded by default sinc
 
 ### Phase 2: Categorize by Domain
 
-Dispatch a **haiku** subagent using the prompt in `scripts/categorize-prompt.md`.
+Use `scripts/categorize-prompt.md` in the current context, or delegate when authorized and useful under the stored workflow contract. Follow the host and user's model selection rules.
 
 Insert the contents of `catalog.json` where indicated in the prompt template. Save output as `categorized.json`.
 
@@ -76,11 +76,11 @@ Insert the contents of `catalog.json` where indicated in the prompt template. Sa
 ./scripts/prepare-category-analysis.sh categorized.json ./categories
 ```
 
-Creates one JSON file per category. Only categories with 3+ functions are worth analyzing.
+Creates one JSON file per category. Inspect categories containing a plausible duplicate pair; two functions can be semantically duplicated. Narrow large categories by behavior and callers before loading bodies.
 
 ### Phase 4: Find Duplicates (Per Category)
 
-For each category file in `./categories/`, dispatch an **opus** subagent using the prompt in `scripts/find-duplicates-prompt.md`.
+Analyze selected category files with `scripts/find-duplicates-prompt.md`. Reuse the extracted catalog; do not rescan the repository per category. Process sequentially or assign disjoint categories within the stored workflow contract, with no recursive fanout or model switching just because a category exists.
 
 Save each output as `./duplicates/{category}.json`.
 
@@ -94,7 +94,7 @@ Produces a prioritized markdown report grouped by confidence level.
 
 ### Phase 6: Human Review
 
-Review the report. For HIGH confidence duplicates:
+In audit mode, report findings without edits. When consolidation is authorized, trace callers, side effects and boundary differences before treating a HIGH confidence candidate as interchangeable:
 1. Verify the recommended survivor has tests
 2. Update callers to use the survivor
 3. Delete the duplicates
@@ -120,6 +120,6 @@ Focus extraction on these areas first - they accumulate duplicates fastest:
 
 **Skipping the categorization step**: Going straight to duplicate detection on the full catalog produces noise. Categories focus the comparison.
 
-**Using haiku for duplicate detection**: Haiku is cost-effective for categorization but misses subtle semantic duplicates. Use Opus for the actual duplicate analysis.
+**Treating model choice as evidence**: A model label does not establish semantic equivalence. Compare observable behavior, errors, side effects and callers, then verify the authorized consolidation with relevant tests.
 
 **Consolidating without tests**: Before deleting duplicates, ensure the survivor has tests covering all use cases of the deleted functions.

@@ -1,11 +1,10 @@
 ---
 name: etrnl-audit-browser
-description: ETRNL browser QA workflow for Claude Code. Use when the user asks for real browser QA, screenshots, route checks, viewport checks, console/network checks, or UI verification evidence.
+description: ETRNL browser QA workflow for Claude Code and Codex. Use when the user asks for real browser QA, screenshots, route checks, viewport checks, console/network checks, or UI verification evidence.
 disable-model-invocation: true
 ---
 # ETRNL Browser QA
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-audit-browser`; on update, run the reported update command before continuing; only skip if the user explicitly declines.
 
 Run report-first browser QA for UI changes. Do not edit application source files in this skill.
 This reusable skill is the canonical browser QA workflow; `agents/etrnl-browser-qa.md` mirrors it for delegated agent tasks.
@@ -13,13 +12,9 @@ This reusable skill is the canonical browser QA workflow; `agents/etrnl-browser-
 ## Workflow
 
 1. Identify the target URL, changed routes, required auth state, and viewport set.
-2. Resolve browser tooling in order:
-   - `playwright-cli`
-   - `browser-use`
-   - repo-provided Playwright test command or script
-   - exact unavailable-tool blocker
-3. Use one named browser session per agent/task. Capture the right pre-interaction artifact before clicking, filling, or asserting elements: `page.screenshot()` for visual checks, `page.content()` or `page.evaluate()` for DOM assertions, and `page.context().tracing.start()` for replay/debugging evidence. Close or explicitly hand off sessions after the selected artifact is captured.
-4. Start the provided local dev command when the target needs it. Do not leave browser QA "manual" or "outstanding" just because it needs a local server or browser tooling; run it or report the exact unavailable tool/error.
+2. Use the user-specified or available host-native browser tooling first, then an existing repository browser/test command. Use `playwright-cli` or `browser-use` only when already available and suitable. Do not install another browser stack merely because this example names one; report the exact missing capability when no available method covers the flow.
+3. Assign a browser owner and use a named session for the tested flow. Reuse matching evidence across workers; create isolated sessions when behavior or authentication requires separation. Capture the right pre-interaction artifact before clicking, filling, or asserting elements: `page.screenshot()` for visual checks, `page.content()` or `page.evaluate()` for DOM assertions, and `page.context().tracing.start()` for replay/debugging evidence. Close or explicitly hand off sessions after the selected artifact is captured.
+4. Reuse a matching running development server after verifying its source/configuration and URL, or have the assigned owner start the provided local dev command. Record the stop handle and clean up task-owned processes on completion or cancellation. Do not leave browser QA "manual" or "outstanding" just because it needs a local server or browser tooling; run it or report the exact unavailable tool/error.
 5. Check each route for:
    - page load success
    - console errors
@@ -33,12 +28,12 @@ This reusable skill is the canonical browser QA workflow; `agents/etrnl-browser-
    - Failure rows include `trace`, `traceSha256`, `video`, `videoSha256`, and `pageErrors` when those artifacts exist; passed rows must keep `pageErrors` empty.
    - Rows carry `designEvidence` when the run collects craft observations: an array of `{ "category": spacing|hierarchy|slop|latency|contrast|overflow|state|copy, "severity": critical|high|medium|opportunity, "note": "<what the user sees>" }`. `etrnl-deep-audit-ux` consumes these rows as runtime UI evidence; summarize them in `--design-evidence`.
    - `status complete` must have real console/network summaries, numeric counts, non-empty screenshot files under the artifact root, matching screenshot hashes, fresh capture timestamps, and provenance fields: `tool`, `targetUrl`, `command`, `capturedAt`.
-   - First run `node ~/.claude/scripts/browser-qa-report.mjs hash <screenshot-path>` for each screenshot.
+   - First run `node {{ETRNL_COMPANION}} run scripts/browser-qa-report.mjs -- hash <screenshot-path>` for each screenshot.
    - Put the returned SHA256 value into that row's `screenshotSha256` field inside the `--matrix` JSON.
    - Only then run the create command with all v2 fields:
 
      ```bash
-     node ~/.claude/scripts/browser-qa-report.mjs create \
+     node {{ETRNL_COMPANION}} run scripts/browser-qa-report.mjs -- create \
        --schema-version 2 \
        --artifact-root "<artifact-root>" \
        --target-url "<url>" \
@@ -57,13 +52,13 @@ This reusable skill is the canonical browser QA workflow; `agents/etrnl-browser-
      - If the screenshot is still being written, use a short retry loop with backoff; abort with a clear message if the file never appears before hashing.
      - If `create` fails after hashing, verify the matrix still references the same screenshot path and `screenshotSha256`, rerun `create`, or rerun `hash` plus `create` if the file changed.
      - Capture the failed command output, exit code, timestamp, screenshot file size, and recalculated hash for debugging.
-   - Existing v1 artifacts can be migrated to a draft with `node ~/.claude/scripts/browser-qa-report.mjs migrate <old-report> --path <new-report>`.
+   - Existing v1 artifacts can be migrated to a draft with `node {{ETRNL_COMPANION}} run scripts/browser-qa-report.mjs -- migrate <old-report> --path <new-report>`.
 8. For legacy/simple runs, v1 is still accepted when the report includes checked console and network summaries:
-   - `node ~/.claude/scripts/browser-qa-report.mjs create --routes "<routes>" --viewports "<viewports>" --console "<console findings summary>" --network "<network findings summary>" --status complete`
+   - `node {{ETRNL_COMPANION}} run scripts/browser-qa-report.mjs -- create --routes "<routes>" --viewports "<viewports>" --console "<console findings summary>" --network "<network findings summary>" --status complete`
 9. Validate the artifact:
-   - `node ~/.claude/scripts/browser-qa-report.mjs validate <report-path>`
+   - `node {{ETRNL_COMPANION}} run scripts/browser-qa-report.mjs -- validate <report-path>`
 10. Record the artifact in the active ledger when one exists:
-   - `node ~/.claude/scripts/execution-ledger.mjs record-artifact --type browser-qa-report --path <report-path> --session "$CLAUDE_SESSION_ID"`
+   - `node {{ETRNL_COMPANION}} run scripts/execution-ledger.mjs -- record-artifact --type browser-qa-report --path <report-path> --session "$CLAUDE_SESSION_ID"`
 
 ## Reference Parity Policy
 
@@ -122,7 +117,7 @@ Run counts every item. Any FAIL marks the run incomplete:
 Red-capable gate — this command exits non-zero when the report is malformed, incomplete, or has a screenshot hash or artifact-root mismatch:
 
 ```bash
-node ~/.claude/scripts/browser-qa-report.mjs validate <report-path>
+node {{ETRNL_COMPANION}} run scripts/browser-qa-report.mjs -- validate <report-path>
 ```
 
 Expected exit code: `0` when the report validates. Exit `1` names each malformed or missing evidence field and marks the run incomplete; exit `2` reports a missing file path.

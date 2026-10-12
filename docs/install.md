@@ -1,13 +1,37 @@
 # Install
 
-Public home: [github.com/eternalwaitt/eternal-stack](https://github.com/eternalwaitt/eternal-stack). Overview and doc map: [README.md](../README.md). Hook reference: [hooks.md](hooks.md). Guard rules: [guards.md](guards.md). Rollout sequencing: [migration.md](migration.md). Env var tuning after install: [configuration.md](configuration.md) — see its `Codex-first efficiency profile` section for the low-context runbook (RTK, MCP prune, hook profile, spawn model routing).
+## Ask your coding assistant to guide setup
+
+Open the Eternal Stack candidate checkout in Claude Code or Codex and ask the assistant to guide the setup. It checks that you have the right checkout, looks at existing installations and prerequisites, and starts with the default installation for everyday use:
+
+> Read the repository instructions and this setup guide. First confirm that this checkout contains the current Eternal Stack candidate. Check which of Claude Code or Codex I use, whether an Eternal Stack installation already exists, and whether the prerequisites are available. Explain what the default Core installation changes. Use only the documented Core procedure unless I ask otherwise. Start with its dry run and show me what it would change. If this is the right checkout, the selected app and prerequisites are clear, and no incompatible installation blocks the update, continue with the Core installation and verify that the companion is available in my chosen coding app. Stop only for a missing prerequisite, an incompatible installation, or a decision that would materially change setup. Report what you checked and any limitations.
+
+The current shared companion is unreleased. A fresh clone of the public default branch does not contain it yet; use a checkout that has the candidate. If the checkout is not the candidate or an existing installation is incompatible, the assistant should explain that before proceeding. Core is the default package; the alternative optional packages below are for people who specifically need their additional integrations.
+
+## Portable core (default)
+
+Core setup requires Git and Node.js 22 or newer. Run the installer from a checkout that contains the candidate. The selected Claude Code or Codex app must be available for use afterward.
+
+`./scripts/install.sh` or `--profile core` installs the current shared baseline, one native `etrnl-router` skill, and the private on-demand library. Use `--host claude|codex|both`, `--dry-run`, and `--uninstall`. Explicit `--claude-home PATH` and `--codex-home PATH` target fixture or alternate homes. Both hosts are preflighted before writes. Existing text is preserved; edited managed sections and incompatible legacy installations are rejected rather than overwritten. Core registers no hooks, writes no host settings, and provisions no services or plugins. It installs the router and private library as Core-owned assets. For Codex, it updates the managed section of an existing `AGENTS.override.md` when that is the effective instruction file; otherwise it writes `AGENTS.md` and does not create a new override. Its `.etrnl-core.json` ownership manifest supports idempotent updates and removal. Preview first, then apply the profile from the checkout you intend to install:
 
 ```bash
-./scripts/install.sh --profile core
+./scripts/install.sh --dry-run
+./scripts/install.sh
+```
+
+The companion install is currently Unreleased. The commands above describe this candidate checkout; published tags retain their released behavior. A fresh public clone receives these changes once they reach the public branch.
+
+The rest of this document describes the **alternative optional orchestration packages**, selected by `--profile orchestrated` or `--profile full`. They are not installed by default and do not layer on top of Core. Existing incompatible installs must be migrated before switching profiles. `--host` selects hosts only for Core; the optional profiles stage both host homes. Their installed behavior differs by host. See the [host capability matrix](host-capabilities.md). `ETRNL_ENABLE_STRICT=0` is a reduced-hook mode, not observer-only: stop and spawn enforcement remain.
+
+
+Public home: [github.com/eternalwaitt/eternal-stack](https://github.com/eternalwaitt/eternal-stack). Product overview: [README.md](../README.md). Repository and technical doc map: [AGENTS.md](../AGENTS.md). Hook reference: [hooks.md](hooks.md). Guard rules: [guards.md](guards.md). Rollout sequencing: [migration.md](migration.md). Env var tuning after install: [configuration.md](configuration.md) — see its `Codex-first efficiency profile` section for the low-context runbook (RTK, MCP prune, hook profile, spawn model routing).
+
+```bash
+./scripts/install.sh --profile orchestrated
 ./scripts/doctor.sh
 ```
 
-Default install registers strict blockers: pretool guard, spawn guard (enforce), post-write quality and sycophancy checks, repeated-failure diagnosis, subagent recording, compact recovery, RTK `rg` compat, and the `Stop` verifier. `--profile core` also installs prompt routing, prompt expansion, once-per-session `CLAUDE.md` reinjection, the advisory rate limiter, post-tool observation, session cleanup, scripts, docs, rules, skills, and agents. Global memory/backlog/codegraph services stay opt-in via `--profile full`.
+On Claude Code, the optional orchestrated install registers strict blockers: pretool guard, spawn guard (enforce), post-write quality and sycophancy checks, repeated-failure diagnosis, subagent recording, compact recovery, RTK `rg` compat, and the `Stop` verifier. Copied legacy Codex scripts alone are inactive. `--native-continuity --claude-version 2.1.296 --codex-version 0.159.2` explicitly registers the current companion adapters in Claude `settings.json` and Codex `hooks.json`, with preservation, removal and rollback documented in [native adapters](native-adapters.md). Version declarations and matching entries do not prove callback execution. `--profile orchestrated` also installs prompt routing, prompt expansion, once-per-session `CLAUDE.md` reinjection, the advisory rate limiter, post-tool observation, session cleanup, scripts, docs, rules, skills, and agents. Global memory/backlog/codegraph services stay opt-in via `--profile full`.
 
 Breaking install behavior: managed `~/.claude/settings.json` is backed up before install. Unless `--preserve-settings` is supplied, stack-owned hooks under `~/.claude/hooks/cc-*` are dropped so the template can be re-merged cleanly; foreign hook entries are preserved. All other top-level user settings (`permissions`, `skillOverrides`, `enabledPlugins`, `statusLine`, model/env tuning, and similar native Claude Code keys) are preserved. Live migration of memory systems, plugins, MCPs, broad permissions, and private overlays is a separate local rollout step, not an automatic install-time side effect.
 
@@ -19,12 +43,12 @@ Full stack install:
 ~/.claude/scripts/doctor-etrnl.sh
 ```
 
-The full profile runs the core install plus CodeGraph, Beads, and Hindsight provisioning. It fails closed in non-interactive mode unless `--yes` is supplied. Use `--skip-codegraph`, `--skip-beads`, or `--skip-hindsight` only when the skip is intentional and recorded in the rollout evidence.
+The full profile runs the orchestrated install plus CodeGraph, Beads, and Hindsight provisioning. It fails closed in non-interactive mode unless `--yes` is supplied. Use `--skip-codegraph`, `--skip-beads`, or `--skip-hindsight` only when the skip is intentional and recorded in the rollout evidence.
 
-Observer-only install (advisory hooks without pretool/post-write blockers; spawn guard stays on enforce):
+Reduced-hook orchestration install (advisory hooks without pretool/post-write blockers; spawn guard stays on enforce):
 
 ```bash
-ETRNL_ENABLE_STRICT=0 ./scripts/install.sh
+ETRNL_ENABLE_STRICT=0 ./scripts/install.sh --profile orchestrated
 ./scripts/doctor.sh
 ~/.claude/scripts/doctor-etrnl.sh
 ```
@@ -60,7 +84,7 @@ The installer:
 - installs scripts, script libraries, and `~/.codex/etrnl/install.json` into `~/.codex` so Codex sessions can run the same skill helpers without depending on `~/.claude`
 - runs `settings-audit.mjs --fix` so duplicate hook commands are compacted and the legacy race-prone rate limiter is replaced with `cc-rate-limiter.sh`
 - runs the hook and workflow-tool test harnesses plus the post-upgrade canary
-- merges strict blocker hooks by default (`PreToolUse` guard, post-write quality/sycophancy, `PostToolUseFailure`, `SubagentStop`); set `ETRNL_ENABLE_STRICT=0` to install the observer-only template instead
+- uses strict blocker hooks by default inside the optional orchestrated profile (`PreToolUse` guard, post-write quality/sycophancy, `PostToolUseFailure`, `SubagentStop`); set `ETRNL_ENABLE_STRICT=0` to install the reduced-hook template instead
 - records the evidence-before-agreement lesson to ETRNL state first, then exports it to Hindsight only when the Hindsight canary is green
 
 ## Hindsight Marketplace Access
@@ -108,7 +132,7 @@ Rollback:
 ~/.claude/scripts/rollback-local.sh
 ```
 
-Rollback removes current repo-owned `etrnl-*` agent, Claude/Codex skill, Codex script, and critical hook files, restores backed-up versions when they existed before install, and validates settings JSON when `jq` is available. It also restores the staged eternal-saas pack (`docs/templates/rules/eternal-saas`, or the legacy `rules/eternal-saas` location for backups taken before the pack moved) and any backed-up Codex startup files (`AGENTS.md`, `AGENTS.override.md`).
+Rollback removes current repo-owned `etrnl-*` agent, Claude/Codex skill, Codex script, and critical hook files, restores backed-up versions when they existed before install, and validates settings JSON when `jq` is available. Current snapshots include every copied helper dependency, preserve custom helper files, and refuse removal of a newly installed owned helper whose content has changed. Native-aware backups restore previous native groups and install identity while retaining later unrelated settings; older legacy backups retain their broader settings restore behavior. It also restores the staged eternal-saas pack (`docs/templates/rules/eternal-saas`, or the legacy `rules/eternal-saas` location for backups taken before the pack moved) and any backed-up Codex startup files (`AGENTS.md`, `AGENTS.override.md`).
 
 Update:
 
@@ -122,7 +146,7 @@ Startup update checks are cached and local-first.
 
 - `ETRNL_UPDATE_CHECK=0`: disable startup update checks.
 - `ETRNL_REMOTE_UPDATE_CHECK=1`: also check the git upstream.
-- `ETRNL_AUTO_UPDATE=0`: disable automatic local etrnl repair from the recorded source checkout. Local auto-update is enabled by default when the installed fingerprint is stale.
+- `ETRNL_AUTO_UPDATE=0`: disable automatic local etrnl repair from the recorded source checkout. Local auto-update is off by default; opt in explicitly with `ETRNL_AUTO_UPDATE=1`.
 - `ETRNL_TOOL_UPDATE_CHECK=0`: disable CodeGraph/Beads checks inside update-check.
 - `ETRNL_SKILL_UPDATE_CHECK=0`: disable the per-skill update check entirely. When enabled (default), stale repo-owned skills or tool stack trigger an advisory update note — run the reported update command when practical unless the user explicitly declines.
 
@@ -143,8 +167,4 @@ Hindsight modes:
 
 Beads remains backlog-only. The installer never runs raw `bd setup claude`, raw `bd setup codex`, or injects `bd prime --full` startup doctrine.
 
-Every requested Claude `etrnl-*` skill invocation runs the installed update checker first through the prompt router.
-
-Codex does not expose the same prompt-submit hook in the current CLI, so every repo-owned Codex skill starts with `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill <skill>`.
-
-If the local Eternal Stack is stale, the helper auto-updates from the recorded source checkout when safe, then surfaces any remaining remote or tool-stack items as an advisory note — run the reported update command when practical; only skip when the user explicitly declines.
+For the optional package, Claude prompt routing may run the installed freshness checker when a skill is invoked. Codex users can invoke the helper explicitly; Codex skill availability does not run it automatically. The check is read-only by default, advisory, and not an activation gate: local repair from the recorded source checkout requires `ETRNL_AUTO_UPDATE=1` (and still respects dirty-source protection). Remaining remote or tool-stack drift is reported as an advisory; update it separately when useful.

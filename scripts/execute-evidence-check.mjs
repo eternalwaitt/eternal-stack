@@ -1,5 +1,7 @@
 #!/usr/bin/env node
+import { hasReviewArtifact } from "./lib/review-evidence.mjs";
 import { readStdinJson } from "./lib/read-stdin.mjs";
+import { validateWorkflowContract } from "./lib/workflow-contract.mjs";
 
 const SOURCE_FILE_RE = /\.(js|jsx|ts|tsx|mjs|cjs|py|rs|go|php|rb|java|kt|swift|sh|bash|zsh)$/i;
 const EXEMPT_PATH_RE = /(\.test\.|\.spec\.|\/tests?\/|__tests__|\/node_modules\/|\/dist\/|\/build\/|\/coverage\/|\/generated\/|\/__generated__\/|\/migrations\/)/i;
@@ -154,8 +156,50 @@ function installProofSatisfied(state, timestamp) {
 }
 
 function executeGateStatus(state) {
+  const contractPresent = Object.hasOwn(state, "workflowContract");
+  let contract = null;
+  if (contractPresent) {
+    try {
+      contract = validateWorkflowContract(state.workflowContract);
+    } catch {
+      return "invalid-workflow-contract";
+    }
+  }
   const executeAt = latestExecuteRequest(state);
   if (!executeAt) return "";
+  if (contract) {
+    if (contract.requirements.mechanicalVerification) {
+      const commands = Array.isArray(state.commandRunEvidence) ? state.commandRunEvidence : [];
+      const hasCapturedPass = commands.some((item) => item?.evidenceKind === "command-run"
+        && item.status === "passed" && item.exitCode === 0
+        && Array.isArray(item.argv) && item.argv.length > 0
+        && /^[a-f0-9]{64}$/.test(String(item.outputDigest || ""))
+        && typeof item.startedTreeHash === "string" && item.startedTreeHash.length > 0
+        && item.startedTreeHash === item.treeHash
+        && String(item.at || "") >= executeAt);
+      if (!hasCapturedPass) return "missing-mechanical-verification";
+    }
+    if (contract.requirements.independentReview) {
+      const reviews = Array.isArray(state.contractReviewEvidence) ? state.contractReviewEvidence : [];
+      const hasReview = reviews.slice(-1).some((item) => item?.independent === true && item.status === "verified" && hasReviewArtifact(item)
+        && String(item.reviewer || "").trim() && String(item.at || "") >= executeAt);
+      if (!hasReview) return "missing-independent-review";
+    }
+    const sourceFiles = sourceEditsAfter(state, executeAt);
+    const editedFiles = editedFilesAfter(state, executeAt);
+    const installProofNeeded = needsInstallProof(state, editedFiles);
+    if (installProofNeeded && !installProofSatisfied(state, executeAt)) return "missing-install-proof";
+    if (sourceFiles.length === 0) return "";
+    if (contract.requirements.tddEvidence
+      && !anyEvidenceAfter(state, executeAt, ["tddEvidenceRuns"], /\b(tdd|red[_ -]?green|red_green_verified)\b/)) {
+      return "missing-tdd-evidence";
+    }
+    if (contract.requirements.planPhases && (!state.planPath || !Array.isArray(state.planPhases) || state.planPhases.length === 0)) {
+      return "missing-plan-phases";
+    }
+    if (contract.requirements.packet && !state.packetEvidence) return "missing-packet";
+    return "";
+  }
   const sourceFiles = sourceEditsAfter(state, executeAt);
   const editedFiles = editedFilesAfter(state, executeAt);
   const installProofNeeded = needsInstallProof(state, editedFiles);

@@ -12,7 +12,7 @@ Designs and iterates production-grade frontend interfaces. Real working code, co
 
 You MUST do these steps before proceeding:
 
-1. **Read project context manually.** Look for `PRODUCT.md` and `DESIGN.md` in the project root (or the target subdirectory in a monorepo). Read them if present and follow their guidance. **If `PRODUCT.md` is missing:** when the user invoked `init`, `teach`, `craft`, or `shape`, or a from-scratch build flow, follow `reference/init.md` first. For scoped evaluate / refine / enhance / fix requests against existing code, proceed with the requested command using the existing code as context; offer init once as an optional follow-up. A missing `PRODUCT.md` must never block a scoped request.
+1. **Read project context manually.** Look for `PRODUCT.md` and `DESIGN.md` in the project root (or the target subdirectory in a monorepo). Read them if present and follow their guidance. **If `PRODUCT.md` is missing:** when the user explicitly requests project discovery through `init` or `teach`, follow `reference/init.md`. For `craft`, `shape`, or a from-scratch build, reuse the supplied brief and project facts; consult init only for material gaps. A missing context file does not create a mandatory interview or approval step. For scoped evaluate / refine / enhance / fix requests against existing code, proceed with the requested command using the existing code as context; offer init once as an optional follow-up. A missing `PRODUCT.md` must never block a scoped request.
 2. If the user invoked a sub-command (`craft`, `shape`, `audit`, `polish`, ...), you MUST read the command's reference next: **`reference/<command>.md`, or the native variant from the Commands table** (e.g. `reference/audit.native.md`) **when the project platform is native** (`ios` / `android` / `adaptive`). One file, not both. Non-optional.
 3. Familiarize yourself with any existing design system, conventions, and components in the code. Read at least one project file (CSS / tokens / theme / a representative component or page). **Required even when you've loaded a sub-command reference in step 2.**
 4. Read the matching register reference. **Non-optional.** Marketing/landing/portfolio → `reference/brand.md`. App UI/admin/dashboard/tool → `reference/product.md`. Pick by task cue, surface in focus, or `register` in PRODUCT.md.
@@ -28,7 +28,7 @@ Produce ready-to-ship, production-grade code, not prototypes or starting points.
 
 #### Color
 
-- **Verify contrast.** Body text must hit ≥4.5:1 against its background; large text (≥18px or bold ≥14px) needs ≥3:1. Placeholder text needs the same 4.5:1, not the muted-gray default. The most common failure: muted gray body text on a tinted near-white. If the contrast is even close, bump the body color toward the ink end of the ramp; light gray "for elegance" is the single biggest reason AI designs feel hard to read.
+- **Verify contrast.** Body text must hit ≥4.5:1 against its background; large text (≥18pt / 24 CSS px, or bold ≥14pt / about 18.67 CSS px) needs ≥3:1. Placeholder text needs the same 4.5:1, not the muted-gray default. The most common failure: muted gray body text on a tinted near-white. If the contrast is even close, bump the body color toward the ink end of the ramp; light gray "for elegance" is the single biggest reason AI designs feel hard to read.
 - Gray text on a colored background looks washed out. Use a darker shade of the background's own hue, or a transparency of the text color.
 
 #### Typography

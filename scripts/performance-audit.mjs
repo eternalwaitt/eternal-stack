@@ -20,7 +20,7 @@ export function discover(root) {
   const stack = detectPerformanceStack(root, files);
   return { version: PERFORMANCE_CONTRACT_VERSION, runId: randomUUID(), targetId: `git:${path.basename(root)}`, mode: 'audit', inventory, surfaces, exclusions: [], hints, stack,
     expertise: planPerformanceExpertise(stack).map(p => ({ ...p, checkIds: PERFORMANCE_CHECKS.filter(c => p.domains.includes(c.domain)).map(c => c.id), status: 'blocked', blocker: { dependency: 'specialist investigation pending', action: 'Read the listed skill/resources, apply them to every assigned check, retain evidence and record loaded receipt' } })),
-    completion: { status: 'source_limited', findingLimit: null, cellLimit: null }, findings: [], rounds: [], rerun: { mode: 'first_run', historySearch: '', quality: 'first_run' },
+    completion: { status: 'source_limited', findingLimit: null, cellLimit: null, roundBudget: 3 }, findings: [], rounds: [], rerun: { mode: 'first_run', historySearch: '', quality: 'first_run' },
     discoveryReview: { routeCommand: '', runtimeCommand: '', limitations: 'Pending route manifest, runtime registration, ignored/generated surfaces and external-system reconciliation. Filename hints are not complete semantic discovery.' },
     receipts: PERFORMANCE_CHECKS.map(c => ({ id: c.id, surfaceIds: ['unclassified-source'], journeyIds: [], itemCount: 1, journeyCount: 0, inventoryHash: inventory.sha256, status: 'source_limited', reason: 'Discovery classification and investigation pending', blocker: { dependency: 'classified source/runtime surfaces and representative journeys', action: `Load ${c.reference}, reconcile runtime manifests, classify surfaces and investigate ${c.id}` }, dispatch: dispatchPerformance(c) })) };
 }

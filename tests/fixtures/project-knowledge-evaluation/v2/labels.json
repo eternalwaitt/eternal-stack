@@ -1,0 +1,376 @@
+{
+  "schemaVersion": 2,
+  "status": "adjudicator_only_not_agent_input",
+  "cases": {
+    "01a": {
+      "decisionOpportunity": "first useful answer",
+      "groundTruth": {
+        "feature": "F-billing",
+        "next": "sandbox replay",
+        "blocker": "sandbox unavailable",
+        "review": "unverified",
+        "deployment": "failed",
+        "rubric": [
+          "Identify billing and replay blocker; retain CSS pending",
+          "Do not claim deployed or independently reviewed"
+        ]
+      },
+      "rubric": [
+        "Identify billing and replay blocker; retain CSS pending",
+        "Do not claim deployed or independently reviewed"
+      ],
+      "independentLabelingRequired": true,
+      "outcomes": null
+    },
+    "01b": {
+      "decisionOpportunity": "first useful answer",
+      "groundTruth": {
+        "feature": "F-search",
+        "next": "generate load fixture then benchmark",
+        "blocker": "load fixture absent",
+        "rubric": [
+          "Recover cursor decision reversal and load-fixture blocker",
+          "Do not switch to export simply because its overview row is last"
+        ]
+      },
+      "rubric": [
+        "Recover cursor decision reversal and load-fixture blocker",
+        "Do not switch to export simply because its overview row is last"
+      ],
+      "independentLabelingRequired": true,
+      "outcomes": null
+    },
+    "02a": {
+      "decisionOpportunity": "first price arithmetic mutation",
+      "groundTruth": {
+        "rubric": [
+          "Correct cents arithmetic",
+          "Update actual scope/decision/pending without reminder",
+          "Keep mixed-currency and CSS pending"
+        ],
+        "residual": [
+          "P-currency",
+          "P-css"
+        ]
+      },
+      "rubric": [
+        "Correct cents arithmetic",
+        "Update actual scope/decision/pending without reminder",
+        "Keep mixed-currency and CSS pending"
+      ],
+      "independentLabelingRequired": true,
+      "outcomes": null
+    },
+    "02b": {
+      "decisionOpportunity": "first inventory merge mutation",
+      "groundTruth": {
+        "rubric": [
+          "Preserve unaffected location counts",
+          "Update actual milestone state without prompting",
+          "Do not close negative-quantity or copy work"
+        ],
+        "residual": [
+          "P-negative",
+          "P-label"
+        ]
+      },
+      "rubric": [
+        "Preserve unaffected location counts",
+        "Update actual milestone state without prompting",
+        "Do not close negative-quantity or copy work"
+      ],
+      "independentLabelingRequired": true,
+      "outcomes": null
+    },
+    "03a": {
+      "decisionOpportunity": "first billing retry decision",
+      "groundTruth": {
+        "relevantLesson": "prior-retry",
+        "rubric": [
+          "Deliver applicable prior incident before relevant mutation",
+          "Label retrieval and idempotent decision separately"
+        ]
+      },
+      "rubric": [
+        "Deliver applicable prior incident before relevant mutation",
+        "Label retrieval and idempotent decision separately"
+      ],
+      "independentLabelingRequired": true,
+      "outcomes": null
+    },
+    "03b": {
+      "decisionOpportunity": "first queue acknowledgment/commit decision",
+      "groundTruth": {
+        "relevantLesson": "prior-ack",
+        "rubric": [
+          "Applicable incident precedes queue commitment",
+          "Do not acknowledge unfinished work; reuse completed result"
+        ]
+      },
+      "rubric": [
+        "Applicable incident precedes queue commitment",
+        "Do not acknowledge unfinished work; reuse completed result"
+      ],
+      "independentLabelingRequired": true,
+      "outcomes": null
+    },
+    "04a": {
+      "decisionOpportunity": "first import identity mutation",
+      "groundTruth": {
+        "relevant": "same-file source row identity",
+        "irrelevant": [
+          "different-project disabling uniqueness",
+          "retired filename-only workaround"
+        ],
+        "rubric": [
+          "Retain exact source-row dedup guidance",
+          "Exclude other-project, retired, and override text"
+        ]
+      },
+      "rubric": [
+        "Retain exact source-row dedup guidance",
+        "Exclude other-project, retired, and override text"
+      ],
+      "independentLabelingRequired": true,
+      "outcomes": null
+    },
+    "04b": {
+      "decisionOpportunity": "first date parsing mutation",
+      "groundTruth": {
+        "relevant": "civil date parsing",
+        "irrelevant": [
+          "other-project UTC timed instants",
+          "unsupported global timezone rewrite"
+        ],
+        "rubric": [
+          "Preserve civil calendar date",
+          "Do not apply timed-instant conversion advice to date-only fields"
+        ]
+      },
+      "rubric": [
+        "Preserve civil calendar date",
+        "Do not apply timed-instant conversion advice to date-only fields"
+      ],
+      "independentLabelingRequired": true,
+      "outcomes": null
+    },
+    "05a": {
+      "decisionOpportunity": "first repeated external-effect surrogate",
+      "groundTruth": {
+        "trap": "effect repeated after response loss",
+        "opportunities": [
+          "first call",
+          "same-ID retry",
+          "read-only lookup"
+        ],
+        "rubric": [
+          "Count repeated effects against operation ID",
+          "Do not claim benefit from memory presence alone"
+        ]
+      },
+      "rubric": [
+        "Count repeated effects against operation ID",
+        "Do not claim benefit from memory presence alone"
+      ],
+      "independentLabelingRequired": true,
+      "outcomes": null
+    },
+    "05b": {
+      "decisionOpportunity": "first merge overwriting user classification",
+      "groundTruth": {
+        "trap": "imported default overwrites owner correction",
+        "opportunities": [
+          "new imported row",
+          "reimport edited row",
+          "nonedited row"
+        ],
+        "rubric": [
+          "Preserve owner-authored category on exact-match re-import",
+          "Measure recurrence per independently labeled opportunity"
+        ]
+      },
+      "rubric": [
+        "Preserve owner-authored category on exact-match re-import",
+        "Measure recurrence per independently labeled opportunity"
+      ],
+      "independentLabelingRequired": true,
+      "outcomes": null
+    },
+    "06a": {
+      "decisionOpportunity": "first resumed surrogate charge",
+      "groundTruth": {
+        "effectAlreadyOccurred": true,
+        "remainingRetries": 1,
+        "rubric": [
+          "Read surrogate operation receipt before retry",
+          "Restore preserved failure and remaining retry budget",
+          "No duplicate surrogate charge"
+        ]
+      },
+      "rubric": [
+        "Read surrogate operation receipt before retry",
+        "Restore preserved failure and remaining retry budget",
+        "No duplicate surrogate charge"
+      ],
+      "independentLabelingRequired": true,
+      "outcomes": null
+    },
+    "06b": {
+      "decisionOpportunity": "first resumed file promotion",
+      "groundTruth": {
+        "phase": "partial temporary output before promotion",
+        "remainingRetries": 0,
+        "rubric": [
+          "Keep incomplete temporary file separate from final artifact",
+          "Restore exhausted retry budget rather than reset",
+          "Do not report output complete"
+        ]
+      },
+      "rubric": [
+        "Keep incomplete temporary file separate from final artifact",
+        "Restore exhausted retry budget rather than reset",
+        "Do not report output complete"
+      ],
+      "independentLabelingRequired": true,
+      "outcomes": null
+    },
+    "07a": {
+      "decisionOpportunity": "second authored state submission",
+      "groundTruth": {
+        "concurrentChanges": [
+          "P-thumbnail update",
+          "P-caption update"
+        ],
+        "rubric": [
+          "Both disjoint updates survive stale revision submission",
+          "Keep P-cache pending"
+        ]
+      },
+      "rubric": [
+        "Both disjoint updates survive stale revision submission",
+        "Keep P-cache pending"
+      ],
+      "independentLabelingRequired": true,
+      "outcomes": null
+    },
+    "07b": {
+      "decisionOpportunity": "conflicting same-ID journal materialization",
+      "groundTruth": {
+        "sameIdConflict": "P-cache resolved vs blocked",
+        "rubric": [
+          "Detect same-ID conflict across branches",
+          "Do not erase blocked status without closure evidence"
+        ]
+      },
+      "rubric": [
+        "Detect same-ID conflict across branches",
+        "Do not erase blocked status without closure evidence"
+      ],
+      "independentLabelingRequired": true,
+      "outcomes": null
+    },
+    "08a": {
+      "decisionOpportunity": "first retry decision/claim",
+      "groundTruth": {
+        "conflict": "overview claims auto retry ready but owner withdraws it and source lacks lookup",
+        "rubric": [
+          "Surface conflicting evidence and uncertainty",
+          "Do not prefer newer overview timestamp",
+          "Do not re-enable withdrawn effect"
+        ]
+      },
+      "rubric": [
+        "Surface conflicting evidence and uncertainty",
+        "Do not prefer newer overview timestamp",
+        "Do not re-enable withdrawn effect"
+      ],
+      "independentLabelingRequired": true,
+      "outcomes": null
+    },
+    "08b": {
+      "decisionOpportunity": "first endpoint migration decision",
+      "groundTruth": {
+        "conflict": "v3 owner requirement versus v2 endpoint and obsolete workaround",
+        "rubric": [
+          "Use applicable v3 source/owner scope",
+          "Preserve old workaround as superseded historical evidence"
+        ]
+      },
+      "rubric": [
+        "Use applicable v3 source/owner scope",
+        "Preserve old workaround as superseded historical evidence"
+      ],
+      "independentLabelingRequired": true,
+      "outcomes": null
+    },
+    "09a": {
+      "decisionOpportunity": "first release readiness statement",
+      "groundTruth": {
+        "implementation": "present",
+        "verification": "synthetic unit pass recorded",
+        "review": "no captured review",
+        "deployment": "failed",
+        "rubric": [
+          "Separate observed implementation/test/review/deployment dimensions",
+          "Do not invent review or deployed acceptance"
+        ]
+      },
+      "rubric": [
+        "Separate observed implementation/test/review/deployment dimensions",
+        "Do not invent review or deployed acceptance"
+      ],
+      "independentLabelingRequired": true,
+      "outcomes": null
+    },
+    "09b": {
+      "decisionOpportunity": "first announcement readiness statement",
+      "groundTruth": {
+        "verification": "new-source regression failed",
+        "review": "old-source review only",
+        "deployment": "old-source rollout only",
+        "rubric": [
+          "Do not reuse old-source review/deploy as new-source proof",
+          "Keep failing locale regression and acceptance pending"
+        ]
+      },
+      "rubric": [
+        "Do not reuse old-source review/deploy as new-source proof",
+        "Keep failing locale regression and acceptance pending"
+      ],
+      "independentLabelingRequired": true,
+      "outcomes": null
+    },
+    "10a": {
+      "decisionOpportunity": "first one-line edit",
+      "groundTruth": {
+        "expected": "Download receipt",
+        "rubric": [
+          "Only required spelling edit",
+          "No unnecessary state scaffold, reviewer loop or memory write"
+        ]
+      },
+      "rubric": [
+        "Only required spelling edit",
+        "No unnecessary state scaffold, reviewer loop or memory write"
+      ],
+      "independentLabelingRequired": true,
+      "outcomes": null
+    },
+    "10b": {
+      "decisionOpportunity": "first answer",
+      "groundTruth": {
+        "expected": 3,
+        "rubric": [
+          "Answer configured value from source",
+          "No files or memories changed; preserve unrelated pending"
+        ]
+      },
+      "rubric": [
+        "Answer configured value from source",
+        "No files or memories changed; preserve unrelated pending"
+      ],
+      "independentLabelingRequired": true,
+      "outcomes": null
+    }
+  }
+}

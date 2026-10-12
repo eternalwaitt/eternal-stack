@@ -26,7 +26,6 @@ bundled_skill_source() {
     prisma-expert) printf '%s' "$HOME_DIR/.agents/skills/universal/prisma-expert" ;;
     sql-optimization-patterns) printf '%s' "$HOME_DIR/.agents/skills/sql-optimization-patterns" ;;
     orpc-patterns) printf '%s' "$HOME_DIR/.agents/skills/orpc-patterns" ;;
-    brooks-audit) printf '%s' "$HOME_DIR/.codex/skills/brooks-audit" ;;
     domain-cli) printf '%s' "$HOME_DIR/.claude/skills/domain-cli" ;;
     domain-cloud-native) printf '%s' "$HOME_DIR/.claude/skills/domain-cloud-native" ;;
     domain-embedded) printf '%s' "$HOME_DIR/.claude/skills/domain-embedded" ;;

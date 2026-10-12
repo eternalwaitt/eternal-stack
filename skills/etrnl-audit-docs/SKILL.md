@@ -4,7 +4,6 @@ description: ETRNL documentation-health audit and remediation workflow. Use when
 ---
 # ETRNL Documentation Health
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-audit-docs`; on update, run the reported update command before continuing; only skip if the user explicitly declines.
 
 Run documentation health as an evidence-led repo workflow. Inspect actual files, commands, contracts, scripts, tests, routes, schemas, and runtime docs before judging whether documentation is accurate.
 
@@ -36,10 +35,10 @@ Documentation health is never satisfied by prose alone.
 1. Read repo instructions first: `AGENTS.md`, `AGENTS.override.md`, `CLAUDE.md`, docs policy, and local health stack.
 2. Inspect git status and preserve unrelated local edits.
 3. Build an inventory before forming conclusions:
-   - Run `node scripts/code-health-inventory.mjs --json --include-untracked` (or the installed `~/.claude/scripts/` copy); fall back to a tracked-file inventory with explicit `CHECKS_SKIPPED` reasons.
+   - When the Eternal companion is available, run `node {{ETRNL_COMPANION}} run scripts/code-health-inventory.mjs -- --json --include-untracked`; otherwise use the target repository's inventory tool or a tracked-file inventory and state the source and limitations. Do not assume an Eternal helper is installed under either host's home.
    - List vendor, dependency, build output, cache, generated, fixture, local agent state, worktree, log, and audit-artifact paths as explicit exclusions with reasons. Do not audit them as documentation or comment action items.
 4. Run comment health inventory before conclusions:
-   - Run `node scripts/documentation-comment-health.mjs --root . --json --include-untracked` (or the installed `~/.claude/scripts/` copy). If the repo has no JS/TS source surface, write `COMMENT_HEALTH_NOT_APPLICABLE:` with evidence from inventory.
+   - When the Eternal companion is available and the repo has JS/TS, run `node {{ETRNL_COMPANION}} run scripts/documentation-comment-health.mjs -- --root . --json --include-untracked`. If the helper or source surface is unavailable, report the limitation or `COMMENT_HEALTH_NOT_APPLICABLE:` with inventory evidence; do not probe a fixed host-home path.
 5. Classify every documentation surface as `canonical`, `secondary`, `stale`, `misleading`, `archive`, `generated`, `duplicate`, `delete_candidate`, or `missing`.
 6. Map each important doc claim to a source of truth: scripts, package manifests, routes, schemas, migrations, tests, hooks, CI, deployment config, typed env modules, or actual installed/runtime state when relevant.
 7. Build a freshness and drift proof before scoring:
@@ -50,13 +49,13 @@ Documentation health is never satisfied by prose alone.
    - Count active plan, work-queue, roadmap, handover, migration, and status docs separately because stale current-work docs create high-confidence agent drift.
 8. Run deterministic documentation gates when available:
    - `markdownlint-cli2`, `cspell`, `vale`, link checkers, TypeDoc/API Extractor, or repo-specific docs scripts.
-   - For this Eternal Stack, include `node scripts/skill-contract-check.mjs`, `tests/test-hooks.sh`, and `scripts/doctor.sh` after any repo-owned skill/docs change.
+   - When auditing Eternal Stack source changes, include the skill-contract check; run hook and doctor suites when the changes touch their surfaces and the source checkout contains those tests. For other target repos, use their own gates. A Core install does not register hooks, and installed copies are a separate state from source.
 9. Create an actionable findings ledger and remediation plan with severity, evidence, disposition, owner/action needed when known, verification, and exact next step.
 10. In `fix`/`execute` mode, patch the smallest canonical surface and remediate every valid finding. Update stale docs instead of adding competing docs. Add local READMEs or comments only where they prevent real misuse.
 11. Terminally dispose unresolved findings before final completion. Allowed terminal non-fixed states are `false_positive_with_evidence`, `accepted_risk_with_owner`, and `blocked`; each needs evidence and owner/action where relevant.
 12. Do not create a baseline, ratchet, waiver, or snapshot as a substitute for remediation unless explicitly requested. If requested, record the unresolved item as `blocked` or `accepted_risk_with_owner` with owner, evidence, and reason.
 13. Rerun validation. Do not claim 100/100 with stale, misleading, or outdated documentation remaining, even when every remaining item has a terminal owner disposition.
-14. Final completion is hook-gated. A short narrative such as "docs look healthy" is not valid completion. The final report must include coverage counters, freshness and drift counters, comment-health counters, source-of-truth mapping, documentation classifications, a findings ledger with severity/disposition/verification, skipped-check reasons, and the full scorecard.
+14. Complete selected evidence and checks. Core has no automatic hook gate; optional hooks enforce only when enabled in the host. A short narrative such as "docs look healthy" is not valid completion. The final report must include coverage counters, freshness and drift counters, comment-health counters, source-of-truth mapping, documentation classifications, a findings ledger with severity/disposition/verification, skipped-check reasons, and the full scorecard.
 
 ## Parallel Subagent Fan-Out
 
@@ -160,19 +159,9 @@ Severity:
 
 ## Completion Contract
 
-Before final completion:
+Reconcile any lane results into one deduplicated ledger. Classify or explicitly exclude each relevant surface with evidence, run the target repo's applicable gates, and record unavailable checks in `CHECKS_SKIPPED`. In `fix`/`execute` mode, rerun checks for edited docs and leave no finding `open`. Report the freshness/drift and comment-health counters defined above, plus scores from 1-10 for root clarity, discoverability, freshness, architecture, structure, API/contracts, runtime docs, ADRs, AI context, comments, onboarding, enforcement, and overall health.
 
-1. Reconcile subagent lane outputs into one deduplicated ledger.
-2. Verify every relevant surface is current, fixed, classified, accepted, blocked, or explicitly excluded.
-3. List exclusions with evidence, not assumptions.
-4. Run the target repo health stack. If a gate is unavailable, record it in `CHECKS_SKIPPED` with reason.
-5. In `fix`/`execute` mode, rerun the checks that prove edited docs match source behavior and confirm no finding remains `open`.
-6. Report freshness and drift counters from the active source-truth review and stale-reference search proof.
-7. Report comment-health counters from `documentation-comment-health.mjs` or `COMMENT_HEALTH_NOT_APPLICABLE:` with evidence.
-8. Report scores 1-10 for root clarity, discoverability, freshness, architecture clarity, structure clarity, API/contract docs, runtime docs, ADRs, AI context, comments, onboarding, enforcement, and overall health.
-
-The stop hook enforces this contract with `documentation-health-ledger-check.mjs`.
-For this Eternal Stack, use `node ~/.claude/scripts/code-health-inventory.mjs --json --include-untracked` before conclusions and run at least one deterministic docs/skill validation gate before final completion.
+In profiles that install and register the documentation stop hook, it can enforce the ledger contract with `documentation-health-ledger-check.mjs`. Core does not register that hook; use the helper explicitly when available and report source-only validation honestly. For Eternal Stack source audits, use `node {{ETRNL_COMPANION}} run scripts/code-health-inventory.mjs -- --json --include-untracked` and an applicable deterministic docs/skill gate when available.
 
 ## Common Rationalizations
 
@@ -212,7 +201,7 @@ Every item is PASS/FAIL; any FAIL means the run is incomplete.
 Red-capable gate — fails (exit 1) when any public/risky export lacks a leading doc comment, exits 0 only at zero missing targets:
 
 ```
-node scripts/documentation-comment-health.mjs --root . --json \
+node {{ETRNL_COMPANION}} run scripts/documentation-comment-health.mjs -- --root . --json \
   | node -e 'const d=JSON.parse(require("fs").readFileSync(0,"utf8"));process.exit(d.missingDocTargetCount>0?1:0)'
 # exit 0 => zero missing doc targets; exit 1 => missing-doc defect present
 ```

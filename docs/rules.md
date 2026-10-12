@@ -1,5 +1,7 @@
 # Rules Reference
 
+Core installs no rule modules. The optional package below is selected explicitly. See the [host capability matrix](host-capabilities.md) for install boundaries.
+
 Rule modules live in `rules/` and ship as a cross-host pack. Each module is a focused markdown file with YAML frontmatter. `scripts/sync-rule-exports.mjs` generates Cursor `.mdc` twins; `scripts/init-project-rules.sh` copies the pack into a target repo.
 
 ## How rules activate per host
@@ -19,7 +21,7 @@ Claude Code discovers every `.md` under a rules directory recursively and loads 
 **Global rules** (`rules/etrnl/` only) are installed to `~/.claude/rules/etrnl/` by `scripts/install.sh`, which also stages the eternal-saas pack under `~/.claude/docs/templates/rules/eternal-saas/` without loading it:
 
 ```bash
-./scripts/install.sh --profile core
+./scripts/install.sh --profile orchestrated
 ```
 
 **Project rules** (full scoped pack, both scopes) are installed by `scripts/init-project-rules.sh`:
@@ -99,3 +101,7 @@ Cursor does not support user-level or global rules directories (settings UI only
 node scripts/sync-rule-exports.mjs --check
 ./scripts/doctor.sh
 ```
+
+## Review-generated proposals
+
+`review-learn.mjs` records private recurrence observations and proposes rules by default. Frequency is not causal evidence and does not enable a shared rule. Only an explicitly authorized `--apply-rules` invocation can add/enable a rule or escalate warn to block; assess the proposed rule and a labeled precision corpus first. Host-local recurrence storage comes from the companion host home, while repository rule configuration remains a separate authored artifact.

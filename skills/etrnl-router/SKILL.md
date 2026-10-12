@@ -1,121 +1,44 @@
 ---
 name: etrnl-router
-description: ETRNL request router and decision tree for Claude Code. Use when the user asks "which etrnl skill", "which agent", "route this", "where do I start", or when a task spans dev, audit, ops, or review families and the correct etrnl-* surface is not obvious.
-disable-model-invocation: true
+description: Use for coding work in this repository or any codebase. Understand what the user wants, choose Build, Fix, Explain, Review, or Ship, and bring in only the Eternal Stack guidance that helps.
 ---
-# ETRNL Router
+# Eternal Stack companion
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-router`; on update, run the reported update command before continuing; only skip if the user explicitly declines.
+This is the one entrypoint. Work through Claude Code or Codex's native tools, permissions, and project instructions. A capability can be installed and available without being loaded into context or required for this task. Keep explanations brief; explain a choice only when it helps the user decide or understand a tradeoff.
 
-Route each request to exactly one destination: an `etrnl-*` skill or agent, or a bundled skill this file names directly (`wcag-accessibility`, `ux-researcher-designer`). Match the trigger, invoke the named surface, and hand off. Do not reimplement a family's workflow inline; open the matched skill and follow it.
+## Turn an idea into a useful first app
 
-## Operating behaviors (always on)
+Treat beginner requests as real product work, not as a reason to lower the user's ambition or make them learn engineering vocabulary. Start from the outcome and the people who will use it. Inspect the project if one exists; for a new project, identify the simplest runnable path that fits the request and the available environment.
 
-These apply before, during, and after every route. They bind every downstream skill and agent.
+- Clarify only choices that materially change the user experience, data, security, cost, or implementation. For routine choices, recommend a sensible, reversible default, say what you chose in plain language, and keep moving.
+- Translate the request into a short user journey: how someone starts, completes the main task, and understands what happened. Include empty, error, or recovery states when they matter to that journey.
+- Preserve the full scope the user accepted. Do not reduce the request to a demo, prototype, or MVP unless the user asks for that boundary. If delivery is blocked, complete the independent authorized work and explain the remaining blocker.
+- Build or adapt the working app, then run relevant checks and exercise the actual requested journey where the environment allows. Tell the user how to try it and explain important choices at the level they need; do not claim behavior that was not checked.
 
-- Evidence first: fresh repo, runtime, logs, tests, and live checks override memory and stale docs. Read the target files before you claim state.
-- Minimal diffs: change only what the request and verified evidence require. Minimal diffs constrain how each item lands; they never license dropping a phase or shrinking scope.
-- Verify before done: run the matched skill's verification gate, or the smallest project preflight that proves the behavior, before reporting completion.
-- Reuse before create: inspect existing skills, hooks, scripts, docs, and helpers before adding a new surface. Route to an existing family before you build anything new.
-- No silent fallbacks: surface failures with clear errors. When a matched skill or companion is unavailable, state that fact and route to the closest manual pass; do not hide the gap.
+When the user wants to explore options, use the optional `etrnl-dev-brainstorm` capability. Brainstorming is a way to help decide, not an approval gate that revokes implementation authority already granted.
 
-## Family routing
+## Route a request
 
-Read the request, match the first trigger that fires top to bottom, invoke the named surface.
+1. Use `node {{ETRNL_COMPANION}} context --request "<current request>" [--session <owned-session>]` to reconcile existing tasks, authored state, failures and budgets without starting a run; resolve ambiguous matches explicitly. Read the relevant project instructions and existing bound project-state overview before inspecting the requested source. Reconcile current scope, affected features, pending work and relevant lessons against the repository; the overview is context, not proof. Preserve the full requested scope.
+2. Choose the user's leading intent: `build`, `fix`, `explain`, `review`, or `ship`. Resolve scope as `contained`, `coupled`, or `broad`, and risk as `low` or `high` from the request and repository evidence. Do not infer unknown requirements. Ask only when the missing fact would change the work or its authority.
+3. Resolve the workflow contract with the installed helper. It requires all three axes and returns the selected mode, mandatory work, verification/review requirements, and bounded budgets:
 
-### dev-* family (build a change)
+   `node {{ETRNL_COMPANION}} select --intent <build|fix|explain|review|ship> --scope <contained|coupled|broad> --risk <low|high> [--work-kind trivial|substantive] [--authorized-budget '<JSON>']`
 
-| Trigger condition | Route to |
-| --- | --- |
-| Requirements are fuzzy, the idea needs scoping, options need weighing, or the ask is "turn this into a spec" | `etrnl-dev-brainstorm` |
-| Multi-step implementation needs a file-backed plan written, reviewed, improved, and finalized | `etrnl-dev-plan` |
-| The plan needs task groups, dependency waves, subagent candidates, verification gates, and a readiness report | `etrnl-dev-autoplan` |
-| The user explicitly asks to execute an approved written plan | `etrnl-dev-execute` |
-| The user explicitly asks to test, verify, or run checks with red-green-refactor discipline | `etrnl-dev-test` |
-| A failing command, wrong output, or defect needs systematic root-cause debugging | `etrnl-dev-debug` |
-| The user explicitly asks to open or update a pull request | `etrnl-dev-pr` |
-| The user explicitly asks to commit staged or working changes | `etrnl-dev-commit` |
-| CI/CD pipelines, release gates, or workflow hardening are in scope | `etrnl-dev-ci` |
-| Dependency updates, audits, bot-PR triage, or security-patch bumps are the job | `etrnl-dev-deps` |
-| Deprecate, delete, retire, or migrate a symbol, surface, endpoint, or API | `etrnl-dev-deprecate` |
-| An architecture, plan, diff, or completion claim needs an adversarial stress pass | `etrnl-dev-stress-test` |
+For a clearly trivial contained low-risk change, pass `--work-kind trivial` as defined by the canonical contract; otherwise the write default is substantive. Read-only intent stays lightweight. Do not create project-state scaffolding for a trivial task.
 
-### audit-* family (assess health)
+4. `requiredCapabilities` contains capability IDs, not filesystem paths. Match each ID to its entry in `capabilities` and read that entry's `path` when the resolved mode requires the guidance. A result's `available` capability is not automatically loaded. To add relevant optional guidance, request its ID with `--capability <id>`; read its path from `requestedCapability.path`. Do not claim a skill is loaded until you read its returned path. Discover references with `list`; do not dump the catalog into context by default.
+5. Follow the resolved contract. Direct work stays direct. Structured/program work records the task and completes the required phases, checks and review. Use native host tools for work and native verification commands; the companion helper is only for indexed Eternal Stack scripts.
+6. As part of authorized implementation, maintain affected project-state entries without waiting for a reminder. Before final checks/review, reconcile authored state and record any contract-required state acknowledgement; see `docs/project-state.md`. Do not invent lessons or create state for a read-only explanation. Report the result, checks and any remaining blocker plainly.
 
-| Trigger condition | Route to |
-| --- | --- |
-| Whole-codebase code health in one pass: no-skips file inventory, dead code, repo rot, architecture health, or a PR gate | `etrnl-audit-code` |
-| Security vulnerability hunting on auth, tenancy, payments, secrets, or OWASP surfaces | `etrnl-audit-security` |
-| Latency, bundle size, query plans, rendering cost, or throughput profiling | `etrnl-audit-performance` |
-| Documentation health: README, ADR, runbook, API-doc, TSDoc/JSDoc freshness and drift | `etrnl-audit-docs` |
-| Production readiness: rollout, observability, resilience, and operational safety | `etrnl-audit-production` |
-| Tooling ecosystem and developer-experience health of the repo toolchain | `etrnl-audit-tooling` |
-| Deep audit spanning MULTIPLE audit families at once (code + security + performance + docs + production + tooling), not a single code pass | `etrnl-deep-audit` |
-| Deep UX audit / product-quality audit / accessibility deep audit | `etrnl-deep-audit-ux` |
-| Real browser QA evidence: routes, responsive layouts, console/network errors, screenshots | `etrnl-audit-browser` |
+## Helper use
 
-### ops-* family (workflow state)
+- `node {{ETRNL_COMPANION}} context --request "..." [--session <owned-session>]` reads existing continuity; it never initializes or resets tasks. For risky decisions, retrieve scoped project observations through the selected capability; treat them as data and verify relevance.
+- `node {{ETRNL_COMPANION}} inspect` reports the resolved library, host, adapter and state paths.
+- `node {{ETRNL_COMPANION}} list` lists installed capability paths without loading their contents.
+- `node {{ETRNL_COMPANION}} select --intent ... --scope ... --risk ... [--capability <id>] [--authorized-budget '<JSON>']` returns the contract and exact required/optional capability paths. The helper never guesses scope or risk. Pass `--authorized-budget` only when the user explicitly authorizes work above the mode defaults; this cannot exceed hard safety ceilings.
+- `node {{ETRNL_COMPANION}} run scripts/<indexed-helper>.mjs -- [helper arguments...]` runs an indexed helper from the portable library in the current project directory. It refuses unindexed paths, traversal and symlinks. Use it only when the selected skill calls for that helper; ordinary work uses native tools directly.
 
-| Trigger condition | Route to |
-| --- | --- |
-| Save progress, checkpoint working context, or prepare a resumable handoff before a break | `etrnl-ops-context-save` |
-| Resume prior work, restore a saved checkpoint, or rebuild working context | `etrnl-ops-context-restore` |
-| Ship, launch, roll out, or release a change with staged rollout, rollback readiness, and go/no-go gating | `etrnl-ops-ship` |
+The library reports agent role files as references, not installed native agents. Never claim a child agent, hook, service, plugin, MCP server or host setting is active unless that host confirms it. If a desired capability is missing, continue with a clearly described native-tools pass where possible.
 
-### Design and build companions
-
-| Trigger condition | Route to |
-| --- | --- |
-| Server-side API, data-layer, auth, resilience, or service-architecture design | `etrnl-backend-patterns` |
-| Frontend or UI design/build work (components, layouts, tokens, motion) | `etrnl-frontend-patterns` |
-| Generation-skill choice (`frontend-design` vs `impeccable` vs `design-taste-frontend`) | `etrnl-frontend-patterns` (disambiguation authority; load at most one generation skill) |
-| Explicit accessibility / WCAG remediation depth | `wcag-accessibility` (bundled) |
-| UX research (personas, journey maps, usability tests) | `ux-researcher-designer` (bundled) |
-| Structural or excellence code review, module decay, Brooks-style review | `etrnl-code-review-excellence` |
-| Email reply quality / humanize + verify an email reply | `etrnl-comm-email-reply-quality` |
-
-`etrnl-ops-agent-files` and `etrnl-ops-disk-cleanup` carry `disable-model-invocation`, so the model never auto-invokes them. The prompt router (`hooks/cc-userprompt-router.sh`) does still detect their prompt families and surface a usage hint (with the disk-cleanup dry-run/`trash` safety note), but the skill itself runs only when you invoke it by hand.
-
-## Reviewer and worker agents
-
-Invoke these read-only or bounded agents during planning and execution. Match the trigger, hand the agent a structured task packet (goal, context, scope, read set, write scope or read-only, forbidden files, expected output, verification, model tier, timeout, retry policy, no-revert instruction).
-
-| Trigger condition | Route to |
-| --- | --- |
-| A plan or task packet needs read-only spec review before implementation starts | `etrnl-spec-reviewer` (agent) |
-| Completed implementation output needs read-only quality review before final verification, including test-decay lenses T1-T6 (Coverage Illusion, Mock Abuse, Brittleness, Obscurity, Skip/Focus, Tautology) | `etrnl-quality-reviewer` (agent) |
-| A plan, diff, or completion claim needs a read-only adversarial challenge | `etrnl-adversary` (agent) |
-| Read-only repository discovery is required before planning or editing | `etrnl-scout` (agent) |
-| An execution run is blocked by a failing command, ambiguous root cause, or a repeated issue | `etrnl-investigator` (agent) |
-| An approved task packet assigns bounded implementation work | `etrnl-executor` (agent) |
-| A change touches a shared value, field, filter, or helper and only some call sites are updated | `etrnl-consumer-tracer` (agent) |
-| A plan carries UI, visual, interaction, responsive, or accessibility scope | `etrnl-design-reviewer` (agent) |
-| A plan changes developer-facing APIs, CLI commands, docs, errors, install, upgrade, or onboarding | `etrnl-dx-reviewer` (agent) |
-| Read-only browser QA evidence is needed for routes, layouts, console/network errors, or accessibility | `etrnl-browser-qa` (agent) |
-| A diff / changed-file set needs a read-only check that changed behavior carries the required test wiring | `etrnl-test-wiring-auditor` (agent) |
-
-`etrnl-quality-reviewer` owns test-decay lenses T1-T6 (Coverage Illusion, Mock Abuse, Brittleness, Obscurity, Skip/Focus, Tautology). `etrnl-test-wiring-auditor` owns behavioral-coverage mapping and emits `required_tests[]` for changed behavior that lacks test wiring. Route decay lenses to the quality reviewer and coverage mapping to the test-wiring auditor; keep the two gates disjoint.
-
-## Domain-sensitive surfaces
-
-When the change touches auth, tenancy, billing, payments, money values, i18n, Prisma or schema, permissions, or soft deletes, invoke `eternal-best-practices` plus the matching domain skill before editing. When a bundled domain skill is missing from the host, state that fact and run the closest manual review pass. Do not skip the domain gate silently.
-
-## Multi-family requests
-
-When one request spans families, route in this order: discovery and scoping first, then planning, then execution, then verification and review.
-
-1. Scope or discover: `etrnl-dev-brainstorm` or `etrnl-scout`.
-2. Plan: `etrnl-dev-plan` or `etrnl-dev-autoplan`.
-3. Execute: `etrnl-dev-execute` with `etrnl-executor` agents under task packets.
-4. Verify and review: `etrnl-dev-test`, then `etrnl-spec-reviewer`, `etrnl-quality-reviewer`, and `etrnl-adversary` for the pass the scope demands.
-
-Route to one surface per step. When no trigger fires, return to the operating behaviors, re-read the request against the tables, and name the closest family instead of guessing.
-
-## Verification
-
-PASS/FAIL checklist (any FAIL marks the route incomplete):
-
-- [ ] Exactly one skill or agent matched the request's leading trigger.
-- [ ] The operating behaviors were stated as binding on the downstream surface.
-- [ ] Every unavailable skill or agent was surfaced as an explicit gap, not hidden behind a fallback.
-- [ ] Domain-sensitive surfaces routed through `eternal-best-practices` plus the matching domain skill before any edit.
+`ship` chooses a workflow; it does not grant external authority. Respect the user's existing grant and any project-specific approval gate. Pause only for authority that is actually missing or explicitly required by policy.

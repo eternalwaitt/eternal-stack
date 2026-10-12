@@ -1,0 +1,37 @@
+# Product direction: one Eternal coding companion
+
+**Status: current design for the unreleased Core candidate.** Core installs shared guidance, one native `etrnl-router` entrypoint, and a private on-demand capability library for Claude Code and Codex. Published tags retain their previous behavior until this candidate is released. The `orchestrated` and `full` profiles remain alternative opt-in installation layouts with host-specific mechanics. See the [host capability matrix](host-capabilities.md).
+
+## User experience
+
+In Claude Code or Codex, a user describes a goal naturally; the companion reads relevant project context, selects proportionate workflow structure, completes authorized work, verifies it, and explains the result. A beginner need not learn skill names, agents, or profile vocabulary. A team working across packages can use project-owned checks, retain decisions and evidence, coordinate bounded work, and resume a handoff.
+
+Use five verbs as orientation rather than commands: **Build · Fix · Explain · Review · Ship**. For a first app, a beginner should be able to describe an idea in everyday language; the companion should help shape the user journey, recommend reversible defaults, build the requested experience, check how it works, and explain how to try it. It should clarify only choices that materially affect the result and preserve the user's accepted scope instead of silently shrinking it to an MVP. For a bug, trace the producing path and verify the fix. For a read-only question, trace current behavior without editing. For a large change, map dependencies, preserve scope, and add only the coordination and review that materially help. These are acceptance journeys for evaluating the candidate, not guarantees about every task or host environment.
+
+## Current architecture
+
+Keep a small shared entrypoint and a canonical library of focused capabilities. A thin coordinator should choose relevant instructions for the current task; it should not turn every installed capability into a required workflow. Track these states separately:
+
+- **Available:** installed or discoverable for this host or project.
+- **Loaded:** guidance or references brought into this task.
+- **Mandatory:** a project or task contract requires this check regardless of model choice.
+
+The canonical resolver takes explicit `intent` (`build`, `fix`, `explain`, `review`, or `ship`), impact `scope` (`contained`, `coupled`, or `broad`), and consequence `risk` (`low` or `high`) values. It does not infer these axes from keywords or file counts. Small, reversible tasks can proceed directly with proportionate verification. Broader work can use concise plans, project-local handoffs, and bounded independent delegation. High-risk work can require an independent review even when the diff is small. A plan, agent, or review should have a reason tied to that task.
+
+The resolved contract names its mode, requirements, budgets, authority, and exhaustion behavior. A user-authorized finite budget may raise mode defaults within the contract's hard limits; a budget cap can only lower them. Set worker, reviewer, retry, and verification limits once for the authorized task and reuse remaining allowance within that task. Do not ask again for the same authority. Ask when an unresolved choice materially changes the result, the task would exceed authorized scope or budget, or a genuine project approval gate requires it. An explicit hold on an external action remains binding. When a budget or tool fails, preserve evidence and unfinished work and report the blocker; do not label it verified. Ledger-backed `check-spawn` reserves concurrency only for workers admitted through that ledger path, not every native host spawn. A required independent review includes reviewer judgment, not just a passing command. The [explicit review controller](skills.md#capturing-independent-review) captures a separate supported host invocation and its result; it does not make every Core interaction automatically enforced or guarantee the judgment is correct.
+
+Keep personal preferences in host configuration and shared project requirements in project-managed files. Persist a handoff when it helps a task survive a session or host change; on resume, recheck the current repository before trusting saved state. Define shared workflow obligations once, with separate Claude and Codex adapters for skills, agents, hooks, commands, paths, and tools. Mark a check as enforced, advisory, manual, or unavailable per host. Similar prompt text is not proof of equal enforcement.
+
+## Durable project knowledge
+
+Maintain one [project-state overview](project-state.md) across sessions rather than asking users to request feature/status/lesson bookkeeping each time. Authored project facts and curated lessons remain distinct from automatically projected execution evidence. The canonical contract selects required acknowledgements; Core native guidance and supported helper enforcement have different guarantees. Private handoffs and raw logs remain in their existing stores.
+
+## Ownership and evidence
+
+Eternal can own the maintained product interface, canonical modules, host adapters, tests, and support boundary while preserving factual source attribution for inherited material. Donor names, source revisions, changes, and license evidence belong in inspectable [credits and provenance](../CREDITS.md), with applicable notices retained in shipped packages. Current provenance is incomplete for some bundles; do not infer authorship, freshness, or license status from a directory name.
+
+A copied or renamed prompt is not by itself an integrated capability. The maintained product surface therefore uses one native router, a private capability library, one canonical workflow contract, host-aware helper paths, and a manifest of indexed capabilities and dependencies. Eternal maintains these interfaces and their tests while the credits and retained notices preserve factual source lineage. Host-specific behavior stays explicit; shared wording alone is not evidence of equal enforcement.
+
+The current [paired evaluation report](companion-evaluation.md) covers synthetic task behavior on Codex CLI 0.159.2 with `gpt-6.1-sol`: books, read-only tracing, and a small fix passed in both conditions; local release hold/grant checks passed; invoice behavior checks passed in both, but independent-review evidence failed because the candidate self-attested its own review. A subsequent model run still failed to establish independent review and a delivered checkpoint. The new explicit host controller addresses the evidence-producing path; its runtime validation and actual model outcomes are reported separately in the evaluation report. The report also records routing, helper use, and a visible injected test-launch failure. Claude and cross-host continuation were not tested. The report is a developer evaluation artifact, not a user workflow, and its results do not establish general model quality, speed, host parity, enterprise certification, or security compliance. Future comparisons should retain the same task prompts and acceptance checks while stating exactly which host and scenario ran.
+
+For source-backed comparison with native host mechanisms and other projects, see [Comparative research](market-research.md). For install behavior and mechanics, use [Install](install.md), [Skills](skills.md), [Hooks](hooks.md), and [Configuration](configuration.md). The candidate is unreleased; those guides distinguish Core from the alternative optional profiles.

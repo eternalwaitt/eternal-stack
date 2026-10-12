@@ -1,0 +1,9 @@
+{
+  "name": "companion-eval-invoice-retry",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "test:injected": "node scripts/injected-check.mjs"
+  }
+}

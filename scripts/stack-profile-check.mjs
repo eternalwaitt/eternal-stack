@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {hostAdapters} from "./lib/host-adapters.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { hasPrivatePath } from "./lib/private-strings.mjs";
@@ -68,7 +69,7 @@ function validate(profile, file) {
   const component = (id) => components[id] && typeof components[id] === "object" ? components[id] : {};
 
   if (profile.schemaVersion !== 1) errors.push("schemaVersion must be 1");
-  if (!["core", "full"].includes(profile.profile)) errors.push("profile must be core or full");
+  if (!["core", "orchestrated", "full"].includes(profile.profile)) errors.push("profile must be core, orchestrated or full");
   if (!profile.installCommand || typeof profile.installCommand !== "string") errors.push("installCommand is required");
   if (profile.rollback?.required !== true) errors.push("rollback.required must be true");
   if (component("etrnl").enabled !== true) errors.push("components.etrnl.enabled must be true");
@@ -76,10 +77,17 @@ function validate(profile, file) {
   if (typeof component("etrnl").requiredHooksIntent !== "string" || component("etrnl").requiredHooksIntent.trim().length === 0) {
     errors.push("components.etrnl.requiredHooksIntent is required");
   }
-  for (const hook of LIFECYCLE_REQUIRED_HOOKS) {
+  for (const hook of profile.profile === "core" ? [] : LIFECYCLE_REQUIRED_HOOKS) {
     if (!asArray(component("etrnl").requiredHooks).includes(hook)) {
       errors.push(`components.etrnl.requiredHooks missing ${hook}`);
     }
+  }
+
+  if (profile.nativeAdapters) {
+    if (profile.profile === 'core') errors.push('core must not declare native adapter activation');
+    const adapter=profile.nativeAdapters;
+    if(adapter.schemaVersion!==1||adapter.defaultEnabled!==false||adapter.enableFlag!=='--native-continuity')errors.push('native adapters require versioned explicit opt-in');
+    for(const [host,spec] of Object.entries(hostAdapters))if(adapter.hosts?.[host]?.minimumVersion!==spec.minimumVersion||adapter.hosts?.[host]?.config!==spec.config)errors.push(`native ${host} version/config declaration differs from implementation`);
   }
 
   walk(profile, [], (value, trail) => {
@@ -89,6 +97,8 @@ function validate(profile, file) {
   });
 
   if (profile.profile === "core") {
+    if (asArray(component("etrnl").requiredHooks).length !== 0) errors.push("core must not register hooks");
+    if (JSON.stringify(component("etrnl").installs) !== JSON.stringify(["shared-guidance", "router-skill", "private-capability-library"])) errors.push("core installs shared-guidance, one router skill and its private capability library");
     for (const id of ["hindsight", "beads", "codegraph"]) {
       if (component(id).enabled === true) {
         errors.push(`core profile must not enable ${id}`);

@@ -1,40 +1,13 @@
-# Reversible Compression Contract (headroom CCR)
+# Evidence handoffs without transcript replay
 
-This contract bounds context growth for read-only agents without losing evidence.
+Use an evidence artifact when findings or command output would otherwise overwhelm the handoff. A small answer can stay inline. This is a context technique, not a new required phase or task budget.
 
-## Principle
+Return the goal, findings and acceptance results, exact evidence paths, remaining work, and material limitations. Retain only relevant sanitized evidence in the host-local ignored location; never archive whole transcripts, credentials or unrelated source just to reduce the reply size.
 
-A read-only agent writes its FULL evidence to a content-addressed artifact on
-disk and returns only a receipt: `{ summary, artifactPath, contentHash }`. The
-parent retrieves the raw evidence from the artifact path only when a finding
-needs the detail.
+When the installed helper is available, `writeEvidenceArtifact(agentId, evidenceText)` from `scripts/lib/reversible-compression.mjs` (alias `makeArtifactReceipt`) produces `{ agentId, artifactPath, contentHash, summary, bytes }`. Its `contentHash` uses the shared 16-character SHA-256 helper. The hash checks the saved bytes; it proves neither source freshness, reviewer identity nor correctness.
 
-## Read-only agent contract
+Before reusing an artifact, `verifyArtifact(receipt)` checks byte integrity. Separately compare the source/configuration/scope to the work being resumed. A mismatch means the artifact is invalid for reuse; it may be stale, corrupted or edited. Investigate the mismatch and recover the needed evidence within the existing contract budget, rather than automatically spawning the whole review again.
 
-- Write the complete evidence to an artifact with
-  `writeEvidenceArtifact(agentId, evidenceText)` from
-  `scripts/lib/reversible-compression.mjs` (alias `makeArtifactReceipt`).
-- Return the receipt `{ agentId, artifactPath, contentHash, summary, bytes }` and
-  nothing else. Do not inline the full evidence into the returned message.
-- The `contentHash` is content-addressed: it hashes the evidence bytes through the
-  shared 16-char SHA-256 helper (`stableHash` in `scripts/lib/etrnl-state-core.mjs`)
-  and excludes wall-clock time. Identical evidence produces an identical hash.
-- On any artifact write error, surface the failure. The helper fails closed and
-  throws; the agent reports the write error and stops. No silent fallback.
+Read relevant raw sections only when a finding needs detail. If the helper fails, preserve its diagnostics and mark the artifact unavailable. Continue independent work and provide the bounded findings inline when that safely conveys the evidence; do not claim the missing artifact exists. If the active contract specifically requires it, report that requirement incomplete.
 
-## Parent orchestrator contract
-
-- Before trusting cached evidence, call `verifyArtifact(receipt)`. Trust the
-  cached evidence only when `verified === true`.
-- A `contentHash` mismatch means the artifact was tampered with; treat the cached
-  evidence as invalid and re-run the read-only agent.
-- Re-read the raw artifact bytes on demand, and only when a finding needs the
-  full detail.
-- Record the `artifactPath` and `contentHash` in the run ledger so downstream
-  waves and reviewers verify the same evidence.
-
-## Ledger record
-
-The `artifactPath` and `contentHash` go into the run ledger. The ledger entry
-binds the summary a parent acted on to the exact evidence bytes a reviewer
-re-reads and re-hashes.
+When a run ledger is active, record the artifact path and digest with the existing task identity and remaining budget. Handoff, restoration, a new filename, or a new reviewer label does not reset that budget.

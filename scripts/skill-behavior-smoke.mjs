@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { argValue } from "./lib/cli-args.mjs";
 import { parseBashArray } from "./lib/bash-array-parser.mjs";
-import { hasKeywords } from "./lib/text-matchers.mjs";
+import { resolveWorkflowContract } from "./lib/workflow-contract.mjs";
 
 const args = process.argv.slice(2);
 
@@ -143,39 +143,48 @@ const goodPlan = path.join(root, "hooks/fixtures/plans/good-plan.md");
 const deepStackPlan = path.join(root, "tests/fixtures/deep-stack/plan.deep-stack.valid.md");
 const badPlan = path.join(tmp, "bad-plan.md");
 write(badPlan, "# Bad Plan\n\nStatus: Final\n\nGoal: too thin\n");
-const autoplanSkill = readFileSync(path.join(root, "skills/etrnl-dev-autoplan/SKILL.md"), "utf8");
 const executeSkill = readFileSync(path.join(root, "skills/etrnl-dev-execute/SKILL.md"), "utf8");
-
-if (hasKeywords(autoplanSkill, ["Autoplan Depth Contract", "context recovery", "reuse inventory", "external evidence"])) {
-  ok("autoplan skill requires deep context and parity work");
-} else {
-  fail("autoplan skill requires deep context and parity work", "missing depth contract, context recovery, reuse inventory, or external evidence concept");
+const routerSkill = readFileSync(path.join(root, "skills/etrnl-router/SKILL.md"), "utf8");
+const contractCases = [
+  {
+    name: "direct contained build stays proportionate",
+    axes: { version: 1, intent: "build", scope: "contained", risk: "low" },
+    assert: (contract) => contract.mode === "direct" && !contract.requirements.taskRecord && !contract.requirements.independentReview,
+  },
+  {
+    name: "high-risk fix requires structured TDD and review",
+    axes: { version: 1, intent: "fix", scope: "contained", risk: "high" },
+    assert: (contract) => contract.mode === "structured" && contract.requirements.tddEvidence && contract.requirements.independentReview && !contract.requirements.planPhases,
+  },
+  {
+    name: "broad ship uses program phases and bounded review",
+    axes: { version: 1, intent: "ship", scope: "broad", risk: "low" },
+    assert: (contract) => contract.mode === "program" && contract.requirements.planPhases && contract.requirements.packet && contract.budget.maxConcurrentWorkers <= contract.budget.maxWorkers,
+  },
+  {
+    name: "read-only review does not require write verification",
+    axes: { version: 1, intent: "review", scope: "coupled", risk: "high" },
+    assert: (contract) => contract.mode === "readOnly" && contract.effects === "read-only" && !contract.requirements.mechanicalVerification && !contract.requirements.independentReview,
+  },
+];
+for (const test of contractCases) {
+  try {
+    const contract = resolveWorkflowContract(test.axes);
+    if (test.assert(contract) && contract.exhaustion === "stop-preserve-report") ok(test.name);
+    else fail(test.name, `unexpected contract: ${JSON.stringify(contract)}`);
+  } catch (error) {
+    fail(test.name, error instanceof Error ? error.message : String(error));
+  }
 }
-if (hasKeywords(autoplanSkill, ["Mandatory stages by tier", "subagent", "outside-voice", "Autoplan parity scorecard", "Risk tier"])) {
-  ok("autoplan skill requires tier-scoped review and parity scorecard");
+if (routerSkill.includes("select --intent") && routerSkill.includes("--scope") && routerSkill.includes("--risk")) {
+  ok("router requires explicit contract axes");
 } else {
-  fail("autoplan skill requires tier-scoped review and parity scorecard", "missing tier-scoped review lanes, subagent/outside voice, or parity scorecard concept");
+  fail("router requires explicit contract axes", "missing explicit intent/scope/risk selection");
 }
-if (hasKeywords(autoplanSkill, ["deep-stack-check.mjs validate-plan", "plan-readiness-check.mjs", "Blocked until"])) {
-  ok("autoplan skill requires deterministic final gates");
+if (executeSkill.includes("run-check --name") && executeSkill.includes("self-reported check row") && executeSkill.toLowerCase().includes("standing authorization")) {
+  ok("execute separates captured evidence and preserves standing authorization");
 } else {
-  fail("autoplan skill requires deterministic final gates", "missing deep-stack validation, plan readiness, or blocked verdict concept");
-}
-
-if (hasKeywords(executeSkill, ["dispatch", "write-capable", "implementation subagents", "parallel-safe"])) {
-  ok("execute skill requires implementation subagents for parallel-safe waves");
-} else {
-  fail("execute skill requires implementation subagents for parallel-safe waves", "missing dispatch/write-capable/parallel-safe concept");
-}
-if (hasKeywords(executeSkill, ["sequential-degraded", "blocker", "editing"])) {
-  ok("execute skill documents sequential-degraded fallback");
-} else {
-  fail("execute skill documents sequential-degraded fallback", "missing sequential-degraded blocker/editing concept");
-}
-if (hasKeywords(executeSkill, ["TDD", "red", "green", "before changing production source"])) {
-  ok("execute skill requires TDD red-green source edits");
-} else {
-  fail("execute skill requires TDD red-green source edits", "missing TDD red/green before-source-edit requirement");
+  fail("execute separates captured evidence and preserves standing authorization", "missing portable command evidence or authorization contract");
 }
 
 const skillListSource = readFileSync(path.join(root, "scripts/lib/skill-lists.sh"), "utf8");

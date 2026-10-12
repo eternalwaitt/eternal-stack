@@ -118,7 +118,37 @@ restored_command_names=()
 restore_files=()
 temp_files=()
 restore_count=0
+# Refuse to delete a newly installed owned helper whose contents the user changed.
+# Arbitrary additional files are never part of this source-owned manifest.
+if [[ "$DRY_RUN" != "1" ]]; then
+  for script_host in claude codex; do
+    if [[ "$script_host" == claude ]]; then script_home="$ROOT"; else script_home="$CODEX_TARGET"; fi
+    script_backup="$BACKUP/$script_host-owned-scripts"
+    [[ -f "$script_backup/installed-hashes.json" ]] || continue
+    node - "$script_home" "$script_backup" <<'NODE'
+const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
+const [home,backup]=process.argv.slice(2), hashes=JSON.parse(fs.readFileSync(path.join(backup,'installed-hashes.json')));
+for(const relative of fs.readFileSync(path.join(backup,'paths.txt'),'utf8').trim().split('\n')) {
+ if(relative.includes('..')||path.isAbsolute(relative)||relative.includes('\\'))throw Error('Invalid owned helper path');
+ const original=path.join(backup,'files',relative),file=path.join(home,'scripts',relative);
+ if(!fs.existsSync(original)&&fs.existsSync(file)) {
+  const stat=fs.lstatSync(file);
+  if(!stat.isFile()||stat.isSymbolicLink()||crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')!==hashes[relative])throw Error('Newly installed owned helper changed; preserve and reconcile before rollback: '+relative);
+ }
+}
+NODE
+  done
+fi
+# Native ownership is checked before the broader legacy restore changes settings.
+if [[ -f "$BACKUP/native-adapters-claude.json" || -f "$BACKUP/native-adapters-codex.json" ]]; then
+  native_rollback_args=(--rollback "$BACKUP" --claude-home "$ROOT" --codex-home "$CODEX_TARGET")
+  [[ "$DRY_RUN" != "1" ]] || native_rollback_args+=(--dry-run)
+  node "$ROOT/scripts/native-adapters.mjs" "${native_rollback_args[@]}"
+  if [[ "$DRY_RUN" != "1" ]]; then node "$ROOT/scripts/native-adapters.mjs" --restore-legacy-groups "$BACKUP/settings.json" --claude-home "$ROOT"; fi
+fi
+
 for file in settings.json settings.local.json CLAUDE.md AGENTS.md; do
+  if [[ "$file" == settings.json && -f "$BACKUP/native-adapters-claude.json" ]]; then continue; fi
   if [[ -f "$BACKUP/$file" ]]; then
     if [[ ! -s "$BACKUP/$file" ]]; then
       printf 'Backup file is empty: %s/%s\n' "$BACKUP" "$file" >&2
@@ -521,6 +551,37 @@ if [[ -f "$BACKUP/new-source-paths.txt" ]]; then
     fi
   done < "$BACKUP/new-source-paths.txt"
 fi
+
+# Restore the exact source-owned helper snapshot, preserving user-added files.
+for script_host in claude codex; do
+  if [[ "$script_host" == claude ]]; then script_home="$ROOT"; else script_home="$CODEX_TARGET"; fi
+  script_backup="$BACKUP/$script_host-owned-scripts"
+  if [[ -f "$script_backup/paths.txt" ]]; then
+    while IFS= read -r script_rel; do
+      case "$script_rel" in *..*|/*|*\\*) printf 'rollback error: invalid owned helper path\n' >&2; exit 2 ;; esac
+      [[ "$script_rel" == *.mjs || "$script_rel" == *.sh || "$script_rel" == *.py ]] || continue
+      rm -f -- "$script_home/scripts/$script_rel"
+      if [[ -f "$script_backup/files/$script_rel" || -L "$script_backup/files/$script_rel" ]]; then
+        mkdir -p "$script_home/scripts/$(dirname -- "$script_rel")"
+        cp -P -- "$script_backup/files/$script_rel" "$script_home/scripts/$script_rel"
+      fi
+    done < "$script_backup/paths.txt"
+  fi
+done
+
+# Native-aware snapshots restore the prior install identity as well as its groups.
+for metadata_host in claude codex; do
+  metadata_backup="$BACKUP/native-install-$metadata_host.json"
+  [[ -f "$metadata_backup" ]] || continue
+  if [[ "$metadata_host" == claude ]]; then metadata_home="$ROOT"; else metadata_home="$CODEX_TARGET"; fi
+  if [[ "$(jq -r 'type' "$metadata_backup")" == null ]]; then
+    rm -f -- "$metadata_home/etrnl/install.json"
+  else
+    jq -e --arg host "$metadata_host" '.host == $host and (.stackProfile == "orchestrated" or .stackProfile == "full")' "$metadata_backup" >/dev/null
+    mkdir -p "$metadata_home/etrnl"
+    cp -- "$metadata_backup" "$metadata_home/etrnl/install.json"
+  fi
+done
 
 if [[ -f "$ROOT/settings.json" ]]; then
   if command -v jq >/dev/null 2>&1; then

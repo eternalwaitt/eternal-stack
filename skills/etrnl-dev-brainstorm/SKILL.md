@@ -1,63 +1,30 @@
 ---
 name: etrnl-dev-brainstorm
-description: ETRNL brainstorming and design-spec workflow for Claude Code. Use when the user asks to "brainstorm", "scope this", "design this", "think through options", "turn this idea into a spec", or when implementation requirements are still ambiguous.
+description: ETRNL brainstorming and design-spec workflow for Claude Code and Codex. Use when the user asks to "brainstorm", "scope this", "design this", "think through options", "turn this idea into a spec", or when implementation requirements are still ambiguous.
 ---
 # ETRNL Brainstorming
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-brainstorm`; on update, run the reported update command before continuing; only skip if the user explicitly declines.
 
-Turn an idea into an approved design/spec before implementation planning.
-
-## Hard Gate
-
-Do not implement, scaffold, or write an implementation plan until the design is approved or the user explicitly skips brainstorming.
+Help the user shape an idea when they ask to explore, compare, or design it. This capability is optional: it is not a required stage before planning or implementation. If the user has already authorized implementation, brainstorming does not pause that work or add a new approval gate. Continue within the existing request, resolving ordinary choices with evidence-based, reversible defaults.
 
 ## Flow
 
-1. Explore current context:
-   - Read relevant docs, files, recent changes, and existing patterns.
-   - State what is verified and what is still unknown.
-2. Check scope:
-   - If the idea spans independent subsystems, decompose it and pick the first coherent slice.
-3. Ask focused questions:
-   - Ask one question at a time.
-   - Use multiple-choice when it reduces friction.
-   - Clarify purpose, constraints, success criteria, users, risk, and non-goals.
-4. Propose options:
-   - Present 2-3 approaches with trade-offs.
-   - Select one and say why.
-5. Present the design:
-   - Cover architecture, user flow, data flow, error handling, verification, rollout, and rollback.
-   - Scale detail to complexity.
-6. Save the approved design:
-   - Use ignored local planning paths for new design/spec artifacts.
-   - If the repo already has a stronger local convention, use it. Otherwise use `.claude/plans/<yyyy-mm-dd>-<slug>-plan.md`.
-   - Do not store brainstorming plans or artifacts in tracked repository docs.
-7. Self-review the design for placeholders, contradictions, ambiguity, and scope creep.
-8. Run the spec self-review:
-   - No `TODO`, `TBD`, placeholder, fake decision, or unresolved assumption is left unmarked.
-   - The selected approach and rejected alternatives are explicit.
-   - The scope is small enough for one implementation plan, or the decomposition is written down.
-   - Risks, verification, rollout, rollback, and owner/user impact are named.
-9. Ask the user to approve the saved spec before moving to `etrnl-dev-plan`.
-
-## Interview to confidence
-
-Before a fuzzy request graduates to a saved design/spec, run a bounded interview that resolves the unknowns and assigns a confidence score. A low-confidence spec is a re-work risk.
-
-1. List the open questions that would change the design. Ask them. Do not assume an answer.
-2. Assign a confidence level of low, medium, or high. Record the concrete evidence backing that level: the file, doc, runtime check, or user answer that settles each unknown.
-3. Gate: do not advance to `etrnl-dev-plan` or `etrnl-dev-autoplan` until confidence is high on scope, constraints, and acceptance. Do not ship a spec that is low or medium confidence on any of these three axes into the plan step.
-4. Record the resolved unknowns and their confidence in the saved design so the plan step inherits them.
+1. Understand the goal and context. For an existing project, inspect the relevant app, docs, and conventions. For a new idea, identify who will use it and the practical problem it should solve.
+2. Describe the intended experience in ordinary language. For an app, walk through how a person starts, completes the main task, and sees the result. Mention important error, empty, or recovery behavior when it affects the design.
+3. Separate known facts from choices. Ask only about an unresolved choice that would materially change the outcome, risk, cost, or user experience. Bundle related questions when that is clearer; do not turn the conversation into a one-question-at-a-time interview.
+4. Recommend a sensible default for routine or reversible decisions and explain the reason briefly. Present alternatives when they represent meaningful tradeoffs, and state which one you recommend.
+5. Preserve the complete scope the user requested or accepted. Break independent areas into clear workstreams when useful; do not replace them with a smaller “first slice” or MVP unless the user asked for one.
+6. Match the response to the request. A quick discussion can end with a concise recommendation. Create a fuller design or spec only when requested or when a durable handoff would help. Save new planning artifacts under the project's established ignored planning location; do not put private task plans in tracked docs.
+7. Mark genuine unknowns as assumptions or blockers instead of fabricating certainty. A draft can be useful before every detail is settled; identify only the decisions that must be resolved before the affected work can proceed.
 
 ## Output
 
-Keep chat conversational during discovery. Once approved, reply with the spec path, decisions made, unresolved questions, and the next required skill.
+Keep the conversation clear and adapted to the user's familiarity. Prefer everyday words, briefly explain unfamiliar terms, and avoid dumping a long requirements checklist on a beginner. State the goal understood, recommendation and key tradeoffs, any consequential open question, and the practical next step. If the user authorized implementation, continue with it; do not ask for approval a second time.
 
 ## Hard Rules
 
-- Do not pretend unclear requirements are settled.
-- Do not ask batches of unrelated questions.
-- Do not bury the selected approach.
-- This skill creates design/spec files; `etrnl-dev-plan` creates implementation plans.
-- Do not create an implementation plan until the design is approved or the user explicitly asks to skip the design gate.
+- Do not present assumptions as facts or hide a consequential unresolved choice.
+- Do not ask for approval already given, require a confidence score, or block authorized implementation on a saved spec.
+- Do not bury the recommendation among options or overwhelm the user with technical detail they did not request.
+- Do not narrow accepted scope to an MVP or first phase unless the user explicitly chose that boundary.
+- When the user asks only to brainstorm, offer the next step without implying they must invoke another skill or approve a document before deciding what to do.

@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "verbs": {
+    "build": {
+      "requiredByMode": { "direct": null, "structured": "etrnl-dev-execute", "program": "etrnl-dev-execute" }
+    },
+    "fix": {
+      "requiredByMode": { "direct": null, "structured": "etrnl-dev-debug", "program": "etrnl-dev-execute" }
+    },
+    "explain": { "requiredByMode": { "readOnly": null } },
+    "review": { "requiredByMode": { "readOnly": "etrnl-code-review-excellence" } },
+    "ship": { "requiredByMode": { "program": "etrnl-ops-ship" } }
+  },
+  "catalogRoot": "skills"
+}

@@ -35,6 +35,51 @@ assert_no_review_learn_ledgers_in_repo() {
   fi
 }
 
+seed_workflow_contract_skills() {
+  local root="$1"
+  mkdir -p "$root/skills/etrnl-router" "$root/skills/etrnl-dev-execute" "$root/skills/etrnl-dev-plan"
+  cat >"$root/skills/etrnl-router/SKILL.md" <<'SKILL'
+---
+name: etrnl-router
+description: fixture router
+---
+Use workflow-contract.mjs select --intent with explicit --scope and --risk through {{ETRNL_COMPANION}}.
+SKILL
+  cat >"$root/skills/etrnl-dev-execute/SKILL.md" <<'SKILL'
+---
+name: etrnl-dev-execute
+description: fixture execute
+---
+Read workflow-contract.mjs through {{ETRNL_COMPANION}}. Capture required checks with run-check --name.
+Do not use a self-reported check row as command evidence. Direct work does not require a plan.
+Continue within standing authorization.
+SKILL
+  cat >"$root/skills/etrnl-dev-plan/SKILL.md" <<'SKILL'
+---
+name: etrnl-dev-plan
+description: fixture plan
+---
+Read workflow-contract.mjs through {{ETRNL_COMPANION}}.
+SKILL
+}
+
+refresh_fixture_skill_inventory() {
+  local root="$1"
+  node --input-type=module - "$root" <<'JS'
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
+const root = process.argv[2];
+const skillsDir = path.join(root, "skills");
+const names = readdirSync(skillsDir, { withFileTypes: true })
+  .filter((entry) => entry.isDirectory() && entry.name.startsWith("etrnl-") && readFileSync(path.join(skillsDir, entry.name, "SKILL.md"), "utf8").includes(`name: ${entry.name}`))
+  .map((entry) => entry.name)
+  .sort();
+writeFileSync(path.join(root, "scripts/lib/skill-lists.sh"), `OWNED_SKILLS=(\n${names.map((name) => `  "${name}"`).join("\n")}\n)\nOWNED_AGENTS=()\n`);
+writeFileSync(path.join(root, "docs/skills.md"), `# ETRNL Skills\n\n| Skill | Purpose |\n| --- | --- |\n${names.map((name) => `| ${name} | Fixture skill |`).join("\n")}\n`);
+writeFileSync(path.join(root, "hooks/lib/skill-hints.sh"), `get_etrnl_skill_hint() {\n  printf '%s\\n' ${names.map((name) => `\"${name}\"`).join(" ")}\n}\n`);
+JS
+}
+
 state_lock_probe="$(
   HOOK_INPUT='{"session_id":"fixture-lock"}' CLAUDE_GUARD_STATE_DIR="$TMPROOT" bash -c '
     source "$1"
@@ -1388,11 +1433,6 @@ assert_json_expr "tool-effectiveness disabled import-codex returns disabled" "$t
 tool_effectiveness_disabled_baseline_json="$(ETRNL_TOOL_EFFECTIVENESS_DISABLED=1 node "$ROOT/scripts/tool-effectiveness.mjs" baseline --fixtures "$ROOT/tests/fixtures/tool-effectiveness" --json)"
 assert_json_expr "tool-effectiveness disabled baseline returns disabled" "$tool_effectiveness_disabled_baseline_json" '.disabled == true and (.byTool? // null) == null'
 assert_command "update shell syntax" bash -n "$ROOT/scripts/update.sh"
-if grep -Fq 'install.sh" --preserve-settings' "$ROOT/scripts/update.sh"; then
-  ok "update.sh preserves settings on upgrade"
-else
-  not_ok "update.sh preserves settings on upgrade"
-fi
 # Behavioral canary contract: a stub install that runs the canary once, driven
 # by the real update.sh, must leave the canary count at exactly 1 (update must
 # not invoke the canary again). Grep alone cannot catch an indirect second call.
@@ -1410,19 +1450,17 @@ cat >"$canary_behavior_root/scripts/install.sh" <<'BASH'
 #!/usr/bin/env bash
 set -Eeuo pipefail
 TARGET="${CLAUDE_HOME:-$HOME/.claude}"
+printf '%s\n' "$@" >"$TARGET/install-args"
 # Mirror install.sh's final canary invocation against the installed target.
 CLAUDE_HOME="$TARGET" "$TARGET/scripts/post-upgrade-canary.sh"
 BASH
 chmod +x "$canary_behavior_root/scripts/install.sh"
-# Trimmed update driver: same install call + preserve-settings flag as update.sh.
-cat >"$canary_behavior_root/scripts/update.sh" <<'BASH'
-#!/usr/bin/env bash
-set -Eeuo pipefail
-ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
-"$ROOT/scripts/install.sh" --preserve-settings
-BASH
+# Exercise the real updater rather than a hand-copied implementation.
+cp "$ROOT/scripts/update.sh" "$canary_behavior_root/scripts/update.sh"
 chmod +x "$canary_behavior_root/scripts/update.sh"
 CLAUDE_HOME="$canary_behavior_home" bash "$canary_behavior_root/scripts/update.sh"
+assert_contains "update.sh preserves settings on upgrade" "$(cat "$canary_behavior_home/install-args")" "--preserve-settings"
+assert_contains "legacy update keeps explicit orchestration profile" "$(cat "$canary_behavior_home/install-args")" "orchestrated"
 canary_runs="$(wc -l <"$canary_count_file" | tr -d '[:space:]')"
 if [[ "$canary_runs" == "1" ]]; then
   ok "update path runs post-upgrade canary exactly once via install"
@@ -1465,8 +1503,11 @@ auto_disabled_json="$(CLAUDE_HOME="$auto_update_home" CODEX_HOME="$TMPROOT/auto-
 assert_json_expr "update-check opt-out reports stale local install" "$auto_disabled_json" '.ok == true and .localUpdateAvailable == true and .autoUpdate == ""'
 assert_no_file "update-check opt-out does not run updater" "$auto_update_home/auto-update-ran"
 auto_default_json="$(CLAUDE_HOME="$auto_update_home" CODEX_HOME="$TMPROOT/auto-update-codex" ETRNL_HOME="$auto_update_home" node "$ROOT/scripts/update-check.mjs" --json)"
-assert_json_expr "update-check auto-runs local updater by default" "$auto_default_json" '.ok == true and .localUpdateAvailable == false and (.autoUpdate | startswith("ETRNL_AUTO_UPDATED "))'
-assert_file "update-check default auto ran updater" "$auto_update_home/auto-update-ran"
+assert_json_expr "update-check default is read-only" "$auto_default_json" '.ok == true and .localUpdateAvailable == true and .autoUpdate == ""'
+assert_no_file "update-check default never runs updater" "$auto_update_home/auto-update-ran"
+auto_default_json="$(CLAUDE_HOME="$auto_update_home" CODEX_HOME="$TMPROOT/auto-update-codex" ETRNL_HOME="$auto_update_home" node "$ROOT/scripts/update-check.mjs" --auto --json)"
+assert_json_expr "update-check explicit opt-in runs updater" "$auto_default_json" '.ok == true and .localUpdateAvailable == false and (.autoUpdate | startswith("ETRNL_AUTO_UPDATED "))'
+assert_file "update-check explicit opt-in ran updater" "$auto_update_home/auto-update-ran"
 dirty_auto_source="$TMPROOT/dirty-auto-source"
 dirty_auto_home="$TMPROOT/dirty-auto-home"
 mkdir -p "$dirty_auto_source/scripts" "$dirty_auto_home/etrnl"
@@ -1491,7 +1532,7 @@ jq -n --arg sourceRoot "$dirty_auto_source" '{
   sourceFingerprint: "stale",
   settingsMode: "default"
 }' >"$dirty_auto_home/etrnl/install.json"
-dirty_skipped_json="$(CLAUDE_HOME="$dirty_auto_home" CODEX_HOME="$TMPROOT/dirty-auto-codex" ETRNL_HOME="$dirty_auto_home" node "$ROOT/scripts/update-check.mjs" --json)"
+dirty_skipped_json="$(CLAUDE_HOME="$dirty_auto_home" CODEX_HOME="$TMPROOT/dirty-auto-codex" ETRNL_HOME="$dirty_auto_home" ETRNL_AUTO_UPDATE=1 node "$ROOT/scripts/update-check.mjs" --json)"
 assert_json_expr "update-check skips auto-update on dirty source checkout" "$dirty_skipped_json" '.autoUpdate | startswith("ETRNL_AUTO_UPDATE_SKIPPED")'
 assert_no_file "update-check dirty skip does not run updater" "$dirty_auto_home/auto-update-dirty-ran"
 assert_command "bootstrap tools shell syntax" bash -n "$ROOT/scripts/bootstrap-tools.sh"
@@ -1671,15 +1712,13 @@ assert_command "skill contract syntax" node --check "$ROOT/scripts/skill-contrac
 assert_command "skill contracts pass" node "$ROOT/scripts/skill-contract-check.mjs" --root "$ROOT"
 advisory_skill_root="$TMPROOT/advisory-skill-root"
 mkdir -p "$advisory_skill_root/scripts/lib" "$advisory_skill_root/docs" "$advisory_skill_root/skills/etrnl-soft" "$advisory_skill_root/hooks/lib"
+seed_workflow_contract_skills "$advisory_skill_root"
 printf '%s\n' 'OWNED_SKILLS=(' '  "etrnl-soft"' ')' 'OWNED_AGENTS=()' >"$advisory_skill_root/scripts/lib/skill-lists.sh"
 printf '%s\n' '# ETRNL Skills' '' '| Command | Purpose |' '| --- | --- |' '| /etrnl-soft | Test skill |' >"$advisory_skill_root/docs/skills.md"
 printf '%s\n' 'get_etrnl_skill_hint() {' '  printf "%s\n" "/etrnl-soft"' '}' >"$advisory_skill_root/hooks/lib/skill-hints.sh"
 printf '%s\n' '---' 'name: etrnl-soft' 'description: Test skill.' '---' '# Soft Skill' '' '- Prefer advisory language.' >"$advisory_skill_root/skills/etrnl-soft/SKILL.md"
-if advisory_skill_out="$(node "$ROOT/scripts/skill-contract-check.mjs" --root "$advisory_skill_root" 2>&1)"; then
-  not_ok "skill contracts reject advisory wording"
-else
-  assert_contains "skill contracts reject advisory wording" "$advisory_skill_out" 'advisory wording "prefer"'
-fi
+refresh_fixture_skill_inventory "$advisory_skill_root"
+assert_command "skill contracts accept proportionate guidance language" node "$ROOT/scripts/skill-contract-check.mjs" --root "$advisory_skill_root"
 model_skill_root="$TMPROOT/model-skill-root"
 mkdir -p "$model_skill_root/scripts/lib" "$model_skill_root/docs" "$model_skill_root/skills/etrnl-model-pinned" "$model_skill_root/hooks/lib"
 printf '%s\n' 'OWNED_SKILLS=(' '  "etrnl-model-pinned"' ')' 'OWNED_AGENTS=()' >"$model_skill_root/scripts/lib/skill-lists.sh"
@@ -1696,6 +1735,7 @@ fi
 # be existence-checked. Isolated temp skill root — never the live skills tree.
 nested_ref_root="$TMPROOT/nested-ref-skill-root"
 mkdir -p "$nested_ref_root/scripts/lib" "$nested_ref_root/docs" "$nested_ref_root/skills/etrnl-nested" "$nested_ref_root/hooks/lib"
+seed_workflow_contract_skills "$nested_ref_root"
 printf '%s\n' 'OWNED_SKILLS=(' '  "etrnl-nested"' ')' 'OWNED_AGENTS=()' >"$nested_ref_root/scripts/lib/skill-lists.sh"
 printf '%s\n' '# ETRNL Skills' '' '| Command | Purpose |' '| --- | --- |' '| /etrnl-nested | Test skill |' >"$nested_ref_root/docs/skills.md"
 printf '%s\n' 'get_etrnl_skill_hint() {' '  printf "%s\n" "/etrnl-nested"' '}' >"$nested_ref_root/hooks/lib/skill-hints.sh"
@@ -1710,6 +1750,7 @@ else
 fi
 # GREEN: point the reference at the nested helper that exists — gate passes.
 printf '%s\n' '---' 'name: etrnl-nested' 'description: Test skill.' '---' '# Nested Skill' '' 'Run `scripts/lib/real-nested-helper.mjs` to do the thing.' >"$nested_ref_root/skills/etrnl-nested/SKILL.md"
+refresh_fixture_skill_inventory "$nested_ref_root"
 assert_command "skill contracts pass when nested script reference resolves" node "$ROOT/scripts/skill-contract-check.mjs" --root "$nested_ref_root"
 
 assert_command "skill behavior smoke syntax" node --check "$ROOT/scripts/skill-behavior-smoke.mjs"
@@ -1882,6 +1923,7 @@ if rg -F "sk_live_example" "$TMPROOT/review-log.jsonl" >/dev/null || rg -F "$aws
 else
   ok "review log redacts token-like values"
 fi
+mkdir -p "$TMPROOT/project/src" "$TMPROOT/unrelated-project/src"
 buglog_path="$TMPROOT/project-buglog.jsonl"
 BUGLOG_TOKEN="sk_live_example_should_not_persist"
 BUGLOG_SECRET="aws_secret_access_key=$aws_secret_value"
@@ -1902,6 +1944,11 @@ ETRNL_BUGLOG="$buglog_path" node "$ROOT/scripts/project-buglog.mjs" record --cwd
 buglog_json="$(ETRNL_BUGLOG="$buglog_path" node "$ROOT/scripts/project-buglog.mjs" suggest --cwd "$TMPROOT/project" --file src/app.ts --json)"
 assert_json_expr "project buglog suggest emits JSON" "$buglog_json" '.schemaVersion == 1 and (.suggestions | length) == 1'
 assert_json_expr "project buglog suggest includes guard recommendation" "$buglog_json" '(.suggestions[0].suggestedGuard | length) > 0'
+assert_json_expr "project buglog retains recurrence as observation without efficacy promotion" "$buglog_json" '.suggestions[0].occurrenceCount == 2 and .suggestions[0].classification == "observed_failure" and .suggestions[0].preventionProven == false and (.suggestions[0].confidence | not)'
+assert_json_expr "project buglog recommends candidate guards without enabling them" "$buglog_json" '.suggestions[0].suggestedGuard | startswith("Candidate only:")'
+assert_json_expr "project buglog preserves appended repeated observation history" "$(jq -sc . "$buglog_path")" 'length == 4 and all(.[]; .fingerprintVersion == 4 and (.projectId | length) > 0)'
+buglog_unrelated_json="$(ETRNL_BUGLOG="$buglog_path" node "$ROOT/scripts/project-buglog.mjs" suggest --cwd "$TMPROOT/unrelated-project" --file src/app.ts --json)"
+assert_json_expr "project buglog excludes unrelated project observations" "$buglog_unrelated_json" '(.suggestions | length) == 0'
 buglog_project_json="$(ETRNL_BUGLOG="$buglog_path" node "$ROOT/scripts/project-buglog.mjs" suggest-project --cwd "$TMPROOT/project" --json --aggregate-threshold 3)"
 assert_json_expr "project buglog project hints omit raw cwd" "$buglog_project_json" '.project == "project" and (.cwd | not) and (.suggestions | length) == 1'
 assert_json_expr "project buglog aggregates repeated lessons" "$buglog_project_json" '.suggestions[0].kind == "aggregate" and .suggestions[0].affectedFilesCount == 3 and (.suggestions[0].recentFiles | length) == 3'
@@ -1923,6 +1970,7 @@ else
 fi
 
 stale_buglog_path="$TMPROOT/stale-project-buglog.jsonl"
+mkdir -p "$TMPROOT/stale"
 printf '%s\n' '{"schemaVersion":1,"fingerprintVersion":2,"cwd":"'"$TMPROOT"'/stale","file":"src/stale.ts","category":"repeat-edit","summary":"old bug","sessionId":"old","at":"2000-01-01T00:00:00Z","fingerprint":"oldbug1234567890"}' >"$stale_buglog_path"
 stale_buglog_json="$(ETRNL_BUGLOG="$stale_buglog_path" node "$ROOT/scripts/project-buglog.mjs" suggest --cwd "$TMPROOT/stale" --file src/stale.ts --json --max-age-days 1)"
 assert_json_expr "project buglog suppresses stale hints" "$stale_buglog_json" '(.suggestions | length) == 0'
@@ -2138,15 +2186,12 @@ empty_health="$(ETRNL_RUNS_DIR="$health_root/missing-runs" ETRNL_ARTIFACTS_DIR="
 assert_contains "workflow health reports artifacts without ledger dir" "$empty_health" "reviewLog entries=0"
 
 autoplan_meta="$(jq -c . "$ROOT/skills/metadata/etrnl-dev-autoplan.json")"
-assert_json_expr "autoplan includes review execution mode" "$autoplan_meta" '(.executionMode | test("CEO")) and (.executionMode | test("DX")) and (.executionMode | test("adversarial"))'
 assert_json_expr "autoplan includes ownership rule" "$autoplan_meta" '.ownershipRule == "reuse existing helpers and docs before adding plan surfaces"'
-assert_json_expr "autoplan includes test discipline" "$autoplan_meta" '.testDiscipline == "deterministic plan-readiness and deep-stack gates"'
-assert_json_expr "autoplan includes deep stack artifacts" "$autoplan_meta" '.deepStackArtifacts == true'
+assert_json_expr "autoplan metadata names explicit workflow axes and bounded budget" "$autoplan_meta" '(.workflowContract | test("explicit intent.*impact scope.*consequence risk.*bounded whole-task budget"))'
+assert_json_expr "autoplan metadata reports relevant actual verification" "$autoplan_meta" '.testDiscipline == "name relevant verification and report actual readiness-check results"'
 execute_meta="$(jq -c . "$ROOT/skills/metadata/etrnl-dev-execute.json")"
-assert_json_expr "execute includes wave execution" "$execute_meta" '.executionMode == "wave-based execution"'
-assert_json_expr "execute includes subagent ownership rule" "$execute_meta" '.ownershipRule == "do not duplicate"'
-assert_json_expr "execute includes spot-check fallback" "$execute_meta" '.fallback == "spot-check"'
-assert_json_expr "execute includes TDD discipline" "$execute_meta" '.testDiscipline == "TDD red-green"'
+assert_json_expr "execute metadata selects direct, structured, or program mode by contract" "$execute_meta" '(.executionMode | test("contract-driven.*direct.*structured.*program")) and (.workflowContract | test("explicit intent.*impact scope.*consequence risk.*bounded whole-task budget"))'
+assert_json_expr "execute metadata captures required checks and reports exhaustion" "$execute_meta" '(.testDiscipline | test("when required.*command-run evidence")) and (.fallback | test("exhausted budget"))'
 bad_plan="$TMPROOT/bad-plan.md"
 printf '%s\n' '# Bad Plan' '' 'Status: Final' '' 'Goal: Thin plan.' >"$bad_plan"
 if node "$ROOT/scripts/plan-readiness-check.mjs" "$bad_plan" >/dev/null 2>&1; then
@@ -2827,6 +2872,7 @@ rm -f "$sync_full_root/tests/leak-fixture.mjs"
 # the missing-.sh case stops failing.
 sh_ref_root="$TMPROOT/sh-ref-skill-root"
 mkdir -p "$sh_ref_root/scripts/lib" "$sh_ref_root/docs" "$sh_ref_root/skills/etrnl-shref" "$sh_ref_root/hooks/lib"
+seed_workflow_contract_skills "$sh_ref_root"
 printf '%s\n' 'OWNED_SKILLS=(' '  "etrnl-shref"' ')' 'OWNED_AGENTS=()' >"$sh_ref_root/scripts/lib/skill-lists.sh"
 printf '%s\n' '# ETRNL Skills' '' '| Command | Purpose |' '| --- | --- |' '| /etrnl-shref | Test skill |' >"$sh_ref_root/docs/skills.md"
 printf '%s\n' 'get_etrnl_skill_hint() {' '  printf "%s\n" "/etrnl-shref"' '}' >"$sh_ref_root/hooks/lib/skill-hints.sh"
@@ -2839,6 +2885,7 @@ else
 fi
 # GREEN: point the reference at the seeded skill-hints.sh that exists -> gate passes.
 printf '%s\n' '---' 'name: etrnl-shref' 'description: Test skill.' '---' '# ShRef Skill' '' 'Run `hooks/lib/skill-hints.sh` to guard the thing.' >"$sh_ref_root/skills/etrnl-shref/SKILL.md"
+refresh_fixture_skill_inventory "$sh_ref_root"
 assert_command "skill contracts pass when shell reference resolves" node "$ROOT/scripts/skill-contract-check.mjs" --root "$sh_ref_root"
 
 # A source-helper reference that escapes the repo root via `..` must be REJECTED by
@@ -3344,39 +3391,18 @@ bounded_review="$ROOT/skills/etrnl-dev-execute/references/bounded-review.md"
 batch_exec="$ROOT/skills/etrnl-dev-execute/references/batch-execution.md"
 review_merge="$ROOT/scripts/review-merge.mjs"
 
-if rg -q -i 'tier 0.{0,3}1.*companion review lanes' "$plan_skill" && rg -q -i 'Do not require' "$plan_skill"; then
-  ok "behavior eval: dev-plan tier 0-1 skips companion review lanes"
+direct_contract="$(node "$ROOT/scripts/workflow-contract.mjs" resolve --intent build --scope contained --risk low)"
+assert_json_expr "workflow contract quick path requires no packet, phases, task, or review" "$direct_contract" '.mode == "direct" and .requirements.packet == false and .requirements.planPhases == false and .requirements.taskRecord == false and .requirements.independentReview == false and .budget.maxWorkers == 0'
+structured_contract="$(node "$ROOT/scripts/workflow-contract.mjs" resolve --intent fix --scope coupled --risk high)"
+assert_json_expr "workflow contract high-risk fix selects bounded structured mode" "$structured_contract" '.mode == "structured" and .requirements.taskRecord == true and .requirements.packet == false and .requirements.tddEvidence == true and .requirements.independentReview == true and .budget.maxVerificationAttempts > 0'
+program_contract="$(node "$ROOT/scripts/workflow-contract.mjs" resolve --intent ship --scope broad --risk high)"
+assert_json_expr "workflow contract broad ship selects finite program requirements" "$program_contract" '.mode == "program" and .requirements.taskRecord == true and .requirements.planPhases == true and .requirements.packet == true and .budget.maxWorkers > 0 and .budget.maxConcurrentWorkers > 0 and .budget.maxVerificationAttempts > 0'
+readonly_contract="$(node "$ROOT/scripts/workflow-contract.mjs" resolve --intent review --scope broad --risk high)"
+assert_json_expr "workflow contract broad review stays read-only with optional bounded research" "$readonly_contract" '.mode == "readOnly" and .effects == "read-only" and .requirements.mechanicalVerification == false and .requirements.independentReview == false and .budget.maxWorkers > 0 and .budget.maxVerificationAttempts > 0'
+if rg -q 'This is a technique, not a requirement imposed by item count' "$batch_exec" && rg -q 'Preserve user-requested checkpoints and external approval gates' "$batch_exec"; then
+  ok "batch execution preserves approval gates without fixed item-count policy"
 else
-  # TODO-integration: pending Lane A quick-dev lane wording in etrnl-dev-plan
-  not_ok "behavior eval: dev-plan tier 0-1 skips companion review lanes (TODO-integration: pending Lane A)"
-fi
-if rg -q -i 'tier 0.{0,3}1.*single pass|tier 0.{0,3}1 use one merged quality review lane' "$autoplan_skill"; then
-  ok "behavior eval: autoplan tier 0-1 uses single-pass lane"
-else
-  # TODO-integration: pending Lane A A4 quick-dev lane rewrite
-  not_ok "behavior eval: autoplan tier 0-1 uses single-pass lane (TODO-integration: pending Lane A)"
-fi
-if rg -q -i 'no task packets|Skip task packet drafting for tier 0' "$autoplan_skill"; then
-  ok "behavior eval: autoplan tier 0-1 omits task packet requirements"
-else
-  # TODO-integration: pending Lane A A4 packet removal for tier 0-1
-  not_ok "behavior eval: autoplan tier 0-1 omits task packet requirements (TODO-integration: pending Lane A)"
-fi
-if rg -q -i '(at most|max(imum)?) 2.*(fix round|reopen)' "$bounded_review" && rg -q 'Per-patch reviewers on wave 2\+' "$bounded_review"; then
-  ok "behavior eval: bounded-review caps fix rounds at 2"
-else
-  not_ok "behavior eval: bounded-review caps fix rounds at 2"
-fi
-if rg -q -i 'tier.*(≤|<=).*2.*one merged.*reviewer pass' "$bounded_review"; then
-  ok "behavior eval: bounded-review scopes tier <=2 to one merged reviewer pass"
-else
-  # TODO-integration: pending Lane A A2 merged-review synthesis wording
-  not_ok "behavior eval: bounded-review scopes tier <=2 to one merged reviewer pass (TODO-integration: pending Lane A)"
-fi
-if rg -q 'batch-execution-adopted' "$batch_exec" && rg -q 'check-spawn' "$batch_exec"; then
-  ok "behavior eval: batch-execution keeps expensive gates per wave"
-else
-  not_ok "behavior eval: batch-execution keeps expensive gates per wave"
+  not_ok "batch execution preserves approval gates without fixed item-count policy"
 fi
 if rg -q 'blocking.*P0/P1|P0.*P1.*blocking|severity === "P0" \|\| item.severity === "P1"' "$review_merge"; then
   ok "behavior eval: review-merge blocking output restricted to P0/P1"
@@ -3701,14 +3727,15 @@ assert_json_expr "classify survives without scripts/lib (Stop-verifier fast path
 assert_contains "classify-plan falls back to large without the tier parser" "$(node "$tg11_sandbox/scripts/diff-triviality.mjs" classify-plan --root "$ROOT" --plan "$tg11_trivial_plan")" "reason=plan-helper-unavailable"
 
 tg11_autoplan_skill="$(cat "$ROOT/skills/etrnl-dev-autoplan/SKILL.md")"
-assert_contains "autoplan tier assessment references the plan classifier" "$tg11_autoplan_skill" "classify-plan --plan <plan-path> --json"
-assert_contains "autoplan emits a scope triage line" "$tg11_autoplan_skill" "Scope triage: <value>"
-assert_contains "autoplan keeps tier 3 large at every file count" "$tg11_autoplan_skill" "Tier 3 is Large at every file count"
+assert_contains "autoplan resolves intent, scope, and risk explicitly" "$tg11_autoplan_skill" 'Resolve `intent`, `scope`, and `risk` explicitly with the canonical workflow contract'
+assert_contains "autoplan resolves impact scope rather than file count" "$tg11_autoplan_skill" "Scope is impact footprint, not file count"
+assert_contains "autoplan does not add mandatory capability passes" "$tg11_autoplan_skill" "Do not create mandatory capability passes"
+assert_contains "autoplan emits task packets only when contract requires them" "$tg11_autoplan_skill" "Include packets only when the contract requires them"
 tg11_execute_skill="$(cat "$ROOT/skills/etrnl-dev-execute/SKILL.md")"
-assert_contains "execute skill carries the plan scope triage section" "$tg11_execute_skill" "## Plan scope triage"
-assert_contains "execute skill dispatches trivial work with the mini packet" "$tg11_execute_skill" "--template mini"
-assert_contains "execute skill spawns no reviewers on a trivial scope" "$tg11_execute_skill" "Spawn no \`etrnl-spec-reviewer\`"
-assert_contains "execute skill keeps tier 3 out of the trivial shape" "$tg11_execute_skill" "Tier 3 is never Trivial"
+assert_contains "execute skill dispatches through portable companion" "$tg11_execute_skill" "{{ETRNL_COMPANION}}"
+assert_contains "execute skill captures required checks as command-run receipts" "$tg11_execute_skill" "run-check --name"
+assert_contains "execute skill distinguishes self-reported evidence" "$tg11_execute_skill" "self-reported"
+assert_contains "execute skill delegates only when work is independent and budget permits" "$tg11_execute_skill" "work is genuinely independent"
 
 # --- TG-12: review economy ---
 tg12_dir="$TMPROOT/tg12"
@@ -3940,7 +3967,7 @@ printf 'not a directory\n' >"$tg12_dir/learn-blocked"
 tg12_learn_ledger_dir="$TMPROOT/tg12-learn-ledger-only"
 mkdir -p "$tg12_learn_ledger_dir"
 tg12_learn_order_status=0
-node "$ROOT/scripts/review-learn.mjs" learn --findings "$tg12_learn_root/as-any.json" --root "$tg12_learn_root" --rules "$tg12_dir/learn-blocked/review-rules.json" --ledger "$tg12_learn_ledger_dir/review-learnings.json" --threshold 1 --json >/dev/null 2>&1 || tg12_learn_order_status=$?
+node "$ROOT/scripts/review-learn.mjs" learn --findings "$tg12_learn_root/as-any.json" --root "$tg12_learn_root" --rules "$tg12_dir/learn-blocked/review-rules.json" --ledger "$tg12_learn_ledger_dir/review-learnings.json" --threshold 1 --apply-rules --json >/dev/null 2>&1 || tg12_learn_order_status=$?
 assert_exit_status "review-learn fails when the ruleset write fails" "$tg12_learn_order_status" "1"
 assert_no_file "review-learn never persists the ledger when the ruleset write fails" "$tg12_learn_ledger_dir/review-learnings.json"
 assert_no_directory "review-learn releases the store lock when the ruleset write fails" "$tg12_learn_ledger_dir/review-learnings.json.lock"
@@ -4160,48 +4187,31 @@ else
 fi
 
 tg12_bounded_review="$(cat "$ROOT/skills/etrnl-dev-execute/references/bounded-review.md")"
-assert_contains "bounded-review documents the recurring-finding park limit" "$tg12_bounded_review" "ETRNL_REVIEW_RECURRING_FINDING_LIMIT"
-assert_contains "bounded-review documents the alternation park limit" "$tg12_bounded_review" "ETRNL_REVIEW_STREAM_ALTERNATION_LIMIT"
-assert_contains "bounded-review documents the progress park limit" "$tg12_bounded_review" "ETRNL_REVIEW_ROUNDS_SINCE_PROGRESS_LIMIT"
-assert_contains "bounded-review documents the report-only deterministic pass" "$tg12_bounded_review" "--report-only"
-assert_contains "bounded-review carries the dual-host tier 3 wave cadence rule" "$tg12_bounded_review" "Dual-host wave cadence"
-assert_contains "bounded-review keeps tier 3 gates at full strength" "$tg12_bounded_review" "Tier 3 gates hold at full strength on every wave"
-assert_contains "bounded-review exempts deep-audit lanes from adaptive skip" "$tg12_bounded_review" "DEEP_AUDIT_REGISTRY=\"\$ETRNL_SCRIPT_ROOT/lib/deep-audit-categories.mjs\""
-assert_contains "bounded-review reuses the review-learnings store" "$tg12_bounded_review" "reviewerDispatches"
-assert_contains "bounded-review requires private overlay learnings path" "$tg12_bounded_review" 'REVIEW_LEARNINGS="${HOME}/.claude/review-learnings/'
-assert_contains "bounded-review derives collision-resistant repo key" "$tg12_bounded_review" "hashlib.sha256"
-assert_contains "bounded-review validates full helper set before ETRNL_STACK" "$tg12_bounded_review" "review-learn.mjs"
-assert_contains "bounded-review validates review-rules helper" "$tg12_bounded_review" "review-rules.mjs"
-assert_contains "bounded-review validates review-merge helper" "$tg12_bounded_review" "review-merge.mjs"
-assert_contains "bounded-review validates execution-ledger helper" "$tg12_bounded_review" "execution-ledger.mjs"
-assert_contains "bounded-review validates deep-audit registry helper" "$tg12_bounded_review" "lib/deep-audit-categories.mjs"
-assert_contains "bounded-review fails closed on missing installed helper" "$tg12_bounded_review" "bounded-review error: missing required helper"
-assert_contains "bounded-review passes explicit repo root to helpers" "$tg12_bounded_review" '--root "$REPO_ROOT"'
-assert_contains "bounded-review tier-3 residual closure requires investigator on all high-risk streams" "$tg12_bounded_review" "auth/money/migration/tenancy/security streams, P2/P3 findings stay recorded as residuals"
-assert_contains "bounded-review park path keeps tier-3 residual confirmation" "$tg12_bounded_review" 'requires `etrnl-investigator` review plus `record-decision` owner confirmation before closure'
-assert_contains "bounded-review tier-3 P2 residuals stay recorded until owner confirmation" "$tg12_bounded_review" "P2/P3 findings stay recorded as residuals"
-assert_contains "bounded-review tier-3 residual closure uses ledger decision topics" "$tg12_bounded_review" "tier3-residual-closure-pending"
-assert_contains "bounded-review tier-3 residual closure blocks check-stop until confirmed" "$tg12_bounded_review" "investigator evidence or owner confirmation is missing"
-assert_contains "bounded-review tier-3 residual closure records investigator evidence" "$tg12_bounded_review" "record-specialist --skill etrnl-investigator"
+assert_contains "optional review follows the selected contract budget" "$tg12_bounded_review" "stored contract supplies the allowed review budget"
+assert_contains "review handling stops at the finite contract limit" "$tg12_bounded_review" "At the contract's review limit, stop"
+assert_contains "review findings cannot authorize external actions" "$tg12_bounded_review" "A review finding never authorizes a destructive or external action"
+assert_contains "review rule checks use the portable companion" "$tg12_bounded_review" "node {{ETRNL_COMPANION}} run scripts/review-rules.mjs"
 tg12_verification_gates="$(cat "$ROOT/skills/etrnl-dev-execute/references/verification-gates.md")"
-assert_contains "verification-gates documents browser-qa completion gate" "$tg12_verification_gates" "--require-complete"
-assert_contains "verification-gates documents react-doctor scope changed base" "$tg12_verification_gates" "--scope changed --base <ledger-base-commit> --blocking error"
-assert_contains "verification-gates separates missing react-doctor from N/A scope" "$tg12_verification_gates" "**Missing react-doctor:**"
+assert_contains "verification-gates uses captured command receipts when required" "$tg12_verification_gates" "command-captured evidence"
+assert_contains "verification-gates distinguishes self-reported rows" "$tg12_verification_gates" "Self-reported rows do not satisfy mechanical verification"
+assert_contains "verification-gates stops honestly at exhausted budget" "$tg12_verification_gates" "report the exact unresolved result"
 tg12_dev_pr="$(cat "$ROOT/skills/etrnl-dev-pr/SKILL.md")"
-assert_contains "etrnl-dev-pr routes review-learn through the installed helper" "$tg12_dev_pr" "node ~/.claude/scripts/review-learn.mjs learn"
+assert_contains "etrnl-dev-pr routes helpers through portable companion" "$tg12_dev_pr" "node {{ETRNL_COMPANION}} run scripts/<helper>.mjs"
 assert_contains "etrnl-dev-pr uses FINDINGS_FILE for review-learn ingestion" "$tg12_dev_pr" 'FINDINGS_FILE="${FINDINGS_FILE:?set FINDINGS_FILE to a sanitized JSON file}"'
-assert_contains "etrnl-dev-pr uses private overlay ledger path for review-learn" "$tg12_dev_pr" '"$HOME/.claude/review-learnings/${REPO_KEY}/review-learnings.json"'
-assert_contains "etrnl-dev-pr warns against probing repo-local review-learn" "$tg12_dev_pr" "do not probe for \`scripts/review-learn.mjs\` in the target repo"
-assert_contains "etrnl-dev-pr requires owner confirmation before promoting review rules" "$tg12_dev_pr" "never write or enable \`review-rules.json\` entries without explicit repository-owner confirmation"
-assert_contains "etrnl-dev-pr requires owner confirmation before committing review-rules.json" "$tg12_dev_pr" "explicit repository-owner confirmation"
+assert_contains "etrnl-dev-pr delegates private recurrence storage to host-local helper state" "$tg12_dev_pr" 'It stores sanitized recurrence data in host-local state'
+assert_not_contains "etrnl-dev-pr avoids a hard-coded Claude ledger path" "$tg12_dev_pr" '"$HOME/.claude/review-learnings/${REPO_KEY}/review-learnings.json"'
+assert_contains "etrnl-dev-pr requires owner authorization before applying shared rules" "$tg12_dev_pr" 'Only pass `--apply-rules` when the user authorized shared rule changes'
+assert_contains "etrnl-dev-pr avoids probing or copying target-repo helpers" "$tg12_dev_pr" "Do not probe for \`scripts/review-learn.mjs\` in the target repo or copy helpers"
+assert_contains "etrnl-dev-pr keeps shared rule changes under user authority" "$tg12_dev_pr" "Change or enable shared review rules only when the user authorized that repository change"
+assert_contains "etrnl-dev-pr preserves repository-owner authority" "$tg12_dev_pr" "Change or enable shared review rules only when the user authorized that repository change"
 assert_contains "etrnl-dev-pr requires redaction before ingestion" "$tg12_dev_pr" "before writing \`findings.json\`"
 assert_contains "etrnl-dev-pr validates FINDINGS_FILE is a JSON array" "$tg12_dev_pr" 'type == "array"'
 assert_contains "etrnl-dev-pr rejects sensitive FINDINGS_FILE content" "$tg12_dev_pr" "sensitive-looking content"
 assert_contains "etrnl-dev-pr rejects in-repo FINDINGS_FILE paths" "$tg12_dev_pr" "must live outside the target repository"
 assert_contains "etrnl-dev-pr allowlists persisted finding fields" "$tg12_dev_pr" "allowlisted string fields only"
 assert_contains "etrnl-dev-pr resolves FINDINGS_FILE with realpath" "$tg12_dev_pr" "realpath -e"
-assert_contains "etrnl-dev-pr compares before copying pr-preflight helper" "$tg12_dev_pr" "cmp -s"
-assert_contains "etrnl-dev-pr requires confirmation before full install refresh" "$tg12_dev_pr" "explicit repository-owner confirmation because it rewrites hooks"
+assert_contains "etrnl-dev-pr avoids copying host helper files" "$tg12_dev_pr" "Do not manually install or copy host files"
+assert_contains "etrnl-dev-pr does not refresh host installs as repair" "$tg12_dev_pr" "Do not manually install or copy host files as a repair step"
 tg12_review_learn_repo="$TMPROOT/review-learn-repo"
 mkdir -p "$tg12_review_learn_repo"
 git -C "$tg12_review_learn_repo" init -q
@@ -4246,6 +4256,12 @@ tg12_review_learn_default_out="$(HOME="$tg12_review_learn_default_home" node "$R
 assert_json_expr "review-learn defaults ledger to private overlay when --ledger is omitted" "$tg12_review_learn_default_out" '.droppedByDisposition == 1'
 assert_file "review-learn default ledger path stays under HOME overlay" "$tg12_review_learn_default_ledger"
 assert_no_review_learn_ledgers_in_repo "$tg12_review_learn_repo" "review-learn default ledger path never lands in target repo tree"
+tg12_review_learn_host_root="$TMPROOT/review-learn-codex-host"
+tg12_review_learn_host_out="$(ETRNL_HOME="$tg12_review_learn_host_root" HOME="$tg12_review_learn_default_home" node "$ROOT/scripts/review-learn.mjs" learn \
+  --findings "$tg12_review_learn_findings" --root "$tg12_review_learn_repo" --rules "$tg12_review_learn_rules" --json)"
+assert_json_expr "review-learn host-root invocation preserves disposition filtering" "$tg12_review_learn_host_out" '.droppedByDisposition == 1'
+assert_file "review-learn honors installed host root instead of Claude fallback" "$tg12_review_learn_host_root/review-learnings/${tg12_review_learn_repo_key}/review-learnings.json"
+assert_no_file "review-learn host-root invocation creates no nested Claude overlay" "$tg12_review_learn_host_root/.claude/review-learnings/${tg12_review_learn_repo_key}/review-learnings.json"
 tg12_review_learn_sensitive_rules_hash="$(shasum "$tg12_review_learn_rules" | awk '{print $1}')"
 tg12_review_learn_repo_home="$tg12_review_learn_repo/.home-overlay"
 mkdir -p "$tg12_review_learn_repo_home"
@@ -4313,8 +4329,9 @@ assert_no_file "review-learn JSON-shaped secret rejection leaves no ledger behin
 assert_contains "review-learn JSON-shaped secret rejection leaves rules unchanged" "$(shasum "$tg12_review_learn_rules" | awk '{print $1}')" "$tg12_review_learn_sensitive_rules_hash"
 
 tg12_batch_execution="$(cat "$ROOT/skills/etrnl-dev-execute/references/batch-execution.md")"
-assert_contains "batch-execution defers tier 0-2 human-verify pauses" "$tg12_batch_execution" "## Human-verify batching (tier ≤ 2 default)"
-assert_contains "batch-execution keeps tier 3 UAT gates in place" "$tg12_batch_execution" "Tier 3 keeps explicit UAT gates where the plan places them"
+assert_contains "batch-execution is optional, not an item-count rule" "$tg12_batch_execution" "technique, not a requirement imposed by item count"
+assert_contains "batch-execution preserves explicit user checkpoints" "$tg12_batch_execution" "Preserve user-requested checkpoints and external approval gates"
+assert_contains "batch-execution respects contract budgets" "$tg12_batch_execution" "Respect the active workflow contract"
 
 spawn_batch_plan="$ROOT/hooks/fixtures/plans/large-batch-plan.md"
 node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-spawn-batch --plan "$spawn_batch_plan" --cwd "$ROOT" >/dev/null
@@ -4399,19 +4416,32 @@ if [[ "$spawn_after_record" -eq $((spawn_before + 1)) ]]; then
 else
   not_ok "spawn guard should increment spawn count once (before=$spawn_before after=$spawn_after_record)"
 fi
-node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-spawn-third-lane --plan "$spawn_batch_plan" --cwd "$ROOT" >/dev/null
+third_lane_plan="$TMPROOT/third-lane-plan.md"
+cp "$spawn_batch_plan" "$third_lane_plan"
+perl -0pi -e 's/^Up to three lanes after batch adoption on Large scope\./maxConcurrentLanes=3 after batch adoption on Large scope./m' "$third_lane_plan"
+node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-spawn-third-lane --plan "$third_lane_plan" --cwd "$ROOT" >/dev/null
+third_lane_ledger_path="$(jq -r '.path' "$ETRNL_RUNS_DIR/current-fixture-spawn-third-lane.json")"
+assert_json_expr "third-lane fixture parsed its explicit maxConcurrentLanes cap" "$(jq -c . "$third_lane_ledger_path")" '.planMaxConcurrentLanes == 3'
 assert_command "third-lane fixture records first lane" node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-third-lane --task-name "tg1_writer" --wave "wave-1" --json
-assert_command "third-lane fixture records second lane" node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-third-lane --task-name "tg2_writer" --wave "wave-1" --json
-if third_lane_out="$(node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-third-lane --task-name "tg3_writer" --wave "wave-1" --json 2>&1)"; then
-  not_ok "spawn guard requires batch adoption before third concurrent lane on Large plan"
+assert_command "third-lane fixture records second lane before cap" node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-third-lane --task-name "tg2_writer" --wave "wave-1" --json
+if third_lane_pre_adoption_out="$(node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-third-lane --task-name "tg3_writer" --wave "wave-1" --json 2>&1)"; then
+  not_ok "spawn guard requires batch adoption before third lane"
 else
-  assert_json_expr "spawn guard requires batch adoption before third concurrent lane on Large plan" "$third_lane_out" '.reasonCode == "parallel-lane-batch-required"'
+  assert_json_expr "spawn guard requires batch adoption before third lane" "$third_lane_pre_adoption_out" '.reasonCode == "parallel-lane-batch-required"'
+fi
+node "$ROOT/scripts/execution-ledger.mjs" record-decision --session fixture-spawn-third-lane --topic batch-execution-adopted --decision "Three compatible lanes" --reason "Explicit plan cap and adoption fixture"
+assert_command "third-lane fixture records third lane after adoption" node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-third-lane --task-name "tg3_writer" --wave "wave-1" --json
+if third_lane_out="$(node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-third-lane --task-name "tg4_writer" --wave "wave-1" --json 2>&1)"; then
+  not_ok "spawn guard enforces explicit three-lane plan cap"
+else
+  assert_json_expr "spawn guard enforces explicit three-lane plan cap" "$third_lane_out" '.reasonCode == "concurrent-lane-cap"'
 fi
 heavy_ledger_file="$(node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-spawn-heavy --plan "$ROOT/hooks/fixtures/plans/good-plan.md" --cwd "$ROOT")"
 if [[ -n "$heavy_ledger_file" && -f "$heavy_ledger_file" ]]; then
   heavy_spawn_now="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
   heavy_spawn_past="$(date -u -v-120S +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -d '120 seconds ago' +"%Y-%m-%dT%H:%M:%SZ")"
   jq --arg past "$heavy_spawn_past" --arg now "$heavy_spawn_now" '
+    .executeProfile = {maxConcurrentLanes: 50} |
     .spawns = [
       range(0; 20) as $i |
       {
@@ -4515,11 +4545,11 @@ else
 fi
 claude_exec_profile="$(cat "$ROOT/skills/etrnl-dev-execute/references/claude-execute-profile.md")"
 codex_exec_profile="$(cat "$ROOT/skills/etrnl-dev-execute/references/codex-execute-profile.md")"
-for trigger_text in "batch-execution-adopted" "third concurrent lane" "20+" "55%"; do
-  assert_contains "batch trigger table includes $trigger_text in batch-execution.md" "$tg12_batch_execution" "$trigger_text"
-  assert_contains "batch trigger table includes $trigger_text in claude execute profile" "$claude_exec_profile" "$trigger_text"
-  assert_contains "batch trigger table includes $trigger_text in codex execute profile" "$codex_exec_profile" "$trigger_text"
+for host_profile in "$claude_exec_profile" "$codex_exec_profile"; do
+  assert_contains "host adapter delegates requirements and budgets to contract" "$host_profile" 'Workflow mode, requirements, and budgets come from the stored `workflow-contract.json`'
 done
+assert_contains "Claude adapter names native worker tools" "$claude_exec_profile" "native Task/Agent tools"
+assert_contains "Codex adapter names native subagents" "$codex_exec_profile" "Codex native subagents"
 
 assert_command "performance fine contracts, routing and parity pass" node --test "$ROOT/tests/fixtures/performance/test-contract.mjs"
 

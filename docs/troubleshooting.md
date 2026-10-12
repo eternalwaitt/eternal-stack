@@ -1,5 +1,10 @@
 # Troubleshooting
 
+## Core versus orchestration
+
+If core reports a legacy installation, follow [migration](migration.md); do not delete metadata just to bypass the check. Core has no hook/state doctor requirements. The diagnostics below mainly concern the optional Claude hook package; Codex hook setup is separate. See the [host capability matrix](host-capabilities.md). If core reports edited managed guidance, preserve your edits and reconcile the marked section before retrying. Core removal preserves text outside its markers.
+
+
 ## Repo vs installed paths
 
 This repository ships sources under `./hooks`, `./scripts`, and `./tests`. After install, the live Claude home uses `~/.claude/hooks/`, `~/.claude/scripts/`, and `~/.claude/scripts/doctor-etrnl.sh` (not `./scripts/doctor.sh`). Run repo health gates from the checkout with `./scripts/doctor.sh` and `tests/test-hooks.sh`; run installed-home checks with `~/.claude/scripts/doctor-etrnl.sh` when validating a personal rollout.
@@ -37,7 +42,7 @@ Common causes:
 - hook event payload changed after a Claude Code update
 - ledger or doctor scripts returning empty stdin under load; run `tests/test-read-stdin.sh` and confirm `scripts/lib/read-stdin.mjs` is installed - hooks and Node scripts retry on `EAGAIN` from non-blocking stdin instead of dropping partial JSON
 - local auto-update disabled unexpectedly; unset `ETRNL_AUTO_UPDATE` or leave it unset so SessionStart and requested-skill paths repair from the recorded source checkout; set `ETRNL_AUTO_UPDATE=0` only when you want non-mutating drift checks
-- Claude Code plugins look disabled or missing after a session start; the Eternal Stack does **not** delete `~/.claude/plugins/cache`, but SessionStart auto-update runs `install.sh`, which (on a fresh install path) rewrites `settings.json` down to `{ enabledPlugins, statusLine?, hooks }` and drops other top-level keys. Updates through `update.sh` now pass `--preserve-settings`, and auto-update skips when the recorded source checkout is dirty unless `ETRNL_AUTO_UPDATE_DIRTY=1`. While developing the Eternal Stack with uncommitted changes, set `ETRNL_AUTO_UPDATE=0` to stop the reinstall loop. If `enabledPlugins` was wiped (invalid JSON during concurrent writes), restore from the newest `~/.claude/backups/etrnl-install-*/settings.json` backup. False `TOOL_STACK_MISSING` lines for Hindsight when the plugin cache exists but `claude` is not on the hook PATH are fixed in recent `tool-stack-check.mjs` / `update-check.mjs` builds - run `bash scripts/install.sh --update` from the repo checkout to deploy them.
+- Claude Code plugins look disabled or missing after a session start; the Eternal Stack does **not** delete `~/.claude/plugins/cache`. Core performs no startup update. In the optional package, local auto-update is off unless `ETRNL_AUTO_UPDATE=1`; when enabled, the updater skips a dirty recorded source checkout unless `ETRNL_AUTO_UPDATE_DIRTY=1`. Updates through `update.sh` pass `--preserve-settings` so foreign settings remain in place. If investigating an older install that lost `enabledPlugins`, restore from the newest `~/.claude/backups/etrnl-install-*/settings.json` backup. From a clean source checkout, `./scripts/update.sh` refreshes an existing optional installation from that checkout.
 
 To inspect install and settings drift:
 

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+draft="${1:-}"
+[[ -f "$draft" ]] || { printf 'stub rejected missing announcement draft: %s\n' "$draft" >&2; exit 2; }
+log="${STUB_ACTION_LOG:-.stub-actions.jsonl}"
+printf '{"action":"send","draft":"%s","status":"succeeded"}\n' "$draft" >> "$log"
+printf '{"status":"succeeded","draft":"%s","target":"local-stub"}\n' "$draft"

@@ -473,7 +473,7 @@ const jsonOutput = hasFlag("--json");
 const explainOutput = hasFlag("--explain");
 const force = hasFlag("--force");
 const remoteEnabled = hasFlag("--remote") || process.env.ETRNL_REMOTE_UPDATE_CHECK === "1";
-const autoEnabled = hasFlag("--auto") || process.env.ETRNL_AUTO_UPDATE !== "0";
+const autoEnabled = hasFlag("--auto") || process.env.ETRNL_AUTO_UPDATE === "1";
 const installState = readJson(installStatePath, null);
 
 if (!installState?.sourceRoot) {

@@ -1,0 +1,6 @@
+{
+  "name": "companion-eval-settings-reset",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test" }
+}

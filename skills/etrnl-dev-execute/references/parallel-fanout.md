@@ -1,24 +1,17 @@
-# Parallel Fan-Out
+# Optional parallel work
 
-Use only during `etrnl-dev-execute` when parallel-safe work needs bounded fanout. Execute owns plan execution, ledger updates, review, integration, and final verification.
+Parallelize only when it shortens the task without obscuring ownership or correctness. The canonical workflow contract controls whether workers and packets are allowed and sets their budget.
 
-1. Split work by disjoint file ownership.
-2. Construct the full ETRNL task packet as specified in `etrnl-dev-execute`, including task id, lineage id, scope, verification, reviewer, reuse, TDD, deep-stack, risk, and completion fields.
-   - For parallel or multi-file writes, set `criticalPath`, `stopCondition`, `waveId`, `waveSize`, `maxConcurrentLanes`, `nativeChildAgents`, `parentChildDrain`, `completionReceiptRequired`, and `completionReceipt`.
-   - Default `maxConcurrentLanes` to `3`, or to `2` under the Codex execute profile. Raise it only when the plan's `## Parallelization strategy` includes one explicit justification line for the higher lane count.
-   - Set `modelTier`, `codexModel`, and `codexReasoningEffort` on every packet, resolved through `resolveCodexModel` in `scripts/lib/codex-model-routing.mjs`: `standard` (`gpt-5.6-terra`/medium) for write lanes, `top` (`gpt-5.6-terra`/high) for schema/auth/money/install work, `fast` (`gpt-5.6-luna`/low) for read-only lanes. The parent orchestrator thread stays Sol-equivalent; no child packet copies that thread setting.
-   - `waveSize` cannot exceed `maxConcurrentLanes`.
-   - `nativeChildAgents` is `forbidden`, `modeled`, or `not_applicable`. `modeled` requires `parentChildDrain`, the child-agent drain and merge protocol before parent integration continues.
-   - Completion receipts name changed files, verification commands, result status, blockers, and follow-up ownership.
-   - Validate every packet with `node ~/.claude/scripts/agent-task-packet-check.mjs` before dispatch.
-3. Every `spawn_agent` call and every native child agent call sets `model` and reasoning effort explicitly from the resolved packet fields. An omitted `model` inherits the parent thread model and burns flagship tokens on the child: treat an unset `model`, `inherit`, `default`, or `same as parent` as a packet defect, fix the packet, and re-dispatch. `node ~/.claude/scripts/agent-task-packet-check.mjs` errors when a write packet omits `codexModel`.
-4. Report lane progress as ledger position plus named gates from `node scripts/execution-ledger.mjs history --gates --plan <plan-path>` (after install, `node ~/.claude/scripts/execution-ledger.mjs history --gates --plan <plan-path>`). Rolling hour ETAs for a wave or a lane are prohibited.
-5. **Wait sizing (Codex/native child hosts):** first wait on a child equals the packet `timeoutSec` estimate (minimum 300 seconds / 5 minutes). Every subsequent wait is at least 120 seconds / 2 minutes. Never use fixed 30–60 second polling loops. On each wake-up, drain **all** completed children before waiting again. Use completion notifications or blocking waits when the host supports them; otherwise use the timed waits above (never 30–60 second polling loops).
-6. Use `etrnl-executor`, `etrnl-spec-reviewer`, `etrnl-quality-reviewer`, and `etrnl-investigator` by role.
-7. Integrate changes sequentially; if conflicts appear:
-   - do not revert user changes
-   - assign one authoritative conflict owner per file
-   - preserve user edits first, then keep the agent output with the narrowest matching scope
-   - run available tests and linters before and after resolving conflicts
-   - document resolution decisions in commit or PR notes
-8. Run final verification after integration.
+- Use independent, bounded tasks with explicit read/write scope, expected result, and validation when packets are required.
+- Keep overlapping writes sequential. Integrate each result, inspect the diff, and run shared checks after integration.
+- Use host-native dispatch and required native model fields; do not hard-code a Claude or Codex lane cap in shared workflow guidance.
+- Do not delegate for ceremony. If no independent task exists, work directly.
+- Stop when the worker budget is exhausted; do not relabel tasks to bypass it.
+
+## Shared verification and process ownership
+
+Before workers start, name one owner for each expensive suite, build, browser session, watcher or development server. Other workers use focused checks or consume the owner's evidence; they do not independently launch the same broad check. Reuse a server only after confirming its project, configuration and reachable address match. Keep separate browser contexts only when isolation is needed for the tested behavior.
+
+Pass workers the objective, disjoint files, acceptance result, dependencies, existing check receipts and remaining contract budget. Give paths and relevant excerpts instead of the entire conversation or every skill. Nested delegation consumes the same task budget and needs the same authorization as its parent.
+
+The owner records start/stop handles for task-created processes and cleans them up on completion, failure or cancellation. Stop only owned processes; do not kill unrelated servers by executable name or port. The finite command runner does not manage host-native browsers or persistent servers. Shared verification must finish against the integrated source; stale or differently configured results cannot satisfy a required gate.

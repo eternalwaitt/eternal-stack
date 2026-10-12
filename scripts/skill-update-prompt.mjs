@@ -38,7 +38,7 @@ const emit = (result) => {
   );
   if (result.summary) console.log(result.summary);
   if (result.rawUpdateOutput) console.log(result.rawUpdateOutput);
-  console.log("Eternal Stack update available — run the update command(s) above when practical; only skip if the user explicitly declines.");
+  console.log("Eternal Stack update available — maintenance is optional; finish the current task before choosing whether to update.");
 };
 
 if (!fs.existsSync(updateScript)) {
@@ -56,7 +56,7 @@ if (!fs.existsSync(updateScript)) {
   process.exit(0);
 }
 
-const autoUpdateDisabled = process.env.ETRNL_AUTO_UPDATE === "0";
+const autoUpdateDisabled = process.env.ETRNL_AUTO_UPDATE !== "1";
 const updateArgs = [updateScript, "--json"];
 if (!autoUpdateDisabled) {
   updateArgs.push("--auto");

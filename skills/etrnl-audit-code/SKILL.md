@@ -5,7 +5,6 @@ disable-model-invocation: true
 ---
 # ETRNL Code Health
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-audit-code`; on update, run the reported update command before continuing; only skip if the user explicitly declines.
 
 Run code health as a closed-loop audit, not as a vague lint pass. Route to deterministic tools first, then companion skills, then fixes only when explicitly requested.
 
@@ -19,22 +18,22 @@ Run code health as a closed-loop audit, not as a vague lint pass. Route to deter
 - `fix`: apply fixes only after audit evidence exists or the user explicitly asks to fix all valid findings.
 - `no-skips`: every tracked file is inventoried and every finding is dispositioned.
 
-## TDD Enforcement (skill_process)
+## Evidence and Verification
 
-When the audit triggers fixes, apply red-green-refactor discipline:
+When a finding is testable and a regression test is proportionate, prefer red-green-refactor:
 
 1. For each finding that maps to a regression or missing test: identify the test file or command that would catch it.
 2. Confirm the test currently fails (red) before applying a fix. If no test exists, write the minimal test first.
 3. Apply the fix (green). Confirm the test passes.
-4. Rerun the canonical health gate - `tests/test-hooks.sh` and `scripts/doctor.sh` - not just the changed paths, and require both to pass before marking the finding `fixed`.
+4. Run the repository's relevant verification after the fix. Use `tests/test-hooks.sh` and `scripts/doctor.sh` when changing or auditing Eternal Stack's own hook/install surface; use the target repository's health stack otherwise. A whole-repo certification may need broader checks than a focused fix.
 
-Do not mark a finding `fixed` based on inspection alone. Require a passing gate run as evidence.
+Do not describe a source-only review as a runtime test. Mark what evidence supports a finding and what check was run; a passing check proves only the behavior it exercises.
 
 ## Required Flow
 
 1. Inventory the repo:
-   - Use `node ~/.claude/scripts/code-health-inventory.mjs --json` when installed.
-   - If not installed, use `node scripts/code-health-inventory.mjs --json` inside the repository being audited.
+   - When the Eternal companion is available, use `node {{ETRNL_COMPANION}} run scripts/code-health-inventory.mjs -- --json`.
+   - Otherwise use the target repository's inventory tool or a tracked-file inventory; identify the inventory source and limitations. Do not invoke an Eternal helper that is absent from the target repo.
    - Use `--json` for any programmatic parsing; plain `git ls-files` is only a last-resort list and must be converted into the coverage ledger before reporting coverage.
    - Preserve inventory `riskHotspots` rows emitted by the helper. Treat them as deterministic prioritization inputs for review order, not as findings by themselves.
    - Classify every tracked file by source, test, docs, config, script, migration, fixture/generated, or asset.
@@ -43,7 +42,7 @@ Do not mark a finding `fixed` based on inspection alone. Require a passing gate 
 2. Load the repo health stack:
    - Use `docs/health-stack.md` when it exists.
    - Otherwise search for a `## Health Stack` block in `AGENTS.md`, `CLAUDE.md`, `README.md`, or project docs.
-   - If no stack exists, detect commands from package/build config and record the missing Health Stack as a finding.
+   - If no stack exists, detect checks from package/build config and report that no canonical health stack is defined; do not invent a repository-wide failure policy.
 3. Run deterministic gates before AI review:
    - Typecheck, lint/format check, test, build.
    - Dead code/unused deps: Knip first for JS/TS when available; Fallow as a trial tool, not assumed law.
@@ -56,7 +55,7 @@ Do not mark a finding `fixed` based on inspection alone. Require a passing gate 
    - `finding-duplicate-functions` for semantic duplicates after syntactic clone checks.
    - `code-simplifier` after implementation or when AI bloat is suspected.
    - `eternal-best-practices` for auth, tenant, money, payments, i18n, Prisma, permissions, and soft-delete surfaces.
-   - `ast-grep` for structural naming/import/API-pattern sweeps; if `ast-grep` is not available, record it as a FAILED required check under the No-Skips Contract that blocks a clean completion unless the run carries an explicit `accepted-risk` disposition. A manual structural pass (for example ripgrep patterns) only supplements the evidence and does not substitute for the required structural gate.
+   - Use `ast-grep` for structural naming/import/API-pattern sweeps when installed and relevant. If unavailable, use another safe structural/source inspection when it answers the question; record the missing capability and limits rather than treating an optional binary as a universal prerequisite.
 5. Create a findings ledger.
 6. Fix in batches only when the mode allows edits.
 7. Rerun the canonical health gate (`tests/test-hooks.sh` and `scripts/doctor.sh`), not changed-files-only, before declaring whole-codebase health.
@@ -155,7 +154,7 @@ PASS/FAIL checklist (any FAIL marks the run incomplete):
 Red-capable gate (fails when the repo cannot be fully inventoried):
 
 ```bash
-node scripts/code-health-inventory.mjs --json --quiet
+node {{ETRNL_COMPANION}} run scripts/code-health-inventory.mjs -- --json --quiet
 ```
 
 Exit code 0 means every tracked file was classified into the coverage map. A non-zero exit (git failure, unknown option, or unreadable root) fails the inventory step and blocks a health verdict.
@@ -163,7 +162,7 @@ Exit code 0 means every tracked file was classified into the coverage map. A non
 No-skips ledger gate (fails when any finding carries a non-terminal disposition):
 
 ```bash
-printf '%s' "$CODE_HEALTH_STATE_JSON" | node scripts/code-health-ledger-check.mjs
+printf '%s' "$CODE_HEALTH_STATE_JSON" | node {{ETRNL_COMPANION}} run scripts/code-health-ledger-check.mjs --
 ```
 
 Empty stdout means the ledger passed. Any status token on stdout (`open-findings`, `open-action-items`, `accepted-risk-missing-owner`, `missing-inventory`, `missing-coverage-map`) names the exact defect and fails the run. A non-zero exit code (2) means the input JSON was malformed and also fails the run.

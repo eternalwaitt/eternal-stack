@@ -1,8 +1,11 @@
 ---
 name: domain-iot
-description: "Use when building IoT apps. Keywords: IoT, Internet of Things, sensor, MQTT, device, edge computing, telemetry, actuator, smart home, gateway, protocol, 物联网, 传感器, 边缘计算, 智能家居"
+description: "Use when building Rust IoT applications. Keywords: Rust IoT, Internet of Things, sensor, MQTT, device, edge computing, telemetry, actuator, smart home, gateway, protocol, 物联网, 传感器, 边缘计算, 智能家居"
+globs: ["**/Cargo.toml"]
 user-invocable: false
 ---
+
+> Applicability: Rust IoT domain patterns; validate protocol and device assumptions against the project.
 
 # IoT Domain
 

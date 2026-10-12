@@ -1,0 +1,6 @@
+{
+  "name": "companion-eval-books",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test" }
+}

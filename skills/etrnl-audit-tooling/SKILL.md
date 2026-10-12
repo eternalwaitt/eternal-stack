@@ -4,7 +4,6 @@ description: ETRNL deep-audit category skill for tooling ecosystem and developer
 ---
 # ETRNL Tooling Ecosystem Audit
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-audit-tooling`; on update, run the reported update command before continuing; only skip if the user explicitly declines.
 
 Run the `tooling-ecosystem` deep-audit category against scripts, manifests, lint and format gates, tests, CI, bootstrap, update, and rollback paths. This category is read-only unless the user explicitly asks for fixes.
 
@@ -13,14 +12,14 @@ Run the `tooling-ecosystem` deep-audit category against scripts, manifests, lint
 1. Load `references/audit-checks.md`.
 2. Use the shared deep-audit report envelope from `etrnl-deep-audit` when it exists.
 3. For direct category invocation, create the same report envelope with `requestedCategories: ["tooling-ecosystem"]`, or route the run through `etrnl-deep-audit --category tooling-ecosystem`.
-4. Refuse final completion until `node scripts/deep-audit-artifact-check.mjs validate --artifact <artifact>` has passed or a concrete blocker is recorded.
+4. Refuse final completion until `node {{ETRNL_COMPANION}} run scripts/deep-audit-artifact-check.mjs -- validate --artifact <artifact>` has passed or a concrete blocker is recorded.
 
 ## Hard Rules
 
 - Process full script, package-manifest, lint-format, test, CI, and bootstrap worklists.
 - Execute registered checks in order from `tool-01-local-setup` through `tool-05-upgrade-rollback`.
 - Verify documented commands against real scripts and CI names.
-- Compare source-controlled helpers with installed `~/.claude` and `~/.codex` copies when the user asks about live behavior.
+- When live behavior is in scope, resolve the active host's installed library from its manifest/companion and compare that copy with source. Do not infer install paths from conventional home-directory names; if installed state is unavailable, report a source-only result.
 - Record `CONFIRMED_CLEAN` for every completed check with zero findings.
 - Keep source-limited blockers separate from clean checks.
 - Keep local paths, account identifiers, secrets, transcript content, and private memory material out of tracked artifacts.
@@ -29,7 +28,7 @@ Run the `tooling-ecosystem` deep-audit category against scripts, manifests, lint
 
 Use this mode when the user asks to harden tooling, hooks, CI, PR loops, or the local stack.
 
-1. Establish the current baseline with `scripts/doctor.sh`, `node scripts/tool-stack-check.mjs --json`, `node scripts/settings-audit.mjs --live --json`, and `node scripts/session-audit.mjs --since-days 3 --json` when installed state is relevant.
+1. Establish the target repo's baseline from its own health stack. When auditing Eternal Stack itself, use `scripts/doctor.sh` from its source checkout and the companion helpers when available. Run settings/session audits only when installed-state behavior is in scope and the relevant host/profile actually supports those surfaces; Core does not install settings or hooks.
 2. Add deterministic enforcement only for a zero-backlog or explicitly accepted backlog class. Do not create fake-green baselines.
 3. Use small hook/script gates over documentation-only text for mandatory behavior.
 4. Keep hook changes fail-open only for non-required tools and fail-closed for safety, privacy, or execution-scope violations.
@@ -72,10 +71,10 @@ PASS/FAIL checklist (any FAIL means the run is incomplete):
 - [ ] Every referenced script path (`report_command`, npm scripts, docs) resolves to an existing file.
 - [ ] `scripts/bootstrap-tools.sh` passes `bash -n` and guards each tool with a presence check.
 - [ ] Every documented command string matches a real script name or CI job id.
-- [ ] `scripts/doctor.sh` exits 0 on the current tree.
+- [ ] The applicable target-repository health checks passed, or unavailable/not-applicable checks are clearly reported.
 
 Red-capable gate (fails when a referenced script is missing or a tooling gate breaks):
 
 ```
-bash scripts/doctor.sh   # expected exit 0; exit 1 when a script is missing or a gate fails
+bash scripts/doctor.sh   # Eternal Stack source-checkout gate; not a generic target-repository command
 ```

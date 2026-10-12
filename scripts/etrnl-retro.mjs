@@ -4,6 +4,8 @@ import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSyn
 import { homedir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { projectIdentity } from './lib/project-identity.mjs';
+import { appendKnowledge, latestKnowledge, prepareKnowledge, recordKnowledge, reviseKnowledge, retrieveKnowledge, knowledgeReviewBinding, redactText } from './lib/project-knowledge.mjs';
 import { argValue } from "./lib/cli-args.mjs";
 import { cleanSessionId, readEvents, stateRoot, worktreeHash } from "./lib/etrnl-state-core.mjs";
 
@@ -11,7 +13,7 @@ const args = process.argv.slice(2);
 const command = args[0] ?? "help";
 const jsonMode = args.includes("--json");
 
-const claudeHome = process.env.CLAUDE_HOME || path.join(homedir(), ".claude");
+const claudeHome = process.env.ETRNL_HOME || process.env.CLAUDE_HOME || path.join(homedir(), ".claude");
 
 function retroLessonsPath() {
   return process.env.ETRNL_RETRO_LESSONS
@@ -123,23 +125,26 @@ function buildEnvRemedyLessons(sessionEvents, sessionId, treeHash) {
     const seq = Number(event.eventSeq || 0);
     if (status === "failed" && !bucket.failedAt) {
       bucket.failedAt = event.at || "";
+      bucket.failed = event;
       bucket.failedSeq = seq;
     }
     if (status === "passed" && seq > bucket.failedSeq) {
       bucket.passedAt = event.at || "";
+      bucket.passed = event;
       bucket.passedSeq = seq;
     }
     byCommand.set(family, bucket);
   }
   for (const [family, bucket] of byCommand.entries()) {
     if (!bucket.failedAt || !bucket.passedAt) continue;
-    const verified = bucket.passedSeq > bucket.failedSeq;
+
     lessons.push({
       ts: nowIso(),
-      type: "env_remedy",
-      key: lessonKey("env_remedy", family),
-      insight: `Command "${family}" failed then passed in-session; preserve the env/config remedy instead of re-diagnosing.`,
-      confidence: verified ? 0.9 : 0.4,
+      type: "check_outcome_change",
+      key: lessonKey("check_outcome_change", `${sessionId}:${family}:${bucket.failedSeq}:${bucket.passedSeq}`),
+      insight: `Command "${family}" failed then passed in-session. Cause and remedy remain unconfirmed.`,
+      classification: "observed_failure",
+      evidence: [bucket.failed, bucket.passed].map(event => ({ at: event.at, eventSeq: event.eventSeq, sessionId: event.sessionId, ...event.data })),
       source: "distill",
       signal: family,
       sessionId,
@@ -167,8 +172,8 @@ function buildRedundantVerificationLessons(sessionEvents, sessionId, treeHash) {
       ts: nowIso(),
       type: "redundant_verification",
       key: lessonKey("redundant_verification", key),
-      insight: `Gate "${family}" ran ${count}x at unchanged tree hash; rerun only after meaningful code changes.`,
-      confidence: 0.9,
+      insight: `Gate "${family}" ran ${count}x at unchanged tree hash; investigate source, environment, fixture, and time dependencies before skipping a rerun.`,
+      classification: "observed_failure",
       source: "distill",
       signal: `${family}@${hash.slice(0, 8)}`,
       sessionId,
@@ -185,8 +190,8 @@ function buildCompactionLessons(sessionEvents, sessionId, treeHash) {
     ts: nowIso(),
     type: "compaction_stale",
     key: lessonKey("compaction_stale", `${sessionId}:${compactStaleEvents}`),
-    insight: `${compactCount} compactions reset stale verification ${compactStaleEvents}x; rerun targeted gates after compact before claiming done.`,
-    confidence: 0.9,
+    insight: `${compactCount} compaction events coincided with ${compactStaleEvents} stale verification records; compaction itself is not a confirmed cause.`,
+    classification: "observed_failure",
     source: "distill",
     signal: `compactions=${compactCount};staleResets=${compactStaleEvents}`,
     sessionId,
@@ -221,7 +226,7 @@ function buildRecurringDefectLessons(sessionEvents, sessionId, treeHash) {
       type: "recurring_defect",
       key: lessonKey("recurring_defect", fp),
       insight: `Reviewer fingerprint "${fp}" recurred across ${tasks.size} tasks (${summary.slice(0, 120)}).`,
-      confidence: 0.9,
+      classification: "observed_failure",
       source: "distill",
       signal: fp,
       sessionId,
@@ -242,87 +247,75 @@ function distill() {
     else console.log("retroDistill session=none lessons=0");
     return;
   }
-  const sessionEvents = events.filter((event) => event.sessionId === sessionId);
-  const cwdEvent = [...sessionEvents].reverse().find((event) => event.cwd);
-  const treeHash = worktreeHash(cwdEvent?.cwd || process.cwd());
+  const cwd = path.resolve(argValue(args, "--cwd", process.cwd()));
+  const identity = projectIdentity(cwd);
+  // A session can carry imported events: admit only events with matching project attribution.
+  const identityCache = new Map();
+  const eventProject = event => { if (!event.cwd) return ""; if (!identityCache.has(event.cwd)) identityCache.set(event.cwd, projectIdentity(event.cwd).projectId); return identityCache.get(event.cwd); };
+  const sessionEvents = events.filter(event => event.sessionId === sessionId && eventProject(event) === identity.projectId);
+  const treeHash = sessionEvents.at(-1)?.data?.treeHash || "";
   const candidates = [
     ...buildEnvRemedyLessons(sessionEvents, sessionId, treeHash),
     ...buildRedundantVerificationLessons(sessionEvents, sessionId, treeHash),
     ...buildCompactionLessons(sessionEvents, sessionId, treeHash),
     ...buildRecurringDefectLessons(sessionEvents, sessionId, treeHash),
   ];
-  const existingKeys = new Set(parseJsonl(retroLessonsPath()).map((lesson) => `${lesson.type}:${lesson.key}`));
   const appended = [];
-  for (const lesson of candidates) {
-    const dedupe = `${lesson.type}:${lesson.key}`;
-    if (existingKeys.has(dedupe)) continue;
-    appendLesson(lesson);
-    existingKeys.add(dedupe);
-    appended.push(lesson);
+  for (const input of candidates) {
+    if (!input.evidence) input.evidence = sessionEvents.filter(event => input.type === "recurring_defect" ? eventFingerprint(event) === input.signal : input.type === "compaction_stale" ? event.eventKind.startsWith("compact_") : isVerificationCheck(event)).slice(-20).map(event => ({ at: event.at, eventSeq: event.eventSeq, sessionId: event.sessionId, ...event.data }));
+    const lesson = appendKnowledge(retroLessonsPath(), rows => {
+      const old = latestKnowledge(rows).find(row => row.projectId === identity.projectId && row.type === input.type && row.key === input.key);
+      if (old?.sessionId === sessionId || old?.evidence?.some(item => item.sessionId === sessionId)) return null;
+      const next = prepareKnowledge(input, cwd);
+      if (old) { next.id = old.id; next.revision = old.revision + 1; next.lifecycle = old.lifecycle; next.occurrenceCount = (old.occurrenceCount || 1) + 1; next.evidence = [...(old.evidence || []), ...next.evidence].slice(-20); }
+      return next;
+    });
+    if (lesson) appended.push(lesson);
   }
   const payload = { ok: true, command: "distill", sessionId, lessons: appended };
   if (jsonMode) console.log(JSON.stringify(payload, null, 2));
   else console.log(`retroDistill session=${sessionId} lessons=${appended.length}`);
 }
 
-function scoreLesson(lesson) {
-  const confidence = Number(lesson.confidence || 0);
-  const ageMs = Date.now() - Date.parse(String(lesson.ts || ""));
-  const recency = Number.isFinite(ageMs) ? Math.max(0, 1 - ageMs / (30 * 24 * 60 * 60 * 1000)) : 0;
-  return confidence * (0.5 + 0.5 * recency);
-}
-
 function hints() {
-  const maxChars = Number.parseInt(argValue(args, "--max-chars", process.env.ETRNL_LEARNING_HINT_MAX_CHARS || "500"), 10);
-  const limit = Number.isFinite(maxChars) && maxChars > 0 ? maxChars : 500;
-  const cwd = path.resolve(argValue(args, "--cwd", process.cwd()));
-  const lessons = parseJsonl(retroLessonsPath())
-    .filter((lesson) => Number(lesson.confidence || 0) >= 0.3)
-    .sort((left, right) => scoreLesson(right) - scoreLesson(left))
-    .slice(0, 3);
-  if (lessons.length === 0) return;
-  const lines = ["Retro lessons:"];
-  for (const lesson of lessons) {
-    const line = `- [${lesson.type}] ${lesson.insight}`;
-    const candidate = `${lines.join("\n")}\n${line}`;
-    if ([...candidate].length > limit) break;
-    lines.push(line);
-  }
-  if (lines.length === 1) return;
-  const output = lines.join("\n");
-  if (jsonMode) {
-    console.log(JSON.stringify({ ok: true, command: "hints", text: output, count: lines.length - 1 }, null, 2));
-    return;
-  }
-  console.log(output);
+  const result = retrieveKnowledge({ cwd: path.resolve(argValue(args, "--cwd", process.cwd())), query: argValue(args, "--query", ""),
+    files: argValue(args, "--file", "") ? [argValue(args, "--file")] : [], maxChars: Number(argValue(args, "--max-chars", "500")) });
+  if (jsonMode) console.log(JSON.stringify({ ok: true, command, ...result }, null, 2));
+  else if (result.text) console.log(result.text);
 }
 
 function prune() {
-  const file = retroLessonsPath();
-  const entries = parseJsonl(file);
-  const byKey = new Map();
-  for (const entry of entries) {
-    const dedupe = `${entry.type}:${entry.key}`;
-    const existing = byKey.get(dedupe);
-    if (!existing || Date.parse(entry.ts || "") >= Date.parse(existing.ts || "")) {
-      byKey.set(dedupe, entry);
-    }
-  }
-  const decayed = [...byKey.values()].map((entry) => {
-    const ageDays = (Date.now() - Date.parse(String(entry.ts || ""))) / (24 * 60 * 60 * 1000);
-    const decaySteps = Math.floor(Math.max(ageDays, 0) / 30);
-    const confidence = Math.max(0, Number(entry.confidence || 0) - decaySteps * 0.01);
-    return { ...entry, confidence };
-  });
-  const active = decayed
-    .filter((entry) => Number(entry.confidence || 0) >= 0.3)
-    .sort((left, right) => scoreLesson(right) - scoreLesson(left))
-    .slice(0, 500);
-  const archived = decayed.length - active.length;
-  writeAtomic(file, active.length > 0 ? `${active.map((entry) => JSON.stringify(entry)).join("\n")}\n` : "");
-  const payload = { ok: true, command: "prune", active: active.length, archived };
+  // Retain history and legacy rows. Retirement is a separate owner-authorized CAS revision.
+  const entries = parseJsonl(retroLessonsPath());
+  const current = latestKnowledge(entries);
+  const payload = { ok: true, command: "prune", active: current.filter(row => (row.lifecycle || "active") === "active").length,
+    archived: 0, preserved: entries.length, maintenanceRequired: entries.length > 500, policy: "non-destructive; use revise with explicit owner authority" };
   if (jsonMode) console.log(JSON.stringify(payload, null, 2));
-  else console.log(`retroPrune active=${active.length} archived=${archived}`);
+  else console.log(`retroPrune active=${payload.active} archived=0 preserved=${entries.length}`);
+}
+function knowledgeRecord() {
+  const cwd = path.resolve(argValue(args, "--cwd", process.cwd()));
+  let evidence = [];
+  const evidenceArg = argValue(args, "--evidence", "");
+  if (evidenceArg) evidence = JSON.parse(evidenceArg);
+  if (!Array.isArray(evidence)) throw new Error("evidence must be an array");
+  const record = recordKnowledge({ summary: argValue(args, "--summary"), classification: argValue(args, "--classification", "observed_failure"),
+    trigger: argValue(args, "--trigger"), action: argValue(args, "--action"), exceptions: argValue(args, "--exceptions"),
+    causalRationale: argValue(args, "--causal-rationale"), evidence, worktreeScoped: args.includes("--worktree-scoped"), branchScoped: args.includes("--branch-scoped") }, cwd);
+  console.log(JSON.stringify({ ok: true, record }, null, jsonMode ? 2 : 0));
+}
+function knowledgeRevise() {
+  const record = reviseKnowledge({ cwd: path.resolve(argValue(args, "--cwd", process.cwd())), id: argValue(args, "--id"),
+    expectedRevision: Number(argValue(args, "--expected-revision")), lifecycle: argValue(args, "--lifecycle"),
+    authorizedBy: argValue(args, "--authorized-by"), reason: argValue(args, "--reason"), supersededBy: argValue(args, "--superseded-by"),
+    classification: argValue(args, "--classification"), artifactPath: argValue(args, "--review-artifact"), reviewer: argValue(args, "--reviewer"), treeHash: argValue(args, "--tree-hash") });
+  console.log(JSON.stringify({ ok: true, record }, null, jsonMode ? 2 : 0));
+}
+function reviewPacket() {
+  const cwd = path.resolve(argValue(args, "--cwd", process.cwd())); const identity = projectIdentity(cwd);
+  const record = latestKnowledge(parseJsonl(retroLessonsPath())).find(row => row.id === argValue(args, "--id") && row.projectId === identity.projectId);
+  if (!record || record.classification !== "candidate_lesson" || record.lifecycle !== "active") throw new Error("active project candidate required");
+  console.log(JSON.stringify({ schemaVersion: 1, kind: "knowledge-review-packet", knowledgeBinding: knowledgeReviewBinding(record), record }, null, 2));
 }
 
 function loadHindsightConfig() {
@@ -347,7 +340,7 @@ function canaryGreen() {
 }
 
 function projectBankId(cwd) {
-  const base = path.basename(path.resolve(cwd || process.cwd())) || "project";
+  const base = projectIdentity(cwd || process.cwd()).projectId;
   return `etrnl/${base.replace(/[^A-Za-z0-9._-]+/g, "-")}`;
 }
 
@@ -359,7 +352,8 @@ function hindsightRetainPayload(cwd, lessons, dryRun = false) {
     context: "etrnl",
     metadata: {
       kind: lesson.type,
-      confidence: lesson.confidence,
+      classification: lesson.classification,
+      evidenceGrade: lesson.evidenceGrade,
       signal: lesson.signal,
       sessionId: lesson.sessionId,
       treeHash: lesson.treeHash,
@@ -377,10 +371,8 @@ function hindsightRetain() {
   }
   const cwd = path.resolve(argValue(args, "--cwd", process.cwd()));
   const dryRun = args.includes("--dry-run");
-  const lessons = parseJsonl(retroLessonsPath())
-    .filter((lesson) => ["env_remedy", "recurring_defect"].includes(String(lesson.type)))
-    .sort((left, right) => scoreLesson(right) - scoreLesson(left))
-    .slice(0, 3);
+  if (!dryRun && !argValue(args, "--authorized-by")) throw new Error("external retention requires explicit owner authorization; use --dry-run for review");
+  const lessons = retrieveKnowledge({ cwd, maxChars: 4000 }).lessons.filter(lesson => ["owner_accepted_lesson", "reviewed_lesson"].includes(lesson.classification));
   if (lessons.length === 0 || (!dryRun && !canaryGreen())) {
     if (jsonMode) console.log(JSON.stringify({ ok: true, command: "hindsight-retain", retained: 0, skipped: "unavailable" }));
     return;
@@ -515,11 +507,16 @@ function steeringHint() {
 }
 
 function help() {
-  console.error(`usage: etrnl-retro.mjs distill|hints|prune|snapshot|snapshot-meta|hindsight-retain|steering-hint [--session <id|latest>] [--max-chars <n>] [--cwd <path>] [--state-dir <path>] [--worklog <path>] [--dry-run] [--json]`);
+  console.error(`usage: etrnl-retro.mjs record|revise|review-packet|retrieve|distill|hints|prune|snapshot|snapshot-meta|hindsight-retain|steering-hint [--session <id|latest>] [--max-chars <n>] [--cwd <path>] [--state-dir <path>] [--worklog <path>] [--dry-run] [--json]`);
   process.exit(2);
 }
 
-if (command === "distill") distill();
+try {
+if (command === "record") knowledgeRecord();
+else if (command === "revise") knowledgeRevise();
+else if (command === "review-packet") reviewPacket();
+else if (command === "retrieve") hints();
+else if (command === "distill") distill();
 else if (command === "hints") hints();
 else if (command === "prune") prune();
 else if (command === "snapshot") snapshotSession();
@@ -546,3 +543,4 @@ else if (command === "snapshot-hint") {
   else if (text) console.log(text);
 }
 else help();
+} catch (error) { console.error(redactText(error.message)); process.exitCode = 1; }

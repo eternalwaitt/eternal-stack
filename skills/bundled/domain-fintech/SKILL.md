@@ -1,8 +1,11 @@
 ---
 name: domain-fintech
-description: "Use when building fintech apps. Keywords: fintech, trading, decimal, currency, financial, money, transaction, ledger, payment, exchange rate, precision, rounding, accounting, 金融, 交易系统, 货币, 支付"
+description: "Use when building Rust fintech services. Keywords: Rust fintech, trading, decimal, currency, financial, money, transaction, ledger, payment, exchange rate, precision, rounding, accounting, 金融, 交易系统, 货币, 支付"
+globs: ["**/Cargo.toml"]
 user-invocable: false
 ---
+
+> Applicability: Rust fintech domain patterns; for cross-language money policy, route to the appropriate maintained money module.
 
 # FinTech Domain
 
@@ -12,10 +15,10 @@ user-invocable: false
 
 | Domain Rule | Design Constraint | Rust Implication |
 |-------------|-------------------|------------------|
-| Audit trail | Immutable records | Arc<T>, no mutation |
+| Audit trail | Durable, access-controlled history | Storage/transaction policy; Arc only shares memory |
 | Precision | No floating point | rust_decimal |
 | Consistency | Transaction boundaries | Clear ownership |
-| Compliance | Complete logging | Structured tracing |
+| Auditability | Redacted, retained business events | Structured evidence under project retention policy |
 | Reproducibility | Deterministic execution | No race conditions |
 
 ---
@@ -35,7 +38,7 @@ RUST: Use rust_decimal::Decimal
 ```
 RULE: All transactions must be immutable and traceable
 WHY: Regulatory compliance, dispute resolution
-RUST: Arc<T> for sharing, event sourcing pattern
+RUST: Arc<T> can share in-memory values; durable audit integrity requires database/storage controls. Event sourcing is optional, not a substitute for transactions.
 ```
 
 ### Consistency

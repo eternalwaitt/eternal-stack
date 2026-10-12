@@ -4,7 +4,6 @@ description: ETRNL application deep-audit orchestrator. Use when a user asks for
 ---
 # ETRNL Deep Audit
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-deep-audit`; on update, run the reported update command before continuing; only skip if the user explicitly declines.
 
 Run application deep audits through the registered category contract. Use `etrnl-audit-code` for repo-wide code health; use `etrnl-deep-audit-ux` for UI/UX/product audits; use this skill for orchestrator-included application categories and final synthesis.
 
@@ -35,14 +34,14 @@ UI/UX/product (`ui-ux-product`) is not an orchestrator mode. Route those prompts
    - `code-excellence`: invoke `etrnl-code-review-excellence` after code-excellence worklists exist.
    - `production-readiness`: invoke `etrnl-audit-production` after production worklists exist.
    - `security`: invoke `etrnl-audit-security` after security worklists exist; require exploitable-bug evidence for findings and explicit non-findings for clean rows.
-   - `performance`: invoke `etrnl-audit-performance` after performance worklists exist; use the six-lane cap from the `etrnl-dev-execute` parallel-fanout contract and require every registered lane receipt. Lane spawns set model and reasoning effort from `categoryLaneDispatch(categoryId)`; never let a lane inherit the parent model.
+   - `performance`: invoke `etrnl-audit-performance` after performance worklists exist; retain every registered lane receipt. Lanes describe coverage, not simultaneous processes: schedule them sequentially or in bounded groups under the stored workflow contract and host limits; follow the shared category contract for dispatch.
    - `shared-reuse`: load `references/categories/shared-reuse.md` after reuse worklists exist.
    - `repo-hygiene`: load `references/categories/repo-hygiene.md` after repo-hygiene worklists exist.
    - `tooling-ecosystem`: invoke `etrnl-audit-tooling` after tooling worklists exist.
 7. Reject category output that creates category-local inventory after shared worklists exist. Category reports and lane receipts consume shared worklist hashes.
 8. Require every selected category report before synthesis. Require exactly one report row for every registered check id.
 9. Keep `findings`, `confirmed_clean`, `skipped`, `not_applicable`, and `source_limited` separate. Do not count a source-limited blocker as clean.
-10. Validate the final artifact with `node scripts/deep-audit-artifact-check.mjs validate --artifact <artifact>`.
+10. Validate the final artifact with `node {{ETRNL_COMPANION}} run scripts/deep-audit-artifact-check.mjs -- validate --artifact <artifact>`.
 
 ## Coverage Statement
 

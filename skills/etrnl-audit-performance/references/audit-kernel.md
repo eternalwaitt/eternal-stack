@@ -4,7 +4,7 @@ The six existing lanes schedule work; fine checks in `scripts/lib/performance-co
 
 ## Discovery and dispatch
 
-`node scripts/performance-audit.mjs discover <git-root> > <run>/contract.json` inventories tracked and nonignored untracked files and hashes their current contents. It never executes target code. Git/submodule/read failures are explicit errors. A full-stack audit must additionally reconcile framework route manifests, runtime registrations, deferred journeys, ignored generated entrypoints, infrastructure, external services and prior incidents. Record commands and limitations in `discoveryReview`.
+`node {{ETRNL_COMPANION}} run scripts/performance-audit.mjs -- discover <git-root> > <run>/contract.json` inventories tracked and nonignored untracked files and hashes their current contents. It never executes target code. Git/submodule/read failures are explicit errors. A full-stack audit must additionally reconcile framework route manifests, runtime registrations, deferred journeys, ignored generated entrypoints, infrastructure, external services and prior incidents. Record commands and limitations in `discoveryReview`.
 
 Replace `unclassified-source` with exact named surfaces (routes, operations, components, queries, workers, builds). Each surface has `id`, `files`, `domains`, and `journeys`. Account for every inventoried file in a surface or a reasoned exclusion. Add generated/external surface descriptors to the inventory with retained provenance; update its hash and every receipt after expanding discovery. Inspect non-Next.js routes, non-Prisma persistence and non-JavaScript runtimes explicitly. Domain absence requires an evidence-based classification; unknown is applicable and source-limited. The validator cannot prove semantic discovery completeness from filenames.
 
@@ -30,7 +30,7 @@ Contributors consume immutable surface ids, input hashes, conditions and named c
 
 ## Distribution
 
-`node scripts/performance-audit.mjs parity <source-root> <staged-or-installed-root>` compares the entire performance skill, entrypoint scripts and helper library tree. It normalizes LF/CRLF for distribution text, detects extra stale files, exits 1 on missing/stale content and never modifies either root. Raw audit evidence remains byte-exact. Installation copies the registered helper and all libraries/references. Compare a disposable package/install stage before publishing; global installation is a separate authorized action. A source doctor pass does not mean an older installed skill is synchronized.
+`node {{ETRNL_COMPANION}} run scripts/performance-audit.mjs -- parity <source-root> <staged-or-installed-root>` compares the entire performance skill, entrypoint scripts and helper library tree. It normalizes LF/CRLF for distribution text, detects extra stale files, exits 1 on missing/stale content and never modifies either root. Raw audit evidence remains byte-exact. Installation copies the registered helper and all libraries/references. Compare a disposable package/install stage before publishing; global installation is a separate authorized action. A source doctor pass does not mean an older installed skill is synchronized.
 
 ## Investigation depth contract v2
 

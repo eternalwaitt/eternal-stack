@@ -1,210 +1,51 @@
 ---
 name: etrnl-dev-plan
-description: ETRNL file-backed planning workflow for Claude Code. Use when the user asks to "write a plan", "make an implementation plan", "turn this spec into tasks", "review/improve/finalize a plan", or plan multi-step work before implementation.
+description: Create or improve a file-backed implementation plan for Claude Code or Codex when the user asks to plan multi-step work, turn a spec into tasks, or review a plan.
 paths:
   - ".claude/plans/**"
   - ".planning/**"
 ---
-# ETRNL Writing Plans
+# Write an implementation plan
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-plan`; on update, run the reported update command before continuing; only skip if the user explicitly declines.
+Create or improve a plan from current repository evidence. Save it in the project's established ignored planning location; prefer `.claude/plans/`, then `.planning/`, then another existing ignored project planning directory. Do not put generated task plans or private evidence bundles in tracked documentation unless requested.
 
-Create a plan file, review it, improve it, then finalize it. Do not put the full plan in chat unless the user explicitly asks for chat-only output.
+## Workflow
 
-## Flow
+1. If the request is only an idea, clarify the intended outcome using repository context where available; use the optional brainstorm capability only when exploration would help. For a spec, issue, audit, or prior plan, read it first. Do not require a separate approved spec before planning or implementing work the user already authorized.
+2. Inspect relevant source, docs, tests, runtime surfaces, and current changes. Record evidence and distinguish facts from assumptions.
+3. Resolve the explicit workflow axes with `scripts/workflow-contract.mjs` through the portable companion helper. Scope means impact footprint, not number of files. Do not create extra plan phases or review lanes beyond the resolved contract. Ask only when ambiguity materially changes scope or authorization.
+4. Reuse existing code, scripts, checks, and capabilities before proposing new surfaces. For user-facing work, include the intended journey from a user's starting point through the main outcome and relevant error or recovery states. Keep task groups coherent and verification concrete. Include dependencies, ownership, failure handling, rollback, and non-goals when relevant.
+5. Save a draft, review it against the request and repository evidence, fix material gaps, and mark it ready only when the appropriate readiness checks pass. Do not claim a validator ran unless it did.
 
-1. Confirm input maturity:
-   - If there is only a vague idea, use `etrnl-dev-brainstorm` first.
-   - If a spec, issue, audit, or prior plan exists, read it and plan from that evidence.
-2. Search for plan conventions:
-   - Use an existing local planning directory in this order: `.claude/plans/`, `.planning/`, then project-specific ignored planning directories.
-   - If none exists, create `.claude/plans/<yyyy-mm-dd>-<slug>.md`.
-   - Do not put generated plans or artifact bundles in tracked repository docs.
-3. Ground the plan:
-   - Inspect relevant files, docs, configs, tests, scripts, runtime notes, and current git status.
-   - Read prior session or memory evidence only when the user asks to recover earlier intent.
-   - Separate verified repo facts from assumptions and open questions.
-4. Draft the plan with `Status: Draft`.
-5. Run the review pass against the same file.
-6. Add a `Plan Readiness Report` section to the plan.
-7. Create or update the deep-stack artifact bundle before finalization when `Risk tier` is 2 or 3:
-   - Source checkout: `node scripts/deep-stack-check.mjs create --plan <plan-path> --out <artifact-dir>`
-   - Installed Claude home: `node ~/.claude/scripts/deep-stack-check.mjs create --plan <plan-path> --out <artifact-dir>`
-   - Replace skeleton placeholders with real review phase records, source, skill, reuse, findings, TDD, completion reconciliation, risk-tier, TypeScript trigger, and install-proof evidence.
-8. Run the deterministic readiness gate when available:
-   - Source checkout: `node scripts/plan-readiness-check.mjs <plan-path> --allow-draft`
-   - Installed Claude home: `node ~/.claude/scripts/plan-readiness-check.mjs <plan-path> --allow-draft`
-9. Fix every blocking review finding and readiness failure in the file.
-10. Change status to `Final`.
-11. Run the readiness gate again without `--allow-draft`; if it reports missing deep-stack artifacts, the plan is not final.
-12. Reply with only the plan path, blocking findings addressed, unresolved questions, and execution options.
+## Plan shape
 
-## Required Plan Shape
-
-Start every plan with:
+Use this compact structure for work that benefits from a written handoff:
 
 ```markdown
-# <Feature or Change> Implementation Plan
+# <Change> Plan
 
 Status: Draft
-
 Execution scope: all_phases
-Goal: <one sentence>
+Goal: <user-visible result>
 Non-goals: <explicit exclusions>
-Evidence: <files, commands, docs, runtime surfaces checked>
-Assumptions: <only if still unresolved>
-Risk tier: <0-3> — <one-sentence justification; tier definitions owned by etrnl-dev-execute Startup step 6>
-Phase: <conditional phase id for multi-phase work>
-Workstream: <conditional workstream id for split ownership>
-UAT Gate: <conditional UAT completion condition for browser/user-acceptance work>
-Deep stack artifacts: <relative path to deep-stack artifact bundle>
-```
+Evidence: <source paths and checks inspected>
+Assumptions: <unresolved assumptions, or none>
+Workflow contract: <path to resolved contract JSON>
 
-Include `Status`, `Execution scope`, `Goal`, `Non-goals`, `Evidence`, and `Risk tier` as plain top-level key/value lines under the title (not `##` headings). Then add the required `##` section headings below.
-`Risk tier` must be 0–3 with one sentence of justification on the same line or the line below. Reuse the execute skill tier definitions verbatim (owned by `etrnl-dev-execute` Startup step 6):
-- Tier 0: docs/no-source/tiny change, local verification only.
-- Tier 1: one small source surface, normal tests plus completion check.
-- Tier 2: multi-file/source workflow, spec reviewer, quality reviewer, simplifier, completion audit.
-- Tier 3: hooks, installed-home changes, auth, money, security, migrations, data loss risk, or broad Eternal Stack behavior; full deep stack plus staged install and rollback proof.
-`Execution scope` must be one of `all_phases`, `first_patch_only`, or an explicit subset such as `phase_1_phase_2_only`. Use `all_phases` by default. Do not use `first_patch_only` unless the user explicitly asks for a spike, prototype, first slice, or partial execution.
-`Phase`, `Workstream`, and `UAT Gate` are conditional metadata. Include them only when the work spans multiple sessions, routes, workstreams, or user-acceptance/browser gates.
-
-### Tier 0–1 plan shape
-
-For `Risk tier: 0` or `Risk tier: 1`, include only:
-- the metadata lines above (no `Deep stack artifacts:` line)
-- `## File map`
-- `## Task groups`
-- `## Verification gates`
-- `## Rollback`
-- `## Readiness checklist` with five checklist lines instead of `## Plan Readiness Report`
-
-Do not require the deep-stack artifact bundle, full readiness report, phases, test-first plan, or companion review lanes for tier 0–1.
-
-### Tier 0–1 quick-dev lane
-
-Tier 0–1 execution follows a single-pass lane: TDD probe → surgical fix (every changed line traces to the request; simplest working design) → targeted tests → `review-rules.mjs` guards → ONE merged quality lens. No task packets, no reviewer fan-out, no deep-stack artifacts. State success criteria up front as the stop condition. Autoplan assigns one review lane for tier 0–1.
-
-### Tier 2–3 plan shape
-
-For `Risk tier: 2` or `Risk tier: 3`, include the full section list below. Tier 2 limits review lanes to engineering plus adversarial; tier 3 requires the full gauntlet.
-
-`Deep stack artifacts` is mandatory for every non-trivial `Status: Final` plan at tier ≥ 2. Existing historical plans can be checked only with the explicit legacy transition flag; newly generated final plans must never rely on transitional readiness. The referenced artifact bundle must pass validation before finalization or execution:
-
-```bash
-node scripts/deep-stack-check.mjs validate-plan --plan <plan-path>
-# or, after install:
-node ~/.claude/scripts/deep-stack-check.mjs validate-plan --plan <plan-path>
-```
-
-- `## What already exists`: existing code, scripts, flows, helpers, docs, or runtime surfaces that solve part of the problem.
-- `## NOT in scope`: considered work that is explicitly deferred, with one-line rationale.
-- `## File map`: exact files to create/modify/read, with each file's responsibility.
-- `## Task groups`: group related tasks so one worker can keep context; each group lists `Owner:`, `Dependencies:`, `Acceptance criteria:`, and `Verification:`; mark independent groups eligible for parallel execution.
-- `## Task sizing and slices`: use vertical slices that produce testable behavior; split any task that touches more than 8 files, crosses unrelated subsystems, or lacks one clear verification command.
-  Sizing note: `more than 8 files` is an Eternal Stack heuristic from prior repo-hardening runs, not a universal limit. Other skill docs must point to this line when they reuse the threshold, and repos with smaller ownership boundaries must tighten it.
-- `## Phases`: setup, implementation, tests, docs, rollout, rollback, verification, completion criteria.
-- `## Skill/tool routing`: list required workflow skills and companion review passes.
-- `## Test plan`: code paths, user flows, error states, regressions, E2E/eval needs, and exact test files/commands.
-- `## Test-first execution plan`: failing tests or executable bug probes to run before implementation, the green criteria after the fix, and explicit rationale for any item that cannot be tested first.
-- `## Failure modes`: one realistic production failure per new codepath, with test/error-handling/user-message coverage.
-- `## Parallelization strategy`: sequential lanes versus independent workstreams, module ownership, dependencies, and conflict risks.
-- `## Verification gates`: exact commands or live checks, expected result, and stop condition.
-- `## Rollback`: how to undo risky or irreversible changes.
-- `## Execution handoff`: whether to use `etrnl-dev-execute` inline and its parallel-fanout contract when the user explicitly asks for parallel agents.
-- `## Plan Readiness Report`: scope challenge, architecture review, code quality review, test review, performance review, failure modes, parallelization, unresolved questions, and final verdict.
-- `## Verdict`: explicit final go/no-go outcome (`Ready for execution` or `Blocked until ...`).
-
-`## Verdict` remains a separate top-level section and must appear immediately after `## Plan Readiness Report`.
-
-## Review Pass
-
-Before finalizing, review the draft for:
-
-- Missing coverage against the spec, issue, audit, or user request.
-- Missing reuse inventory or unnecessary rebuilt flows when existing code already solves part of the problem.
-- Missing explicit non-goals, especially distribution, rollout, data migration, or live-install work at risk of silently disappearing.
-- Missing or narrowed `Execution scope`. A plan the user is likely to ask someone to "implement" must default to `all_phases`.
-- Ambiguous partial-execution headings such as `## Immediate First Patch`, `## First Slice`, or language that implies later phases are conditional without setting `Execution scope: first_patch_only`.
-- Vague steps, placeholders, TODOs, or "handle edge cases" without details.
-- Missing file paths, missing commands, or undefined functions/types.
-- Tasks that cross too many subsystems and must be split.
-- Oversized tasks: more than 8 files, more than 2 unrelated subsystems, or no single verification command.
-- Risky actions without rollback or verification.
-- Missing architecture, code quality, test, performance, failure-mode, or parallelization review.
-- Missing test-first execution plan. A non-trivial implementation plan must name the red test/probe before code changes and the green gate after implementation.
-- Missing ASCII diagram for non-trivial data flow, state machine, processing pipeline, or test coverage map.
-- Missing repo/shareable/versioning boundaries when portability matters.
-- Mandatory behavior without a named validator skill-contract-check.mjs, hook, script, ledger command, or mechanical gate.
-- Missing external evidence when a plan introduces new public capabilities:
-  - Use live docs, upstream source, or user-provided context as evidence.
-  - Keep background notes local or attach them outside the tracked repository.
-  - Do not require or create tracked evidence artifacts.
-- Missing companion-skill passes from the original Eternal Stack vision (tier ≥ 2 only; tier 3 requires the full set):
-  - `eternal-best-practices` for tenant, money, auth, i18n, Prisma, soft-delete, and domain policy.
-  - `code-simplifier` before final scoring or completion.
-  - `finding-duplicate-functions` for dedupe/refactor-heavy work.
-  - `etrnl-code-review-excellence`/Brooks modules when structural or excellence review is in scope.
-  Tier 2 limits mandatory review lanes to engineering plus adversarial. Tier 0–1 skip companion review lanes except context recovery, reuse inventory, and verification design.
-- Missing Hybrid Deep Stack artifacts (tier ≥ 2 only):
-  - sanitized source manifest, no `/tmp`, home paths, transcripts, account material, or secrets
-  - skill activation matrix, including ordinary TypeScript verification and conditional advanced TypeScript review
-  - reuse inventory before any new helper, script, skill, or docs surface
-  - review phase records for CEO, engineering, DX, adversarial, specialist, reuse, and simplifier passes
-  - TDD evidence rows for source tasks, or explicit not-test-first rationale
-  - reuse binding rows for every new surface, with searched paths, analogs, decision, and justification
-  - TypeScript trigger evidence when exported/public contracts, schemas, state machines, DTO boundaries, or reusable type utilities are touched
-  - completion reconciliation rows mapping every requested outcome to `DONE`, `PARTIAL`, `NOT_DONE`, `CHANGED`, or `BLOCKED`
-  - install proof rows for source gate, staged install, staged doctor/canary, rollback verification, live-install decision, and post-upgrade canary when Tier 3 behavior is touched
-  - findings ledger with high/blocker findings closed, disproven, or explicitly owner-accepted
-  - completion audit and Hybrid execution risk tier
-  Deep-stack artifacts are required for newly generated final plans at tier ≥ 2; they are not opt-in metadata.
-
-If a companion skill is unavailable, do not silently continue. Record the missing skill, impact, and next step under `## Plan Readiness Report` -> `Unresolved questions`.
-
-Companion skill enforcement (tier ≥ 2; tier 3 requires the full security-critical set):
-
-- `eternal-best-practices` for auth, money, tenant, i18n, Prisma, soft-delete, permissions, and domain policy: a missing pass blocks finalization unless the user explicitly accepts the risk because these are critical security and data boundaries (auth/money/tenant surfaces auto-imply tier 3).
-- `code-simplifier` and `finding-duplicate-functions`: omit only when unavailable or irrelevant, and the report must document why. Brooks structural review is owned by `etrnl-code-review-excellence` when installed.
-
-## Advanced TypeScript Policy
-
-Every TypeScript plan records the ordinary TypeScript verification command. Use `../common/typescript-triggers.md` for advanced TypeScript review trigger conditions. When a trigger fires, run the `typescript-advanced-types` skill; when it is unavailable on the host, state that and run a manual advanced types pass instead. Otherwise record `typescript-advanced-types: not_applicable` with rationale.
-
-Use `references/plan-review-checklist.md` for the detailed review rubric when the plan is non-trivial.
-
-## Plan Readiness Report
-
-Every non-trivial plan at tier ≥ 2 must include this section before `Status: Final`:
-
-```markdown
-## Plan Readiness Report
-
-- Scope Challenge: <reuse, smallest change set, complexity, distribution, deferred-work cross-check>
-- Architecture Review: <boundaries, data flow, security, rollout, rollback>
-- Code Quality Review: <DRY, error handling, over/under-engineering, diagrams>
-- Test Review: <code paths, user flows, regressions, E2E/eval needs>
-- Performance Review: <N+1, memory, caching, hot paths>
-- Failure modes: <critical gaps or none>
-- Parallelization: <lanes/conflicts or sequential>
-- Unresolved questions: <none or exact blockers>
-- Verdict: Preliminary readiness verdict (final decision goes in `## Verdict`)
-```
-
+## What already exists
+## File map
+## Task groups
+## Verification gates
+## Failure modes and rollback
+## Open questions
+## Readiness report
 ## Verdict
+```
 
-Final authoritative verdict: Ready for execution / Blocked until <specific issue>
+Add `## Phases` only when the resolved contract requires program phases or sequencing materially benefits from them. Include a test-first plan when the contract's `tddEvidence` requirement is true. Add browser acceptance, rollout, migration, or install evidence only when those surfaces are in scope. Every task group should name its outcome, dependencies, affected paths, and a check that demonstrates completion.
 
-This standalone verdict is intentionally duplicated from `## Plan Readiness Report` so executors can scan outcome quickly.
+Use `Execution scope: all_phases` unless the user explicitly narrowed the request. Do not silently replace the requested outcome with a demo, MVP, or first slice. If a concrete dependency blocks part of the scope, state it and plan the remaining authorized work.
 
-If the readiness gate fails, patch the plan and rerun it. Do not hand off to `etrnl-dev-execute` until the report exists, the gate passes, and the verdict is ready.
+The readiness report should state what was checked, significant risks or gaps, unresolved assumptions, and a clear `Ready` or `Blocked` verdict. A plan is guidance for execution; it does not authorize external effects or override the user's current instructions.
 
-## Hard Rules
-
-- Save the finalized plan to disk.
-- Keep the chat response short.
-- Do not invent files or APIs without repo evidence.
-- Do not leave placeholders.
-- Do not put `## Immediate First Patch` in a `Status: Final` plan unless `Execution scope: first_patch_only` is intentional and explicitly user-approved.
-- Do not let minimal-diff language narrow an implementation plan. If the repository owner later asks to "implement the plan", the executor must complete every item inside `Execution scope` or stop with a concrete blocker.
-- Do not mark `Final` until review findings are fixed and `plan-readiness-check.mjs` passes when available.
+For helpers, use `node {{ETRNL_COMPANION}} run scripts/<helper>.mjs -- <arguments>`. In a source checkout use `node scripts/companion.mjs run --host <claude|codex> scripts/<helper>.mjs -- <arguments>`; this supplies a host context and does not install the stack.

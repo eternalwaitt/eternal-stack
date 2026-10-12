@@ -2,59 +2,27 @@
 
 This file is loaded by `$impeccable craft` when the harness has native image generation (currently Codex via `image_gen`). Other harnesses skip it. It covers the two craft steps that depend on real image generation: landing the visual direction, and producing the raster assets the implementation will compose.
 
-Read this *before* generating any images. The order matters, and the per-step user pauses are what keep generated imagery from drifting away from the brief.
+Use this optional sequence when visual exploration will resolve a real design choice. Existing briefs, approved palettes and delegated direction remain valid. Do not infer mandatory image generation, questions or repeated approval from tool availability. The user's requested selection points control when to pause.
 
-### Four stop points before code
+## Step A: Resolve the direction
 
-Steps A through D each end with the user. Do not advance past any of them on your own read of the situation.
+Reuse settled audience, purpose, palette, atmosphere and references. If a consequential choice remains unresolved and was not delegated, ask a concise question and wait for that answer. Otherwise state the direction briefly and continue.
 
-1. **STOP after Step A questions.** Wait for answers.
-2. **STOP after Step B palette generation.** Wait for "confirm palette."
-3. **STOP after Step C mocks.** Wait for direction approval or delegation.
-4. **Only after Step D approves a direction** do you return to craft.md Step 4 and write code.
+## Step B: Palette study when useful
 
-Prior shape approval does **not** satisfy any of these. Shape's "confirm or override" advances you into Step A; it is not a substitute for it.
+A small palette artifact can help compare typography, background, accent and motif before larger mocks. Generate it only when that comparison adds value. Ask for approval only if the user reserved palette selection; supplied or delegated palettes can proceed directly.
 
-## Step A: Explore Directions with the User
+## Step C: Visual alternatives
 
-Before generating anything, run a brief direction conversation grounded in the shape brief.
+Generate the number of alternatives the task needs within the active workflow contract. Keep shared palette and content stable when comparing structural direction: hierarchy, topology, density and composition. Brand work can explore identity and mood; product work should represent real flows and state. Show enough of a long page to explain its system beyond the hero.
 
-**Step A is required even when shape just produced a confirmed brief.** The shape questions and Step A questions cover different ground: shape pins purpose, content, scope; Step A pins palette, atmosphere, and named visual references for the comps you're about to generate. The only time you can skip Step A is when the user has already answered these exact palette/atmosphere/reference questions in the same session.
+Use the available native image-generation tool when imagery is appropriate. Do not install tools to satisfy this optional step.
 
-Ask **2-3 targeted questions** about visual lane, color strategy, atmosphere, and named anchor references. Don't enumerate generic menus; tie each question to the shape brief's answers. Example shape-grounded questions:
+## Step D: Select and carry forward
 
-- "Brief says 'specimen-page restraint.' Are we closer to a quiet typographic page or a wider editorial spread with hero imagery?"
-- "Palette strategy from shape was 'Committed.' Which one color carries the surface (a brand-driven pick rather than a default warm-or-cool framing)? (And no, the answer isn't a cream/sand body bg; that's the saturated AI default.)"
+When the user requested a choice, show the alternatives and wait for that selection. When they delegated direction, choose from the brief and explain the material tradeoff. Iterate only while new feedback changes the next attempt and the current contract permits it; preserve unresolved choices and remaining scope if the bound is reached.
 
-**STOP and wait for answers.** These pin the palette before any pixel gets generated. Do not proceed to Step B until the user has responded.
-
-## Step B: Generate the Brand Palette First
-
-Generate **one** palette artifact before any mocks. This is a small, focused image: typography pairing on the chosen background, primary + accent color swatches, one signature ornament or motif. Single image, single pass.
-
-Why palette first: mocks generated against a vague color sense produce noise that drowns out the structural decisions. A confirmed palette is the first concrete contract for everything downstream.
-
-Show the palette to the user. Ask one question: "This is the palette I'm locking in for the mocks. Confirm, or call out what to shift?"
-
-**STOP and wait for confirmation.** Do not generate mocks against an unconfirmed palette. "Probably good enough" is the wrong call here; the palette is the contract for everything downstream.
-
-## Step C: Generate 1-3 Visual Mocks Against the Palette
-
-Once the palette is confirmed, generate **1 to 3** high-fidelity north-star comps. Each mock must use the confirmed palette and typography. Mocks differ in *structural* direction (hierarchy, topology, density, composition), not in color or motif.
-
-- Brand work: push visual identity, composition, mood, and signature motifs.
-- Product work: push hierarchy, topology, density, tone, grounded in realistic product structure.
-- Landing pages and long-form brand surfaces: show enough of the second fold to establish the system beyond the hero.
-
-Use the `image_gen` tool directly (or via the imagegen skill when available). Don't ask the user to install anything.
-
-## Step D: Approval Loop
-
-Show the comps. Ask what carries forward. Iterate until **one direction is approved** or the user explicitly delegates.
-
-**STOP and wait for the approval or the delegation.** Do not begin Step E or return to craft.md Step 4 until a single direction is named. If the user delegates, pick the strongest direction and explain it from the brief, not personal taste.
-
-Before moving to assets, summarize what to carry into code and what *not* to literalize from the mock. This is the handoff between visual exploration and semantic implementation.
+Before implementation, identify what carries into semantic code and what should not be literalized from a raster mock. Continue from the existing authority rather than asking for a second grant.
 
 ## Step E: Mock Fidelity Inventory
 
@@ -75,31 +43,14 @@ If a photographic, architectural, product, or place-led mock becomes generic CSS
 
 Don't substitute a different hero composition or visual driver post-approval without user sign-off.
 
-## Step F: Asset Slicing via the Asset Producer
+## Step F: Produce the needed assets
 
-Raster ingredients identified in Step E need clean production assets. Use the bundled `impeccable_asset_producer` subagent rather than producing inline.
+Produce the raster ingredients identified in Step E with available native image tools. Delegate only when an asset worker is available, authorized and useful within the active workflow contract. Tool availability creates no obligation to spawn or ask for new permission; inline production is valid.
 
-Spawn it as a scoped subagent. If you do not have explicit permission to use agents, stop and ask:
+For delegated work, pass only the approved reference/crop paths, output directory, dimensions, format, transparency, avoid list and semantic-code boundaries. Load image guidance in whichever context actually performs that work, and share the resulting paths rather than duplicating generation.
 
-```text
-Asset production will work better as a scoped subagent job. Should I spawn the Impeccable asset producer subagent for this step?
-```
-
-Pass to the agent:
-
-- Approved mock path or screenshot reference
-- Crop paths or a contact sheet with crop ids
-- Output directory
-- Required dimensions, format, transparency needs
-- Avoid list
-- Notes on what should remain semantic HTML/CSS/SVG instead of raster
-
-Attach image generation capability to the spawned agent when the harness supports it. Do **not** load image-generation reference material into the parent thread.
-
-Inline asset production is allowed only if the user declines subagents, the harness cannot spawn the authorized agent, or the user explicitly asks for single-thread mode.
-
-Prefer HTML/CSS/SVG/canvas when they can credibly reproduce an ingredient; reach for real, generated, or stock imagery when the mock or subject matter calls for actual visual content.
+Prefer HTML/CSS/SVG/canvas where appropriate; use actual imagery when the mock or subject calls for it. Missing asset-worker definitions are not an implementation blocker when native tools cover the task.
 
 ## After This File
 
-Once Steps A through F are complete, return to `craft.md` Step 5 (Build to Production Quality). The implementation builds against the confirmed palette, approved mock, and the assets the producer wrote.
+Continue the authorized build in `craft.md` using the supplied or selected direction and actual assets. Report material unavailable assets without claiming they were produced.

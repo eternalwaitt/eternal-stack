@@ -138,12 +138,12 @@ function learningsPath() {
   }
   const rawRoot = path.resolve(argValue(args, "--root", "") || process.cwd());
   const root = existsSync(rawRoot) ? realpathSync(rawRoot) : rawRoot;
-  const home = process.env.HOME;
+  const home = process.env.ETRNL_HOME || (process.env.HOME ? path.join(process.env.HOME, ".claude") : "");
   if (!home) {
     abort("review-merge requires --learnings <path> or a set HOME for the default private overlay");
   }
   const repoKey = createHash("sha256").update(root).digest("hex").slice(0, 16);
-  return path.join(home, ".claude/review-learnings", repoKey, "review-learnings.json");
+  return path.join(home, "review-learnings", repoKey, "review-learnings.json");
 }
 
 // Throws rather than exits: this runs inside the store lock, and process.exit()

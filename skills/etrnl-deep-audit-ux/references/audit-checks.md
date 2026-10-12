@@ -4,7 +4,7 @@
 - Skill: `etrnl-deep-audit-ux`
 - Registry source: `scripts/lib/deep-audit-categories.mjs`
 - Report envelope: same schema used by `etrnl-deep-audit`
-- Execution mode: fanout across five registered lanes, each spawned with the explicit model and reasoning effort from its registry `modelTier`
+- Execution mode: cover the five registered lanes, sequentially or through authorized native delegation within the stored workflow contract; use the category contract for dispatch mechanics
 - Orchestrator scope: standalone - not included in `etrnl-deep-audit` `all_registered`
 
 Findings describe what a user experiences on a named route and viewport. Generic design advice with no surface attached is not a finding.
@@ -14,7 +14,7 @@ Findings describe what a user experiences on a named route and viewport. Generic
 Generate worklists once with the enumerator, then consume its hashes everywhere:
 
 ```bash
-node "${ETRNL_HOME:-$HOME/.claude}/scripts/ux-inventory.mjs" --root <target> --json > <artifact-dir>/ux-inventory.json
+node {{ETRNL_COMPANION}} run scripts/ux-inventory.mjs -- --root <target> --json > <artifact-dir>/ux-inventory.json
 ```
 
 | Worklist id | Contents | Enumerator rule | Fallback command |

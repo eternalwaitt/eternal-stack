@@ -217,8 +217,8 @@ Include these sections in the category report:
 - Executive summary: up to five highest-impact changes ranked by user impact. The complete structured findings ledger remains mandatory and uncapped; this summary never limits investigation.
 - Coverage Report with counters for completed lanes, completed checks, skipped checks, clean checks, React Compiler status, audited queries/pages/handlers, HTTP-measured routes, dynamic fixtures created and blocked, fixture cleanup, cold/warm checks, max page bytes, oversized routes, broken routes, and loading coverage.
 - Next Run Input with prior fixes, known-good routes, and targeted skipped checks.
-- Persisted Baseline with schema v2, `baselineId`, `targetLabel`, evidence-bound measurement rows, thresholds, and `nextRun.command`; validate it with `node scripts/performance-baseline.mjs validate <baseline-json>` from the source checkout.
-- Trend Delta when a comparable prior baseline exists; compute it with `node scripts/performance-baseline.mjs trend --before <old-baseline> --after <new-baseline>`.
+- Persisted Baseline with schema v2, `baselineId`, `targetLabel`, evidence-bound measurement rows, thresholds, and `nextRun.command`; validate it with `node {{ETRNL_COMPANION}} run scripts/performance-baseline.mjs -- validate <baseline-json>` from the source checkout.
+- Trend Delta when a comparable prior baseline exists; compute it with `node {{ETRNL_COMPANION}} run scripts/performance-baseline.mjs -- trend --before <old-baseline> --after <new-baseline>`.
 
 ## Artifact Rows
 
@@ -248,5 +248,5 @@ summary:
 Validate the final envelope:
 
 ```bash
-node scripts/deep-audit-artifact-check.mjs validate --artifact <artifact-json>
+node {{ETRNL_COMPANION}} run scripts/deep-audit-artifact-check.mjs -- validate --artifact <artifact-json>
 ```

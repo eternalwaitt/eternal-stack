@@ -12,37 +12,37 @@ Default mode is read-only audit. Enter remediation mode only when the user asks 
 
 ## Required Flow
 
-1. Load `references/audit-kernel.md`. Run `node scripts/performance-audit.mjs discover <target-git-root>` into the run directory. Reconcile its inventory against runtime routes and topology, then classify surfaces and journeys. This conservative seed cannot pass before reconciliation. Attach it as `categoryReports[].performanceContract`; each fine check from `scripts/lib/performance-contract.mjs` needs its own receipt.
+1. Load `references/audit-kernel.md`. Run `node {{ETRNL_COMPANION}} run scripts/performance-audit.mjs -- discover <target-git-root>` into the run directory. Reconcile its inventory against runtime routes and topology, then classify surfaces and journeys. This conservative seed cannot pass before reconciliation. Attach it as `categoryReports[].performanceContract`; each fine check from `scripts/lib/performance-contract.mjs` needs its own receipt.
 1. Load `references/conditional-performance.md`. Reconcile stack features, run `performance-audit.mjs experts <contract.json>`, read every selected specialist and retain hashed load receipts. oRPC, Prisma, SQL and React/Next expertise is mandatory when present; load other expertise only when applicable.
 1. Load only the domain references selected by those checks: `domains-database.md`, `domains-runtime.md`, `domains-browser.md`, and `domains-operations.md`. External contributors are conditional and consume/return the same receipts; unavailable contributors use the built-in playbook or a named blocker.
-1. Locate the source checkout or installed stack root. Resolve helper paths from `scripts/` in source, `~/.codex/scripts/` in Codex, or `~/.claude/scripts/` in Claude Code. Read the `performance` entry in `scripts/lib/deep-audit-categories.mjs`.
+1. Resolve Eternal helpers through `{{ETRNL_COMPANION}}`; the shared library path and host-local run/artifact roots come from `inspect`. Read the `performance` entry in `scripts/lib/deep-audit-categories.mjs` through that library.
 1. Create or reuse a run-scoped artifact directory. Direct invocation creates the same worklist, receipt, report, and baseline envelope locally; it does not require the full orchestrator.
 1. Load `references/audit-checks.md`. Load `references/measurement-evidence.md` before any measurement claim. Load `references/runtime-memory-incidents.md` whenever a provider, runtime, deploy log, or user report identifies server memory pressure. Load `references/remediation-contract.md` in remediation mode. When a TypeScript or framework build exhausts memory, is killed near type validation, or passes only with a larger V8 heap, also load `references/typescript-build-memory.md`.
 1. Discover the complete target surface, then select critical journeys, hot operations, and representative authenticated fixtures. Record every discovered target as measured, `not_applicable`, `source_limited`, or blocked with an exact dependency; priority never removes investigation.
 1. Build every registered `perf_*` worklist before analysis. Record path, item count, and SHA-256 hash. For provider incidents, preserve and reconcile unresolved prior ids, fetch user-linked evidence, query provider/deploy errors and alerts when access exists, and record exact access failures; never truncate the incident list before reconciliation or infer zero from an untouched empty file.
-1. Run the six registry lanes against those immutable worklists. With an authorized agent mechanism, dispatch the registry model tier returned by `categoryLaneDispatch("performance")`; without one, execute lanes sequentially and retain identical receipts.
+1. Run the six registry lanes against those immutable worklists. Use authorized native delegation only within the stored workflow contract and host capacity; registry model tiers are expertise suggestions, subject to user/host model instructions. Otherwise execute lanes sequentially and retain identical receipts.
 1. Separate static hypotheses from measured findings. Static evidence proves risk or a producing path, never a latency, byte, query-cost, rendering, or Core Web Vitals result.
 1. Record each `perf-*` result exactly once as `finding`, `confirmed_clean`, `skipped`, `not_applicable`, or `source_limited`. Attach the evidence kind and measurement conditions.
 1. Write a schema-v2 baseline for measured work. Run these commands from the source checkout; use the installed helper root resolved in step 1 on an installed copy:
 
 ```bash
-node scripts/performance-baseline.mjs create < measurements.json
-node scripts/performance-baseline.mjs validate <baseline-json>
+node {{ETRNL_COMPANION}} run scripts/performance-baseline.mjs -- create < measurements.json
+node {{ETRNL_COMPANION}} run scripts/performance-baseline.mjs -- validate <baseline-json>
 ```
 
 1. In remediation mode, change one causal bottleneck or independently measurable batch at a time. Re-run under matching conditions, run correctness gates, and classify the change as keep, revert, or inconclusive.
-1. Run `performance-audit.mjs cells <contract.json>`. Investigate every check/surface cell in producer-tracing and coverage-challenge rounds. Continue full challenge rounds until a round adds no findings. Retain the complete ledger without a finding cap. Search previous reports and reconcile every prior/current fingerprint; record missed findings as audit-quality failures.
+1. Run `performance-audit.mjs cells <contract.json>`. Investigate every check/surface cell in producer-tracing and coverage-challenge rounds. Use a finite round budget: three total rounds by default, declared before investigation in `completion.roundBudget` (2–8 only when explicitly scoped). Stop earlier when a challenge adds no findings. If the budget ends with new findings, retain them, set `completion.status: budget_exhausted` and `completion.remainingWork`, and report the investigation as incomplete. Do not automatically start a new run or expand the budget. Retain the complete ledger without a finding cap. Search previous reports and reconcile every prior/current fingerprint; record missed findings as audit-quality failures.
 1. Validate the category artifact:
 
 ```bash
-node scripts/deep-audit-artifact-check.mjs validate --artifact <artifact-json>
+node {{ETRNL_COMPANION}} run scripts/deep-audit-artifact-check.mjs -- validate --artifact <artifact-json>
 ```
 
 ## Completion Contract
 
 Completion requires all of these items:
 
-- Mandatory specialist receipts, every cell in two or more distinct sweeps, a final sweep adding no findings, and prior-run reconciliation are present.
+- Mandatory specialist receipts, every cell in two or more distinct sweeps, a final sweep adding no findings (or an explicit incomplete budget-exhaustion report), and prior-run reconciliation are present.
 - Every registry worklist has a path, count, and hash.
 - Six lane receipts exist for `database-query-performance`, `server-response-caching`, `bundle-code-splitting`, `react-rendering`, `perceived-performance`, and `infrastructure-network`.
 - Every discovered target has a disposition; critical journeys include status, response bytes, auth/fixture state, cold-process or cold-cache definition, and warm measurements.

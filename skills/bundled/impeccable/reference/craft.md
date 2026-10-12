@@ -2,22 +2,22 @@
 
 Build a feature with impeccable UX and UI quality: shape the design, land the visual direction, build real production code, inspect and improve in-browser until it meets a high-end studio bar.
 
-Before writing code, you need: PRODUCT.md loaded, register identified and the matching reference loaded, and a confirmed design direction for this task (either from `shape` or supplied by the user). PRODUCT.md is project context, not a task-specific brief.
+For visual-direction exploration, load PRODUCT.md, identify the register, and confirm a task-specific direction through `shape` or the user's supplied brief. Direct implementation can proceed from the user's authorization and available project context when no material design choice remains; do not add a shape or approval gate just to start coding. PRODUCT.md is project context, not a task-specific brief.
 
 Treat any approved visual direction (generated mock or stated reference) as a concrete contract for composition, hierarchy, density, atmosphere, signature motifs, and distinctive visual moves. Don't let mocks replace structure, copy, accessibility, or state design. But if the live result lacks the approved direction's major ingredients, the implementation is wrong.
 
 ### Gates: do not compress
 
-Craft has **multiple user gates**, not one. When the harness has native image generation (Codex via `image_gen`), the gate sequence before code is:
+When the user asks for visual-direction exploration, or a material design choice remains and the user has authorized that exploration, use the following gates. Native image generation (for example, Codex via `image_gen`) may make comparative mocks useful:
 
 1. **Shape brief confirmed** (Step 1)
 2. **Direction questions answered** (codex.md Step A)
 3. **Palette confirmed** (codex.md Step B)
 4. **One mock direction approved or delegated** (codex.md Step D)
 
-You must stop at every gate. **Shape confirmation alone is NOT a green light to start coding.** It is the green light to begin codex.md Step A. Compressing gates 2 through 4 because the shape brief felt complete is the dominant failure mode of this flow.
+Pause at a gate only when that choice is unresolved and needs the user's input. Shape confirmation advances to the next relevant exploration step when that step is useful; it does not require generating mocks for a settled direction. A user-supplied direction or explicit direct-implementation request can proceed without these exploration gates.
 
-When the harness lacks native image generation, gates 2-4 collapse into the brief itself, and shape confirmation does advance straight to code.
+When image generation is unavailable or unnecessary, use the confirmed brief and existing design system without manufacturing extra approval steps.
 
 ## Step 0: Project Foundation
 
@@ -42,19 +42,19 @@ Default: Astro for brand briefs, the project's existing framework for product br
 
 ## Step 1: Shape the Design
 
-Run $impeccable shape, passing along whatever feature description the user provided. Shape is **required** for craft; it is what produces a confirmed direction.
+Run `$impeccable shape` when the user asks for design exploration or a material visual direction remains unresolved. For direct implementation with an adequate brief or existing design system, shape is optional; do not convert an authorized coding task into a required design approval flow.
 
-Present the shape output and stop. Wait for the user to confirm, override, or course-correct before writing code.
+For an exploration that needs user input, present the shape output and pause on the specific unresolved choice. If the brief already supplies the direction or the user authorized direct implementation, use the context and proceed.
 
 If the user already supplied a confirmed brief or ran shape separately, use it and skip this step.
 
-When the original prompt + PRODUCT.md already answer scope, content, and visual direction with no real ambiguity, the shape output can be **compact** (3-5 bullets stating what you're building and the visual lane, ending with one or two specific questions or "confirm or override"). The full 10-section structured brief is reserved for genuinely ambiguous, multi-screen, or stakeholder-heavy tasks. Don't pad a clear brief into a long one to look thorough; equally, don't skip the pause to look efficient.
+When the original prompt + PRODUCT.md already answer scope, content, and visual direction with no real ambiguity, skip shape for direct implementation. If exploration is still useful, keep its output compact (3-5 bullets); reserve the full structured brief for genuinely ambiguous, multi-screen, or stakeholder-heavy tasks. Do not add a confirmation pause when no user choice remains.
 
-If the harness has native image generation (Codex), a compact shape's "confirm or override" advances to **Step 3 and the codex.md flow**, not to Step 4. Phrase the closing line accordingly: "Confirm or override; once we lock direction, I'll run a couple of palette and reference questions before generating any mocks." This stops the model from reading shape confirmation as code-green.
+If the user has requested visual exploration and native image generation is useful, a compact shape's "confirm or override" advances to the relevant palette/reference questions in the codex.md flow. Otherwise, continue with the authorized implementation once project context and any material choices are clear.
 
 ## Step 2: Load References
 
-Based on the design brief's "Recommended References" section, consult the relevant impeccable reference files. At minimum, always consult:
+For craft work, use the design brief's "Recommended References" section to select relevant files. For substantial visual design work, consult at least:
 
 - [layout.md](layout.md) for layout, spacing, grid, container queries, optical adjustments
 - [typeset.md](typeset.md) for type hierarchy, font selection, web font loading, OpenType features (Reference Material section)
@@ -68,15 +68,15 @@ Then add references based on the brief's needs:
 
 ## Step 3: Visual Direction & Assets (Harness-Gated)
 
-If the harness has **native image generation** (currently Codex via `image_gen`), this step is mandatory. **Stop and load [codex.md](codex.md)**. It covers palette generation, mock exploration, the approval loop, mock-fidelity inventory, and asset slicing via the `impeccable_asset_producer` subagent. Follow Steps A-F in that file, then return here for Step 4.
+For new visual directions, image-led work, or a redesign where generated assets or comparative mocks help answer a real design question, use the harness's native image-generation capability when available and load [codex.md](codex.md) for that exploration. This step is optional for contained bug fixes, functional changes, established design-system work, or when the user asks for direct implementation. Match the process to the task; do not create mock or approval work that does not improve the decision.
 
-If the harness lacks native image generation, **state in one line that the visual-direction-by-generation step is being skipped because the harness lacks native image generation, then proceed**. The one-line announcement is required; it forces a conscious decision instead of letting the step quietly evaporate. The brief is your only visual reference. Implement directly from it, treating any named anchor references and the brief's "Design Direction" as the contract.
+If image generation is useful but unavailable, use the confirmed brief and existing design system, and note that no generated mock was used when that distinction matters. Implement directly when that is the task's proportionate path.
 
 Whether you generated mocks or not: don't replace required imagery with generic cards, bullets, emoji, fake metrics, decorative CSS panels, or filler copy. Image-led briefs (restaurants, hotels, magazines, photography, hobbyist communities, food, travel, fashion, product) need real or sourced imagery in the build, not CSS scenery.
 
 ## Step 4: Build to Production Quality
 
-**Precondition.** If Step 3 routed you to codex.md (native image generation available), Steps A through D in that file must be complete before any code: questions answered, palette confirmed, mocks generated, one direction approved or delegated. **Do not mention implementation, file paths, or patch plans until that's done.** A confirmed shape brief is not enough; the model that compressed those gates is the model that already failed this flow.
+**Precondition.** Complete the codex.md exploration steps that were selected because the user requested visual exploration or a material design choice remains. Do not require questions, palette approval, or generated mocks for direct implementation, a supplied direction, or contained work where those steps add no decision value.
 
 Implement the feature following the design brief. Build in passes so structure, visual system, states, motion/media, and responsive behavior each get deliberate attention. The list below is the definition of done, not inspiration.
 

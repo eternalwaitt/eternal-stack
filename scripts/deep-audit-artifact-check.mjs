@@ -763,8 +763,8 @@ function validateRegisteredCategorySurface(category, root, docs, triggerText, ow
     if (!ownedSkills.includes(category.skillName)) {
       errors.push(diagnostic("REGISTRY_OWNED_SKILL_MISSING", "scripts/lib/skill-lists.sh", `${category.skillName} is missing from OWNED_SKILLS.`, "The skill will not install or route as repo-owned.", `Add ${category.skillName} to OWNED_SKILLS.`));
     }
-    if (!docs.includes(`/${category.skillName}`)) {
-      errors.push(diagnostic("REGISTRY_DOCS_MISSING", "docs/skills.md", `${category.skillName} is missing from docs/skills.md.`, "Maintainers cannot discover the skill.", `Document /${category.skillName}.`));
+    if (!docs.split(/[^A-Za-z0-9_-]+/).includes(category.skillName)) {
+      errors.push(diagnostic("REGISTRY_DOCS_MISSING", "docs/skills.md", `${category.skillName} is missing from docs/skills.md.`, "Maintainers cannot discover the skill.", `Document the capability ID ${category.skillName}.`));
     }
     if (!triggerText.includes(category.skillName)) {
       errors.push(diagnostic("REGISTRY_TRIGGER_FIXTURE_MISSING", "tests/fixtures/skill-triggering/cases.json", `${category.skillName} is missing from trigger cases.`, "Skill behavior smoke cannot prove routing.", `Add a trigger fixture expecting ${category.skillName}.`));
@@ -783,8 +783,8 @@ function validateOrchestratorSurface(docs, triggerText, ownedSkills, root, error
   if (!ownedSkills.includes(orchestrator)) {
     errors.push(diagnostic("REGISTRY_ORCHESTRATOR_MISSING", "scripts/lib/skill-lists.sh", `${orchestrator} is missing from OWNED_SKILLS.`, "The orchestrator will not install as repo-owned.", `Add ${orchestrator} to OWNED_SKILLS.`));
   }
-  if (!docs.includes(`/${orchestrator}`)) {
-    errors.push(diagnostic("REGISTRY_DOCS_MISSING", "docs/skills.md", `${orchestrator} is missing from docs/skills.md.`, "Maintainers cannot discover the orchestrator.", `Document /${orchestrator}.`));
+  if (!docs.split(/[^A-Za-z0-9_-]+/).includes(orchestrator)) {
+    errors.push(diagnostic("REGISTRY_DOCS_MISSING", "docs/skills.md", `${orchestrator} is missing from docs/skills.md.`, "Maintainers cannot discover the orchestrator.", `Document the capability ID ${orchestrator}.`));
   }
   if (!triggerText.includes(orchestrator)) {
     errors.push(diagnostic("REGISTRY_TRIGGER_FIXTURE_MISSING", "tests/fixtures/skill-triggering/cases.json", `${orchestrator} is missing from trigger cases.`, "Skill behavior smoke cannot prove orchestrator routing.", `Add a trigger fixture expecting ${orchestrator}.`));

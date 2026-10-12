@@ -4,7 +4,6 @@ description: ETRNL security deep-audit category skill. Use when the user asks fo
 ---
 # Security Audit
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-audit-security`; on update, run the reported update command before continuing; only skip if the user explicitly declines.
 
 Run the registered `security` deep-audit category with shared worklists and explicit exploitable-bug evidence. Do not report generic best practices as findings.
 
@@ -71,5 +70,5 @@ PASS/FAIL checklist. Any FAIL means the run is incomplete:
 Red-capable gate. This command exits non-zero when the security registry entry, its worklists, or the artifact envelope break:
 
 ```
-node scripts/deep-audit-artifact-check.mjs validate-registry --root .   # expected exit 0; non-zero => security registry/worklist defect
+node {{ETRNL_COMPANION}} run scripts/deep-audit-artifact-check.mjs -- validate-registry --root .   # expected exit 0; non-zero => security registry/worklist defect
 ```

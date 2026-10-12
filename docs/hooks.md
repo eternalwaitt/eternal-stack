@@ -1,8 +1,13 @@
 # Hooks
 
-Eternal Stack hooks are shell and Python scripts that Claude Code invokes at fixed lifecycle points. They record session evidence, route prompts to the right skills, preserve state across compaction, and — on default install — block unsafe tool use and unverified completion claims at tool boundaries.
+## Optional package only
 
-Skills describe repeatable workflows. Hooks enforce what must not be skipped at tool boundaries. Together they keep agent behavior aligned with install source without relying on the model to remember every rule.
+The default Core profile registers no hooks. The catalog below describes the legacy Claude hooks in `orchestrated`/`full`. An explicit `--native-continuity` additionally registers versioned native companion adapters for Claude and Codex; see [native adapters](native-adapters.md). Copied legacy Codex scripts alone are inactive; see the [host capability matrix](host-capabilities.md). The reduced `settings.json` template still registers stop/spawn enforcement and must not be described as observer-only. Contract-backed ledgers use canonical workflow budgets for admitted spawns; existing ledgers without a contract retain prior compatibility checks. Those checks are not Core workflow requirements. `ETRNL_HOOK_PROFILE=minimal` suppresses selected advisory work inside registered hooks; it does not uninstall the runtime or provide a baseline-only Core.
+
+
+Eternal Stack hooks are shell and Python scripts that Claude Code invokes at fixed lifecycle points when the optional package is installed. They record session evidence, route prompts to skills, preserve state across compaction, and can block selected tool use or completion claims. These checks are workflow controls, not a security sandbox or equivalent Codex enforcement.
+
+Skills describe repeatable workflows. Supported hook decisions can block selected tool or completion boundaries. Registration and context injection do not prove that project knowledge was maintained; availability errors and uncovered tool paths remain explicit limits.
 
 ## Documentation map
 
@@ -17,7 +22,7 @@ Skills describe repeatable workflows. Hooks enforce what must not be skipped at 
 
 **Observer hooks** watch tool and session activity, append structured events to session state, and inject context. They do not deny tool calls except where noted below.
 
-**Enforcement hooks** return a block decision to Claude Code. Default install registers pretool guard, post-write quality and sycophancy checks, repeated-failure diagnosis, and subagent recording. Three hooks run in every template (including observer-only opt-out):
+**Enforcement hooks** return a block decision to Claude Code. The optional orchestrated install registers pretool guard, post-write quality and sycophancy checks, repeated-failure diagnosis, and subagent recording. Three hooks run in every template (including reduced-hook mode):
 
 - **`cc-stop-verifier.sh`** blocks completion claims that lack evidence (registered on `Stop` in both templates).
 - **`cc-spawn-guard.sh`** enforces execute spawn economics on `Task / Agent / TaskCreate` (registered on `PreToolUse` in both templates; default enforce mode).
@@ -71,7 +76,7 @@ flowchart TB
   SE --> cc-sessionend-save
 ```
 
-Solid boxes are Claude Code events. Hook names are the `cc-*` entrypoints wired in `templates/settings.strict.json` (default) or `templates/settings.json` (observer-only opt-out).
+Solid boxes are Claude Code events. Hook names are the `cc-*` entrypoints wired in `templates/settings.strict.json` (default) or `templates/settings.json` (reduced-hook mode).
 
 ## Install profiles
 
@@ -79,18 +84,18 @@ Install selects the settings template:
 
 | Template | Command | Pretool guard | Spawn guard | Post-write blockers | Stop verifier |
 | --- | --- | --- | --- | --- | --- |
-| Default | `./scripts/install.sh` | Full pretool guard | Yes (enforce) | Sycophancy + quality + failure diagnose | Yes |
-| Observer-only | `ETRNL_ENABLE_STRICT=0 ./scripts/install.sh` | RTK `rg` compat only | Yes (enforce) | Rate limiter (advisory) | Yes |
+| Orchestrated strict | `./scripts/install.sh --profile orchestrated` | Full pretool guard | Yes (enforce) | Sycophancy + quality + failure diagnose | Yes |
+| Reduced hooks | `ETRNL_ENABLE_STRICT=0 ./scripts/install.sh --profile orchestrated` | RTK `rg` compat only | Yes (enforce) | Rate limiter (advisory) | Yes |
 
-Default install adds `cc-pretooluse-guard.sh` on `PreToolUse`, post-write quality and sycophancy checks on `PostToolUse`, `cc-posttoolusefailure-diagnose.sh` on `PostToolUseFailure`, and `cc-subagentstop-record.sh` on `SubagentStop`. Both templates register `cc-spawn-guard.sh` on `Task / Agent / TaskCreate`. Compact and session hooks are identical between templates.
+The strict orchestrated template adds `cc-pretooluse-guard.sh` on `PreToolUse`, post-write quality and sycophancy checks on `PostToolUse`, `cc-posttoolusefailure-diagnose.sh` on `PostToolUseFailure`, and `cc-subagentstop-record.sh` on `SubagentStop`. Both optional templates register `cc-spawn-guard.sh` on `Task / Agent / TaskCreate`. Compact and session hooks are identical between templates.
 
-Run `./scripts/doctor.sh` and `tests/test-hooks.sh` before switching to observer-only. Use [install.md](install.md) for rollback and `--preserve-settings`.
+Run `./scripts/doctor.sh` and `tests/test-hooks.sh` before switching to reduced-hook mode. Use [install.md](install.md) for rollback and `--preserve-settings`.
 
 ## Hook catalog
 
 Every hook entrypoint under `hooks/` is listed below. Matchers and timeouts come from the installed settings template.
 
-| Hook | Event | Matcher | Observer-only | Default | Blocks? | Purpose |
+| Hook | Event | Matcher | Reduced hooks | Strict | Blocks? | Purpose |
 | --- | --- | --- | --- | --- | --- | --- |
 | `cc-sessionstart-restore.sh` | `SessionStart` | — | Yes | Yes | No | Restore compact handoff, drift/update hints, optional learning hints |
 | `cc-userprompt-router.sh` | `UserPromptSubmit` | — | Yes | Yes | No | Record requested skills, reinject `CLAUDE.md`, route `etrnl-*` hints |
@@ -142,7 +147,7 @@ Expands `@path/to/file.md` references inside injected startup markdown. Only fol
 
 ### `cc-rtk-rg-compat.sh`
 
-Runs before native RTK `PreToolUse` hooks and before `cc-pretooluse-guard.sh` on default install (`merge-settings.mjs` enforces ordering).
+Runs before native RTK `PreToolUse` hooks and before `cc-pretooluse-guard.sh` in the strict orchestrated template (`merge-settings.mjs` enforces ordering).
 
 When `rtk` and `jq` are available, detects direct `rg` invocations that use flags or modes `rtk grep` does not preserve (`--json`, globs, `-l`, chained shell, and similar). Returns `updatedInput` so Claude runs `rtk proxy --ultra-compact rg …` instead. No-op when the command is already safe or RTK is absent.
 
@@ -154,7 +159,7 @@ Default-template PreToolUse gate on `Task / Agent / TaskCreate`. Runs at merge o
 
 - Resolves spawn `task_name` from `tool_input.spawnTaskName`, packet aliases, or subagent type.
 - Calls `execution-ledger.mjs check-spawn` without `--dry-run` and is the **sole spawn recorder** in enforce mode. Passes `--subagent-type` and `--packet-mode` when present so reviewer subagents cannot bypass economics via `_writer` task aliases.
-- Integrates `review-scope.mjs` for tier 0–2 diff-size gating (tier ≥3 always `full_lenses`).
+- For ledgers without a workflow contract, retains the prior review-scope compatibility behavior. Contract-backed ledgers use the canonical contract budget path.
 - **Fail-open** when no active ledger and `planExecutionRequested` is false (read-only turns, audits, questions).
 - **Fail-closed** when `planExecutionRequested` is true but no ledger exists, or when economics violations fire.
 - Reviewer spawns require an explicit `waveId`; implementer/scout spawns default to `wave-1` when omitted.
@@ -337,6 +342,6 @@ hooks/
 | [guards.md](guards.md) | Pretool deny catalog, stop-verifier detail, fail-open matrix |
 | [configuration.md](configuration.md) | Env vars for guards, rate limiter, state, prompts |
 | [compact-recovery.md](compact-recovery.md) | Debugging compact handoff and `etrnl-state.mjs` |
-| [install.md](install.md) | Install, observer-only opt-out, rollback |
+| [install.md](install.md) | Install, reduced-hook mode, rollback |
 | [skills.md](skills.md) | Slash commands hooks route to |
 | [health-stack.md](health-stack.md) | Doctor gates and tool-stack posture |

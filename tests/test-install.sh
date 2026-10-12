@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+export ETRNL_STACK_PROFILE=orchestrated
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 cd "$ROOT"
@@ -187,6 +188,25 @@ cat >"$CLAUDE_HOME/settings.json" <<'JSON'
 JSON
 "$ROOT/scripts/install.sh" >/dev/null
 
+for host in claude codex; do
+  if [[ "$host" == "claude" ]]; then home="$CLAUDE_HOME"; else home="$CODEX_HOME"; fi
+  home="$(cd -- "$home" && pwd -P)"
+  assert_file "installed $host companion helper" "$home/scripts/companion.mjs"
+  assert_file "installed $host workflow contract helper" "$home/scripts/workflow-contract.mjs"
+  assert_json_expr "$host install metadata names its host" "$(jq -c . "$home/etrnl/install.json")" ".host == \"$host\" and .stackProfile == \"orchestrated\""
+  companion_state="$(node "$home/scripts/companion.mjs" inspect --json)"
+  assert_json_expr "$host companion resolves the optional native layout" "$companion_state" ".hostAdapter.installed == true and .hostAdapter.host == \"$host\" and .hostAdapter.home == \"$home\" and .libraryRoot == \"$home\""
+  selected_capability="$(node "$home/scripts/companion.mjs" select --intent build --scope coupled --risk low --json)"
+  assert_json_expr "$host companion resolves required capability from installed skills" "$selected_capability" ".requiredCapabilities == [\"etrnl-dev-execute\"] and .capability.path == \"$home/skills/etrnl-dev-execute/SKILL.md\" and .capability.available == true and .capability.loaded == false"
+  contract_output="$(node "$home/scripts/companion.mjs" run scripts/workflow-contract.mjs -- resolve --intent fix --scope coupled --risk high)"
+  assert_json_expr "$host companion runs an indexed optional-profile helper" "$contract_output" ".mode == \"structured\" and .requirements.independentReview == true"
+  if rg -lF '{{ETRNL_COMPANION}}' "$home/skills" "$home/commands" >/dev/null 2>&1; then
+    not_ok "$host installed skills and command shims have no unresolved helper token"
+  else
+    ok "$host installed skills and command shims have no unresolved helper token"
+  fi
+done
+
 for agent in etrnl-adversary etrnl-browser-qa etrnl-design-reviewer etrnl-dx-reviewer etrnl-executor etrnl-investigator etrnl-quality-reviewer etrnl-scout etrnl-spec-reviewer; do
   assert_file "installed $agent" "$CLAUDE_HOME/agents/$agent.md"
 done
@@ -208,7 +228,8 @@ assert_file "synced Codex common skill reference" "$CODEX_HOME/skills/common/typ
 assert_no_directory "removed legacy Claude etrnl-fix-issue" "$CLAUDE_HOME/skills/etrnl-fix-issue"
 assert_no_directory "removed legacy Codex etrnl-fix-issue" "$CODEX_HOME/skills/etrnl-fix-issue"
 assert_no_file "removed legacy Claude etrnl-fix-issue command" "$CLAUDE_HOME/commands/etrnl-fix-issue.md"
-if cmp -s "$CLAUDE_HOME/skills/etrnl-dev-autoplan/SKILL.md" "$CODEX_HOME/skills/etrnl-dev-autoplan/SKILL.md"; then
+if node -e 'const fs=require("node:fs"); const norm=p=>fs.readFileSync(p,"utf8").replace(/\/\S*\/scripts\/companion\.mjs/g,"{{ETRNL_COMPANION}}"); process.exit(norm(process.argv[1])===norm(process.argv[2])?0:1)' \
+  "$CLAUDE_HOME/skills/etrnl-dev-autoplan/SKILL.md" "$CODEX_HOME/skills/etrnl-dev-autoplan/SKILL.md"; then
   ok "Claude and Codex autoplan skills match"
 else
   not_ok "Claude and Codex autoplan skills match"
@@ -801,6 +822,7 @@ fi
 if [[ "$byteid_extra" == "0" ]]; then
   ok "rollback restores a populated home with zero extra files"
 else
+  LC_ALL=C comm -13 "$TMPROOT/byteid-pre.keys" "$TMPROOT/byteid-post.keys" | head -n 20 >&2
   not_ok "rollback restores a populated home with zero extra files: $byteid_extra extra (nested backup copy?)"
 fi
 # A non-zero missing count is a backup gap: rollback removed a skill the backup

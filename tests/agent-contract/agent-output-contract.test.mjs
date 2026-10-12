@@ -341,15 +341,14 @@ test("browser-qa missing a specialized key (ETRNL_ROUTES_CHECKED) is a violation
   assert.ok(out.violations.some((v) => v.includes("ETRNL_ROUTES_CHECKED")));
 });
 
-test("spec-reviewer missing a specialized key (ETRNL_TIER_B_COVERAGE) is a violation", () => {
+test("spec-reviewer no longer requires the retired tier-coverage field", () => {
   const text = block([
     "ETRNL_CONTRACT: v1", "ETRNL_AGENT: etrnl-spec-reviewer", "ETRNL_TASK_ID: T-1", "ETRNL_STATUS: verified",
     "ETRNL_LENSES: scope", "ETRNL_FINDINGS: 0",
     "ETRNL_EVIDENCE_CHECKED: none", "ETRNL_READY_TO_EXECUTE: yes",
   ]);
-  const { code, out } = check(text, { agent: "etrnl-spec-reviewer" });
-  assert.equal(code, 1);
-  assert.ok(out.violations.some((v) => v.includes("ETRNL_TIER_B_COVERAGE")));
+  const { code } = check(text, { agent: "etrnl-spec-reviewer" });
+  assert.equal(code, 0);
 });
 
 test("test-wiring-auditor missing its specialized key (ETRNL_REQUIRED_TESTS) is a violation", () => {
@@ -421,10 +420,10 @@ test("malformed specialized value (ETRNL_REOPEN_ROUNDS: nonsense) is a violation
   assert.ok(out.violations.some((v) => v.includes("ETRNL_REOPEN_ROUNDS value \"nonsense\" does not match required format")));
 });
 
-test("well-formed specialized value (ETRNL_REOPEN_ROUNDS: 1 (tier 2, cap 4)) passes", () => {
+test("numeric reviewer-reported reopen count passes without a tier-derived cap", () => {
   const text = block([
     "ETRNL_CONTRACT: v1", "ETRNL_AGENT: etrnl-quality-reviewer", "ETRNL_TASK_ID: T-1", "ETRNL_STATUS: verified",
-    "ETRNL_LENSES: reuse", "ETRNL_FINDINGS: 0", "ETRNL_REOPEN_ROUNDS: 1 (tier 2, cap 4)",
+    "ETRNL_LENSES: reuse", "ETRNL_FINDINGS: 0", "ETRNL_REOPEN_ROUNDS: 1",
   ]);
   const { code } = check(text, { agent: "etrnl-quality-reviewer" });
   assert.equal(code, 0);
@@ -434,7 +433,7 @@ test("malformed boolean gate (ETRNL_READY_TO_EXECUTE: maybe) is a violation", ()
   const text = block([
     "ETRNL_CONTRACT: v1", "ETRNL_AGENT: etrnl-spec-reviewer", "ETRNL_TASK_ID: T-1", "ETRNL_STATUS: verified",
     "ETRNL_LENSES: scope", "ETRNL_FINDINGS: 0",
-    "ETRNL_EVIDENCE_CHECKED: none", "ETRNL_TIER_B_COVERAGE: none-applicable", "ETRNL_READY_TO_EXECUTE: maybe",
+    "ETRNL_EVIDENCE_CHECKED: none", "ETRNL_READY_TO_EXECUTE: maybe",
   ]);
   const { code, out } = check(text, { agent: "etrnl-spec-reviewer" });
   assert.equal(code, 1);

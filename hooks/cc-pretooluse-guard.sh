@@ -43,6 +43,33 @@ source "$SCRIPT_DIR/lib/cleanup.sh"
 current_tool=""
 current_bash_command=""
 cwd=""
+workflow_contract_state="unread"
+workflow_contract_packet_required=""
+
+# Returns 0 when the active ledger has a valid workflow contract, 1 when no
+# contract is active, and 2 when a ledger exists but cannot be validated. The
+# CLI validates the complete contract before this hook uses it to relax legacy
+# packet/execute requirements.
+cc_load_workflow_contract() {
+  [[ "$workflow_contract_state" != "unread" ]] && return "$workflow_contract_state"
+  local output status
+  status=0
+  output="$(node "$SCRIPT_DIR/../scripts/execution-ledger.mjs" workflow-state --session "$(cc_session_id)" 2>&1)" || status=$?
+  if (( status != 0 )); then
+    workflow_contract_state=2
+    return 2
+  fi
+  if ! jq -e '.workflowContract | type == "object"' >/dev/null 2>&1 <<<"$output"; then
+    workflow_contract_state=1
+    return 1
+  fi
+  if ! workflow_contract_packet_required="$(jq -r '.workflowContract.requirements.packet | if . == true then "true" elif . == false then "false" else error("requirements.packet must be boolean") end' <<<"$output" 2>/dev/null)"; then
+    workflow_contract_state=2
+    return 2
+  fi
+  workflow_contract_state=0
+  return 0
+}
 
 fail_open() {
   printf 'claude-guard warning: %s; allowing tool call\n' "$1" >&2
@@ -828,11 +855,22 @@ handle_edit() {
   fi
 
   if [[ -n "$abs" ]] && cc_is_source_path "$abs" && ! cc_is_exempt_path "$abs"; then
+    if cc_load_workflow_contract; then
+      # A validated contract is the authority for packet and worker policy.
+      # Parent edits are valid under direct/structured/program modes; packets
+      # remain mandatory only when this contract explicitly requires them for
+      # native agent dispatches.
+      :
+    elif [[ "$workflow_contract_state" == "2" ]]; then
+      deny "Cannot validate the active workflow contract; refusing source edits until the ledger contract can be read."
+    fi
+    if [[ "$workflow_contract_state" != "0" ]]; then
     if cc_unresolved_agent_packet_failure_after_execute; then
       deny "A required /etrnl-dev-execute Agent/Task packet was rejected. Retry the Agent/Task call with a JSON-only task packet before editing source files. A malformed packet is not a sequential-degraded blocker."
     fi
     if cc_execute_direct_source_edit_without_degraded_marker; then
       deny "/etrnl-dev-execute source edits must be owned by write-mode implementation subagents. Direct parent source edits require a recorded sequential-degraded ledger marker with the exact blocker before editing."
+    fi
     fi
     if [[ "$current_tool" != "Write" && -e "$abs" ]] && ! cc_state_has_read "$abs"; then
       deny "Read the existing source file before editing it: $abs"
@@ -954,6 +992,14 @@ handle_serena_search_for_pattern() {
 
 handle_agent() {
   local output
+  if cc_load_workflow_contract; then
+    if [[ "$workflow_contract_packet_required" == "false" ]]; then
+      cc_json_allow
+      return 0
+    fi
+  elif [[ "$workflow_contract_state" == "2" ]]; then
+    deny "Cannot validate the active workflow contract; refusing Agent/Task dispatch until the ledger contract can be read."
+  fi
   if ! output="$(node "$SCRIPT_DIR/../scripts/agent-task-packet-check.mjs" <<<"$HOOK_INPUT" 2>&1)"; then
     local safe_output
     safe_output="$(printf '%s' "$output" | tr '\n' ' ' | sed -E 's/[[:space:]]+/ /g')"

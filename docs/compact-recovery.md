@@ -38,7 +38,7 @@ Expected shape:
 Use temporary homes before changing live Claude or Codex settings:
 
 ```bash
-CLAUDE_HOME="$(mktemp -d)" CODEX_HOME="$(mktemp -d)" ./scripts/install.sh
+CLAUDE_HOME="$(mktemp -d)" CODEX_HOME="$(mktemp -d)" ./scripts/install.sh --profile orchestrated
 node scripts/settings-audit.mjs "$CLAUDE_HOME/settings.json" --strict-conflicts --json
 ETRNL_HOME="$CLAUDE_HOME" node "$CLAUDE_HOME/scripts/update-check.mjs" --json
 "$CLAUDE_HOME/scripts/post-upgrade-canary.sh"

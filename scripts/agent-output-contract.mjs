@@ -179,8 +179,8 @@ function validateContract(text, agentId, schema, agentsDir, taskId = null) {
 
   // Specialized-key VALUE validation (FINDING #149): presence + non-empty is not
   // enough for keys with a deterministic machine-checkable grammar — e.g.
-  // "ETRNL_REOPEN_ROUNDS: nonsense" would otherwise pass despite lacking the
-  // required "<n> (tier <0-3>, cap <2|4>)" shape. For any PRESENT key that names a
+  // "ETRNL_REOPEN_ROUNDS: nonsense" would otherwise pass despite not being a count.
+  // For any PRESENT key that names a
   // format in schema.specializedKeyFormats, its value must match the anchored regex.
   // Genuinely free-form keys are intentionally absent from the map and stay at the
   // presence+non-empty floor. ETRNL_STOP_CYCLE and ETRNL_REQUIRED_TESTS keep their

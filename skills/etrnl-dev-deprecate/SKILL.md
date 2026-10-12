@@ -5,7 +5,6 @@ disable-model-invocation: true
 ---
 # Deprecate
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-dev-deprecate`; on update, run the reported update command before continuing; only skip if the user explicitly declines.
 
 Code is a liability. The best code is deleted code. Every retained line costs review, load, and blast radius forever. Bias toward removal: delete the dead surface rather than wrap it, rename it, or leave it behind a flag. A deprecation that never removes the code is debt that compounds.
 

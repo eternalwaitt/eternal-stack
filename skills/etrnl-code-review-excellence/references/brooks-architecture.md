@@ -1,6 +1,6 @@
 # Brooks Architecture Audit
 
-Vendored from `brooks-audit/architecture-guide.md`. Analyze module and dependency structure for decay risks at the architectural level. Every finding follows `brooks-foundation.md` Iron Law.
+Adapted from the Brooks-Lint architecture guide. Analyze module and dependency structure for decay risks at the architectural level. Every finding follows `brooks-foundation.md` Iron Law.
 
 **Monorepo:** treat each deployable service or library as a top-level module. Draw dependencies between services, not internal packages. Run Conway's Law at service ownership level; use module-level analysis inside a single service.
 

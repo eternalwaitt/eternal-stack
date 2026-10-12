@@ -3,7 +3,9 @@ set -Eeuo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 CLAUDE_HOME="${CLAUDE_HOME:-$HOME/.claude}"
+CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
 export CLAUDE_HOME
+export CODEX_HOME
 INSTALL_STATE="$CLAUDE_HOME/etrnl/install.json"
 PULL_FIRST=0
 ORIGINAL_ARGS=("$@")
@@ -86,7 +88,33 @@ fi
 
 # install.sh already runs the post-upgrade canary against the installed target
 # as its final step; running it again here doubled ~8 hook/node spawns per update.
-"$ROOT/scripts/install.sh" --preserve-settings
+# A core install records ownership in each host's `.etrnl-core.json`. Update only
+# the hosts that actually carry that marker; never add or convert another host.
+core_host=""
+claude_core=0
+codex_core=0
+if [[ -e "$CLAUDE_HOME/.etrnl-core.json" || -L "$CLAUDE_HOME/.etrnl-core.json" ]]; then claude_core=1; fi
+if [[ -e "$CODEX_HOME/.etrnl-core.json" || -L "$CODEX_HOME/.etrnl-core.json" ]]; then codex_core=1; fi
+if (( claude_core || codex_core )); then
+  if (( claude_core && codex_core )); then core_host="both"
+  elif (( claude_core )); then core_host="claude"
+  else core_host="codex"
+  fi
+  "$ROOT/scripts/install.sh" --profile core --host "$core_host"
+  printf 'Eternal Stack core updated for %s.\n' "$core_host"
+  exit 0
+fi
+
+# Updating an optional package must not silently select the baseline-only core.
+update_profile="orchestrated"
+if [[ -f "$INSTALL_STATE" ]] && command -v jq >/dev/null 2>&1; then
+  [[ "$(jq -r '.stackProfile // ""' "$INSTALL_STATE")" != "full" ]] || update_profile="full"
+fi
+native_update_args=(--profile "$update_profile" --preserve-settings)
+if [[ -f "$CLAUDE_HOME/etrnl/native-adapters.json" && -f "$CODEX_HOME/etrnl/native-adapters.json" ]]; then
+  native_update_args+=(--native-continuity --claude-version "$(jq -er '.declaredVersion' "$CLAUDE_HOME/etrnl/native-adapters.json")" --codex-version "$(jq -er '.declaredVersion' "$CODEX_HOME/etrnl/native-adapters.json")")
+fi
+"$ROOT/scripts/install.sh" "${native_update_args[@]}"
 
 new_commit="$(git_commit_or_unknown)"
 new_short="${new_commit:0:12}"

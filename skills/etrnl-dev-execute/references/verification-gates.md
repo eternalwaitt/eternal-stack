@@ -1,49 +1,11 @@
-# Verification gates (Browser-QA and react-doctor)
+# Verification evidence
 
-Load this module when the execution ledger or plan triggers Browser-QA v2 or react-doctor gates.
+When the workflow contract requires mechanical verification, run a check that exercises the changed behavior and retain its actual command and result. Prefer focused tests first, then the repository's relevant broader checks.
 
-Helper paths: `node scripts/browser-qa-report.mjs` in a source checkout, `node ~/.claude/scripts/browser-qa-report.mjs` after install. Commands below show the installed form; substitute the resolved prefix.
-
-## Browser-QA v2 completion gate
-
-**Capture hash and create.** Capture `<worktree-hash>` before writing the report file (so an in-repo artifact path cannot mutate the hash mid-run):
-
-```bash
-node ~/.claude/scripts/browser-qa-report.mjs create --schema-version 2 --status complete \
-  --tree-hash <worktree-hash> ...
-```
-
-Each complete non-skipped matrix row needs a valid `status`, numeric `consoleErrors` and `failedRequests`, fresh row-level `capturedAt`, `provenance.tool`, fresh `provenance.capturedAt`, screenshot + hash, and the route/viewport coverage the plan names.
-
-Complete reports also need report-level `provenance.treeHash`, `provenance.tool`, `provenance.targetUrl`, `provenance.command`, and fresh `provenance.capturedAt`.
-
-**Validate before completion:**
-
-```bash
-node ~/.claude/scripts/browser-qa-report.mjs validate <report-path> \
-  --artifact-root <artifact-root> \
-  --require-complete \
-  --tree-hash <worktree-hash>
-```
-
-**Require exit 0.** `--require-complete` rejects `status: draft` and requires `--tree-hash`. `--tree-hash` binds `provenance.treeHash` to the worktree captured at create time.
-
-## React-doctor gate (React/Next UI scope)
-
-When ledger task-changed files include React/Next UI (`.tsx`/`.jsx`, or `app/`/`src/` under Next):
-
-**Run when installed** (no project positional):
-
-```bash
-npx --no-install react-doctor --scope changed --base <ledger-base-commit> --blocking error
-```
-
-**Map each reported file** to ledger task-changed files:
-
-- **In-scope finding:** triage to resolution or `record-check --status failed` before completion.
-- **Out-of-scope finding:** working-note only; never blocks.
-- **Clean in-scope run:** `record-check --status passed`.
-
-**Missing react-doctor:** block completion or require an owner-approved exception with compensating verification — do not treat unavailability as pass.
-
-**Genuinely N/A scope:** `record-decision` with rationale; do not invent `record-check` statuses for those paths.
+- Choose checks from repository documentation and existing scripts. Do not invent a successful result or report a command that was not run.
+- For browser or user acceptance, record the observed flow and environment separately from static tests.
+- A failed check is evidence too: preserve its output, determine whether it is pre-existing or introduced, and stop if the required gate cannot be satisfied.
+- Use `execution-ledger.mjs run-check` for command-captured evidence when a ledger is active. Self-reported rows do not satisfy mechanical verification.
+- Keep one stable logical check name across failing and passing attempts of the same gate (for example, `invoice-tests`, not `invoice-red` then `invoice-green`). Preserve the failed attempt; the later success supersedes that same gate rather than leaving an unrelated required failure unresolved. Different required gates still need their own results.
+- `run-check` reserves its own verification and retry usage. Do not also call `record-budget-use --action retry` or another manual reservation for that same command attempt. Manual retry accounting is restricted to `--operation replan|redelegate|context-restore` work outside those helpers; bare or helper-owned retry reservations are rejected.
+- The contract budget limits verification attempts. When it is exhausted, stop and report the exact unresolved result.

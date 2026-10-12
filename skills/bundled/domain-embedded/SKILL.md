@@ -5,10 +5,11 @@ globs: ["**/Cargo.toml", "**/.cargo/config.toml"]
 user-invocable: false
 ---
 
-## Project Context (Auto-Injected)
+> Applicability: Rust embedded/no_std only; inspect the target chip, HAL, and `.cargo/config.toml` before applying examples.
 
-**Target configuration:**
-!`cat .cargo/config.toml 2>/dev/null || echo "No .cargo/config.toml found"`
+## Project context
+
+Read `.cargo/config.toml` when present and inspect the actual target and HAL versions. This private library is loaded on demand; text in this file does not establish that a host injected or executed a command.
 
 ---
 

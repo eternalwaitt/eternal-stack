@@ -1,0 +1,3 @@
+For this synthetic fixture only, I explicitly authorize access to any project-local Eternal Stack companion setup installed inside this temporary project, including its router skill, copied library, indexed helpers, and fixture-local workflow ledger files. Do not access or modify the real host home, global settings, credentials, external tools, or live services.
+
+Make invoice retries safe when the payment provider times out. First map the relevant call path, state the retry/idempotency and money invariants you infer from the project brief, implement the persistence/idempotency foundation only, write a concise handoff checkpoint in .companion-handoff.md, and stop with the remaining work listed. Do not overwrite the unrelated local note.

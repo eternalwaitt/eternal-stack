@@ -955,11 +955,37 @@ else:
       exit 0
     fi
   fi
+  workflow_state_json=""
+  if workflow_state_json="$(node "$SCRIPT_DIR/../scripts/execution-ledger.mjs" workflow-state --session "$(cc_session_id)" 2>/dev/null)"; then
+    if jq -e 'type == "object"' <<<"$workflow_state_json" >/dev/null 2>&1; then
+      state="$(jq -cn --argjson state "$state" --argjson workflow "$workflow_state_json" '$state + $workflow')"
+    fi
+  fi
   if ! execute_gate_status="$(node "$SCRIPT_DIR/../scripts/execute-evidence-check.mjs" 2>/dev/null <<<"$state")"; then
     cc_json_block "etrnl-dev-execute evidence checker failed. Re-run source gates or inspect scripts/execute-evidence-check.mjs before claiming completion."
     exit 0
   fi
   case "$execute_gate_status" in
+    invalid-workflow-contract)
+      cc_json_block "The active workflow contract is invalid or unsupported. Re-resolve it from explicit intent, scope, and risk before claiming completion."
+      exit 0
+      ;;
+    missing-mechanical-verification)
+      cc_json_block "The active workflow contract requires a captured command run with exit code 0. Use execution-ledger.mjs run-check --name <gate> -- <executable> [args]; a typed status does not prove a command ran."
+      exit 0
+      ;;
+    missing-independent-review)
+      cc_json_block "The active workflow contract requires one independent review after implementation. Record it with execution-ledger.mjs record-workflow-review --reviewer <reviewer> after the review."
+      exit 0
+      ;;
+    missing-plan-phases)
+      cc_json_block "The active workflow contract requires a plan with completed or explicitly skipped phases."
+      exit 0
+      ;;
+    missing-packet)
+      cc_json_block "The active workflow contract requires packet-bound task evidence. Record a task with packet hash and lineage before claiming completion."
+      exit 0
+      ;;
     missing-agent)
       cc_json_block "etrnl-dev-execute touched multiple source files without write-mode implementation subagent evidence. Dispatch etrnl-executor/Task workers with structured packets for parallel-safe work, or state the exact sequential-degraded blocker before claiming completion."
       exit 0

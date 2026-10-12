@@ -9,17 +9,17 @@ run_install_smoke_fast_tests() {
 
   dry_run_home="$TMPROOT/dry-run-claude"
   dry_run_codex_home="$TMPROOT/dry-run-codex"
-  if dry_run_out="$(CLAUDE_HOME="$dry_run_home" CODEX_HOME="$dry_run_codex_home" "$ROOT/scripts/install.sh" --dry-run 2>&1)"; then
+  if dry_run_out="$(CLAUDE_HOME="$dry_run_home" CODEX_HOME="$dry_run_codex_home" "$ROOT/scripts/install.sh" --profile orchestrated --dry-run 2>&1)"; then
     ok "install dry-run succeeds"
   else
     not_ok "install dry-run succeeds: $dry_run_out"
   fi
-  assert_contains "install dry-run names core profile" "$dry_run_out" "profile=core"
+  assert_contains "install dry-run names orchestrated profile" "$dry_run_out" "profile=orchestrated"
   assert_contains "install dry-run names stack validator" "$dry_run_out" "stack-profile-check.mjs"
   assert_contains "install dry-run resets Claude settings before applying stack" "$dry_run_out" "drop stack-owned hooks, and re-apply stack hooks while preserving other user settings"
-  core_dry_run_out="$(CLAUDE_HOME="$dry_run_home" CODEX_HOME="$dry_run_codex_home" "$ROOT/scripts/install.sh" --profile core --dry-run)"
-  assert_contains "core profile dry-run skips global memory tools" "$core_dry_run_out" "core profile skips Hindsight, Beads, and CodeGraph bootstrap"
-  preserve_dry_run_out="$(CLAUDE_HOME="$dry_run_home" CODEX_HOME="$dry_run_codex_home" "$ROOT/scripts/install.sh" --preserve-settings --dry-run)"
+  core_dry_run_out="$(CLAUDE_HOME="$dry_run_home" CODEX_HOME="$dry_run_codex_home" "$ROOT/scripts/install.sh" --profile orchestrated --dry-run)"
+  assert_contains "orchestrated profile dry-run skips global memory tools" "$core_dry_run_out" "orchestrated profile skips Hindsight, Beads, and CodeGraph bootstrap"
+  preserve_dry_run_out="$(CLAUDE_HOME="$dry_run_home" CODEX_HOME="$dry_run_codex_home" "$ROOT/scripts/install.sh" --profile orchestrated --preserve-settings --dry-run)"
   assert_contains "preserve settings dry-run keeps merge mode visible" "$preserve_dry_run_out" "preserve existing"
   full_dry_run_out="$(CLAUDE_HOME="$dry_run_home" CODEX_HOME="$dry_run_codex_home" "$ROOT/scripts/install.sh" --profile full --yes --dry-run)"
   assert_contains "full profile dry-run includes CodeGraph" "$full_dry_run_out" "CodeGraph global tool"
@@ -34,7 +34,7 @@ run_install_smoke_fast_tests() {
     chmod 500 "$unwritable_home"
     trap 'chmod 700 "$unwritable_home" 2>/dev/null || true' RETURN
     dry_precond_rc=0
-    dry_precond_out="$(CLAUDE_HOME="$unwritable_home" CODEX_HOME="$TMPROOT/dry-precond-codex" "$ROOT/scripts/install.sh" --dry-run 2>&1)" || dry_precond_rc=$?
+    dry_precond_out="$(CLAUDE_HOME="$unwritable_home" CODEX_HOME="$TMPROOT/dry-precond-codex" "$ROOT/scripts/install.sh" --profile orchestrated --dry-run 2>&1)" || dry_precond_rc=$?
     chmod 700 "$unwritable_home"
     trap - RETURN
     if (( dry_precond_rc != 0 )); then
@@ -58,7 +58,7 @@ run_install_malformed_settings_tests() {
   bad_settings_codex_home="$TMPROOT/bad-settings-codex"
   mkdir -p "$bad_settings_home"
   printf '{invalid json\n' >"$bad_settings_home/settings.json"
-  if bad_settings_out="$(CLAUDE_HOME="$bad_settings_home" CODEX_HOME="$bad_settings_codex_home" "$ROOT/scripts/install.sh" 2>&1)"; then
+  if bad_settings_out="$(CLAUDE_HOME="$bad_settings_home" CODEX_HOME="$bad_settings_codex_home" "$ROOT/scripts/install.sh" --profile orchestrated 2>&1)"; then
     ok "install recovers malformed settings"
   else
     not_ok "install recovers malformed settings: $bad_settings_out"

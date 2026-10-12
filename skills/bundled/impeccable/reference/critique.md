@@ -5,9 +5,8 @@ Resolve one stable target, run two independent assessments, synthesize a design 
 
 ### Hard Invariants
 
-- Assessment A (design review) and Assessment B (mechanical scan/browser evidence) are both required.
-- Assessment A and B MUST run as two isolated sub-agents whenever a sub-agent/Task tool is exposed. Running them inline in this context is "possible" but is NOT permitted; it is a degraded run. Inline is allowed ONLY when no sub-agent tool exists (or the user declined, on harnesses that ask).
-- If you degrade for any reason, the report's first line MUST be a banner: `⚠️ DEGRADED: single-context (<reason>)`. A silent degraded critique is a failed critique.
+- Choose design review and mechanical/browser evidence in proportion to the requested critique. A focused question can receive a focused answer; a full-page or high-stakes critique benefits from distinct design and evidence passes.
+- Use separate agents when the host supports them and independent perspectives materially help. Inline review is a valid fallback and does not make the critique fail; disclose a limitation only when it affects confidence or coverage.
 - Assessment A must finish before Assessment B findings enter the parent synthesis context. Mechanical-scan output is checklist-driven, but it still anchors judgment.
 - A skipped manual code review is a failed critique run unless browser inspection was attempted and failed for a documented reason.
 - Viewable targets require browser inspection when available.
@@ -25,24 +24,12 @@ Resolve one stable target, run two independent assessments, synthesize a design 
 
 ### Assessment Orchestration
 
-Delegate Assessment A and Assessment B to separate sub-agents. They must not see each other's output. Do not show findings to the user until synthesis.
+For a full critique, keep design judgment and mechanical/browser evidence analytically distinct through synthesis. Delegate either pass when an available agent adds useful independence; otherwise perform the passes in sequence in the current context.
 
-Sub-agent gate (all harnesses):
-- Unless a harness-specific gate below overrides this, spawn A and B as two isolated, parallel sub-agents whenever a sub-agent/Task tool is exposed. This is the default and is mandatory; do not run them inline because it is faster.
-- "Unavailable" means exactly one thing: no sub-agent/Task tool is exposed in this session (or, on harnesses that ask, the user declined). It does not mean inconvenient.
-- If and only if sub-agents are unavailable, fall back sequentially: finish and record Assessment A, then run Assessment B, then synthesize, and emit the degraded banner.
-- Whichever path you take, declare it in the report header (see Report header provenance). Skipping sub-agents without the banner is the most common failure of this command.
-
-Codex sub-agent gate (overrides the default above; Codex's permission model requires asking before spawning):
-- Asking is the normal path, not a degradation. Approving and spawning is the dual-agent path; do not emit the degraded banner just for asking.
-- If `spawn_agent` is exposed and the user explicitly allowed sub-agents, delegation, or parallel agent work, spawn A and B immediately.
-- If `spawn_agent` is exposed but the user did not explicitly allow sub-agents, ask exactly once: "Impeccable critique is designed to run two independent sub-agents for an unanchored assessment. May I use sub-agents for this critique?" Then stop until the user answers.
-- If allowed, spawn A and B. If declined, run sequentially and lead the report with `⚠️ DEGRADED: single-context (sub-agents declined by user)`.
-- If `spawn_agent` is not exposed, do not ask; run sequentially and lead with `⚠️ DEGRADED: single-context (spawn_agent unavailable in this session)`.
-- If spawning fails after permission, run sequentially and lead with `⚠️ DEGRADED: single-context (sub-agent spawn failed: <exact error>)`.
+There is no universal host rule that requires asking before using an agent. Follow the current session's tool availability and standing authorization. If delegation is unavailable, not authorized for the action, or adds more overhead than value, proceed inline and identify any material coverage limit.
 Prefer `fork_context: false` with self-contained prompts containing cwd, target, live URL, references, product context, and output contract. If using `fork_context: true`, omit `agent_type`, `model`, and `reasoning_effort`.
 
-If browser automation is available, each assessment creates its own new tab. Never reuse an existing tab, even if it is already at the right URL.
+Assign one browser/server owner and reuse matching page evidence where it covers the same source, viewport and configuration. Create isolated contexts only when independent interaction or state is necessary; close task-owned contexts afterward. Separate reasoning does not require duplicate server launches.
 
 ### Assessment A: Design Review
 
@@ -59,18 +46,18 @@ Return: AI slop verdict, heuristic scores, cognitive load, emotional journey, 2-
 
 ### Assessment B: Mechanical Pre-Scan + Browser Evidence
 
-The upstream deterministic detector is not included in this vendored copy; Assessment B performs its checks manually. It is mandatory and must remain isolated from Assessment A until both are complete.
+The upstream deterministic detector is not included in this vendored copy; Assessment B performs its checks manually. For a full critique, keep its findings separate from Assessment A until synthesis. For a focused request, run the relevant checks without imposing a full second assessment.
 
 Manual mechanical scan (markup and style files in the target; skip for URL-only targets):
 
 - Check against the Absolute bans and Codex-specific defects in the parent SKILL.md: side-stripe borders, gradient text (`background-clip: text` + gradient), default glassmorphism, hero-metric templates, identical card grids, uppercase tracked eyebrows on every section, numbered section markers as scaffolding, ghost-card border+shadow pairs, over-rounded cards (`border-radius` ≥ 24px), sketchy SVG illustrations, `repeating-linear-gradient` stripes, decorative grid backgrounds.
 - Check contrast pairs (body text ≥4.5:1, large text ≥3:1), display letter-spacing (≥ -0.04em), and heading clamp ceilings (≤ 6rem).
-- For very large trees (500+ scannable files), narrow scope or ask.
+- For large trees, batch the complete requested scope using shared worklists and the active contract. Do not silently narrow the audit; record uncovered items and the concrete blocker if coverage cannot be completed.
 - Return one entry per finding with file, line, and offending value.
 
 Browser inspection is required for a viewable target when browser automation is available. Use a localhost dev/static URL for local files; avoid `file://` unless the available browser explicitly supports this workflow:
 
-1. Create a fresh tab and navigate. Prefer the harness's native/browser-canvas screenshot path before hand-rolling a Playwright/Puppeteer script; only fall back to a custom script when no native browser tool is exposed.
+1. Use the assigned browser context and navigate; isolate a new context when the behavior needs it. Prefer the harness's native/browser-canvas screenshot path before hand-rolling a Playwright/Puppeteer script; only fall back to a custom script when no native browser tool is exposed.
 2. Screenshot the page at desktop and mobile widths; scroll through the full page and capture representative sections.
 3. Read the browser console for errors and warnings.
 4. For multi-view targets, inspect 3-5 representative pages.
@@ -95,7 +82,7 @@ Structure your feedback as a design director would:
 
 The report's first line MUST declare how the assessments were run, so a degraded run is never silent:
 - Dual-agent: `Method: dual-agent (A: <agent-id> · B: <agent-id>)`
-- Degraded: `⚠️ DEGRADED: single-context (<reason, e.g. no sub-agent tool exposed>)`
+- Inline: `Method: single-context, sequential design and evidence passes (<scope or material limit>)`
 
 #### Design Health Score
 > *Consult the [Heuristics Scoring Guide](#heuristics-scoring-guide) section below.*
@@ -199,31 +186,13 @@ Skip this step if the Setup slug was null (vague or root-level target).
 
 This is fire-and-forget. Show only the human-readable trend line and the written path. Failures here should not block the rest of the flow; print the error and move on.
 
-### Ask the User
+### Unresolved choices
 
-**After presenting findings**, use targeted questions based on what was actually found. STOP and use Codex's structured user-input/question tool when available; if unavailable, ask directly in chat to clarify what you cannot infer. These answers will shape the action plan.
-
-Ask questions along these lines (adapt to the specific findings; do NOT ask generic questions):
-
-1. **Priority direction**: Based on the issues found, ask which category matters most to the user right now. For example: "I found problems with visual hierarchy, color usage, and information overload. Which area should we tackle first?" Offer the top 2-3 issue categories as options.
-
-2. **Design intent**: If the critique found a tonal mismatch, ask whether it was intentional. For example: "The interface feels clinical and corporate. Is that the intended tone, or should it feel warmer/bolder/more playful?" Offer 2-3 tonal directions as options based on what would fix the issues found.
-
-3. **Scope**: Ask how much the user wants to take on. For example: "I found N issues. Want to address everything, or focus on the top 3?" Offer scope options like "Top 3 only", "All issues", "Critical issues only".
-
-4. **Constraints** (optional; only ask if relevant): If the findings touch many areas, ask if anything is off-limits. For example: "Should any sections stay as-is?" This prevents the plan from touching things the user considers done.
-
-**Rules for questions**:
-- Every question must reference specific findings from the report. Never ask generic "who is your audience?" questions.
-- Keep it to 2-4 questions maximum. Respect the user's time.
-- Offer concrete options, not open-ended prompts.
-- If findings are straightforward (e.g., only 1-2 clear issues), skip questions and go directly to Recommended Actions.
-
-Codex final-question gate: The user-visible response must either include the targeted questions or explicitly say `Questions skipped: <reason>` because the findings were straightforward. Each question must include 2-3 concrete answer options tied to the actual critique findings. Do not end with only open-ended questions.
+A requested critique can finish with findings and recommended actions. Ask only if a consequential unresolved decision changes the next authorized action; use the supplied scope, priorities and design direction before asking. Do not require a questionnaire or a "questions skipped" ceremony. If fixes were requested, continue routine in-scope fixes without shrinking the task to a shortlist.
 
 ### Recommended Actions
 
-**After receiving the user's answers**, present a prioritized action summary reflecting the user's priorities and scope from Ask the User.
+Present a prioritized action summary reflecting the existing request and any material clarification received.
 
 #### Action Summary
 

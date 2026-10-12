@@ -180,6 +180,32 @@ test('new finding in final sweep requires another full sweep', () => {
   c.rounds.push(third);
   assert.deepEqual(validate(c), []);
 });
+test('finite investigation budget preserves findings without claiming completion', () => {
+  const c = withFinding();
+  c.rounds[0].cells[0].findingIds = [];
+  c.completion.roundBudget = 2;
+  c.completion.status = 'budget_exhausted';
+  c.completion.remainingWork = 'Validate the newly found mechanism in a separately scoped follow-up.';
+  assert.deepEqual(validate(c), []);
+  c.completion.status = 'complete';
+  assert.ok(validate(c).some(e => e.includes('continue investigation')));
+  c.completion.status = 'budget_exhausted';
+  delete c.completion.remainingWork;
+  assert.ok(validate(c).some(e => e.includes('remaining work')));
+});
+test('round budget rejects automatic unbounded sweeps and invalid overrides', () => {
+  const c = performanceFixture();
+  for (const number of [3, 4]) {
+    const round = structuredClone(c.rounds[1]); round.number = number;
+    for (const cell of round.cells) cell.analysis = `Independent challenge ${number}`;
+    c.rounds.push(round);
+  }
+  assert.ok(validate(c).some(e => e.includes('round budget exceeded')));
+  c.completion.roundBudget = 4;
+  assert.deepEqual(validate(c), []);
+  c.completion.roundBudget = 0;
+  assert.ok(validate(c).some(e => e.includes('round budget')));
+});
 test('all findings must appear in the common artifact', () => {
   const c = withFinding(); assert.ok(validatePerformanceContract(c, dir, [], false, []).some(e => e.includes('omitted from common')));
   c.receipts[0].findingIds = []; assert.ok(validate(c).some(e => e.includes('complete findings list')));

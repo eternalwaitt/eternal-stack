@@ -1,45 +1,46 @@
 # Eternal Stack Agent Guide
 
-This repo builds Eternal's opinionated stack of skills, hooks, and rules for Claude Code. Public home: [eternal-stack](https://github.com/eternalwaitt/eternal-stack). Keep tracked files free of private identity, accounts, transcripts, credentials, and local memories.
+This repository maintains Eternal Stack for Claude Code and Codex. The current unreleased Core candidate installs shared guidance, one native `etrnl-router` skill, and a private on-demand capability library. The `orchestrated` and `full` profiles are separate opt-in installation layouts with host-specific hooks and provisioning. Public home: [eternal-stack](https://github.com/eternalwaitt/eternal-stack). Keep tracked files free of private identity, accounts, transcripts, credentials, and local memories.
 
-## Rules
+## Working rules
 
-- Reuse before create: inspect existing hooks, scripts, docs, skills, templates, and tests before adding new surfaces.
-- Minimize diffs and keep changes tied to the original plan or verified gap.
-- Put deterministic enforcement in hooks and repeatable process in skills.
-- When the user asks to implement or execute a plan, complete every item in the plan's `Execution scope` or stop with a concrete blocker. Minimal diffs constrain how each item is implemented; they do not permit silently choosing the first phase, first patch, MVP, or safer subset.
-- Keep startup guidance short; move detail to namespaced rules, docs, or skill references.
-- Keep `AGENTS.md` and the Claude startup wrapper aligned: shared guidance belongs in `AGENTS.md`; `CLAUDE.md` at the repo root and `templates/CLAUDE.md` (installed copy) both import it instead of duplicating it.
-- Run `tests/test-hooks.sh` and `scripts/doctor.sh` before claiming the stack is healthy.
-- Keep `VERSION`, `CHANGELOG.md` (Keep a Changelog categories under each release), `docs/skills.md`, and `docs/health-stack.md` current when adding repo-owned workflows; follow `docs/RELEASING.md` before tagging.
-- When changing install surfaces, public docs, or vendored references, update `README.md`, `CREDITS.md`, and `docs/eternal-stack-coverage.md` in the same change when the map or attribution shifts.
+- Treat the request as the task contract. Complete all authorized scope; do not silently replace it with an MVP or first phase. Preserve unrelated dirty work and never broad-reset or broad-stage.
+- Reuse existing hooks, scripts, docs, skills, templates, tests, and dependencies before adding surfaces. Keep changes tied to the verified gap.
+- Treat installer code, profile manifests, host adapters, and tests as evidence of current behavior. Keep available, loaded, and required capabilities distinct; a skill on disk is not proof it ran.
+- Keep workflow selection and requirements canonical in `scripts/lib/workflow-contract.mjs`. Do not copy scope/risk tables, worker/retry budgets, reviewer chains, or activation policy into individual skills, host profiles, hooks, or docs. Explain the contract by linking to the canonical module and user-facing capability guide.
+- Keep Core free of automatic hook enforcement. Optional profiles remain host-specific; document registration and actual enforcement separately. Put project correctness checks in deterministic tooling where practical, and report what actually ran.
+- Keep host paths portable. Installed library helpers run through the companion, with host home and library root treated as distinct. Do not hard-code one host's home into shared capability text.
+- Preserve factual attribution for inherited or adapted material in `CREDITS.md` and source notices. Eternal owns the integrated product surface and maintenance; do not imply original authorship or invent provenance or license conclusions.
+- Keep startup guidance short. Shared baseline belongs in `AGENTS.md`; `CLAUDE.md` and `templates/CLAUDE.md` import it rather than duplicate it. Put operational details in focused docs or capability references.
+- Keep `VERSION` unchanged until release preparation. Update `CHANGELOG.md` under `Unreleased`, relevant docs, and credits when install surfaces or capability ownership changes.
+- Run relevant targeted tests while editing. Before claiming overall health, run `tests/test-hooks.sh` and `scripts/doctor.sh`; distinguish source tests from live-host behavior.
+
+Read [PROJECT_STATE.md](PROJECT_STATE.md) when starting relevant work. During authorized implementation, keep affected authored status and pending work current before final verification; follow [project-state maintenance](docs/project-state.md) and the canonical contract for acknowledgement requirements. Do not invent lessons or mutate state for a read-only question.
 
 ## Documentation map
 
 | Doc | Use when |
 | --- | --- |
-| [README.md](README.md) | Public onboarding, profiles, doc index |
-| [docs/hooks.md](docs/hooks.md) | Hook reference: catalog, lifecycle wiring, per-hook behavior, libraries |
-| [docs/guards.md](docs/guards.md) | Pretool deny rules, stop-verifier gates, fail-open matrix |
-| [docs/rules.md](docs/rules.md) | Cross-host rule pack: module catalog, host activation, install, drift check |
-| [docs/install.md](docs/install.md) | Install, update, rollback, observer-only opt-out |
-| [docs/migration.md](docs/migration.md) | Rollout sequencing — safe migration order |
-| [docs/configuration.md](docs/configuration.md) | Profiles, env var tuning |
-| [docs/troubleshooting.md](docs/troubleshooting.md) | Common issues, repo vs installed paths, bypass |
-| [docs/compact-recovery.md](docs/compact-recovery.md) | Compact recovery — state capture and safe continuation after auto-compaction |
-| [docs/skills.md](docs/skills.md) | `etrnl-*` skills by namespace plus bundled inventory and scripts |
-| [docs/health-stack.md](docs/health-stack.md) | Doctor gates and audit workflows |
-| [docs/RELEASING.md](docs/RELEASING.md) | Semver, changelog categories, tags |
-| [CREDITS.md](CREDITS.md) | Vendored and inspirational attribution |
-| [docs/eternal-stack-coverage.md](docs/eternal-stack-coverage.md) | Capability coverage status |
+| [README.md](README.md) | User onboarding and concise product overview |
+| [PROJECT_STATE.md](PROJECT_STATE.md) and [docs/project-state.md](docs/project-state.md) | Current feature/pending overview and its maintenance/enforcement boundaries |
+| [docs/product-direction.md](docs/product-direction.md) | Companion architecture and workflow contract |
+| [docs/host-capabilities.md](docs/host-capabilities.md) | Core and optional profile behavior by host |
+| [docs/skills.md](docs/skills.md) | Capability library, routing boundaries, and helper interface |
+| [docs/install.md](docs/install.md) | Install, update, rollback, and optional profiles |
+| [docs/configuration.md](docs/configuration.md) | Profile and environment-variable settings |
+| [docs/hooks.md](docs/hooks.md) and [docs/guards.md](docs/guards.md) | Optional lifecycle hooks and guard behavior |
+| [docs/rules.md](docs/rules.md) | Project rule-pack modules and activation |
+| [docs/migration.md](docs/migration.md) and [docs/troubleshooting.md](docs/troubleshooting.md) | Existing installs and recovery |
+| [docs/health-stack.md](docs/health-stack.md) and [docs/eternal-stack-coverage.md](docs/eternal-stack-coverage.md) | Checks and capability coverage |
+| [docs/RELEASING.md](docs/RELEASING.md), [CHANGELOG.md](CHANGELOG.md), [CREDITS.md](CREDITS.md) | Release process, history, and provenance |
 
-Execution plans and background notes stay in ignored local paths. Durable decisions live under `docs/adr/`.
+## Verification
 
-## Boundaries
+Inspect relevant test scripts and keep checks targeted while changes are in progress. Before a final source-health claim, run:
 
-- Repo-owned orchestration skills use the `etrnl-*` namespace and install from this repository.
-- Eternal Stack is a bundled skill family: policy, review, simplification, and domain skills (`eternal-best-practices`, `code-simplifier`, `finding-duplicate-functions`, `domain-*`, auth, tenancy, payments, and related bundles) are vendored under `skills/bundled/` and installed by `scripts/install.sh`. Hooks and `etrnl-*` workflows route to bundled skills by name.
-- Selected upstream guidance is also inlined as `references/` modules inside `etrnl-*` skills (Brooks under `etrnl-code-review-excellence`, oRPC/Prisma/SQL under `etrnl-backend-patterns`, and similar). Prefer those modules when they cover the task; load the bundled skill when the workflow needs the full surface.
-- The public repository boundary is privacy, not skill ownership: keep private identity, accounts, transcripts, credentials, and local memories out of tracked files.
-- Live migration of memory systems, plugins, MCPs, and broad permissions is a local rollout step, not a blind install-time side effect.
-- Whole-codebase audits use `etrnl-audit-code` plus `scripts/code-health-inventory.mjs`; no tracked file may vanish from the coverage map.
+```bash
+tests/test-hooks.sh
+scripts/doctor.sh
+```
+
+These repository gates do not establish task-quality improvement or equal runtime enforcement in Claude Code and Codex. Record host-specific evidence and its limits.

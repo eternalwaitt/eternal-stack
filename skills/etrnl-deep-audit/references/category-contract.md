@@ -108,7 +108,7 @@ Fanout categories require one lane receipt for every registered lane. Each recei
 
 Lane receipts consume the shared category worklist hashes. Fanout lanes do not rescan broad target inventory independently.
 
-Every registered lane declares a `modelTier` (`fast`, `standard`, or `top`). Dispatch resolves it with `categoryLaneDispatch(categoryId)` from `scripts/lib/deep-audit-categories.mjs` and passes the resulting `model` and `reasoningEffort` on the spawn. A spawn that omits `model` inherits the parent thread model, so an inherited lane is a dispatch defect, not a default. A lane at the `top` tier also carries `modelTierJustification`.
+Registry `modelTier` values and `categoryLaneDispatch(categoryId)` describe suggested lane expertise and host dispatch metadata. They do not authorize a model change or set concurrency. Follow user and native-host model selection rules, and the stored workflow contract's remaining worker/review budgets. Run lanes sequentially or in bounded groups when capacity or authority is limited; preserve the same coverage receipts and report unavailable expertise. A lane at the `top` tier carries `modelTierJustification`, not permission to bypass those boundaries.
 
 ## Coverage Statement
 
@@ -136,10 +136,10 @@ Add a new category by updating the registry, the category skill, its reference p
 Run these gates after contract changes:
 
 ```bash
-node scripts/deep-audit-artifact-check.mjs validate-fixtures
-node scripts/deep-audit-artifact-check.mjs validate-registry --root .
-node scripts/prompt-budget-check.mjs .
-node scripts/skill-contract-check.mjs
+node {{ETRNL_COMPANION}} run scripts/deep-audit-artifact-check.mjs -- validate-fixtures
+node {{ETRNL_COMPANION}} run scripts/deep-audit-artifact-check.mjs -- validate-registry --root .
+node {{ETRNL_COMPANION}} run scripts/prompt-budget-check.mjs -- .
+node {{ETRNL_COMPANION}} run scripts/skill-contract-check.mjs --
 bash tests/test-hooks.sh
 bash scripts/doctor.sh
 ```

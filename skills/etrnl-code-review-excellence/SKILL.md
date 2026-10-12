@@ -4,7 +4,6 @@ description: ETRNL code review and excellence orchestrator. Use when the user as
 ---
 # ETRNL Code Review Excellence
 
-Codex startup: `node ~/.codex/scripts/skill-update-prompt.mjs --agent codex --skill etrnl-code-review-excellence`; on update, run the reported update command before continuing; only skip if the user explicitly declines.
 
 Single entry point for code-excellence review and Brooks-style structural audit. Load `references/routing.md` before choosing modules. Read only the reference files the task needs; do not preload the whole suite.
 
@@ -13,10 +12,10 @@ Single entry point for code-excellence review and Brooks-style structural audit.
 1. Classify the request against `references/routing.md`.
 2. Load the minimum reference set - one or two modules by default, at most three unless the user asks for a full excellence pass or a deep-audit envelope run.
 3. State the loaded modules in the first reply (`Loaded: audit-checks, brooks-architecture`).
-4. For `code-excellence` deep-audit category runs, load `references/audit-checks.md`, use the shared envelope from `etrnl-deep-audit`, and refuse completion until `node scripts/deep-audit-artifact-check.mjs validate --artifact <artifact>` passes or a concrete blocker is recorded.
+4. For `code-excellence` deep-audit category runs, load `references/audit-checks.md`, use the shared envelope from `etrnl-deep-audit`, and refuse completion until `node {{ETRNL_COMPANION}} run scripts/deep-audit-artifact-check.mjs -- validate --artifact <artifact>` passes or a concrete blocker is recorded.
 5. For whole-repo health with no-skips inventory, route to `etrnl-audit-code` instead of this skill.
 6. For PR-level line review without structural scope, use `etrnl-dev-pr` and execution reviewers (`etrnl-spec-reviewer`, `etrnl-quality-reviewer`) instead of this skill.
-7. Pull companion skills (`code-simplifier`, `finding-duplicate-functions`, legacy `brooks-audit`) only when the task crosses boundaries this repo does not already cover.
+7. Use the inlined Brooks architecture modules for structural review. Pull `code-simplifier` or `finding-duplicate-functions` only when the task needs those distinct passes.
 
 ## Module Files
 
@@ -29,4 +28,4 @@ Single entry point for code-excellence review and Brooks-style structural audit.
 
 ## Full-Pass Mode
 
-When the user asks for full code review excellence, Brooks health, or structural plus line-quality audit, load every module in dependency-friendly order: brooks-foundation → brooks-architecture → audit-checks → brooks-onboarding only when onboarding or tour output is requested.
+When the user asks for full code review excellence, Brooks health, or structural plus line-quality audit, cover the applicable modules and load their evidence when needed, in dependency-friendly order: brooks-foundation → brooks-architecture → audit-checks → brooks-onboarding only when onboarding or tour output is requested.
