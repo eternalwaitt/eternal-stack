@@ -4333,8 +4333,24 @@ assert_contains "batch-execution is optional, not an item-count rule" "$tg12_bat
 assert_contains "batch-execution preserves explicit user checkpoints" "$tg12_batch_execution" "Preserve user-requested checkpoints and external approval gates"
 assert_contains "batch-execution respects contract budgets" "$tg12_batch_execution" "Respect the active workflow contract"
 
+# Positive reviewer cases need a known full-review diff, independent of the
+# maintainer checkout being clean, documentation-only, or carrying other work.
+spawn_review_repo="$TMPROOT/spawn-review-repo"
+mkdir -p "$spawn_review_repo/src"
+git -C "$spawn_review_repo" init -q
+git -C "$spawn_review_repo" config user.email "test@example.com"
+git -C "$spawn_review_repo" config user.name "Test"
+printf 'export const baseline = true;\n' >"$spawn_review_repo/src/runtime.mjs"
+git -C "$spawn_review_repo" add src/runtime.mjs
+git -C "$spawn_review_repo" -c commit.gpgsign=false commit -qm "review scope baseline"
+for ((review_line=0; review_line<250; review_line++)); do
+  printf 'export const value%s = %s;\n' "$review_line" "$review_line"
+done >"$spawn_review_repo/src/runtime.mjs"
+spawn_review_scope="$(node "$ROOT/scripts/review-scope.mjs" classify --tier 2 --cwd "$spawn_review_repo" --json)"
+assert_json_expr "positive reviewer fixture has full review scope" "$spawn_review_scope" '.mode == "full_lenses" and .lineCount >= 200'
+
 spawn_batch_plan="$ROOT/hooks/fixtures/plans/large-batch-plan.md"
-node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-spawn-batch --plan "$spawn_batch_plan" --cwd "$ROOT" >/dev/null
+node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-spawn-batch --plan "$spawn_batch_plan" --cwd "$spawn_review_repo" >/dev/null
 if batch_deny_out="$(node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-batch --task-name "wave-1_spec_review" --wave "wave-1" --json 2>&1)"; then
   not_ok "spawn guard blocks first reviewer on Large plan without batch adoption"
 else
@@ -4503,7 +4519,7 @@ if registry_deny_out="$(node "$ROOT/scripts/execution-ledger.mjs" check-spawn --
 else
   assert_json_expr "spawn guard denies unknown spawn name when allowlist populated" "$registry_deny_out" '.reasonCode == "spawn-name-not-registered"'
 fi
-node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-spawn-fanout --plan "$registry_plan" --cwd "$ROOT" >/dev/null
+node "$ROOT/scripts/execution-ledger.mjs" init --session fixture-spawn-fanout --plan "$registry_plan" --cwd "$spawn_review_repo" >/dev/null
 node "$ROOT/scripts/execution-ledger.mjs" record-decision --session fixture-spawn-fanout --topic full-fan-out-wave --decision "wave-3" --reason "fixture"
 assert_command "full-fan-out-wave allows per-patch reviewer on named wave" node "$ROOT/scripts/execution-ledger.mjs" check-spawn --allow-record --session fixture-spawn-fanout --task-name "p108c2_spec_review" --wave "wave-3" --json
 scoped_findings="$TMPROOT/scoped-merge-findings.json"

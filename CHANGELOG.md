@@ -83,6 +83,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Fixed
 
+- Reviewer-spawn verification fixtures use an isolated known diff instead of depending on the maintainer checkout being dirty; release checks now work from a clean commit.
+
 - Codex startup respects replacement semantics for `AGENTS.override.md`; the optional replacement template includes the shared baseline.
 
 - The Stop verifier now constructs its ETRNL status command explicitly when neither GNU `timeout` nor `gtimeout` exists, avoiding Bash 3.2's unbound empty-array expansion; the lane-cap test now probes dry-run metadata before intentionally filling the burst window.

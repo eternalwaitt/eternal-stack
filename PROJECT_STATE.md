@@ -29,7 +29,7 @@ An implemented capability is not a claim that every workflow, host or deployment
 | claude-review-parity | Source provider and subprocess fixtures implemented; live parity unverified | Run an authorized real Claude captured-review/continuation trial before claiming live equivalence. Preserve existing Codex historical benchmark failures and recovery observations. |
 | native-runtime | Available and fixture-registered; live activation not performed | Validate exact installed host versions, native callback coverage and actual maintained state in an authorized isolated host trial. Hook errors can fail open and excluded tools retain the portable guidance/helper floor. |
 | knowledge-trials | Revised source preparation validated; admitted behavioral/model trials not run | Review runner isolation and hidden labels for any admitted trial, then run only separately authorized trials. Measure quality, reminder-free maintenance and token/time cost; deterministic materialization does not establish improvement. |
-| release | v0.12.0 versioned publication | Core, continuity and accumulated changes are assigned to v0.12.0. Required release gates must pass before pushing the tag and publishing notes. Live host validation and model trials remain pending; meaningful future shipments require versioned GitHub Releases. |
+| release | v0.12.0 versioned publication | Core, continuity and accumulated changes are assigned to v0.12.0. Reviewer-spawn fixtures now use a known isolated diff; required release gates must pass on the final clean commit before pushing the tag and publishing notes. Live host validation and model trials remain pending; meaningful future shipments require versioned GitHub Releases. |
 
 ## Mistakes and lessons
 
