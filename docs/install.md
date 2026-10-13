@@ -2,15 +2,15 @@
 
 ## Ask your coding assistant to guide setup
 
-Open the Eternal Stack candidate checkout in Claude Code or Codex and ask the assistant to guide the setup. It checks that you have the right checkout, looks at existing installations and prerequisites, and starts with the default installation for everyday use:
+Open the Eternal Stack v0.12.0 checkout in Claude Code or Codex and ask the assistant to guide the setup. It checks that you have the right checkout, looks at existing installations and prerequisites, and starts with the default installation for everyday use:
 
-> Read the repository instructions and this setup guide. First confirm that this checkout contains the current Eternal Stack candidate. Check which of Claude Code or Codex I use, whether an Eternal Stack installation already exists, and whether the prerequisites are available. Explain what the default Core installation changes. Use only the documented Core procedure unless I ask otherwise. Start with its dry run and show me what it would change. If this is the right checkout, the selected app and prerequisites are clear, and no incompatible installation blocks the update, continue with the Core installation and verify that the companion is available in my chosen coding app. Stop only for a missing prerequisite, an incompatible installation, or a decision that would materially change setup. Report what you checked and any limitations.
+> Read the repository instructions and this setup guide. First confirm that this checkout contains the Eternal Stack v0.12.0 or newer. Check which of Claude Code or Codex I use, whether an Eternal Stack installation already exists, and whether the prerequisites are available. Explain what the default Core installation changes. Use only the documented Core procedure unless I ask otherwise. Start with its dry run and show me what it would change. If this is the right checkout, the selected app and prerequisites are clear, and no incompatible installation blocks the update, continue with the Core installation and verify that the companion is available in my chosen coding app. Stop only for a missing prerequisite, an incompatible installation, or a decision that would materially change setup. Report what you checked and any limitations.
 
-The current shared companion is unreleased. A fresh clone of the public default branch does not contain it yet; use a checkout that has the candidate. If the checkout is not the candidate or an existing installation is incompatible, the assistant should explain that before proceeding. Core is the default package; the alternative optional packages below are for people who specifically need their additional integrations.
+The shared companion ships in v0.12.0 and is available on the public default branch. Use v0.12.0 or newer. If the checkout is older or an existing installation is incompatible, the assistant should explain that before proceeding. Core is the default package; the alternative optional packages below are for people who specifically need their additional integrations.
 
 ## Portable core (default)
 
-Core setup requires Git and Node.js 22 or newer. Run the installer from a checkout that contains the candidate. The selected Claude Code or Codex app must be available for use afterward.
+Core setup requires Git and Node.js 22 or newer. Run the installer from a v0.12.0 or newer checkout. The selected Claude Code or Codex app must be available for use afterward.
 
 `./scripts/install.sh` or `--profile core` installs the current shared baseline, one native `etrnl-router` skill, and the private on-demand library. Use `--host claude|codex|both`, `--dry-run`, and `--uninstall`. Explicit `--claude-home PATH` and `--codex-home PATH` target fixture or alternate homes. Both hosts are preflighted before writes. Existing text is preserved; edited managed sections and incompatible legacy installations are rejected rather than overwritten. Core registers no hooks, writes no host settings, and provisions no services or plugins. It installs the router and private library as Core-owned assets. For Codex, it updates the managed section of an existing `AGENTS.override.md` when that is the effective instruction file; otherwise it writes `AGENTS.md` and does not create a new override. Its `.etrnl-core.json` ownership manifest supports idempotent updates and removal. Preview first, then apply the profile from the checkout you intend to install:
 
@@ -19,7 +19,7 @@ Core setup requires Git and Node.js 22 or newer. Run the installer from a checko
 ./scripts/install.sh
 ```
 
-The companion install is currently Unreleased. The commands above describe this candidate checkout; published tags retain their released behavior. A fresh public clone receives these changes once they reach the public branch.
+The commands above describe v0.12.0 and newer. Earlier tags retain their previous installation behavior.
 
 The rest of this document describes the **alternative optional orchestration packages**, selected by `--profile orchestrated` or `--profile full`. They are not installed by default and do not layer on top of Core. Existing incompatible installs must be migrated before switching profiles. `--host` selects hosts only for Core; the optional profiles stage both host homes. Their installed behavior differs by host. See the [host capability matrix](host-capabilities.md). `ETRNL_ENABLE_STRICT=0` is a reduced-hook mode, not observer-only: stop and spawn enforcement remain.
 

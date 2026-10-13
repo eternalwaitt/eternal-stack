@@ -2,7 +2,7 @@
 
 ## Migrating to the portable core
 
-The current unreleased Core candidate installs shared guidance, one router skill, and a private capability library. The optional `orchestrated` and `full` profiles are separate layouts. Existing installs are not silently converted: old hooks, global rules and skills could keep enforcing a different workflow. Core detects incompatible install metadata and common runtime remnants and stops before writing either host. See the [host capability matrix](host-capabilities.md) for current boundaries.
+The v0.12.0 Core release installs shared guidance, one router skill, and a private capability library. The optional `orchestrated` and `full` profiles are separate layouts. Existing installs are not silently converted: old hooks, global rules and skills could keep enforcing a different workflow. Core detects incompatible install metadata and common runtime remnants and stops before writing either host. See the [host capability matrix](host-capabilities.md) for current boundaries.
 
 1. Keep your existing install backup and inspect its ownership records.
 2. Use the legacy `scripts/rollback-local.sh <backup-dir>` from the source/installed package to restore the pre-install state. This changes both hosts; perform it only as an explicitly chosen migration. If local files changed since the backup, reconcile those changes first rather than restoring over them. The legacy uninstall helper is still a no-op.

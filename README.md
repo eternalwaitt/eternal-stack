@@ -22,7 +22,7 @@ You might ask:
 
 Open your project in Claude Code or Codex and ask for help in your own words. To set up Eternal Stack, ask your coding assistant to follow the [setup guide](docs/install.md). It checks your checkout and existing setup before explaining what the default installation changes.
 
-The redesigned companion is a preview and has not been published yet; see the setup guide for availability.
+The redesigned companion ships in [v0.12.0](https://github.com/eternalwaitt/eternal-stack/releases/tag/v0.12.0); see the setup guide for installation and migration limits.
 
 For a first conversation, try:
 

@@ -25,7 +25,7 @@ Use complete sentences. Group related bullets under the right category instead o
 
 ## Day-to-day workflow
 
-1. Land user-visible work on `main`.
+1. Ship every meaningful change to `main` with a versioned GitHub Release. Features, fixes, and changes to installation or workflow behavior are meaningful; purely cosmetic documentation edits can wait for the next release.
 2. Add bullets under `## Unreleased` in the correct category while the work is in flight.
 3. Before claiming repo health on a release commit, ensure `Unreleased` is empty.
 
@@ -44,7 +44,15 @@ node scripts/release.mjs tag
 node scripts/changelog-release-check.mjs --strict-unreleased
 git push origin main
 git push origin v0.4.0
+
+# 4. Publish categorized notes from the tagged changelog (not newer main)
+gh release create v0.4.0 --verify-tag --title "v0.4.0" --notes-file /tmp/release-notes.md --latest
+
+# 5. Confirm the published tag, notes, and latest release
+gh release view v0.4.0
 ```
+
+Before publishing, write `/tmp/release-notes.md` from that version's changelog section, including migration guidance and known verification limits. A pushed tag alone does not complete a release. Verify the GitHub Release is public and points to the tested commit. Backfilled older versions use `--latest=false`.
 
 `prepare` inserts today's date, moves the populated `## Unreleased` bullets into the new section (dropping any empty category headings), creates empty category headings under a fresh `## Unreleased` for the next cycle, and writes `VERSION`.
 

@@ -1,6 +1,6 @@
 # Performance audit kernel and conditional domain references
 
-Status: accepted for implementation; 2026-09-08. This is an unreleased capability change. `VERSION` remains the shipped 0.11.1; follow the normal release process before changing it or tagging.
+Status: accepted for implementation; 2026-09-08. This capability ships in v0.12.0 after release preparation under `docs/RELEASING.md`.
 
 ## Diagnosis and decision
 

@@ -1,6 +1,6 @@
 # Portable core and explicit orchestration
 
-Status: superseded for current behavior by the unreleased companion candidate.
+Status: superseded for current behavior by the v0.12.0 companion.
 
 > Historical decision record. The guidance-only Core defined below is no longer the current candidate. The current design installs shared guidance, one native router, and a private on-demand library; see [product direction](../product-direction.md) and [host capabilities](../host-capabilities.md).
 
@@ -50,4 +50,4 @@ Core fixture tests exercise both hosts, existing instructions, Codex override pr
 
 This reset reduces default activation. It does not establish live host parity, repair every inherited domain example, or automatically migrate existing installations. Optional workflows still carry legacy complexity. Before promoting any into core, measure whether it improves representative task outcomes, correction rate, tool calls and elapsed time. Passing schema checks alone is not that evidence.
 
-The shipped `VERSION` remains unchanged until release preparation under `docs/RELEASING.md`; reset changes are recorded under `Unreleased`.
+The original reset was recorded under `Unreleased`; it ships with the integrated companion in v0.12.0 under `docs/RELEASING.md`.

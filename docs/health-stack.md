@@ -1,5 +1,7 @@
 # Health Stack
 
+Version v0.12.0 publishes the Core and continuity source. Release publication does not certify live host parity; follow [release verification](RELEASING.md) for future meaningful shipments.
+
 ## Portable core verification
 
 Core has no live hook runtime. `node --test tests/core-install.test.mjs` verifies both hosts, preservation, effective Codex override selection, idempotence, removal and legacy-install refusal in temporary homes. Doctor includes this suite and validates the core/orchestrated profile boundary. The full hook/workflow suites remain required for the optional package. A passing source suite does not certify a live installed host. See the [host capability matrix](host-capabilities.md) for the actual support boundary.

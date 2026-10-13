@@ -6,33 +6,40 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## Unreleased
 
-### Project continuity and optional host adapters
+### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+### Security
+
+### Deprecated
+
+## v0.12.0
+
+2026-10-13
+
+### Added
 
 - Add explicit versioned native continuity registration for optional Claude/Codex profiles, preserving unrelated settings and owned-entry removal/rollback; Core remains hook-free.
 - Reuse canonical task/checkpoint/completion and scoped lesson records at supported lifecycle boundaries, with durable repair budgets and explicit fail-open/coverage limits.
 - Add Claude captured-review provider source and fixture evidence; live host parity remains unverified.
 - Keep review-generated rules as private proposals until an authorized `--apply-rules` action, and use companion host-local paths for review learning.
 
-
-### Project knowledge and recovery
-
 - Match natural requests to stable task/feature IDs and aliases, show prior-run recovery without adoption, and explicitly transfer ownership while preserving failures, checkpoints and budgets.
 - Support scoped state revisions, disjoint-entry merges, conflicting-entry rejection and attributed pending-work handover; substantive writes require state maintenance while explicit trivial contained work keeps a light path.
 - Replace inferred high-confidence recovery lessons with scoped observations and captured-review evidence; retain retrieval-only receipts and exclude unattributed global hints.
 - Prepare corrected paired evaluation workspaces with hidden adjudication labels and bounded local reporting; no model trial or quality/cost improvement is implied.
 
-### Durable project state
-
 - Maintain one project-owned Markdown overview of current scope, feature status, pending work and curated lessons; reuse an existing bound overview and preserve authored content.
 - Bind required state acknowledgements to task/source/document freshness and derive a bounded evidence block from the existing ledger; distinguish native guidance from helper-enforced completion.
-
-### Independent review follow-up
 
 - Replace caller-authored verified review imports with an explicit companion host controller that captures a separate Codex reviewer and resumes the original session, preserving source freshness and the stored workflow budget.
 - Preserve captured approvals for source-bound resume-only retries, distinguish planned review from failed-attempt retries, and recover identifiable abandoned controller processes without resetting budgets.
 - Save a recoverable checkpoint before review, keep red/green attempts under the same logical gate name, and distinguish explicit host handoff from automatic Core enforcement or unsupported nested execution.
-
-### Skills and coordination audit
 
 - Keep deep taste, SaaS engineering and accessibility catalogs available on demand through compact topic selectors.
 - Remove forced specialist fanout/model switches, duplicate browser setup and repeated design approval steps; preserve complete category coverage under the canonical workflow contract.
@@ -40,10 +47,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - Correct payment webhook/version guidance, destructive migration-conflict advice, money decoding and project-specific style assumptions.
 - Coordinate finite check execution and source-bound reuse, bounded output and process cleanup; retain actual separate review output before accepting verified review evidence.
 
-
-### Added
-
-- Integrated Core companion candidate for Claude Code and Codex: managed shared guidance, one native `etrnl-router` skill, a private on-demand capability library, explicit host selection, dry-run, ownership-aware removal, and incompatible-install checks. It is unreleased; published tags remain unchanged. The supported `orchestrated` and `full` profiles are alternative opt-in installation layouts.
+- Integrated Core companion for Claude Code and Codex: managed shared guidance, one native `etrnl-router` skill, a private on-demand capability library, explicit host selection, dry-run, ownership-aware removal, and incompatible-install checks. The supported `orchestrated` and `full` profiles are alternative opt-in installation layouts.
 
 - Performance audit kernel with 64 independent evidence receipts, conservative stack-neutral discovery, conditional domain playbooks, adversarial contract tests and read-only distribution parity checks. Existing runtime-memory incident closure remains mandatory.
 - Dual-host spawn guard: `cc-spawn-guard.sh` on Claude default template (`Task|Agent|TaskCreate`) and Codex `spawn-guard-pre-tool-use.sh` enforce shared `spawn-guard.mjs` policy through `execution-ledger.mjs check-spawn` with `--explain` recovery, batch adoption triggers, and wave 2+ merged-review economics.
@@ -141,12 +145,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - Tier-3 plans could never reach `Status: Final`. `validateInstallProof` and `validateRiskTier` demanded `passed` source-gate, staged-install, staged-doctor, and rollback proof before a plan counted as executable, but that proof only exists after the plan runs — so autoplan produced a complete, fully reviewed tier-3 plan and then stopped on `Blocked until <blocker>` for evidence it was structurally unable to hold, surfacing an unactionable error to the user. Tier 3 now accepts `planned` proof at plan time and `not_applicable` when the plan changes no install surface, because the tier-3 trigger list covers auth, money, migration, and tenant risk as well as installers, and staged *install* proof is meaningless for the former. `blocked` still fails the gate, standalone `--artifact` checks still assume an install surface and stay strict, and the Stop-time `missing-install-proof` gate in `cc-stop-verifier.sh` still requires real evidence before completion can be claimed. The deadlock went unnoticed because no tracked fixture exercised a passing tier-3 artifact — the only tier-3 fixture was a negative control.
 
 - Private-string detection no longer reports repo-relative source paths as local filesystem paths. All four copies of the rule tested bare segments such as `/home/`, `/tmp/`, and `/Users/` anywhere in a string, so ordinary paths like `src/components/home/Nav.tsx` and `src/tmp/cache.ts` failed the deep-audit artifact gate. Detection now scans path-like tokens anchored at an absolute root before testing the private roots, which keeps application routes and repo paths clean while still catching POSIX, home-relative, Windows drive, UNC, WSL, and `file://` local paths. A real UI/UX audit artifact was blocked by 15 such false positives with no actual leak present.
-
-### Removed
-
-### Security
-
-### Deprecated
 
 ## v0.11.1
 
@@ -600,7 +598,3 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ### Security
 
 - Public repository boundary: no private identity, credentials, transcripts, or local planning artifacts in tracked files.
-
-
-
-

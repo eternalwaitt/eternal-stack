@@ -128,4 +128,4 @@ Eternal owns the router, capability IDs, canonical modules, host adapters, packa
 
 Update the skill inventory, helper closure, relevant docs, and credits when a capability is added, merged, rewritten, or retired. Keep factual source notices with adapted material. Run the targeted skill-contract and portable-install checks after changing library entrypoints.
 
-See [market research](market-research.md) for the current source-backed landscape and [product direction](product-direction.md) for the design and implementation boundaries of this unreleased companion candidate.
+See [market research](market-research.md) for the current source-backed landscape and [product direction](product-direction.md) for the design and implementation boundaries of the v0.12.0 companion.

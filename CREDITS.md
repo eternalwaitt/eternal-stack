@@ -1,6 +1,6 @@
 # Credits and attributions
 
-Eternal Stack is one maintained companion for Claude Code and Codex. The unreleased Core candidate installs shared guidance, one native router skill, and a private on-demand capability library; the `orchestrated` and `full` profiles remain alternative opt-in layouts with host-specific integrations. Eternal owns the integrated product surface, canonical modules, packaging, and maintenance. This ownership does not imply original authorship of inherited material. See the [host capability matrix](docs/host-capabilities.md) and [capability catalog](docs/skills.md).
+Eternal Stack is one maintained companion for Claude Code and Codex. The v0.12.0 Core release installs shared guidance, one native router skill, and a private on-demand capability library; the `orchestrated` and `full` profiles remain alternative opt-in layouts with host-specific integrations. Eternal owns the integrated product surface, canonical modules, packaging, and maintenance. This ownership does not imply original authorship of inherited material. See the [host capability matrix](docs/host-capabilities.md) and [capability catalog](docs/skills.md).
 
 ## Inlined reference modules
 
@@ -66,7 +66,7 @@ For a source-backed comparison of related projects and native host mechanisms, s
 
 ## Host integrations
 
-The Core candidate uses the same maintained router and library sources on [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and Codex. Each host still has different tools, permissions, skill discovery, hooks, and agent mechanisms. The alternative optional package can register Claude hooks and agents; copied legacy Codex hook scripts are not active without native registration. The versioned companion lifecycle adapters are Eternal integration code based on documented [Codex 0.159.2 hook schemas](https://github.com/openai/codex/tree/rust-v0.159.2/codex-rs/hooks) and [Claude native hooks/CLI](https://code.claude.com/docs/en/hooks); no upstream implementation code is vendored by this integration. Their shared state/knowledge records preserve existing source attribution. See the [host capability matrix](docs/host-capabilities.md). Source attributions and recorded license observations describe lineage; they are not legal determinations or freshness guarantees.
+The Core release uses the same maintained router and library sources on [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and Codex. Each host still has different tools, permissions, skill discovery, hooks, and agent mechanisms. The alternative optional package can register Claude hooks and agents; copied legacy Codex hook scripts are not active without native registration. The versioned companion lifecycle adapters are Eternal integration code based on documented [Codex 0.159.2 hook schemas](https://github.com/openai/codex/tree/rust-v0.159.2/codex-rs/hooks) and [Claude native hooks/CLI](https://code.claude.com/docs/en/hooks); no upstream implementation code is vendored by this integration. Their shared state/knowledge records preserve existing source attribution. See the [host capability matrix](docs/host-capabilities.md). Source attributions and recorded license observations describe lineage; they are not legal determinations or freshness guarantees.
 
 ## Contributing upstream
 

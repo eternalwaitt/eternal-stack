@@ -10,7 +10,7 @@ This directory holds durable Eternal Stack decisions that should outlive one imp
 | [0002](0002-etrnl-state-and-compact-handoff.md) | accepted | Keep Claude in charge of compaction, use bounded local ETRNL JSONL state for compact handoff, keep Beads backlog-only, and keep Dolt out of hook hot paths. |
 | [0003](0003-exodia-cross-host-rules.md) | accepted | Single-source rule modules with generated host twins (Claude `.claude/rules/`, Cursor `.mdc`, Codex `AGENTS.md`); copies not symlinks; profiles explicit; byte budget read from config; checksums track drift; privacy banned-token gate. |
 | [0004](0004-coderabbit-preemption-lean.md) | superseded for current routing | Historical decision about deterministic review rules and recurring-finding learning; it no longer defines required planning, reviewer, or convergence policy. |
-| [2026-10](2026-10-portable-core.md) | superseded in this unreleased candidate | Earlier guidance-only Core reset. The current candidate adds one native router and a private on-demand library while retaining alternative optional profiles. |
+| [2026-10](2026-10-portable-core.md) | superseded in v0.12.0 | Earlier guidance-only Core reset. The current candidate adds one native router and a private on-demand library while retaining alternative optional profiles. |
 | [2026-10 project state](2026-10-project-state.md) | accepted | Keep one durable authored project overview with bounded ledger-derived evidence and source-bound completion acknowledgement; native guidance and deterministic helper enforcement remain distinct. |
 
 ## Policy

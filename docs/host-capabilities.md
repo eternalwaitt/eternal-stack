@@ -1,6 +1,6 @@
 # Host capabilities
 
-This page describes the current source checkout and installer behavior. This candidate is **unreleased**; published tags do not contain these changes. Repository tests and isolated host fixtures do not prove every interaction in a user's live Claude Code or Codex session.
+This page describes the current source checkout and installer behavior. These changes ship in **v0.12.0**; earlier tags retain their previous behavior. Repository tests and isolated host fixtures do not prove every interaction in a user's live Claude Code or Codex session.
 
 ## Core install
 

@@ -1,6 +1,6 @@
 # Eternal Stack Agent Guide
 
-This repository maintains Eternal Stack for Claude Code and Codex. The current unreleased Core candidate installs shared guidance, one native `etrnl-router` skill, and a private on-demand capability library. The `orchestrated` and `full` profiles are separate opt-in installation layouts with host-specific hooks and provisioning. Public home: [eternal-stack](https://github.com/eternalwaitt/eternal-stack). Keep tracked files free of private identity, accounts, transcripts, credentials, and local memories.
+This repository maintains Eternal Stack for Claude Code and Codex. The Core release installs shared guidance, one native `etrnl-router` skill, and a private on-demand capability library. The `orchestrated` and `full` profiles are separate opt-in installation layouts with host-specific hooks and provisioning. Public home: [eternal-stack](https://github.com/eternalwaitt/eternal-stack). Keep tracked files free of private identity, accounts, transcripts, credentials, and local memories.
 
 ## Working rules
 
@@ -12,7 +12,7 @@ This repository maintains Eternal Stack for Claude Code and Codex. The current u
 - Keep host paths portable. Installed library helpers run through the companion, with host home and library root treated as distinct. Do not hard-code one host's home into shared capability text.
 - Preserve factual attribution for inherited or adapted material in `CREDITS.md` and source notices. Eternal owns the integrated product surface and maintenance; do not imply original authorship or invent provenance or license conclusions.
 - Keep startup guidance short. Shared baseline belongs in `AGENTS.md`; `CLAUDE.md` and `templates/CLAUDE.md` import it rather than duplicate it. Put operational details in focused docs or capability references.
-- Keep `VERSION` unchanged until release preparation. Update `CHANGELOG.md` under `Unreleased`, relevant docs, and credits when install surfaces or capability ownership changes.
+- Publish a versioned GitHub Release for every meaningful change shipped to `main`; follow `docs/RELEASING.md`. Keep `VERSION` unchanged until release preparation. Update `CHANGELOG.md` under `Unreleased`, relevant docs, and credits when install surfaces or capability ownership changes.
 - Run relevant targeted tests while editing. Before claiming overall health, run `tests/test-hooks.sh` and `scripts/doctor.sh`; distinguish source tests from live-host behavior.
 
 Read [PROJECT_STATE.md](PROJECT_STATE.md) when starting relevant work. During authorized implementation, keep affected authored status and pending work current before final verification; follow [project-state maintenance](docs/project-state.md) and the canonical contract for acknowledgement requirements. Do not invent lessons or mutate state for a read-only question.
