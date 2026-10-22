@@ -30,6 +30,8 @@ Use one project-owned overview for current scope, features, pending work and cur
 
 ## Maintained capabilities
 
+`etrnl-dev-deps` (Upgrade Deps) also supports standalone Codex installation from its skill directory, including references and `agents/openai.yaml`, without installing the companion or router. It preserves explicit invocation as `$etrnl-dev-deps`. It can map whole-toolchain migration impact in read-only plan mode, optimize existing catalogs, and execute authorized upgrades with compatibility and rollback checks. See its [entrypoint](../skills/etrnl-dev-deps/SKILL.md), [pnpm guidance](../skills/etrnl-dev-deps/references/pnpm-toolchain.md), and [source comparison](../skills/etrnl-dev-deps/references/upstream-comparison.md). This additional distribution option does not change Core's one-router layout.
+
 Current source inventory: 56 skill entrypoint files, including `etrnl-router`. The router is the only Core-native skill; all other entries below are available as on-demand library modules. These names describe maintained capabilities, not individual slash commands.
 
 | Family | Capability entrypoints |
