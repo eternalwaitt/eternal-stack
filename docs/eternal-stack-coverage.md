@@ -1,6 +1,6 @@
 # Eternal Stack coverage
 
-This page summarizes the **v0.12.0** source capabilities; publication is not proof of live activation. Earlier tags keep their existing behavior. See [host capabilities](host-capabilities.md) for exact host behavior and [the capability library](skills.md) for the maintained catalog.
+This page summarizes the **v0.13.0** source capabilities, including standalone Upgrade Deps on top of the v0.12.0 companion; publication is not proof of live activation. Earlier tags keep their existing behavior. See [host capabilities](host-capabilities.md) for exact host behavior and [the capability library](skills.md) for the maintained catalog.
 
 ## Product surface
 

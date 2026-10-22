@@ -3,7 +3,7 @@
 
 ## Current scope
 
-Eternal Stack is a coding companion released as v0.12.0 for Claude Code and Codex. Durable project state, scoped project observations, explicit recovery and optional native continuity adapters are implemented in source. Earlier project-state behavior has an independent review and one no-reminder Codex observation; the current continuity corrections have independent source and fixture review. Current implementation targeted checks are retained separately; integrated required gate outcomes belong to separate receipts for the final source/document identity. These observations do not imply release readiness or live host parity. Versioned publication does not imply live-home activation or cross-host parity. Read the [product direction](docs/product-direction.md) and [state maintenance guide](docs/project-state.md) for the supported boundaries.
+Eternal Stack is a coding companion for Claude Code and Codex. Version v0.13.0 adds standalone Upgrade Deps to the companion released in v0.12.0. Durable project state, scoped project observations, explicit recovery and optional native continuity adapters are implemented in source. Earlier project-state behavior has an independent review and one no-reminder Codex observation; the current continuity corrections have independent source and fixture review. Current implementation targeted checks are retained separately; integrated required gate outcomes belong to separate receipts for the final source/document identity. These observations do not imply release readiness or live host parity. Versioned publication does not imply live-home activation or cross-host parity. Read the [product direction](docs/product-direction.md) and [state maintenance guide](docs/project-state.md) for the supported boundaries.
 
 ## Features
 
@@ -31,7 +31,7 @@ An implemented capability is not a claim that every workflow, host or deployment
 | claude-review-parity | Source provider and subprocess fixtures implemented; live parity unverified | Run an authorized real Claude captured-review/continuation trial before claiming live equivalence. Preserve existing Codex historical benchmark failures and recovery observations. |
 | native-runtime | Available and fixture-registered; live activation not performed | Validate exact installed host versions, native callback coverage and actual maintained state in an authorized isolated host trial. Hook errors can fail open and excluded tools retain the portable guidance/helper floor. |
 | knowledge-trials | Revised source preparation validated; admitted behavioral/model trials not run | Review runner isolation and hidden labels for any admitted trial, then run only separately authorized trials. Measure quality, reminder-free maintenance and token/time cost; deterministic materialization does not establish improvement. |
-| release | v0.12.0 versioned publication | Core, continuity and accumulated changes are assigned to v0.12.0. Reviewer-spawn fixtures now use a known isolated diff; required release gates must pass on the final clean commit before pushing the tag and publishing notes. Live host validation and model trials remain pending; meaningful future shipments require versioned GitHub Releases. |
+| release | v0.13.0 versioned publication workflow | Upgrade Deps is assigned to v0.13.0. Require the full-install doctor and final source review before merge/tag/publication, and verify the public GitHub Release against its tested commit. Live host parity and real dependency-upgrade trials remain separate pending work. |
 
 ## Mistakes and lessons
 

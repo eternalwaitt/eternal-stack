@@ -1,6 +1,6 @@
 # Health Stack
 
-Version v0.12.0 publishes the Core and continuity source. Release publication does not certify live host parity; follow [release verification](RELEASING.md) for future meaningful shipments.
+Version v0.13.0 adds standalone Upgrade Deps to the Core and continuity source published in v0.12.0. Release publication does not certify live host parity; follow [release verification](RELEASING.md) for future meaningful shipments.
 
 ## Portable core verification
 
