@@ -1,6 +1,6 @@
 # Health Stack
 
-Version v0.12.0 publishes the Core and continuity source. Release publication does not certify live host parity; follow [release verification](RELEASING.md) for future meaningful shipments.
+Version v0.13.0 adds standalone Upgrade Deps to the Core and continuity source published in v0.12.0. Release publication does not certify live host parity; follow [release verification](RELEASING.md) for future meaningful shipments.
 
 ## Portable core verification
 
@@ -222,7 +222,7 @@ Wave-2 stack overhaul acceptance is measured monthly from local run telemetry, n
 - `etrnl-ops-disk-cleanup` is the operations (host maintenance) storage-recovery workflow, not a dev execute skill. It requires host/filesystem evidence, a dry-run manifest, approved transient path classes, `trash` deletion, and before/after free-space verification so cleanup requests do not fight the generic dangerous-filesystem guard. See [hooks.md](hooks.md) for how pretool guards pair with this skill.
 - `etrnl-audit-security` is the registered deep-audit security category. Findings must prove source, sink, missing control, exploit, reachability, confidence, impact, and remediation; clean rows must record explicit non-findings.
 - `etrnl-dev-debug` is the root-cause debugging workflow. It classifies issues before edits, proves reproduction, traces bad values to the producer, limits speculative fix attempts, and verifies the original failing command or runtime symptom.
-- `etrnl-dev-deps` is the dependency-maintenance workflow. It keeps dependency work compatibility-first, consolidates repeated workspace versions through existing catalogs or central version surfaces, records rollback commands, and reports audit, bot-PR, catalog, lockfile, and verification evidence.
+- `etrnl-dev-deps` (Upgrade Deps) maps whole-toolchain upgrade impact, preserves intentional version divergence, optimizes catalogs and orders execution by compatibility constraints. Its standalone Codex package includes pnpm migration guidance and reports audit, bot-PR, catalog, lockfile, baseline-preserving rollback and verification evidence; static planning does not prove runtime compatibility.
 - `skill-contract-check.mjs` rejects soft directive language and `model:`/`effort:` routing frontmatter in repo-owned skills and their reference docs. Workflow instructions use mandatory defaults plus explicit unavailable, not-applicable, or blocker paths, while skills inherit the active Claude model/context. `scripts/install.sh` replaces repo-owned skill directories in both `${CLAUDE_HOME:-$HOME/.claude}/skills` and `${CODEX_HOME:-$HOME/.codex}/skills`; rollback removes or restores those same repo-owned Codex copies without touching unrelated skills.
 - `scripts/lib/audit-exclusions.mjs` is the shared exclusion policy for code-health inventory and documentation comment inventory. Vendor, build output, caches, local agent state, worktrees, generated folders, fixtures, logs, and `.audit` artifacts are listed or skipped with reasons; they are not audited as source/docs action items.
 - `documentation-comment-health.mjs` is mandatory for documentation-health runs against JS/TS repos. Reports must include TSDOC/JSDOC and COMMENT_TARGET counters, or an explicit `COMMENT_HEALTH_NOT_APPLICABLE:` line with evidence.

@@ -18,6 +18,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Deprecated
 
+## v0.13.0
+
+2026-10-22
+
+
+### Changed
+
+- Expand Upgrade Deps with whole-toolchain impact plans, confidence-labeled migration findings, compatibility-based batches, catalog optimization, pnpm 10-to-12 checks and standalone Codex skill metadata.
+
+### Fixed
+
+- Preserve pre-existing staged/unstaged dependency work during rollback and honor already authorized major upgrades without repeated approval prompts.
+
 ## v0.12.0
 
 2026-10-13

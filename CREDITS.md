@@ -70,6 +70,10 @@ The Core release uses the same maintained router and library sources on [Claude 
 
 ## Contributing upstream
 
+### Dependency upgrade research
+
+The standalone `etrnl-dev-deps` workflow integrates dependency-impact planning, whole-stack discovery, catalog-aware tooling and compatibility-based execution informed by [marcelorodrigo/agent-skills](https://github.com/marcelorodrigo/agent-skills), [antfu-collective/taze](https://github.com/antfu-collective/taze), [levnikolaevich/claude-code-skills](https://github.com/levnikolaevich/claude-code-skills), and [MIT Open Learning agent-kit](https://github.com/mitodl/agent-kit). Exact reviewed revisions, retained behavior and rejected assumptions are recorded in the [source comparison](skills/etrnl-dev-deps/references/upstream-comparison.md). This is original integration guidance; no upstream implementation or full skill text is vendored.
+
 If you maintain one of the projects above and want a more formal attribution line or link correction, open an issue or PR in this repository.
 
 ## Performance research additions
