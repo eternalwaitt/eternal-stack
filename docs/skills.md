@@ -61,6 +61,8 @@ The maintained role files `etrnl-adversary`, `etrnl-browser-qa`, `etrnl-consumer
 
 The separate `email-triage` command is an optional integration reference that depends on the external `vivaz-email` runtime and its account access. It is outside the Core capability index and is not required for coding workflows.
 
+The `/etrnl-audit-security` capability runs the registered security category with exploitable-bug evidence, explicit non-findings, and a dedicated authentication/session-abuse check. When Better Auth is detected, its bundled version-aware guidance covers cookies, sessions, password recovery, rate limits, trusted origins, and 2FA/passkeys.
+
 ## Helper interface
 
 Maintained helper scripts run through the companion so they use the shared library while writing state under the active host's home. The installed router provides the concrete command path:

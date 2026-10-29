@@ -1,41 +1,66 @@
 ---
 name: better-auth
-description: |
-  Better Auth integration guidance for TypeScript applications. Use when configuring authentication, sessions, social sign-in, organization membership, passkeys, two-factor authentication, or security-sensitive auth flows. Follow the version and framework actually present in the target project.
+description: Configure, review, and harden Better Auth in TypeScript applications, including sessions, email/password, password reset, social login, 2FA/passkeys, organizations, rate limiting, cookies, CSRF, and trusted origins. Use when a project depends on Better Auth or is choosing its authentication architecture; do not replace an existing provider without an explicit migration request.
 license: MIT
 metadata:
-  author: oakoss
-  version: '1.2'
+  author: better-auth and Eternal Stack maintainers
+  version: '1.3'
 ---
 
-# Better Auth integration
+# Better Auth
 
-This capability is an implementation checklist, not a version-pinned API manual. Read the target project's installed `better-auth` version, framework adapter, auth configuration, database schema, and existing tests first. Confirm option names and migration steps in the official documentation for that version before changing code; do not copy remembered API shapes from this guide.
+This capability is an implementation and security checklist, not a version-pinned API manual. Read the target project's installed `better-auth` version, framework adapter, auth configuration, database schema, existing authorization boundaries, and tests first. Use documentation that matches the resolved package version: inspect the lockfile first, then the package manifest, and confirm option names and migrations against the [official version index](https://better-auth.com/llms.txt).
 
-## Before changing authentication
+## Architecture
 
-1. Trace the existing sign-in, callback, session-read, session-write, sign-out, and authorization paths. Identify which code runs on the server and which data reaches the browser.
-2. Inspect the lockfile and database adapter. Use the adapter and migration workflow already supported by the project unless the user requests a migration.
-3. Find existing middleware and resource-level authorization. Authentication proves an identity; it does not by itself authorize access to an organization, tenant, record, or action.
-4. Check the official Better Auth documentation for the exact features involved. Documentation and plugins can change independently of this installed skill.
+Prefer Better Auth's cookie-backed session flow for browser applications. Do not build a parallel access-token/refresh-token system merely because generic backend guidance mentions JWTs. Use bearer or JWT flows only when a non-browser client, separately deployed verifier, or interoperability requirement actually needs them, and document the trust boundary.
 
-## Security review
+Keep authentication and authorization separate: a valid session identifies the actor; server-side policy still decides whether that actor may access the tenant, object, or operation.
 
-- Keep secrets in the project's secret manager or environment configuration. Do not put credentials in source, prompts, logs, generated examples, or tracked test fixtures.
-- Validate allowed origins, callback URLs, cookie settings, proxy behavior, and CSRF protections against the deployment topology and the installed Better Auth version.
-- Enforce authorization on the server for every protected resource. For organization-scoped data, validate membership and role for the requested operation; do not trust client-supplied organization identifiers or UI state.
-- Review account linking, email verification, password reset, MFA, passkey, and session-revocation behavior when those features are changed. Avoid weakening verification or freshness checks to make a flow pass.
-- Treat auth schema changes as migrations. Preserve existing sessions and accounts according to the project's explicit rollout plan; do not generate or apply migrations without checking their contents.
+## Setup
 
-## Verification
+- Keep `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` in the environment or secret manager. Production secrets need at least 32 characters and adequate entropy.
+- Configure the database adapter using ORM model names, not physical table names.
+- Configure `trustedOrigins` narrowly and review every callback/redirect origin.
+- Keep CSRF and origin checks enabled. Do not disable them to resolve a local integration problem.
+- Re-run the Better Auth CLI schema generator after adding or changing plugins, using the CLI version compatible with the project.
+- Configure the real client IP only from trusted proxy headers; otherwise rate limits can be bypassed or can collapse many users into one identity.
 
-Use the repository's existing test commands and add or update coverage for the changed security boundary. At minimum, consider unauthenticated access, an authenticated user without the required role, cross-organization/resource access, invalid or expired credentials, and the intended success path. Verify the adapter-generated schema and migration against the installed package version. Report any untested deployment-specific behavior instead of claiming it is secure by inspection alone.
+Read [configuration and deployment](references/configuration.md) when changing server config, cookies, proxies, providers, plugins, or production settings.
 
-## Official references
+## Sessions
 
-- [Better Auth introduction](https://better-auth.com/docs/introduction)
-- [Security reference](https://better-auth.com/docs/reference/security)
-- [Session management](https://better-auth.com/docs/concepts/session-management)
-- [Cookie behavior](https://better-auth.com/docs/concepts/cookies)
-- [Organization plugin](https://better-auth.com/docs/plugins/organization)
-- [Options reference](https://better-auth.com/docs/reference/options)
+Session tokens stay in `HttpOnly`, `Secure` production cookies with an appropriate `SameSite` policy. Never copy browser session or bearer credentials into `localStorage` or `sessionStorage`. Review expiration, refresh, cookie cache, revocation, privileged-session freshness, password-reset revocation, and cross-subdomain scope.
+
+Read [session management](references/sessions.md) for any session, cookie, cache, logout, revocation, or cross-origin change.
+
+## Email and password
+
+Treat sign-in, sign-up, verification, password reset, and account recovery as one abuse surface. Responses and timing must not reveal whether an account exists. Rate-limit by trustworthy network identity and account key, use single-use expiring reset tokens, construct reset URLs from configured trusted origins, and revoke existing sessions after a successful reset when the product's risk warrants it.
+
+Read [email and password](references/email-password.md) before implementing or auditing credentials and recovery.
+
+## Strong authentication
+
+Require step-up authentication for privileged or high-impact actions. Prefer phishing-resistant passkeys where product and platform support make them practical; otherwise use TOTP with protected backup codes and a tested recovery path. SMS/email OTP can be useful fallback mechanisms but are weaker factors.
+
+Read [two-factor and passkeys](references/two-factor.md) when enabling 2FA, passkeys, trusted devices, backup codes, or recovery.
+
+## Verification checklist
+
+- Resolved Better Auth version and matching docs recorded.
+- Secrets, base URL, trusted origins, proxy headers, cookie attributes, CSRF/origin checks, and account linking reviewed.
+- Sign-in, sign-up, verification, reset, OTP, and recovery endpoints have enumeration-resistant responses and route-specific rate limits.
+- Session storage, expiration, cache, revocation, logout, password-reset behavior, and privileged freshness verified.
+- No browser credential appears in Web Storage, logs, URLs, analytics, or error payloads.
+- Authorization and tenant/object ownership enforced server-side after authentication.
+- Privileged accounts and sensitive actions have an explicit MFA/passkey or step-up decision.
+- Plugin/schema changes regenerated and tested.
+
+## Official sources
+
+- [Better Auth documentation](https://better-auth.com/docs)
+- [Better Auth security reference](https://better-auth.com/docs/reference/security)
+- [Better Auth options](https://better-auth.com/docs/reference/options)
+- [Better Auth sessions](https://better-auth.com/docs/concepts/session-management)
+- [Official Better Auth skills](https://github.com/better-auth/skills)

@@ -2,7 +2,7 @@ import { MODEL_TIERS, resolveCodexModel } from "./codex-model-routing.mjs";
 import { PERFORMANCE_CHECKS, PERFORMANCE_CONTRACT_VERSION } from "./performance-contract.mjs";
 
 /** Version for the deep-audit category registry schema and expected fixture snapshots. */
-export const CATEGORY_REGISTRY_VERSION = "2026-07-24.1";
+export const CATEGORY_REGISTRY_VERSION = "2026-10-29.1";
 
 /** Category ids intentionally left out of the registered deep-audit gate set. */
 export const KNOWN_UNIMPLEMENTED_CATEGORIES = [
@@ -213,6 +213,7 @@ export const REGISTERED_DEEP_AUDIT_CATEGORIES = [
       check("sec-05-webhook-csrf-origin", "Webhook, CSRF, and origin controls", ["sec_webhooks", "sec_entrypoints"], "Webhooks, browser mutations, forms, callbacks, or cross-origin requests exist"),
       check("sec-06-file-upload-deserialization", "File upload and deserialization safety", ["sec_uploads", "sec_inputs"], "File uploads, parsers, archives, importers, serializers, or untrusted payload decoders exist"),
       check("sec-07-dependency-exposure", "Dependency exposure", ["sec_dependencies"], "Runtime dependencies, package manifests, or lockfiles exist"),
+      check("sec-08-authentication-session-abuse", "Authentication and session abuse", ["sec_entrypoints", "sec_authz", "sec_secrets"], "Authentication, session, credential, password reset, recovery, OAuth, MFA, passkey, or protected login surface exists"),
     ],
     lanes: [],
   },

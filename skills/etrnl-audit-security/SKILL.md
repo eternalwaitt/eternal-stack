@@ -1,6 +1,6 @@
 ---
 name: etrnl-audit-security
-description: ETRNL security deep-audit category skill. Use when the user asks for a security audit, exploitable-bug review, injection review, authz review, secret-handling review, webhook/CSRF/origin review, file-upload parser review, dependency exposure review, or all_registered deep-audit security coverage.
+description: ETRNL security deep-audit category skill. Use when the user asks for a security audit, exploitable-bug review, authentication/session review, injection review, authz review, secret-handling review, webhook/CSRF/origin review, file-upload parser review, dependency exposure review, or all_registered deep-audit security coverage.
 ---
 # Security Audit
 
@@ -28,6 +28,7 @@ Run every registered security check:
 - `sec-05-webhook-csrf-origin`
 - `sec-06-file-upload-deserialization`
 - `sec-07-dependency-exposure`
+- `sec-08-authentication-session-abuse`
 
 ## Evidence
 
@@ -49,6 +50,7 @@ Use `references/audit-checks.md` for worklist definitions, evidence fields, non-
 - A webhook or callback handler that reads a payload before verifying an HMAC/signature, or with no replay/idempotency guard (seeds `sec-05` unverified-webhook rule).
 - File-upload or archive-extraction code with no MIME/extension allowlist, no size limit, or a decompression target outside a contained directory (seeds `sec-06` path-traversal/zip-slip rule).
 - A CI workflow using `pull_request_target` with a checkout of untrusted head plus secret access (seeds `sec-05`/`sec-07` secret-exfiltration rule).
+- Browser auth credentials in `localStorage`/`sessionStorage`, reset or login responses that reveal account existence, reset URLs built from request host headers, missing route-specific auth rate limits, or password reset that leaves compromised sessions active (seeds `sec-08` account-takeover rule).
 
 ## When NOT to use
 
@@ -61,7 +63,7 @@ Use `references/audit-checks.md` for worklist definitions, evidence fields, non-
 
 PASS/FAIL checklist. Any FAIL means the run is incomplete:
 
-- The `security` registry entry in `scripts/lib/deep-audit-categories.mjs` resolves with all seven `sec-0N` checks and their required worklists present.
+- The `security` registry entry in `scripts/lib/deep-audit-categories.mjs` resolves with all eight `sec-0N` checks and their required worklists present.
 - Every reported finding carries source, sink, missingControl, exploit, reachability, confidence, impact, and remediation.
 - Every clean check states checked sources, checked sinks, controls observed, why the exploit path is unreachable, and validation evidence.
 - Every unknown reachability, missing credential, or absent runtime fixture is filed as `source_limited`, not clean.

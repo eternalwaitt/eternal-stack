@@ -19,6 +19,8 @@ This page summarizes the **v0.13.0** source capabilities, including standalone U
 
 The private library includes workflow/delivery; audits and reviews; backend/frontend references; domain, security, auth, payments, tenancy, and localization guidance; product/interface design; and host/communications operations. The exact current entrypoints are listed in [skills.md](skills.md). Individual modules load only when the router selects them or the user asks for them. Nested files and helper dependencies are packaged as library assets, not independent top-level skills.
 
+The registered security category includes a dedicated authentication/session-abuse check. Its Better Auth support resolves the installed provider version and covers browser credential storage, account enumeration, recovery, rate limiting, session revocation, OAuth, MFA/passkeys, and privileged step-up.
+
 ## Maintained optional surfaces
 
 The `orchestrated` and `full` profiles remain supported separately from Core. They add selected hooks, tools, or services; their controls are not part of the default one-router behavior. See [install](install.md), [hooks](hooks.md), [guards](guards.md), and [configuration](configuration.md) for exact opt-in behavior and limitations.

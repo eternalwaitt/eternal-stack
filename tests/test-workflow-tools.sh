@@ -1037,6 +1037,7 @@ fi
 assert_command "deep-stack artifact library syntax" node --check "$ROOT/scripts/lib/deep-stack-artifacts.mjs"
 assert_command "deep-audit artifact check syntax" node --check "$ROOT/scripts/deep-audit-artifact-check.mjs"
 assert_command "deep-audit category registry syntax" node --check "$ROOT/scripts/lib/deep-audit-categories.mjs"
+assert_contains "security registry includes authentication and session abuse" "$(node --input-type=module -e 'import { findCategory } from "./scripts/lib/deep-audit-categories.mjs"; console.log(findCategory("security").checks.map((entry) => entry.checkId).join("\n"))')" "sec-08-authentication-session-abuse"
 assert_command "deep-audit valid artifact passes" node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$ROOT/tests/fixtures/deep-audit/report.valid.json"
 assert_command "deep-audit production direct artifact passes" node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$ROOT/tests/fixtures/deep-audit/report.production-valid.json"
 assert_command "deep-audit performance direct artifact passes" node "$ROOT/scripts/deep-audit-artifact-check.mjs" validate --artifact "$ROOT/tests/fixtures/deep-audit/report.performance-valid.json"

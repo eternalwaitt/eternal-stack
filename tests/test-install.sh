@@ -223,6 +223,10 @@ for skill in "${BUNDLED_SKILLS[@]}"; do
   assert_file "installed bundled Claude skill $skill" "$CLAUDE_HOME/skills/$skill/SKILL.md"
   assert_file "synced bundled Codex skill $skill" "$CODEX_HOME/skills/$skill/SKILL.md"
 done
+for reference in configuration sessions email-password two-factor; do
+  assert_file "installed Better Auth $reference reference" "$CLAUDE_HOME/skills/better-auth/references/$reference.md"
+  assert_file "synced Codex Better Auth $reference reference" "$CODEX_HOME/skills/better-auth/references/$reference.md"
+done
 assert_file "installed Claude common skill reference" "$CLAUDE_HOME/skills/common/typescript-triggers.md"
 assert_file "synced Codex common skill reference" "$CODEX_HOME/skills/common/typescript-triggers.md"
 assert_no_directory "removed legacy Claude etrnl-fix-issue" "$CLAUDE_HOME/skills/etrnl-fix-issue"
