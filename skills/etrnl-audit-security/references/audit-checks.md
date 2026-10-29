@@ -66,3 +66,22 @@ Inspect file type validation, size limits, path containment, archive extraction,
 Worklists: `sec_dependencies`.
 
 Inspect package manifests, lockfiles, native/postinstall scripts, vulnerable direct dependencies, auth libraries, parsers, and update constraints. Use current vulnerability evidence when available.
+
+## Check `sec-08-authentication-session-abuse`
+
+Worklists: `sec_entrypoints`, `sec_authz`, `sec_secrets`.
+
+First determine the authentication provider and resolved version; use its native security model instead of applying a generic token recipe. Inspect sign-in, sign-up, verification, password reset, recovery, OAuth callbacks, MFA/passkeys, session creation/refresh/revocation, logout, privilege changes, and client credential storage.
+
+Confirm all applicable controls:
+
+- browser credentials remain in `HttpOnly`, `Secure` cookies with appropriate `SameSite`, domain, and path scope; no session, bearer, reset, or OAuth token is persisted in Web Storage, URLs, logs, analytics, or error payloads;
+- responses, status shapes, redirects, timing, and visible side effects do not enumerate accounts;
+- login, signup, reset, resend, OTP, backup-code, and recovery endpoints have route-specific limits by trustworthy network identity and account key, backed by shared storage when instances scale horizontally;
+- reset/verification URLs come from configured trusted origins, tokens are random, expiring, single-use, replay-safe, and invalidated when superseded;
+- password reset, compromise recovery, factor removal, role change, deletion, and banning revoke or re-evaluate affected sessions according to an explicit product decision;
+- privileged accounts and high-impact actions have an explicit MFA/passkey or step-up decision, protected enrollment/removal, backup-code handling, and recovery path;
+- OAuth state/nonce/PKCE, trusted origins, account linking, proxy IP headers, session freshness, cookie cache revocation latency, and cross-subdomain scope match the deployed architecture;
+- passwords use a memory-hard hash and acceptable length policy; breached-password screening is considered for the product risk without disclosing full passwords to third parties.
+
+For Better Auth projects, load the bundled `better-auth` skill and the relevant reference for the resolved package version. Missing runtime fixtures for timing, proxy, multi-instance rate limiting, cookie flags, or revocation are `source_limited`, not confirmed clean.

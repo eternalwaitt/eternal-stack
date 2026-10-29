@@ -4,11 +4,14 @@ Treat every request as hostile until proven otherwise. Validate at the boundary,
 
 ## Authentication
 
-- Issue short-lived access tokens (15 minutes) plus rotating refresh tokens. Store refresh tokens hashed, scoped to a device.
-- Sign JWTs with an asymmetric key when more than one service verifies them. Verify issuer, audience, and expiry on every request.
-- Hash passwords with argon2id or bcrypt at a tuned cost. Never store or log raw credentials.
+- If the project uses Better Auth or another established provider, follow that provider's native cookie/session model and version-matched instructions. Do not layer a custom JWT system beside it.
+- For browser applications, keep opaque session credentials in `HttpOnly`, `Secure` cookies with an appropriate `SameSite` policy. Never persist auth, reset, or OAuth tokens in `localStorage` or `sessionStorage`.
+- Use short-lived access tokens plus rotating, device-scoped refresh tokens only when a non-browser client or separately deployed verifier requires bearer authentication. Store refresh tokens hashed and verify issuer, audience, expiry, and rotation/reuse state.
+- Sign JWTs asymmetrically when multiple independent services verify them; a same-origin browser app does not need JWTs merely for fashion.
+- Hash passwords with a memory-hard algorithm supported by the selected provider. Never store or log raw credentials.
 
 ```ts
+// Only for an architecture that actually requires independently verified bearer tokens.
 const token = jwt.sign({ sub: user.id, roles: user.roles }, privateKey, {
   algorithm: "RS256", expiresIn: "15m", issuer: "etrnl", audience: "api",
 })
@@ -57,4 +60,4 @@ const input = CreateMarket.parse(req.body)
 - Rotate on a schedule and on suspected exposure. Scope each credential to one service.
 - Redact tokens, keys, and PII in log middleware before serialization.
 
-Route full auth flows through `better-auth`, broader hardening through `eternal-best-practices`, and tenant isolation through `tenant-isolation-patterns`, when installed.
+Route Better Auth flows through `better-auth` before applying generic token advice, broader hardening through `eternal-best-practices`, and tenant isolation through `tenant-isolation-patterns`, when installed.

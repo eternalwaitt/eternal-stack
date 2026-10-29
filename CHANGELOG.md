@@ -8,9 +8,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Added
 
+- Security audit check `sec-08-authentication-session-abuse` for browser credential storage, enumeration, password reset/recovery, rate limits, proxy identity, session revocation, OAuth, MFA/passkeys, and privileged step-up.
+- Repo-maintained Better Auth references for deployment configuration, sessions, email/password recovery, and 2FA/passkeys, with install parity assertions for Claude and Codex homes.
+
 ### Changed
 
+- Better Auth guidance now resolves the application's installed version before applying APIs, prefers provider-native cookie sessions for browser apps, and reserves custom JWT/refresh-token architecture for real bearer/inter-service requirements. The maintainer vendor refresh preserves this hardened repo-owned bundle.
+
 ### Fixed
+
+- Removed ten dangling Better Auth reference links by replacing the incomplete vendored package with a smaller maintained reference set; future vendor refreshes no longer depend on the missing local source tree.
+- Normalized script paths before install-drift comparison so Windows does not report source-only maintainer scripts as stale installed files.
 
 ### Removed
 
@@ -61,7 +69,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - Coordinate finite check execution and source-bound reuse, bounded output and process cleanup; retain actual separate review output before accepting verified review evidence.
 
 - Integrated Core companion for Claude Code and Codex: managed shared guidance, one native `etrnl-router` skill, a private on-demand capability library, explicit host selection, dry-run, ownership-aware removal, and incompatible-install checks. The supported `orchestrated` and `full` profiles are alternative opt-in installation layouts.
-
 - Performance audit kernel with 64 independent evidence receipts, conservative stack-neutral discovery, conditional domain playbooks, adversarial contract tests and read-only distribution parity checks. Existing runtime-memory incident closure remains mandatory.
 - Dual-host spawn guard: `cc-spawn-guard.sh` on Claude default template (`Task|Agent|TaskCreate`) and Codex `spawn-guard-pre-tool-use.sh` enforce shared `spawn-guard.mjs` policy through `execution-ledger.mjs check-spawn` with `--explain` recovery, batch adoption triggers, and wave 2+ merged-review economics.
 - `review-scope.mjs` classifies tier 0–2 diff-size review scope; tier ≥3 always uses `full_lenses`.
@@ -81,7 +88,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - Core installs no hooks, settings, agents, services, or plugins. It installs one native router and a private capability library alongside shared instructions. Optional orchestration and provisioning remain separate profiles with host-specific behavior.
 - Skill startup no longer requires update probes; automatic local updates require explicit opt-in. Optional performance investigation stops at a declared round budget and reports unfinished work honestly.
 - Beginner-facing guidance now supports an idea-to-working-app path with adaptive explanations, reversible defaults, full accepted scope, and checks of the requested user journey. Brainstorming remains optional and no longer adds approval gates to authorized work; specialist testing and design guidance now follow contract and host availability.
-
 - Performance contract v2 requires detected specialist receipts, uncapped per-surface sweeps and evidence-backed rerun reconciliation.
 
 - `etrnl-audit-performance` adds conditional build-memory and provider-runtime-memory playbooks: distinguish build memory, server runtime memory, and client bytes; ingest provider incidents as primary evidence; map page -> oRPC procedure -> query/relation fanout; verify root and nested cardinality; and close incidents through bounded-path tests plus same-journey post-deployment runtime evidence without inventing unavailable peak-heap metrics. Bundle remediation also prevents lightweight configuration exports from statically importing heavy payloads such as locale catalogs.
@@ -99,7 +105,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - Reviewer-spawn verification fixtures use an isolated known diff instead of depending on the maintainer checkout being dirty; release checks now work from a clean commit.
 
 - Codex startup respects replacement semantics for `AGENTS.override.md`; the optional replacement template includes the shared baseline.
-
 - The Stop verifier now constructs its ETRNL status command explicitly when neither GNU `timeout` nor `gtimeout` exists, avoiding Bash 3.2's unbound empty-array expansion; the lane-cap test now probes dry-run metadata before intentionally filling the burst window.
 - Dual-host spawn guard audit remediation: `settings.strict.json` registers `cc-spawn-guard.sh`; `spawn-guard.mjs` classifies reviewer `subagent_type` over writer task-name aliases (both directions on wave 2+); `review-merge.mjs` implements `--scoped` fix-round merge; `check-spawn` records only from hook authority (`ETRNL_SPAWN_GUARD_RECORDER=hook` or `--allow-record`); spawn economics acceptance tests restored; bounded-review dual-host wave-2+ wording and review-scope matrix.
 - CodeRabbit round 12: Stop-verifier question detection is clause-local so an unrelated `?` in a later sentence no longer suppresses a positive verification claim; UserPromptSubmit read-only questions require execution intent only after the question delimiter and suppress downstream plan-execution re-arming; `bounded-review.md` validates `execution-ledger.mjs` and the selected script root; eternal-saas install backup paths avoid the `mktemp`/`rmdir` reservation race; `cc_json_read_stdin` passes idle-reader config explicitly; `etrnl-dev-pr` compares before copying helpers, gates full-install refresh on owner confirmation, and validates/redacts `FINDINGS_FILE` before ingestion; `review-learn.mjs` rejects sensitive-looking finding text before persistence.

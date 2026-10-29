@@ -16,7 +16,6 @@ bundled_skill_source() {
     eternal-best-practices) printf '%s' "$HOME_DIR/.agents/skills/eternal-best-practices" ;;
     code-simplifier) printf '%s' "$HOME_DIR/.agents/skills/code-simplifier" ;;
     finding-duplicate-functions) printf '%s' "$HOME_DIR/.agents/skills/universal/finding-duplicate-functions" ;;
-    better-auth) printf '%s' "$HOME_DIR/.agents/skills/backend/better-auth" ;;
     tenant-isolation-patterns) printf '%s' "$HOME_DIR/.agents/skills/tenant-isolation-patterns" ;;
     money-vo-discipline) printf '%s' "$HOME_DIR/.agents/skills/money-vo-discipline" ;;
     i18n-localization) printf '%s' "$HOME_DIR/.agents/skills/i18n-localization" ;;
@@ -45,6 +44,15 @@ bundled_skill_source() {
 mkdir -p "$DEST"
 failed=0
 for skill in "${BUNDLED_SKILLS[@]}"; do
+  if [[ "$skill" == "better-auth" ]]; then
+    if [[ ! -f "$DEST/better-auth/SKILL.md" ]]; then
+      printf 'vendor-bundled-skills: repo-maintained better-auth bundle is missing\n' >&2
+      failed=1
+    else
+      printf 'preserved %s <- repo-maintained Better Auth guidance\n' "$skill"
+    fi
+    continue
+  fi
   src=""
   if ! src="$(bundled_skill_source "$skill")"; then
     printf 'vendor-bundled-skills: unknown bundled skill %s\n' "$skill" >&2

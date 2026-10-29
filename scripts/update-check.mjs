@@ -358,6 +358,7 @@ const staleInstalledScripts = (root) => {
   const files = [];
   walkFiles(root, "scripts", files);
   return files
+    .map((relPath) => relPath.split(path.sep).join("/"))
     .filter((relPath) => /\.(mjs|sh)$/.test(relPath) || relPath.startsWith("scripts/lib/"))
     .filter((relPath) => !sourceOnly.has(relPath))
     .filter((relPath) => {

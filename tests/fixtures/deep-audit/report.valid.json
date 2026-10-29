@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "auditId": "deep-audit-valid",
-  "categoryRegistryVersion": "2026-07-24.1",
+  "categoryRegistryVersion": "2026-10-29.1",
   "registeredCategories": [
     "code-excellence",
     "ui-ux-product",
@@ -653,6 +653,26 @@
               "synthetic validation or authorization control"
             ],
             "unreachableReason": "No reachable exploit path in synthetic fixture.",
+            "validationEvidence": [
+              "deep-audit fixture validation"
+            ]
+          }
+        },
+        {
+          "checkId": "sec-08-authentication-session-abuse",
+          "status": "confirmed_clean",
+          "confirmedClean": "CONFIRMED_CLEAN: Authentication and session abuse - 0 findings",
+          "nonFindings": {
+            "checkedSources": [
+              "synthetic authentication inventory"
+            ],
+            "checkedSinks": [
+              "synthetic session and recovery inventory"
+            ],
+            "controlsObserved": [
+              "synthetic cookie, rate-limit, recovery, and revocation controls"
+            ],
+            "unreachableReason": "No reachable authentication or session abuse path in synthetic fixture.",
             "validationEvidence": [
               "deep-audit fixture validation"
             ]

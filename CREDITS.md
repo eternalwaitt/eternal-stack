@@ -31,7 +31,8 @@ The private Core library includes the maintained policy, review, simplification,
 | `eternal-best-practices` | Stack-specific SaaS reference patterns | Source metadata recorded as unknown; Eternal Stack maintains this integration |
 | `code-simplifier` | Clarity pass before completion | Personal / community skill bundle |
 | `finding-duplicate-functions` | Dedupe and consolidation review | Personal / community skill bundle |
-| `better-auth`, `tenant-isolation-patterns`, `money-vo-discipline` | Auth, tenancy, and money discipline | Community / upstream skill bundles |
+| `better-auth` | Version-aware auth integration and hardening | [Better Auth docs](https://better-auth.com/docs) and [official Better Auth skills](https://github.com/better-auth/skills) (MIT), with Eternal Stack security additions |
+| `tenant-isolation-patterns`, `money-vo-discipline` | Tenancy and money discipline | Community / upstream skill bundles |
 | `stripe-best-practices`, `abacatepay-integration` | Payments review | Community / upstream skill bundles |
 | `ci-cd` | CI helper scripts referenced by `/etrnl-dev-ci` | Community skill bundle |
 | `domain-*`, `i18n-localization`, and related domain skills | Domain-specific review gates | Community / upstream skill bundles |
